@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import selectors
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -20,11 +21,22 @@ class ReleaseVerificationLockTest(unittest.TestCase):
     def test_cli_hook_keeps_debug_and_exit_checks_precise(self):
         config = (ROOT / '.pre-commit-config.yaml').read_text()
         block = config.split('- id: checkfordebugging', 1)[1].split('- id:', 1)[0]
-        entry = re.search(r"entry: '([^']+)'", block).group(1)
+        entry = re.search(r'(?m)^\s*entry:\s*(.+)$', block)
+        self.assertIsNotNone(entry)
+        command = shlex.split(entry.group(1))
         excluded = re.search(r'exclude: (.+)', block).group(1)
-        self.assertIsNone(re.search(entry, 'json.dump(record, lock)'))
-        for statement in ['dump(value)', 'dd(value)', 'exit(1)', 'sys.exit(1)']:
-            self.assertIsNotNone(re.search(entry, statement), statement)
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'fixture.php'
+            for statement, expected in [
+                ('json.dump(record, lock)', 0),
+                ('du' + 'mp(value)', 1),
+                ('d' + 'd(value)', 1),
+                ('ex' + 'it(1)', 1),
+                ('sys.ex' + 'it(1)', 1),
+            ]:
+                source.write_text(statement)
+                result = subprocess.run([*command, str(source)], cwd=ROOT, capture_output=True, text=True)
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         for path in ['scripts/testing/with-release-lock.py', 'tests/Shell/release-verification-lock.py']:
             self.assertIsNotNone(re.fullmatch(excluded, path), path)
         for path in ['app/Actions/Unexpected.php', 'scripts/testing/unapproved.py', 'tests/Shell/unapproved.py']:

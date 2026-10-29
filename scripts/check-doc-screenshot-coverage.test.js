@@ -283,3 +283,24 @@ test('allows text-only upgrade instructions while still checking their local ima
         'packages/core/resources/upgrade-guide.md -> missing.png',
     ])
 })
+
+test('treats scaffold stubs as text-only templates while still checking their local images', (t) => {
+    const repoRoot = createRepository({
+        'packages/core/stubs/theme/notes/runtime-local.md':
+            '# Runtime notes\n\nCopied into the generated theme.\n',
+        'packages/core/resources/other-guide.md': '# Other guide\n',
+    })
+    t.after(() => removeRepository(repoRoot))
+    const clean = runAudit({ cwd: repoRoot, repoRoots: [repoRoot] })
+    assert.deepEqual(clean.markdownResult.missingVisuals, [
+        'packages/core/resources/other-guide.md',
+    ])
+    fs.appendFileSync(
+        path.join(repoRoot, 'packages/core/stubs/theme/notes/runtime-local.md'),
+        '\n![Broken](missing.png)\n',
+    )
+    const broken = runAudit({ cwd: repoRoot, repoRoots: [repoRoot] })
+    assert.deepEqual(broken.markdownResult.brokenVisuals, [
+        'packages/core/stubs/theme/notes/runtime-local.md -> missing.png',
+    ])
+})
