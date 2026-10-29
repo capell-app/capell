@@ -166,7 +166,7 @@ body{margin:0;background:var(--theme-surface);color:var(--theme-foreground);font
 .theme-preview__hero{padding:56px 28px 44px;max-width:960px;margin:0 auto;}
 .theme-preview__hero h1{font-size:42px;line-height:1.05;margin:0 0 16px;color:var(--theme-neutral);}
 .theme-preview__hero p{font-size:18px;line-height:1.6;max-width:660px;margin:0 0 24px;}
-.theme-preview__button{display:inline-flex;padding:12px 18px;border-radius:var(--theme-radius);background:var(--theme-primary);color:white;font-weight:700;text-decoration:none;}
+.theme-preview__button{display:inline-flex;padding:12px 18px;border-radius:var(--theme-radius);background:var(--theme-primary);color:var(--theme-primary-contrast);font-weight:700;text-decoration:none;}
 .theme-preview__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;max-width:960px;margin:0 auto;padding:0 28px 48px;}
 .theme-preview__card{border:1px solid color-mix(in srgb,var(--theme-neutral) 12%,transparent);border-radius:var(--theme-radius);padding:18px;background:white;}
 .theme-preview__footer{padding:24px 28px;border-top:1px solid color-mix(in srgb,var(--theme-neutral) 14%,transparent);color:color-mix(in srgb,var(--theme-foreground) 70%,transparent);}
