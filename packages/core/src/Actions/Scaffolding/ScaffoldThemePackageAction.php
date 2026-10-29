@@ -101,10 +101,35 @@ final class ScaffoldThemePackageAction
 
     private function renderStub(string $path, ThemeScaffoldInputData $input): string
     {
+        $replacements = [...$input->stubReplacements(), ...$this->noteReplacements($input)];
+
         return str_replace(
-            array_keys($input->stubReplacements()),
-            array_values($input->stubReplacements()),
+            array_keys($replacements),
+            array_values($replacements),
             (string) file_get_contents($path),
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function noteReplacements(ThemeScaffoldInputData $input): array
+    {
+        $values = $input->stubReplacements();
+
+        return [
+            '{{ runtimeModeNote }}' => $this->renderNote($input->local ? 'runtime-local' : 'runtime-package', $values),
+            '{{ locationNote }}' => $input->isOutsideProject() ? $this->renderNote('outside-project', $values) : '',
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $values
+     */
+    private function renderNote(string $name, array $values): string
+    {
+        $note = (string) file_get_contents(dirname(__DIR__, 3) . '/stubs/theme/notes/' . $name . '.md');
+
+        return str_replace(array_keys($values), array_values($values), $note);
     }
 }

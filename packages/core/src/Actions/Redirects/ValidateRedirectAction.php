@@ -200,7 +200,7 @@ class ValidateRedirectAction
 
         if ($chainTarget !== null) {
             $warnings[] = (string) __('capell::message.redirect_chain_detected', [
-                'final_target' => $chainTarget,
+                'next_target' => $chainTarget,
             ]);
         }
     }
