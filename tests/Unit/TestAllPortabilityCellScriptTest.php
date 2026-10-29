@@ -27,6 +27,7 @@ file_put_contents((string) getenv('COMPOSER_CAPTURE_PATH'), json_encode([
     'database_name' => getenv('DB_DATABASE'),
     'database_username' => getenv('DB_USERNAME'),
 ], JSON_THROW_ON_ERROR));
+file_put_contents((string) getenv('PEST_JUNIT_LOG'), '<testsuites><testsuite><testcase name="fixture"/></testsuite></testsuites>');
 PHP);
     chmod($composerPath, 0700);
 
@@ -94,6 +95,7 @@ PHP);
             ->and($dockerCommands[3])->toContain('--force');
     } finally {
         @unlink($outputDirectory . '/pest-output-portability-postgresql-16.txt');
+        @unlink($outputDirectory . '/junit-portability-postgresql-16.xml');
         @rmdir($outputDirectory);
         @unlink($dockerCapture);
         @unlink($composerCapture);
