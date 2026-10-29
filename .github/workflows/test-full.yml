@@ -105,7 +105,7 @@ jobs:
       ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
-      && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && github.event_name != 'pull_request'
       && !(github.event_name == 'workflow_dispatch' && inputs.cell != '')
       ) }}
     name: Sentinel - portability, cache, migrations, destructive schema

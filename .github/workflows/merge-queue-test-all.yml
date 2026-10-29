@@ -10,57 +10,14 @@ on:
 permissions:
   contents: read
   actions: read
-  pull-requests: read
 
 concurrency:
   group: merge-queue-test-safety-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  evidence:
-    # The pull request's own Test All run already proved its tree. Reuse that
-    # run when the queue commit carries exactly the same tree; otherwise the
-    # full matrix runs on the queue commit.
-    name: Select merge queue evidence
-    if: ${{ github.event_name == 'merge_group' }}
-    runs-on: ubuntu-latest
-    outputs:
-      reuse: ${{ steps.select.outputs.reuse }}
-      run_id: ${{ steps.select.outputs.run_id }}
-      run_attempt: ${{ steps.select.outputs.run_attempt }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Compare the queue commit with the tested pull request
-        id: select
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          HEAD_REF: ${{ github.event.merge_group.head_ref }}
-          GROUP_SHA: ${{ github.event.merge_group.head_sha }}
-        run: |
-          pr_number="$(sed -nE 's#^refs/heads/gh-readonly-queue/[^/]+/pr-([0-9]+)-.*#\1#p' <<< "$HEAD_REF")"
-          pr_head_sha=''
-          pr_head_tree=''
-          runs='[]'
-          if [[ -n "$pr_number" ]]; then
-            pr_head_sha="$(gh api "repos/$REPO/pulls/$pr_number" --jq .head.sha)"
-            git fetch --no-tags --quiet origin "$pr_head_sha"
-            pr_head_tree="$(git rev-parse "$pr_head_sha^{tree}")"
-            runs="$(gh api "repos/$REPO/actions/workflows/test-full.yml/runs?head_sha=$pr_head_sha&event=pull_request&per_page=50" \
-              --jq '[.workflow_runs[] | {id, run_attempt, head_sha, event, status, conclusion}]')"
-          fi
-          jq -n --arg sha "$pr_head_sha" --arg tree "$pr_head_tree" \
-            --arg group "$(git rev-parse "$GROUP_SHA^{tree}")" --argjson runs "$runs" \
-            '{pr_head_sha: $sha, pr_head_tree: $tree, group_tree: $group, runs: $runs}' > "$RUNNER_TEMP/merge-group-context.json"
-          python3 scripts/select-merge-group-evidence.py "$RUNNER_TEMP/merge-group-context.json" | tee -a "$GITHUB_OUTPUT"
-
   full-matrix:
-    needs: evidence
-    if: ${{ github.event_name == 'merge_group' && needs.evidence.outputs.reuse != 'true' }}
+    if: ${{ github.event_name == 'merge_group' }}
     uses: ./.github/workflows/test-full.yml
     with:
       merge_queue_evidence: true
@@ -79,7 +36,7 @@ jobs:
   gate:
     name: Merge queue full matrix
     if: always()
-    needs: [evidence, full-matrix, evidence-tests]
+    needs: [full-matrix, evidence-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -89,53 +46,33 @@ jobs:
       - name: Check workflow results
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REUSE: ${{ needs.evidence.outputs.reuse }}
-          EVIDENCE_RESULT: ${{ needs.evidence.result }}
+          MATRIX_REQUIRED: ${{ github.event_name == 'merge_group' }}
           MATRIX_RESULT: ${{ needs.full-matrix.result }}
           VALIDATOR_RESULT: ${{ needs.evidence-tests.result }}
         run: bash scripts/check-merge-group-workflow-result.sh
       - name: Setup PHP
-        if: github.event_name == 'merge_group'
+        if: needs.full-matrix.result == 'success'
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.4'
           extensions: dom
           coverage: none
-      - name: Download reused pull request reports
-        if: github.event_name == 'merge_group' && needs.evidence.outputs.reuse == 'true'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: junit-*
-          run-id: ${{ needs.evidence.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/merge-group-evidence/junit
-      - name: Download reused pull request sentinel reports
-        if: github.event_name == 'merge_group' && needs.evidence.outputs.reuse == 'true'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: test-all-sentinel
-          run-id: ${{ needs.evidence.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/merge-group-evidence/sentinel
-      - name: Download queue matrix reports
-        if: github.event_name == 'merge_group' && needs.evidence.outputs.reuse != 'true'
+      - name: Download matrix reports
+        if: needs.full-matrix.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: junit-*-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/merge-group-evidence/junit
-      - name: Download queue sentinel reports
-        if: github.event_name == 'merge_group' && needs.evidence.outputs.reuse != 'true'
+      - name: Download sentinel reports
+        if: needs.full-matrix.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: test-all-sentinel-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/merge-group-evidence/sentinel-attempt-${{ github.run_attempt }}
       - name: Verify completed tests for every matrix cell
-        if: github.event_name == 'merge_group'
+        if: needs.full-matrix.result == 'success'
         env:
           EVIDENCE_DIR: ${{ runner.temp }}/merge-group-evidence
-          REUSE: ${{ needs.evidence.outputs.reuse }}
         run: |
           php scripts/test-all-matrix.php all > "$RUNNER_TEMP/merge-group-matrix.json"
-          plain=()
-          if [[ "$REUSE" == 'true' ]]; then plain=(--plain); fi
-          python3 scripts/check-merge-group-test-evidence.py "${plain[@]}" "$RUNNER_TEMP/merge-group-matrix.json" "$EVIDENCE_DIR" "$GITHUB_RUN_ATTEMPT"
+          python3 scripts/check-merge-group-test-evidence.py "$RUNNER_TEMP/merge-group-matrix.json" "$EVIDENCE_DIR" "$GITHUB_RUN_ATTEMPT"

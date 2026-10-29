@@ -249,17 +249,16 @@ or timed-out cell is incomplete evidence, not support proof.
 
 ## Enqueueing approved PRs by label
 
-The `Merge queue full matrix` check proves every merge-group commit has a
-passing Test All run without repeating the work. The check compares the queue
-commit's tree with the pull request head's tree. When they are identical it
-downloads the head's own pull-request Test All reports and validates a
-non-empty, passing JUnit report for every configured cell. When the trees differ,
-or no successful Test All run exists for the head (for example a change outside
-the Test All path filter), it runs the complete matrix on the queue commit with
-attempt-bound artefacts and validates those instead. Its pull-request run checks
-the validator only. To enforce the check, add it to the existing main-branch
-required checks only after this workflow is available on `main` and the queue is
-clear. Keep the existing required checks in place.
+The complete Test All matrix runs once per change, on the merge-group commit,
+not again on the pull request. A pull request runs the fast PR gate, PHP
+Quality and the other cheap checks for quick feedback. The `Merge queue full
+matrix` check then runs every matrix cell on each merge-group commit and
+validates a non-empty, passing JUnit report for every configured cell from that
+attempt. A failing entry leaves the queue without blocking the entries behind
+it. To run the matrix on a pull request before queueing it, dispatch Test All
+manually for the branch. To enforce the check, add it to the existing
+main-branch required checks only after this workflow is available on `main`.
+Keep the existing required checks in place.
 
 Adding `ready-to-merge` to an open PR targeting `main` authorises the queue to
 update its branch and merge it after checks pass, without a further per-PR chat
