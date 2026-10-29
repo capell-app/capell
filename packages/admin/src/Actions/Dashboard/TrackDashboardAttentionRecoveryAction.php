@@ -18,12 +18,17 @@ use DateTimeInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class TrackDashboardAttentionRecoveryAction
 {
+    use AsFake;
+    use AsObject;
+
     /** @param list<DashboardAttentionItemData> $items */
-    public function observe(Model&Authenticatable $actor, ?int $siteId, ?string $language, array $items): void
+    public function handle(Model&Authenticatable $actor, ?int $siteId, ?string $language, array $items): void
     {
         $store = resolve(AdminWorkspacePreferenceStore::class);
         $scope = $this->scope($siteId, $language);
@@ -84,7 +89,7 @@ final class TrackDashboardAttentionRecoveryAction
         });
     }
 
-    /** @return list<array{title: string, site_name: string, resolved_at: string, display_date: string, timezone: string, acknowledged: bool}> */
+    /** @return list<array{key: string, title: string, site_name: string, resolved_at: string, display_date: string, timezone: string, acknowledged: bool}> */
     public function history(Model&Authenticatable $actor, ?int $siteId, ?string $language): array
     {
         $state = resolve(AdminWorkspacePreferenceStore::class)->dashboardRecoveryState($actor);
@@ -146,7 +151,7 @@ final class TrackDashboardAttentionRecoveryAction
             }
 
             $timezone = resolve(ResolveDashboardSiteTimezoneAction::class)->handle($site);
-            $history[] = ['title' => $record['title'], 'site_name' => $site->name, 'resolved_at' => $record['resolved_at'], 'display_date' => $date->setTimezone($timezone)->format('j M Y, H:i'), 'timezone' => $timezone, 'acknowledged' => ($record['acknowledged'] ?? false) === true];
+            $history[] = ['key' => $candidate->key, 'title' => $record['title'], 'site_name' => $site->name, 'resolved_at' => $record['resolved_at'], 'display_date' => $date->setTimezone($timezone)->format('j M Y, H:i'), 'timezone' => $timezone, 'acknowledged' => ($record['acknowledged'] ?? false) === true];
         }
 
         return $history;

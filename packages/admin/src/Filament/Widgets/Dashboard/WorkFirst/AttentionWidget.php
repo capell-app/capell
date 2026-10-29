@@ -72,10 +72,11 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
 
         $items = resolve(AdminDashboardDataRequestCache::class)->attentionSnapshot($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
         $tracker = resolve(TrackDashboardAttentionRecoveryAction::class);
-        $tracker->observe($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), $items);
+        $tracker->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), $items);
 
         $now = CarbonImmutable::now();
-        $this->issueResolved = array_any($tracker->history($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()), static fn (array $record): bool => ! $record['acknowledged'] && CarbonImmutable::parse($record['resolved_at'])->betweenIncluded($now->subSeconds(60), $now));
+        $activeKeys = array_column($items, 'key');
+        $this->issueResolved = array_any($tracker->history($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()), static fn (array $record): bool => ! $record['acknowledged'] && ! in_array($record['key'], $activeKeys, true) && CarbonImmutable::parse($record['resolved_at'])->betweenIncluded($now->subSeconds(60), $now));
 
         return array_values(array_filter($items, function (DashboardAttentionItemData $item) use ($actor): bool {
             if ($item->urgent) {
@@ -105,7 +106,7 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
         $this->saveDecision($key, CarbonImmutable::now()->addDay()->toIso8601String());
     }
 
-    /** @return list<array{title: string, site_name: string, resolved_at: string, display_date: string, timezone: string, acknowledged: bool}> */
+    /** @return list<array{key: string, title: string, site_name: string, resolved_at: string, display_date: string, timezone: string, acknowledged: bool}> */
     #[Computed]
     public function recoveryHistory(): array
     {

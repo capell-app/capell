@@ -248,6 +248,11 @@ it('does not infer recovery from absence or a change of scope, and rechecks hist
     $this->app->instance('request', Request::create('/original-site'));
     $recovered = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $page->site_id]]);
     expect($recovered->get('issueResolved'))->toBeTrue()->and($recovered->get('recoveryHistory'))->toHaveCount(1);
+    $contributor->active = true;
+    $this->app->instance('request', Request::create('/issue-recurred'));
+    $recurred = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $page->site_id]]);
+    expect($recurred->get('issueResolved'))->toBeFalse()->and($recurred->get('recoveryHistory'))->toHaveCount(1);
+    $recurred->assertDontSee(__('capell-admin::work-first.resolved'));
     $actor->syncRoles([]);
     $actor->unsetRelation('roles');
     $actor->unsetRelation('permissions');
@@ -351,8 +356,8 @@ it('verifies urgent recovery across the selected language while retaining its sc
 
     $tracker = resolve(TrackDashboardAttentionRecoveryAction::class);
     $item = new DashboardAttentionItemData('urgent-external', 'v1', true, 'Urgent issue', (int) $page->site_id, 'Site', 'Issue', [], null, pageId: (int) $page->id);
-    $tracker->observe($actor, (int) $page->site_id, 'fr', [$item]);
-    $tracker->observe($actor, (int) $page->site_id, 'fr', []);
+    $tracker->handle($actor, (int) $page->site_id, 'fr', [$item]);
+    $tracker->handle($actor, (int) $page->site_id, 'fr', []);
     expect($contributor->verifiedLanguage)->toBeNull()
         ->and($tracker->history($actor, (int) $page->site_id, 'fr'))->toHaveCount(1)
         ->and($tracker->history($actor, (int) $page->site_id, null))->toBe([]);
@@ -391,10 +396,10 @@ it('bounds retained observations and verified history', function (): void {
         $items[] = new DashboardAttentionItemData('bounded-' . $number, 'v1', false, 'Issue ' . $number, (int) $page->site_id, 'Site', 'Issue', [], null, pageId: (int) $page->id);
     }
 
-    $tracker->observe($actor, (int) $page->site_id, null, $items);
+    $tracker->handle($actor, (int) $page->site_id, null, $items);
     $state = resolve(AdminWorkspacePreferenceStore::class)->dashboardRecoveryState($actor);
     expect(array_values($state['observed'])[0])->toHaveCount(100);
-    $tracker->observe($actor, (int) $page->site_id, null, []);
+    $tracker->handle($actor, (int) $page->site_id, null, []);
     expect($tracker->history($actor, (int) $page->site_id, null))->toHaveCount(50);
 });
 
@@ -408,11 +413,11 @@ it('does not write preferences for an empty or unchanged attention snapshot', fu
     $connection->enableQueryLog();
     try {
         $connection->flushQueryLog();
-        $tracker->observe($actor, (int) $page->site_id, null, []);
+        $tracker->handle($actor, (int) $page->site_id, null, []);
         expect(collect($connection->getQueryLog())->pluck('query')->filter(fn (string $query): bool => str_starts_with(strtolower($query), 'update'))->all())->toBe([]);
-        $tracker->observe($actor, (int) $page->site_id, null, [$item]);
+        $tracker->handle($actor, (int) $page->site_id, null, [$item]);
         $connection->flushQueryLog();
-        $tracker->observe($actor, (int) $page->site_id, null, [$item]);
+        $tracker->handle($actor, (int) $page->site_id, null, [$item]);
         expect(collect($connection->getQueryLog())->pluck('query')->filter(fn (string $query): bool => str_starts_with(strtolower($query), 'update'))->all())->toBe([]);
     } finally {
         $connection->disableQueryLog();
