@@ -40,6 +40,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -163,6 +164,7 @@ class MediaTable implements TableConfigurator
                     ->color('gray')
                     ->authorize(fn (Media $record): bool => Gate::allows('update', $record))
                     ->schema([
+                        Text::make(__('capell-admin::media.replacement_metadata_notice')),
                         FileUpload::make('replacement')
                             // This upload-only field has no existing paths on the Media record.
                             ->model([])
@@ -203,6 +205,17 @@ class MediaTable implements TableConfigurator
                             $notification->body(__('capell-admin::media.replace_file_cleanup_warning'))->warning();
                         } else {
                             $notification->success();
+                        }
+
+                        $reviewUrl = $record->isImage() && $result->cleanupWarning === null ? self::getUsageUrl($record) : null;
+
+                        if ($reviewUrl !== null) {
+                            $notification->body(__('capell-admin::media.replace_file_review_prompt'));
+                            $notification->actions([
+                                Action::make('review-descriptions')
+                                    ->label(__('capell-admin::media.review_descriptions'))
+                                    ->url($reviewUrl),
+                            ]);
                         }
 
                         $notification->send();

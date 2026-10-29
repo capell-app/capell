@@ -88,6 +88,43 @@ it('reports a rejected replacement without a success notification or broken medi
         ->and(Storage::disk('public')->exists($original->getPathRelativeToRoot()))->toBeTrue();
 });
 
+it('prompts editors to review retained descriptions after replacing an image without touching translations', function (): void {
+    $language = Language::factory()->english()->createOne();
+    $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
+    Translation::query()->create([
+        'language_id' => $language->getKey(),
+        'translatable_type' => $original->getMorphClass(),
+        'translatable_id' => $original->getKey(),
+        'title' => 'Old title',
+        'meta' => ['alt' => 'A red door'],
+    ]);
+    $replacement = UploadedFile::fake()->image('replacement.png', 48, 48);
+
+    Livewire::test(ListMedia::class)
+        ->mountTableAction('replace-file', $original)
+        ->assertMountedActionModalSee(__('capell-admin::media.replacement_metadata_notice'))
+        ->setTableActionData(['replacement' => [$replacement]])
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors()
+        ->assertNotified(Notification::make()
+            ->title(__('capell-admin::media.replace_file_success'))
+            ->body(__('capell-admin::media.replace_file_review_prompt'))
+            ->actions([
+                Action::make('review-descriptions')
+                    ->label(__('capell-admin::media.review_descriptions'))
+                    ->url(MediaResource::getUrl('edit', ['record' => $original])),
+            ])
+            ->success());
+
+    $translation = Translation::query()
+        ->where('translatable_type', $original->getMorphClass())
+        ->where('translatable_id', $original->getKey())
+        ->sole();
+
+    expect($translation->title)->toBe('Old title')
+        ->and(data_get($translation->meta, 'alt'))->toBe('A red door');
+});
+
 it('reports committed replacement cleanup as a warning without inviting a failed replacement retry', function (): void {
     $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
     $replacement = UploadedFile::fake()->image('replacement.png', 48, 48);
