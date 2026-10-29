@@ -38,6 +38,15 @@ def check(config, running):
     return conflicts
 
 
+def parse_containers(output):
+    """Compose prints one JSON object per line, or a single JSON array on older releases."""
+    stripped = output.strip()
+    if stripped.startswith('['):
+        decoded = json.loads(stripped)
+        return [item for item in decoded if isinstance(item, dict)]
+    return [item for item in (json.loads(line) for line in stripped.splitlines() if line.strip()) if isinstance(item, dict)]
+
+
 def main(args):
     if '--' not in args:
         return 2
@@ -58,7 +67,7 @@ def main(args):
     try:
         config = json.loads(subprocess.check_output([*compose, 'config', '--format', 'json'], text=True))
         output = subprocess.check_output([*compose, 'ps', '--format', 'json'], text=True)
-        running = [json.loads(line) for line in output.splitlines() if line.strip()]
+        running = parse_containers(output)
         conflicts = check(config, running)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f'Harness port preflight could not inspect Compose: {error}', file=sys.stderr)

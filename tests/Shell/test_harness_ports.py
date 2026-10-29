@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import socket
 import unittest
@@ -29,6 +30,21 @@ class HarnessPortsTest(unittest.TestCase):
             port = probe.getsockname()[1]
         config = {'services': {'mysql': {'ports': [{'published': str(port), 'host_ip': '127.0.0.1'}]}}}
         self.assertEqual(harness.check(config, []), [])
+
+    @patch.dict('os.environ', {'DOCKER_HOST': 'unix:///tmp/docker.sock'}, clear=True)
+    @patch.object(harness.subprocess, 'check_output')
+    def test_compose_ps_json_array_and_lines_are_both_understood(self, compose):
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', 0))
+            port = probe.getsockname()[1]
+        config = json.dumps({'services': {'redis': {'ports': [{'published': str(port), 'target': 6379, 'host_ip': '127.0.0.1'}]}}})
+        container = {'Service': 'redis', 'State': 'running', 'Publishers': [{'PublishedPort': port, 'TargetPort': 6379, 'Protocol': 'tcp', 'URL': '127.0.0.1'}]}
+        for listing in (json.dumps([container]), json.dumps(container), ''):
+            compose.side_effect = [config, listing]
+            with socket.socket() as listener:
+                listener.bind(('127.0.0.1', port))
+                listener.listen()
+                self.assertEqual(harness.main(['docker', 'compose', '--', '-d']), 0 if listing else 1, listing)
 
     @patch.dict('os.environ', {'DOCKER_HOST': 'ssh://remote.example'}, clear=True)
     @patch.object(harness.subprocess, 'check_output')
