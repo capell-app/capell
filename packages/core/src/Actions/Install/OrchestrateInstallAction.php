@@ -56,6 +56,7 @@ final class OrchestrateInstallAction
                 selectedPackages: $result->selectedPackages,
                 completedSteps: array_values(array_unique([...$result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES])),
                 doctorStatus: $result->doctorStatus,
+                doctorWarnings: $result->doctorWarnings,
             );
         }
 

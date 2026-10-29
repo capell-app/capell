@@ -521,11 +521,33 @@ it('runs the final doctor summary in a fresh process even when the command is vi
         $state,
     );
 
-    expectInstallArtisanSubprocess($processes, 0, ['capell:doctor', '--install-summary', '--skip-package-doctors', '--no-interaction'], 120);
+    $reportArgument = $processes->processes[0]->command[6] ?? '';
+    expect($reportArgument)->toStartWith('--report-json=');
+    expectInstallArtisanSubprocess($processes, 0, ['capell:doctor', '--install-summary', '--skip-package-doctors', '--no-interaction', $reportArgument], 120);
 
     expect($lines)
         ->toContain(['type' => 'step', 'line' => 'Running Capell health summary…'])
         ->toContain(['type' => 'info', 'line' => 'Doctor OK']);
+});
+
+it('retains warning totals from the fresh doctor process', function (): void {
+    $reportPath = null;
+    $processes = FakeProcessFactory::bind()->push(onRun: function ($process) use (&$reportPath): void {
+        $argument = collect($process->command)->first(fn (string $value): bool => str_starts_with($value, '--report-json='));
+        $reportPath = substr($argument, strlen('--report-json='));
+        expect(fileperms($reportPath) & 0777)->toBe(0600);
+        file_put_contents($reportPath, json_encode(['checks' => [
+            ['passed' => true, 'severity' => 'warning', 'message' => '198 manifest contract warning(s).', 'evidence' => ['warning_count' => 198]],
+        ]], JSON_THROW_ON_ERROR));
+    });
+    $lines = [];
+    $state = new InstallRunState(installStepExecutorInputData(), installStepExecutorReporter($lines));
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_RUN_DOCTOR_SUMMARY, $state);
+
+    expect($state->doctorWarnings)->toBe([['message' => '198 manifest contract warning(s).', 'count' => 198]])
+        ->and(file_exists($reportPath))->toBeFalse()
+        ->and($processes->processes)->toHaveCount(1);
 });
 
 it('reloads package runtime providers before final install permission sync', function (): void {
