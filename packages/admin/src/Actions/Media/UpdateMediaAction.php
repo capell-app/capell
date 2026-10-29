@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Media;
 
+use Capell\Admin\Exceptions\MediaDerivativesFailedException;
 use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Translation;
@@ -14,33 +15,57 @@ use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\MediaLibrary\Conversions\FileManipulator;
+use Throwable;
 
 final class UpdateMediaAction
 {
     use AsFake;
     use AsObject;
 
-    /** @param array<string, mixed> $data */
+    /**
+     * Image edits are atomic: if derived files cannot be generated the metadata
+     * rolls back, the previous derivatives are rebuilt on a best-effort basis,
+     * and the caller can retry the same submission.
+     *
+     * @param  array<string, mixed>  $data
+     *
+     * @throws MediaDerivativesFailedException
+     */
     public function handle(Media $media, array $data): Media
+    {
+        $previousCropPresetNames = $media->getCropPresetNames();
+        $usesSpatieImageEditing = $media->isImage() && resolve(BackendResolver::class)->isSpatie();
+
+        try {
+            return $media->getConnection()->transaction(function () use ($media, $data, $usesSpatieImageEditing): Media {
+                $this->applyChanges($media, $data, $usesSpatieImageEditing);
+
+                return $media;
+            });
+        } catch (ValidationException $exception) {
+            $media->refresh();
+
+            throw $exception;
+        } catch (Throwable $throwable) {
+            $media->refresh();
+
+            throw_unless($usesSpatieImageEditing, $throwable);
+
+            $this->restoreDerivedFiles($media, $previousCropPresetNames);
+
+            report($throwable);
+
+            throw MediaDerivativesFailedException::afterRollback($throwable);
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function applyChanges(Media $media, array $data, bool $usesSpatieImageEditing): void
     {
         $media->name = (string) $data['name'];
         $externalVideoUrl = trim((string) ($data['external_video_url'] ?? ''));
 
-        if ($externalVideoUrl !== '') {
-            $externalVideo = YouTubeVideoUrl::parse($externalVideoUrl);
-
-            if (! $externalVideo instanceof ExternalVideoData) {
-                throw ValidationException::withMessages([
-                    'external_video_url' => __('capell-admin::media.external_video_invalid'),
-                ]);
-            }
-
-            $media->setExternalVideo($externalVideo);
-        } elseif ($media->isExternalVideo()) {
-            $media->clearExternalVideo();
-        }
-
-        $usesSpatieImageEditing = $media->isImage() && resolve(BackendResolver::class)->isSpatie();
+        $this->applyExternalVideo($media, $externalVideoUrl);
 
         if ($usesSpatieImageEditing) {
             $media
@@ -59,8 +84,51 @@ final class UpdateMediaAction
                 withResponsiveImages: true,
             );
         }
+    }
 
-        return $media;
+    private function applyExternalVideo(Media $media, string $externalVideoUrl): void
+    {
+        if ($media->isFileBacked()) {
+            // An uploaded file never becomes a video through a metadata edit.
+            if ($externalVideoUrl !== '') {
+                throw ValidationException::withMessages([
+                    'external_video_url' => __('capell-admin::media.external_video_file_backed'),
+                ]);
+            }
+
+            return;
+        }
+
+        if ($externalVideoUrl === '') {
+            throw ValidationException::withMessages([
+                'external_video_url' => __('capell-admin::media.external_video_required'),
+            ]);
+        }
+
+        $externalVideo = YouTubeVideoUrl::parse($externalVideoUrl);
+
+        if (! $externalVideo instanceof ExternalVideoData) {
+            throw ValidationException::withMessages([
+                'external_video_url' => __('capell-admin::media.external_video_invalid'),
+            ]);
+        }
+
+        $media->setExternalVideo($externalVideo);
+    }
+
+    /** @param list<string> $cropPresetNames */
+    private function restoreDerivedFiles(Media $media, array $cropPresetNames): void
+    {
+        try {
+            resolve(FileManipulator::class)->createDerivedFiles(
+                $media,
+                $cropPresetNames,
+                withResponsiveImages: true,
+            );
+        } catch (Throwable $throwable) {
+            // The editor is already told to retry; the retry regenerates every selected preset.
+            report($throwable);
+        }
     }
 
     /** @return list<string> */

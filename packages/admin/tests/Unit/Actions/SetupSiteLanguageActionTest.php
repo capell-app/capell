@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Admin\Actions\SetupSiteLanguageAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
+use Illuminate\Validation\ValidationException;
 
 it('sets up a site language idempotently', function (): void {
     $english = Language::factory()->createOne(['code' => 'en']);
@@ -24,4 +26,38 @@ it('sets up a site language idempotently', function (): void {
         ->toBe(1)
         ->and($site->translations()->where('language_id', $french->getKey())->firstOrFail()->meta)
         ->toBe(['footer_copy' => '<p>Reliable multilingual content</p>']);
+});
+
+it('mounts a new language route under the existing site path', function (?string $mount, string $expected): void {
+    $english = Language::factory()->createOne(['code' => 'en']);
+    $french = Language::factory()->createOne(['code' => 'fr']);
+    $site = Site::factory()->language($english)->withTranslations($english)->create();
+    $site->siteDomains()->firstOrFail()->update(['domain' => 'mounted.example.test', 'scheme' => 'https', 'path' => $mount]);
+
+    SetupSiteLanguageAction::run($site, $french);
+
+    $domain = $site->siteDomains()->where('language_id', $french->getKey())->firstOrFail();
+
+    expect($domain->path)->toBe($expected)
+        ->and($domain->domain)->toBe('mounted.example.test')
+        ->and($site->siteDomains()->where('language_id', $english->getKey())->firstOrFail()->path)->toBe($mount);
+})->with([
+    'root site' => [null, '/fr'],
+    'mounted site' => ['/showcase', '/showcase/fr'],
+    'mounted site with trailing slash' => ['/showcase/', '/showcase/fr'],
+    'mount that already ends in the language code' => ['/showcase/en', '/showcase/fr'],
+]);
+
+it('rejects a generated language route that another site already claims and leaves no partial setup', function (): void {
+    $english = Language::factory()->createOne(['code' => 'en']);
+    $french = Language::factory()->createOne(['code' => 'fr']);
+    $site = Site::factory()->language($english)->withTranslations($english)->create();
+    $site->siteDomains()->firstOrFail()->update(['domain' => 'mounted.example.test', 'scheme' => 'https', 'path' => '/showcase']);
+    $other = Site::factory()->language($english)->withTranslations($english)->create();
+    $other->siteDomains()->firstOrFail()->update(['domain' => 'mounted.example.test', 'scheme' => 'https', 'path' => '/showcase/fr']);
+
+    expect(fn () => SetupSiteLanguageAction::run($site, $french))->toThrow(ValidationException::class);
+
+    expect($site->translations()->where('language_id', $french->getKey())->exists())->toBeFalse()
+        ->and(SiteDomain::query()->where('site_id', $site->getKey())->where('language_id', $french->getKey())->exists())->toBeFalse();
 });

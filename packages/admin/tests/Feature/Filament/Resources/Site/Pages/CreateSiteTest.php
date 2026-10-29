@@ -397,3 +397,28 @@ it('auto creates pages', function (): void {
         ->title->toBe($newData->name)
         ->language_id->toBe($newData->language->getKey());
 });
+
+it('keeps an edited domain when returning to the details step', function (): void {
+    Blueprint::factory()->site()->default()->create();
+    $language = Language::factory()->default()->create();
+    $newData = Site::factory()->for($language)->make();
+
+    $component = Livewire::test(CreateSite::class)
+        ->fillForm([
+            'name' => $newData->name,
+            'theme_id' => $newData->theme->getKey(),
+            'language_id' => $language->getKey(),
+        ])
+        ->goToNextWizardStep();
+
+    $domainKey = (string) array_key_first($component->get('data.site_domains'));
+
+    $component
+        ->set(sprintf('data.site_domains.%s.url', $domainKey), 'https://www.customised.test/shop')
+        ->goToPreviousWizardStep()
+        ->goToNextWizardStep();
+
+    $urls = array_column($component->get('data.site_domains'), 'url');
+
+    expect($urls)->toBe(['https://www.customised.test/shop']);
+});
