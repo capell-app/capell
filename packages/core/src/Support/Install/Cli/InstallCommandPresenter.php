@@ -68,7 +68,7 @@ final class InstallCommandPresenter
         $components->twoColumnDetail('Admin URL', $handoff->urls['admin'] ?? 'Unavailable');
         $components->twoColumnDetail('Public URL', $handoff->urls['public']);
         $components->twoColumnDetail('First page', $handoff->firstPage['status']);
-        $components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
+        $components->twoColumnDetail('Warnings', (string) ($handoff->warningCount ?? count($handoff->warnings)));
 
         if ($handoff->warnings !== []) {
             $output->newLine();
