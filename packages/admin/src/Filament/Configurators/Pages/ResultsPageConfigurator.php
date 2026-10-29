@@ -56,7 +56,7 @@ class ResultsPageConfigurator extends DefaultPageConfigurator
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->collapsed()
                 ->schema([
-                    ...SettingsSchema::make($schema),
+                    ...SettingsSchema::make($schema, pageGroup: $this->context->resourceName ?? 'page'),
                     PublishDatesGrid::getVisibleFromField(),
                 ]),
         ];
@@ -67,7 +67,7 @@ class ResultsPageConfigurator extends DefaultPageConfigurator
     {
         $components = [
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::BeforeTitle),
-            TitleWithSlugInput::make($schema),
+            TitleWithSlugInput::makeForContext($schema, $this->context),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterTitle),
             $this->getContentEditor($schema),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterContentEditor),

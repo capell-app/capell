@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 
 it('creates scalar create context for a target type', function (): void {
     $context = ConfiguratorContextData::forCreate(
@@ -47,4 +48,11 @@ it('creates embedded select edit context with record identity', function (): voi
         ->and($context->recordName)->toBe('System')
         ->and($context->recordKey)->toBe('system')
         ->and($context->recordType)->toBe('widget');
+});
+
+it('keeps the runtime resource class out of serialized context', function (): void {
+    $context = ConfiguratorContextData::forCreate(ConfiguratorTypeEnum::Page, null, 'default', PageResource::class);
+
+    expect($context->resourceClass)->toBe(PageResource::class)
+        ->and($context->toArray())->not->toHaveKey('resourceClass');
 });

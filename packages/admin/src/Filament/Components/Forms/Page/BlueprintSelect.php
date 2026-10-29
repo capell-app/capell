@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Components\Forms\Page;
 
 use Capell\Admin\Filament\Components\Forms\BlueprintSelect as BaseBlueprintSelect;
 use Capell\Admin\Filament\Contracts\HasPageResource;
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\BlueprintGroupEnum;
@@ -14,10 +15,8 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Closure;
 use Filament\Actions\Action;
-use Filament\Resources\Pages\CreateRecord;
-use Filament\Resources\Pages\EditRecord;
-use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Component as LivewireComponent;
 use Override;
 
 class BlueprintSelect extends BaseBlueprintSelect
@@ -37,7 +36,7 @@ class BlueprintSelect extends BaseBlueprintSelect
             /**
              * @param  Builder<Blueprint>  $query
              */
-            function (Builder $query, EditRecord|CreateRecord|ListRecords|HasPageResource $livewire): Builder {
+            function (Builder $query, LivewireComponent $livewire): Builder {
                 $group = 'page';
 
                 if ($this->pageGroup !== null) {
@@ -45,7 +44,7 @@ class BlueprintSelect extends BaseBlueprintSelect
                 } elseif (method_exists($livewire, 'getResource')) {
                     $resource = $livewire->getResource();
 
-                    if (method_exists($resource, 'getResourceName')) {
+                    if (is_string($resource) && ($livewire instanceof HasPageResource || is_a($resource, PageResource::class, true)) && method_exists($resource, 'getResourceName')) {
                         $group = $resource::getResourceName();
                     }
                 }

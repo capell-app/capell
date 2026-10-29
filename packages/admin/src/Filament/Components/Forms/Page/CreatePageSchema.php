@@ -6,14 +6,12 @@ namespace Capell\Admin\Filament\Components\Forms\Page;
 
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Filament\Contracts\HasPageResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Forms\Components\Hidden;
-use Filament\Resources\Pages\CreateRecord;
-use Filament\Resources\Pages\EditRecord;
-use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -28,6 +26,12 @@ class CreatePageSchema
         if (! in_array($schema->getOperation(), ['create', 'createOption', 'replicate'], true)) {
             return [];
         }
+
+        $livewire = $schema->getLivewire();
+        $resource = method_exists($livewire, 'getResource') ? $livewire->getResource() : null;
+        $pageGroup = $context?->resourceName;
+        $hasPageResource = $livewire instanceof HasPageResource
+            || (is_string($resource) && is_a($resource, PageResource::class, true));
 
         return [
             Section::make()
@@ -55,7 +59,11 @@ class CreatePageSchema
                             return SiteAccess::forActor($user)->isGlobal();
                         }),
                     SiteSelect::make(),
-                    static::getParentPageSelect($schema),
+                    static::getParentPageSelect($schema)
+                        ->when(
+                            filled($pageGroup) && (! $hasPageResource || $schema->getOperation() === 'createOption'),
+                            fn (ParentSelect $component): ParentSelect => $component->pageGroup((string) $pageGroup),
+                        ),
                 ])
                 ->contained(in_array($schema->getOperation(), ['create', 'edit'], true)),
         ];
@@ -78,7 +86,6 @@ class CreatePageSchema
 
     protected static function getParentPageSelect(Schema $schema): ParentSelect
     {
-        /** @var EditRecord|CreateRecord|ListRecords $livewire */
         $livewire = $schema->getLivewire();
 
         return ParentSelect::make('parent_id')
@@ -87,10 +94,11 @@ class CreatePageSchema
             ->when(
                 true,
                 function (ParentSelect $component) use ($livewire): ParentSelect {
-                    $resource = $livewire->getResource();
-                    $pageGroup = is_a($resource, PageResource::class, true)
-                        ? $resource::getResourceName()
-                        : $resource;
+                    $resource = method_exists($livewire, 'getResource') ? $livewire->getResource() : null;
+                    $pageGroup = PageResource::getResourceName();
+                    if (is_string($resource) && ($livewire instanceof HasPageResource || is_a($resource, PageResource::class, true))) {
+                        $pageGroup = is_a($resource, PageResource::class, true) ? $resource::getResourceName() : $resource;
+                    }
 
                     if ($pageGroup !== null) {
                         $component->pageGroup($pageGroup);

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
+use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Filament\Components\Forms\SlugInput;
 use Capell\Admin\Filament\Components\Forms\TitleWithSlugInput as BaseTitleWithSlugInput;
 use Capell\Admin\Filament\Components\Forms\TranslationLanguageSelect;
 use Capell\Admin\Filament\Contracts\HasPageResource;
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
@@ -30,10 +32,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Validation\Rules\Unique;
+use Livewire\Component as LivewireComponent;
 
 class TitleWithSlugInput
 {
     public static function make(Schema $schema): Grid
+    {
+        return static::makeForContext($schema);
+    }
+
+    public static function makeForContext(Schema $schema, ?ConfiguratorContextData $context = null): Grid
     {
         return Grid::make(3)
             ->columnSpan(1)
@@ -42,7 +50,7 @@ class TitleWithSlugInput
                 BaseTitleWithSlugInput::make(
                     fieldTitle: 'title',
                     fieldSlug: 'slug',
-                    urlPath: function (Get $get, ?string $state, string $operation, HasPageResource $livewire) use ($schema): string {
+                    urlPath: function (Get $get, ?string $state, string $operation, LivewireComponent $livewire) use ($schema, $context): string {
                         $siteId = $get('../../site_id');
 
                         if ((blank($siteId)) && in_array($operation, ['edit', 'editOption'], true)) {
@@ -66,7 +74,7 @@ class TitleWithSlugInput
                         /** @var Language $language */
                         $language = resolve(Language::class)::query()->find($languageId);
 
-                        $basePath = self::getBasePath($livewire, $site, $language);
+                        $basePath = self::getBasePath($livewire, $site, $language, $schema, $context);
 
                         $parentUuid = $get('../../parent_id');
                         if (blank($parentUuid)) {
@@ -146,18 +154,22 @@ class TitleWithSlugInput
                     slugRuleUniqueParameters: [
                         'column' => 'meta->slug',
                         'table' => 'translations',
-                        'modifyRuleUsing' => function (Unique $rule, Get $get, ?Translation $record, HasPageResource $livewire, string $operation): void {
+                        'modifyRuleUsing' => function (Unique $rule, Get $get, ?Translation $record, LivewireComponent $livewire, string $operation) use ($schema, $context): void {
                             $language_id = $get('language_id');
 
                             $page = $record?->translatable;
 
                             /** @var class-string<resource> $resource */
-                            $resource = $livewire::getResource();
+                            $resource = self::resolvePageResource($schema, $livewire, $context);
+                            $schemaModel = $schema->getModel();
 
                             /** @var class-string<Pageable<Page>&Model> $model */
-                            $model = $page !== null ? $page::class : $resource::getModel();
+                            $model = $page instanceof Pageable
+                                ? $page::class
+                                : (is_string($schemaModel) && is_a($schemaModel, Pageable::class, true) ? $schemaModel : $resource::getModel());
 
-                            $baseRecord = method_exists($livewire, 'getRecord') ? $livewire->getRecord() : null;
+                            $schemaRecord = $schema->getRecord();
+                            $baseRecord = $schemaRecord instanceof Pageable ? $schemaRecord : null;
 
                             $modelId = resolve($model)->qualifyColumn('id');
 
@@ -281,10 +293,28 @@ class TitleWithSlugInput
         return $siteDomain->full_url;
     }
 
-    private static function getBasePath(HasPageResource $livewire, Site $site, Language $language): string
+    /** @return class-string<PageResource> */
+    private static function resolvePageResource(Schema $schema, LivewireComponent $livewire, ?ConfiguratorContextData $context): string
+    {
+        $resourceClass = $context?->resourceClass;
+        if (is_string($resourceClass) && is_a($resourceClass, PageResource::class, true)) {
+            return $resourceClass;
+        }
+
+        if (! in_array($schema->getOperation(), ['createOption', 'editOption'], true) && $livewire instanceof HasPageResource) {
+            /** @var class-string<PageResource> $resource */
+            $resource = $livewire::getResource();
+
+            return $resource;
+        }
+
+        return PageResource::class;
+    }
+
+    private static function getBasePath(LivewireComponent $livewire, Site $site, Language $language, Schema $schema, ?ConfiguratorContextData $context): string
     {
         /** @var class-string<resource> $resource */
-        $resource = $livewire::getResource();
+        $resource = self::resolvePageResource($schema, $livewire, $context);
 
         if (method_exists($resource, 'getBasePath')) {
             return $resource::getBasePath($site, $language);

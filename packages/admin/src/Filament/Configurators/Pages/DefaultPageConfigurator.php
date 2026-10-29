@@ -333,6 +333,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelation
                                 ->sourceStatePath('meta.image_source')
                                 ->imageSourcePolicy(blueprintSources: $this->blueprintImageSourcePolicy($schema, 'image')),
                         ],
+                        pageGroup: $this->context->resourceName ?? 'page',
                     ),
                     // The editOption quick-edit modal can't host the full Livewire
                     // panel cleanly, so keep a slim inline publish-date field here.
@@ -360,7 +361,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelation
 
         $components = [
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::BeforeTitle),
-            TitleWithSlugInput::make($schema),
+            TitleWithSlugInput::makeForContext($schema, $this->context),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterTitle),
             $this->getContentEditor($schema),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterContentEditor),

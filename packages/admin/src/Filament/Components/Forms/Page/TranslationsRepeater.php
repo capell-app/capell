@@ -6,7 +6,6 @@ namespace Capell\Admin\Filament\Components\Forms\Page;
 
 use Capell\Admin\Actions\Pages\ResolvePageJourneyLanguageAction;
 use Capell\Admin\Filament\Components\Forms\TranslationsRepeater as BaseTranslationsRepeater;
-use Capell\Admin\Filament\Contracts\HasPageResource;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
@@ -16,9 +15,6 @@ use Capell\Core\Support\CapellCoreHelper;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\CreateRecord;
-use Filament\Resources\Pages\EditRecord;
-use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -93,7 +89,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
 
                 return false;
             })
-            ->addable(function (EditRecord|CreateRecord|ListRecords|HasPageResource $livewire, ?Pageable $record, ?array $state, self $component): bool {
+            ->addable(function (?Pageable $record, ?array $state, self $component): bool {
                 $rootState = RawState::array($component->getRootContainer()->getRawState());
                 $siteId = $rootState['site_id'] ?? null;
                 $languages = CapellCoreHelper::getSiteLanguagesForRecord($record, $siteId);

@@ -25,10 +25,16 @@ class PageForm implements FormConfigurator
         if ($record instanceof Model && $record->exists) {
             $configurator = $resolver->resolveForRecord($record, ConfiguratorTypeEnum::Page, DefaultPageConfigurator::getKey());
 
-            return $configurator::configure($schema, ConfiguratorContextData::forEdit(
-                ConfiguratorTypeEnum::Page,
-                $context?->resourceName,
-            ));
+            $editContext = $schema->getOperation() === 'editOption'
+                ? new ConfiguratorContextData(
+                    target: ConfiguratorTypeEnum::Page,
+                    operation: 'editOption',
+                    resourceName: $context?->resourceName,
+                    resourceClass: $context?->resourceClass,
+                )
+                : ConfiguratorContextData::forEdit(ConfiguratorTypeEnum::Page, $context?->resourceName);
+
+            return $configurator::configure($schema, $editContext);
         }
 
         $type = filled($context?->typeKey)

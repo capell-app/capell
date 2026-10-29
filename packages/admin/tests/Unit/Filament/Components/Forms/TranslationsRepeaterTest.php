@@ -175,6 +175,31 @@ it('scopes page translation defaults and addable languages to the current site',
     expect($component->isAddable())->toBeFalse();
 });
 
+it('limits page translation choices by site inside a non-page Livewire form', function (): void {
+    test()->actingAsAdmin();
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $page = Page::factory()->site($site)->type(Blueprint::factory()->page()->createOne())->createOne();
+    $livewire = Livewire::make()->data([
+        'site_id' => $site->getKey(),
+        'translations' => ['english-row' => ['language_id' => $english->getKey()]],
+    ]);
+    $schema = Schema::make($livewire)->statePath('data')->operation('editOption')->model($page)->components([
+        PageTranslationsRepeater::make('translations')->withoutRelationship(),
+    ]);
+    $component = $schema->getComponents()[0];
+    assert($component instanceof PageTranslationsRepeater);
+    clearRepeaterRelationshipForTranslationsRepeaterTest($component);
+
+    expect($component->isAddable())->toBeTrue();
+    $component->state([
+        'english-row' => ['language_id' => $english->getKey()],
+        'french-row' => ['language_id' => $french->getKey()],
+    ]);
+    expect($component->isAddable())->toBeFalse();
+});
+
 it('uses the page content structure override when preparing translation content', function (): void {
     $language = Language::factory()->english()->createOne();
     $site = Site::factory()
