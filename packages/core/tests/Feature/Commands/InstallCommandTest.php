@@ -30,13 +30,14 @@ use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\GeneratedPhpFixture;
 use Illuminate\Console\Command as LaravelCommand;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Foundation\Console\ClosureCommand;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
@@ -338,6 +339,13 @@ function bindFakeRunInstallAction(): FakeRunInstallAction
     app()->instance(RunInstallAction::class, $fake);
 
     return $fake;
+}
+
+function registerInstallTestFrontendCommand(int $exitCode): void
+{
+    $kernel = resolve(Kernel::class);
+    $artisan = new ReflectionMethod($kernel, 'getArtisan')->invoke($kernel);
+    $artisan->add(new ClosureCommand('capell:frontend-after-install {--apply}', fn (): int => $exitCode));
 }
 
 function installCommandFakeProcessResult(bool $wasSuccessful, string $output = '', string $errorOutput = ''): ProcessResult
@@ -943,7 +951,7 @@ it('emits a redacted install handoff and writes its machine-readable artifact', 
             '--handoff-json' => $relativePath,
             '--no-interaction' => true,
         ])
-            ->expectsOutputToContain('Capell Install Handoff')
+            ->expectsOutputToContain('Installation complete')
             ->expectsOutputToContain('Machine-readable install handoff written.')
             ->assertExitCode(Command::SUCCESS);
         $handoff = json_decode((string) file_get_contents($absolutePath), true, flags: JSON_THROW_ON_ERROR);
@@ -2376,21 +2384,7 @@ it('can run an npm build after installing a frontend package', function (): void
     markInstallTestPackageAsFrontend('capell-app/frontend');
     $fake = bindFakeRunInstallAction();
 
-    $dependencyProcess = Mockery::mock();
-    Process::shouldReceive('timeout')->with(300)->once()->andReturn($dependencyProcess);
-    $dependencyProcess->shouldReceive('run')->with('npm install')->once()->andReturn(installCommandFakeProcessResult(true));
-
-    $pendingProcess = Mockery::mock();
-
-    Process::shouldReceive('timeout')
-        ->with(300)
-        ->once()
-        ->andReturn($pendingProcess);
-
-    $pendingProcess->shouldReceive('run')
-        ->with('npm run build')
-        ->once()
-        ->andReturn(installCommandFakeProcessResult(true));
+    registerInstallTestFrontendCommand(0);
 
     artisanCommand('capell:install', [
         '--packages' => 'capell-app/frontend',
@@ -2418,21 +2412,7 @@ it('fails instead of reporting a completed install when the requested npm build 
     markInstallTestPackageAsFrontend('capell-app/frontend');
     $fake = bindFakeRunInstallAction();
 
-    $dependencyProcess = Mockery::mock();
-    Process::shouldReceive('timeout')->with(300)->once()->andReturn($dependencyProcess);
-    $dependencyProcess->shouldReceive('run')->with('npm install')->once()->andReturn(installCommandFakeProcessResult(true));
-
-    $pendingProcess = Mockery::mock();
-
-    Process::shouldReceive('timeout')
-        ->with(300)
-        ->once()
-        ->andReturn($pendingProcess);
-
-    $pendingProcess->shouldReceive('run')
-        ->with('npm run build')
-        ->once()
-        ->andReturn(installCommandFakeProcessResult(false, '', 'Vite build failed.'));
+    registerInstallTestFrontendCommand(1);
 
     artisanCommand('capell:install', [
         '--packages' => 'capell-app/frontend',
@@ -3200,21 +3180,20 @@ it('leaves application files and install actions untouched when the final review
     }
 });
 
-it('offers one confirmation for non destructive basics without the detailed questionnaire', function (string $choice, int $calls): void {
+it('offers one confirmation for non destructive basics without the detailed questionnaire', function (array $choice, int $calls): void {
     setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
     $fake = bindFakeRunInstallAction();
     $existing = createTestUser();
 
-    artisanCommand('capell:install', [
+    $command = artisanCommand('capell:install', [
         '--url' => 'https://example.test:8443/blog',
         '--user' => $existing->email,
-    ])
-        ->expectsChoice('How would you like to continue?', $choice, [
-            'install' => 'Confirm all basics and install',
-            'customise' => 'Customise settings',
-            'cancel' => 'Cancel',
-        ])
-        ->assertSuccessful();
+    ])->expectsQuestion('Confirm your installation settings', $choice);
+    if ($calls > 0) {
+        $command->expectsConfirmation('Install dependencies and build frontend assets now?', 'no');
+    }
+
+    $command->assertSuccessful()->run();
 
     expect($fake->callCount)->toBe($calls);
     if ($calls > 0) {
@@ -3225,7 +3204,55 @@ it('offers one confirmation for non destructive basics without the detailed ques
             ->and($fake->capturedInput->seedDatabase)->toBeFalse()
             ->and($fake->capturedInput->packages)->toContain('capell-app/admin', 'capell-app/frontend');
     }
-})->with(['confirm all basics' => ['install', 1], 'cancel' => ['cancel', 0]]);
+})->with(['confirm settings' => [['site', 'packages', 'administrator', 'customise'], 1], 'cancel' => [[], 0]]);
+
+it('offers to build frontend assets after installation and records the outcome', function (bool $build): void {
+    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    bindFakeRunInstallAction();
+    $existing = createTestUser();
+    $handoffPath = sys_get_temp_dir() . '/capell-installer-handoff-' . bin2hex(random_bytes(6)) . '.json';
+    $buildCalled = false;
+    $kernel = resolve(Kernel::class);
+    $artisan = new ReflectionMethod($kernel, 'getArtisan')->invoke($kernel);
+    $artisan->add(new ClosureCommand('capell:frontend-after-install {--apply}', function () use (&$buildCalled): int {
+        $buildCalled = true;
+
+        return 0;
+    }));
+
+    try {
+        artisanCommand('capell:install', [
+            '--url' => 'https://example.test',
+            '--user' => $existing->email,
+            '--handoff-json' => $handoffPath,
+        ])
+            ->expectsQuestion('Confirm your installation settings', ['site', 'packages', 'administrator', 'customise'])
+            ->expectsConfirmation('Install dependencies and build frontend assets now?', $build ? 'yes' : 'no')
+            ->assertSuccessful()
+            ->run();
+
+        $handoff = json_decode((string) file_get_contents($handoffPath), true, flags: JSON_THROW_ON_ERROR);
+        expect($buildCalled)->toBe($build);
+        expect(collect($handoff['tips'])->pluck('key')->contains('frontend_build'))->toBe(! $build);
+    } finally {
+        if (is_file($handoffPath)) {
+            unlink($handoffPath);
+        }
+    }
+})->with(['build now' => [true], 'build later' => [false]]);
+
+it('reports a frontend build failure without claiming a completed handoff', function (): void {
+    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    bindFakeRunInstallAction();
+    $existing = createTestUser();
+    registerInstallTestFrontendCommand(1);
+
+    artisanCommand('capell:install', ['--url' => 'https://example.test', '--user' => $existing->email])
+        ->expectsQuestion('Confirm your installation settings', ['site', 'packages', 'administrator', 'customise'])
+        ->expectsConfirmation('Install dependencies and build frontend assets now?', 'yes')
+        ->expectsOutputToContain('Retry only frontend preparation and assets')
+        ->assertFailed();
+});
 
 it('returns edited basic settings to the review and cancels before saving a profile or APP_URL', function (): void {
     setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
@@ -3233,22 +3260,11 @@ it('returns edited basic settings to the review and cancels before saving a prof
     $existing = createTestUser();
     $envBefore = is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null;
     $profileBefore = is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null;
-    $reviewOptions = ['install' => 'Confirm all basics and install', 'customise' => 'Customise settings', 'cancel' => 'Cancel'];
 
     artisanCommand('capell:install', ['--url' => 'https://original.test', '--user' => $existing->email, '--update-app-url' => true, '--save-profile' => 'cancelled-owned-test'])
-        ->expectsChoice('How would you like to continue?', 'customise', $reviewOptions)
-        ->expectsChoice('What would you like to customise?', 'site', [
-            'site' => 'Change the site address',
-            'packages' => 'Choose packages and theme',
-            'administrator' => 'Change the administrator',
-            'app-url' => 'Change whether APP_URL is updated',
-            'assets' => 'Change whether frontend dependencies and assets are built',
-            'profile' => 'Save these settings as a reusable profile',
-            'customise' => 'Open the full questionnaire',
-            'back' => 'Back to the review',
-        ])
+        ->expectsQuestion('Confirm your installation settings', ['packages', 'administrator', 'customise'])
         ->expectsQuestion('What is the URL of your first site?', 'https://edited.test:8443/blog')
-        ->expectsChoice('How would you like to continue?', 'cancel', $reviewOptions)
+        ->expectsQuestion('Confirm your installation settings', [])
         ->assertSuccessful();
 
     expect($fake->callCount)->toBe(0)

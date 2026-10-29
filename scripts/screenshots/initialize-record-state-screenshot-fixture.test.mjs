@@ -274,6 +274,12 @@ echo json_encode([
     }
 })
 
+test('seeds a real scheduled page for the admin dashboard capture', () => {
+    assert.deepEqual(commandsForEntries([{ id: 'admin-dashboard' }]), [
+        'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+    ])
+});
+
 
 test('initialises action fixture only for action coverage entries', () => {
     assert.deepEqual(commandsForEntries([{ id: 'action-coverage-parent' }]), [

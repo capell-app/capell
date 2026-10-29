@@ -182,10 +182,10 @@ it('renders the install handoff details in their established order', function ()
     );
 
     $renderedHandoff = $buffer->fetch();
-    $headerPosition = strpos($renderedHandoff, 'Capell Install Handoff');
+    $headerPosition = strpos($renderedHandoff, 'Installation complete');
     $packagesPosition = strpos($renderedHandoff, 'Selected packages');
     $migrationsPosition = strpos($renderedHandoff, 'Migrations');
-    $tipsPosition = strpos($renderedHandoff, 'What next');
+    $tipsPosition = strpos($renderedHandoff, 'Next steps');
     $signInPosition = strpos($renderedHandoff, '1. Sign in');
     $nextPosition = strpos($renderedHandoff, 'Next: Open the admin panel');
     $privacyPosition = strpos($renderedHandoff, 'No Capell account connection or telemetry identity submission is required for this handoff.');
@@ -201,7 +201,7 @@ it('renders the install handoff details in their established order', function ()
         ->and($tipsPosition)->toBeInt()
         ->and($signInPosition)->toBeInt()
         ->and($nextPosition)->toBeInt()
-        ->and($renderedHandoff)->toContain('ben@example.test')->toContain('2. Your site')
+        ->and($renderedHandoff)->toContain('ben@example.test', '2. Your site', 'Review the admin panel.')
         ->and($migrationsPosition)->toBeLessThan($tipsPosition)
         ->and($tipsPosition)->toBeLessThan($signInPosition)
         ->and($signInPosition)->toBeLessThan($nextPosition)
@@ -230,7 +230,7 @@ it('omits the what-next block when the handoff carries no tips', function (): vo
         new Factory($output),
     );
 
-    expect($buffer->fetch())->not->toContain('What next');
+    expect($buffer->fetch())->not->toContain('Next steps');
 });
 
 it('uses cache defaults that exist for the current application', function (): void {
@@ -604,21 +604,56 @@ it('rejects site addresses that cannot be persisted as a site origin and path', 
 it('defaults the basic review to confirm all and honours Cancel', function (array $keys, bool $expected): void {
     $command = installCommandForOptions([], true);
     new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
-    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $input = new InstallInputData(siteUrl: 'https://operator:secret@example.test/path?token=private', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
     $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
     $previousFallback = $fallback->getValue();
     Prompt::fake($keys);
     $fallback->setValue(null, false);
     try {
         expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBe($expected);
-        Prompt::assertStrippedOutputContains('Confirm all basics and install');
+        Prompt::assertStrippedOutputContains('Confirm your installation settings');
+        Prompt::assertStrippedOutputContains('https://example.test/path');
+        Prompt::assertStrippedOutputDoesntContain('secret');
+        Prompt::assertStrippedOutputDoesntContain('private');
     } finally {
         $fallback->setValue(null, $previousFallback);
     }
-})->with(['Enter confirms all' => [[Key::ENTER], true], 'Cancel' => [[Key::DOWN, Key::DOWN, Key::ENTER], false]]);
+})->with(['Enter confirms all' => [[Key::ENTER], true], 'Cancel' => [[Key::CTRL_A, Key::ENTER], false]]);
+
+it('requires one review change at a time rather than discarding unchecked choices', function (): void {
+    $command = installCommandForOptions([], true);
+    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake([Key::SPACE, Key::DOWN, Key::SPACE, Key::ENTER, Key::CTRL_A, Key::CTRL_A, Key::ENTER]);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBeFalse();
+        Prompt::assertStrippedOutputContains('Untick one item at a time');
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+});
 
 it('keeps explicitly empty package selections out of the basic defaults', function (): void {
     expect(callInstallCommandMethod(installCommandForOptions(['--packages' => ''], true), 'usesBasicInstall'))->toBeFalse();
+});
+
+it('preserves pending package downloads when editing the site address', function (): void {
+    $command = installCommandForOptions([], true);
+    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false, extraPackages: ['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation']);
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake([Key::SPACE, Key::ENTER, 'https://changed.test', Key::ENTER]);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBeTrue()
+            ->and(explode(',', $command->option('packages')))->toBe(['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation']);
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
 });
 
 it('restores the saved site URL and downloads missing profile packages through Composer', function (): void {

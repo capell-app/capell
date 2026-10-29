@@ -23,16 +23,20 @@ final class RequireInstallerBootstrap
     public function handle(Request $request, Closure $next): Response
     {
         $secret = $this->validSecret();
-        abort_if($secret === null, 403, __('capell-installer::installer.bootstrap_required'));
+        if ($secret === null) {
+            return $this->denied($request);
+        }
 
-        $digest = hash('sha256', (string) $secret);
+        $digest = hash('sha256', $secret);
         $supplied = $request->input('bootstrap_secret', $request->header('X-Capell-Installer-Secret'));
         $sessionDigest = $request->session()->get(self::SESSION_KEY);
         $authorised = $supplied === null || $supplied === ''
             ? (is_string($sessionDigest) && hash_equals($digest, $sessionDigest))
             : (is_string($supplied) && hash_equals($secret, $supplied));
 
-        abort_unless($authorised, 403, __('capell-installer::installer.bootstrap_required'));
+        if (! $authorised) {
+            return $this->denied($request);
+        }
 
         $request->session()->put(self::SESSION_KEY, $digest);
         // Do not persist the bootstrap secret in flashed validation input or install plans.
@@ -43,6 +47,19 @@ final class RequireInstallerBootstrap
         }
 
         return $next($request);
+    }
+
+    private function denied(Request $request): Response
+    {
+        if ($request->routeIs('capell-installer.unlock') && ! $request->expectsJson()) {
+            return response()->view('capell-installer::bootstrap', ['bootstrapError' => true], 403)->withHeaders([
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0, private',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ]);
+        }
+
+        abort(403, __('capell-installer::installer.bootstrap_required'));
     }
 
     private function validSecret(): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Actions\AdminPanelIntegration\IntegrateCapellAdminPanelAction;
+use Capell\Admin\Actions\Dashboard\EnableNewInstallationDashboardAction;
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Console\Commands\Concerns\MigratesAdminSchema;
@@ -26,6 +27,7 @@ class InstallCommand extends Command
     use MigratesAdminSchema;
 
     protected $signature = 'capell:admin-install
+        {--initial-installation : Apply defaults captured before an initial installation began}
         {--admin-panel-changes=manual : How to handle Filament admin panel changes: auto or manual}
         {--panel= : Panel provider filename, class name, panel ID, or absolute path for auto admin panel changes}';
 
@@ -36,6 +38,8 @@ class InstallCommand extends Command
 
     public function handle(): int
     {
+        EnableNewInstallationDashboardAction::run($this->option('initial-installation') === true);
+
         resolve(AdminRuntimeActivator::class)->activate();
 
         $this->writeCommandIntro('install Capell Admin', $this->adminInstallIntroDetails());
