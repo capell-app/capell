@@ -61,6 +61,14 @@
                         </x-filament::button>
                     @endif
 
+                    @if ($capellIsInstalled && ! ($hasGlobalAccess ?? false))
+                        <p class="text-sm">{{ __('capell-installer::widgets.delete_installer_global_access_required') }}</p>
+                    @endif
+
+                    @if ($capellIsInstalled && ! config('capell.server_side_tooling', false))
+                        <p class="text-sm">{{ __('capell-installer::widgets.delete_installer_tooling_disabled') }}</p>
+                    @endif
+
                     @if ($activeInstall ?? null)
                         <x-filament::button
                             :href="$activeInstall->progressUrl"

@@ -14,7 +14,7 @@
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
 - Provision a new worktree completely before the first gate, in this order:
-  `./capell up -d`, `./capell composer install`, `npm ci --no-audit --no-fund`.
+  `./capell up -d`, `./capell composer install`, `./capell npm ci --no-audit --no-fund`. Container tests need Linux-native npm dependencies; host `npm ci` may install macOS-native modules instead. Host-only verification needs a separate host-native install; do not alternate the two against the same `node_modules/`.
   `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
   `node_modules/` step, so the npm step is never done for you; a preflight that
   stops on "node_modules/ is missing" is an unprovisioned worktree, not a result.

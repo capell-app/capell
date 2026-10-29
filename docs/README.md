@@ -4,6 +4,8 @@ Capell is a Laravel CMS built on Filament, for teams building applications that 
 
 New here? Follow [Learn Capell](getting-started/capell-learn.md), a guided path from deciding whether Capell fits to a published page you understand. Already installed? Jump to [Create your first page](getting-started/create-your-first-page.md). The [glossary](reference/glossary.md) explains any term you meet on the way, and the tables below find one specific task.
 
+For a local Docker environment, see [Mac and Windows local development](getting-started/local-development.md).
+
 ## Choose Your Path
 
 | I want to...                  | Start with                                                              | Then read                                                                                                                                        |

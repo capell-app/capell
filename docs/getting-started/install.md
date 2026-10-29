@@ -6,6 +6,8 @@ This guide installs the current 1.x Capell foundation into a Laravel application
 
 Use the [Quickstart](quickstart.md) for a disposable demo. For an existing application, start at [Existing Laravel applications](#existing-laravel-applications).
 
+Working locally? Start with [Mac and Windows local development](local-development.md) for Docker setup and links to the container recipe.
+
 ## Requirements
 
 | Requirement | Supported value                                    |
@@ -246,6 +248,8 @@ The code expires within 30 minutes. If it expires before you finish, create a ne
 Browser setup preserves existing database data. A destructive refresh is available only through `php artisan capell:install --fresh` with explicit confirmation (or `--fresh=force` for a deliberate disposable CLI install).
 
 After requiring `capell-app/installer`, the temporary `/install` route offers the same guided setup in a browser. Use it when the web process has permission to write the application files that the selected plan changes.
+
+After a successful install with Frontend, the completion page offers to remove the default Laravel welcome route if it is still unchanged. Choose it before removing the Installer if Capell should serve the homepage. The route is checked again when you confirm; customised routes are left in place. The web process must be allowed to update `routes/web.php`, `.env` and Laravel caches.
 
 The browser path is not a way around server permissions or Composer restrictions. On immutable deployments, shared hosting, or containers where PHP-FPM cannot change the release, use the CLI during the build/deploy phase instead.
 

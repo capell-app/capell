@@ -1140,25 +1140,6 @@
                                             </span>
                                         </label>
                                     @endif
-
-                                    @if ($showWelcomeRouteToggle)
-                                        <label class="checkbox-row">
-                                            <input
-                                                type="checkbox"
-                                                name="install_welcome_route"
-                                                value="1"
-                                                @checked(old('install_welcome_route', '1') === '1')
-                                            />
-                                            <span class="text">
-                                                <strong>
-                                                    {{ __('capell-installer::installer.option_install_welcome_route') }}
-                                                </strong>
-                                                <span>
-                                                    {{ __('capell-installer::installer.option_install_welcome_route_help') }}
-                                                </span>
-                                            </span>
-                                        </label>
-                                    @endif
                                 </div>
 
                                 <div class="field">
