@@ -230,3 +230,43 @@ it('does not open the redirect handoff for an actor without create permission', 
         ->assertSuccessful()
         ->assertActionNotMounted();
 });
+
+it('shows a non-blocking chain advisory in the create form before saving and keeps direct rules quiet', function (): void {
+    test()->actingAsAdmin();
+
+    $language = Language::factory()->createOne();
+    $site = Site::factory()
+        ->state(['language_id' => $language->id])
+        ->has(SiteDomain::factory()->state(['language_id' => $language->id]))
+        ->create();
+
+    PageUrl::query()->create([
+        'site_id' => $site->id,
+        'language_id' => $language->id,
+        'url' => '/middle',
+        'target_url' => '/destination',
+        'status_code' => RedirectStatusCodeEnum::Permanent->value,
+        'status' => true,
+        'type' => UrlTypeEnum::Redirect->value,
+        'is_manual' => true,
+    ]);
+
+    $advice = __('capell::message.redirect_chain_detected', ['next_target' => '/destination']);
+
+    Livewire::test(ManageRedirects::class)
+        ->mountAction(CreateAction::class)
+        ->fillForm([
+            'site_id' => $site->id,
+            'language_id' => $language->id,
+            'url' => '/old',
+            'target_url' => '/middle',
+        ])
+        ->assertMountedActionModalSee($advice)
+        ->fillForm(['target_url' => '/direct'])
+        ->assertMountedActionModalDontSee($advice)
+        ->fillForm(['target_url' => '/middle'])
+        ->callMountedAction()
+        ->assertHasNoFormErrors();
+
+    expect(PageUrl::query()->where('url', '/old')->where('target_url', '/middle')->exists())->toBeTrue();
+});
