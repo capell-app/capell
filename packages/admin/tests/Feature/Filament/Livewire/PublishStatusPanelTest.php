@@ -398,3 +398,15 @@ it('keeps showing the workspace row for an older handler that only counts retain
 
     panelFor($page)->assertSeeHtml('data-workspace-draft-status');
 });
+
+it('names each publishing blocker and explains the next step', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create();
+    $page->translations()->delete();
+    $page->pageUrls()->delete();
+
+    panelFor($page)
+        ->assertSee(__('capell-admin::publish_panel.blocker_translation_missing'))
+        ->assertSee(__('capell-admin::publish_panel.blocker_url_active_missing'))
+        ->assertSee(__('capell-admin::publish_panel.blocker_next_url_active_missing'));
+});
