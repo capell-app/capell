@@ -6,6 +6,16 @@ export default function capellContentLockHeartbeat(config) {
         csrfToken: config.csrfToken ?? '',
         intervalMs: config.intervalMs ?? 30000,
         localDraftStorageKey: config.storageKey ?? '',
+        localDraftSession: config.localDraftSession ?? '',
+        localDraftRestoreConfirm: config.localDraftRestoreConfirm ?? '',
+        localDraftDiscardConfirm: config.localDraftDiscardConfirm ?? '',
+        localDraftUnavailableMessage: config.localDraftUnavailableMessage ?? '',
+        localDraftUnavailable: false,
+        localDraftChanged: false,
+        localDraftChangedMessage: config.localDraftChangedMessage ?? '',
+        localDraftGeneration: 0,
+        recoveredDraftKey: null,
+        recoveredDraftRaw: null,
         formSelector: config.formSelector ?? '#form',
         localDraftDebounceMs: config.localDraftDebounceMs ?? 750,
         localDraftTtlMs: config.localDraftTtlMs ?? 86400000,
@@ -26,6 +36,8 @@ export default function capellContentLockHeartbeat(config) {
         logoutSubmitHandler: null,
         logoutPending: false,
         initialDataHash: null,
+        lastDurableDataHash: null,
+        saveSubmissions: [],
         localDraft: null,
         localDraftAvailable: false,
         heartbeatRequestId: 0,
@@ -38,24 +50,29 @@ export default function capellContentLockHeartbeat(config) {
 
         init() {
             this.initialDataHash = this.dataHash()
+            this.lastDurableDataHash = this.initialDataHash
             this.localDraft = this.readStoredLocalDraft()
             this.localDraftAvailable = this.localDraft !== null
+            this.cleanupExpiredLocalDrafts()
             this.applyReadOnly()
 
             if (typeof this.$wire?.$hook === 'function') {
-                this.$wire.$hook('commit', ({ commit, succeed }) => {
+                this.$wire.$hook('commit', ({ commit, succeed, fail }) => {
                     const calls = Array.isArray(commit?.calls)
                         ? commit.calls
                         : []
-                    const isSave = calls.some((call) =>
-                        [
-                            'save',
-                            'saveAsDraft',
-                            'saveAsDraftWithLocation',
-                        ].includes(call?.method),
-                    )
+                    const isSave = calls.some((call) => this.isSaveCall(call))
 
                     if (isSave) {
+                        const submission = this.captureSaveSubmission()
+                        this.saveSubmissions.push(submission)
+                        const forget = () => {
+                            this.saveSubmissions = this.saveSubmissions.filter(
+                                (entry) => entry !== submission,
+                            )
+                        }
+                        succeed(forget)
+                        if (typeof fail === 'function') fail(forget)
                         return
                     }
 
@@ -358,127 +375,299 @@ export default function capellContentLockHeartbeat(config) {
             }, this.localDraftDebounceMs)
         },
 
-        persistLocalDraft() {
-            const data = this.currentData()
-
-            if (data === null || this.dataHash(data) === this.initialDataHash) {
-                this.clearLocalDraft()
-
-                return
-            }
-
-            const draft = {
-                version: this.localDraftVersion,
-                data,
-                savedAt: Date.now(),
-            }
-
+        getLocalStorage() {
             try {
-                if (this.localDraftStorageKey === '' || !window.localStorage) {
-                    return
-                }
-
-                window.localStorage.setItem(
-                    this.localDraftStorageKey,
-                    JSON.stringify(draft),
-                )
-                this.localDraft = data
-                this.localDraftAvailable = true
+                const storage = window.localStorage ?? null
+                if (storage === null) this.localDraftUnavailable = true
+                return storage
             } catch {
-                // Private browsing and storage quota errors must not interrupt editing.
+                this.localDraftUnavailable = true
+                return null
             }
+        },
+
+        async withDraftLock(callback) {
+            if (!window.navigator?.locks?.request) {
+                this.localDraftUnavailable = true
+                return false
+            }
+            try {
+                return await window.navigator.locks.request(
+                    `capell-draft:${this.localDraftStorageKey}`,
+                    callback,
+                )
+            } catch {
+                this.localDraftUnavailable = true
+                return false
+            }
+        },
+
+        async persistLocalDraft() {
+            const data = this.currentData()
+            const key = this.currentDraftKey()
+            const generation = this.localDraftGeneration
+            if (key === '' || !this.getLocalStorage()) return
+            await this.withDraftLock(() => {
+                if (generation !== this.localDraftGeneration) return false
+                const storage = this.getLocalStorage()
+                if (storage === null) return false
+                if (
+                    data === null ||
+                    this.dataHash(data) === this.initialDataHash
+                ) {
+                    storage.removeItem(key)
+                } else {
+                    storage.setItem(
+                        key,
+                        JSON.stringify({
+                            version: this.localDraftVersion,
+                            data,
+                            savedAt: Date.now(),
+                            revision: window.crypto.randomUUID(),
+                        }),
+                    )
+                }
+                this.lastDurableDataHash = this.dataHash(data)
+                return true
+            })
+        },
+
+        currentDraftKey() {
+            if (this.localDraftStorageKey === '') return ''
+            return this.localDraftSession === ''
+                ? this.localDraftStorageKey
+                : `${this.localDraftStorageKey}:${this.localDraftSession}`
+        },
+
+        async cleanupExpiredLocalDrafts() {
+            if (this.localDraftStorageKey === '' || !this.getLocalStorage())
+                return
+            await this.withDraftLock(() => {
+                const storage = this.getLocalStorage()
+                const prefix = `${this.localDraftStorageKey}:`
+                const keys = Array.from(
+                    { length: storage.length },
+                    (_, index) => storage.key(index),
+                )
+                for (const key of keys) {
+                    if (!(
+                        key === this.localDraftStorageKey ||
+                        key?.startsWith(prefix)
+                    ))
+                        continue
+                    try {
+                        const draft = JSON.parse(storage.getItem(key))
+                        if (
+                            typeof draft?.savedAt === 'number' &&
+                            Number.isFinite(draft.savedAt) &&
+                            Date.now() - draft.savedAt > this.localDraftTtlMs
+                        )
+                            storage.removeItem(key)
+                    } catch {
+                        // Leave malformed entries for manual cleanup.
+                    }
+                }
+                return true
+            })
         },
 
         readStoredLocalDraft() {
-            if (this.localDraftStorageKey === '') {
-                return null
-            }
-
+            if (this.localDraftStorageKey === '') return null
             try {
-                if (!window.localStorage) {
-                    return null
+                const storage = this.getLocalStorage()
+                if (!storage) return null
+                const prefix = `${this.localDraftStorageKey}:`
+                const candidates = []
+                for (let index = 0; index < storage.length; index++) {
+                    const key = storage.key(index)
+                    if (
+                        key === this.currentDraftKey() ||
+                        !(
+                            key === this.localDraftStorageKey ||
+                            key?.startsWith(prefix)
+                        )
+                    )
+                        continue
+                    const raw = storage.getItem(key)
+                    let draft
+                    try {
+                        draft = JSON.parse(raw)
+                    } catch {
+                        continue
+                    }
+                    if (
+                        !draft ||
+                        draft.version !== this.localDraftVersion ||
+                        typeof draft.data !== 'object' ||
+                        draft.data === null ||
+                        typeof draft.savedAt !== 'number' ||
+                        !Number.isFinite(draft.savedAt) ||
+                        draft.savedAt > Date.now() ||
+                        Date.now() - draft.savedAt > this.localDraftTtlMs
+                    )
+                        continue
+                    candidates.push({ key, raw, draft })
                 }
-
-                const rawDraft = window.localStorage.getItem(
-                    this.localDraftStorageKey,
+                candidates.sort(
+                    (left, right) =>
+                        left.draft.savedAt - right.draft.savedAt ||
+                        left.key.localeCompare(right.key),
                 )
-
-                if (rawDraft === null) {
-                    return null
-                }
-
-                const draft = JSON.parse(rawDraft)
-
-                if (
-                    !draft ||
-                    draft.version !== this.localDraftVersion ||
-                    typeof draft.data !== 'object' ||
-                    draft.data === null ||
-                    typeof draft.savedAt !== 'number' ||
-                    !Number.isFinite(draft.savedAt) ||
-                    draft.savedAt > Date.now() ||
-                    Date.now() - draft.savedAt > this.localDraftTtlMs
-                ) {
-                    this.removeStoredLocalDraft()
-
-                    return null
-                }
-
-                return draft.data
+                if (candidates.length === 0) return null
+                this.recoveredDraftKey = candidates[0].key
+                this.recoveredDraftRaw = candidates[0].raw
+                return candidates[0].draft.data
             } catch {
                 return null
             }
         },
 
-        restoreLocalDraft() {
+        async restoreLocalDraft() {
             if (
                 this.readOnly ||
                 this.localDraft === null ||
                 typeof this.$wire?.$set !== 'function'
-            ) {
+            )
                 return
-            }
-
+            if (
+                this.dataHash() !== this.initialDataHash &&
+                !window.confirm(this.localDraftRestoreConfirm)
+            )
+                return
             const data = this.clone(this.localDraft)
-
-            if (data === null) {
+            if (data === null) return
+            const current = await this.withDraftLock(
+                () =>
+                    this.recoveredDraftKey !== null &&
+                    this.getLocalStorage()?.getItem(this.recoveredDraftKey) ===
+                        this.recoveredDraftRaw,
+            )
+            if (!current) {
+                if (!this.localDraftUnavailable) {
+                    this.refreshRecoveredDraft()
+                    this.localDraftChanged = true
+                }
                 return
             }
-
             this.$wire.$set('data', data)
-            this.clearLocalDraft()
             this.$nextTick(() => this.queueLocalDraft())
         },
 
-        discardLocalDraft() {
-            this.clearLocalDraft()
+        async discardLocalDraft() {
+            if (!window.confirm(this.localDraftDiscardConfirm)) return
+            if (await this.removeRecoveredDraft()) {
+                this.refreshRecoveredDraft()
+            } else if (!this.localDraftUnavailable) {
+                this.refreshRecoveredDraft()
+                this.localDraftChanged = true
+            }
         },
 
-        clearLocalDraft() {
+        async removeRecoveredDraft() {
+            return this.withDraftLock(() => {
+                if (
+                    this.recoveredDraftKey === null ||
+                    this.getLocalStorage()?.getItem(this.recoveredDraftKey) !==
+                        this.recoveredDraftRaw
+                )
+                    return false
+                this.getLocalStorage()?.removeItem(this.recoveredDraftKey)
+                return true
+            })
+        },
+
+        refreshRecoveredDraft() {
+            this.recoveredDraftKey = null
+            this.recoveredDraftRaw = null
+            this.localDraft = this.readStoredLocalDraft()
+            this.localDraftAvailable = this.localDraft !== null
+        },
+
+        changeDraftSession(context) {
+            if (
+                typeof context !== 'string' ||
+                context === '' ||
+                context === this.localDraftSession
+            )
+                return
+            this.localDraftGeneration++
             if (this.localDraftTimer !== null) {
                 window.clearTimeout(this.localDraftTimer)
                 this.localDraftTimer = null
             }
+            this.localDraftSession = context
+            this.lastDurableDataHash = null
+            this.refreshRecoveredDraft()
+            this.queueLocalDraft()
+        },
 
+        isSaveCall(call) {
+            const names = ['saveAsDraft', 'saveAsDraftWithLocation']
+            if (call?.method === 'save' || names.includes(call?.method))
+                return true
+            if (call?.method === 'mountAction')
+                return names.includes(call?.params?.[0])
+            if (call?.method === 'callMountedAction') {
+                const actions = this.$wire?.mountedActions
+                return (
+                    Array.isArray(actions) &&
+                    names.includes(actions.at(-1)?.name)
+                )
+            }
+            return false
+        },
+
+        captureSaveSubmission() {
+            const key = this.currentDraftKey()
+            let raw = null
             try {
-                this.removeStoredLocalDraft()
+                raw = this.getLocalStorage()?.getItem(key) ?? null
             } catch {
-                // Storage cleanup is best effort and must not interrupt the editor.
+                this.localDraftUnavailable = true
             }
-
-            this.localDraft = null
-            this.localDraftAvailable = false
+            return { key, raw, hash: this.dataHash() }
         },
 
-        markEditorSaved() {
-            this.initialDataHash = this.dataHash()
-            this.clearLocalDraft()
-        },
-
-        removeStoredLocalDraft() {
-            if (this.localDraftStorageKey !== '' && window.localStorage) {
-                window.localStorage.removeItem(this.localDraftStorageKey)
+        async markEditorSaved(acknowledgedData) {
+            const acknowledged = this.clone(acknowledgedData)
+            if (acknowledged === null || typeof acknowledged !== 'object') {
+                this.queueLocalDraft()
+                return
             }
+
+            this.initialDataHash = this.dataHash(acknowledged)
+            this.localDraftGeneration++
+            if (this.localDraftTimer !== null) {
+                window.clearTimeout(this.localDraftTimer)
+                this.localDraftTimer = null
+            }
+            const currentHash = this.dataHash()
+            if (currentHash !== this.initialDataHash) {
+                this.queueLocalDraft()
+                return
+            }
+
+            this.lastDurableDataHash = this.initialDataHash
+            const matching = this.saveSubmissions.filter(
+                (entry) =>
+                    entry.key === this.currentDraftKey() &&
+                    entry.hash === this.initialDataHash,
+            )
+            if (matching.length === 0) return
+            const observed = matching[0].raw
+            if (
+                observed === null ||
+                matching.some((entry) => entry.raw !== observed)
+            )
+                return
+            await this.withDraftLock(() => {
+                const storage = this.getLocalStorage()
+                if (storage === null) return false
+                if (storage.getItem(this.currentDraftKey()) === observed) {
+                    storage.removeItem(this.currentDraftKey())
+                }
+                return true
+            })
         },
 
         currentData() {
@@ -501,6 +690,39 @@ export default function capellContentLockHeartbeat(config) {
             }
         },
 
+        saveEmergencyDraft() {
+            const storage = this.getLocalStorage()
+            const data = this.currentData()
+            if (
+                storage === null ||
+                this.localDraftStorageKey === '' ||
+                data === null ||
+                this.dataHash(data) === this.initialDataHash
+            )
+                return
+
+            try {
+                const revision = window.crypto.randomUUID()
+                const key = `${this.localDraftStorageKey}:emergency:${revision}`
+                if (storage.getItem(key) !== null) {
+                    this.localDraftUnavailable = true
+                    return
+                }
+                // Each emergency key is immutable; other sessions never write to it.
+                storage.setItem(
+                    key,
+                    JSON.stringify({
+                        version: this.localDraftVersion,
+                        data,
+                        savedAt: Date.now(),
+                        revision,
+                    }),
+                )
+            } catch {
+                this.localDraftUnavailable = true
+            }
+        },
+
         release(useBeacon = false) {
             if (this.released) {
                 return Promise.resolve()
@@ -510,6 +732,9 @@ export default function capellContentLockHeartbeat(config) {
                 window.clearTimeout(this.localDraftTimer)
                 this.localDraftTimer = null
                 this.persistLocalDraft()
+            }
+            if (this.dataHash() !== this.lastDurableDataHash) {
+                this.saveEmergencyDraft()
             }
 
             this.released = true

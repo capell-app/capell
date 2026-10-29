@@ -74,6 +74,38 @@
                             {{ trans_choice('capell-admin::reports.publishing_readiness_blocker_count', count($readiness->blockingCheckIds), ['count' => count($readiness->blockingCheckIds)]) }}
                         </dd>
                     </div>
+                    <div class="space-y-2">
+                        <dt class="sr-only">
+                            {{ __('capell-admin::reports.publishing_readiness_blockers') }}
+                        </dt>
+                        <dd>
+                            <ul
+                                class="list-disc space-y-2 pl-5 text-gray-700 dark:text-gray-300"
+                            >
+                                @foreach ($readiness->blockingCheckIds as $checkId)
+                                    <li>
+                                        {{ __('capell-admin::publish_panel.blocker_' . str_replace(['publishing.', '.', '-'], ['', '_', '_'], $checkId)) }}
+                                        @if ($checkId === 'publishing.url.active-missing')
+                                            <span
+                                                class="block text-xs"
+                                                >{{ $this->pageUrlRecoveryInstruction() }}</span
+                                            >
+                                        @elseif ($this->canManage())
+                                            <span
+                                                class="block text-xs"
+                                                >{{ __('capell-admin::publish_panel.blocker_next_' . str_replace(['publishing.', '.', '-'], ['', '_', '_'], $checkId)) }}</span
+                                            >
+                                        @else
+                                            <span
+                                                class="block text-xs"
+                                                >{{ __('capell-admin::publish_panel.blocker_ask_editor') }}</span
+                                            >
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </dd>
+                    </div>
                 @endif
             </dl>
         @endif

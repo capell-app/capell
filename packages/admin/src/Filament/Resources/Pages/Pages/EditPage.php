@@ -30,6 +30,7 @@ use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ListenerEnum;
 use Capell\Admin\Enums\PageEditorLockOperation;
+use Capell\Admin\Enums\PageEditorScratchDraftStatus;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\ForceDeleteAction;
 use Capell\Admin\Filament\Actions\Page\CreatePageAction;
@@ -62,6 +63,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -123,6 +125,12 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Locked]
     public array $descendantUrlChanges = [];
 
+    #[Locked]
+    public string $scratchDraftContext = '';
+
+    #[Locked]
+    public ?string $scratchDraftRevision = null;
+
     protected bool $savingAsDraft = false;
 
     /** @var list<string> */
@@ -143,9 +151,18 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Override]
     public function mount(int|string $record): void
     {
+        $this->scratchDraftContext = 'page-editor:' . Str::uuid();
         parent::mount($record);
 
         $this->acquirePageLock();
+    }
+
+    #[Override]
+    public function hydrate(): void
+    {
+        if ($this->scratchDraftContext === '') {
+            $this->scratchDraftContext = 'page-editor:' . Str::uuid();
+        }
     }
 
     public function hasPageHierarchy(): bool
@@ -451,18 +468,43 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             user: $this->currentUser(),
             locale: app()->getLocale(),
             payload: $this->data,
+            context: $this->scratchDraftContext,
+            expectedRevision: $this->scratchDraftRevision,
         ));
+
+        if ($result->status === PageEditorScratchDraftStatus::Conflict) {
+            $newContext = 'page-editor:' . Str::uuid();
+            $replacement = SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+                page: $this->record,
+                user: $this->currentUser(),
+                locale: app()->getLocale(),
+                payload: $this->data,
+                context: $newContext,
+            ));
+            if ($replacement->wasSaved()) {
+                $this->scratchDraftContext = $newContext;
+                $this->scratchDraftRevision = $replacement->revision;
+                $this->dispatch('page-scratch-context-changed', pageId: (int) $this->record->getKey(), context: $newContext);
+                $this->dispatch('page-scratch-draft-conflict', pageId: (int) $this->record->getKey(), currentContext: $newContext);
+                Notification::make('editor-scratch-draft-conflict')->warning()->title(__('capell-admin::scratch_drafts.conflict_preserved'))->send();
+            } else {
+                Notification::make('editor-scratch-draft-conflict')->warning()->title(__('capell-admin::scratch_drafts.conflict'))->send();
+            }
+
+            return;
+        }
 
         if (! $result->wasSaved()) {
             return;
         }
 
+        $this->scratchDraftRevision = $result->revision;
         $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
     }
 
     /** @param array<string, mixed> $data */
     #[On('page-scratch-draft-restored')]
-    public function restoreEditorScratchDraft(int $pageId, array $data): void
+    public function restoreEditorScratchDraft(int $pageId, array $data, ?int $draftId = null, ?string $revision = null, ?string $contentHash = null): void
     {
         $user = $this->currentUser();
 
@@ -471,6 +513,26 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             || ! Gate::forUser($user)->allows('update', $this->record)
         ) {
             return;
+        }
+
+        if ($draftId !== null) {
+            $draft = EditorScratchDraft::query()
+                ->whereKey($draftId)->where('user_id', $user->getAuthIdentifier())
+                ->where('site_id', $this->record->site_id)->where('record_type', $this->record->getMorphClass())
+                ->where('record_id', $this->record->getKey())->where('locale', app()->getLocale())
+                ->where(fn ($query) => $query->where('context', 'page-editor')->orWhere('context', 'like', 'page-editor:%'))
+                ->where('revision', $revision)->where('content_hash', $contentHash)
+                ->where('expires_at', '>', now())->first();
+            if ($draft === null || $draft->payload !== $data) {
+                $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
+                Notification::make('editor-scratch-draft-changed')->warning()->title(__('capell-admin::scratch_drafts.changed'))->send();
+
+                return;
+            }
+
+            if ($draft->context === $this->scratchDraftContext) {
+                $this->scratchDraftRevision = $draft->revision;
+            }
         }
 
         $this->data = $data;
@@ -992,6 +1054,11 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ->viewData([
                 'config' => [
                     ...$session->configuration(),
+                    'localDraftSession' => $this->scratchDraftContext,
+                    'localDraftChangedMessage' => (string) __('capell-admin::scratch_drafts.local_changed'),
+                    'localDraftUnavailableMessage' => (string) __('capell-admin::scratch_drafts.local_unavailable'),
+                    'localDraftDiscardConfirm' => (string) __('capell-admin::scratch_drafts.discard_confirm'),
+                    'localDraftRestoreConfirm' => (string) __('capell-admin::scratch_drafts.restore_confirm'),
                     'localDraftAvailableMessage' => (string) __('capell-admin::scratch_drafts.local_available'),
                     'localDraftRestoreLabel' => (string) __('capell-admin::scratch_drafts.local_restore'),
                     'localDraftDiscardLabel' => (string) __('capell-admin::scratch_drafts.local_discard'),
@@ -1056,6 +1123,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     private function notifyEditorSaved(): void
     {
         $this->dispatch('page-editor-saved', pageId: (int) $this->record->getKey());
+        $this->dispatch('page-editor-save-acknowledged', pageId: (int) $this->record->getKey(), data: is_array($this->data) ? $this->data : null);
     }
 
     private function discardEditorScratchDraft(): void
@@ -1064,10 +1132,16 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             page: $this->record,
             user: $this->currentUser(),
             locale: app()->getLocale(),
+            context: $this->scratchDraftContext,
+            expectedRevision: $this->scratchDraftRevision,
         );
 
         if (! $result->hasUser()) {
             return;
+        }
+
+        if ($result->affectedRows === 1) {
+            $this->scratchDraftRevision = null;
         }
 
         $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());

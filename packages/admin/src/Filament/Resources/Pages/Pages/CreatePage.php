@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\BuildDefaultTranslationsAction;
+use Capell\Admin\Actions\Pages\PageCreationRecoveryAction;
 use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
 use Capell\Admin\Actions\Pages\SavePageAuthoringAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
@@ -21,6 +22,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -28,15 +30,20 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Override;
 
 /**
  * @property Page $record
+ * @property-read ?EditorScratchDraft $creationRecovery
  */
 class CreatePage extends CreateRecord implements HasPageResource
 {
@@ -44,6 +51,18 @@ class CreatePage extends CreateRecord implements HasPageResource
 
     #[Url]
     public ?string $type = null;
+
+    #[Locked]
+    public string $creationRecoveryContext = '';
+
+    #[Locked]
+    public ?string $creationRecoveryRevision = null;
+
+    #[Locked]
+    public ?int $creationRecoverySite = null;
+
+    #[Locked]
+    public bool $creationRecoveryConflict = false;
 
     protected bool $createdAsDraft = false;
 
@@ -86,6 +105,7 @@ class CreatePage extends CreateRecord implements HasPageResource
     #[Override]
     public function mount(?Page $record = null): void
     {
+        $this->creationRecoveryContext = 'page-create:' . Str::uuid();
         parent::mount();
 
         if (Language::query()->count() === 0) {
@@ -96,6 +116,110 @@ class CreatePage extends CreateRecord implements HasPageResource
 
         if (! Site::query()->exists()) {
             $this->redirect(SiteResource::getUrl('create'));
+        }
+    }
+
+    #[Override]
+    public function hydrate(): void
+    {
+        if ($this->creationRecoveryContext === '') {
+            $this->creationRecoveryContext = 'page-create:' . Str::uuid();
+        }
+    }
+
+    #[Override]
+    public function content(Schema $schema): Schema
+    {
+        return $schema->components([
+            View::make('capell-admin::livewire.page-creation-recovery'),
+            $this->getFormContentComponent(),
+        ]);
+    }
+
+    public function updatedData(mixed $value = null, ?string $key = null): void
+    {
+        $site = $this->recoverySiteId();
+        if ($site === null || ! is_array($this->data)) {
+            Notification::make('creation-recovery-site-required')->warning()->title(__('capell-admin::scratch_drafts.creation_site_required'))->send();
+
+            return;
+        }
+
+        if ($this->creationRecoverySite !== $site) {
+            $this->creationRecoveryContext = 'page-create:' . Str::uuid();
+            $this->creationRecoveryRevision = null;
+            $this->creationRecoveryConflict = false;
+            $this->creationRecoverySite = $site;
+        }
+
+        $revision = resolve(PageCreationRecoveryAction::class)->save(
+            $this->recoveryUser(),
+            $site,
+            app()->getLocale(),
+            $this->creationRecoveryContext,
+            $this->creationRecoveryRevision,
+            $this->data,
+        );
+        if ($revision === null) {
+            $newContext = 'page-create:' . Str::uuid();
+            $revision = resolve(PageCreationRecoveryAction::class)->save(
+                $this->recoveryUser(),
+                $site,
+                app()->getLocale(),
+                $newContext,
+                null,
+                $this->data,
+            );
+            if ($revision !== null) {
+                $this->creationRecoveryContext = $newContext;
+                $this->creationRecoveryConflict = true;
+                Notification::make('creation-recovery-conflict')->warning()->title(__('capell-admin::scratch_drafts.conflict_preserved'))->send();
+            } else {
+                Notification::make('creation-recovery-unavailable')->warning()->title(__('capell-admin::scratch_drafts.conflict'))->send();
+            }
+        }
+
+        if ($revision !== null) {
+            $this->creationRecoveryRevision = $revision;
+        }
+
+        unset($this->creationRecovery);
+    }
+
+    #[Computed]
+    public function creationRecovery(): ?EditorScratchDraft
+    {
+        $site = $this->recoverySiteId();
+
+        return $site === null ? null : resolve(PageCreationRecoveryAction::class)->find($this->recoveryUser(), $site, app()->getLocale(), $this->creationRecoveryContext);
+    }
+
+    public function restoreCreationRecovery(int $id, ?string $revision, string $hash): void
+    {
+        $draft = $this->creationRecovery;
+        $revision = $revision === '' ? null : $revision;
+        if (! $draft instanceof EditorScratchDraft || $draft->id !== $id || $draft->revision !== $revision || $draft->content_hash !== $hash) {
+            unset($this->creationRecovery);
+            Notification::make('creation-recovery-changed')->warning()->title(__('capell-admin::scratch_drafts.recovery_changed'))->send();
+
+            return;
+        }
+
+        if ($draft->context === $this->creationRecoveryContext) {
+            $this->creationRecoveryRevision = $draft->revision;
+            $this->creationRecoveryConflict = false;
+        }
+
+        $this->data = $draft->payload;
+    }
+
+    public function discardCreationRecovery(int $id, ?string $revision, string $hash): void
+    {
+        $site = $this->recoverySiteId();
+        $discarded = $site !== null && resolve(PageCreationRecoveryAction::class)->discard($this->recoveryUser(), $site, app()->getLocale(), $id, $revision === '' ? null : $revision, $hash);
+        unset($this->creationRecovery);
+        if (! $discarded) {
+            Notification::make('creation-recovery-changed')->warning()->title(__('capell-admin::scratch_drafts.recovery_changed'))->send();
         }
     }
 
@@ -281,5 +405,28 @@ class CreatePage extends CreateRecord implements HasPageResource
             formData: is_array($this->data) ? $this->data : [],
             notifyCache: true,
         ));
+        if ($this->creationRecoverySite !== null) {
+            resolve(PageCreationRecoveryAction::class)->discardSession($this->recoveryUser(), $this->creationRecoverySite, app()->getLocale(), $this->creationRecoveryContext, $this->creationRecoveryRevision);
+            $this->creationRecoveryRevision = null;
+        }
+    }
+
+    private function recoverySiteId(): ?int
+    {
+        if (! is_array($this->data) || ! array_key_exists('site_id', $this->data)) {
+            return ResolvePageCreationSiteAction::run()?->id;
+        }
+
+        $selected = $this->data['site_id'];
+
+        return is_numeric($selected) && (int) $selected > 0 ? (int) $selected : null;
+    }
+
+    private function recoveryUser(): ?Authenticatable
+    {
+        $user = auth()->user();
+        $resource = static::getResource();
+
+        return $user instanceof Authenticatable && $resource::canCreate() ? $user : null;
     }
 }

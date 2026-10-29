@@ -16,5 +16,7 @@ final class PageEditorScratchDraftInputData extends Data
         public readonly ?Authenticatable $user,
         public readonly string $locale,
         public readonly array $payload,
+        public readonly string $context = 'page-editor',
+        public readonly ?string $expectedRevision = null,
     ) {}
 }

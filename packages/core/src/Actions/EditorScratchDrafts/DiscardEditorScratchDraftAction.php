@@ -17,8 +17,12 @@ final class DiscardEditorScratchDraftAction
 
     public function handle(Model $record, Authenticatable $user, string $locale, string $context): int
     {
-        return EditorScratchDraft::query()
-            ->forEditor($user, $record, $locale, $context)
-            ->delete();
+        return $record->getConnection()->transaction(function () use ($record, $user, $locale, $context): int {
+            $record->newQuery()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+            return EditorScratchDraft::query()
+                ->forEditor($user, $record, $locale, $context)
+                ->delete();
+        });
     }
 }

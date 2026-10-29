@@ -68,6 +68,12 @@ final class HasRetainedDeletionDependenciesAction
     private function hasRetainedPageDrafts(Site $site): bool
     {
         $drafts = EditorScratchDraft::query()->where('site_id', $site->getKey());
+        if ((clone $drafts)->where('record_id', 0)->where('context', 'like', 'page-create:%')
+            ->where(fn (Builder $query): Builder => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->exists()) {
+            return true;
+        }
+
         foreach ((clone $drafts)->distinct()->pluck('record_type') as $morphType) {
             $pageClass = Relation::getMorphedModel($morphType) ?? $morphType;
             if (! is_a($pageClass, Page::class, true)) {

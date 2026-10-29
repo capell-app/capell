@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 return [
     'activate' => 'Activate',
+    'blocker_blueprint_missing' => 'Page type is missing.',
+    'blocker_layout_missing' => 'Layout is missing.',
+    'blocker_translation_missing' => 'This page has no translations.',
+    'blocker_url_active_missing' => 'This page has no active URL.',
+    'blocker_next_blueprint_missing' => 'Choose an available page type in the page settings.',
+    'blocker_next_layout_missing' => 'Choose an available layout in the page settings.',
+    'blocker_next_translation_missing' => 'Add a translation in the page editor.',
+    'blocker_next_url_active_missing' => 'Add an active URL in the URLs tab.',
+    'blocker_next_url_enable' => 'Enable an existing URL in the URLs tab.',
+    'blocker_ask_editor' => 'Ask an editor with access to resolve this.',
     'created' => 'Created',
     'deactivate' => 'Deactivate',
     'edit' => 'Edit',

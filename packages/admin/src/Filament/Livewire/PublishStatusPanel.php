@@ -22,6 +22,7 @@ use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -308,6 +309,30 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
     public function canManage(): bool
     {
         return $this->canEdit();
+    }
+
+    public function pageUrlRecoveryInstruction(): string
+    {
+        $user = $this->actor();
+        $record = $this->record();
+        if (! $user instanceof AuthenticatedUser || ! $record instanceof Page || ! $this->canEdit()) {
+            return __('capell-admin::publish_panel.blocker_ask_editor');
+        }
+
+        $gate = Gate::forUser($user);
+        if (! $gate->allows('viewAny', PageUrl::class)) {
+            return __('capell-admin::publish_panel.blocker_ask_editor');
+        }
+
+        foreach ($record->pageUrls()->status(false)->lazy() as $url) {
+            if ($gate->allows('view', $url) && $gate->allows('update', $url)) {
+                return __('capell-admin::publish_panel.blocker_next_url_enable');
+            }
+        }
+
+        return $gate->allows('create', PageUrl::class)
+            ? __('capell-admin::publish_panel.blocker_next_url_active_missing')
+            : __('capell-admin::publish_panel.blocker_ask_editor');
     }
 
     private function record(): Model

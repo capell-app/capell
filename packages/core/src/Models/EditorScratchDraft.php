@@ -26,6 +26,7 @@ use Override;
  * @property int $record_id
  * @property string $context
  * @property array<string, mixed> $payload
+ * @property string|null $revision
  * @property string $content_hash
  * @property CarbonImmutable $saved_at
  * @property CarbonImmutable $expires_at
@@ -49,6 +50,7 @@ final class EditorScratchDraft extends Model
         'context',
         'payload',
         'content_hash',
+        'revision',
         'saved_at',
         'expires_at',
     ];

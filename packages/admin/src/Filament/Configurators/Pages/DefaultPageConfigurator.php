@@ -27,6 +27,7 @@ use Capell\Admin\Filament\Concerns\HasConfigurator;
 use Capell\Admin\Filament\Concerns\HasDefaultRelationManagers;
 use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
+use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Enums\BlueprintGroupEnum;
@@ -302,6 +303,9 @@ class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelation
 
         return Livewire::make(PageScratchDraftPanel::class, [
             'pageId' => (int) ($record instanceof Model ? $record->getKey() : 0),
+            'currentContext' => $schema->getLivewire() instanceof EditPage
+                ? $schema->getLivewire()->scratchDraftContext
+                : null,
         ]);
     }
 
