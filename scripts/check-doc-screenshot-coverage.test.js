@@ -182,6 +182,29 @@ test('preserves required visuals, broken refs, manifest output, and duplicate ID
     assert.equal(result.failures.length, 4)
 })
 
+test('accepts the versioned upgrade text without a visual but still checks its image references', (t) => {
+    const repoRoot = createRepository({
+        'packages/core/resources/upgrade-guide.md':
+            '# Versioned upgrade steps\n\n## v1.0.0\n\nBack up the database.',
+    })
+    t.after(() => removeRepository(repoRoot))
+
+    const options = {
+        cwd: repoRoot,
+        repoRoots: [repoRoot],
+        screenshotManifests: [],
+    }
+    assert.deepEqual(runAudit(options).markdownResult.missingVisuals, [])
+
+    fs.writeFileSync(
+        path.join(repoRoot, 'packages/core/resources/upgrade-guide.md'),
+        '![Missing](missing.png)',
+    )
+    assert.deepEqual(runAudit(options).markdownResult.brokenVisuals, [
+        'packages/core/resources/upgrade-guide.md -> missing.png',
+    ])
+})
+
 test('prints warnings without turning them into a failing report', () => {
     const calls = { error: [], log: [], warn: [] }
     const output = {
