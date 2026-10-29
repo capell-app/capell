@@ -117,6 +117,32 @@ if ($requestedNodeStages !== [] && ! is_dir(dirname(__DIR__) . '/node_modules'))
     exit(2);
 }
 
+/**
+ * scripts/screenshots/prepare-workbench.sh rewrites the shared Testbench
+ * skeleton under vendor/ (providers, migrations, caches, published assets) and
+ * leaves a marker there. Tests and static analysis booted from that skeleton
+ * fail in ways that look like regressions, so stop before running them.
+ * Reinstalling the package restores a pristine skeleton and removes the marker.
+ *
+ * @var list<string> $skeletonStages
+ */
+$skeletonStages = ['phpstan', 'tests'];
+$skeletonMarker = dirname(__DIR__) . '/vendor/orchestra/testbench-core/laravel/.capell-workbench-prepared';
+
+if (array_intersect($skeletonStages, array_keys($stages)) !== [] && is_file($skeletonMarker)) {
+    fwrite(STDERR, <<<'MESSAGE'
+        The shared Testbench skeleton was rewritten by scripts/screenshots/prepare-workbench.sh, so
+        tests and static analysis would fail for reasons unrelated to your change.
+
+        Restore a pristine skeleton, or run workbench and screenshot work from a separate checkout:
+
+            composer reinstall orchestra/testbench-core --no-scripts
+
+        MESSAGE);
+
+    exit(2);
+}
+
 $composer = getenv('COMPOSER_BINARY');
 $composer = is_string($composer) && $composer !== '' ? $composer : 'composer';
 $results = [];
