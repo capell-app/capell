@@ -18,6 +18,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -109,7 +110,7 @@ final class SiteAccessQueryAllowList
                 'getDefault|$model::getDefault()',
                 'total|$model::query()->enabled()->count()',
                 // The query returns global Language definitions only; no site record, content or usage count is exposed.
-                'languages|' . Language::class . '::query()->whereRelation(\'sites\', \'sites.id\', $siteId)->enabled()->ordered()->get()',
+                'languages|' . Language::class . ("::query()->whereRelation('sites', " . TableName::class . '::resolve(\'sites\') . \'.id\', $siteId)->enabled()->ordered()->get()'),
             ],
             // Global existence checks prevent deleting still-referenced definitions.
             // Their notification counts are separately scoped through SiteAccess.
@@ -124,13 +125,13 @@ final class SiteAccessQueryAllowList
             // no foreign usage count or foreign record exposed to the actor.
             'packages/admin/src/Actions/Themes/ResolveThemeLibraryAction.php' => ['isUnusedLegacyFoundationTheme|$theme->sites()->exists()'],
             // Advisory snapshots and dismissals describe installed software, not sites.
-            'packages/admin/src/Filament/Pages/UpgradePage.php' => ['dismissNotice|' . DB::class . '::table(self::UPDATE_NOTICE_DISMISSALS_TABLE)->updateOrInsert([\'user_id\' => $userId, \'notice_id\' => $this->noticeId($notice)], [\'dismissed_until\' => null, \'updated_at\' => now(), \'created_at\' => now()])', 'dismissedNoticeIds|' . DB::class . '::table(self::UPDATE_NOTICE_DISMISSALS_TABLE)->where(\'user_id\', $userId)->where(function (\Illuminate\Database\Query\Builder $query): void {
+            'packages/admin/src/Filament/Pages/UpgradePage.php' => ['dismissNotice|' . DB::class . ('::table(' . TableName::class . '::resolve(self::UPDATE_NOTICE_DISMISSALS_TABLE))->updateOrInsert([\'user_id\' => $userId, \'notice_id\' => $this->noticeId($notice)], [\'dismissed_until\' => null, \'updated_at\' => now(), \'created_at\' => now()])'), 'dismissedNoticeIds|' . DB::class . ('::table(' . TableName::class . '::resolve(self::UPDATE_NOTICE_DISMISSALS_TABLE))->where(\'user_id\', $userId)->where(function (\Illuminate\Database\Query\Builder $query): void {
     $query->whereNull(\'dismissed_until\')->orWhere(\'dismissed_until\', \'>\', now());
-})->pluck(\'notice_id\')->filter(fn(mixed $noticeId): bool => is_string($noticeId) && $noticeId !== \'\')->mapWithKeys(fn(string $noticeId): array => [$noticeId => true])->all()'],
-            'packages/admin/src/Filament/Widgets/Dashboard/UpdateAdvisoryFilamentWidget.php' => ['criticalSecurityAdvisories|' . DB::class . "::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->latest('checked_at')->first()"],
-            'packages/admin/src/Actions/CheckForUpdatesAction.php' => ['recordLocalUpdateCheck|' . DB::class . "::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->insert(['source' => 'admin', 'checked_at' => now(), 'capell_version' => " . CapellCore::class . "::getInstalledPrettyVersion('capell-app/capell'), 'updates' => " . JsonCodec::class . "::encode([]), 'advisories' => " . JsonCodec::class . "::encode([]), 'metadata' => " . JsonCodec::class . "::encode(['installed_packages' => " . ResolveInstalledComposerVersionsAction::class . "::run()]), 'created_at' => now(), 'updated_at' => now()])"],
-            'packages/admin/src/Actions/Upgrade/ReadLatestUpgradeSnapshotAction.php' => ['handle|' . DB::class . "::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->latest('checked_at')->first()"],
-            'packages/admin/src/Actions/Upgrade/RecordUpgradeSnapshotAction.php' => ['handle|' . DB::class . '::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->insert([\'source\' => $source, \'checked_at\' => now(), \'capell_version\' => $capellVersion ?? ' . CapellCore::class . "::getInstalledPrettyVersion('capell-app/capell'), 'updates' => " . JsonCodec::class . '::encode($updates), \'advisories\' => ' . JsonCodec::class . '::encode($advisories), \'metadata\' => ' . JsonCodec::class . '::encode($metadata), \'created_at\' => now(), \'updated_at\' => now()])'],
+})->pluck(\'notice_id\')->filter(fn(mixed $noticeId): bool => is_string($noticeId) && $noticeId !== \'\')->mapWithKeys(fn(string $noticeId): array => [$noticeId => true])->all()')],
+            'packages/admin/src/Filament/Widgets/Dashboard/UpdateAdvisoryFilamentWidget.php' => ['criticalSecurityAdvisories|' . DB::class . ('::table(' . TableName::class . "::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))->latest('checked_at')->first()")],
+            'packages/admin/src/Actions/CheckForUpdatesAction.php' => ['recordLocalUpdateCheck|' . DB::class . ('::table(' . TableName::class . "::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))->insert(['source' => 'admin', 'checked_at' => now(), 'capell_version' => ") . CapellCore::class . "::getInstalledPrettyVersion('capell-app/capell'), 'updates' => " . JsonCodec::class . "::encode([]), 'advisories' => " . JsonCodec::class . "::encode([]), 'metadata' => " . JsonCodec::class . "::encode(['installed_packages' => " . ResolveInstalledComposerVersionsAction::class . "::run()]), 'created_at' => now(), 'updated_at' => now()])"],
+            'packages/admin/src/Actions/Upgrade/ReadLatestUpgradeSnapshotAction.php' => ['handle|' . DB::class . ('::table(' . TableName::class . "::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))->latest('checked_at')->first()")],
+            'packages/admin/src/Actions/Upgrade/RecordUpgradeSnapshotAction.php' => ['handle|' . DB::class . ('::table(' . TableName::class . '::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))->insert([\'source\' => $source, \'checked_at\' => now(), \'capell_version\' => $capellVersion ?? ') . CapellCore::class . "::getInstalledPrettyVersion('capell-app/capell'), 'updates' => " . JsonCodec::class . '::encode($updates), \'advisories\' => ' . JsonCodec::class . '::encode($advisories), \'metadata\' => ' . JsonCodec::class . '::encode($metadata), \'created_at\' => now(), \'updated_at\' => now()])'],
             // pages() here is an extension registry or a helper returning an
             // already SiteAccess-scoped stream, rather than an Eloquent relation.
             'packages/admin/src/Filament/Plugin/CapellAdminPlugin.php' => ['register|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()', 'discoverInstalledPackageFilamentPages|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()'],
@@ -165,7 +166,10 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Actions/Pages/RecordDescendantUrlRedirectsAction.php' => ['handle|$request->page->newQuery()->whereDescendantOf($request->page->getKey())->get()->filter(fn(\Illuminate\Database\Eloquent\Model $descendant): bool => $descendant instanceof \Capell\Core\Contracts\Pageable)->keyBy(fn(\Illuminate\Database\Eloquent\Model $descendant): int => (int) $descendant->getKey())', 'urlChangedFor|$descendant->pageUrls()->where(\'language_id\', $languageId)->where(fn(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder => $query->whereNull(\'type\')->orWhere(\'type\', \'!=\', ' . UrlTypeEnum::class . "::Redirect))->value('url')"],
             // The invocation's actor/site and page have already been authorised;
             // this pivot read only acquires transaction locks, returning no content.
-            'packages/admin/src/Support/Agent/AgentAdminToolInvocationService.php' => ['lockWriteTargets|' . DB::class . '::table(\'page_term\')->where(\'page_id\', $pageId)->lockForUpdate()->get()'],
+            'packages/admin/src/Support/Agent/AgentAdminToolInvocationService.php' => [
+                // The settings repository table holds group payloads, not site-owned rows; the group was authorised upstream.
+                'lockWriteTargets|' . DB::class . '::table((string) (config(\'settings.repositories.database.table\') ?: \'settings\'))->where(\'group\', (string) ($invocation->payload[\'group\'] ?? \'\'))->lockForUpdate()->get()',
+                'lockWriteTargets|' . DB::class . ('::table(' . TableName::class . '::resolve(\'page_term\'))->where(\'page_id\', $pageId)->lockForUpdate()->get()')],
             'packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php' => [
                 // Filament resolves and authorises this page; its translations belong only to that page morph/key.
                 'pageTypeContentStructureUpdated|$this->record->translations',
@@ -176,7 +180,7 @@ final class SiteAccessQueryAllowList
                 // The caller supplies the scoped PageResource query; translation predicates stay correlated to those pages.
                 'applyNameSearch|$query->where(\'name\', \'like\', sprintf(\'%%%s%%\', $search))->orWhereHas(\'translations\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'title\', \'like\', sprintf(\'%%%s%%\', $search)))',
                 // Only global language names/codes are returned; the site predicate selects definitions without returning site data.
-                'getLanguageSearchResults|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'sites.id\', $activeTabSiteId))',
+                'getLanguageSearchResults|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(' . TableName::class . '::resolve(\'sites\') . \'.id\', $activeTabSiteId))',
                 // PageResource supplies the SiteAccess-scoped page query; the translation filter stays correlated to each visible page.
                 'applyFilterQuery|$query->whereHas(\'translations\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'language_id\', (int) $languageId))',
                 // PageResource supplies the SiteAccess-scoped page query; the translation filter stays correlated to each visible page.
@@ -194,7 +198,7 @@ final class SiteAccessQueryAllowList
             ],
             'packages/admin/src/Actions/HeaderNavigation/SearchHeaderNavigationPagesAction.php' => [
                 // The caller starts at SiteAccess::forActor; this nested search predicate stays correlated to its visible pages.
-                'applySearchConstraint|$query->where(\'pages.name\', \'like\', $like)->orWhereHas(\'translations\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'title\', \'like\', $like)->orWhere(\'meta->slug\', \'like\', $like))->orWhereHas(\'pageUrls\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'url\', \'like\', $like))',
+                'applySearchConstraint|$query->where(' . TableName::class . '::resolve(\'pages\') . \'.name\', \'like\', $like)->orWhereHas(\'translations\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'title\', \'like\', $like)->orWhere(\'meta->slug\', \'like\', $like))->orWhereHas(\'pageUrls\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'url\', \'like\', $like))',
             ],
             'packages/admin/src/Actions/Themes/CreateAvailableThemeAction.php' => [
                 // The receiver is a validated ThemeDefinitionData from the definition catalogue; assets are path strings, not a relation.
@@ -219,7 +223,7 @@ final class SiteAccessQueryAllowList
             ],
             'packages/admin/src/Filament/Imports/RedirectImporter.php' => [
                 // This is a LanguageSelect query returning global language definitions only; its site predicate exposes no site content or count.
-                'getOptionsFormComponents|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'sites.id\', $siteId))',
+                'getOptionsFormComponents|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(' . TableName::class . '::resolve(\'sites\') . \'.id\', $siteId))',
             ],
             'packages/admin/src/Filament/Resources/Media/MediaResource.php' => [
                 // scopeMedia authorises each media owner before this read; translations are bounded to that exact media morph/key.
@@ -227,13 +231,13 @@ final class SiteAccessQueryAllowList
             ],
             'packages/admin/src/Filament/Resources/PageUrls/Schemas/PageUrlForm.php' => [
                 // PageMorphToSelect supplies the SiteAccess-scoped page query; translations stay correlated to each visible page.
-                'getFormSchema|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'sites.id\', $siteId))',
+                'getFormSchema|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(' . TableName::class . '::resolve(\'sites\') . \'.id\', $siteId))',
                 // PageMorphToSelect supplies the SiteAccess-scoped page query; translations stay correlated to each visible page.
                 'getFormSchema|$query->whereHas(\'translations\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'language_id\', $get(\'language_id\')))',
             ],
             'packages/admin/src/Filament/Resources/Redirects/Schemas/RedirectForm.php' => [
                 // This is a LanguageSelect query returning global language definitions only; its site predicate exposes no site content or count.
-                'getFormSchema|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(\'sites.id\', $siteId))',
+                'getFormSchema|$query->whereHas(\'sites\', fn(Illuminate\Contracts\Database\Eloquent\Builder $query): Illuminate\Contracts\Database\Eloquent\Builder => $query->where(' . TableName::class . '::resolve(\'sites\') . \'.id\', $siteId))',
             ],
         ];
     }
