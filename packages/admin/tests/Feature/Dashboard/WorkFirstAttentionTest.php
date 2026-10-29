@@ -22,6 +22,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
 uses(CreatesAdminUser::class);
@@ -138,12 +139,20 @@ it('retains verified recovery after reload and preserves other personal preferen
 
         public bool $verified = false;
 
+        public bool $historyAllowed = true;
+
         public function __construct(private readonly Page $page) {}
 
         #[Override]
         public function build(Authenticatable $actor, ?int $siteId, ?string $language): array
         {
             return $this->active ? [new DashboardAttentionItemData('optional-issue', 'v1', false, 'Optional issue', (int) $this->page->site_id, 'Site', 'Issue', [], null, pageId: (int) $this->page->id)] : [];
+        }
+
+        #[Override]
+        public function canViewHistory(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
+        {
+            return $candidate->key === 'optional-issue' && $this->historyAllowed;
         }
 
         #[Override]
@@ -164,6 +173,10 @@ it('retains verified recovery after reload and preserves other personal preferen
     $reloaded = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $page->site_id]]);
     expect($reloaded->get('issueResolved'))->toBeTrue();
     $reloaded->assertSee('Optional issue');
+    expect(Gate::forUser($actor)->allows('view', $page))->toBeTrue();
+    $contributor->historyAllowed = false;
+    expect(resolve(TrackDashboardAttentionRecoveryAction::class)->history($actor, (int) $page->site_id, null))->toBe([]);
+    $contributor->historyAllowed = true;
     $reloaded->call('acknowledgeRecovery');
 
     $again = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $page->site_id]]);
@@ -193,6 +206,12 @@ it('does not infer recovery from absence or a change of scope, and rechecks hist
         public function build(Authenticatable $actor, ?int $siteId, ?string $language): array
         {
             return $this->active && ($siteId === null || $siteId === $this->page->site_id) ? [new DashboardAttentionItemData('external-issue', 'v1', false, 'Private issue', (int) $this->page->site_id, 'Site', 'Issue', [], null, pageId: (int) $this->page->id)] : [];
+        }
+
+        #[Override]
+        public function canViewHistory(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
+        {
+            return $candidate->key === 'external-issue';
         }
 
         #[Override]
@@ -277,6 +296,12 @@ it('verifies urgent recovery across the selected language while retaining its sc
         }
 
         #[Override]
+        public function canViewHistory(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
+        {
+            return $candidate->key === 'urgent-external';
+        }
+
+        #[Override]
         public function isRecovered(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
         {
             $this->verifiedLanguage = $candidate->language;
@@ -306,6 +331,12 @@ it('bounds retained observations and verified history', function (): void {
         public function build(Authenticatable $actor, ?int $siteId, ?string $language): array
         {
             return [];
+        }
+
+        #[Override]
+        public function canViewHistory(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
+        {
+            return str_starts_with($candidate->key, 'bounded-');
         }
 
         #[Override]

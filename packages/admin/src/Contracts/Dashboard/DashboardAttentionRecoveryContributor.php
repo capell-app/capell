@@ -17,4 +17,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 interface DashboardAttentionRecoveryContributor
 {
     public function isRecovered(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool;
+
+    /** Return true only when this contributor's issue history remains visible to the actor. */
+    public function canViewHistory(Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool;
 }

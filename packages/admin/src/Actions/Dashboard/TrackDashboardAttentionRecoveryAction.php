@@ -136,6 +136,10 @@ final class TrackDashboardAttentionRecoveryAction
                 continue;
             }
 
+            if (! $this->canViewContributorHistory($actor, $candidate)) {
+                continue;
+            }
+
             $timezone = resolve(ResolveDashboardSiteTimezoneAction::class)->handle($site);
             $history[] = ['title' => $record['title'], 'site_name' => $site->name, 'resolved_at' => $record['resolved_at'], 'display_date' => $date->setTimezone($timezone)->format('j M Y, H:i'), 'timezone' => $timezone, 'acknowledged' => ($record['acknowledged'] ?? false) === true];
         }
@@ -177,6 +181,27 @@ final class TrackDashboardAttentionRecoveryAction
         }
 
         return new DashboardAttentionRecoveryCandidateData($record['key'], $record['fingerprint'], $record['site_id'], $record['page_id'] ?? null, $record['language'] ?? null);
+    }
+
+    private function canViewContributorHistory(Model&Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
+    {
+        if ($candidate->pageId !== null && $candidate->key === 'page-setup-' . $candidate->pageId) {
+            return true;
+        }
+
+        try {
+            return resolve(DashboardSiteEvaluator::class)->allows($actor, $candidate->siteId, function () use ($actor, $candidate): bool {
+                foreach (app()->tagged(DashboardAttentionContributor::TAG) as $contributor) {
+                    if ($contributor instanceof DashboardAttentionRecoveryContributor && $contributor->canViewHistory($actor, $candidate)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function isRecovered(Model&Authenticatable $actor, ?int $selectedSiteId, DashboardAttentionRecoveryCandidateData $candidate): bool
