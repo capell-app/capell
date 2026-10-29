@@ -40,7 +40,7 @@ it('reads latest version snapshots from a prefixed upgrade log', function (): vo
         ['type' => 'version_snapshot', 'key' => 'capell-app/core', 'status' => 'success', 'ran_at' => '2026-01-01 00:00:00', 'meta' => json_encode(['to_version' => '1.0'])],
         ['type' => 'version_snapshot', 'key' => 'capell-app/core', 'status' => 'success', 'ran_at' => '2026-02-01 00:00:00', 'meta' => json_encode(['to_version' => '2.0'])],
     ]);
-    expect(resolve(ReadLatestInstalledVersionsAction::class)->handle(['capell-app/core']))->toBe(['capell-app/core' => '2.0']);
+    expect(ReadLatestInstalledVersionsAction::run(['capell-app/core']))->toBe(['capell-app/core' => '2.0']);
 });
 
 it('ignores a foreign footprint and resolves required tables', function (): void {
@@ -69,7 +69,7 @@ it('reports collisions from a registered package before migrations run', functio
     $registry = resolve(MigrationRootRegistry::class);
     $registry->register('example/widgets', __DIR__ . '/../fixtures/table-naming/widget-package', ['2026_01_01_000001_create_widgets_table' => 'widgets']);
 
-    $collisions = resolve(FindTableCollisionsAction::class)->handle(['example/widgets']);
+    $collisions = FindTableCollisionsAction::run(['example/widgets']);
     expect(collect($collisions)->pluck('table')->all())->toContain('widgets')
         ->and(resolve('migrator')->getRepository()->repositoryExists())->toBeFalse();
 });
@@ -77,7 +77,7 @@ it('reports collisions from a registered package before migrations run', functio
 it('rejects a prefix that makes a non-colliding planned table exceed PostgreSQL limits', function (): void {
     $collision = new TableCollisionData('pages', 'pages', 'capell.database.table_aliases.pages', 'create_pages_table');
     $long = new TableCollisionData(str_repeat('x', 60), str_repeat('x', 60), 'capell.database.table_aliases.long', 'create_long_table');
-    expect(fn () => resolve(ResolveTableCollisionsAction::class)->handle([$collision], 'cms_', [], [$collision, $long]))->toThrow(RuntimeException::class);
+    expect(fn (): mixed => ResolveTableCollisionsAction::run([$collision], 'cms_', [], [$collision, $long]))->toThrow(RuntimeException::class);
 });
 
 it('restores every published config when a staged rename fails', function (): void {
@@ -98,7 +98,7 @@ it('restores every published config when a staged rename fails', function (): vo
         return $moves === 2 ? false : $filesystem->move($from, $to);
     });
     try {
-        expect(fn () => resolve(WriteTableConfigurationAction::class)->handle([
+        expect(fn (): mixed => WriteTableConfigurationAction::run([
             'capell.database.external_tables.tags' => 'content_tags',
             'tags.taggable.table_name' => 'content_taggables',
         ], $directory))->toThrow(RuntimeException::class)
@@ -119,7 +119,7 @@ it('reads version snapshots when Laravel also prefixes physical tables', functio
     $migration = require __DIR__ . '/../../database/migrations/2026_05_10_190832_23_create_capell_upgrade_log_table.php';
     $migration->up();
     DB::table('cms_capell_upgrade_log')->insert(['type' => 'version_snapshot', 'key' => 'capell-app/core', 'status' => 'success', 'ran_at' => '2026-02-01 00:00:00', 'meta' => json_encode(['to_version' => '2.0'])]);
-    expect(resolve(ReadLatestInstalledVersionsAction::class)->handle(['capell-app/core']))->toBe(['capell-app/core' => '2.0']);
+    expect(ReadLatestInstalledVersionsAction::run(['capell-app/core']))->toBe(['capell-app/core' => '2.0']);
 });
 
 it('preserves Laravel connection prefixes in the restriction morph index', function (): void {
@@ -146,11 +146,28 @@ it('recognises a complete prefixed installation with recorded ownership', functi
     $repository->log('2026_05_10_190832_12_create_pages_table', 1);
     $repository->log('2026_05_10_190832_24_create_capell_extensions_table', 1);
 
-    $state = resolve(ResolveCapellInstallationStateAction::class)->handle(
+    $state = ResolveCapellInstallationStateAction::run(
         coreStatus: ExtensionStatusEnum::Enabled,
         coreRecorded: true,
     );
     expect($state)->toBe(CapellInstallationState::Installed);
+});
+
+it('recognises the lifecycle footprint recorded under a different timestamp', function (): void {
+    Schema::create('cms_capell_extensions', fn (Blueprint $table) => $table->id());
+    $repository = resolve('migrator')->getRepository();
+    $repository->createRepository();
+    $repository->log('2026_01_01_000000_create_capell_extensions_table', 1);
+
+    expect($repository->getRan())->not->toContain('2026_05_10_190832_24_create_capell_extensions_table')
+        ->and(resolve(CapellRuntimeSchemaContract::class)->hasFootprint())->toBeTrue()
+        ->and(ResolveCapellInstallationStateAction::run(coreRecorded: false))->toBe(CapellInstallationState::Partial);
+});
+
+it('accepts explicit aliases and prefixes without collisions', function (): void {
+    $table = new TableCollisionData('pages', 'cms_pages', 'capell.database.table_aliases.pages', 'create_pages_table');
+    expect(ResolveTableCollisionsAction::run([], 'site_', ['pages' => 'articles'], [$table]))
+        ->toEqual(['capell.database.table_prefix' => 'site_', 'capell.database.table_aliases.pages' => 'articles']);
 });
 
 it('checks all tables from a registered multi-table migration', function (): void {
@@ -158,14 +175,14 @@ it('checks all tables from a registered multi-table migration', function (): voi
     Schema::create('widgets', fn (Blueprint $table) => $table->id());
     Schema::create('widget_items', fn (Blueprint $table) => $table->id());
     resolve(MigrationRootRegistry::class)->register('example/widgets', __DIR__ . '/../fixtures/table-naming/widget-package', ['2026_01_01_000002_create_widget_tables' => ['widgets', 'widget_items']]);
-    $collisions = resolve(FindTableCollisionsAction::class)->handle(['example/widgets']);
+    $collisions = FindTableCollisionsAction::run(['example/widgets']);
     expect(collect($collisions)->pluck('table')->all())->toContain('widgets', 'widget_items');
 });
 
 it('does not report a foreign pages-only host as a partial Capell installation', function (): void {
     config()->set('capell.database.table_prefix', '');
     Schema::create('pages', fn (Blueprint $table) => $table->id());
-    $state = resolve(ResolveCapellInstallationStateAction::class)->handle();
+    $state = ResolveCapellInstallationStateAction::run();
     expect($state)->toBe(CapellInstallationState::NotInstalled);
 });
 
@@ -186,7 +203,7 @@ it('retains the original config backup if rollback fails', function (bool $throw
         return in_array($moves, [2, 3], true) ? false : $filesystem->move($from, $to);
     });
     try {
-        expect(fn () => resolve(WriteTableConfigurationAction::class)->handle([
+        expect(fn (): mixed => WriteTableConfigurationAction::run([
             'capell.database.external_tables.tags' => 'content_tags',
             'tags.taggable.table_name' => 'content_taggables',
         ], $directory))->toThrow(RuntimeException::class, 'backup');

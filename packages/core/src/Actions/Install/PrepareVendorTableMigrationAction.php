@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Install;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class PrepareVendorTableMigrationAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $migration, string $source): string

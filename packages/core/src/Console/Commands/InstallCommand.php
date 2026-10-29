@@ -107,8 +107,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--recommendation-action= : Recommendation action: select, confirm, custom, or skip}
         {--package-mode= : Package selection mode: core, all, or custom}
         {--packages= : Comma-separated package names (defaults to all installable)}
-        {--table-prefix= : Prefix for colliding database tables}
-        {--table-alias=* : Map a colliding table to a new name as name=alias}
+        {--table-prefix= : Prefix for Capell database tables}
+        {--table-alias=* : Map a table to a new name as name=alias}
         {--all-packages : Install all composer-installed Capell packages}
         {--theme= : Theme key to activate when multiple themes are available}
         {--remove-installer : Remove capell-app/installer after a successful install}
@@ -799,7 +799,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return CommandAlias::FAILURE;
         }
 
-        resolve(WriteTableConfigurationAction::class)->handle($tableChanges);
+        WriteTableConfigurationAction::run($tableChanges);
 
         if ($this->configureHomepage) {
             resolve(InstallPostInstallOptionResolver::class)->configureWelcomeRoute(
@@ -830,11 +830,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function chooseCollisionTableNames(array $packages): array
     {
-        $collisions = resolve(FindTableCollisionsAction::class)->handle($packages);
-        if ($collisions === []) {
-            return [];
-        }
-
+        $collisions = FindTableCollisionsAction::run($packages);
         $prefixOption = $this->option('table-prefix');
         $prefix = is_string($prefixOption) && $prefixOption !== '' ? $prefixOption : null;
         $aliases = [];
@@ -844,7 +840,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $aliases[$parts[0]] = $parts[1];
         }
 
-        if ($prefix === null && $aliases === [] && $this->input->isInteractive()) {
+        if ($collisions !== [] && $prefix === null && $aliases === [] && $this->input->isInteractive()) {
             $choice = select(
                 label: (string) __('capell-core::install.tables.choice_label'),
                 options: ['prefix' => (string) __('capell-core::install.tables.prefix_choice'), 'aliases' => (string) __('capell-core::install.tables.aliases_choice')],
@@ -858,7 +854,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             }
         }
 
-        $changes = resolve(ResolveTableCollisionsAction::class)->handle($collisions, $prefix, $aliases, resolve(FindTableCollisionsAction::class)->planned($packages));
+        $changes = ResolveTableCollisionsAction::run($collisions, $prefix, $aliases, resolve(FindTableCollisionsAction::class)->planned($packages));
         $previous = [];
         try {
             foreach ($changes as $key => $value) {
@@ -867,7 +863,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             }
 
             $detector = resolve(FindTableCollisionsAction::class);
-            $remaining = $detector->handle($packages);
+            $remaining = FindTableCollisionsAction::run($packages);
             if ($remaining !== []) {
                 $names = array_map(static fn ($collision): string => $collision->table, $remaining);
                 throw new RuntimeException((string) __('capell-core::install.tables.choice_required', ['tables' => implode(', ', $names)]));

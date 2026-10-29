@@ -71,7 +71,7 @@ it('creates the media table at the configured external name', function (): void 
     try {
         $source = file_get_contents(dirname(__DIR__, 4) . '/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub');
         expect($source)->not->toBeFalse();
-        $rewritten = resolve(PrepareVendorTableMigrationAction::class)->handle('create_media_table', $source);
+        $rewritten = PrepareVendorTableMigrationAction::run('create_media_table', $source);
         file_put_contents($path, $rewritten);
         $migration = require $path;
         $migration->up();
@@ -114,7 +114,7 @@ return new class extends Migration {
 };
 PHP;
     try {
-        $prepared = resolve(PrepareVendorTableMigrationAction::class)->handle('create_tag_tables', $source);
+        $prepared = PrepareVendorTableMigrationAction::run('create_tag_tables', $source);
         file_put_contents($path, $prepared);
         $migration = require $path;
         $migration->up();

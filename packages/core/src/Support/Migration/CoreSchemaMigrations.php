@@ -22,7 +22,7 @@ final class CoreSchemaMigrations
             return false;
         }
 
-        return Schema::hasTable(TableName::resolve($matches[1])) && TableName::migrationRecorded($migration);
+        return Schema::hasTable(TableName::resolve($matches[1]));
     }
 
     /** @param list<string> $pendingCore */

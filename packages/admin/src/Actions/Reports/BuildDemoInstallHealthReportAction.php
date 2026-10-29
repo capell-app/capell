@@ -35,8 +35,6 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private const string REPORT_KEY = 'core.demo_install_health';
 
-    private const array EVENT_SOURCING_TABLES = ['stored_events', 'page_revisions'];
-
     public function __construct(
         private readonly RuntimeSchemaState $schemaState,
         private readonly ConnectionResolverInterface $connections,
@@ -249,7 +247,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private function eventSourcingTablesCheck(): DoctorCheckResultData
     {
-        $tableResults = collect(self::EVENT_SOURCING_TABLES)
+        $tableResults = collect([(string) config('capell.database.external_tables.stored_events', 'stored_events'), TableName::resolve('page_revisions')])
             ->mapWithKeys(fn (string $table): array => [$table => $this->schemaState->tableResult($table)]);
         $unverifiableTables = $tableResults
             ->filter(fn (SchemaProbeResult $result): bool => $result === SchemaProbeResult::Failed)

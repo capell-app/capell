@@ -23,6 +23,7 @@ use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
 use Capell\Installer\Actions\RemoveWelcomeRouteAfterInstallAction;
+use Capell\Installer\Actions\ResolveInstallerTableNamesAction;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Tests\Fixtures\Models\User;
@@ -3285,6 +3286,15 @@ it('does not write table configuration for a clean web review', function (): voi
     $payload = installPostPayload();
     $this->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true])->assertOk();
     expect(is_file($configPath) ? file_get_contents($configPath) : null)->toBe($before);
+});
+
+it('honours web table names when there are no collisions', function (): void {
+    $changes = ResolveInstallerTableNamesAction::run([], 'web_', 'pages=web_articles');
+
+    expect($changes)->toEqual([
+        'capell.database.table_prefix' => 'web_',
+        'capell.database.table_aliases.pages' => 'web_articles',
+    ]);
 });
 
 it('passes the confirmed web table alias to a worker with stale configuration', function (): void {

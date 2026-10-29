@@ -8,12 +8,14 @@ use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Spatie\Tags\Tag;
 
 final class FindTableCollisionsAction
 {
+    use AsFake;
     use AsObject;
 
     /**
@@ -22,21 +24,12 @@ final class FindTableCollisionsAction
      */
     public function handle(array $packages): array
     {
-        $repository = resolve('migrator')->getRepository();
-        $ran = $repository->repositoryExists() ? $repository->getRan() : [];
-
-        return array_values(array_filter($this->planned($packages), static function (TableCollisionData $table) use ($ran): bool {
+        return array_values(array_filter($this->planned($packages), static function (TableCollisionData $table): bool {
             if (! Schema::hasTable($table->table)) {
                 return false;
             }
 
-            foreach ($ran as $migration) {
-                if ($migration === $table->migration || str_ends_with($migration, '_' . $table->migration)) {
-                    return false;
-                }
-            }
-
-            return true;
+            return ! TableName::migrationRecorded($table->migration);
         }));
     }
 

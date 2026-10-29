@@ -17,8 +17,7 @@ final class TableName
             return false;
         }
 
-        $repository = resolve('migrator')->getRepository();
-        if (! $repository->repositoryExists() || ! in_array($migration, $repository->getRan(), true)) {
+        if (! self::migrationRecorded($migration)) {
             throw new RuntimeException(sprintf('Table %s already exists without its Capell creation migration. Choose a table alias or prefix before installing.', $table));
         }
 
@@ -31,12 +30,8 @@ final class TableName
             return false;
         }
 
-        $repository = resolve('migrator')->getRepository();
-        $ran = $repository->repositoryExists() ? $repository->getRan() : [];
-        foreach ($ran as $recorded) {
-            if ($recorded === $migration || str_ends_with((string) $recorded, '_' . $migration)) {
-                return true;
-            }
+        if (self::migrationRecorded($migration)) {
+            return true;
         }
 
         throw new RuntimeException(sprintf('Table %s already exists without its package creation migration. Choose a table alias or prefix before installing.', $table));
@@ -102,6 +97,17 @@ final class TableName
     {
         $repository = resolve('migrator')->getRepository();
 
-        return $repository->repositoryExists() && in_array($migration, $repository->getRan(), true);
+        if (! $repository->repositoryExists()) {
+            return false;
+        }
+
+        $name = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}(?:_\d{2})?_/', '', $migration) ?? $migration;
+        foreach ($repository->getRan() as $recorded) {
+            if ($recorded === $name || str_ends_with((string) $recorded, '_' . $name)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

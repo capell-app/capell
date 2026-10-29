@@ -41,6 +41,29 @@ it('is queued when dispatched', function (): void {
     Queue::assertPushed(RunCapellInstallJob::class);
 });
 
+it('handles a queued payload created before table changes existed', function (): void {
+    $installId = 'legacy-install-payload';
+    $input = new InstallInputData(
+        siteUrl: 'https://example.com',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        newUser: new NewUserData('Test', 'legacy@example.com', 'password'),
+    );
+    $payload = new RunCapellInstallJob($input, $installId)->__serialize();
+    unset($payload["\0" . RunCapellInstallJob::class . "\0tableChanges"]);
+    $job = new ReflectionClass(RunCapellInstallJob::class)->newInstanceWithoutConstructor();
+    $job->__unserialize($payload);
+    Cache::put('capell.install.lock', ['installId' => $installId]);
+    app()->instance(RunInstallAction::class, new FakeRunInstallAction);
+
+    $job->handle();
+    expect(Cache::get('capell.install.' . $installId . '.status'))->toBe('complete');
+});
+
 it('sets complete status in cache after successful run', function (): void {
     $installId = 'test-complete-uuid';
     Cache::put('capell.install.lock', ['installId' => $installId]);

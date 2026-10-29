@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayItem;
@@ -18,6 +19,7 @@ use Throwable;
 
 final class WriteTableConfigurationAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param array<string, string> $values */

@@ -29,12 +29,8 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = self::CACHE_TTL;
 
-    public function __construct(
-        private readonly InstallInputData $inputData,
-        private readonly string $installId,
-        /** @var array<string, string> */
-        private readonly array $tableChanges = [],
-    ) {}
+    /** @param  array<string, string>  $tableChanges */
+    public function __construct(private readonly InstallInputData $inputData, private readonly string $installId, private array $tableChanges = []) {}
 
     /** @return array<int, int> */
     public function backoff(): array

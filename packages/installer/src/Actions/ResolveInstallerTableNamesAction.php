@@ -7,22 +7,20 @@ namespace Capell\Installer\Actions;
 use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\ResolveTableCollisionsAction;
 use Capell\Core\Data\Install\TableCollisionData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class ResolveInstallerTableNamesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param list<string> $packages @return array<string, string> */
     public function handle(array $packages, ?string $prefix, ?string $aliases): array
     {
         $detector = resolve(FindTableCollisionsAction::class);
-        $collisions = $detector->handle($packages);
-        if ($collisions === []) {
-            return [];
-        }
-
+        $collisions = FindTableCollisionsAction::run($packages);
         $choices = [];
         foreach (preg_split('/\R/', $aliases ?? '') ?: [] as $line) {
             if (trim($line) === '') {
@@ -34,7 +32,7 @@ final class ResolveInstallerTableNamesAction
             $choices[trim($parts[0])] = trim($parts[1]);
         }
 
-        $changes = resolve(ResolveTableCollisionsAction::class)->handle($collisions, $prefix, $choices, $detector->planned($packages));
+        $changes = ResolveTableCollisionsAction::run($collisions, $prefix, $choices, $detector->planned($packages));
         $previous = [];
         try {
             foreach ($changes as $key => $value) {
@@ -42,7 +40,7 @@ final class ResolveInstallerTableNamesAction
                 config()->set($key, $value);
             }
 
-            $remaining = $detector->handle($packages);
+            $remaining = FindTableCollisionsAction::run($packages);
             if ($remaining !== []) {
                 $names = array_map(static fn ($table): string => $table->table, $remaining);
                 throw new RuntimeException((string) __('capell-core::install.tables.choice_required', ['tables' => implode(', ', $names)]));

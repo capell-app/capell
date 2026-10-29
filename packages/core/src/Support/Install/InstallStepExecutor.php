@@ -101,7 +101,7 @@ final class InstallStepExecutor
     private function runInitialMigrations(InstallRunState $state): void
     {
         $packages = array_values(array_unique([...$state->inputData->packages, ...$state->inputData->extraPackages]));
-        $collisions = resolve(FindTableCollisionsAction::class)->handle($packages);
+        $collisions = FindTableCollisionsAction::run($packages);
         if ($collisions !== []) {
             $names = array_map(static fn ($collision): string => $collision->table, $collisions);
             throw new RuntimeException((string) __('capell-core::install.tables.choice_required', ['tables' => implode(', ', $names)]));

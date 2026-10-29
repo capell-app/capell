@@ -159,6 +159,27 @@ it('allows a recorded guarded migration to run again', function (): void {
     }
 });
 
+it('skips a guarded owned table recorded under a different migration timestamp', function (): void {
+    $previous = DB::getDefaultConnection();
+    config()->set('database.connections.table_naming_test', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
+    DB::setDefaultConnection('table_naming_test');
+
+    try {
+        Schema::create('blueprints', fn (Blueprint $table) => $table->id());
+        DB::table('blueprints')->insert(['id' => 7]);
+        $repository = resolve('migrator')->getRepository();
+        $repository->createRepository();
+        $repository->log('2026_01_01_000000_create_blueprints_table', 1);
+        $migration = require __DIR__ . '/../../database/migrations/2026_05_10_190832_03_create_blueprints_table.php';
+        expect(collect(FindTableCollisionsAction::run([]))->pluck('table')->all())->not->toContain('blueprints');
+        $migration->up();
+        expect(DB::table('blueprints')->where('id', 7)->exists())->toBeTrue();
+    } finally {
+        DB::setDefaultConnection($previous);
+        DB::purge('table_naming_test');
+    }
+});
+
 it('keeps a foreign pages table intact when core pages are aliased', function (): void {
     $previous = DB::getDefaultConnection();
     config()->set('database.connections.table_naming_test', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
@@ -211,7 +232,7 @@ it('reports a foreign table collision without changing database configuration', 
     try {
         Schema::create('pages', fn (Blueprint $table) => $table->id());
         $before = config('capell.database');
-        $collisions = resolve(FindTableCollisionsAction::class)->handle([]);
+        $collisions = FindTableCollisionsAction::run([]);
         expect(collect($collisions)->pluck('table')->all())->toContain('pages')
             ->and(config('capell.database'))->toBe($before);
     } finally {
@@ -247,7 +268,7 @@ it('requires an explicit choice and resolves only colliding table names', functi
     expect(fn () => $action->handle([$collision], null, []))->toThrow(RuntimeException::class, 'pages');
     expect($action->handle([$collision], null, ['pages' => 'content_pages']))
         ->toBe(['capell.database.table_aliases.pages' => 'content_pages'])
-        ->and($action->handle([], 'cms_', []))->toBe([]);
+        ->and($action->handle([], 'cms_', []))->toEqual(['capell.database.table_prefix' => 'cms_']);
 });
 
 it('detects Tags collisions and writes each package-specific table setting', function (): void {
@@ -264,10 +285,10 @@ it('detects Tags collisions and writes each package-specific table setting', fun
     try {
         Schema::create('tags', fn (Blueprint $table) => $table->id());
         Schema::create('taggables', fn (Blueprint $table) => $table->id());
-        $collisions = resolve(FindTableCollisionsAction::class)->handle(['capell-app/tags']);
+        $collisions = FindTableCollisionsAction::run(['capell-app/tags']);
         expect(collect($collisions)->pluck('table')->all())->toContain('tags', 'taggables');
-        $changes = resolve(ResolveTableCollisionsAction::class)->handle($collisions, null, ['tags' => 'content_tags', 'taggables' => 'content_taggables']);
-        resolve(WriteTableConfigurationAction::class)->handle($changes, $directory);
+        $changes = ResolveTableCollisionsAction::run($collisions, null, ['tags' => 'content_tags', 'taggables' => 'content_taggables']);
+        WriteTableConfigurationAction::run($changes, $directory);
         $capell = require $directory . '/capell.php';
         $tags = require $directory . '/tags.php';
         expect($capell['database']['external_tables']['tags'])->toBe('content_tags')
@@ -524,7 +545,7 @@ it('refuses to alter foreign permission tables without their creating migration'
 it('replaces a colliding existing alias when a prefix is selected', function (): void {
     config()->set('capell.database.table_aliases.pages', 'foreign_pages');
     $collision = new TableCollisionData('pages', 'foreign_pages', 'capell.database.table_aliases.pages', 'create_pages_table');
-    expect(resolve(ResolveTableCollisionsAction::class)->handle([$collision], 'cms_proof_', []))
+    expect(ResolveTableCollisionsAction::run([$collision], 'cms_proof_', []))
         ->toBe([
             'capell.database.table_prefix' => 'cms_proof_',
             'capell.database.table_aliases.pages' => 'cms_proof_pages',

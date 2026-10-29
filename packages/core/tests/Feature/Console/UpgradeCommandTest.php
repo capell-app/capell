@@ -417,7 +417,7 @@ it('builds an upgrade plan with a prefixed Capell schema', function (): void {
         }
 
         config()->set('capell.database.table_prefix', 'cms_');
-        expect(resolve(ReadLatestInstalledVersionsAction::class)->handle(['capell-app/core']))->toBe(['capell-app/core' => '1.0.0']);
+        expect(ReadLatestInstalledVersionsAction::run(['capell-app/core']))->toBe(['capell-app/core' => '1.0.0']);
         artisanCommand('capell:upgrade', ['--dry-run' => true, '--force' => true, '--no-clear-cache' => true])->assertSuccessful();
     } finally {
         config()->set('capell.database.table_prefix', '');
