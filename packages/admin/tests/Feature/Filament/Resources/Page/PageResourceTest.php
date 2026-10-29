@@ -415,12 +415,24 @@ it('activates a retained translation after confirming language removal', functio
     $click = new Process(['node', '--input-type=module', '-e', <<<'JS_WRAP'
     import { readFileSync } from 'node:fs';
     import capellRepeaterTabs from './packages/admin/resources/js/components/repeater-tabs.js';
-    const { handler, activeTab } = JSON.parse(readFileSync(0, 'utf8'));
+    const { handler, activeTab, panelCount, panelPosition } = JSON.parse(readFileSync(0, 'utf8'));
     const state = capellRepeaterTabs({ activeTab });
-    new Function(`with (this) { ${handler} }`).call(state);
+    // Alpine supplies $el: the panel that fired the event, among its sibling panels.
+    const panels = Array.from({ length: panelCount }, () => ({
+        matches: () => true,
+        get parentElement() {
+            return { children: panels };
+        },
+    }));
+    new Function('$el', `with (this) { ${handler} }`).call(state, panels[panelPosition]);
     process.stdout.write(JSON.stringify({ tab: state.tab, focusedTab: state.focusedTab }));
     JS_WRAP]);
-    $click->setInput(json_encode(['handler' => $tab->getAttribute($event), 'activeTab' => $repeater->getActiveTab()], JSON_THROW_ON_ERROR));
+    $click->setInput(json_encode([
+        'handler' => $tab->getAttribute($event),
+        'activeTab' => $repeater->getActiveTab(),
+        'panelCount' => $tabs->length,
+        'panelPosition' => $retainActive ? 2 : 1,
+    ], JSON_THROW_ON_ERROR));
     $click->mustRun();
 
     $selection = json_decode($click->getOutput(), true, flags: JSON_THROW_ON_ERROR);

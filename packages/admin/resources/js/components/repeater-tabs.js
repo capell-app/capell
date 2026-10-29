@@ -3,6 +3,7 @@ export default function capellRepeaterTabs({ activeTab }) {
         tab: activeTab,
         focusedTab: null,
         tablistHasFocus: false,
+        revision: 0,
 
         tabs() {
             return Array.from(
@@ -74,6 +75,19 @@ export default function capellRepeaterTabs({ activeTab }) {
             }
         },
 
+        panelIndex(panel) {
+            return (
+                Array.from(panel.parentElement.children)
+                    .filter((sibling) => sibling.matches('[role="tabpanel"]'))
+                    .indexOf(panel) + 1
+            )
+        },
+
+        isActive(panel) {
+            // Reading revision re-evaluates panel bindings after a morph re-orders the panels.
+            return this.revision >= 0 && this.tab === this.panelIndex(panel)
+        },
+
         activate(index) {
             this.tab = index
             this.focusedTab = index
@@ -85,6 +99,9 @@ export default function capellRepeaterTabs({ activeTab }) {
                 ((this.focusedTab !== null || this.tablistHasFocus) &&
                     document.activeElement === document.body)
             this.activate(Math.max(1, index))
+            this.$nextTick(() => {
+                this.revision++
+            })
             if (index === 0) {
                 this.focusedTab = null
                 this.tablistHasFocus = false

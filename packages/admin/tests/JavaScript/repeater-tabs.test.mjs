@@ -209,3 +209,28 @@ test('leaving the tablist restores the selected tab as the next tab stop', (t) =
     assert.equal(component.tablistHasFocus, false)
     assert.equal(component.tab, 1)
 })
+
+test('panels resolve their active state from their current position after a translation is removed', (t) => {
+    const { component } = fixture(t)
+    const panels = ['english', 'french', 'spanish'].map((name) => ({
+        name,
+        matches: () => true,
+        get parentElement() {
+            return { children: panels }
+        },
+    }))
+    component.tab = 2
+
+    assert.deepEqual(
+        panels.map((panel) => component.isActive(panel)),
+        [false, true, false],
+    )
+
+    panels.splice(0, 1)
+    component.refresh(1)
+
+    assert.deepEqual(
+        panels.map((panel) => component.isActive(panel)),
+        [true, false],
+    )
+})
