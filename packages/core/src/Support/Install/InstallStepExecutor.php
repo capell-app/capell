@@ -50,6 +50,10 @@ final class InstallStepExecutor
 
     public function execute(string $stepKey, InstallRunState $state): InstallRunState
     {
+        if ($stepKey !== InstallPlan::STEP_PREFLIGHT_CHECKS) {
+            InstallRunState::rememberInitialInstallation($state->inputData->initialInstallation);
+        }
+
         config(['app.url' => $state->inputData->siteUrl]);
         InstallFilamentPanelAction::registerPanelProviders();
         CapellCore::clearExtensionCache();
@@ -57,9 +61,25 @@ final class InstallStepExecutor
         $stepFailed = false;
 
         try {
-            return $this->executeStep($stepKey, $state);
+            $result = $this->executeStep($stepKey, $state);
+            if ($state->inputData->initialInstallation && $stepKey !== InstallPlan::STEP_PREFLIGHT_CHECKS) {
+                InstallRunState::checkpointInitialInstallation();
+            }
+
+            if ($stepKey === InstallPlan::STEP_MARK_CORE_INSTALLED) {
+                InstallRunState::completeInitialInstallation();
+            }
+
+            return $result;
         } catch (Throwable $throwable) {
             $stepFailed = true;
+            try {
+                if ($state->inputData->initialInstallation && $stepKey !== InstallPlan::STEP_PREFLIGHT_CHECKS) {
+                    InstallRunState::checkpointInitialInstallation();
+                }
+            } catch (Throwable $checkpointFailure) {
+                report($checkpointFailure);
+            }
 
             throw $throwable;
         } finally {

@@ -1,0 +1,519 @@
+{
+  "captured": 4,
+  "skipped": 0,
+  "failed": 0,
+  "results": [
+    {
+      "index": 0,
+      "package": "documentation",
+      "id": "action-coverage-parent",
+      "status": "captured"
+    },
+    {
+      "index": 1,
+      "package": "documentation",
+      "id": "action-coverage-site",
+      "status": "captured"
+    },
+    {
+      "index": 2,
+      "package": "documentation",
+      "id": "action-coverage-dashboard-settings",
+      "status": "captured"
+    },
+    {
+      "index": 3,
+      "package": "documentation",
+      "id": "action-coverage-marketplace-purchases",
+      "status": "captured"
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-10-29T00:23:43.048Z",
+    "dryRun": false,
+    "runner": {
+      "version": "0.1.0",
+      "revision": "d37f4113611e4f62418c594bf3c2fe5b5463282b",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "e3170b64405eda683b258843236b3297a00414745bc01a08cafba1ceb90a1463"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "45f26b2ea7ff5495c88f35fe4de006138258ce52",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "bf08b1e1fd93d1e332e4abd075d78dae98d060a445fde6f63c5ac938b3c67435"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "e4f133f4cdfa0cbc455ac3e1e0ab11282bbac931dc85e768f085c1c1fbecc41d"
+          }
+        ],
+        "packageSourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "scope": {
+          "type": "repository"
+        }
+      }
+    ],
+    "queue": null,
+    "receipts": [
+      {
+        "package": "documentation",
+        "id": "action-coverage-parent",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-parent-languages.png",
+          "sha256": "559db3513909c37e0d7ace88483c1f004316da5dc378ac153edbfce9eaaa802a"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "0707d03c810eab5d189720c677588c43b49f259a6046754f2572fd4ba6e54021"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "45f26b2ea7ff5495c88f35fe4de006138258ce52"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:18147/admin",
+          "url": "http://127.0.0.1:18147/screenshot-fixtures/actions/parent",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "httpStatus": 200,
+          "expectedStatus": null,
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin",
+          "verified": true,
+          "method": "same-origin-session-probe"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0,
+          "events": {
+            "console": [],
+            "pageErrors": [],
+            "requestFailures": [],
+            "badResponses": []
+          },
+          "captureState": {
+            "url": "http://127.0.0.1:18147/admin/pages/7/edit",
+            "readyState": "complete",
+            "bodyClass": "fi-body fi-panel-admin fi-body-has-navigation fi-body-has-sidebar-collapsible-on-desktop fi-body-has-sidebar-fully-collapsible-on-desktop fi-body-has-topbar",
+            "components": [
+              "capell-admin::header.admin-workspace-switcher",
+              "capell-admin::header.admin-tools",
+              "capell-admin::header.navigation-tree",
+              "cms-multi.filament-clear-cache.http.livewire.clear-cache",
+              "capell.admin.support.agent.agent-page-readiness-widget",
+              "capell-admin-publish-status-panel",
+              "capell-admin-page-scratch-draft-panel"
+            ],
+            "selectors": {
+              "form": {
+                "attached": 2,
+                "visible": 1
+              },
+              ".driver-popover": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".driver-overlay": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".fi-page": {
+                "attached": 1,
+                "visible": 1
+              },
+              ".fi-sidebar-nav": {
+                "attached": 1,
+                "visible": 1
+              },
+              "[wire\\:name*=\"welcome-tour\"]": {
+                "attached": 0,
+                "visible": 0
+              }
+            },
+            "livewire": {
+              "initialized": true,
+              "available": true,
+              "events": [
+                {
+                  "name": "filament-tour::load-elements",
+                  "keys": [
+                    "request"
+                  ]
+                }
+              ]
+            },
+            "filament": {
+              "probed": true,
+              "btnPaddingInline": 12,
+              "btnBackground": "rgb(255, 255, 255)",
+              "layerOrderPinned": false
+            }
+          }
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "action-coverage-site",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-site-languages.png",
+          "sha256": "9bd835edad19b975d4736638c2982fbc8b37be1bd318828815fab683bc268c0e"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "0707d03c810eab5d189720c677588c43b49f259a6046754f2572fd4ba6e54021"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "45f26b2ea7ff5495c88f35fe4de006138258ce52"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:18147/admin",
+          "url": "http://127.0.0.1:18147/screenshot-fixtures/actions/site",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "httpStatus": 200,
+          "expectedStatus": null,
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin",
+          "verified": true,
+          "method": "same-origin-session-probe"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0,
+          "events": {
+            "console": [],
+            "pageErrors": [],
+            "requestFailures": [],
+            "badResponses": []
+          },
+          "captureState": {
+            "url": "http://127.0.0.1:18147/admin/pages/create",
+            "readyState": "complete",
+            "bodyClass": "fi-body fi-panel-admin fi-body-has-navigation fi-body-has-sidebar-collapsible-on-desktop fi-body-has-sidebar-fully-collapsible-on-desktop fi-body-has-topbar",
+            "components": [
+              "capell-admin::header.admin-workspace-switcher",
+              "capell-admin::header.admin-tools",
+              "capell-admin::header.navigation-tree",
+              "cms-multi.filament-clear-cache.http.livewire.clear-cache"
+            ],
+            "selectors": {
+              "form": {
+                "attached": 2,
+                "visible": 1
+              },
+              ".driver-popover": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".driver-overlay": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".fi-page": {
+                "attached": 1,
+                "visible": 1
+              },
+              ".fi-sidebar-nav": {
+                "attached": 1,
+                "visible": 1
+              },
+              "[wire\\:name*=\"welcome-tour\"]": {
+                "attached": 0,
+                "visible": 0
+              }
+            },
+            "livewire": {
+              "initialized": true,
+              "available": true,
+              "events": [
+                {
+                  "name": "filament-tour::load-elements",
+                  "keys": [
+                    "request"
+                  ]
+                }
+              ]
+            },
+            "filament": {
+              "probed": true,
+              "btnPaddingInline": 12,
+              "btnBackground": "rgb(255, 255, 255)",
+              "layerOrderPinned": false
+            }
+          }
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "action-coverage-dashboard-settings",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-dashboard-settings.png",
+          "sha256": "51e0b306851191def733110253d8694123489d84735b1aaad561dcbec0210ccf"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "0707d03c810eab5d189720c677588c43b49f259a6046754f2572fd4ba6e54021"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "45f26b2ea7ff5495c88f35fe4de006138258ce52"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:18147/admin",
+          "url": "http://127.0.0.1:18147/admin/settings",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "httpStatus": 200,
+          "expectedStatus": null,
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin",
+          "verified": true,
+          "method": "same-origin-session-probe"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0,
+          "events": {
+            "console": [],
+            "pageErrors": [],
+            "requestFailures": [],
+            "badResponses": []
+          },
+          "captureState": {
+            "url": "http://127.0.0.1:18147/admin/settings",
+            "readyState": "complete",
+            "bodyClass": "fi-body fi-panel-admin fi-body-has-navigation fi-body-has-sidebar-collapsible-on-desktop fi-body-has-sidebar-fully-collapsible-on-desktop fi-body-has-topbar",
+            "components": [
+              "capell-admin::header.admin-workspace-switcher",
+              "capell-admin::header.admin-tools",
+              "capell-admin::header.navigation-tree",
+              "cms-multi.filament-clear-cache.http.livewire.clear-cache"
+            ],
+            "selectors": {
+              "form": {
+                "attached": 2,
+                "visible": 1
+              },
+              ".driver-popover": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".driver-overlay": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".fi-page": {
+                "attached": 1,
+                "visible": 1
+              },
+              ".fi-sidebar-nav": {
+                "attached": 1,
+                "visible": 1
+              },
+              "[wire\\:name*=\"welcome-tour\"]": {
+                "attached": 0,
+                "visible": 0
+              }
+            },
+            "livewire": {
+              "initialized": true,
+              "available": true,
+              "events": [
+                {
+                  "name": "filament-tour::load-elements",
+                  "keys": [
+                    "request"
+                  ]
+                }
+              ]
+            },
+            "filament": {
+              "probed": true,
+              "btnPaddingInline": 12,
+              "btnBackground": "rgb(255, 255, 255)",
+              "layerOrderPinned": false
+            }
+          }
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "action-coverage-marketplace-purchases",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-marketplace-purchases.png",
+          "sha256": "7a26f388d4760628f928e11a4a038c76f2fbf6fa7bbcb84e2a6da7e1bb0f5005"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "0707d03c810eab5d189720c677588c43b49f259a6046754f2572fd4ba6e54021"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "45f26b2ea7ff5495c88f35fe4de006138258ce52"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:18147/admin",
+          "url": "http://127.0.0.1:18147/admin/extensions/marketplace/purchases",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "httpStatus": 200,
+          "expectedStatus": null,
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin",
+          "verified": true,
+          "method": "same-origin-session-probe"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0,
+          "events": {
+            "console": [],
+            "pageErrors": [],
+            "requestFailures": [],
+            "badResponses": []
+          },
+          "captureState": {
+            "url": "http://127.0.0.1:18147/admin/extensions/marketplace/purchases",
+            "readyState": "complete",
+            "bodyClass": "fi-body fi-panel-admin fi-body-has-navigation fi-body-has-sidebar-collapsible-on-desktop fi-body-has-sidebar-fully-collapsible-on-desktop fi-body-has-topbar",
+            "components": [
+              "capell-admin::header.admin-workspace-switcher",
+              "capell-admin::header.admin-tools",
+              "capell-admin::header.navigation-tree",
+              "cms-multi.filament-clear-cache.http.livewire.clear-cache"
+            ],
+            "selectors": {
+              "text=Run heartbeat": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".driver-popover": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".driver-overlay": {
+                "attached": 0,
+                "visible": 0
+              },
+              ".fi-page": {
+                "attached": 1,
+                "visible": 1
+              },
+              ".fi-sidebar-nav": {
+                "attached": 1,
+                "visible": 1
+              },
+              "[wire\\:name*=\"welcome-tour\"]": {
+                "attached": 0,
+                "visible": 0
+              }
+            },
+            "livewire": {
+              "initialized": true,
+              "available": true,
+              "events": [
+                {
+                  "name": "filament-tour::load-elements",
+                  "keys": [
+                    "request"
+                  ]
+                }
+              ]
+            },
+            "filament": {
+              "probed": true,
+              "btnPaddingInline": 12,
+              "btnBackground": "rgb(255, 255, 255)",
+              "layerOrderPinned": false
+            }
+          }
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 4\nSkipped: 0\nFailed: 0\n- captured documentation:action-coverage-parent -> docs/images/generated/admin/action-parent-languages.png\n- captured documentation:action-coverage-site -> docs/images/generated/admin/action-site-languages.png\n- captured documentation:action-coverage-dashboard-settings -> docs/images/generated/admin/action-dashboard-settings.png\n- captured documentation:action-coverage-marketplace-purchases -> docs/images/generated/admin/action-marketplace-purchases.png"
+}

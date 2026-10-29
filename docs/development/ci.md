@@ -293,3 +293,8 @@ on `merge_group`; review branch protection and rulesets for any additional
 required checks and ensure each reports on `merge_group`. Hosted Actions billing
 or credential restrictions can prevent the worker from running; local checks
 do not produce the required merge-group status.
+
+For concurrent local screenshot runs, set `CAPELL_SCREENSHOT_PORT` to an available
+port from 1024 to 65535 (the default is 8145). The Testbench server, runner and
+local Marketplace fixture use that port. Set `CAPELL_SCREENSHOT_OUTPUT_ROOT`
+to a directory outside every source checkout so captures and receipts are retained.

@@ -26,6 +26,7 @@ parameters:
     databaseMigrationsPath:
         - ../packages/core/database/migrations
     configDirectories:
+        - ../workbench/config
         - ../packages/admin/config
         - ../packages/admin/publishes/config
         - ../packages/core/config

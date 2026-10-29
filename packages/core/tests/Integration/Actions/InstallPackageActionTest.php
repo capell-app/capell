@@ -381,11 +381,7 @@ it('publishes and runs declared schema and settings migrations for packages with
     );
 
     $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')->once()->with('migrate', [
-        '--force' => true,
-        '--path' => database_path('migrations'),
-        '--realpath' => true,
-    ])->andReturn(0)->ordered();
+    $kernel->shouldReceive('call')->once()->with('migrate', schemaPhaseArguments())->andReturn(0)->ordered();
     $kernel->shouldReceive('call')->once()->with('migrate', [
         '--force' => true,
         '--path' => database_path('settings'),
@@ -464,11 +460,7 @@ it('marks packages failed when declared migrations do not run successfully', fun
     );
 
     $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')->once()->with('migrate', [
-        '--force' => true,
-        '--path' => database_path('migrations'),
-        '--realpath' => true,
-    ])->andReturn(1);
+    $kernel->shouldReceive('call')->once()->with('migrate', schemaPhaseArguments())->andReturn(1);
     $kernel->shouldReceive('output')->andReturn('Migration failed');
     app()->instance(Kernel::class, $kernel);
 
@@ -529,11 +521,7 @@ it('completes declared migrations while installing before running an explicit li
     );
 
     $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')->once()->with('migrate', [
-        '--force' => true,
-        '--path' => database_path('migrations'),
-        '--realpath' => true,
-    ])->andReturn(0);
+    $kernel->shouldReceive('call')->once()->with('migrate', schemaPhaseArguments())->andReturn(0);
     $kernel->shouldReceive('output')->andReturn('Package migrations applied');
     app()->instance(Kernel::class, $kernel);
     $reporter = new RecordingInstallProgressReporter;
@@ -708,4 +696,33 @@ function makeInstallActionDatabasePackageFixture(
     }
 
     return $packagePath;
+}
+
+function schemaPhaseArguments(): mixed
+{
+    return Mockery::on(static function (mixed $arguments): bool {
+        if (! is_array($arguments) || array_keys($arguments) !== ['--force', '--path', '--realpath']
+            || $arguments['--force'] !== true || $arguments['--realpath'] !== true
+            || ! is_array($arguments['--path']) || ! array_is_list($arguments['--path']) || $arguments['--path'] === []) {
+            return false;
+        }
+
+        $paths = $arguments['--path'];
+        $applicationPath = realpath(database_path('migrations')) ?: database_path('migrations');
+        $settings = config('settings.migrations_path');
+        $configured = filled($settings) ? [$settings] : config('settings.migrations_paths', []);
+        $settingsPaths = [database_path('settings')];
+        foreach (is_array($configured) ? $configured : [] as $path) {
+            if (is_string($path) && $path !== '') {
+                $settingsPaths[] = $path;
+            }
+        }
+
+        $settingsPaths = array_map(static fn (string $path): string => rtrim(realpath($path) ?: $path, DIRECTORY_SEPARATOR), $settingsPaths);
+
+        return end($paths) === $applicationPath
+            && array_all($paths, static fn (mixed $path): bool => is_string($path)
+                && array_all($settingsPaths, static fn (string $settingsPath): bool => $path !== $settingsPath && ! str_starts_with($path, $settingsPath . DIRECTORY_SEPARATOR)));
+
+    });
 }

@@ -77,6 +77,7 @@ repos:
       - id: prettier
         name: Format code with Prettier
         entry: .pre-commit/prettier.sh
+        require_serial: true
         language: script
         files: \.blade\.php$|\.css$|\.js$|\.yml$
         stages: [pre-commit]

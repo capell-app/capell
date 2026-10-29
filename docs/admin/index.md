@@ -30,6 +30,8 @@ These are design and planning records for the record-state work, kept for mainta
 
 - [Record state UX design](record-state-ux-design.md) and its [plan](record-state-ux-plan.md)
 - [Record state UX follow-up design](record-state-ux-follow-up-design.md) and its [plan](record-state-ux-follow-up-plan.md)
+- [Work-first dashboard specification](dashboard-work-first-spec.md) and its
+  [implementation acceptance record](dashboard-work-first-implementation.md)
 
 ## Next
 

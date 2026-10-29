@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 
 function hasRecordStateSeed(entries) {
     const seededEntryIds = new Set([
+        'admin-dashboard',
         'admin-pages-list',
         'admin-layouts-list',
         'admin-media-list',
@@ -63,6 +64,12 @@ export function commandsForEntries(entries, frontendOrigin = null) {
     ) {
         commands.push(
             'Workbench\\App\\Support\\InstallerScreenshotFixture::initialize();',
+        )
+    }
+
+    if (entries.some((entry) => entry.id.startsWith('action-coverage-'))) {
+        commands.push(
+            'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
         )
     }
 
