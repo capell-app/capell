@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Capell\Tests\Support;
+
+use UnexpectedValueException;
+
 /**
  * Evaluates the subset of GitHub Actions expression syntax that workflow job
  * conditions use, so tests can assert when a job runs instead of matching the
@@ -125,12 +129,4 @@ final class WorkflowConditionEvaluator
     {
         return ! in_array($value, [null, '', false, 0, '0'], true);
     }
-}
-
-/**
- * @param  array<string, mixed>  $context  dotted names such as `github.event_name`
- */
-function evaluateWorkflowCondition(string $condition, array $context): bool
-{
-    return new WorkflowConditionEvaluator($context)->evaluate($condition);
 }
