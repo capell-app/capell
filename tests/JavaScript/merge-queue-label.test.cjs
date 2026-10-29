@@ -15,6 +15,7 @@ const execute = new (Object.getPrototypeOf(async function () {}).constructor)(
     'context',
     'core',
     'getOctokit',
+    'setTimeout',
     script,
 )
 const pr = (number, extra = {}) => ({
@@ -30,7 +31,10 @@ const pr = (number, extra = {}) => ({
 })
 async function run(pulls, options = {}) {
     const calls = []
+    const warnings = []
     const reads = new Map()
+    const candidateReads = new Map()
+    let queueReads = 0
     const app = {
         rest: {
             pulls: {
@@ -52,15 +56,26 @@ async function run(pulls, options = {}) {
                             ? null
                             : {
                                   id: 'queue',
-                                  entries: { totalCount: options.busy ? 1 : 0 },
+                                  entries: {
+                                      totalCount:
+                                          options.queueCounts?.[queueReads++] ??
+                                          (options.busy ? 1 : 0),
+                                  },
                               },
                     },
                 }
             if (query.includes('Candidate')) {
                 const state = options.states?.[Number(vars.id.slice(3))] || {}
+                const count = candidateReads.get(vars.id) || 0
+                candidateReads.set(vars.id, count + 1)
                 return {
                     node: {
-                        mergeStateStatus: state.mergeState || 'CLEAN',
+                        mergeStateStatus:
+                            state.mergeStates?.[
+                                Math.min(count, state.mergeStates.length - 1)
+                            ] ||
+                            state.mergeState ||
+                            'CLEAN',
                         mergeQueueEntry: state.queued ? { id: 'entry' } : null,
                         timelineItems: {
                             nodes: state.removed
@@ -133,13 +148,18 @@ async function run(pulls, options = {}) {
         await execute(
             github,
             { repo: { owner: 'x', repo: 'y' } },
-            { notice: () => {}, info: () => {}, warning: () => {} },
+            {
+                notice: () => {},
+                info: () => {},
+                warning: (message) => warnings.push(message),
+            },
             () => app,
+            (callback) => callback(),
         )
     } catch (e) {
         error = e
     }
-    return { calls, error }
+    return { calls, error, warnings }
 }
 ;(async () => {
     const a = pr(1),
@@ -179,8 +199,57 @@ async function run(pulls, options = {}) {
             ['enqueue', 'PR_2', b.head.sha],
         ],
     )
+    const unresolved = await run([b, a], {
+        states: { 1: { mergeState: 'UNKNOWN' } },
+    })
+    assert.deepEqual(unresolved.calls, [])
+    assert.match(unresolved.warnings[0], /still has an unknown merge state/)
     assert.deepEqual(
-        (await run([b, a], { states: { 1: { mergeState: 'UNKNOWN' } } })).calls,
+        (
+            await run([b, a], {
+                states: { 1: { mergeState: 'UNKNOWN', removed: true } },
+            })
+        ).calls,
+        [
+            ['failed', 1],
+            ['enqueue', 'PR_2', b.head.sha],
+        ],
+    )
+    assert.deepEqual(
+        (
+            await run([b, a], {
+                states: { 1: { mergeStates: ['UNKNOWN', 'CLEAN'] } },
+            })
+        ).calls,
+        [['enqueue', 'PR_1', a.head.sha]],
+    )
+    assert.deepEqual(
+        (
+            await run([b, a], {
+                states: { 1: { mergeStates: ['UNKNOWN', 'CLEAN'] } },
+                queueCounts: [0, 1],
+            })
+        ).calls,
+        [],
+    )
+    assert.deepEqual(
+        (
+            await run([b, a], {
+                states: { 1: { mergeStates: ['UNKNOWN', 'DIRTY'] } },
+            })
+        ).calls,
+        [
+            ['failed', 1],
+            ['enqueue', 'PR_2', b.head.sha],
+        ],
+    )
+    assert.deepEqual(
+        (
+            await run([a], {
+                states: { 1: { mergeStates: ['UNKNOWN', 'CLEAN'] } },
+                changedOnSecond: { ...a, labels: [] },
+            })
+        ).calls,
         [],
     )
     assert.deepEqual(

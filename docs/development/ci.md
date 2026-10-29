@@ -259,7 +259,8 @@ the new head. When checks pass, it adds the PR to GitHub's merge queue and waits
 for that queue to finish before processing another PR. It runs when the label is
 added, a PR merges, or a relevant Actions workflow completes, as well as every
 15 minutes and by manual dispatch. The scheduled scan is a fallback; GitHub may
-delay scheduled runs.
+delay scheduled runs. If GitHub is still calculating a PR's merge state, the
+worker waits briefly and reports when a later scan is needed.
 
 If a PR's checks fail, it conflicts, or GitHub removes it from the merge queue,
 the worker removes `ready-to-merge` and continues with the next candidate. Fix

@@ -72,13 +72,14 @@ jobs:
                 && !pr.labels.some(label => label.name === 'awaiting-merge'))
               .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number);
             if (!candidates.length) return;
-            const queue = await app.graphql(`
+            const readQueue = () => app.graphql(`
               query QueueState($id: ID!) {
                 node(id: $id) { ... on PullRequest {
                   mergeQueue { id entries(first: 1) { totalCount } }
                 } }
               }
             `, { id: candidates[0].node_id });
+            const queue = await readQueue();
             if (!queue.node?.mergeQueue) throw new Error('The main branch has no merge queue configured.');
             if (queue.node.mergeQueue.entries.totalCount) {
               core.info('A pull request is already in the merge queue; waiting for it to finish.');
@@ -94,7 +95,7 @@ jobs:
                   || pr.head.sha !== candidate.head.sha) {
                 throw new Error(`PR #${candidate.number} changed during the scan; retry.`);
               }
-              const state = await app.graphql(`
+              const readCandidate = () => app.graphql(`
                 query Candidate($id: ID!) {
                   node(id: $id) { ... on PullRequest {
                     mergeStateStatus mergeQueueEntry { id }
@@ -108,13 +109,38 @@ jobs:
                   } }
                 }
               `, { id: pr.node_id });
+              const removedAfterReadyLabel = node => {
+                const timeline = node.timelineItems.nodes;
+                const lastLabel = timeline.findLastIndex(event => event.__typename === 'LabeledEvent'
+                  && event.label?.name === 'ready-to-merge');
+                const lastRemoval = timeline.findLastIndex(event => event.__typename === 'RemovedFromMergeQueueEvent');
+                return lastRemoval >= 0 && lastRemoval > lastLabel;
+              };
+              let state = await readCandidate();
+              let waitedForMergeState = false;
+              for (let attempt = 0; state.node?.mergeStateStatus === 'UNKNOWN'
+                  && !state.node.mergeQueueEntry && !removedAfterReadyLabel(state.node) && attempt < 10; attempt++) {
+                if (!waitedForMergeState) core.info(`PR #${pr.number} has an unknown merge state; waiting for GitHub to calculate it.`);
+                waitedForMergeState = true;
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                state = await readCandidate();
+              }
               if (!state.node) throw new Error(`Cannot inspect PR #${pr.number}.`);
+              if (state.node.mergeStateStatus === 'UNKNOWN' && !state.node.mergeQueueEntry
+                  && !removedAfterReadyLabel(state.node)) {
+                core.warning(`PR #${pr.number} still has an unknown merge state; a later scan will retry.`);
+                return;
+              }
+              if (waitedForMergeState) {
+                const currentQueue = await readQueue();
+                if (!currentQueue.node?.mergeQueue) throw new Error('The main branch has no merge queue configured.');
+                if (currentQueue.node.mergeQueue.entries.totalCount) {
+                  core.info('A pull request entered the merge queue while waiting; waiting for it to finish.');
+                  return;
+                }
+              }
               if (state.node.mergeQueueEntry) return;
-              const timeline = state.node.timelineItems.nodes;
-              const lastLabel = timeline.findLastIndex(event => event.__typename === 'LabeledEvent'
-                && event.label?.name === 'ready-to-merge');
-              const lastRemoval = timeline.findLastIndex(event => event.__typename === 'RemovedFromMergeQueueEvent');
-              const removedAfterLabel = lastRemoval >= 0 && lastRemoval > lastLabel;
+              const removedAfterLabel = removedAfterReadyLabel(state.node);
               const checks = await github.graphql(`
                 query CheckState($id: ID!) {
                   node(id: $id) { ... on PullRequest { statusCheckRollup { state } } }
@@ -136,7 +162,6 @@ jobs:
                 core.warning(`PR #${pr.number} is from a fork; update its branch manually.`);
                 continue;
               }
-              if (state.node.mergeStateStatus === 'UNKNOWN') return;
               const comparison = await github.rest.repos.compareCommitsWithBasehead({
                 ...context.repo, basehead: `main...${pr.head.sha}`,
               });
