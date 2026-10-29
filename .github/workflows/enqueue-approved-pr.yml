@@ -71,7 +71,10 @@ jobs:
               .filter(pr => !pr.draft && pr.labels.some(label => label.name === 'ready-to-merge')
                 && !pr.labels.some(label => label.name === 'awaiting-merge'))
               .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number);
-            if (!candidates.length) return;
+            if (!candidates.length) {
+              core.info('No open, non-draft ready-to-merge PRs without an awaiting-merge hold.');
+              return;
+            }
             const readQueue = () => app.graphql(`
               query QueueState($id: ID!) {
                 node(id: $id) { ... on PullRequest {
@@ -139,7 +142,10 @@ jobs:
                   return;
                 }
               }
-              if (state.node.mergeQueueEntry) return;
+              if (state.node.mergeQueueEntry) {
+                core.info(`PR #${pr.number} is already in the merge queue.`);
+                return;
+              }
               const removedAfterLabel = removedAfterReadyLabel(state.node);
               const checks = await github.graphql(`
                 query CheckState($id: ID!) {

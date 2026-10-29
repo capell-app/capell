@@ -31,6 +31,7 @@ const pr = (number, extra = {}) => ({
 })
 async function run(pulls, options = {}) {
     const calls = []
+    const infos = []
     const warnings = []
     const reads = new Map()
     const candidateReads = new Map()
@@ -150,7 +151,7 @@ async function run(pulls, options = {}) {
             { repo: { owner: 'x', repo: 'y' } },
             {
                 notice: () => {},
-                info: () => {},
+                info: (message) => infos.push(message),
                 warning: (message) => warnings.push(message),
             },
             () => app,
@@ -159,11 +160,17 @@ async function run(pulls, options = {}) {
     } catch (e) {
         error = e
     }
-    return { calls, error, warnings }
+    return { calls, error, infos, warnings }
 }
 ;(async () => {
     const a = pr(1),
         b = pr(2)
+    const empty = await run([pr(1, { draft: true })])
+    assert.deepEqual(empty.calls, [])
+    assert.match(empty.infos[0], /No open, non-draft ready-to-merge PRs/)
+    const alreadyQueued = await run([a], { states: { 1: { queued: true } } })
+    assert.deepEqual(alreadyQueued.calls, [])
+    assert.match(alreadyQueued.infos[0], /PR #1 is already in the merge queue/)
     assert.deepEqual((await run([b, a])).calls, [
         ['enqueue', 'PR_1', a.head.sha],
     ])
