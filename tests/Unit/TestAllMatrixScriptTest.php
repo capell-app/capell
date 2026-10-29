@@ -145,10 +145,18 @@ it('shards every Admin Feature test exactly once through the exported matrix', f
             $command[] = '--shard=' . $cell['shard'];
         }
 
-        $process = new Process($command, $root, ['PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . getenv('PATH')]);
+        // This is a separate discovery run, not a child worker of the parent Pest run.
+        $process = new Process($command, $root, [
+            'PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . getenv('PATH'),
+            'PARATEST' => false,
+            'TEST_TOKEN' => false,
+            'UNIQUE_TEST_TOKEN' => false,
+            'PEST_PARALLEL_GLOBAL_UPDATE_SHARDS' => false,
+            'PEST_PARALLEL_GLOBAL_SHARD_RUN_ID' => false,
+        ]);
         $process->setTimeout(120);
 
-        expect($process->run())->toBe(0, $process->getErrorOutput());
+        expect($process->run())->toBe(0, $process->getErrorOutput() . $process->getOutput());
         $lines = array_values(array_filter(explode(PHP_EOL, $process->getOutput()), static fn (string $line): bool => str_starts_with($line, ' - ')));
         $tests = array_map(matrixListedTestIdentity(...), $lines);
         expect($tests)->not->toBeEmpty();
