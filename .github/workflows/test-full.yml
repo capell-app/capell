@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: ''
+      merge_queue_evidence:
+        description: 'Run the complete matrix with attempt-bound merge queue evidence.'
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       cell:
@@ -37,7 +42,8 @@ on:
 
 concurrency:
   group: >-
-    ${{ github.event_name == 'workflow_dispatch' && inputs.cell != ''
+    ${{ inputs.merge_queue_evidence && format('{0}-phpunit-merge-safety', github.head_ref || github.ref)
+      || github.event_name == 'workflow_dispatch' && inputs.cell != ''
       && format('{0}-phpunit-target-{1}', github.ref, inputs.cell)
       || format('{0}-phpunit-full', github.head_ref || github.ref) }}
   cancel-in-progress: true
@@ -99,7 +105,7 @@ jobs:
       ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
-      && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && github.event_name != 'pull_request'
       && !(github.event_name == 'workflow_dispatch' && inputs.cell != '')
       ) }}
     name: Sentinel - portability, cache, migrations, destructive schema
@@ -180,7 +186,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-all-sentinel
+          name: ${{ inputs.merge_queue_evidence && format('test-all-sentinel-attempt-{0}', github.run_attempt) || 'test-all-sentinel' }}
           path: test-all-results
           if-no-files-found: warn
 
@@ -279,7 +285,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: junit-${{ matrix.artifact_slug }}
+          name: ${{ inputs.merge_queue_evidence && format('junit-{0}-attempt-{1}', matrix.artifact_slug, github.run_attempt) || format('junit-{0}', matrix.artifact_slug) }}
           path: test-all-results
           if-no-files-found: warn
 
@@ -375,7 +381,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: junit-${{ matrix.artifact_slug }}
+          name: ${{ inputs.merge_queue_evidence && format('junit-{0}-attempt-{1}', matrix.artifact_slug, github.run_attempt) || format('junit-{0}', matrix.artifact_slug) }}
           path: test-all-results
           if-no-files-found: warn
 
@@ -472,7 +478,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: junit-${{ matrix.artifact_slug }}
+          name: ${{ inputs.merge_queue_evidence && format('junit-{0}-attempt-{1}', matrix.artifact_slug, github.run_attempt) || format('junit-{0}', matrix.artifact_slug) }}
           path: test-all-results
           if-no-files-found: warn
 
