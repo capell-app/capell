@@ -16,7 +16,7 @@ use Traversable;
 
 /** One normalised, validated public render-data value.
  *
- * @internal
+ * @experimental
  */
 final readonly class PublicRenderDataContributionData
 {

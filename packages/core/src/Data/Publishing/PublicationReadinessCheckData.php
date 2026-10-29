@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Publishing;
 
 use Spatie\LaravelData\Data;
 
-/** @internal */
+/** @experimental */
 final class PublicationReadinessCheckData extends Data
 {
     public function __construct(

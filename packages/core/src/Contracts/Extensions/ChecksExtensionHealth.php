@@ -11,8 +11,6 @@ namespace Capell\Core\Contracts\Extensions;
  * Capell validates this marker before the owning diagnostics subsystem
  * resolves the implementation.
  *
- * @internal
- *
- * Experimental extension API; declared by companion package manifests.
+ * @experimental
  */
 interface ChecksExtensionHealth extends ExtensionContribution {}

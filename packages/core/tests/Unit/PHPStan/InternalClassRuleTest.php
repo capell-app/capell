@@ -17,7 +17,7 @@ it('reports internal Capell class use without reporting stable or unrelated clas
     $ruleMessages = array_values(array_filter($messages, static fn (array $message): bool => ($message['identifier'] ?? null) === 'capell.internalClass'));
 
     expect($ruleMessages)->not->toBeEmpty()
-        ->and(implode(' ', array_column($ruleMessages, 'message')))->toContain('DoctorCheck')
+        ->and(implode(' ', array_column($ruleMessages, 'message')))->toContain('DoctorCheck', 'RenderHookRegistry')
         ->not->toContain('ExtensionContribution', 'DateTimeImmutable');
 });
 

@@ -16,10 +16,15 @@ it('keeps class markers aligned with the extension surface catalogue', function 
 
         $reflection = new ReflectionClass($name);
         $comment = $reflection->getDocComment() ?: '';
-        $marker = $surface['stability'] === 'stable' ? '@api' : '@internal';
-        $opposite = $surface['stability'] === 'stable' ? '@internal' : '@api';
+        $marker = match ($surface['stability']) {
+            'stable' => '@api',
+            'experimental' => '@experimental',
+            'internal' => '@internal',
+            default => throw new UnexpectedValueException('Unknown extension surface stability.'),
+        };
+        $opposite = array_diff(['@api', '@internal', '@experimental'], [$marker]);
 
-        expect($comment)->toContain($marker)->not->toContain($opposite);
+        expect($comment)->toContain($marker)->not->toContain(...$opposite);
         $checked[$name] = true;
     }
 

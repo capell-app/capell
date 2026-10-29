@@ -9,7 +9,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Illuminate\Database\Connection;
 
-/** @internal */
+/** @experimental */
 interface DatabaseSchemaDialect
 {
     public function supports(DatabaseCapability $capability, ?Connection $connection = null): bool;

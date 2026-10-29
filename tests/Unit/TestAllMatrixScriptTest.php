@@ -275,6 +275,7 @@ file_put_contents((string) getenv('CAPTURE_PATH'), json_encode([
     'test_suite' => getenv('PEST_TEST_SUITE'),
     'test_group' => getenv('PEST_TEST_GROUP'),
 ], JSON_THROW_ON_ERROR));
+file_put_contents((string) getenv('PEST_JUNIT_LOG'), '<testsuites><testsuite><testcase name="fixture"/></testsuite></testsuites>');
 exit((int) getenv('CAPTURE_EXIT'));
 PHP);
     chmod($composerPath, 0700);
@@ -319,6 +320,7 @@ PHP);
     } finally {
         @unlink($capturePath);
         @unlink($temporaryDirectory . '/output/' . TestAllMatrix::find($cell)['log']);
+        @unlink($temporaryDirectory . '/output/' . TestAllMatrix::find($cell)['junit']);
         @rmdir($temporaryDirectory . '/output');
         @unlink($composerPath);
         @rmdir($temporaryDirectory);

@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Workspace;
 
 use Capell\Admin\Data\Dashboard\DashboardAdvisoryDecisionData;
 use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
@@ -135,6 +136,33 @@ final class AdminWorkspacePreferenceStore
             $decisions = is_array($data['dashboard_advisories'] ?? null) ? $data['dashboard_advisories'] : [];
             $decisions[$key] = ['fingerprint' => $decision->fingerprint, 'until' => $decision->until];
             $data['dashboard_advisories'] = $decisions;
+
+            return $data;
+        });
+    }
+
+    /** @return array<string, mixed> */
+    public function dashboardRecoveryState(Model $actor): array
+    {
+        if (! $this->available($actor)) {
+            return [];
+        }
+
+        $raw = array_key_exists(self::COLUMN, $actor->getAttributes())
+            ? $actor->getAttribute(self::COLUMN)
+            : $actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN);
+        $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
+        $state = is_array($data) ? ($data['dashboard_recovery'] ?? null) : null;
+
+        return is_array($state) ? $state : [];
+    }
+
+    /** @param Closure(array<string, mixed>): array<string, mixed> $mutator */
+    public function updateDashboardRecoveryState(Model $actor, Closure $mutator): void
+    {
+        $this->merge($actor, static function (array $data) use ($mutator): array {
+            $state = is_array($data['dashboard_recovery'] ?? null) ? $data['dashboard_recovery'] : [];
+            $data['dashboard_recovery'] = $mutator($state);
 
             return $data;
         });

@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Capell\Core\Enums\FrontendRouteReservationType;
 
-/** @internal */
+/** @experimental */
 final readonly class FrontendRouteReservationData
 {
     public function __construct(

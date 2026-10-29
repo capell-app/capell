@@ -7,7 +7,7 @@ namespace Capell\Admin\Contracts\Dashboard;
 use Capell\Admin\Data\Dashboard\DashboardApprovalsData;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-/** @internal */
+/** @experimental */
 interface DashboardApprovalsDataProvider
 {
     /**

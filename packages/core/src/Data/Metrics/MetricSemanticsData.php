@@ -16,7 +16,7 @@ use Spatie\LaravelData\Attributes\MapName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
-/** @internal */
+/** @experimental */
 #[MapName(SnakeCaseMapper::class)]
 final class MetricSemanticsData extends Data
 {

@@ -6,7 +6,7 @@ namespace Capell\Core\Data;
 
 use Spatie\LaravelData\Data;
 
-/** @internal */
+/** @experimental */
 final class OutboundEventDefinitionData extends Data
 {
     /**

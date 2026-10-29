@@ -6,7 +6,7 @@ namespace Capell\Core\Data\Reporting;
 
 use Capell\Core\Enums\Reporting\DispatchStatus;
 
-/** @internal */
+/** @experimental */
 final readonly class DispatchResultData
 {
     public function __construct(

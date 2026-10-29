@@ -53,6 +53,16 @@
             "contractTestId": null
         },
         {
+            "id": "admin.contract.dashboard-attention-recovery-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardAttentionRecoveryContributor",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Explicit verification of resolved dashboard attention issues.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.contract.dashboard-page-language-matcher",
             "kind": "contract",
             "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardPageLanguageMatcher",

@@ -63,6 +63,14 @@ if ($databaseDriver === 'sqlite') {
     $environment['DB_CONNECTION'] = $databaseDriver;
 }
 
+$junitPath = $environment['PEST_JUNIT_LOG'];
+
+if (file_exists($junitPath)) {
+    fwrite(STDERR, 'Test All evidence already exists; use a fresh output directory: ' . $junitPath . PHP_EOL);
+
+    exit(2);
+}
+
 fwrite(STDOUT, sprintf('Running Test All cell [%s].', $cellId) . PHP_EOL);
 
 $command = ['composer', 'run', $cell['command']];
@@ -71,9 +79,33 @@ if (isset($cell['shard'])) {
     $command = [...$command, '--', '--shard=' . $cell['shard']];
 }
 
-exit(ProcessRunner::run(
+$exitCode = ProcessRunner::run(
     $command,
     dirname(__DIR__),
     $environment,
     $outputDirectory . DIRECTORY_SEPARATOR . $cell['log'],
-));
+);
+
+if ($exitCode !== 0) {
+    exit($exitCode);
+}
+
+$previousXmlErrors = libxml_use_internal_errors(true);
+try {
+    $report = is_file($junitPath) ? simplexml_load_file($junitPath, options: LIBXML_NONET) : false;
+    $valid = $report instanceof SimpleXMLElement
+        && in_array($report->getName(), ['testsuites', 'testsuite'], true)
+        && count($report->xpath('//testcase[not(skipped)]') ?: []) > 0
+        && ($report->xpath('//failure | //error') ?: []) === [];
+} finally {
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousXmlErrors);
+}
+
+if (! $valid) {
+    fwrite(STDERR, 'Test All evidence is missing, invalid, empty or contains failures despite a successful command: ' . $junitPath . PHP_EOL);
+
+    exit(2);
+}
+
+exit(0);

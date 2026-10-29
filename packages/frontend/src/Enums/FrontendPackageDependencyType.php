@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Enums;
 
-/** @internal */
+/** @experimental */
 enum FrontendPackageDependencyType: string
 {
     case Runtime = 'runtime';
