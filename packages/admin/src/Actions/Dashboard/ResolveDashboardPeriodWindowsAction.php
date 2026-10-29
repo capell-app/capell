@@ -12,41 +12,14 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * The one definition of what each named dashboard period covers.
  *
- * Analytics reads a rolling window of whole days back from now in UTC.
- * Published-page statistics read a calendar window in the application
- * timezone. Both are resolved here so the figures and the text that describes
- * them cannot drift apart.
+ * Analytics and site statistics both read a rolling window of whole days back
+ * from now in UTC. The window and the text that describes it are resolved here
+ * so the figures and the wording cannot drift apart.
  */
 final class ResolveDashboardPeriodWindowsAction
 {
     use AsFake;
     use AsObject;
-
-    /**
-     * @return array{CarbonImmutable, CarbonImmutable}
-     */
-    public function handle(string $period, ?CarbonImmutable $now = null): array
-    {
-        return $this->calendar($period, $now);
-    }
-
-    /**
-     * Calendar window in the application timezone.
-     *
-     * @return array{CarbonImmutable, CarbonImmutable}
-     */
-    public function calendar(string $period, ?CarbonImmutable $now = null): array
-    {
-        $now ??= CarbonImmutable::now();
-
-        return match ($period) {
-            'today' => [$now->startOfDay(), $now->endOfDay()],
-            'this_week' => [$now->startOfWeek(), $now->endOfWeek()],
-            'this_month' => [$now->startOfMonth(), $now->endOfMonth()],
-            'this_year' => [$now->startOfYear(), $now->endOfYear()],
-            default => [$now->subDays(30)->startOfDay(), $now->endOfDay()],
-        };
-    }
 
     /**
      * Number of days in the rolling analytics window ending now (UTC).
@@ -62,21 +35,29 @@ final class ResolveDashboardPeriodWindowsAction
         };
     }
 
-    public function describeRolling(string $period): string
+    /**
+     * The rolling window ending now (UTC) that analytics and site statistics share.
+     *
+     * @return array{CarbonImmutable, CarbonImmutable}
+     */
+    public function rollingWindow(string $period, ?CarbonImmutable $now = null): array
     {
-        return trans_choice('capell-admin::dashboard.window_rolling', $this->rollingDays($period), [
+        $end = ($now ?? CarbonImmutable::now())->utc();
+
+        return [$end->subDays($this->rollingDays($period)), $end];
+    }
+
+    public function describePublishedRolling(string $period): string
+    {
+        return trans_choice('capell-admin::dashboard.window_published_rolling', $this->rollingDays($period), [
             'days' => $this->rollingDays($period),
         ]);
     }
 
-    public function describeCalendar(string $period, ?CarbonImmutable $now = null): string
+    public function describeRolling(string $period): string
     {
-        [$start, $end] = $this->calendar($period, $now);
-
-        return (string) __('capell-admin::dashboard.window_calendar', [
-            'start' => $start->translatedFormat('j M Y'),
-            'end' => $end->translatedFormat('j M Y'),
-            'timezone' => $start->getTimezone()->getName(),
+        return trans_choice('capell-admin::dashboard.window_rolling', $this->rollingDays($period), [
+            'days' => $this->rollingDays($period),
         ]);
     }
 }

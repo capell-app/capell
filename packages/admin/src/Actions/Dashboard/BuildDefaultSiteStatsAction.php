@@ -17,9 +17,15 @@ final class BuildDefaultSiteStatsAction
     use AsFake;
     use AsObject;
 
-    public function handle(string $period = 'last_30_days'): SiteStatsData
+    private ?int $siteId = null;
+
+    /**
+     * @param  int|null  $siteId  Restricts every count to one site; a site the person cannot access yields zero counts.
+     */
+    public function handle(string $period = 'last_30_days', ?int $siteId = null, bool $scoped = false): SiteStatsData
     {
-        [$rangeStart, $rangeEnd] = ResolveDashboardPeriodWindowsAction::run($period);
+        $this->siteId = $siteId;
+        [$rangeStart, $rangeEnd] = ResolveDashboardPeriodWindowsAction::make()->rollingWindow($period);
 
         // Genuine schedules only: sentinel drafts are not upcoming work.
         $pendingCount = $this->basePageQuery()->scheduled()->count();
@@ -32,6 +38,7 @@ final class BuildDefaultSiteStatsAction
             pendingCount: $pendingCount,
             expiredCount: $expiredCount,
             totalPagesCount: $this->basePageQuery()->count(),
+            scoped: $scoped,
         );
     }
 
@@ -83,6 +90,10 @@ final class BuildDefaultSiteStatsAction
     {
         /** @var Builder<Page> $query */
         $query = SiteAccess::current()->query(Page::class);
+
+        if ($this->siteId !== null) {
+            $query->where($query->getModel()->qualifyColumn('site_id'), $this->siteId);
+        }
 
         return $query;
     }

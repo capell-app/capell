@@ -36,7 +36,7 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
     #[Override]
     protected function getStats(): array
     {
-        $data = resolve(AdminDashboardDataRequestCache::class)->siteStats($this->getDashboardPeriod());
+        $data = $this->siteStats();
 
         return [
             $this->makeWorkQueueStat($data),
@@ -49,26 +49,59 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
     #[Override]
     protected function getDescription(): string
     {
-        $windows = ResolveDashboardPeriodWindowsAction::make();
-        $period = $this->getDashboardPeriod();
+        $data = $this->siteStats();
+
+        if (! $data->scoped) {
+            // A provider that predates scoped statistics ignores the site filter and states no window.
+            return implode(' ', [$this->legacyScopeDescription(), __('capell-admin::dashboard.window_current_counts')]);
+        }
 
         return implode(' ', [
             $this->scopeDescription(),
-            __('capell-admin::dashboard.window_published', ['window' => $windows->describeCalendar($period)]),
+            ResolveDashboardPeriodWindowsAction::make()->describePublishedRolling($this->getDashboardPeriod()),
             __('capell-admin::dashboard.window_current_counts'),
         ]);
     }
 
+    private function siteStats(): SiteStatsData
+    {
+        return resolve(AdminDashboardDataRequestCache::class)->siteStats($this->getDashboardPeriod(), $this->getDashboardSiteId());
+    }
+
+    private function selectedSite(): ?Site
+    {
+        $siteId = $this->getDashboardSiteId();
+
+        return $siteId === null || $siteId < 1
+            ? null
+            : SiteAccess::current()->query(Site::class)->find($siteId);
+    }
+
     /**
-     * These counts always cover every site the person can access. When the
-     * dashboard is filtered to one site, say so rather than imply the filter applies.
+     * The counts follow the dashboard site selection; an unavailable site is
+     * named as such rather than silently widened to every site.
      */
     private function scopeDescription(): string
     {
         $siteId = $this->getDashboardSiteId();
-        $site = $siteId === null || $siteId < 1
-            ? null
-            : SiteAccess::current()->query(Site::class)->find($siteId);
+
+        if ($siteId === null) {
+            return (string) __('capell-admin::dashboard.scope_applied_all_sites');
+        }
+
+        $site = $this->selectedSite();
+
+        return $site instanceof Site
+            ? (string) __('capell-admin::dashboard.scope_applied_site', ['site' => $site->name])
+            : (string) __('capell-admin::dashboard.scope_site_unavailable');
+    }
+
+    /**
+     * A provider without scoped support always counts every accessible site.
+     */
+    private function legacyScopeDescription(): string
+    {
+        $site = $this->selectedSite();
 
         return $site instanceof Site
             ? (string) __('capell-admin::dashboard.scope_other_site', ['site' => $site->name])
