@@ -24,16 +24,16 @@ Use Composer path repositories for local package development. Keep matching `1.x
 
 Full suites and preflights join the [host release verification gate](../release-verification-lock.md). The guide explains waiting, release-child ownership and the focused single-file exception.
 
-| Command                  | Use                                                                                                                   |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `composer prepare`       | Run Testbench package discovery.                                                                                      |
-| `composer test:fast`     | Run the sharded fast Pest command while developing.                                                                   |
-| `composer test`          | Clear and prepare the workbench, then run the full Pest test suite.                                                   |
-| `composer lint`          | Run Pint across the repository; `composer lint:changed` formats only changed files.                                  |
+| Command                  | Use                                                                                                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `composer prepare`       | Run Testbench package discovery.                                                                                                                                                              |
+| `composer test:fast`     | Run the sharded fast Pest command while developing.                                                                                                                                           |
+| `composer test`          | Clear and prepare the workbench, then run the full Pest test suite.                                                                                                                           |
+| `composer lint`          | Run Pint across the repository; `composer lint:changed` formats only changed files.                                                                                                           |
 | `composer analyze`       | Run the full PHPStan configuration. Use `composer analyze:source` while iterating and `composer analyze:diff -- <path>` for a path-scoped run; never pass a path to plain `composer analyze`. |
-| `composer preflight`     | Run the standard static, contract, formatting, analysis, and test gates.                                              |
-| `composer preflight:all` | Run Composer path and contract checks, doc guards, Rector, Pint, Prettier, ESLint, PHPStan, security audit, and Pest. |
-| `composer serve`         | Build and serve the Testbench workbench.                                                                              |
+| `composer preflight`     | Run the standard static, contract, formatting, analysis, and test gates.                                                                                                                      |
+| `composer preflight:all` | Run Composer path and contract checks, doc guards, Rector, Pint, Prettier, ESLint, PHPStan, security audit, and Pest.                                                                         |
+| `composer serve`         | Build and serve the Testbench workbench.                                                                                                                                                      |
 
 Start narrow while developing:
 
@@ -74,6 +74,7 @@ Optional-package commands such as `capell:static-site` and `capell:xml-sitemap` 
 
 | Need                                    | Read                                                            |
 | --------------------------------------- | --------------------------------------------------------------- |
+| Write clear interface text              | [UI writing](../standards/ui-writing.md)                        |
 | Apply repository coding conventions     | [Coding standards](../standards/coding-standards.md)            |
 | Make queued work survive failures       | [Queued work reliability](../standards/queue-reliability.md)    |
 | Decide host vs package vs app ownership | [Host, package, or app code](package-boundaries.md)             |
@@ -100,13 +101,13 @@ Optional-package commands such as `capell:static-site` and `capell:xml-sitemap` 
 
 Host config lives in:
 
-| File                                                 | Covers                                                                                                                      |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core/config/capell.php`                    | Package discovery, cache flags, media backend, install tooling, roles, workspace preview/prune, release windows.            |
-| `packages/admin/config/capell-admin.php`             | Admin settings, update notices, cache refresh, security headers, preview containers.                                        |
+| File                                                 | Covers                                                                                                                       |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/config/capell.php`                    | Package discovery, cache flags, media backend, install tooling, roles, workspace preview/prune, release windows.             |
+| `packages/admin/config/capell-admin.php`             | Admin settings, update notices, cache refresh, security headers, preview containers.                                         |
 | `packages/frontend/config/capell-frontend.php`       | Asset build tool, home route registration, fallback site behaviour, model-event registration, debug logging, HTML rendering. |
-| `packages/installer/config/capell-installer.php`     | Reinstall guard, Composer/PHP binaries, default install package selection.                                                  |
-| `packages/marketplace/config/capell-marketplace.php` | Marketplace enablement, API/web URLs, identity, webhook URL/secret, catalogue paging.                                       |
+| `packages/installer/config/capell-installer.php`     | Reinstall guard, Composer/PHP binaries, default install package selection.                                                   |
+| `packages/marketplace/config/capell-marketplace.php` | Marketplace enablement, API/web URLs, identity, webhook URL/secret, catalogue paging.                                        |
 
 After changing config in an app:
 

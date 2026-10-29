@@ -233,13 +233,17 @@ Reaching `/admin` or seeing a draft preview confirms only that part of the journ
 
 ## Browser installer
 
-Before using the browser installer, generate an operator secret on the server:
+The browser installer asks for a temporary access code. If someone else manages the server, ask them for the code. If you manage it, create one in a trusted terminal in the application environment:
 
 ```bash
 php -r 'echo bin2hex(random_bytes(32)), PHP_EOL; echo time() + 1800, PHP_EOL;'
 ```
 
-Set the first line as `CAPELL_INSTALLER_BOOTSTRAP_SECRET` and the second line as `CAPELL_INSTALLER_BOOTSTRAP_EXPIRES_AT` in the host environment or `.env`, and rebuild any cached configuration. Open `/install` over HTTPS and enter the secret in the operator bootstrap field. Each state-changing request requires the proof; the browser session retains its hash, and the server checks expiry and rotation on every request. A missing grant, a secret shorter than 32 characters, an expired grant, or an expiry more than 30 minutes away is refused. Renew both values to resume after expiry, and clear them after setup. Keep the secret out of URLs, logs, reports and source control.
+1. The first line is the access code. Set it as `CAPELL_INSTALLER_BOOTSTRAP_SECRET` in the application's environment or `.env`.
+2. The second line is its expiry time. Set it as `CAPELL_INSTALLER_BOOTSTRAP_EXPIRES_AT` in the same place.
+3. If Laravel configuration is cached, rebuild it so the application can read both values. Open `/install` over HTTPS and enter the first line in **Installer access code**.
+
+The code expires within 30 minutes. If it expires before you finish, create a new code and expiry time, update both values and refresh cached configuration. The browser session stores a hash of the code, and the server checks it on every installer change. Remove both settings after setup. Keep the code out of URLs, logs, reports and source control.
 
 Browser setup preserves existing database data. A destructive refresh is available only through `php artisan capell:install --fresh` with explicit confirmation (or `--fresh=force` for a deliberate disposable CLI install).
 
