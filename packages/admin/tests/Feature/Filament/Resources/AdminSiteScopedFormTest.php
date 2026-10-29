@@ -1,14 +1,17 @@
 <?php
 
 declare(strict_types=1);
+use Capell\Admin\Actions\Redirects\BuildRedirectAdviceAction;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Filament\Resources\PageUrls\Pages\ManagePageUrls;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Tests\Fixtures\Models\SiteScopedFormTestUser;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -169,4 +172,29 @@ it('rejects creating pages with a parent owned by another site', function (): vo
         ->set('mountedActions.0.data.name', 'Cross-site parent page')
         ->callMountedAction()
         ->assertHasFormErrors(['parent_id']);
+});
+
+it('does not reveal redirect chain advice for sites the editor cannot access', function (): void {
+    $assignedSite = Site::factory()->withTranslations()->create();
+    $otherLanguage = Language::factory()->createOne();
+    $otherSite = Site::factory()
+        ->language($otherLanguage)
+        ->has(SiteDomain::factory()->state(['language_id' => $otherLanguage->getKey()]))
+        ->withTranslations($otherLanguage)
+        ->create();
+
+    PageUrl::query()->create([
+        'site_id' => $otherSite->getKey(),
+        'language_id' => $otherLanguage->getKey(),
+        'url' => '/middle',
+        'target_url' => '/secret-destination',
+        'status_code' => 301,
+        'status' => true,
+        'type' => UrlTypeEnum::Redirect->value,
+        'is_manual' => true,
+    ]);
+
+    test()->actingAs(createScopedUserForAdminSiteScopedFormTest(collect([$assignedSite->getKey()])));
+
+    expect(BuildRedirectAdviceAction::run('/old', '/middle', $otherSite->getKey(), $otherLanguage->getKey()))->toBe([]);
 });
