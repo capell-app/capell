@@ -418,3 +418,53 @@ it('refuses to run tests against a Testbench skeleton that workbench preparation
         $fixture->close();
     }
 });
+
+it('publishes the prebuilt frontend assets into a skeleton that lacks them before running tests', function (): void {
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/run-preflight.php');
+    $fixture->files->copy('scripts/heavy-admission.php');
+
+    $manifest = $fixture->files->root . '/vendor/orchestra/testbench-core/laravel/public/vendor/capell-frontend/manifest.json';
+    $fixture->fake('testbench', <<<'PHP'
+        $manifest = getcwd() . '/vendor/orchestra/testbench-core/laravel/public/vendor/capell-frontend/manifest.json';
+        mkdir(dirname($manifest), 0777, true);
+        file_put_contents($manifest, '{}');
+        PHP);
+    $fixture->files->write('vendor/bin/testbench', file_get_contents($fixture->files->root . '/bin/testbench') ?: '');
+    chmod($fixture->files->root . '/vendor/bin/testbench', 0755);
+
+    try {
+        $process = $fixture->run([PHP_BINARY, 'scripts/run-preflight.php', 'tests'], [
+            'COMPOSER_BINARY' => $fixture->files->root . '/bin/composer',
+        ]);
+
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+            ->and($manifest)->toBeFile()
+            ->and(array_column($fixture->calls('testbench'), 'arguments'))->toBe([['vendor:publish', '--tag=capell-frontend-assets', '--force']])
+            ->and(array_column($fixture->calls('composer'), 'arguments'))->toBe([['test:preflight']]);
+    } finally {
+        $fixture->close();
+    }
+});
+
+it('stops before the tests when the frontend assets cannot be published and names the directory and command', function (): void {
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/run-preflight.php');
+    $fixture->files->copy('scripts/heavy-admission.php');
+    $fixture->fake('testbench');
+    $fixture->files->write('vendor/bin/testbench', file_get_contents($fixture->files->root . '/bin/testbench') ?: '');
+    chmod($fixture->files->root . '/vendor/bin/testbench', 0755);
+
+    try {
+        $process = $fixture->run([PHP_BINARY, 'scripts/run-preflight.php', 'tests'], [
+            'COMPOSER_BINARY' => $fixture->files->root . '/bin/composer',
+        ]);
+
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getErrorOutput())->toContain('public/vendor/capell-frontend')
+            ->and($process->getErrorOutput())->toContain('vendor:publish --tag=capell-frontend-assets --force')
+            ->and($fixture->calls('composer'))->toBe([]);
+    } finally {
+        $fixture->close();
+    }
+});
