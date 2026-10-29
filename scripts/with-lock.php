@@ -46,7 +46,18 @@ if ($command === []) {
     exit(2);
 }
 
-$runCommand = static function (array $command): int {
+require_once __DIR__ . '/heavy-admission.php';
+
+// Stage commands queue in the host-wide heavy pool: weight 2 for static
+// analysis, 3 (the whole host) for everything else behind the release lease.
+// CAPELL_HEAVY_WEIGHT lowers it for a focused run. A run already admitted by
+// run-preflight.php inherits its slot and does not wait again.
+$heavyWeight = getenv('CAPELL_HEAVY_WEIGHT');
+$heavyWeight = is_string($heavyWeight) && preg_match('/\A[1-3]\z/', $heavyWeight) === 1
+    ? (int) $heavyWeight
+    : (str_starts_with($arguments[0], 'capell-static') ? 2 : 3);
+
+$runCommand = static function (array $command) use ($heavyWeight, $arguments): int {
     if ($command[0] === 'php') {
         $command[0] = PHP_BINARY;
     }
@@ -56,6 +67,8 @@ $runCommand = static function (array $command): int {
     if (preg_match('/\A[A-Za-z_]\w*=.*/', $command[0]) === 1) {
         array_unshift($command, 'env');
     }
+
+    $command = capellHeavyCommand($command, $heavyWeight, $arguments[0]);
 
     $quoted = implode(' ', array_map(escapeshellarg(...), $command));
 

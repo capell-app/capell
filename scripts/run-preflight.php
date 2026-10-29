@@ -10,6 +10,12 @@ declare(strict_types=1);
  * Pass --fail-fast for focused local iteration when later stages would only
  * repeat work after the first actionable failure. The default remains the
  * complete diagnostic pass used by the broad preflight gate.
+ *
+ * A whole-tree run takes weight 3 (the whole host) in the host-wide heavy pool,
+ * so two runs from different worktrees queue instead of doubling the parallel
+ * Pest/Rector/PHPStan workers. The script re-executes itself under the guard
+ * once (CAPELL_PREFLIGHT_ADMITTED marks the admitted process); stages inherit
+ * the slot through HEAVY_SLOT_OWNER. See scripts/heavy-admission.php.
  */
 $all = in_array('--all', $argv, true);
 $failFast = in_array('--fail-fast', $argv, true);
@@ -115,6 +121,18 @@ if ($requestedNodeStages !== [] && ! is_dir(dirname(__DIR__) . '/node_modules'))
     ));
 
     exit(2);
+}
+
+if (getenv('CAPELL_PREFLIGHT_ADMITTED') !== '1') {
+    require_once __DIR__ . '/heavy-admission.php';
+
+    $admitted = capellHeavyCommand([PHP_BINARY, __FILE__, ...array_slice($argv, 1)], 3, 'composer-preflight');
+
+    if ($admitted[0] !== PHP_BINARY) {
+        putenv('CAPELL_PREFLIGHT_ADMITTED=1');
+        $process = proc_open($admitted, [STDIN, STDOUT, STDERR], $pipes);
+        exit(is_resource($process) ? proc_close($process) : 127);
+    }
 }
 
 $composer = getenv('COMPOSER_BINARY');
