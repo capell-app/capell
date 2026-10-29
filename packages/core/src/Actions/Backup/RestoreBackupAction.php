@@ -390,7 +390,9 @@ final class RestoreBackupAction
             $reason = $this->redact(trim($process->getErrorOutput()) !== '' ? $process->getErrorOutput() : $process->getOutput(), $connection);
 
             throw new ScratchRestoreFailedException(
-                (string) __('capell-core::backup.' . ($kind === 'process' ? 'restore_doctor_process_failed' : 'restore_doctor_invalid_json'), ['exit' => (string) $exitCode, 'reason' => $reason]),
+                $kind === 'process'
+                    ? (string) __('capell-core::backup.restore_doctor_process_failed', ['exit' => (string) $exitCode, 'reason' => $reason])
+                    : (string) __('capell-core::backup.restore_doctor_invalid_json', ['exit' => (string) $exitCode, 'reason' => $reason]),
                 $base->withDoctorResult($kind, $reason, $exitCode),
             );
         }
