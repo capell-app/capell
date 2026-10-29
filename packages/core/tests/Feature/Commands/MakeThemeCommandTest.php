@@ -127,3 +127,73 @@ it('rejects unsafe theme keys and target paths', function (array $arguments, str
         '--path' => '../outside',
     ], 'Missing or unsafe path'],
 ]);
+
+function themeScaffoldReadme(array $arguments, ?string $projectRoot = null): string
+{
+    $projectRoot ??= sys_get_temp_dir() . '/capell-make-theme-project-' . bin2hex(random_bytes(6));
+    mkdir($projectRoot, 0755, true);
+    $originalDirectory = getcwd();
+    throw_if($originalDirectory === false, RuntimeException::class, 'Unable to resolve the working directory.');
+    chdir($projectRoot);
+
+    try {
+        artisanCommand('capell:make-theme', $arguments)->assertExitCode(Command::SUCCESS);
+    } finally {
+        chdir($originalDirectory);
+    }
+
+    $path = ($arguments['--path'] ?? 'packages');
+    $path = str_starts_with((string) $path, '/') ? (string) $path : realpath($projectRoot) . '/' . $path;
+
+    $readmes = glob($path . '/*/README.md');
+    throw_if($readmes === false || $readmes === [], RuntimeException::class, 'The scaffold README was not created.');
+
+    return (string) file_get_contents($readmes[0]);
+}
+
+it('explains that a project-local scaffold registers without an install record', function (): void {
+    $readme = themeScaffoldReadme(['theme' => 'equidynamics', '--local' => true]);
+
+    expect(preg_replace('/\s+/', ' ', $readme))->toContain('registers its runtime unconditionally')
+        ->not->toContain('registers only after');
+});
+
+it('explains that a package scaffold registers only once the package is installed', function (): void {
+    $readme = themeScaffoldReadme(['theme' => 'equidynamics']);
+
+    expect(preg_replace('/\s+/', ' ', $readme))->toContain('registers only after')
+        ->not->toContain('registers its runtime unconditionally');
+});
+
+it('points the generated repository and doctor instructions at the created theme directory', function (string $path, string $expectedDirectory): void {
+    $readme = themeScaffoldReadme(['theme' => 'equidynamics', '--path' => $path]);
+
+    expect($readme)->toContain('"url": "' . $expectedDirectory . '"')
+        ->toContain('capell:theme:doctor equidynamics --path=' . $expectedDirectory)
+        ->not->toContain('packages/*');
+})->with([
+    'default parent' => ['packages', 'packages/equidynamics-theme'],
+    'custom relative parent' => ['themes/client', 'themes/client/equidynamics-theme'],
+]);
+
+it('quotes shell-significant characters in a generated doctor path', function (): void {
+    $readme = themeScaffoldReadme(['theme' => 'equidynamics', '--path' => 'client themes']);
+
+    expect($readme)->toContain("--path='client themes/equidynamics-theme'")
+        ->toContain('"url": "client themes/equidynamics-theme"');
+});
+
+it('uses the real directory when the package name differs from the theme key', function (): void {
+    $readme = themeScaffoldReadme(['theme' => 'equidynamics', '--package' => 'acme/client_theme.v2']);
+
+    expect($readme)->toContain('--path=packages/client_theme.v2');
+});
+
+it('warns when an absolute scaffold path lies outside the project', function (): void {
+    $outside = sys_get_temp_dir() . '/capell-make-theme-outside-' . bin2hex(random_bytes(6));
+    mkdir($outside, 0755, true);
+    $readme = themeScaffoldReadme(['theme' => 'equidynamics', '--path' => $outside]);
+
+    expect($readme)->toContain($outside . '/equidynamics-theme')
+        ->toContain('outside this project');
+});
