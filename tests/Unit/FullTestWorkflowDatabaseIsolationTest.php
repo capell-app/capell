@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 use Capell\Tests\Support\CommandFixture;
+use Capell\Tests\Support\WorkflowConditionEvaluator;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
 
 require_once __DIR__ . '/../Support/DomQuery.php';
-require_once __DIR__ . '/../Support/WorkflowCondition.php';
 
 it('recreates only the current worker database before sharded tests', function (bool $worker): void {
     $root = dirname(__DIR__, 2);
@@ -62,12 +62,12 @@ it('recreates only the current worker database before sharded tests', function (
 it('starts sentinel independently of the still failing fast PR gate', function (): void {
     $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
     $jobs = $workflow['jobs'];
-    $sentinelRuns = static fn (array $context): bool => evaluateWorkflowCondition($jobs['sentinel']['if'], $context + [
+    $sentinelRuns = static fn (array $context): bool => new WorkflowConditionEvaluator($context + [
         'github.actor' => 'octocat',
         'github.event_name' => 'merge_group',
         'needs.matrix.result' => 'success',
         'inputs.cell' => '',
-    ]);
+    ])->evaluate($jobs['sentinel']['if']);
 
     expect($jobs['sentinel']['needs'])->toBe(['matrix'])
         // Fast-gate failures cannot keep the sentinel from starting, and the full matrix
@@ -82,11 +82,11 @@ it('starts sentinel independently of the still failing fast PR gate', function (
         ->and($jobs['fast-pr']['continue-on-error'] ?? false)->toBeFalse()
         ->and($workflow['concurrency']['cancel-in-progress'])->toBeTrue();
 
-    $fastPrRuns = static fn (array $context): bool => evaluateWorkflowCondition($jobs['fast-pr']['if'], $context + [
+    $fastPrRuns = static fn (array $context): bool => new WorkflowConditionEvaluator($context + [
         'github.actor' => 'octocat',
         'github.event_name' => 'pull_request',
         'github.event.pull_request.draft' => false,
-    ]);
+    ])->evaluate($jobs['fast-pr']['if']);
     expect($fastPrRuns([]))->toBeTrue()
         ->and($fastPrRuns(['github.event.pull_request.draft' => true]))->toBeFalse()
         ->and($fastPrRuns(['github.event_name' => 'merge_group']))->toBeFalse()
