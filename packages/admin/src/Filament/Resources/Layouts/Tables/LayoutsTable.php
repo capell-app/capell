@@ -26,6 +26,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -143,7 +144,7 @@ class LayoutsTable implements TableConfigurator
                 SoftDeletingScope::class,
             ])
             ->select([
-                'layouts.*',
+                TableName::resolve('layouts') . '.*',
                 self::getUsesCountSelect($query, 'pages_count'),
             ]);
     }

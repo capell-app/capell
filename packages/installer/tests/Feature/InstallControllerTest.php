@@ -30,10 +30,14 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Capell\Tests\Support\PatchedPhpRuntime;
 use Capell\Tests\Support\StylesheetRuntime;
 use Composer\InstalledVersions;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Testing\Fakes\QueueFake;
 use Illuminate\Testing\TestResponse;
 
 use function Pest\Laravel\get;
@@ -3211,5 +3215,116 @@ it('explains when the completion route update cannot be applied', function (): v
         expect(file_get_contents($routesPath))->toBe($stockRoute);
     } finally {
         unlink($routesPath);
+    }
+});
+
+it('offers table naming choices in the web installer', function (): void {
+    $page = installerShowMarkup();
+    expect(domCount($page, '//*[@id="installer-workspace"]//*[@name="table_prefix"]'))->toBe(1)
+        ->and(domCount($page, '//*[@id="installer-workspace"]//*[@name="table_aliases"]'))->toBe(1);
+});
+
+it('reports a foreign table before reviewing a web installation', function (): void {
+    config()->set('capell.database.table_aliases.pages', 'foreign_pages');
+    $record = DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->first();
+    DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->delete();
+    Schema::create('foreign_pages', fn (Blueprint $table) => $table->id());
+    try {
+        $payload = installPostPayload();
+        $this->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true])
+            ->assertUnprocessable()->assertJsonValidationErrors('table_names')
+            ->assertSee('foreign_pages');
+    } finally {
+        Schema::dropIfExists('foreign_pages');
+        if ($record !== null) {
+            DB::table('migrations')->insert((array) $record);
+        }
+    }
+});
+
+it('reviews and writes a web table alias only after confirmation', function (): void {
+    config()->set('capell.database.table_aliases.pages', 'foreign_pages');
+    $record = DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->first();
+    DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->delete();
+    Schema::create('foreign_pages', fn (Blueprint $table) => $table->id());
+    $configPath = config_path('capell.php');
+    $original = is_file($configPath) ? file_get_contents($configPath) : null;
+    try {
+        $payload = installPostPayload(['table_aliases' => "\npages=web_pages\n"]);
+        unset($payload['review_token'], $payload['installation_confirmed']);
+        $review = $this->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
+        $review->assertOk()->assertSee('web_pages');
+        expect(is_file($configPath) ? file_get_contents($configPath) : null)->toBe($original);
+        $this->withCookie((string) config('session.cookie'), session()->getId());
+        $this->postJson(route('capell-installer.store'), [
+            ...$payload, 'table_aliases' => 'pages=other_pages', 'review_token' => $review->json('review.token'), 'installation_confirmed' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('installation_confirmed');
+        expect(is_file($configPath) ? file_get_contents($configPath) : null)->toBe($original);
+        RunInstallAction::spy();
+        post(route('capell-installer.store'), [...$payload, 'review_token' => $review->json('review.token'), 'installation_confirmed' => true])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        expect((require $configPath)['database']['table_aliases']['pages'])->toBe('web_pages')
+            ->and(Schema::hasTable('foreign_pages'))->toBeTrue();
+    } finally {
+        if (is_string($original)) {
+            file_put_contents($configPath, $original);
+        } elseif (is_file($configPath)) {
+            unlink($configPath);
+        }
+
+        Schema::dropIfExists('foreign_pages');
+        if ($record !== null) {
+            DB::table('migrations')->insert((array) $record);
+        }
+    }
+});
+
+it('does not write table configuration for a clean web review', function (): void {
+    $configPath = config_path('capell.php');
+    $before = is_file($configPath) ? file_get_contents($configPath) : null;
+    $payload = installPostPayload();
+    $this->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true])->assertOk();
+    expect(is_file($configPath) ? file_get_contents($configPath) : null)->toBe($before);
+});
+
+it('passes the confirmed web table alias to a worker with stale configuration', function (): void {
+    Queue::fake();
+    config()->set('capell.database.table_aliases.pages', 'foreign_pages');
+    $record = DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->first();
+    DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->delete();
+    Schema::create('foreign_pages', fn (Blueprint $table) => $table->id());
+    $configPath = config_path('capell.php');
+    $original = is_file($configPath) ? file_get_contents($configPath) : null;
+    try {
+        $payload = installPostPayload(['table_aliases' => 'pages=web_pages', 'run_as_job' => '1']);
+        post(route('capell-installer.store'), $payload)->assertRedirect()->assertSessionHasNoErrors();
+        /** @var QueueFake $queue */
+        $queue = Queue::getFacadeRoot();
+        $job = $queue->pushed(RunCapellInstallJob::class)->first();
+        expect($job)->toBeInstanceOf(RunCapellInstallJob::class);
+        config()->set('capell.database.table_aliases.pages', 'stale_pages');
+        $fake = new class
+        {
+            public mixed $alias = null;
+
+            public function handle(InstallInputData $input, ProgressReporter $reporter): void
+            {
+                $this->alias = config('capell.database.table_aliases.pages');
+            }
+        };
+        app()->instance(RunInstallAction::class, $fake);
+        $job->handle();
+        expect($fake->alias)->toBe('web_pages')->and(config('capell.database.table_aliases.pages'))->toBe('stale_pages');
+    } finally {
+        if (is_string($original)) {
+            file_put_contents($configPath, $original);
+        } elseif (is_file($configPath)) {
+            unlink($configPath);
+        }
+
+        Schema::dropIfExists('foreign_pages');
+        if ($record !== null) {
+            DB::table('migrations')->insert((array) $record);
+        }
     }
 });

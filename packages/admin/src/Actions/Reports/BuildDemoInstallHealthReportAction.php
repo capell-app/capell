@@ -23,6 +23,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\ConnectionResolverInterface;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -335,7 +336,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private function settingsRowsCount(): int|string
     {
-        $tableResult = $this->schemaState->tableResult('settings');
+        $tableResult = $this->schemaState->tableResult((string) (config('settings.repositories.database.table') ?: 'settings'));
 
         if ($tableResult === SchemaProbeResult::Failed) {
             return 'Unavailable';
@@ -345,12 +346,12 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             return 0;
         }
 
-        return $this->connections->connection()->table('settings')->count();
+        return $this->connections->connection()->table((string) (config('settings.repositories.database.table') ?: 'settings'))->count();
     }
 
     private function visiblePageCount(): int|string
     {
-        $tableResult = $this->schemaState->tableResult('pages');
+        $tableResult = $this->schemaState->tableResult(TableName::resolve('pages'));
 
         if ($tableResult === SchemaProbeResult::Failed) {
             return 'Unavailable';

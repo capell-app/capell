@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Notifications;
 use Capell\Admin\Enums\AdminNotificationGroupEnum;
 use Capell\Admin\Models\AdminNotificationSubscription;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -34,7 +35,7 @@ final class ResolveAdminNotificationRecipientsAction
             ->filter(static fn (Model $recipient): bool => filled($recipient->getKey()))
             ->keyBy(static fn (Model $recipient): string => $recipient::class . ':' . $recipient->getKey());
 
-        if (! Schema::hasTable('capell_admin_notification_subscriptions')) {
+        if (! Schema::hasTable(TableName::resolve('capell_admin_notification_subscriptions'))) {
             return $recipients->values();
         }
 

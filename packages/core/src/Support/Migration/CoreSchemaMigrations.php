@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Migration;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 
 final class CoreSchemaMigrations
@@ -21,7 +22,7 @@ final class CoreSchemaMigrations
             return false;
         }
 
-        return Schema::hasTable($matches[1]);
+        return Schema::hasTable(TableName::resolve($matches[1])) && TableName::migrationRecorded($migration);
     }
 
     /** @param list<string> $pendingCore */
@@ -31,7 +32,7 @@ final class CoreSchemaMigrations
 
         foreach (CapellCore::getMigrations() as $managedMigration) {
             if (self::withoutTimestamp($managedMigration) === $name) {
-                if (self::createsExistingTable($migration)) {
+                if (self::createsExistingTable($managedMigration)) {
                     return true;
                 }
 

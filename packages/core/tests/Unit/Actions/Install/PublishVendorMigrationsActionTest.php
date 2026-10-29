@@ -309,7 +309,14 @@ it('publishes tag tables before package tag migrations run', function (): void {
 
     if (! File::exists($stubPath)) {
         File::ensureDirectoryExists($stubDirectory);
-        File::put($stubPath, "<?php\n\ndeclare(strict_types=1);\n");
+        File::put($stubPath, <<<'PHP'
+<?php
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+Schema::create('tags', function (Blueprint $table) { $table->id(); });
+Schema::create('taggables', function (Blueprint $table) { $table->foreignId('tag_id')->constrained(); });
+PHP);
+
         $createdStub = true;
     }
 

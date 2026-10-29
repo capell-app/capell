@@ -14,6 +14,7 @@ use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\TableName;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -30,9 +31,9 @@ class PageUrlsTable implements TableConfigurator
     {
         return $table
             ->modifyQueryUsing(
-                fn (Builder $query): Builder => $query->select('page_urls.*')
-                    ->join('languages', 'languages.id', '=', 'page_urls.language_id')
-                    ->whereNull('languages.deleted_at')
+                fn (Builder $query): Builder => $query->select(TableName::resolve('page_urls') . '.*')
+                    ->join(TableName::resolve('languages'), TableName::resolve('languages') . '.id', '=', TableName::resolve('page_urls') . '.language_id')
+                    ->whereNull(TableName::resolve('languages') . '.deleted_at')
                     ->with([
                         'language',
                         'site.siteDomains',
@@ -60,8 +61,8 @@ class PageUrlsTable implements TableConfigurator
                     ->sortable(),
             ])
             ->defaultSort(function (Builder $query): void {
-                $query->orderBy('languages.default', 'desc')
-                    ->orderBy('languages.name');
+                $query->orderBy(TableName::resolve('languages') . '.default', 'desc')
+                    ->orderBy(TableName::resolve('languages') . '.name');
             })
             ->headerActions([
                 CreateAction::make()

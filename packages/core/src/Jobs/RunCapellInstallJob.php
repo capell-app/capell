@@ -11,6 +11,7 @@ use Capell\Core\Support\Install\InstallReportRedactor;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -31,6 +32,8 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         private readonly InstallInputData $inputData,
         private readonly string $installId,
+        /** @var array<string, string> */
+        private readonly array $tableChanges = [],
     ) {}
 
     /** @return array<int, int> */
@@ -64,6 +67,12 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $previousConfig = [];
+        foreach ($this->tableChanges as $key => $value) {
+            $previousConfig[$key] = [config()->has($key), config($key)];
+            config()->set($key, $value);
+        }
+
         try {
             RunInstallAction::run($this->inputData, $reporter);
             $this->duringUpdate(function () use ($reporter): void {
@@ -91,6 +100,21 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
             });
 
             throw $throwable;
+        } finally {
+            foreach ($previousConfig as $key => [$existed, $value]) {
+                if ($existed) {
+                    config()->set($key, $value);
+
+                    continue;
+                }
+
+                [$root, $path] = explode('.', $key, 2);
+                $rootConfig = config($root);
+                if (is_array($rootConfig)) {
+                    Arr::forget($rootConfig, $path);
+                    config()->set($root, $rootConfig);
+                }
+            }
         }
     }
 

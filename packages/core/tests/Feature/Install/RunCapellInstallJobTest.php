@@ -245,3 +245,41 @@ it('fences a queued completion against replacement under the ownership boundary'
         ->and(Cache::get('capell.install.' . $id . '.status'))->toBe('complete')
         ->and(Cache::get('capell.install.lock'))->toBeNull();
 });
+
+it('uses the confirmed table names in a long-running worker and restores its configuration', function (): void {
+    $id = 'table-config-install';
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    config()->set('capell.database.table_prefix', 'stale_');
+    $fake = new class
+    {
+        public mixed $observed = null;
+
+        public function handle(InstallInputData $input, ProgressReporter $reporter): void
+        {
+            $this->observed = config('capell.database.table_prefix');
+        }
+    };
+    app()->instance(RunInstallAction::class, $fake);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    new RunCapellInstallJob($input, $id, ['capell.database.table_prefix' => 'cms_'])->handle();
+    expect($fake->observed)->toBe('cms_')->and(config('capell.database.table_prefix'))->toBe('stale_');
+});
+
+it('restores an absent table alias after running a queued install', function (): void {
+    $id = 'table-alias-install';
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    config()->set('capell.database.table_aliases', []);
+    $fake = new class
+    {
+        public mixed $observed = null;
+
+        public function handle(InstallInputData $input, ProgressReporter $reporter): void
+        {
+            $this->observed = config('capell.database.table_aliases.pages');
+        }
+    };
+    app()->instance(RunInstallAction::class, $fake);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    new RunCapellInstallJob($input, $id, ['capell.database.table_aliases.pages' => 'cms_pages'])->handle();
+    expect($fake->observed)->toBe('cms_pages')->and(config('capell.database.table_aliases'))->toBe([]);
+});

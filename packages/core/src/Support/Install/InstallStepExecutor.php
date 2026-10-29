@@ -8,6 +8,7 @@ use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\CreateAdditionalInstallUsersAction;
+use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\GenerateSitemapAction;
 use Capell\Core\Actions\Install\GrantInstallUserAdminAccessAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
@@ -97,6 +98,18 @@ final class InstallStepExecutor
         }
     }
 
+    private function runInitialMigrations(InstallRunState $state): void
+    {
+        $packages = array_values(array_unique([...$state->inputData->packages, ...$state->inputData->extraPackages]));
+        $collisions = resolve(FindTableCollisionsAction::class)->handle($packages);
+        if ($collisions !== []) {
+            $names = array_map(static fn ($collision): string => $collision->table, $collisions);
+            throw new RuntimeException((string) __('capell-core::install.tables.choice_required', ['tables' => implode(', ', $names)]));
+        }
+
+        RunMigrationsAction::run($state->reporter, includeSettings: false);
+    }
+
     private function executeStep(string $stepKey, InstallRunState $state): InstallRunState
     {
         if (InstallPlan::isPackageRequireStep($stepKey)) {
@@ -136,7 +149,7 @@ final class InstallStepExecutor
             InstallPlan::STEP_PUBLISH_VENDOR_MIGRATIONS, InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS => PublishVendorMigrationsAction::run($state->reporter),
             InstallPlan::STEP_PUBLISH_CAPELL_MIGRATIONS => PublishCapellMigrationsAction::run($state->reporter, publishSettings: false),
             InstallPlan::STEP_PUBLISH_PACKAGE_MIGRATIONS => $this->publishPackageMigrations($state),
-            InstallPlan::STEP_RUN_MIGRATIONS_PRE => RunMigrationsAction::run($state->reporter, includeSettings: false),
+            InstallPlan::STEP_RUN_MIGRATIONS_PRE => $this->runInitialMigrations($state),
             InstallPlan::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS => $this->publishSettingsMigrations($state),
             InstallPlan::STEP_RUN_MIGRATIONS_MID => RunMigrationsAction::run($state->reporter),
             InstallPlan::STEP_RUN_MIGRATIONS_POST => $this->finalizeInstall($state),

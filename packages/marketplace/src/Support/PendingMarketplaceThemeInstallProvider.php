@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Support;
 
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
+use Capell\Core\Support\TableName;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +17,7 @@ final class PendingMarketplaceThemeInstallProvider implements PendingThemeInstal
      */
     public function pendingThemeInstalls(): array
     {
-        if (! Schema::hasTable('marketplace_install_intents')) {
+        if (! Schema::hasTable(TableName::resolve('marketplace_install_intents'))) {
             return [];
         }
 

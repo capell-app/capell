@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ return new class extends Migration
 
     public function up(): void
     {
-        if (! Schema::hasTable('site_domains')) {
+        if (! TableName::existsAndIsOwned('site_domains', '2026_05_10_190832_06_create_site_domains_table')) {
             return;
         }
 
@@ -35,44 +36,44 @@ return new class extends Migration
             ));
         }
 
-        if (! Schema::hasColumn('site_domains', 'routing_identity')) {
-            Schema::table('site_domains', static function (Blueprint $table): void {
+        if (! Schema::hasColumn(TableName::resolve('site_domains'), 'routing_identity')) {
+            Schema::table(TableName::resolve('site_domains'), static function (Blueprint $table): void {
                 $table->string('routing_identity', 64)->nullable()->after('path');
             });
         }
 
         foreach ($identities as $id => $identity) {
-            DB::table('site_domains')->where('id', $id)->update(['routing_identity' => $identity]);
+            DB::table(TableName::resolve('site_domains'))->where('id', $id)->update(['routing_identity' => $identity]);
         }
 
-        if (! Schema::hasIndex('site_domains', self::UNIQUE_INDEX)) {
-            Schema::table('site_domains', static function (Blueprint $table): void {
-                $table->unique('routing_identity', self::UNIQUE_INDEX);
+        if (! Schema::hasIndex(TableName::resolve('site_domains'), TableName::namedIndex('site_domains', self::UNIQUE_INDEX))) {
+            Schema::table(TableName::resolve('site_domains'), static function (Blueprint $table): void {
+                $table->unique('routing_identity', TableName::namedIndex('site_domains', self::UNIQUE_INDEX));
             });
         }
 
-        if (Schema::hasIndex('site_domains', self::LEGACY_INDEX)) {
-            Schema::table('site_domains', static function (Blueprint $table): void {
-                $table->dropUnique(self::LEGACY_INDEX);
+        if (Schema::hasIndex(TableName::resolve('site_domains'), TableName::namedIndex('site_domains', self::LEGACY_INDEX))) {
+            Schema::table(TableName::resolve('site_domains'), static function (Blueprint $table): void {
+                $table->dropUnique(TableName::namedIndex('site_domains', self::LEGACY_INDEX));
             });
         }
     }
 
     public function down(): void
     {
-        if (! Schema::hasTable('site_domains') || ! Schema::hasColumn('site_domains', 'routing_identity')) {
+        if (! TableName::existsAndIsOwned('site_domains', '2026_05_10_190832_06_create_site_domains_table') || ! Schema::hasColumn(TableName::resolve('site_domains'), 'routing_identity')) {
             return;
         }
 
-        if (! Schema::hasIndex('site_domains', self::LEGACY_INDEX)) {
-            Schema::table('site_domains', static function (Blueprint $table): void {
-                $table->unique(['scheme', 'domain', 'path', 'deleted_at'], self::LEGACY_INDEX);
+        if (! Schema::hasIndex(TableName::resolve('site_domains'), TableName::namedIndex('site_domains', self::LEGACY_INDEX))) {
+            Schema::table(TableName::resolve('site_domains'), static function (Blueprint $table): void {
+                $table->unique(['scheme', 'domain', 'path', 'deleted_at'], TableName::namedIndex('site_domains', self::LEGACY_INDEX));
             });
         }
 
-        Schema::table('site_domains', static function (Blueprint $table): void {
-            if (Schema::hasIndex('site_domains', self::UNIQUE_INDEX)) {
-                $table->dropUnique(self::UNIQUE_INDEX);
+        Schema::table(TableName::resolve('site_domains'), static function (Blueprint $table): void {
+            if (Schema::hasIndex(TableName::resolve('site_domains'), TableName::namedIndex('site_domains', self::UNIQUE_INDEX))) {
+                $table->dropUnique(TableName::namedIndex('site_domains', self::UNIQUE_INDEX));
             }
 
             $table->dropColumn('routing_identity');
@@ -82,7 +83,7 @@ return new class extends Migration
     /** @return array<int, string> */
     private function activeIdentities(): array
     {
-        return DB::table('site_domains')
+        return DB::table(TableName::resolve('site_domains'))
             ->whereNull('deleted_at')
             ->orderBy('id')
             ->get(['id', 'scheme', 'domain', 'port', 'path'])
