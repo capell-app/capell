@@ -12,7 +12,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
  * Return true only after fresh evidence confirms this contributor's issue is resolved.
  * Return false for unrelated keys, disabled or unavailable capabilities, and uncertainty.
  *
- * @internal
+ * @experimental
  */
 interface DashboardAttentionRecoveryContributor
 {
