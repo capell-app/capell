@@ -983,9 +983,7 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "scenario": "admin-form",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "action-coverage-parent",
             "title": "Parent page language actions.",
@@ -996,8 +994,8 @@
             "output": "docs/images/generated/admin/action-parent-languages.png",
             "interactions": [
                 {
-                    "type": "click",
-                    "selector": "button[role=tab]:has-text('Settings')"
+                    "type": "waitFor",
+                    "selector": "text=Edit parent translations"
                 },
                 {
                     "type": "waitFor",
@@ -1018,9 +1016,7 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "scenario": "admin-form",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "action-coverage-site",
             "title": "Page site language reconciliation.",
@@ -1032,11 +1028,11 @@
             "interactions": [
                 {
                     "type": "click",
-                    "selector": ".choices:has([id=\"data.site_id\"])"
+                    "selector": "button[id=\"form.site_id\"]"
                 },
                 {
                     "type": "click",
-                    "selector": ".choices__item--choice:has-text(\"Screenshot French site\")"
+                    "selector": "[role=option]:has-text(\"Screenshot French site\")"
                 },
                 {
                     "type": "waitFor",
@@ -1057,9 +1053,7 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "scenario": "admin-form",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "action-coverage-dashboard-settings",
             "title": "Dashboard widget settings.",
@@ -1092,9 +1086,7 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "scenario": "admin-form",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "action-coverage-marketplace-purchases",
             "title": "Marketplace purchases actions.",
