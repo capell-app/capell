@@ -14,7 +14,37 @@
             >
         @endif
         @if ($issueResolved)
-            <p role="status" class="mb-2 text-sm">{{ __('capell-admin::work-first.resolved') }}</p>
+            <p role="status" class="mb-2 text-sm">{{ __('capell-admin::work-first.resolved') }} <button type="button"
+                class="underline"
+                wire:click="acknowledgeRecovery">{{ __('capell-admin::work-first.dismiss_confirmation') }}</button></p>
+        @endif
+        @if ($this->recoveryHistory !== [])
+            <x-filament::modal
+                :id="'attention-history-' . $this->getId()"
+                width="lg"
+                :heading="__('capell-admin::work-first.recovery_history')"
+            >
+                <x-slot name="trigger">
+                    <x-filament::button
+                        color="gray"
+                        size="sm"
+                        >{{ __('capell-admin::work-first.recovery_history') }}</x-filament::button
+                    >
+                </x-slot>
+                <ul class="divide-y divide-gray-100 dark:divide-white/5">
+                    @foreach ($this->recoveryHistory as $record)
+                        <li class="py-2 text-sm">
+                            {{ $record['title'] }} · {{ $record['site_name'] }}
+                            <time
+                                class="text-gray-500"
+                                datetime="{{ $record['resolved_at'] }}"
+                                >{{ $record['display_date'] }}</time
+                            >
+                            · {{ $record['timezone'] }}
+                        </li>
+                    @endforeach
+                </ul>
+            </x-filament::modal>
         @endif
         @forelse (['urgent' => true, 'improvements' => false] as $label => $urgent)
             @php($group = array_values(array_filter($items, fn ($item) => $item->urgent === $urgent)))

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
-use Capell\Admin\Actions\Dashboard\BuildDashboardPageBlockersAction;
+use Capell\Admin\Actions\Dashboard\TrackDashboardAttentionRecoveryAction;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\DashboardAdvisoryDecisionData;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
@@ -13,15 +13,10 @@ use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
 use Capell\Admin\Filament\Concerns\WorkFirst\HasStableDashboardOrder;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
-use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
-use Capell\Core\Models\Page;
-use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\Widget;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Override;
@@ -35,15 +30,8 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
     use HasPersonalDashboardSize;
     use HasStableDashboardOrder;
 
-    /** @var list<string> */
-    #[Locked]
-    public array $seenIssueKeys = [];
-
     #[Locked]
     public bool $issueResolved = false;
-
-    #[Locked]
-    public ?string $seenScope = null;
 
     protected static string $workFirstSettingsKey = 'attention';
 
@@ -83,11 +71,10 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
         }
 
         $items = resolve(AdminDashboardDataRequestCache::class)->attentionSnapshot($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
-        $keys = array_map(static fn (DashboardAttentionItemData $item): string => $item->key, $items);
-        $scope = $this->scopeKey();
-        $this->issueResolved = $this->seenScope === $scope && $this->verifiedRecovery($actor, array_values(array_diff($this->seenIssueKeys, $keys)));
-        $this->seenScope = $scope;
-        $this->seenIssueKeys = $keys;
+        $tracker = resolve(TrackDashboardAttentionRecoveryAction::class);
+        $tracker->observe($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), $items);
+
+        $this->issueResolved = array_any($tracker->history($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()), static fn (array $record): bool => ! $record['acknowledged']);
 
         return array_values(array_filter($items, function (DashboardAttentionItemData $item) use ($actor): bool {
             if ($item->urgent) {
@@ -117,6 +104,29 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
         $this->saveDecision($key, CarbonImmutable::now()->addDay()->toIso8601String());
     }
 
+    /** @return list<array{title: string, site_name: string, resolved_at: string, display_date: string, timezone: string, acknowledged: bool}> */
+    #[Computed]
+    public function recoveryHistory(): array
+    {
+        $actor = auth()->user();
+
+        return self::canView() && $actor instanceof Model
+            ? resolve(TrackDashboardAttentionRecoveryAction::class)->history($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage())
+            : [];
+    }
+
+    public function acknowledgeRecovery(): void
+    {
+        $actor = auth()->user();
+        if (! self::canView() || ! $actor instanceof Model) {
+            return;
+        }
+
+        resolve(TrackDashboardAttentionRecoveryAction::class)->acknowledge($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
+        $this->issueResolved = false;
+        unset($this->recoveryHistory);
+    }
+
     private function saveDecision(string $key, ?string $until): void
     {
         $actor = auth()->user();
@@ -137,31 +147,5 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
     private function scopeKey(): string
     {
         return auth()->id() . ':' . ($this->getDashboardSiteId() ?? 'all') . ':' . ($this->getDashboardLanguage() ?? 'all');
-    }
-
-    /** @param list<string> $missingKeys */
-    private function verifiedRecovery(Model&Authenticatable $actor, array $missingKeys): bool
-    {
-        foreach ($missingKeys as $key) {
-            if (! preg_match('/^page-setup-(\d+)$/', $key, $matches)) {
-                continue;
-            }
-
-            $evaluator = resolve(DashboardSiteEvaluator::class);
-            foreach ($evaluator->siteIds($actor, $this->getDashboardSiteId()) as $siteId) {
-                $recovered = $evaluator->run($actor, $siteId, function () use ($actor, $matches, $siteId): bool {
-                    $page = SiteAccess::forActor($actor)->query(Page::class)
-                        ->where('site_id', $siteId)->find((int) $matches[1]);
-
-                    return $page instanceof Page && Gate::forUser($actor)->allows('view', $page)
-                        && resolve(BuildDashboardPageBlockersAction::class)->handle($page) === [];
-                });
-                if ($recovered) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }
