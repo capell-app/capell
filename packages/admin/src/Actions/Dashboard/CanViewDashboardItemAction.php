@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Dashboard;
 
+use Capell\Admin\Contracts\Dashboard\DashboardPageLanguageMatcher;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 
 final class CanViewDashboardItemAction
@@ -37,9 +37,9 @@ final class CanViewDashboardItemAction
         // independent while explicitly retaining actor/site/deletion checks.
         $page = $access->scope(Page::query()->withoutGlobalScopes())
             ->whereNull('deleted_at')->whereKey($pageId)->where('site_id', $siteId)
-            ->when($language !== null, fn (Builder $query): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($query, SiteAccess::forActor($actor), $language))
             ->first();
 
-        return $page instanceof Page && Gate::forUser($actor)->allows('view', $page);
+        return $page instanceof Page && Gate::forUser($actor)->allows('view', $page)
+            && ($language === null || resolve(DashboardPageLanguageMatcher::class)->matches($actor, $page, $language));
     }
 }

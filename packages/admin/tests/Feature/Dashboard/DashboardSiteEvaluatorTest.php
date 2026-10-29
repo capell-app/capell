@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Dashboard\BuildContentStatusAction;
 use Capell\Admin\Actions\Dashboard\CanViewDashboardItemAction;
 use Capell\Admin\Actions\Dashboard\ConstrainDashboardPageLanguageAction;
+use Capell\Admin\Contracts\Dashboard\DashboardPageLanguageMatcher;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
 use Capell\Core\Models\Language;
@@ -13,6 +14,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Publishing\PublishSentinel;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -152,4 +154,48 @@ it('keeps language filtering within explicit site access without losing authoris
         Page::setAllGlobalScopes($originalScopes);
         Translation::setAllGlobalScopes($originalTranslationScopes);
     }
+});
+
+it('consults effective language matching only after site and page authorisation', function (): void {
+    $allowed = Site::factory()->createOne();
+    $denied = Site::factory()->createOne();
+    $foreign = Site::factory()->createOne();
+    $actor = RealSiteScopedAdminResourceUser::query()->create(['name' => 'Editor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $registrar = resolve(PermissionRegistrar::class);
+    $registrar->setPermissionsTeamId($allowed->id);
+
+    $role = Role::findOrCreate('language-boundary-author', 'web');
+    $role->givePermissionTo(Permission::findOrCreate('ViewAny:Page', 'web'));
+
+    $actor->assignRoleForSite($allowed, 'language-boundary-author');
+    $registrar->setPermissionsTeamId($denied->id);
+    Role::findOrCreate('language-boundary-no-access', 'web');
+    $actor->assignRoleForSite($denied, 'language-boundary-no-access');
+    $first = Page::factory()->createOne(['site_id' => $allowed->id]);
+    $second = Page::factory()->createOne(['site_id' => $denied->id]);
+    $third = Page::factory()->createOne(['site_id' => $foreign->id]);
+    $registrar->setPermissionsTeamId($allowed->id);
+    test()->actingAs($actor);
+    $matcher = new class implements DashboardPageLanguageMatcher
+    {
+        /** @var list<int> */
+        public array $calls = [];
+
+        #[Override]
+        public function matches(Authenticatable $actor, Page $page, string $language): bool
+        {
+            $this->calls[] = $page->id;
+
+            return $language === 'inherited';
+        }
+    };
+    app()->instance(DashboardPageLanguageMatcher::class, $matcher);
+    $action = resolve(CanViewDashboardItemAction::class);
+    expect($action->handle($actor, $allowed->id, null, $first->id, 'inherited'))->toBeTrue()
+        ->and($action->handle($actor, $allowed->id, null, $first->id, 'missing'))->toBeFalse()
+        ->and($action->handle($actor, $denied->id, null, $second->id, 'inherited'))->toBeFalse()
+        ->and($action->handle($actor, $foreign->id, null, $third->id, 'inherited'))->toBeFalse()
+        ->and($action->handle($actor, $allowed->id, $denied->id, $first->id, 'inherited'))->toBeFalse()
+        ->and($action->handle($actor, $allowed->id, null, $third->id, 'inherited'))->toBeFalse()
+        ->and($matcher->calls)->toBe([$first->id, $first->id]);
 });

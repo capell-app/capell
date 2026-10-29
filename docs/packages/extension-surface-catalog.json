@@ -53,6 +53,16 @@
             "contractTestId": null
         },
         {
+            "id": "admin.contract.dashboard-page-language-matcher",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardPageLanguageMatcher",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Effective language matching for already authorised dashboard pages, including optional workflow inheritance.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.contract.dashboard-page-ranking-provider",
             "kind": "contract",
             "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardPageRankingProvider",
