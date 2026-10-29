@@ -210,6 +210,46 @@ it('does not republish a canonical vendor migration when a matching migration ro
     });
 });
 
+it('does not publish the Spatie settings migration when a registered migration path already supplies it', function (): void {
+    withIsolatedVendorDependencyMigrationFiles(function (string $migrationDirectory): void {
+        $registeredDirectory = sys_get_temp_dir() . '/capell-registered-migrations-' . uniqid();
+        File::ensureDirectoryExists($registeredDirectory);
+        $registeredMigrationPath = $registeredDirectory . '/2025_11_20_000000_create_settings_table.php';
+        File::put($registeredMigrationPath, "<?php\n\ndeclare(strict_types=1);\n");
+        resolve('migrator')->path($registeredDirectory);
+
+        try {
+            PublishVendorMigrationsAction::run(new NullProgressReporter);
+
+            expect(File::exists($migrationDirectory . '/2026_05_10_190823_create_settings_table.php'))->toBeFalse()
+                ->and(File::exists($registeredMigrationPath))->toBeTrue();
+        } finally {
+            File::deleteDirectory($registeredDirectory);
+        }
+    });
+});
+
+it('removes a pending published settings migration when a registered migration path already supplies it', function (): void {
+    withIsolatedVendorDependencyMigrationFiles(function (string $migrationDirectory): void {
+        $registeredDirectory = sys_get_temp_dir() . '/capell-registered-migrations-' . uniqid();
+        File::ensureDirectoryExists($registeredDirectory);
+        $registeredMigrationPath = $registeredDirectory . '/2025_11_20_000000_create_settings_table.php';
+        $canonicalMigrationPath = $migrationDirectory . '/2026_05_10_190823_create_settings_table.php';
+        File::put($registeredMigrationPath, "<?php\n\ndeclare(strict_types=1);\n");
+        File::put($canonicalMigrationPath, "<?php\n\ndeclare(strict_types=1);\n");
+        resolve('migrator')->path($registeredDirectory);
+
+        try {
+            PublishVendorMigrationsAction::run(new NullProgressReporter);
+
+            expect(File::exists($canonicalMigrationPath))->toBeFalse()
+                ->and(File::exists($registeredMigrationPath))->toBeTrue();
+        } finally {
+            File::deleteDirectory($registeredDirectory);
+        }
+    });
+});
+
 it('removes a pending canonical vendor migration when a non-canonical one already ran', function (): void {
     withIsolatedVendorDependencyMigrationFiles(function (string $migrationDirectory): void {
         $spatiePublishedMigrationPath = $migrationDirectory . '/2035_01_01_000000_create_media_table.php';
