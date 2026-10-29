@@ -28,7 +28,7 @@ final class InstallPostInstallOptionResolver
             return true;
         }
 
-        if (! $welcomeRouteInstaller->canInstall() || ! $interactive) {
+        if (! $welcomeRouteInstaller->hasStockWelcomeRoute() || ! $interactive) {
             return false;
         }
 

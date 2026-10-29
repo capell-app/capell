@@ -10,6 +10,7 @@ use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Installer\Actions\AdvanceInstallerRunAction;
 use Capell\Installer\Actions\BuildInstallerCompletionDataAction;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
@@ -17,6 +18,7 @@ use Capell\Installer\Actions\BuildInstallerRunReportAction;
 use Capell\Installer\Actions\CancelInstallerRunAction;
 use Capell\Installer\Actions\ReadInstallerRunProgressAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
+use Capell\Installer\Actions\RemoveWelcomeRouteAfterInstallAction;
 use Capell\Installer\Actions\ReviewInstallerInputAction;
 use Capell\Installer\Actions\StartInstallerRunAction;
 use Capell\Installer\Data\InstallerRunStartData;
@@ -263,6 +265,44 @@ final class InstallController
             'primaryAdmin' => $successSummary['primaryAdmin'] ?? null,
             'roleUsersCreated' => ($successSummary['roleUsersCreated'] ?? false) === true,
             'canRemoveInstaller' => true,
+            'showWelcomeRouteChoice' => CapellCore::isPackageInstalled('capell-app/frontend') && resolve(WelcomeRouteInstaller::class)->hasStockWelcomeRoute(),
+            'welcomeRouteRemoved' => false,
+            'completion' => BuildInstallerCompletionDataAction::run(),
+        ])->withHeaders($this->installerSessionHeaders());
+    }
+
+    public function removeWelcomeRoute(Request $request, string $installId): Response
+    {
+        abort_unless($this->canAccessInstall($request, $installId), 404);
+        abort_unless($this->sessions->status($installId) === InstallerRunStatus::Complete->value, 404);
+        abort_unless(CapellCore::isPackageInstalled('capell-app/frontend'), 404);
+
+        try {
+            $removed = RemoveWelcomeRouteAfterInstallAction::run();
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return response()->view('capell-installer::success', [
+                'installId' => $installId,
+                'primaryAdmin' => null,
+                'roleUsersCreated' => false,
+                'canRemoveInstaller' => $this->canRemoveInstaller($request),
+                'showWelcomeRouteChoice' => false,
+                'welcomeRouteRemoved' => false,
+                'welcomeRouteError' => true,
+                'completion' => BuildInstallerCompletionDataAction::run(),
+            ], 500)->withHeaders($this->installerSessionHeaders());
+        }
+
+        abort_unless($removed, 409, __('capell-installer::installer.welcome_route_changed'));
+
+        return response()->view('capell-installer::success', [
+            'installId' => $installId,
+            'primaryAdmin' => null,
+            'roleUsersCreated' => false,
+            'canRemoveInstaller' => $this->canRemoveInstaller($request),
+            'showWelcomeRouteChoice' => false,
+            'welcomeRouteRemoved' => true,
             'completion' => BuildInstallerCompletionDataAction::run(),
         ])->withHeaders($this->installerSessionHeaders());
     }

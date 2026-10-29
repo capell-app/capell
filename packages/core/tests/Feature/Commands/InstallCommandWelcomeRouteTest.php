@@ -103,7 +103,6 @@ PHP);
         '--clear-cache' => true,
         '--theme' => 'none',
     ])
-        ->expectsConfirmation('Let Capell handle the homepage?', 'no')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
         ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
@@ -665,3 +664,15 @@ it('enables the frontend root when fluent mutations move the application route a
     'parenthesised prefix' => "(Route::get('/', fn () => 'custom'))->prefix('admin');",
     'parenthesised setUri' => "(Route::get('/', fn () => 'custom'))->setUri('/admin');",
 ]);
+
+it('does not offer welcome-route removal for a customised home route', function (): void {
+    $routesPath = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($routesPath))) {
+        mkdir(dirname($routesPath), 0755, true);
+    }
+
+    file_put_contents($routesPath, "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('custom'));\n");
+
+    expect(resolve(InstallPostInstallOptionResolver::class)
+        ->resolveWelcomeRoute(true, false, true, resolve(WelcomeRouteInstaller::class)))->toBeFalse();
+});
