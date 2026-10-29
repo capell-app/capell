@@ -29,11 +29,10 @@ if [ ! -f "./vendor/bin/pint" ]; then
   exit 1
 fi
 
-command_files_to_check="${@:2}"
-command_args=$1
-command_to_run="./vendor/bin/pint ${command_args} ${command_files_to_check}"
-
-command_result=$(eval $command_to_run)
+# Preserve each filename as one argument. Evaluating a joined command lets
+# whitespace or shell metacharacters in staged filenames change what runs.
+command_result=$(./vendor/bin/pint "$@")
+command_status=$?
 
 if [[ "$command_result" == *"FAIL"* ]]; then
     echo "$command_result"
@@ -45,6 +44,12 @@ fi
 if [[ "$command_result" == *"FIXED"* ]]; then
     echo -e "${BOLD_YELLOW} Pint fixed some issues in your files.${YELLOW} Please re-stage them and try again.${NC}"
     exit 1
+fi
+
+if [ "$command_status" -ne 0 ]; then
+    echo "$command_result"
+    echo -e "${RED} Pint failed with exit code ${command_status}.${NC}"
+    exit "$command_status"
 fi
 
 exit 0
