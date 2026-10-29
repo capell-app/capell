@@ -262,7 +262,7 @@ final class InstallInputFactory
     {
         return $hasFrontend
             && (bool) ($validated['install_welcome_route'] ?? false)
-            && resolve(WelcomeRouteInstaller::class)->canInstall();
+            && resolve(WelcomeRouteInstaller::class)->hasStockWelcomeRoute();
     }
 
     /**

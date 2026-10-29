@@ -18,6 +18,7 @@ Route::name('capell-installer.')
             Route::post('install/{installId}/cancel', [InstallController::class, 'cancel'])->middleware(RequireInstallerBootstrap::class)->name('cancel');
         });
 
+        Route::post('install/{installId}/remove-welcome-route', [InstallController::class, 'removeWelcomeRoute'])->middleware(RequireInstallerBootstrap::class)->name('remove-welcome-route');
         Route::post('install/delete-installer', [InstallController::class, 'destroy'])->middleware(RequireInstallerBootstrap::class)->name('destroy');
         Route::get('install/success/{installId}', [InstallController::class, 'success'])->name('success');
         Route::get('install/progress/{installId}', [InstallController::class, 'progress'])->name('progress');

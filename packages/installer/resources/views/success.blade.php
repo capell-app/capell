@@ -56,6 +56,30 @@
                 @endif
             </section>
 
+            @if ($showWelcomeRouteChoice ?? false)
+                <section class="section">
+                    <p>{{ __('capell-installer::installer.welcome_route_help') }}</p>
+                    <form
+                        method="POST"
+                        action="{{ route('capell-installer.remove-welcome-route', ['installId' => $installId]) }}"
+                    >
+                        @csrf
+                        <button
+                            type="submit"
+                            class="button secondary"
+                        >
+                            {{ __('capell-installer::installer.welcome_route_remove') }}
+                        </button>
+                    </form>
+                </section>
+            @endif
+            @if ($welcomeRouteError ?? false)
+                <p role="alert">{{ __('capell-installer::installer.welcome_route_failure') }}</p>
+            @endif
+            @if ($welcomeRouteRemoved ?? false)
+                <p>{{ __('capell-installer::installer.welcome_route_removed') }}</p>
+            @endif
+
             <section class="section completion-success-panel">
                 <div class="completion-primary-column">
                     <span class="launchpad-success-badge">

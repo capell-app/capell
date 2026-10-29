@@ -116,7 +116,7 @@ final class BuildInstallerPageDataAction
             'capellAlreadyInstalled' => $capellAlreadyInstalled,
             'canReinstall' => $canReinstall,
             'showFilamentPanelToggle' => $this->shouldOfferFilamentPanelInstall($packages, $downloadablePackages),
-            'showWelcomeRouteToggle' => resolve(WelcomeRouteInstaller::class)->canInstall(),
+            'showWelcomeRouteToggle' => resolve(WelcomeRouteInstaller::class)->hasStockWelcomeRoute(),
             'showRoleUsersToggle' => $this->shouldShowRoleUsersToggle(),
             'developerToolingInstalled' => resolve(DeveloperToolingInstallationState::class)->isInstalled(),
             'defaultAdminUser' => $this->options->defaultAdminUser(),
