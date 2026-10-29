@@ -32,7 +32,7 @@ final class ManifestContractsCheck extends AbstractDoctorCheck
         $warnings = array_filter($results, static fn (array $result): bool => $result['severity'] === 'warning');
 
         if ($warnings !== []) {
-            return new DoctorCheckResultData('Manifest v3 contracts', true, sprintf('%d manifest contract warning(s).', count($warnings)), 'Run php artisan capell:extension-audit.');
+            return new DoctorCheckResultData('Manifest v3 contracts', true, sprintf('%d manifest contract warning(s).', count($warnings)), 'Run php artisan capell:extension-audit.', evidence: ['warning_count' => count($warnings)]);
         }
 
         return new DoctorCheckResultData('Manifest v3 contracts', true, 'No extension manifest contract errors found.');

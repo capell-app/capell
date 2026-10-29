@@ -48,6 +48,11 @@ final class BuildInstallHandoffAction
             $warnings[] = 'This install did not record a frontend asset build. Run the application package manager install and production build before opening Admin or the public page.';
         }
 
+        $nonDoctorWarningCount = count(array_unique($warnings));
+        foreach ($result->doctorWarnings as $warning) {
+            $warnings[] = $warning['message'] . ' Run php artisan capell:doctor for details.';
+        }
+
         $selectedPackages = array_values(collect($result->selectedPackages)
             ->filter(fn (mixed $package): bool => is_string($package) && $package !== '')
             ->unique()
@@ -110,6 +115,7 @@ final class BuildInstallHandoffAction
                 publicUrl: $safePublicUrl,
                 firstPageStatus: $safeFirstPageStatus,
             ),
+            warningCount: $nonDoctorWarningCount + array_sum(array_column($result->doctorWarnings, 'count')),
         );
     }
 

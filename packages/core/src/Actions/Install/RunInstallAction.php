@@ -48,7 +48,7 @@ class RunInstallAction
             }
         }
 
-        $this->completedResult = BuildInstallRunResultAction::run($inputData, $completedSteps);
+        $this->completedResult = BuildInstallRunResultAction::run($inputData, $completedSteps, $state->doctorWarnings);
     }
 
     public function runWithResult(InstallInputData $inputData, ProgressReporter $reporter): InstallRunResultData

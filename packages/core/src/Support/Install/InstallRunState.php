@@ -26,6 +26,9 @@ final class InstallRunState
 
     private const int LOCK_TIMEOUT_SECONDS = 10;
 
+    /** @var list<array{message: string, count: int}> */
+    public array $doctorWarnings = [];
+
     /** @var Collection<string, PackageData>|null */
     private ?Collection $selectedPackages = null;
 
