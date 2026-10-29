@@ -216,7 +216,7 @@ it('seeds reusable action screenshot records and protects their routes', functio
     $parent = Page::query()->where('name', 'Screenshot parent page')->firstOrFail();
     expect($child->parent_id)->toBe($parent->getKey())
         ->and($child->site_id)->toBe($parent->site_id)
-        ->and(Site::query()->where('name', 'Screenshot French site')->firstOrFail()->language->code)->toBe('fr-x-screenshot');
+        ->and(Site::query()->where('name', 'Screenshot French site')->firstOrFail()->language->code)->toBe('fr-shot');
     test()->get('/screenshot-fixtures/actions/parent')->assertRedirect(ActionScreenshotFixture::parentHintUrl());
     test()->get('/screenshot-fixtures/actions/site')->assertRedirect(ActionScreenshotFixture::createUrl());
     ActionScreenshotFixture::initialize();

@@ -21,10 +21,10 @@ final class ActionScreenshotFixture
             $template = RecordStateScreenshotFixture::page();
             $site = $template->site;
             $language = $site->language;
-            $otherLanguage = Language::query()->firstOrNew(['code' => 'fr-x-screenshot']);
+            $otherLanguage = Language::query()->firstOrNew(['code' => 'fr-shot']);
             if (! $otherLanguage->exists) {
                 $otherLanguage = $language->replicate();
-                $otherLanguage->fill(['code' => 'fr-x-screenshot', 'locale' => 'fr', 'name' => 'Screenshot French', 'default' => false]);
+                $otherLanguage->fill(['code' => 'fr-shot', 'locale' => 'fr', 'name' => 'Screenshot French', 'default' => false]);
                 $otherLanguage->save();
             }
 

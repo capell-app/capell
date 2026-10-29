@@ -124,7 +124,7 @@ it('keeps language filtering within explicit site access without losing authoris
     Schema::table('translations', function (Blueprint $table): void {
         $table->unsignedBigInteger('workspace_id')->default(0);
     });
-    $language = Language::factory()->createOne(['code' => 'fr-workspace-dashboard']);
+    $language = Language::factory()->createOne(['code' => 'fr-ws']);
     $pages = [];
     foreach ([$first, $second, $foreign] as $site) {
         $page = Page::factory()->createOne(['site_id' => $site->id]);
@@ -204,7 +204,7 @@ it('keeps native language matching literal and excludes deleted pages', function
     $this->actingAsAdmin();
     $actor = $this->authenticatedUser();
     $page = Page::factory()->createOne();
-    $language = Language::factory()->createOne(['code' => 'fr-native-dashboard']);
+    $language = Language::factory()->createOne(['code' => 'fr-native']);
     Translation::withoutEvents(fn () => Translation::factory()->translatable($page)->createOne(['language_id' => $language->id]));
     $action = resolve(CanViewDashboardItemAction::class);
     expect($action->handle($actor, $page->site_id, null, $page->id, $language->code))->toBeTrue()
