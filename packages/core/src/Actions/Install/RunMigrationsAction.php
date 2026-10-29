@@ -77,7 +77,7 @@ final class RunMigrationsAction
         $settingsPaths = array_map($this->normalizePath(...), $settingsPaths);
         $applicationPath = $this->normalizePath(database_path('migrations'));
         $paths = array_map($this->normalizePath(...), resolve(Migrator::class)->paths());
-        $registered = array_values(array_unique(array_filter($paths, static fn (string $candidate): bool => $candidate !== $applicationPath && array_all($settingsPaths, fn ($settingsPath): bool => $candidate !== $settingsPath && ! str_starts_with($candidate, $settingsPath . DIRECTORY_SEPARATOR)))));
+        $registered = array_values(array_filter($paths, static fn (string $candidate): bool => $candidate !== $applicationPath && array_all($settingsPaths, fn ($settingsPath): bool => $candidate !== $settingsPath && ! str_starts_with($candidate, $settingsPath . DIRECTORY_SEPARATOR))));
 
         return [...$registered, $applicationPath];
     }
