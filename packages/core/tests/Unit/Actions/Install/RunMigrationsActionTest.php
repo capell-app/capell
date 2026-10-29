@@ -285,3 +285,42 @@ PHPFILE;
         File::deleteDirectory($directory);
     }
 })->with(['registered application path' => false, 'registered application alias' => true]);
+
+it('preserves the last registered package alias precedence for duplicate migration names', function (): void {
+    $originalDatabasePath = database_path();
+    $migrator = resolve('migrator');
+    $pathsProperty = new ReflectionProperty($migrator, 'paths');
+    $originalPaths = $pathsProperty->getValue($migrator);
+    $directory = sys_get_temp_dir() . '/capell-package-precedence-' . bin2hex(random_bytes(8));
+    foreach (['migrations', 'package-a', 'package-b'] as $name) {
+        File::ensureDirectoryExists($directory . '/' . $name);
+    }
+
+    $alias = $directory . '/package-a-alias';
+    throw_if(! symlink($directory . '/package-a', $alias), RuntimeException::class, 'Could not create the migration directory alias.');
+    $name = '2038_01_01_000001_create_wave_package_precedence.php';
+    $template = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('%s', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    File::put($directory . '/package-a/' . $name, sprintf($template, 'wave_package_a'));
+    File::put($directory . '/package-b/' . $name, sprintf($template, 'wave_package_b'));
+    $pathsProperty->setValue($migrator, [$directory . '/package-a', $directory . '/package-b', $alias]);
+    app()->useDatabasePath($directory);
+
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
+        expect(Schema::hasTable('wave_package_a'))->toBeTrue()
+            ->and(Schema::hasTable('wave_package_b'))->toBeFalse();
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        $pathsProperty->setValue($migrator, $originalPaths);
+        Schema::dropIfExists('wave_package_a');
+        Schema::dropIfExists('wave_package_b');
+        DB::table('migrations')->where('migration', basename($name, '.php'))->delete();
+        unlink($alias);
+        File::deleteDirectory($directory);
+    }
+});
