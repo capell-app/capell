@@ -71,6 +71,7 @@ final class InstallerWarning extends Component implements HasActions, HasForms
             'installGuideUrl' => $installGuideUrl,
             'installUrl' => route('capell-installer.show'),
             'installerPackageIsInstalled' => $this->installerPackageIsInstalled,
+            'hasGlobalAccess' => SiteAccess::current()->isGlobal(),
             'shouldShowWarning' => $this->installerPackageIsInstalled,
         ]);
     }
