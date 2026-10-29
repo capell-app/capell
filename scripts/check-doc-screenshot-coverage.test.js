@@ -262,3 +262,24 @@ test('CLI exits zero for warnings and nonzero only for legacy failures', (t) => 
     assert.equal(failureResult.status, 1)
     assert.match(failureResult.stderr, /Broken local visual references/)
 })
+
+test('allows text-only upgrade instructions while still checking their local images', (t) => {
+    const repoRoot = createRepository({
+        'packages/core/resources/upgrade-guide.md':
+            '# Upgrade steps\n\nBack up and migrate.\n',
+        'packages/core/resources/other-guide.md': '# Other guide\n',
+    })
+    t.after(() => removeRepository(repoRoot))
+    const clean = runAudit({ cwd: repoRoot, repoRoots: [repoRoot] })
+    assert.deepEqual(clean.markdownResult.missingVisuals, [
+        'packages/core/resources/other-guide.md',
+    ])
+    fs.appendFileSync(
+        path.join(repoRoot, 'packages/core/resources/upgrade-guide.md'),
+        '\n![Broken](missing.png)\n',
+    )
+    const broken = runAudit({ cwd: repoRoot, repoRoots: [repoRoot] })
+    assert.deepEqual(broken.markdownResult.brokenVisuals, [
+        'packages/core/resources/upgrade-guide.md -> missing.png',
+    ])
+})

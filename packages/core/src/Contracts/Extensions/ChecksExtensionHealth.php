@@ -12,5 +12,7 @@ namespace Capell\Core\Contracts\Extensions;
  * resolves the implementation.
  *
  * @internal
+ *
+ * Experimental extension API; declared by companion package manifests.
  */
 interface ChecksExtensionHealth extends ExtensionContribution {}

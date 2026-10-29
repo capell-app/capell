@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\Install\DetectInitialInstallationAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -35,6 +38,55 @@ final class InstallRunState
         private ?int $resolvedUserId = null,
         private bool $packageMetadataRefreshed = false,
     ) {}
+
+    public static function rememberInitialInstallation(bool $initial): void
+    {
+        if (! $initial) {
+            return;
+        }
+
+        self::exclusively(static function (): void {
+            $state = self::originState();
+            $identity = self::installationIdentity();
+            $pending = $state['initial_installation'] ?? null;
+            if (is_string($pending)) {
+                throw_unless(hash_equals($pending, $identity), RuntimeException::class, 'The installation database changed. Restart the installer before continuing.');
+
+                return;
+            }
+
+            throw_unless(DetectInitialInstallationAction::run(), RuntimeException::class, 'The installation database is no longer empty. Restart the installer before continuing.');
+            $state['initial_installation'] = $identity;
+            self::saveOriginState($state);
+        });
+    }
+
+    public static function checkpointInitialInstallation(): void
+    {
+        self::exclusively(static function (): void {
+            $state = self::originState();
+            if (is_string($state['initial_installation'] ?? null)) {
+                $state['initial_installation'] = self::installationIdentity();
+                self::saveOriginState($state);
+            }
+        });
+    }
+
+    public static function hasPendingInitialInstallation(): bool
+    {
+        $identity = self::originState()['initial_installation'] ?? null;
+
+        return is_string($identity) && hash_equals($identity, self::installationIdentity());
+    }
+
+    public static function completeInitialInstallation(): void
+    {
+        self::exclusively(static function (): void {
+            $state = self::originState();
+            unset($state['initial_installation']);
+            self::saveOriginState($state);
+        });
+    }
 
     /** @param list<string> $paths */
     public static function recordScaffoldedPanelProviders(array $paths): void
@@ -233,6 +285,40 @@ final class InstallRunState
         }
 
         return $user;
+    }
+
+    private static function installationIdentity(): string
+    {
+        $connection = config('database.default');
+        $database = config('database.connections.' . (is_string($connection) ? $connection : ''));
+        $records = [];
+        foreach ([Site::class, CapellExtension::class] as $modelClass) {
+            $model = new $modelClass;
+            $records[$modelClass] = $model->getConnection()->getSchemaBuilder()->hasTable($model->getTable())
+                ? $model->newQueryWithoutScopes()->orderBy($model->getKeyName())->get()->map(fn (Model $row): array => $row->getAttributes())->all()
+                : null;
+        }
+
+        return hash('sha256', serialize([base_path(), $connection, $database, $records]));
+    }
+
+    /** @return array<string, mixed> */
+    private static function originState(): array
+    {
+        $value = self::originStore()->get('initial-installation', []);
+
+        return is_array($value) ? $value : [];
+    }
+
+    /** @param array<string, mixed> $state */
+    private static function saveOriginState(array $state): void
+    {
+        throw_unless(self::originStore()->forever('initial-installation', $state), RuntimeException::class, 'Unable to persist installation provenance.');
+    }
+
+    private static function originStore(): Repository
+    {
+        return Cache::build(['driver' => 'file', 'path' => base_path('storage/framework/capell-install-origin')]);
     }
 
     private static function savePanelProvider(string $path, bool $pending, ?string $run, ?string $hash = null): void
