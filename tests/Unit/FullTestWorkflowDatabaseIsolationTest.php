@@ -67,7 +67,7 @@ it('starts sentinel independently of the still failing fast PR gate', function (
             "github.actor != 'dependabot[bot]'",
             'always()',
             "needs.matrix.result == 'success'",
-            "(github.event_name != 'pull_request' || github.event.pull_request.draft == false)",
+            "(github.event_name != 'pull_request' || github.event.pull_request.draft == false || inputs.merge_queue_evidence)",
             "!(github.event_name == 'workflow_dispatch' && inputs.cell != '')",
         )
         ->and($jobs['fast-pr']['uses'])->toBe('./.github/workflows/test-fast-pr.yml')

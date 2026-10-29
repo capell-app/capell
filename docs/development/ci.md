@@ -251,8 +251,10 @@ or timed-out cell is incomplete evidence, not support proof.
 
 The `Merge queue full matrix` check runs the complete Test All matrix on each
 merge-group commit and validates a non-empty, passing JUnit report for every
-configured cell. Its pull-request run checks the validator; the matrix itself
-runs on the merge-group commit. To enforce this check, add it to the existing
+configured cell. Its pull-request run checks the validator; adding the
+`verify-merge-queue` label also runs the full matrix and evidence check on that
+PR to verify the workflow before merging it. This label does not authorise a
+merge. To enforce this check, add it to the existing
 main-branch required checks only after this workflow is available on `main`
 and the queue is clear. Keep the existing required checks in place.
 
