@@ -63,7 +63,7 @@ it('registers built-in dashboard Filament widgets by default', function (): void
         ->not->toContain(MyWorkQueueFilamentWidget::class)
         ->not->toContain(RecentlyPublishedFilamentWidget::class)
         ->not->toContain(PageStatusFilamentWidget::class)
-        ->not->toContain(SiteStatsOverviewFilamentWidget::class)
+        ->toContain(SiteStatsOverviewFilamentWidget::class)
         ->not->toContain(UpdateAdvisoryFilamentWidget::class)
         ->toContain(RecentActivityFilamentWidget::class)
         ->toContain(ListPagesFilamentWidget::class);
@@ -101,6 +101,7 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
         NeedsAttentionFilamentWidget::class,
         ListPagesFilamentWidget::class,
         RecentActivityFilamentWidget::class,
+        SiteStatsOverviewFilamentWidget::class,
         MarketplaceCommercialWarningFilamentWidget::class,
         MarketplacePackageOperationsAlertFilamentWidget::class,
     ]);
@@ -189,6 +190,7 @@ it('falls back to filament sort values after pinned dashboard Filament widgets w
             NeedsAttentionFilamentWidget::class,
             ListPagesFilamentWidget::class,
             RecentActivityFilamentWidget::class,
+            SiteStatsOverviewFilamentWidget::class,
             MarketplaceCommercialWarningFilamentWidget::class,
             MarketplacePackageOperationsAlertFilamentWidget::class,
         ]);

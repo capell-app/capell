@@ -8,6 +8,9 @@ use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Contracts\Dashboard\SiteStatsDataProvider;
 use Capell\Admin\Data\Dashboard\SiteStatsData;
 use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
+use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
@@ -219,4 +222,33 @@ it('marks provider failure, null provider and normal snapshots with distinct ava
 
     expect($failed->availability)->toBe(DashboardAnalyticsAvailabilityEnum::Unavailable)
         ->and($failed->isAvailable())->toBeFalse();
+});
+
+it('mounts the site statistics widget on the main dashboard, visible by default and hidden when switched off', function (): void {
+    expect(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main))->toContain(SiteStatsOverviewFilamentWidget::class)
+        ->and(SiteStatsOverviewFilamentWidget::canView())->toBeTrue();
+
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['site_stats_overview' => false];
+    $settings->save();
+
+    expect(SiteStatsOverviewFilamentWidget::canView())->toBeFalse();
+});
+
+it('renders the site statistics widget on the dashboard page and drops it when switched off', function (): void {
+    Site::factory()->createOne();
+
+    expect((new CapellDashboard)->getWidgets())->toContain(SiteStatsOverviewFilamentWidget::class);
+
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['site_stats_overview' => false];
+    $settings->save();
+
+    expect((new CapellDashboard)->getWidgets())->not->toContain(SiteStatsOverviewFilamentWidget::class);
+});
+
+it('hides the site statistics widget from someone who is not signed in', function (): void {
+    auth()->logout();
+
+    expect(SiteStatsOverviewFilamentWidget::canView())->toBeFalse();
 });
