@@ -345,7 +345,10 @@ function shouldRequireVisual(filePath) {
         ignoredMarkdownFiles.has(basename) ||
         basename === 'AGENTS.md' ||
         basename === 'CLAUDE.md' ||
-        normalizedPath.includes('/docs/')
+        normalizedPath.includes('/docs/') ||
+        // Scaffold templates are copied into generated projects, not published
+        // as documentation; their image references are still validated.
+        normalizedPath.includes('/stubs/')
     ) {
         return false
     }
