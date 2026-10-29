@@ -38,7 +38,7 @@ final class BuildContentStatusAction
 
         $pages = SiteAccess::forActor($actor)->query(Page::class)
             ->when($siteId !== null, fn (Builder $query): Builder => $query->where('site_id', $siteId))
-            ->when($language !== null, fn (Builder $query): Builder => $query->whereHas('translations.language', fn (Builder $query): Builder => $query->where('code', $language)))
+            ->when($language !== null, fn (Builder $query): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($query, SiteAccess::forActor($actor), $language))
             ->lazy();
         foreach ($pages as $page) {
             if (Gate::forUser($actor)->allows('view', $page)) {

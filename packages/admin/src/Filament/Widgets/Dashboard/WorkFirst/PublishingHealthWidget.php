@@ -5,23 +5,26 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstPublishingAction;
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
 use Capell\Admin\Data\Dashboard\DashboardPublicationItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Override;
 
-final class PublishingHealthWidget extends Widget
+final class PublishingHealthWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
     use HasPersonalDashboardSize;
 
     public bool $attentionVisible = true;
+
+    protected static string $workFirstSettingsKey = 'publishing_health';
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-publishing';
 
@@ -37,8 +40,7 @@ final class PublishingHealthWidget extends Widget
     {
         $actor = auth()->user();
 
-        return ! self::canView() || $actor === null ? [] : resolve(BuildWorkFirstPublishingAction::class)
-            ->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
+        return ! self::canView() || $actor === null ? [] : BuildWorkFirstPublishingAction::run($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
     }
 
     #[Computed]

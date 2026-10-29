@@ -33,7 +33,7 @@ it('separates live publishing blockers from draft improvements without using con
     ]));
     Page::withoutEvents(fn () => Page::factory()->create(['site_id' => $otherSite->id]));
 
-    $items = collect(resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $site->id, null))->keyBy('key');
+    $items = collect(BuildWorkFirstAttentionAction::run($actor, $site->id, null))->keyBy('key');
 
     expect($items)->toHaveCount(2)
         ->and($items->firstOrFail('key', 'page-setup-' . $draft->id)->urgent)->toBeFalse()

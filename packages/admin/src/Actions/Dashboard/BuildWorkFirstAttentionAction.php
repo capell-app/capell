@@ -59,7 +59,7 @@ final class BuildWorkFirstAttentionAction
                 }
 
                 $urgent = $page->publishVisibilityState() === PublishVisibilityStateEnum::published;
-                if (! $urgent && $language !== null && ! $page->translations()->whereHas('language', fn (Builder $query): Builder => $query->where('code', $language))->exists()) {
+                if (! $urgent && $language !== null && ! SiteAccess::forActor($actor)->scope($page->translations()->getQuery())->whereHas('language', fn (Builder $query): Builder => $query->where('code', $language))->exists()) {
                     continue;
                 }
 

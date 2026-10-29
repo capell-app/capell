@@ -46,7 +46,7 @@ final class BuildWorkFirstPublishingAction
         $pages = SiteAccess::forActor($actor)->query(Page::class)->scheduled()
             ->where('visible_from', '<=', CarbonImmutable::now()->addDays(7))
             ->when($siteId !== null, fn (Builder $query): Builder => $query->where('site_id', $siteId))
-            ->when($language !== null, fn (Builder $query): Builder => $query->whereHas('translations.language', fn (Builder $query): Builder => $query->where('code', $language)))
+            ->when($language !== null, fn (Builder $query): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($query, SiteAccess::forActor($actor), $language))
             ->with(['site', 'blueprint', 'layout'])
             ->withCount(['translations', 'pageUrls as active_url_count' => fn (Builder $query): Builder => $query->enabled()])
             ->orderBy('visible_from')->orderBy('id')->get();

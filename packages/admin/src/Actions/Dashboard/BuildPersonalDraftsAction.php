@@ -67,7 +67,7 @@ final class BuildPersonalDraftsAction
             ->draft()
             ->where('created_by', $actor->getAuthIdentifier())
             ->when($siteId !== null, fn (Builder $query): Builder => $query->where('site_id', $siteId))
-            ->when($language !== null, fn (Builder $query): Builder => $query->whereHas('translations.language', fn (Builder $query): Builder => $query->where('code', $language)))
+            ->when($language !== null, fn (Builder $query): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($query, SiteAccess::forActor($actor), $language))
             ->latest('updated_at')
             ->lazy();
 

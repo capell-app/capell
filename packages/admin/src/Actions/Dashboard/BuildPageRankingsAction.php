@@ -93,7 +93,7 @@ final class BuildPageRankingsAction
 
         $pages = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Page::class)
             ->whereIn('site_id', $sites->modelKeys())
-            ->when($language !== null, fn (Builder $query): Builder => $query->whereHas('translations.language', fn (Builder $query): Builder => $query->where('code', $language)))
+            ->when($language !== null, fn (Builder $query): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($query, SiteAccess::forActor($actor, acrossAssignedSites: true), $language))
             ->whereIn('id', array_map(static fn (DashboardPageRankingItemData $item): int => $item->pageId, $source->items))
             ->get()->keyBy('id');
         $authorised = collect($source->items)

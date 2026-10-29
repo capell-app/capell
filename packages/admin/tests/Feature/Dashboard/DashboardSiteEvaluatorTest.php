@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\BuildContentStatusAction;
 use Capell\Admin\Actions\Dashboard\CanViewDashboardItemAction;
+use Capell\Admin\Actions\Dashboard\ConstrainDashboardPageLanguageAction;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Publishing\PublishSentinel;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -93,4 +100,56 @@ it('keeps the active team for global administrators and restores it when teams a
     $registrar->teams = false;
     expect($evaluator->run($actor, $site->id, fn (): mixed => $registrar->getPermissionsTeamId()))->toBe(1234)
         ->and($registrar->getPermissionsTeamId())->toBe(1234);
+});
+
+it('keeps language filtering within explicit site access without losing authorised workspace pages', function (): void {
+    $first = Site::factory()->createOne();
+    $second = Site::factory()->createOne();
+    $foreign = Site::factory()->createOne();
+    $actor = RealSiteScopedAdminResourceUser::query()->create(['name' => 'Editor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $registrar = resolve(PermissionRegistrar::class);
+    $registrar->setPermissionsTeamId(null);
+    Role::findOrCreate('language-dashboard-editor', 'web');
+    $actor->assignRoleForSite($first, 'language-dashboard-editor');
+    $actor->assignRoleForSite($second, 'language-dashboard-editor');
+
+    $registrar->setPermissionsTeamId($first->id);
+    test()->actingAs($actor);
+
+    Schema::table('pages', function (Blueprint $table): void {
+        $table->unsignedBigInteger('workspace_id')->default(0);
+    });
+    Schema::table('translations', function (Blueprint $table): void {
+        $table->unsignedBigInteger('workspace_id')->default(0);
+    });
+    $language = Language::factory()->createOne(['code' => 'fr-workspace-dashboard']);
+    $pages = [];
+    foreach ([$first, $second, $foreign] as $site) {
+        $page = Page::factory()->createOne(['site_id' => $site->id]);
+        $page->forceFill(['workspace_id' => 42])->save();
+        Translation::withoutEvents(fn () => Translation::factory()->translatable($page)->createOne(['language_id' => $language->id, 'workspace_id' => 42]));
+        $pages[] = $page;
+    }
+
+    $originalScopes = Page::getAllGlobalScopes();
+    $originalTranslationScopes = Translation::getAllGlobalScopes();
+    Page::addGlobalScope('dashboard-workspace-language-test', fn (Builder $query) => $query->where('workspace_id', 0));
+    Translation::addGlobalScope('dashboard-workspace-language-test', fn (Builder $query) => $query->where('workspace_id', 0));
+    try {
+        $action = resolve(ConstrainDashboardPageLanguageAction::class);
+        $allAccess = SiteAccess::forActor($actor, acrossAssignedSites: true);
+        $allPages = $allAccess->scope(Page::query()->withoutGlobalScopes())->whereNull('deleted_at')->where('workspace_id', 42);
+        expect($action->handle($allPages, $allAccess, $language->code)->orderBy('id')->pluck('id')->all())
+            ->toBe([$pages[0]->id, $pages[1]->id]);
+
+        $currentAccess = SiteAccess::forActor($actor);
+        $currentPages = $currentAccess->scope(Page::query()->withoutGlobalScopes())->whereNull('deleted_at')->where('workspace_id', 42);
+        expect($action->handle($currentPages, $currentAccess, $language->code)->pluck('id')->all())->toBe([$pages[0]->id])
+            ->and($registrar->getPermissionsTeamId())->toBe($first->id);
+        $unknownLanguage = $allAccess->scope(Page::query()->withoutGlobalScopes())->whereNull('deleted_at')->where('workspace_id', 42);
+        expect($action->handle($unknownLanguage, $allAccess, 'unavailable-language')->exists())->toBeFalse();
+    } finally {
+        Page::setAllGlobalScopes($originalScopes);
+        Translation::setAllGlobalScopes($originalTranslationScopes);
+    }
 });

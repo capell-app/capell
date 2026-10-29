@@ -11,9 +11,9 @@ use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PageViewsWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PersonalDraftsWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\UrgentSummaryWidget;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Admin\Tests\Fixtures\WorkFirstMetadataFixtureWidget;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use Filament\Widgets\Widget;
 use Filament\Widgets\WidgetConfiguration;
 use Livewire\Livewire;
 
@@ -173,16 +173,3 @@ it('applies class switches before visibility checks and preserves saved extensio
     expect($restored->getWidgets())->toContain(WorkFirstMetadataFixtureWidget::class)
         ->and($state->get(WorkFirstMetadataFixtureWidget::class)['visible'])->toBeTrue();
 });
-
-final class WorkFirstMetadataFixtureWidget extends Widget
-{
-    public static int $visibilityCalls = 0;
-
-    #[Override]
-    public static function canView(): bool
-    {
-        self::$visibilityCalls++;
-
-        return true;
-    }
-}

@@ -63,7 +63,7 @@ final class AdminDashboardDataRequestCache
         $key = 'capell.work-first.attention.' . hash('sha256', serialize([$actor::class, $actor->getAuthIdentifier(), $siteId, $language]));
         $items = $request->attributes->get($key);
         if (! is_array($items)) {
-            $items = resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $siteId, $language);
+            $items = BuildWorkFirstAttentionAction::run($actor, $siteId, $language);
             $request->attributes->set($key, $items);
         }
 

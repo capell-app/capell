@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Workspace;
 
 use Capell\Admin\Data\Dashboard\DashboardAdvisoryDecisionData;
 use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -253,6 +254,10 @@ final class AdminWorkspacePreferenceStore
 
     private function available(Model $actor): bool
     {
+        if (! $actor instanceof Authenticatable) {
+            return false;
+        }
+
         try {
             return Schema::hasTable($actor->getTable()) && Schema::hasColumn($actor->getTable(), self::COLUMN);
         } catch (Throwable) {

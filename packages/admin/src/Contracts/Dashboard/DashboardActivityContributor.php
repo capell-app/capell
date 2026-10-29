@@ -7,6 +7,7 @@ namespace Capell\Admin\Contracts\Dashboard;
 use Capell\Admin\Data\Dashboard\DashboardActivityItemData;
 use Illuminate\Contracts\Auth\Authenticatable;
 
+/** @internal */
 interface DashboardActivityContributor
 {
     public const string TAG = 'capell.admin.dashboard-activity';

@@ -11,6 +11,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Read-only boundary for publication checks across the page's authored languages. */
+/** @internal */
 final class GetPublicationBlockingChecksAction
 {
     use AsFake;

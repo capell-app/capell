@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns;
+namespace Capell\Admin\Filament\Concerns\WorkFirst;
 
 use Override;
 

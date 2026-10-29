@@ -6,15 +6,16 @@ namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
 use Capell\Admin\Actions\Dashboard\BuildPageRankingsAction;
 use Capell\Admin\Actions\Dashboard\CanViewWorkFirstAnalyticsAction;
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\DashboardPageRankingsData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Override;
 
-abstract class PageRankingWidget extends Widget
+abstract class PageRankingWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
@@ -26,6 +27,11 @@ abstract class PageRankingWidget extends Widget
 
     abstract public function isRising(): bool;
 
+    public static function settingsKey(): string
+    {
+        return static::widgetKey();
+    }
+
     #[Override]
     public static function canView(): bool
     {
@@ -33,7 +39,7 @@ abstract class PageRankingWidget extends Widget
         $switches = config('capell-admin.dashboard.work_first.widgets', []);
 
         return config('capell-admin.dashboard.work_first.enabled', false) === true
-            && (! is_array($switches) || ($switches[static::widgetKey()] ?? true) !== false)
+            && (! is_array($switches) || (($switches[static::widgetKey()] ?? true) !== false && ($switches[static::class] ?? true) !== false))
             && $actor !== null
             && resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor);
     }

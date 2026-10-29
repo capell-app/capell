@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Contracts\Dashboard\DashboardApprovalsDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardApprovalItemData;
 use Capell\Admin\Data\Dashboard\DashboardApprovalsData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Override;
 
 /** @property-read DashboardApprovalsData $data */
-final class ApprovalsWidget extends Widget
+final class ApprovalsWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
@@ -32,6 +33,8 @@ final class ApprovalsWidget extends Widget
     /** @var list<int> */
     #[Locked]
     public array $retainedApprovalPages = [];
+
+    protected static string $workFirstSettingsKey = 'approvals';
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-approvals';
 

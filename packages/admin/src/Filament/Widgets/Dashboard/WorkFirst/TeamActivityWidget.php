@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstActivityAction;
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\DashboardActivityItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasStableDashboardOrder;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasStableDashboardOrder;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Gate;
@@ -19,12 +20,14 @@ use Override;
 use Spatie\Activitylog\Models\Activity;
 
 /** @property-read list<DashboardActivityItemData> $currentItems */
-final class TeamActivityWidget extends Widget
+final class TeamActivityWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
     use HasPersonalDashboardSize;
     use HasStableDashboardOrder;
+
+    protected static string $workFirstSettingsKey = 'team_activity';
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-team-activity';
 
@@ -65,8 +68,7 @@ final class TeamActivityWidget extends Widget
     {
         $actor = auth()->user();
 
-        return ! self::canView() || $actor === null ? [] : resolve(BuildWorkFirstActivityAction::class)
-            ->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), 100, $this->dashboardItemOrder);
+        return ! self::canView() || $actor === null ? [] : BuildWorkFirstActivityAction::run($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), 100, $this->dashboardItemOrder);
     }
 
     public function activityUrl(): string

@@ -37,7 +37,7 @@ final class CanViewDashboardItemAction
         // independent while explicitly retaining actor/site/deletion checks.
         $page = $access->scope(Page::query()->withoutGlobalScopes())
             ->whereNull('deleted_at')->whereKey($pageId)->where('site_id', $siteId)
-            ->when($language !== null, fn (Builder $query): Builder => $query->whereHas('translations.language', fn (Builder $languages): Builder => $languages->where('code', $language)))
+            ->when($language !== null, fn (Builder $query): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($query, SiteAccess::forActor($actor), $language))
             ->first();
 
         return $page instanceof Page && Gate::forUser($actor)->allows('view', $page);

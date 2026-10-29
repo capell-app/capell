@@ -12,6 +12,7 @@ use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
 use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
 use Capell\Core\Data\Publishing\PublicationReadinessContextData;
 use Capell\Core\Models\Contracts\Publishable;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -41,7 +42,7 @@ it('shows scoped upcoming readiness with exact site times and a seven day window
     Page::withoutEvents(fn () => Page::factory()->create(['site_id' => $site->id, 'visible_from' => now()->addDays(9)]));
     Page::withoutEvents(fn () => Page::factory()->create(['visible_from' => now()->addDay()]));
 
-    $items = resolve(BuildWorkFirstPublishingAction::class)->handle($this->authenticatedUser(), $site->id, null);
+    $items = BuildWorkFirstPublishingAction::run($this->authenticatedUser(), $site->id, null);
 
     expect($items)->toHaveCount(2)
         ->and($items[0]->pageId)->toBe($ready->id)
@@ -69,11 +70,20 @@ it('groups repeated human content changes while excluding system and irrelevant 
         ]);
     }
 
-    $items = resolve(BuildWorkFirstActivityAction::class)->handle($actor, $page->site_id, null);
+    $items = BuildWorkFirstActivityAction::run($actor, $page->site_id, null);
 
     expect($items)->toHaveCount(1)
         ->and($items[0]->title)->toBe($page->name)
         ->and($items[0]->changes)->toBe(2);
+
+    $language = Language::factory()->createOne(['code' => 'fr-dashboard']);
+    Translation::withoutEvents(fn () => Translation::factory()->createOne([
+        'translatable_type' => $page->getMorphClass(),
+        'translatable_id' => $page->id,
+        'language_id' => $language->id,
+    ]));
+    expect(BuildWorkFirstActivityAction::run($actor, $page->site_id, $language->code))->toHaveCount(1)
+        ->and(BuildWorkFirstActivityAction::run($actor, $page->site_id, 'missing-language'))->toBe([]);
     config()->set('capell-admin.dashboard.work_first.enabled', true);
     Livewire::test(TeamActivityWidget::class, ['pageFilters' => ['site_id' => $page->site_id]])
         ->assertOk()->assertSee($page->name)->assertSee('2 changes grouped');
@@ -109,8 +119,8 @@ it('includes registered publication blockers in upcoming readiness and site atte
         }
     });
     $actor = $this->authenticatedUser();
-    $upcoming = resolve(BuildWorkFirstPublishingAction::class)->handle($actor, $site->id, null);
-    $attention = resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $site->id, null);
+    $upcoming = BuildWorkFirstPublishingAction::run($actor, $site->id, null);
+    $attention = BuildWorkFirstAttentionAction::run($actor, $site->id, null);
 
     expect($upcoming[0]->readiness)->toBe('blocked')
         ->and($upcoming[0]->reasons)->toContain('publication_check')

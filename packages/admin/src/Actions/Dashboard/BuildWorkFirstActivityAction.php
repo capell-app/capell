@@ -57,7 +57,7 @@ final class BuildWorkFirstActivityAction
         $query = SiteAccess::forActor($actor)->scope(resolve(ActivityTrailQueryProvider::class)->build())
             ->whereNotNull('causer_id')
             ->whereIn('event', ['created', 'updated', 'deleted'])
-            ->whereHasMorph('subject', [Page::class, Translation::class], function (Builder $query, string $type) use ($siteId, $language): void {
+            ->whereHasMorph('subject', [Page::class, Translation::class], function (Builder $query, string $type) use ($actor, $siteId, $language): void {
                 if ($type === Translation::class) {
                     $query->whereHasMorph('translatable', [Page::class], fn (Builder $pages): Builder => $pages
                         ->when($siteId !== null, fn (Builder $pages): Builder => $pages->where('site_id', $siteId)));
@@ -66,7 +66,7 @@ final class BuildWorkFirstActivityAction
                     }
                 } else {
                     $query->when($siteId !== null, fn (Builder $pages): Builder => $pages->where('site_id', $siteId))
-                        ->when($language !== null, fn (Builder $pages): Builder => $pages->whereHas('translations.language', fn (Builder $languages): Builder => $languages->where('code', $language)));
+                        ->when($language !== null, fn (Builder $pages): Builder => resolve(ConstrainDashboardPageLanguageAction::class)->handle($pages, SiteAccess::forActor($actor), $language));
                 }
             })
             ->with(['causer', 'subject' => function (Relation $subject): void {

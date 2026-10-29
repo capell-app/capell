@@ -39,7 +39,7 @@ final class BuildDashboardPageBlockersAction
             $reasons[] = 'url';
         }
 
-        if (resolve(GetPublicationBlockingChecksAction::class)->handle($page) !== []) {
+        if (GetPublicationBlockingChecksAction::run($page) !== []) {
             $reasons[] = 'publication_check';
         }
 

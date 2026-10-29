@@ -23,7 +23,10 @@ use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\UpdateAdvisoryFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PageViewsWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PersonalDraftsWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PopularPagesWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\RisingPagesWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidget;
@@ -408,3 +411,26 @@ it('opts existing dashboards into the work-first widget list only when enabled',
     expect((new CapellDashboard)->getWidgets())->not->toContain(PersonalDraftsWidget::class)
         ->and(PersonalDraftsWidget::canView())->toBeFalse();
 });
+
+it('stops mounted analytics reads when their class switch is disabled', function (string $widgetClass): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    $widget = match ($widgetClass) {
+        PageViewsWidget::class => new PageViewsWidget,
+        PopularPagesWidget::class => new PopularPagesWidget,
+        RisingPagesWidget::class => new RisingPagesWidget,
+        default => throw new LogicException('Unsupported analytics widget fixture.'),
+    };
+    $component = \Livewire\Livewire::test($widgetClass);
+    expect($widgetClass::canView())->toBeTrue();
+
+    config()->set('capell-admin.dashboard.work_first.widgets', [$widgetClass => false]);
+    $component->call('$refresh');
+    expect($widget->data()->status)->toBe('unauthorised');
+    expect($widgetClass::canView())->toBeFalse();
+})->with([
+    PageViewsWidget::class,
+    PopularPagesWidget::class,
+    RisingPagesWidget::class,
+]);

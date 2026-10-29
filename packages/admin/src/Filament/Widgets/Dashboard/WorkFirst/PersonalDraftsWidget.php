@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
 use Capell\Admin\Actions\Dashboard\BuildPersonalDraftsAction;
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Contracts\Dashboard\DashboardWorkDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardWorkData;
 use Capell\Admin\Data\Dashboard\DashboardWorkItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
 use Capell\Admin\Support\Dashboard\DashboardDeadline;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
@@ -21,7 +22,7 @@ use Override;
  * @property-read DashboardWorkData $assignments
  * @property-read DashboardWorkData $data
  */
-final class PersonalDraftsWidget extends Widget
+final class PersonalDraftsWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
@@ -33,6 +34,8 @@ final class PersonalDraftsWidget extends Widget
 
     #[Locked]
     public ?string $workScope = null;
+
+    protected static string $workFirstSettingsKey = 'your_work';
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-personal-drafts';
 

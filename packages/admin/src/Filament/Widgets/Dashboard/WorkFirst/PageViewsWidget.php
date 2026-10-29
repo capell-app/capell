@@ -7,20 +7,23 @@ namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 use Capell\Admin\Actions\Dashboard\BuildPageViewsAction;
 use Capell\Admin\Actions\Dashboard\BuildVisitorsSnapshotAction;
 use Capell\Admin\Actions\Dashboard\CanViewWorkFirstAnalyticsAction;
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\DashboardPageViewsData;
 use Capell\Admin\Data\Dashboard\DashboardVisitorsData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Override;
 
-final class PageViewsWidget extends Widget
+final class PageViewsWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
     use HasPersonalDashboardSize;
+
+    protected static string $workFirstSettingsKey = 'page_views';
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-page-views';
 
@@ -31,7 +34,7 @@ final class PageViewsWidget extends Widget
         $switches = config('capell-admin.dashboard.work_first.widgets', []);
 
         return config('capell-admin.dashboard.work_first.enabled', false) === true
-            && (! is_array($switches) || ($switches['page_views'] ?? true) !== false)
+            && (! is_array($switches) || (($switches['page_views'] ?? true) !== false && ($switches[self::class] ?? true) !== false))
             && $actor !== null
             && resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor);
     }

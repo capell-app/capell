@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
 use Capell\Admin\Actions\Dashboard\BuildDashboardPageBlockersAction;
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\DashboardAdvisoryDecisionData;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
-use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasStableDashboardOrder;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Concerns\WorkFirst\HasStableDashboardOrder;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
@@ -27,7 +28,7 @@ use Override;
 use Throwable;
 
 /** @property-read list<DashboardAttentionItemData> $currentItems */
-final class AttentionWidget extends Widget
+final class AttentionWidget extends Widget implements CapellFilamentWidgetContract
 {
     use ChecksWorkFirstWidgetAccess;
     use HasDashboardDateRange;
@@ -43,6 +44,8 @@ final class AttentionWidget extends Widget
 
     #[Locked]
     public ?string $seenScope = null;
+
+    protected static string $workFirstSettingsKey = 'attention';
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-attention';
 
