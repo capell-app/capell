@@ -422,6 +422,7 @@ it('refuses to run tests against a Testbench skeleton that workbench preparation
 it('publishes the prebuilt frontend assets into a skeleton that lacks them before running tests', function (): void {
     $fixture = new CommandFixture;
     $fixture->files->copy('scripts/run-preflight.php');
+    $fixture->files->copy('scripts/heavy-admission.php');
 
     $manifest = $fixture->files->root . '/vendor/orchestra/testbench-core/laravel/public/vendor/capell-frontend/manifest.json';
     $fixture->fake('testbench', <<<'PHP'
@@ -449,6 +450,7 @@ it('publishes the prebuilt frontend assets into a skeleton that lacks them befor
 it('stops before the tests when the frontend assets cannot be published and names the directory and command', function (): void {
     $fixture = new CommandFixture;
     $fixture->files->copy('scripts/run-preflight.php');
+    $fixture->files->copy('scripts/heavy-admission.php');
     $fixture->fake('testbench');
     $fixture->files->write('vendor/bin/testbench', file_get_contents($fixture->files->root . '/bin/testbench') ?: '');
     chmod($fixture->files->root . '/vendor/bin/testbench', 0755);
