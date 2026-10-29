@@ -40,7 +40,7 @@ final class ResolveDashboardPeriodWindowsAction
      *
      * @return array{CarbonImmutable, CarbonImmutable}
      */
-    public function rollingWindow(string $period, ?CarbonImmutable $now = null): array
+    public function handle(string $period, ?CarbonImmutable $now = null): array
     {
         $end = ($now ?? CarbonImmutable::now())->utc();
 
