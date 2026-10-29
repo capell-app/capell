@@ -153,8 +153,14 @@ soon as their write and checksum work finishes, so media scratch usage is bounde
 by the active artifact rather than the entire collection.
 
 The command deliberately cannot restore over a live database or media disk.
-If doctor verification fails, scratch data is left in place for diagnosis;
-remove it manually after investigating. A successful monthly drill should be
+If media restore or doctor verification fails, scratch data is left in place for
+diagnosis and the command exits non-zero. It names the scratch database, the
+media disk and prefix, and how many media files were written before the failure.
+A failed doctor run lists each failed check with its remedy; a doctor process
+that could not run and output that was not valid JSON are reported as distinct
+failures, with credentials redacted. No live database or media is changed. Remove
+the scratch targets manually after investigating, then retry with a new scratch
+database name and an empty media prefix. A successful monthly drill should be
 recorded with its snapshot ID, completion time, doctor result, and cleanup.
 
 ## Production recovery boundary
