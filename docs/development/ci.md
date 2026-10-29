@@ -66,6 +66,8 @@ composer preflight -- phpstan tests
 composer preflight:all -- docs-links phpstan-baseline
 ```
 
+Whole-tree preflight runs queue in the host-wide heavy pool (`heavy status` lists holders; 3 slots, load cap 8). `scripts/run-preflight.php` takes weight 3 (the whole host) through `scripts/heavy-admission.php`, and the stage commands that run behind `scripts/with-lock.php` take weight 3, or 2 for PHPStan, so a second `composer preflight` from another worktree waits for a slot instead of doubling the Pest, Rector and PHPStan worker load. Stages of an admitted run inherit its slot (`HEAVY_SLOT_OWNER`) and do not wait again. Use `CAPELL_HEAVY_WEIGHT=1` to lower a focused stage command's weight. The guard is `HEAVY_SLOT_GUARD`, `scripts/guards/heavy-slot.sh` or `~/.local/share/heavy/heavy-slot.sh`; when none exists a warning is printed and the run is unqueued. `CAPELL_NO_LOCK=1` or `HEAVY_SLOT_ENABLED=0` bypasses admission for diagnostics only.
+
 An unknown stage exits with the available names. The final preflight exit remains non-zero when any selected gate fails.
 
 On pull requests, the required `PHP Quality (8.4)` job runs the quick static and
