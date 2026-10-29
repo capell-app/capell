@@ -9,14 +9,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -30,14 +26,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -52,36 +44,24 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -94,32 +74,21 @@
         "foreign_keys": []
     },
     "blueprint_property_sets": {
-        "indexes": [
-            "blueprint_property_sets_pair_unique",
-            "primary"
-        ],
+        "indexes": ["blueprint_property_sets_pair_unique", "primary"],
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "blueprint_id"
-                ],
+                "columns": ["blueprint_id"],
                 "foreign_schema": "main",
                 "foreign_table": "blueprints",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "property_set_id"
-                ],
+                "columns": ["property_set_id"],
                 "foreign_schema": "main",
                 "foreign_table": "property_sets",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -132,25 +101,17 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "actor_id"
-                ],
+                "columns": ["actor_id"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "blueprint_id"
-                ],
+                "columns": ["blueprint_id"],
                 "foreign_schema": "main",
                 "foreign_table": "blueprints",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -167,36 +128,24 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -239,10 +188,7 @@
         "foreign_keys": []
     },
     "capell_marketplace_installs": {
-        "indexes": [
-            "capell_marketplace_installs_install_id_unique",
-            "primary"
-        ],
+        "indexes": ["capell_marketplace_installs_install_id_unique", "primary"],
         "foreign_keys": []
     },
     "capell_public_render_contract_events": {
@@ -297,14 +243,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "upgrade_run_id"
-                ],
+                "columns": ["upgrade_run_id"],
                 "foreign_schema": "main",
                 "foreign_table": "capell_upgrade_runs",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -329,25 +271,17 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "language_id"
-                ],
+                "columns": ["language_id"],
                 "foreign_schema": "main",
                 "foreign_table": "languages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -361,14 +295,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "user_id"
-                ],
+                "columns": ["user_id"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -380,14 +310,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "deletion_batch_id"
-                ],
+                "columns": ["deletion_batch_id"],
                 "foreign_schema": "main",
                 "foreign_table": "deletion_batches",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -408,25 +334,17 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "user_id"
-                ],
+                "columns": ["user_id"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -442,36 +360,24 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -484,47 +390,31 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "actor_id"
-                ],
+                "columns": ["actor_id"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "layout_id"
-                ],
+                "columns": ["layout_id"],
                 "foreign_schema": "main",
                 "foreign_table": "layouts",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "theme_id"
-                ],
+                "columns": ["theme_id"],
                 "foreign_schema": "main",
                 "foreign_table": "themes",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -539,58 +429,38 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "theme_id"
-                ],
+                "columns": ["theme_id"],
                 "foreign_schema": "main",
                 "foreign_table": "themes",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -612,25 +482,17 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "metric_collection_run_id"
-                ],
+                "columns": ["metric_collection_run_id"],
                 "foreign_schema": "main",
                 "foreign_table": "metric_collection_runs",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -643,14 +505,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -663,14 +521,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "permission_id"
-                ],
+                "columns": ["permission_id"],
                 "foreign_schema": "main",
                 "foreign_table": "permissions",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -683,14 +537,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "role_id"
-                ],
+                "columns": ["role_id"],
                 "foreign_schema": "main",
                 "foreign_table": "roles",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -704,69 +554,45 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "page_id"
-                ],
+                "columns": ["page_id"],
                 "foreign_schema": "main",
                 "foreign_table": "pages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "property_definition_id"
-                ],
+                "columns": ["property_definition_id"],
                 "foreign_schema": "main",
                 "foreign_table": "property_definitions",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "referenced_page_id"
-                ],
+                "columns": ["referenced_page_id"],
                 "foreign_schema": "main",
                 "foreign_table": "pages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "term_id"
-                ],
+                "columns": ["term_id"],
                 "foreign_schema": "main",
                 "foreign_table": "terms",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "translation_id"
-                ],
+                "columns": ["translation_id"],
                 "foreign_schema": "main",
                 "foreign_table": "translations",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -779,14 +605,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "actor_id"
-                ],
+                "columns": ["actor_id"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -799,14 +621,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "role_id"
-                ],
+                "columns": ["role_id"],
                 "foreign_schema": "main",
                 "foreign_table": "roles",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -819,25 +637,17 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "page_id"
-                ],
+                "columns": ["page_id"],
                 "foreign_schema": "main",
                 "foreign_table": "pages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "term_id"
-                ],
+                "columns": ["term_id"],
                 "foreign_schema": "main",
                 "foreign_table": "terms",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -854,58 +664,38 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "language_id"
-                ],
+                "columns": ["language_id"],
                 "foreign_schema": "main",
                 "foreign_table": "languages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -918,14 +708,10 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "approver_id"
-                ],
+                "columns": ["approver_id"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -944,103 +730,66 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "blueprint_id"
-                ],
+                "columns": ["blueprint_id"],
                 "foreign_schema": "main",
                 "foreign_table": "blueprints",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "layout_id"
-                ],
+                "columns": ["layout_id"],
                 "foreign_schema": "main",
                 "foreign_table": "layouts",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
     "permissions": {
-        "indexes": [
-            "permissions_name_guard_name_unique",
-            "primary"
-        ],
+        "indexes": ["permissions_name_guard_name_unique", "primary"],
         "foreign_keys": []
     },
     "property_definitions": {
-        "indexes": [
-            "primary",
-            "property_definitions_set_key_unique"
-        ],
+        "indexes": ["primary", "property_definitions_set_key_unique"],
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "property_set_id"
-                ],
+                "columns": ["property_set_id"],
                 "foreign_schema": "main",
                 "foreign_table": "property_sets",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
     "property_sets": {
-        "indexes": [
-            "primary",
-            "property_sets_key_unique"
-        ],
+        "indexes": ["primary", "property_sets_key_unique"],
         "foreign_keys": []
     },
     "redirect_health_snapshots": {
@@ -1052,43 +801,29 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "page_url_id"
-                ],
+                "columns": ["page_url_id"],
                 "foreign_schema": "main",
                 "foreign_table": "page_urls",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
     "role_has_permissions": {
-        "indexes": [
-            "sqlite_autoindex_role_has_permissions_1"
-        ],
+        "indexes": ["sqlite_autoindex_role_has_permissions_1"],
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "permission_id"
-                ],
+                "columns": ["permission_id"],
                 "foreign_schema": "main",
                 "foreign_table": "permissions",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "role_id"
-                ],
+                "columns": ["role_id"],
                 "foreign_schema": "main",
                 "foreign_table": "roles",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -1101,16 +836,11 @@
         "foreign_keys": []
     },
     "settings": {
-        "indexes": [
-            "primary",
-            "settings_group_name_unique"
-        ],
+        "indexes": ["primary", "settings_group_name_unique"],
         "foreign_keys": []
     },
     "site_domain_claim_locks": {
-        "indexes": [
-            "primary"
-        ],
+        "indexes": ["primary"],
         "foreign_keys": []
     },
     "site_domains": {
@@ -1125,58 +855,38 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "language_id"
-                ],
+                "columns": ["language_id"],
                 "foreign_schema": "main",
                 "foreign_table": "languages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -1191,77 +901,50 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "blueprint_id"
-                ],
+                "columns": ["blueprint_id"],
                 "foreign_schema": "main",
                 "foreign_table": "blueprints",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "language_id"
-                ],
+                "columns": ["language_id"],
                 "foreign_schema": "main",
                 "foreign_table": "languages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "theme_id"
-                ],
+                "columns": ["theme_id"],
                 "foreign_schema": "main",
                 "foreign_table": "themes",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
     "snapshots": {
-        "indexes": [
-            "primary",
-            "snapshots_aggregate_uuid_index"
-        ],
+        "indexes": ["primary", "snapshots_aggregate_uuid_index"],
         "foreign_keys": []
     },
     "stored_events": {
@@ -1274,32 +957,21 @@
         "foreign_keys": []
     },
     "taxonomies": {
-        "indexes": [
-            "primary",
-            "taxonomies_site_key_unique"
-        ],
+        "indexes": ["primary", "taxonomies_site_key_unique"],
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "property_set_id"
-                ],
+                "columns": ["property_set_id"],
                 "foreign_schema": "main",
                 "foreign_table": "property_sets",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "site_id"
-                ],
+                "columns": ["site_id"],
                 "foreign_schema": "main",
                 "foreign_table": "sites",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -1313,47 +985,31 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "property_definition_id"
-                ],
+                "columns": ["property_definition_id"],
                 "foreign_schema": "main",
                 "foreign_table": "property_definitions",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "referenced_page_id"
-                ],
+                "columns": ["referenced_page_id"],
                 "foreign_schema": "main",
                 "foreign_table": "pages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "referenced_term_id"
-                ],
+                "columns": ["referenced_term_id"],
                 "foreign_schema": "main",
                 "foreign_table": "terms",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "term_id"
-                ],
+                "columns": ["term_id"],
                 "foreign_schema": "main",
                 "foreign_table": "terms",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -1366,25 +1022,17 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "parent_id"
-                ],
+                "columns": ["parent_id"],
                 "foreign_schema": "main",
                 "foreign_table": "terms",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "taxonomy_id"
-                ],
+                "columns": ["taxonomy_id"],
                 "foreign_schema": "main",
                 "foreign_table": "taxonomies",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -1400,47 +1048,31 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "blueprint_id"
-                ],
+                "columns": ["blueprint_id"],
                 "foreign_schema": "main",
                 "foreign_table": "blueprints",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     },
@@ -1453,47 +1085,31 @@
         "foreign_keys": [
             {
                 "name": null,
-                "columns": [
-                    "created_by"
-                ],
+                "columns": ["created_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "deleted_by"
-                ],
+                "columns": ["deleted_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "language_id"
-                ],
+                "columns": ["language_id"],
                 "foreign_schema": "main",
                 "foreign_table": "languages",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             },
             {
                 "name": null,
-                "columns": [
-                    "updated_by"
-                ],
+                "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "users",
-                "foreign_columns": [
-                    "id"
-                ]
+                "foreign_columns": ["id"]
             }
         ]
     }
