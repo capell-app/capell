@@ -12,6 +12,12 @@ const {
     stripMarkdownCode,
 } = require('./check-doc-screenshot-coverage')
 
+// Running under an outer git hook leaks GIT_DIR, GIT_INDEX_FILE and friends into
+// the fixture repository, so `git init` would act on the real one.
+const cleanGitEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+)
+
 const checkerPath = path.join(__dirname, 'check-doc-screenshot-coverage.js')
 
 function createRepository(files) {
@@ -28,11 +34,13 @@ function createRepository(files) {
 
     const initResult = spawnSync('git', ['init', '--quiet', repoRoot], {
         encoding: 'utf8',
+        env: cleanGitEnv,
     })
     assert.equal(initResult.status, 0, initResult.stderr)
 
     const addResult = spawnSync('git', ['-C', repoRoot, 'add', '.'], {
         encoding: 'utf8',
+        env: cleanGitEnv,
     })
     assert.equal(addResult.status, 0, addResult.stderr)
 
