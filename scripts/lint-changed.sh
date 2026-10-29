@@ -51,6 +51,12 @@ else
   while IFS= read -r file; do
     CHANGED_FILES+=("$file")
   done < <(git diff --name-only --diff-filter=ACMRT HEAD)
+  # New files that are not yet added are invisible to `git diff`, so a whole
+  # new directory of Markdown or Blade would otherwise skip Prettier locally
+  # and first fail in hosted CI.
+  while IFS= read -r file; do
+    CHANGED_FILES+=("$file")
+  done < <(git ls-files --others --exclude-standard)
 fi
 
 PHP_FILES=()
