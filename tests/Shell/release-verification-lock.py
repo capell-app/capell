@@ -109,7 +109,8 @@ class ReleaseVerificationLockTest(unittest.TestCase):
     def test_canonical_native_composer_preflight_waits_then_runs(self):
         scripts = self.root / 'scripts'
         scripts.mkdir()
-        shutil.copyfile(ROOT / 'scripts/with-lock.php', scripts / 'with-lock.php')
+        for name in ('with-lock.php', 'heavy-admission.php'):
+            shutil.copyfile(ROOT / 'scripts' / name, scripts / name)
         (scripts / 'run-preflight.php').write_text('<?php echo "preflight-ran\\n";')
         canonical = json.loads((ROOT / 'composer.json').read_text())['scripts']
         definition = {'name': 'fixture/release-dispatch', 'config': {'process-timeout': 0}, 'scripts': {
@@ -156,7 +157,8 @@ class ReleaseVerificationLockTest(unittest.TestCase):
     def test_composer_test_sequence_preserves_forwarded_options(self):
         scripts = self.root / 'scripts'
         scripts.mkdir()
-        shutil.copyfile(ROOT / 'scripts/with-lock.php', scripts / 'with-lock.php')
+        for name in ('with-lock.php', 'heavy-admission.php'):
+            shutil.copyfile(ROOT / 'scripts' / name, scripts / name)
         canonical = json.loads((ROOT / 'composer.json').read_text())['scripts']
         marker = '@php -r \'echo json_encode(array_slice($argv, 1)), "\\n";\' --'
         definition = {'name': 'fixture/release-dispatch', 'config': {'process-timeout': 0}, 'scripts': {
