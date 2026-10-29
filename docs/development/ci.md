@@ -249,6 +249,17 @@ or timed-out cell is incomplete evidence, not support proof.
 
 ## Merging approved PRs by label
 
+The complete Test All matrix runs once per change, on the merge-group commit,
+not again on the pull request. A pull request runs the fast PR gate, PHP
+Quality and the other cheap checks for quick feedback. The `Merge queue full
+matrix` check then runs every matrix cell on each merge-group commit and
+validates a non-empty, passing JUnit report for every configured cell from that
+attempt. A failing entry leaves the queue without blocking the entries behind
+it. To run the matrix on a pull request before queueing it, dispatch Test All
+manually for the branch. To enforce the check, add it to the existing
+main-branch required checks only after this workflow is available on `main`.
+Keep the existing required checks in place.
+
 Adding `ready-to-merge` to an open, non-draft PR targeting `main` authorises
 GitHub to merge it through the `main` merge queue without a further per-PR chat
 approval. This is an explicit exception to the normal PR merge approval rule.
