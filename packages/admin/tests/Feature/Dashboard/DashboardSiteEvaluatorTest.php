@@ -199,3 +199,16 @@ it('consults effective language matching only after site and page authorisation'
         ->and($action->handle($actor, $allowed->id, null, $third->id, 'inherited'))->toBeFalse()
         ->and($matcher->calls)->toBe([$first->id, $first->id]);
 });
+
+it('keeps native language matching literal and excludes deleted pages', function (): void {
+    $this->actingAsAdmin();
+    $actor = $this->authenticatedUser();
+    $page = Page::factory()->createOne();
+    $language = Language::factory()->createOne(['code' => 'fr-native-dashboard']);
+    Translation::withoutEvents(fn () => Translation::factory()->translatable($page)->createOne(['language_id' => $language->id]));
+    $action = resolve(CanViewDashboardItemAction::class);
+    expect($action->handle($actor, $page->site_id, null, $page->id, $language->code))->toBeTrue()
+        ->and($action->handle($actor, $page->site_id, null, $page->id, 'not-a-page-language'))->toBeFalse();
+    $page->delete();
+    expect($action->handle($actor, $page->site_id, null, $page->id, $language->code))->toBeFalse();
+});
