@@ -272,6 +272,11 @@ it('records page recovery only after the actual blockers are cleared', function 
         ->and($after->get('recoveryHistory')[0]['site_name'])->toBe($site->name)
         ->and($after->get('recoveryHistory')[0]['display_date'])->toBe('1 Jun 2026, 13:00')
         ->and($after->get('recoveryHistory')[0]['timezone'])->toBe('Europe/London');
+    $this->travel(61)->seconds();
+    $this->app->instance('request', Request::create('/after-notice-expiry'));
+    $expired = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]]);
+    expect($expired->get('issueResolved'))->toBeFalse()
+        ->and($expired->get('recoveryHistory'))->toHaveCount(1);
     $actor = $this->authenticatedUser();
     resolve(AdminWorkspacePreferenceStore::class)->updateDashboardRecoveryState($actor, static function (array $state): array {
         $state['history'][0]['resolved_at'] = 'not-a-date';

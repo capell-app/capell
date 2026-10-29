@@ -74,7 +74,8 @@ final class AttentionWidget extends Widget implements CapellFilamentWidgetContra
         $tracker = resolve(TrackDashboardAttentionRecoveryAction::class);
         $tracker->observe($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), $items);
 
-        $this->issueResolved = array_any($tracker->history($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()), static fn (array $record): bool => ! $record['acknowledged']);
+        $now = CarbonImmutable::now();
+        $this->issueResolved = array_any($tracker->history($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()), static fn (array $record): bool => ! $record['acknowledged'] && CarbonImmutable::parse($record['resolved_at'])->betweenIncluded($now->subSeconds(60), $now));
 
         return array_values(array_filter($items, function (DashboardAttentionItemData $item) use ($actor): bool {
             if ($item->urgent) {
