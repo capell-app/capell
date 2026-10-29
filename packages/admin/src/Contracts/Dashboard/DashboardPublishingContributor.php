@@ -7,7 +7,7 @@ namespace Capell\Admin\Contracts\Dashboard;
 use Capell\Admin\Data\Dashboard\DashboardPublicationItemData;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-/** @internal */
+/** @experimental */
 interface DashboardPublishingContributor
 {
     public const string TAG = 'capell.admin.dashboard-publishing';

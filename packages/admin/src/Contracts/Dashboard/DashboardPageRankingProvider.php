@@ -7,7 +7,7 @@ namespace Capell\Admin\Contracts\Dashboard;
 use Capell\Admin\Data\Dashboard\DashboardPageRankingSourceData;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-/** @internal */
+/** @experimental */
 interface DashboardPageRankingProvider
 {
     /**

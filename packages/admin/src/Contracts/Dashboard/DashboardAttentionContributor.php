@@ -7,7 +7,7 @@ namespace Capell\Admin\Contracts\Dashboard;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-/** @internal */
+/** @experimental */
 interface DashboardAttentionContributor
 {
     public const string TAG = 'capell.admin.dashboard-attention';
