@@ -15,6 +15,7 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Override;
+use Throwable;
 
 final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implements CapellFilamentWidgetContract
 {
@@ -38,6 +39,18 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
     {
         $data = $this->siteStats();
 
+        if (! $data instanceof SiteStatsData) {
+            return array_map(
+                static fn (string $label): Stat => Stat::make(__($label), (string) __('capell-admin::dashboard.overview_stat_unavailable')),
+                [
+                    'capell-admin::dashboard.stat_work_queue',
+                    'capell-admin::dashboard.stat_published',
+                    'capell-admin::dashboard.stat_scheduled',
+                    'capell-admin::dashboard.stat_expired',
+                ],
+            );
+        }
+
         return [
             $this->makeWorkQueueStat($data),
             $this->makePublishedStat($data),
@@ -51,6 +64,10 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
     {
         $data = $this->siteStats();
 
+        if (! $data instanceof SiteStatsData) {
+            return (string) __('capell-admin::dashboard.site_stats_unavailable_description');
+        }
+
         if (! $data->scoped) {
             // A provider that predates scoped statistics ignores the site filter and states no window.
             return implode(' ', [$this->legacyScopeDescription(), __('capell-admin::dashboard.window_current_counts')]);
@@ -63,9 +80,18 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
         ]);
     }
 
-    private function siteStats(): SiteStatsData
+    /**
+     * A failing provider must not take the dashboard down or read as zero activity.
+     */
+    private function siteStats(): ?SiteStatsData
     {
-        return resolve(AdminDashboardDataRequestCache::class)->siteStats($this->getDashboardPeriod(), $this->getDashboardSiteId());
+        try {
+            return resolve(AdminDashboardDataRequestCache::class)->siteStats($this->getDashboardPeriod(), $this->getDashboardSiteId());
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return null;
+        }
     }
 
     private function selectedSite(): ?Site

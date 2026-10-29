@@ -161,6 +161,23 @@ it('shows successful zero activity as zero rather than as unavailable', function
         ->assertDontSee(__('capell-admin::dashboard.analytics_unavailable_description'));
 });
 
+it('shows a failing site statistics provider as unavailable instead of an empty card or zero counts', function (): void {
+    app()->bind(SiteStatsDataProvider::class, fn (): SiteStatsDataProvider => new readonly class implements SiteStatsDataProvider
+    {
+        public function build(string $period): SiteStatsData
+        {
+            throw new RuntimeException('SQLSTATE secret_table exploded');
+        }
+    });
+    resetDashboardRequestCache();
+
+    Livewire::test(SiteStatsOverviewFilamentWidget::class, ['dashboardPeriod' => 'this_week'])
+        ->assertSee(__('capell-admin::dashboard.site_stats_unavailable_description'))
+        ->assertSee(__('capell-admin::dashboard.overview_stat_unavailable'))
+        ->assertDontSee('SQLSTATE')
+        ->assertDontSee('secret_table');
+});
+
 it('shows a provider failure as unavailable instead of zero activity in the overview and insights', function (): void {
     resetDashboardRequestCache();
     Schema::drop('activity_buckets');

@@ -261,6 +261,7 @@ return [
     'scope_applied_all_sites' => 'Page counts cover every site you can access.',
     'scope_applied_site' => 'Page counts cover :site only.',
     'scope_site_unavailable' => 'The selected site is not available to you, so there are no page counts to show.',
+    'site_stats_unavailable_description' => 'Page counts could not be loaded, so these figures are not zero. Reload the dashboard; if it keeps happening, ask a developer to check the application log.',
     'scope_all_sites' => 'Page counts cover every site you can access; the site filter does not apply to them.',
     'scope_other_site' => 'Page counts cover every site you can access, not only :site, because the site filter does not apply to them.',
     'window_current_counts' => 'Scheduled and expired counts are current and do not follow the period.',
