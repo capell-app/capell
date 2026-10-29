@@ -389,6 +389,53 @@ it('renders independent projections with unique identities and valid panel label
     }
 })->with([false, true]);
 
+it('renders compiled Alpine state and position-based panel bindings with no literal Blade directives', function (): void {
+    view()->share('errors', new ViewErrorBag);
+    $livewire = Livewire::make()->data([
+        'translations' => [
+            'record-42' => ['title' => 'French title'],
+            'record-43' => ['title' => 'English title'],
+        ],
+    ]);
+    $schema = Schema::make($livewire)->statePath('data')->components([
+        RepeaterTabs::make('translations')->key('content-editor')
+            ->tabs([TextInput::make('title')])->itemLabel(fn (array $state): string => $state['title'])
+            ->addable(false)->deletable(false),
+    ]);
+
+    $document = new DOMDocument;
+    $html = $schema->toHtml();
+    throw_if($html === '', RuntimeException::class, 'The repeater schema rendered no HTML.');
+    $previousLibxmlErrors = libxml_use_internal_errors(true);
+    try {
+        $document->loadHTML($html);
+    } finally {
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlErrors);
+    }
+
+    $xpath = new DOMXPath($document);
+    $wrappers = $xpath->query('//*[@x-data[contains(., "capellRepeaterTabs")]]');
+    throw_if($wrappers === false, RuntimeException::class, 'Invalid wrapper query.');
+    expect($wrappers->length)->toBe(1);
+
+    $wrapper = $wrappers->item(0);
+    throw_unless($wrapper instanceof DOMElement, RuntimeException::class, 'Expected the repeater wrapper element.');
+    $alpineData = $wrapper->getAttribute('x-data');
+    $refresh = $wrapper->getAttribute('x-on:refresh-tabs.window');
+
+    expect($alpineData)->toBe('capellRepeaterTabs({ activeTab: $wire.$entangle(\'data.activeTab\') })')
+        ->and($refresh)->not->toContain('@js')->toContain('refresh($event.detail.tabId)');
+
+    $panelBindings = $xpath->query('//*[@role="tabpanel"]/@x-show');
+    throw_if($panelBindings === false, RuntimeException::class, 'Invalid panel binding query.');
+    expect($panelBindings->length)->toBe(2);
+
+    foreach ($panelBindings as $binding) {
+        expect($binding->nodeValue)->toBe('isActive($el)');
+    }
+});
+
 it('completes nested fields when their metadata container is entirely absent', function (): void {
     $component = mountedRepeaterTabs(
         RepeaterTabs::make('translations')->tabs([

@@ -192,14 +192,15 @@
                     $id = $item->getLivewireKey() . '.panel';
                 @endphp
 
+                {{-- Panels resolve their index from the DOM: Alpine's morph skips attribute patching on a shown element, so an index written into the markup goes stale when a translation is removed. --}}
                 <div
                     x-bind:class="{
-                        'fi-active': tab === @js($loop->iteration),
+                        'fi-active': isActive($el),
                     }"
-                    x-on:expand="activate(@js($loop->iteration))"
-                    x-show="tab === @js($loop->iteration)"
-                    x-bind:aria-hidden="tab !== @js($loop->iteration)"
-                    x-bind:hidden="tab !== @js($loop->iteration)"
+                    x-on:expand="activate(panelIndex($el))"
+                    x-show="isActive($el)"
+                    x-bind:aria-hidden="! isActive($el)"
+                    x-bind:hidden="! isActive($el)"
                     @if ($activeTab !== $loop->iteration) hidden @endif
                     aria-hidden="{{ $activeTab === $loop->iteration ? 'false' : 'true' }}"
                     x-cloak
