@@ -19,6 +19,7 @@ use Capell\Admin\Data\Pages\PublishPanelViewData;
 use Capell\Admin\Data\Pages\PublishVisibilityActionResultData;
 use Capell\Admin\Data\Publishing\PublishReadinessData;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Page;
@@ -324,7 +325,13 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             return __('capell-admin::publish_panel.blocker_ask_editor');
         }
 
-        foreach ($record->pageUrls()->status(false)->lazy() as $url) {
+        foreach ($record->pageUrls()
+            ->where('site_id', $record->site_id)
+            ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
+            ->status(false)
+            ->whereHas('language')
+            ->with('site')
+            ->lazy() as $url) {
             if ($gate->allows('view', $url) && $gate->allows('update', $url)) {
                 return __('capell-admin::publish_panel.blocker_next_url_enable');
             }
