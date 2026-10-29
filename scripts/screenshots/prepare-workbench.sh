@@ -117,3 +117,8 @@ node scripts/screenshots/build-filament-theme-css.mjs
 # fixture asset before the frontend screenshot seed binds the default theme to
 # it. This does not turn generated CSS into route-backed screenshot evidence.
 node scripts/screenshots/build-frontend-theme-css.mjs
+
+# This run rewrote the shared Testbench skeleton under vendor/. Leave a marker so
+# `composer preflight` refuses to run tests against it until the skeleton is
+# restored with `composer reinstall orchestra/testbench-core --no-scripts`.
+touch "${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/.capell-workbench-prepared"

@@ -40,6 +40,7 @@ it('dispatches the documented command gate from full preflight and CI after depe
     $root = dirname(__DIR__, 2);
     $fixture = new CommandFixture;
     $fixture->files->copy('scripts/run-preflight.php');
+    $fixture->files->copy('scripts/heavy-admission.php');
     try {
         $process = $fixture->run([PHP_BINARY, 'scripts/run-preflight.php', '--all', 'docs-commands'], [
             'COMPOSER_BINARY' => $fixture->files->root . '/bin/composer',
@@ -387,3 +388,33 @@ function deleteDocumentationArtisanCommandsFixture(string $path): void
 
     rmdir($path);
 }
+
+it('refuses to run tests against a Testbench skeleton that workbench preparation rewrote', function (): void {
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/run-preflight.php');
+    $fixture->files->copy('scripts/heavy-admission.php');
+
+    $marker = $fixture->files->root . '/vendor/orchestra/testbench-core/laravel/.capell-workbench-prepared';
+    mkdir(dirname($marker), 0777, true);
+    file_put_contents($marker, '');
+
+    try {
+        $process = $fixture->run([PHP_BINARY, 'scripts/run-preflight.php', 'tests'], [
+            'COMPOSER_BINARY' => $fixture->files->root . '/bin/composer',
+        ]);
+
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getErrorOutput())->toContain('composer reinstall orchestra/testbench-core')
+            ->and($fixture->calls('composer'))->toBe([]);
+
+        unlink($marker);
+        $clean = $fixture->run([PHP_BINARY, 'scripts/run-preflight.php', 'tests'], [
+            'COMPOSER_BINARY' => $fixture->files->root . '/bin/composer',
+        ]);
+
+        expect($clean->getExitCode())->toBe(0, $clean->getErrorOutput())
+            ->and(array_column($fixture->calls('composer'), 'arguments'))->toBe([['test:preflight']]);
+    } finally {
+        $fixture->close();
+    }
+});

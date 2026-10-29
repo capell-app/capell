@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -23,6 +24,12 @@ final class PublishVendorMigrationsAction
         $reporter->step('Publishing vendor migrations…');
 
         foreach ($this->stubs() as [$migrationName, $stubRelativePath, $targetName, $successLabel]) {
+            if ($this->registeredPathSuppliesMigration($migrationName)) {
+                $this->removePendingCanonicalMigration($targetName);
+
+                continue;
+            }
+
             if ($this->canonicalMigrationExists($targetName)) {
                 $canonicalMigrationPath = database_path('migrations/' . $targetName);
 
@@ -150,6 +157,47 @@ final class PublishVendorMigrationsAction
         $projectPathStub = realpath(__DIR__ . '/../../../../../' . $stubRelativePath);
 
         return $projectPathStub !== false ? $projectPathStub : null;
+    }
+
+    /**
+     * A migration path registered with the migrator (a host package or a workbench fixture) that
+     * already supplies this vendor migration would create the same table a second time, so the
+     * vendor stub must not also be published. Only the application's own migrations directory
+     * is ever modified; registered paths belong to their owners.
+     */
+    private function registeredPathSuppliesMigration(string $name): bool
+    {
+        if (class_exists(Str::studly($name))) {
+            return false;
+        }
+
+        $applicationPath = realpath(database_path('migrations')) ?: database_path('migrations');
+        $pattern = '/^\d{4}_\d{2}_\d{2}_\d{6}_' . preg_quote($this->migrationFilename($name), '/') . '\.php$/';
+
+        foreach (resolve(Migrator::class)->paths() as $path) {
+            if ((realpath($path) ?: $path) === $applicationPath) {
+                continue;
+            }
+
+            $found = glob(rtrim($path, '/') . '/*.php');
+
+            foreach ($found !== false ? $found : [] as $file) {
+                if (preg_match($pattern, basename($file)) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function removePendingCanonicalMigration(string $targetName): void
+    {
+        $canonicalMigrationPath = database_path('migrations/' . $targetName);
+
+        if ($this->canonicalMigrationExists($targetName) && ! $this->migrationFileHasRun($canonicalMigrationPath)) {
+            File::delete($canonicalMigrationPath);
+        }
     }
 
     private function canonicalMigrationExists(string $targetName): bool

@@ -177,6 +177,14 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
         return $this->externalVideo() instanceof ExternalVideoData;
     }
 
+    /**
+     * Whether this record's identity is an uploaded file rather than an external video source.
+     */
+    public function isFileBacked(): bool
+    {
+        return ! $this->isExternalVideo() && $this->mime_type !== 'video/youtube';
+    }
+
     public function externalVideo(): ?ExternalVideoData
     {
         $data = data_get($this->custom_properties, 'capell.video');
@@ -287,6 +295,14 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
         $this->custom_properties = $properties;
 
         return $this;
+    }
+
+    /**
+     * Whether an editor has stored a crop preset selection, including an explicitly empty one.
+     */
+    public function hasCropPresetSelection(): bool
+    {
+        return is_array(data_get($this->custom_properties, 'capell.crops'));
     }
 
     /**

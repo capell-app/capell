@@ -147,3 +147,39 @@ it('uses an extension preview component when one is provided', function (): void
     expect($preview->html)->toContain('data-component-preview="component-preview"')
         ->and($preview->html)->toContain('Component-provided preview');
 });
+
+it('draws the fallback primary button with the computed contrast colour', function (string $primary, string $expectedContrast): void {
+    $relativeLuminance = function (string $hex): float {
+        $channels = array_map(
+            static function (float|int $value): float {
+                $channel = $value / 255;
+
+                return $channel <= 0.03928 ? $channel / 12.92 : (($channel + 0.055) / 1.055) ** 2.4;
+            },
+            array_map(hexdec(...), str_split(ltrim($hex, '#'), 2)),
+        );
+
+        return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
+    };
+
+    foreach (['light', 'dark'] as $mode) {
+        $state = ThemeEditorStateData::defaults();
+        $state->brand['primaryColor'] = $primary;
+        $state->admin['preview']['colorMode'] = $mode;
+
+        $preview = BuildThemeEditorPreviewAction::run($state);
+        $contrast = $preview->cssVariables['--theme-primary-contrast'];
+        $lighter = max($relativeLuminance($primary), $relativeLuminance($contrast));
+        $darker = min($relativeLuminance($primary), $relativeLuminance($contrast));
+
+        expect($contrast)->toBe($expectedContrast)
+            ->and(($lighter + 0.05) / ($darker + 0.05))->toBeGreaterThanOrEqual(4.5)
+            ->and($preview->html)->toContain('background:var(--theme-primary);color:var(--theme-primary-contrast);')
+            ->and($preview->html)->not->toContain('background:var(--theme-primary);color:white;');
+    }
+})->with([
+    'deep blue' => ['#1d4ed8', '#ffffff'],
+    'bright yellow' => ['#facc15', '#000000'],
+    'teal' => ['#14b8a6', '#000000'],
+    'dark green' => ['#166534', '#ffffff'],
+]);
