@@ -221,10 +221,10 @@ it('renders the local fixture image from its stored public path despite the disp
     Storage::disk('public')->assertExists($path);
     expect(Storage::disk('public')->get($path))->toBe(file_get_contents(dirname(__DIR__, 5) . '/workbench/resources/images/coastal-walk.svg'));
 
-    $this->get('http://127.0.0.1:8145/')
-        ->assertOk()
-        ->assertElementExists('figure img', fn ($image) => $image->has('src', '/storage/' . $path))
-        ->assertDontSee('https://capell.example/storage/', false);
+    $response = $this->get('http://127.0.0.1:8145/');
+    $response->assertOk();
+    $response->assertElementExists('figure img', fn ($image) => $image->has('src', '/storage/' . $path));
+    $response->assertDontSee('https://capell.example/storage/', false);
 
     expect(config('app.url'))->toBe('https://capell.example');
 });
