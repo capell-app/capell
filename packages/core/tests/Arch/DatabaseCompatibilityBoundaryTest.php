@@ -4,6 +4,19 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\Assert;
 
+/**
+ * Dated migrations must stay self-contained and frozen (see MigrationSelfContainmentTest), so they
+ * cannot import the database adapters this test otherwise requires. Each path is an exact file.
+ *
+ * @return list<string>
+ */
+function capellDatabaseCompatibilityMigrationExemptions(): array
+{
+    return [
+        'packages/core/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php',
+    ];
+}
+
 function capellDatabaseCompatibilityStringViolation(string $value): ?string
 {
     if (strtolower(trim($value, " \t\n\r\0\x0B'\"")) === 'concat(') {
@@ -87,6 +100,10 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
                 continue;
             }
 
+            if (in_array($relative, capellDatabaseCompatibilityMigrationExemptions(), true)) {
+                continue;
+            }
+
             $contents = (string) file_get_contents($pathname);
 
             if (preg_match($driverInspection, $contents) === 1) {
@@ -114,6 +131,15 @@ it('keeps driver inspection and dialect-only SQL inside database adapters', func
     }
 
     Assert::assertSame([], $violations, "Database compatibility boundary violations:\n" . implode("\n", $violations));
+});
+
+it('only exempts existing dated migrations from the adapter boundary', function (): void {
+    $root = dirname(__DIR__, 4);
+
+    foreach (capellDatabaseCompatibilityMigrationExemptions() as $path) {
+        expect($path)->toStartWith('packages/')->toContain('/database/migrations/')->toEndWith('.php')
+            ->and(file_exists($root . '/' . $path))->toBeTrue('Exempted migration no longer exists: ' . $path);
+    }
 });
 
 it('recognizes standalone case-insensitive database fragments', function (string $fragment, string $expected): void {
