@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models;
 
 use Bkwld\Cloner\Cloneable;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\LanguageFactory;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
@@ -93,6 +94,7 @@ use Override;
 class Language extends Model implements Defaultable, Statusable, Userstampable
 {
     use Cloneable;
+    use HasCapellTable;
 
     /** @use HasDefault<Language> */
     use HasDefault;

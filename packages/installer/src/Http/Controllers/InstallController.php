@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Http\Controllers;
 
 use Capell\Core\Actions\Install\ResolveInstallRecommendationAction;
+use Capell\Core\Actions\Install\WriteTableConfigurationAction;
 use Capell\Core\Enums\InstallRecommendationAction;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Facades\CapellCore;
@@ -19,6 +20,7 @@ use Capell\Installer\Actions\CancelInstallerRunAction;
 use Capell\Installer\Actions\ReadInstallerRunProgressAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
 use Capell\Installer\Actions\RemoveWelcomeRouteAfterInstallAction;
+use Capell\Installer\Actions\ResolveInstallerTableNamesAction;
 use Capell\Installer\Actions\ReviewInstallerInputAction;
 use Capell\Installer\Actions\StartInstallerRunAction;
 use Capell\Installer\Data\InstallerRunStartData;
@@ -137,11 +139,49 @@ final class InstallController
             defaultPackageNames: $this->options->configuredDefaultPackageNames(),
         );
 
+        try {
+            $tableChanges = ResolveInstallerTableNamesAction::run(
+                array_values(array_unique([...$inputData->packages, ...$inputData->extraPackages])),
+                is_string($validated['table_prefix'] ?? null) ? $validated['table_prefix'] : null,
+                is_string($validated['table_aliases'] ?? null) ? $validated['table_aliases'] : null,
+            );
+            $previous = [];
+            try {
+                foreach ($tableChanges as $key => $value) {
+                    $previous[$key] = config($key);
+                    config()->set($key, $value);
+                }
+
+                if ($tableChanges !== []) {
+                    $inputData = resolve(InstallInputFactory::class)->fromWebInput(
+                        $this->normalisedInputWithRecommendation($request, $validated),
+                        allowWelcomeRoute: true,
+                        defaultPackageNames: $this->options->configuredDefaultPackageNames(),
+                    );
+                }
+            } finally {
+                foreach ($previous as $key => $value) {
+                    config()->set($key, $value);
+                }
+            }
+        } catch (RuntimeException $runtimeException) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $runtimeException->getMessage(), 'errors' => ['table_names' => [$runtimeException->getMessage()]]], 422);
+            }
+
+            return back()->withErrors(['table_names' => $runtimeException->getMessage()])->withInput();
+        }
+
         $reviewer = resolve(ReviewInstallerInputAction::class);
-        $reviewContext = hash('sha256', $request->session()->getId() . '|' . ($validated['install_id'] ?? ''));
+        $reviewContext = hash('sha256', $request->session()->getId() . '|' . ($validated['install_id'] ?? '') . '|' . json_encode($tableChanges, JSON_THROW_ON_ERROR));
         $runAsJob = (bool) ($validated['run_as_job'] ?? false);
         if ($request->boolean('review_only')) {
-            return response()->json(['review' => $reviewer->handle($inputData, $runAsJob, $reviewContext)], headers: $this->installerSessionHeaders());
+            $review = $reviewer->handle($inputData, $runAsJob, $reviewContext);
+            if ($tableChanges !== []) {
+                $review['items'][__('capell-installer::installer.table_names_review')] = implode(', ', array_map(static fn (string $key, string $value): string => $key . ' = ' . $value, array_keys($tableChanges), $tableChanges));
+            }
+
+            return response()->json(['review' => $review], headers: $this->installerSessionHeaders());
         }
 
         if (! $request->boolean('installation_confirmed') || ! $reviewer->accepts($inputData, (string) $request->input('review_token', ''), $runAsJob, $reviewContext)) {
@@ -169,6 +209,16 @@ final class InstallController
             return $this->activeInstallLockedResponse($request);
         }
 
+        try {
+            WriteTableConfigurationAction::run($tableChanges);
+        } catch (RuntimeException $runtimeException) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $runtimeException->getMessage(), 'errors' => ['table_names' => [$runtimeException->getMessage()]]], 422);
+            }
+
+            return back()->withErrors(['table_names' => $runtimeException->getMessage()])->withInput();
+        }
+
         $this->grantInstallAccess($request, $installId);
 
         if ($recommendationAction instanceof InstallRecommendationAction) {
@@ -184,7 +234,7 @@ final class InstallController
 
         if ($runAsJob) {
             try {
-                $run = StartInstallerRunAction::run($installId, $inputData, InstallerRunMode::Queued);
+                $run = StartInstallerRunAction::run($installId, $inputData, InstallerRunMode::Queued, $tableChanges);
             } catch (QueueConnectionNotReadyException $exception) {
                 return $this->queueConnectionUnavailableResponse($request, $exception);
             } catch (Throwable $throwable) {

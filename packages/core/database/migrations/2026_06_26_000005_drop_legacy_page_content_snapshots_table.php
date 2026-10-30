@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Schema;
 
@@ -16,7 +17,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::dropIfExists('page_content_snapshots');
+        if (TableName::existsAndIsOwned('page_content_snapshots', '2026_06_25_000003_create_page_content_snapshots_table')) {
+            Schema::dropIfExists(TableName::resolve('page_content_snapshots'));
+        }
     }
 
     public function down(): void

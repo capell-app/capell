@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Tests\Feature\Console;
 
+use Capell\Core\Actions\Install\FindTableCollisionsAction;
+use Capell\Core\Actions\Upgrade\ReadLatestInstalledVersionsAction;
 use Capell\Core\Actions\Upgrade\ResolveAdminViewDirectoryAction;
 use Capell\Core\Actions\Upgrade\ResolveInstalledComposerVersionsAction;
 use Capell\Core\Facades\CapellCore;
@@ -377,4 +379,50 @@ it('rejects strict mode without a dry run before starting an upgrade', function 
 
     expect(CmdTrackedStep::$runs)->toBe(0)
         ->and(UpgradeRun::query()->count())->toBe(0);
+});
+
+it('recovers an aliased pages migration without adopting the foreign pages table', function (): void {
+    config()->set('capell.database.table_aliases.pages', 'content_pages');
+    $foreignCount = DB::table('pages')->count();
+    $migration = '2026_05_10_190832_12_create_pages_table';
+    DB::table('migrations')->where('migration', $migration)->delete();
+
+    artisanCommand('capell:upgrade', ['--force' => true, '--only-migrations' => true, '--no-clear-cache' => true])
+        ->assertSuccessful();
+
+    expect(Schema::hasTable('content_pages'))->toBeTrue()
+        ->and(DB::table('pages')->count())->toBe($foreignCount)
+        ->and(DB::table('migrations')->where('migration', $migration)->exists())->toBeTrue();
+});
+
+it('builds an upgrade plan with a prefixed Capell schema', function (): void {
+    DB::table('capell_upgrade_log')->insert([
+        'type' => 'version_snapshot', 'key' => 'capell-app/core', 'status' => 'success',
+        'ran_at' => '2026-01-01 00:00:00', 'meta' => json_encode(['to_version' => '1.0.0']),
+    ]);
+    $copied = [];
+    try {
+        foreach (resolve(FindTableCollisionsAction::class)->planned([]) as $table) {
+            if (! str_starts_with($table->configKey, 'capell.database.table_aliases.')) {
+                continue;
+            }
+
+            if (! Schema::hasTable($table->name)) {
+                continue;
+            }
+
+            $target = 'cms_' . $table->name;
+            DB::statement('CREATE TABLE "' . $target . '" AS SELECT * FROM "' . $table->name . '"');
+            $copied[] = $target;
+        }
+
+        config()->set('capell.database.table_prefix', 'cms_');
+        expect(ReadLatestInstalledVersionsAction::run(['capell-app/core']))->toBe(['capell-app/core' => '1.0.0']);
+        artisanCommand('capell:upgrade', ['--dry-run' => true, '--force' => true, '--no-clear-cache' => true])->assertSuccessful();
+    } finally {
+        config()->set('capell.database.table_prefix', '');
+        foreach ($copied as $table) {
+            Schema::dropIfExists($table);
+        }
+    }
 });

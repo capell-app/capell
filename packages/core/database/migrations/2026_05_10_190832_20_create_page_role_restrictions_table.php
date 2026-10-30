@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -20,20 +21,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('page_role_restrictions', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('page_role_restrictions'), function (Blueprint $table): void {
             $table->id();
-            $table->morphs('restrictable');
+            $table->morphs('restrictable', TableName::index('page_role_restrictions', ['restrictable_type', 'restrictable_id'], 'index'));
             $table->foreignId('role_id')
-                ->constrained('roles')
+                ->constrained((string) config('permission.table_names.roles', 'roles'), indexName: TableName::index('page_role_restrictions', 'role_id', 'foreign'))
                 ->cascadeOnDelete();
             $table->timestamps();
 
-            $table->unique(['restrictable_type', 'restrictable_id', 'role_id'], 'restrictable_role');
+            $table->unique(['restrictable_type', 'restrictable_id', 'role_id'], TableName::namedIndex('page_role_restrictions', 'restrictable_role'));
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('page_role_restrictions');
+        Schema::dropIfExists(TableName::resolve('page_role_restrictions'));
     }
 };

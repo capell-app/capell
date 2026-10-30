@@ -23,6 +23,7 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Media\MediaModel;
+use Capell\Core\Support\TableName;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
@@ -51,7 +52,7 @@ final class AgentPublicRenderDataContributor implements PublicRenderDataContribu
     {
         return ! $context->isError
             && $context->page instanceof Page
-            && resolve(RuntimeSchemaState::class)->hasTable('page_property_values');
+            && resolve(RuntimeSchemaState::class)->hasTable(TableName::resolve('page_property_values'));
     }
 
     public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData

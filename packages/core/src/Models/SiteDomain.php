@@ -7,6 +7,7 @@ namespace Capell\Core\Models;
 use Awobaz\Compoships\Compoships;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Actions\SiteDomains\WithSiteDomainClaimLockAction;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Data\SiteDomains\SiteOriginData;
 use Capell\Core\Database\Factories\SiteDomainFactory;
 use Capell\Core\Models\Concerns\HasDefault;
@@ -96,6 +97,7 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
 {
     use Cloneable;
     use Compoships;
+    use HasCapellTable;
 
     /** @use HasDefault<self> */
     use HasDefault;

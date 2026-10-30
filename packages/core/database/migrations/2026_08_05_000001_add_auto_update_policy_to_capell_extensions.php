@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\ExtensionAutoUpdatePolicyEnum;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,25 +19,29 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasColumn('capell_extensions', 'auto_update_policy')) {
+        TableName::existsAndIsOwned('capell_extensions', '2026_05_10_190832_24_create_capell_extensions_table');
+
+        if (Schema::hasColumn(TableName::resolve('capell_extensions'), 'auto_update_policy')) {
             return;
         }
 
-        Schema::table('capell_extensions', function (Blueprint $table): void {
+        Schema::table(TableName::resolve('capell_extensions'), function (Blueprint $table): void {
             $table->string('auto_update_policy')
                 ->default(ExtensionAutoUpdatePolicyEnum::None->value)
-                ->index();
+                ->index(TableName::index('capell_extensions', 'auto_update_policy', 'index'));
         });
     }
 
     public function down(): void
     {
-        if (! Schema::hasColumn('capell_extensions', 'auto_update_policy')) {
+        TableName::existsAndIsOwned('capell_extensions', '2026_05_10_190832_24_create_capell_extensions_table');
+
+        if (! Schema::hasColumn(TableName::resolve('capell_extensions'), 'auto_update_policy')) {
             return;
         }
 
-        Schema::table('capell_extensions', function (Blueprint $table): void {
-            $table->dropIndex(['auto_update_policy']);
+        Schema::table(TableName::resolve('capell_extensions'), function (Blueprint $table): void {
+            $table->dropIndex(TableName::index('capell_extensions', ['auto_update_policy'], 'index'));
             $table->dropColumn('auto_update_policy');
         });
     }

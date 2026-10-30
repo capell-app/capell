@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Concerns\HasCapellMedia;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Database\Factories\ThemeFactory;
 use Capell\Core\Models\Concerns\HasBlueprint;
@@ -111,6 +112,7 @@ class Theme extends Model implements Blueprintable, Defaultable, HasMedia, HasMe
     use Cloneable;
     use HasBlueprint;
     use HasCapellMedia;
+    use HasCapellTable;
 
     /** @use HasDefault<Theme> */
     use HasDefault;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models;
 
 use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\BlueprintPropertySetFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class BlueprintPropertySet extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<BlueprintPropertySetFactory> */
     use HasFactory;
 

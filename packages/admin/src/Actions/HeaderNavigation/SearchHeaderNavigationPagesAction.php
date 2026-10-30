@@ -12,6 +12,7 @@ use Capell\Admin\Support\HeaderNavigation\HeaderNavigationPageNodeBuilder;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,10 +52,10 @@ final class SearchHeaderNavigationPagesAction
 
         /** @var Builder<Page> $query */
         $query = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Page::class)
-            ->select('pages.id', 'pages.site_id', 'pages._lft')
+            ->select(TableName::resolve('pages') . '.id', TableName::resolve('pages') . '.site_id', TableName::resolve('pages') . '._lft')
             ->distinct()
-            ->orderBy('pages.site_id')
-            ->orderBy('pages._lft');
+            ->orderBy(TableName::resolve('pages') . '.site_id')
+            ->orderBy(TableName::resolve('pages') . '._lft');
 
         $this->accessResolver->constrainPageQueryForSites($query, $actor, $siteIds);
         $this->applySearchConstraint($query, $search);
@@ -100,7 +101,7 @@ final class SearchHeaderNavigationPagesAction
 
         $query->where(function (Builder $query) use ($like): void {
             $query
-                ->where('pages.name', 'like', $like)
+                ->where(TableName::resolve('pages') . '.name', 'like', $like)
                 ->orWhereHas(
                     'translations',
                     fn (BuilderContract $query): BuilderContract => $query

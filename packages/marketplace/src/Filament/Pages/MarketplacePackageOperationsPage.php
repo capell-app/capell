@@ -159,6 +159,11 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     {
         $this->resetPage();
 
+        if ($this->selectedOperationId !== null && $this->selectedOperationIsOutsideActiveTab()) {
+            $this->selectedOperationId = null;
+            $this->diagnosticBundle = null;
+        }
+
         $this->cachedDefaultTableColumnState = null;
 
         $this->applyTableColumnManager();
@@ -283,11 +288,14 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
             ->searchPlaceholder(__('capell-marketplace::marketplace.operations.search_placeholder'));
     }
 
+    /**
+     * Without an explicit choice the detail follows the visible tab, so an empty
+     * Active tab never shows a finished attempt as if it were still running.
+     */
     public function selectedOperation(): ?MarketplaceInstallAttempt
     {
         if ($this->selectedOperationId === null) {
-            return MarketplaceInstallAttempt::query()
-                ->with('events')
+            return $this->operationsInActiveTab()
                 ->latest('updated_at')
                 ->first();
         }
@@ -295,6 +303,29 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
         return MarketplaceInstallAttempt::query()
             ->with('events')
             ->find($this->selectedOperationId);
+    }
+
+    /**
+     * True when a chosen or deep-linked attempt is not part of the visible tab.
+     */
+    public function selectedOperationIsOutsideActiveTab(): bool
+    {
+        if ($this->selectedOperationId === null) {
+            return false;
+        }
+
+        return ! $this->operationsInActiveTab()
+            ->whereKey($this->selectedOperationId)
+            ->exists();
+    }
+
+    public function activeTabLabel(): string
+    {
+        $tab = $this->getCachedTabs()[$this->activeTab ?? ''] ?? null;
+
+        $label = $tab?->getLabel();
+
+        return is_string($label) ? $label : '';
     }
 
     public function selectOperation(int $operationId): void
@@ -486,6 +517,12 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
         }
 
         return $tab->modifyQuery($query);
+    }
+
+    /** @return Builder<MarketplaceInstallAttempt> */
+    private function operationsInActiveTab(): Builder
+    {
+        return $this->modifyQueryWithActiveTab(MarketplaceInstallAttempt::query()->with('events'));
     }
 
     /** @return array<string, string> */

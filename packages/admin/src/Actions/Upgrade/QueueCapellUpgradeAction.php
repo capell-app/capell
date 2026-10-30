@@ -14,6 +14,7 @@ use Capell\Core\Enums\Upgrade\UpgradeManualCommand;
 use Capell\Core\Enums\Upgrade\UpgradeQueueStatus;
 use Capell\Core\Enums\Upgrade\UpgradeRunStatus;
 use Capell\Core\Models\UpgradeRun;
+use Capell\Core\Support\TableName;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -40,7 +41,7 @@ final class QueueCapellUpgradeAction
         $authenticatedUserId = auth()->id();
         $status = $readiness->canQueue() ? UpgradeRunStatus::Queued : UpgradeRunStatus::ManualRequired;
 
-        if (! Schema::hasTable('capell_upgrade_runs') || ! Schema::hasTable('capell_upgrade_run_events')) {
+        if (! Schema::hasTable(TableName::resolve('capell_upgrade_runs')) || ! Schema::hasTable(TableName::resolve('capell_upgrade_run_events'))) {
             return new UpgradeQueueResultData(
                 runId: null,
                 runStatus: UpgradeRunStatus::ManualRequired,

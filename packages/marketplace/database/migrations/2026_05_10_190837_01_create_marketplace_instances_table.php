@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,12 +11,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('marketplace_instances', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('marketplace_instances'), function (Blueprint $table): void {
             $table->id();
-            $table->uuid('instance_id')->unique();
+            $table->uuid('instance_id')->unique(TableName::index('marketplace_instances', 'instance_id', 'unique'));
             $table->text('signing_secret_encrypted');
-            $table->string('connection_mode')->default('account_linked')->index();
-            $table->string('account_id')->nullable()->index();
+            $table->string('connection_mode')->default('account_linked')->index(TableName::index('marketplace_instances', 'connection_mode', 'index'));
+            $table->string('account_id')->nullable()->index(TableName::index('marketplace_instances', 'account_id', 'index'));
             $table->string('account_name')->nullable();
             $table->string('account_email')->nullable();
             $table->timestamp('account_email_verified_at')->nullable();
@@ -28,6 +29,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('marketplace_instances');
+        Schema::dropIfExists(TableName::resolve('marketplace_instances'));
     }
 };

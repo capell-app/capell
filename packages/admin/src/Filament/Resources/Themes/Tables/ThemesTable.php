@@ -23,6 +23,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -237,7 +238,7 @@ class ThemesTable implements TableConfigurator
             TextColumn::make('sites_count')
                 ->label(__('capell-admin::theme-library.labels.sites'))
                 ->counts([
-                    'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
+                    'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, TableName::resolve('sites') . '.id'),
                 ])
                 ->numeric()
                 ->sortable()

@@ -15,6 +15,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Blueprintable;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\TableName;
 use Closure;
 use Exception;
 use Filament\Actions\Action;
@@ -288,7 +289,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
         return $this->relationship(
             name: 'blueprint',
             titleAttribute: 'name',
-            modifyQueryUsing: fn (Builder $query): Builder => $query->select('blueprints.*')
+            modifyQueryUsing: fn (Builder $query): Builder => $query->select(TableName::resolve('blueprints') . '.*')
                 ->when(
                     $this->getBlueprint(),
                     fn (Builder $query, string $type): Builder => $query->where('type', $type),

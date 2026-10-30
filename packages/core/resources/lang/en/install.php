@@ -3,6 +3,19 @@
 declare(strict_types=1);
 
 return [
+    'tables' => [
+        'choice_required' => 'These tables already exist: :tables. Supply table aliases or a prefix before installing.',
+        'review' => 'Database configuration :key will use :table.',
+        'duplicate_targets' => 'Two tables would use the same name. Choose distinct names.',
+        'invalid_option' => 'Use --table-alias=name=alias for each table.',
+        'invalid_name' => 'Choose a valid table name for :table.',
+        'target_in_use' => 'The table name :table is already in use. Choose another name.',
+        'choice_label' => 'Some database tables already exist. How would you like to name the new tables?',
+        'prefix_choice' => 'Use a prefix',
+        'aliases_choice' => 'Choose table names individually',
+        'prefix_label' => 'Prefix for the new tables',
+        'alias_label' => 'New table name for :table',
+    ],
     'starter_user_exists' => 'Skipped starter user :email because the account already exists.',
     'recovery' => [
         'failed' => 'Installation stopped at :step.',

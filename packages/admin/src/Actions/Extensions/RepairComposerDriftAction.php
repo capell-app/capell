@@ -9,6 +9,7 @@ use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
 use Capell\Core\Actions\RequirePackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -24,7 +25,7 @@ final class RepairComposerDriftAction
      */
     public function handle(?string $composerName = null): array
     {
-        if (! Schema::hasTable('capell_extensions')) {
+        if (! Schema::hasTable(TableName::resolve('capell_extensions'))) {
             return [];
         }
 

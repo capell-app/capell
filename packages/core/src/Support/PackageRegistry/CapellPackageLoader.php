@@ -17,6 +17,7 @@ use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
+use Capell\Core\Support\TableName;
 use Illuminate\Contracts\Foundation\Application;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
@@ -255,7 +256,7 @@ final class CapellPackageLoader
         /** @var RuntimeSchemaState $schemaState */
         $schemaState = $this->app->make(RuntimeSchemaState::class);
 
-        return $schemaState->tableResult('capell_extensions') === SchemaProbeResult::Absent;
+        return $schemaState->tableResult(TableName::resolve('capell_extensions')) === SchemaProbeResult::Absent;
     }
 
     private function providerFailureReason(string $provider, Throwable $throwable): string

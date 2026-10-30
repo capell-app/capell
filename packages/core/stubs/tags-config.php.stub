@@ -1,0 +1,7 @@
+<?php
+
+return [
+    'taggable' => [
+        'table_name' => 'taggables',
+    ],
+];

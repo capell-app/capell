@@ -57,6 +57,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/Publishing/PublicationReadinessRegistry.php',
         // Keyed by an integer schema version and walked as an ordered migration chain, not looked up by a single string key.
         'packages/core/src/Support/ProjectBuild/ProjectBuildManifestMigrationRegistry.php',
+        // An append-only list of migration roots per package, read once by the installer; it is not a keyed contribution map.
+        'packages/core/src/Support/Migration/MigrationRootRegistry.php',
         'packages/core/src/Support/Registries/AbstractKeyedRegistry.php',
         'packages/core/src/Support/Registries/TaggedProviderRegistry.php',
         'packages/core/src/Support/Renderables/RenderableRegistry.php',

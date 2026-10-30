@@ -24,6 +24,7 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
+use Capell\Core\Support\TableName;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -306,7 +307,7 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        $eventsTableResult = $this->schemaState->tableResult('capell_public_render_contract_events');
+        $eventsTableResult = $this->schemaState->tableResult(TableName::resolve('capell_public_render_contract_events'));
 
         if ($eventsTableResult === SchemaProbeResult::Failed) {
             return new PackageReadinessCheckData(
