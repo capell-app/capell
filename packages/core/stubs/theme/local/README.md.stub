@@ -11,7 +11,7 @@ Add the host app path repository if it is not already present:
     "repositories": [
         {
             "type": "path",
-            "url": "packages/*",
+            "url": "{{ jsonRepositoryUrl }}",
             "options": {
                 "symlink": true
             }
@@ -32,7 +32,7 @@ php artisan capell:package-cache:clear
 php artisan config:clear
 php artisan capell:frontend-tailwind-assets
 php artisan capell:install --theme={{ themeKey }}
-php artisan capell:theme:doctor {{ themeKey }} --path=packages/{{ slug }}
+php artisan capell:theme:doctor {{ themeKey }} --path={{ doctorPath }}
 ```
 
 The provider registers `resources/css/theme.css` with the `theme-css:{{ themeKey }}`
@@ -47,7 +47,5 @@ composer install
 composer test
 ```
 
-Local theme providers intentionally register their runtime unconditionally. The
-database `themes` record and selected layout still decide whether the public site
-uses the theme, but unconditional registration keeps fresh installs and tests
-able to render during the same process that installs package records.
+{{ runtimeModeNote }}
+{{ locationNote }}

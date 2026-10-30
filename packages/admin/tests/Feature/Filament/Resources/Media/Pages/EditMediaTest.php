@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
+use Capell\Admin\Actions\Media\CountOmittedMediaUsageAction;
+use Capell\Admin\Actions\Media\CreateExternalVideoMediaAction;
+use Capell\Admin\Actions\Media\UpdateMediaAction;
 use Capell\Admin\Contracts\Extenders\MediaEditActionExtender;
 use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
@@ -17,9 +20,11 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Notifications\Notification;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,6 +34,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
@@ -186,7 +192,7 @@ it('loads focal point and crop preset state for an image', function (): void {
         ->assertSee('50%, 50%')
         ->assertSee('Hero')
         ->assertSee(__('capell-admin::media.file_description'))
-        ->assertSee(__('capell-admin::media.external_video_description'))
+        ->assertDontSee(__('capell-admin::media.external_video_description'))
         ->assertSee('Used on')
         ->assertSee('Landing Page');
 });
@@ -223,6 +229,39 @@ it('omits inaccessible media usage relations', function (): void {
         ->and($limitedItems[0]['url'])->toBeNull()
         ->and(collect($limitedItems)->pluck('title')->all())
         ->not->toContain($page->name);
+});
+
+it('shows how many tracked usages are omitted and reveals all of them on request', function (): void {
+    $media = createEditableImageMedia();
+
+    foreach (range(1, 14) as $position) {
+        AssetAttachment::query()->create([
+            'related_type' => Page::query()->getModel()->getMorphClass(),
+            'related_id' => Page::factory()->state(['name' => 'Usage page ' . $position])->create()->getKey(),
+            'asset_type' => $media->getMorphClass(),
+            'asset_id' => $media->getKey(),
+            'order' => $position,
+        ]);
+    }
+
+    expect(BuildMediaUsageItemsAction::run($media))->toHaveCount(13)
+        ->and(BuildMediaUsageItemsAction::run($media, showAll: true))->toHaveCount(15)
+        ->and(CountOmittedMediaUsageAction::run($media))->toBe(2);
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSee('Usage page 12')
+        ->assertDontSee('Usage page 13')
+        ->assertSee(trans_choice('capell-admin::media.usage_omitted', 2, ['count' => 2]))
+        ->call('showAllUsage')
+        ->assertSee('Usage page 14')
+        ->assertDontSee(trans_choice('capell-admin::media.usage_omitted', 2, ['count' => 2]));
+});
+
+it('shows no omitted-usage notice when every tracked usage is listed', function (): void {
+    $media = createEditableImageMedia();
+
+    expect(CountOmittedMediaUsageAction::run($media))->toBe(0)
+        ->and(CountOmittedMediaUsageAction::run(null))->toBe(0);
 });
 
 it('saves focal point crop presets and localized metadata', function (): void {
@@ -639,26 +678,142 @@ it('can save localized metadata when curator owns image cropping', function (): 
         ->and($media->getAltText($language))->toBe('Curator owned crop alt text');
 });
 
-it('saves YouTube video metadata from the media edit form', function (): void {
+it('keeps an uploaded image file-backed when a YouTube URL is submitted', function (): void {
     $media = createEditableImageMedia();
+    $original = $media->only(['collection_name', 'mime_type', 'file_name', 'size']);
 
-    Livewire::test(EditMedia::class, [
-        'record' => $media->getRouteKey(),
-    ])
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
         ->assertSuccessful()
-        ->fillForm([
-            'name' => 'Tour video',
-            'external_video_url' => 'https://www.youtube.com/watch?v=FgalLC99jzY',
-        ])
+        ->assertDontSee(__('capell-admin::media.external_video_description'))
+        ->fillForm(['name' => 'Renamed hero'])
         ->call('save')
-        ->assertHasNoFormErrors()
-        ->assertNotified();
+        ->assertHasNoFormErrors();
+
+    expect(fn (): mixed => UpdateMediaAction::run($media->refresh(), [
+        'name' => 'Tour video',
+        'focal_point_x' => 50,
+        'focal_point_y' => 50,
+        'crop_presets' => ['thumbnail'],
+        'external_video_url' => 'https://www.youtube.com/watch?v=FgalLC99jzY',
+    ]))->toThrow(ValidationException::class, __('capell-admin::media.external_video_file_backed'));
 
     $media->refresh();
 
-    expect($media->name)->toBe('Tour video')
-        ->and($media->collection_name)->toBe('video')
-        ->and($media->mime_type)->toBe('video/youtube')
-        ->and($media->externalVideo()?->provider)->toBe('youtube')
-        ->and($media->externalVideo()?->embedUrl)->toBe('https://www.youtube-nocookie.com/embed/FgalLC99jzY?enablejsapi=1&rel=0&playsinline=1');
+    expect($media->name)->toBe('Renamed hero')
+        ->and($media->only(['collection_name', 'mime_type', 'file_name', 'size']))->toBe($original)
+        ->and($media->isExternalVideo())->toBeFalse();
+});
+
+it('changes the YouTube source of an external video and refuses to clear it', function (): void {
+    $site = Site::factory()->createOne();
+    $video = CreateExternalVideoMediaAction::run($site, 'Tour video', expectPresent(YouTubeVideoUrl::parse('https://youtu.be/FgalLC99jzY')));
+    $video->setCustomProperty('kept', 'yes')->save();
+
+    Livewire::test(EditMedia::class, ['record' => $video->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::media.external_video_description'))
+        ->assertSchemaStateSet(['external_video_url' => 'https://youtu.be/FgalLC99jzY'])
+        ->fillForm(['external_video_url' => 'https://youtu.be/dQw4w9WgXcQ'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $video->refresh();
+
+    expect($video->externalVideo()?->videoId)->toBe('dQw4w9WgXcQ')
+        ->and($video->file_name)->toBe('dQw4w9WgXcQ.youtube')
+        ->and($video->mime_type)->toBe('video/youtube')
+        ->and($video->getCustomProperty('kept'))->toBe('yes');
+
+    Livewire::test(EditMedia::class, ['record' => $video->getRouteKey()])
+        ->fillForm(['external_video_url' => ''])
+        ->call('save')
+        ->assertHasFormErrors(['external_video_url' => 'required']);
+
+    expect($video->refresh()->externalVideo()?->videoId)->toBe('dQw4w9WgXcQ');
+});
+
+it('preserves an explicitly cleared crop preset selection across reopening and unrelated saves', function (): void {
+    $media = createEditableImageMedia();
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSchemaStateSet(['crop_presets' => ['thumbnail', 'card', 'hero', 'open_graph']])
+        ->fillForm(['crop_presets' => []])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($media->refresh()->hasCropPresetSelection())->toBeTrue()
+        ->and($media->getCropPresetNames())->toBe([]);
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSchemaStateSet(['crop_presets' => []])
+        ->fillForm(['name' => 'Renamed again'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($media->refresh()->name)->toBe('Renamed again')
+        ->and($media->getCropPresetNames())->toBe([]);
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->fillForm(['crop_presets' => ['hero']])
+        ->call('save');
+
+    expect($media->refresh()->getCropPresetNames())->toBe(['hero']);
+});
+
+it('rolls back an image save with clear feedback when conversion fails and succeeds on retry', function (): void {
+    $media = createEditableImageMedia();
+    $media->setCropPresets(['thumbnail'])->setFocalPoint(50, 50)->save();
+
+    $manipulator = new class extends FileManipulator
+    {
+        public bool $fail = true;
+
+        /** @var list<array<int, string>> */
+        public array $calls = [];
+
+        /** @param array<int, string> $onlyConversionNames */
+        #[Override]
+        public function createDerivedFiles(
+            SpatieMedia $media,
+            array $onlyConversionNames = [],
+            bool $onlyMissing = false,
+            bool $withResponsiveImages = false,
+            bool $queueAll = false,
+        ): void {
+            $this->calls[] = $onlyConversionNames;
+
+            throw_if($this->fail && in_array('hero', $onlyConversionNames, true), RuntimeException::class, 'conversion exploded');
+        }
+    };
+    app()->instance(FileManipulator::class, $manipulator);
+
+    $component = Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->fillForm([
+            'name' => 'Should not stick',
+            'focal_point_x' => 10,
+            'focal_point_y' => 90,
+            'crop_presets' => ['thumbnail', 'hero'],
+        ])
+        ->call('save')
+        ->assertNotified(Notification::make()
+            ->title(__('capell-admin::media.save_failed'))
+            ->body(__('capell-admin::media.derivatives_failed'))
+            ->danger()
+            ->persistent());
+
+    $media->refresh();
+
+    expect($media->name)->toBe('Hero')
+        ->and($media->getFocalPoint())->toBe(['x' => 50, 'y' => 50])
+        ->and($media->getCropPresetNames())->toBe(['thumbnail'])
+        ->and($manipulator->calls)->toBe([['thumbnail', 'hero'], ['thumbnail']]);
+
+    $manipulator->fail = false;
+    $component->call('save')->assertHasNoFormErrors();
+
+    $media->refresh();
+
+    expect($media->name)->toBe('Should not stick')
+        ->and($media->getFocalPoint())->toBe(['x' => 10, 'y' => 90])
+        ->and($media->getCropPresetNames())->toEqualCanonicalizing(['thumbnail', 'hero']);
 });

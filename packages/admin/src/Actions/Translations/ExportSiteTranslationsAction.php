@@ -78,6 +78,28 @@ class ExportSiteTranslationsAction
     }
 
     /**
+     * Whether an export would contain at least one row. The source language is
+     * never a target, so a site with only the source language, or a request for
+     * the source language itself, has nothing to translate into.
+     */
+    public function hasTargetLanguages(Site $site, ?Language $language = null): bool
+    {
+        $defaultLanguage = $this->defaultLanguage();
+
+        return $this->targetLanguages($site, $language)->contains(
+            fn (Language $target): bool => ! ($defaultLanguage instanceof Language) || $target->id !== $defaultLanguage->id,
+        );
+    }
+
+    /**
+     * The language the export reads source text from.
+     */
+    public function sourceLanguage(): ?Language
+    {
+        return $this->defaultLanguage();
+    }
+
+    /**
      * @return Generator<int, list<string>>
      */
     public function rows(Site $site, ?Language $language = null): Generator
