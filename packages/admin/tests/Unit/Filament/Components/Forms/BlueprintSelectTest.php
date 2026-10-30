@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Data\Configurators\ConfiguratorContextData;
+use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Filament\Components\Forms\BlueprintSelect as BaseBlueprintSelect;
 use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\Page\BlueprintSelect as PageBlueprintSelect;
 use Capell\Admin\Filament\Components\Forms\Site\BlueprintSelect as SiteBlueprintSelect;
+use Capell\Admin\Filament\Resources\Pages\Schemas\PageForm;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Admin\Tests\Unit\Filament\Components\Forms\Fixtures\PageTranslationsRepeaterLivewireForTest;
@@ -130,6 +133,25 @@ it('retains explicit custom page group and enabled subject constraints', functio
         ->not->toHaveKey($defaultBlueprint->getKey())
         ->not->toHaveKey($otherBlueprint->getKey())
         ->not->toHaveKey($siteBlueprint->getKey());
+});
+
+it('uses the embedded page action group for blueprint choices instead of the host group', function (): void {
+    $articleBlueprint = Blueprint::factory()->page()->group('articles')->createOne();
+    $otherBlueprint = Blueprint::factory()->page()->group('events')->createOne();
+    $page = Page::factory()->type($articleBlueprint)->createOne();
+    $livewire = new PageTranslationsRepeaterLivewireForTest;
+    $livewire->data(['blueprint_id' => $articleBlueprint->getKey()]);
+
+    $schema = Schema::make($livewire)->statePath('data')->operation('editOption')->model($page);
+    $context = new ConfiguratorContextData(target: ConfiguratorTypeEnum::Page, operation: 'editOption', resourceName: 'articles');
+    PageForm::configure($schema, $context);
+
+    $field = collect($schema->getFlatComponents(withHidden: true))
+        ->first(fn (mixed $component): bool => $component instanceof PageBlueprintSelect);
+    assert($field instanceof PageBlueprintSelect);
+    expect($schema->getOperation())->toBe('editOption')
+        ->and($field->getOptionsFromRelationship())->toHaveKey($articleBlueprint->getKey())
+        ->not->toHaveKey($otherBlueprint->getKey());
 });
 
 it('offers system blueprint options only for enabled system subjects', function (bool $withSystemTypes, string $subject, bool $expectedSystem): void {

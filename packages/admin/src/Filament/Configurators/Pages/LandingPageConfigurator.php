@@ -39,7 +39,7 @@ class LandingPageConfigurator extends DefaultPageConfigurator
     protected function getCreateFormSchema(Schema $schema): array
     {
         return [
-            ...($this->hasCreatePageSchema ? CreatePageSchema::make($schema) : []),
+            ...($this->hasCreatePageSchema ? CreatePageSchema::make($schema, $this->context) : []),
             $this->getTranslationFormSchema($schema),
             Section::make()
                 ->columnSpanFull()
@@ -91,6 +91,7 @@ class LandingPageConfigurator extends DefaultPageConfigurator
                         [
                             MediaLibraryFileUpload::make('image'),
                         ],
+                        pageGroup: $this->context->resourceName ?? 'page',
                     ),
                     PublishDatesGrid::getVisibleFromField(),
                 ]),
@@ -102,7 +103,7 @@ class LandingPageConfigurator extends DefaultPageConfigurator
     {
         $components = [
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::BeforeTitle),
-            TitleWithSlugInput::make($schema),
+            TitleWithSlugInput::makeForContext($schema, $this->context),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterTitle),
             $this->getContentEditor($schema),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterContentEditor),

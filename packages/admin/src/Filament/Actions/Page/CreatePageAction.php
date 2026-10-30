@@ -53,6 +53,7 @@ class CreatePageAction extends CreateAction
                     ConfiguratorTypeEnum::Page,
                     is_string($type) ? $type : null,
                     $resource::getResourceName(),
+                    $resource,
                 ));
             })
             ->extraModalFooterActions(fn (self $action): array => [

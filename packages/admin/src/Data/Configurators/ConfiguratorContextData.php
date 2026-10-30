@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Data\Configurators;
 
 use Capell\Admin\Contracts\ConfiguratorTypeEnumInterface;
+use Spatie\LaravelData\Attributes\Hidden;
 use Spatie\LaravelData\Data;
 
 final class ConfiguratorContextData extends Data
@@ -18,11 +19,13 @@ final class ConfiguratorContextData extends Data
         public ?string $recordName = null,
         public ?string $recordKey = null,
         public ?string $recordType = null,
+        #[Hidden]
+        public ?string $resourceClass = null,
     ) {}
 
-    public static function forCreate(ConfiguratorTypeEnumInterface $target, ?string $typeKey, ?string $resourceName = null): self
+    public static function forCreate(ConfiguratorTypeEnumInterface $target, ?string $typeKey, ?string $resourceName = null, ?string $resourceClass = null): self
     {
-        return new self($target, 'create', $typeKey, $resourceName);
+        return new self($target, 'create', $typeKey, $resourceName, resourceClass: $resourceClass);
     }
 
     public static function forEdit(ConfiguratorTypeEnumInterface $target, ?string $resourceName = null): self

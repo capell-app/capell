@@ -21,7 +21,7 @@
     $createItems = $getCreateItems();
     $activeTab = $getActiveTab();
     $syncActiveTab = $isActiveTabSyncedWithServer()
-        ? '$watch(\'tab\', value => $wire.set(' . \Illuminate\Support\Js::from($field->getContainer()->getStatePath() . '.activeTab') . ', value))'
+        ? '$watch(\'tab\', value => $wire.set(' . \Illuminate\Support\Js::from($getActiveTabStatePath()) . ', value))'
         : '';
     $alpineData = 'capellRepeaterTabs({ activeTab: $wire.$entangle(' . \Illuminate\Support\Js::from($getActiveTabStatePath()) . ') })';
     $refreshTabs = '$event.detail.statePath === ' . \Illuminate\Support\Js::from($statePath) . ' ? refresh($event.detail.tabId) : null';
