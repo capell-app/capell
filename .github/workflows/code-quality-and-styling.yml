@@ -174,7 +174,10 @@ jobs:
       - name: Run PHPStan
         run: composer phpstan
 
+      # Advisory only (it cannot fail the gate), so it runs on main pushes rather than on every
+      # pull request and merge group; its result cache is still saved on main.
       - name: Run PHPStan deprecation rules
+        if: github.event_name == 'push'
         continue-on-error: true
         run: composer phpstan:deprecations
 

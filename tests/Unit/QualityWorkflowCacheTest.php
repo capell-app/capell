@@ -64,3 +64,13 @@ it('saves the quality caches on main so every pull request can restore them', fu
     expect($workflow['on']['push']['branches'])->toBe(['main'])
         ->and($workflow['on'])->toHaveKeys(['pull_request', 'merge_group']);
 });
+
+it('runs the advisory PHPStan deprecation pass only on main pushes', function (): void {
+    $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/code-quality-and-styling.yml');
+    $steps = $workflow['jobs']['quality']['steps'];
+    $step = $steps[array_search('Run PHPStan deprecation rules', array_column($steps, 'name'), true)];
+
+    expect($step['run'])->toBe('composer phpstan:deprecations')
+        ->and($step['if'])->toBe("github.event_name == 'push'")
+        ->and($step['continue-on-error'])->toBeTrue();
+});
