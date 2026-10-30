@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Migration;
 
+use Capell\Core\Actions\Install\AssertTableOwnershipAction;
+use Capell\Core\Exceptions\ForeignTableException;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\TableName;
-use Illuminate\Support\Facades\Schema;
 
 final class CoreSchemaMigrations
 {
@@ -15,6 +15,7 @@ final class CoreSchemaMigrations
         return dirname(__DIR__, 3) . '/database/migrations';
     }
 
+    /** @throws ForeignTableException when the table exists but its creating migration is not recorded */
     public static function createsExistingTable(string $migration): bool
     {
         // Core create migrations only create a table; side effects belong in later migrations.
@@ -22,7 +23,8 @@ final class CoreSchemaMigrations
             return false;
         }
 
-        return Schema::hasTable(TableName::resolve($matches[1]));
+        // Adopt only a table whose creating migration is recorded; a foreign table stops the upgrade with a message naming the prefix and alias settings.
+        return AssertTableOwnershipAction::run($matches[1], $migration);
     }
 
     /** @param list<string> $pendingCore */

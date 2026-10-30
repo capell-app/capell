@@ -6,6 +6,10 @@ return [
     'tables' => [
         'choice_required' => 'These tables already exist: :tables. Supply table aliases or a prefix before installing.',
         'review' => 'Database configuration :key will use :table.',
+        'foreign_table' => 'The table :table already exists but Capell did not create it (migration :migration is not recorded). Capell will not take it over. Set :prefix_key to add a prefix to every Capell table, or :alias_key to rename only this one, then run the migration again.',
+        'external_config' => 'the setting that names this table in its own package',
+        'invalid_prefix' => 'A table prefix may only contain letters, numbers and underscores, and must not start with a number.',
+        'prefix_too_long' => 'The prefix :prefix is too long: the table :table would exceed the database identifier limit. Use a prefix of at most :max characters.',
         'duplicate_targets' => 'Two tables would use the same name. Choose distinct names.',
         'invalid_option' => 'Use --table-alias=name=alias for each table.',
         'invalid_name' => 'Choose a valid table name for :table.',

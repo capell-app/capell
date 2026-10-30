@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support;
 
+use Capell\Core\Actions\Install\AssertTableOwnershipAction;
+use Capell\Core\Exceptions\ForeignTableException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class TableName
@@ -13,31 +15,19 @@ final class TableName
     /** Spatie's tag model is an optional integration, so it is referenced by name. */
     public const string SPATIE_TAG_MODEL = 'Spatie\\Tags\\Tag';
 
+    /** PostgreSQL's identifier cap; MySQL and MariaDB allow 64. */
+    public const int MAX_IDENTIFIER_LENGTH = 63;
+
+    /** @throws ForeignTableException when the table exists without its creating migration being recorded */
     public static function existsAndIsOwned(string $name, string $migration): bool
     {
-        $table = self::resolve($name);
-        if (! Schema::hasTable($table)) {
-            return false;
-        }
-
-        if (! self::migrationRecorded($migration)) {
-            throw new RuntimeException(sprintf('Table %s already exists without its Capell creation migration. Choose a table alias or prefix before installing.', $table));
-        }
-
-        return true;
+        return AssertTableOwnershipAction::run($name, $migration);
     }
 
-    public static function externalExistsAndIsOwned(string $table, string $migration): bool
+    /** @throws ForeignTableException when the table exists without its creating migration being recorded */
+    public static function externalExistsAndIsOwned(string $table, string $migration, ?string $configKey = null): bool
     {
-        if (! Schema::hasTable($table)) {
-            return false;
-        }
-
-        if (self::migrationRecorded($migration)) {
-            return true;
-        }
-
-        throw new RuntimeException(sprintf('Table %s already exists without its package creation migration. Choose a table alias or prefix before installing.', $table));
+        return AssertTableOwnershipAction::run($table, $migration, $configKey ?? (string) __('capell-core::install.tables.external_config'));
     }
 
     public static function base(string $table): string
@@ -86,12 +76,18 @@ final class TableName
 
     public static function resolve(string $name): string
     {
-        $aliases = config('capell.database.table_aliases', []);
-        $resolved = is_array($aliases) && isset($aliases[$name]) && is_string($aliases[$name])
-            ? $aliases[$name]
-            : config('capell.database.table_prefix', '') . $name;
+        throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $name) !== 1, InvalidArgumentException::class, 'Invalid base table name: ' . $name);
 
-        throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,62}$/D', $resolved) !== 1, RuntimeException::class, 'Invalid database table name: ' . $resolved);
+        $aliases = config('capell.database.table_aliases', []);
+        $alias = is_array($aliases) ? ($aliases[$name] ?? null) : null;
+        throw_if($alias !== null && ! is_string($alias), RuntimeException::class, 'Invalid database table alias for ' . $name);
+
+        $prefix = config('capell.database.table_prefix', '');
+        throw_unless(is_string($prefix), RuntimeException::class, 'Invalid database table prefix: capell.database.table_prefix must be a string.');
+
+        $resolved = $alias ?? $prefix . $name;
+
+        throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,' . (self::MAX_IDENTIFIER_LENGTH - 1) . '}$/D', $resolved) !== 1, RuntimeException::class, 'Invalid database table name: ' . $resolved);
 
         return $resolved;
     }

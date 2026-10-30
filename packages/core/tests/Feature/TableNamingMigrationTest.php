@@ -6,6 +6,7 @@ use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\ResolveTableCollisionsAction;
 use Capell\Core\Actions\Install\WriteTableConfigurationAction;
 use Capell\Core\Data\Install\TableCollisionData;
+use Capell\Core\Exceptions\ForeignTableException;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Schema\Blueprint;
@@ -329,7 +330,7 @@ it('refuses an unrecorded table when resuming a half-run migration set', functio
         $repository->log('2026_05_10_190832_02_create_languages_table', 1);
         Schema::create('blueprints', fn (Blueprint $table) => $table->id());
         $blueprints = require __DIR__ . '/../../database/migrations/2026_05_10_190832_03_create_blueprints_table.php';
-        expect(fn () => $blueprints->up())->toThrow(RuntimeException::class, 'Choose a table alias or prefix')
+        expect(fn () => $blueprints->up())->toThrow(ForeignTableException::class, 'capell.database.table_aliases.blueprints')
             ->and(Schema::hasTable('languages'))->toBeTrue()
             ->and(Schema::hasTable('blueprints'))->toBeTrue();
     } finally {

@@ -28,11 +28,10 @@ final class ResolveTableCollisionsAction
         }
 
         if ($prefix !== null && $prefix !== '') {
-            foreach ($planned as $table) {
-                if (str_starts_with($table->configKey, 'capell.database.table_aliases.')) {
-                    throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,62}$/D', $prefix . $table->name) !== 1, RuntimeException::class, (string) __('capell-core::install.tables.invalid_name', ['table' => $prefix . $table->name]));
-                }
-            }
+            ValidateTablePrefixAction::run($prefix, array_values(array_map(
+                static fn (TableCollisionData $table): string => $table->name,
+                array_filter($planned, static fn (TableCollisionData $table): bool => str_starts_with($table->configKey, 'capell.database.table_aliases.') && ! array_key_exists($table->name, $aliases)),
+            )));
         }
 
         $names = array_map(static fn (TableCollisionData $collision): string => $collision->table, $collisions);
