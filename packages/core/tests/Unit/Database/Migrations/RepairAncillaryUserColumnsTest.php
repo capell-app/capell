@@ -818,3 +818,30 @@ it('lets the caller roll back a successful nested SQLite repair', function (): v
         DB::purge('ancillary_caller_rollback');
     }
 });
+
+it('references the configured language table alias when adding the constraint', function (): void {
+    $previous = DB::getDefaultConnection();
+    config()->set('database.connections.user_columns_alias_test', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true]);
+    config()->set('capell.database.table_aliases', ['languages' => 'cms_languages']);
+    DB::setDefaultConnection('user_columns_alias_test');
+    $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
+
+    try {
+        Schema::create('cms_languages', fn (Blueprint $table) => $table->id());
+        Schema::create('users', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+        });
+        DB::table('users')->insert(['name' => 'Editor']);
+
+        $migration->up();
+
+        $foreignKeys = collect(Schema::getForeignKeys('users'))->where('foreign_table', 'cms_languages');
+        expect($foreignKeys)->toHaveCount(1)
+            ->and(Schema::hasColumn('users', 'preferred_admin_language_id'))->toBeTrue();
+    } finally {
+        config()->set('capell.database.table_aliases', []);
+        DB::setDefaultConnection($previous);
+        DB::purge('user_columns_alias_test');
+    }
+});

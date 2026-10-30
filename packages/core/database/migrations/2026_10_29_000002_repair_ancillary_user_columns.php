@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         $connection = DB::connection();
+        $languagesTable = TableName::resolve('languages');
         throw_if($connection->getDriverName() === 'sqlite'
             && (int) $this->sqliteQuery($connection->getPdo(), 'PRAGMA defer_foreign_keys')->fetchColumn() !== 0, RuntimeException::class, 'Unsupported SQLite deferred-foreign-key mode.');
 
@@ -29,11 +31,11 @@ return new class extends Migration
             $pdo = $connection->getPdo();
             $tempObjects = $this->sqliteQuery($pdo, "SELECT name FROM sqlite_temp_schema WHERE type IN ('table', 'view')")->fetchAll(PDO::FETCH_COLUMN);
             foreach ($tempObjects as $name) {
-                throw_if(strcasecmp((string) $name, $connection->getTablePrefix() . 'users') === 0 || strcasecmp((string) $name, $connection->getTablePrefix() . 'languages') === 0, RuntimeException::class, 'SQLite temporary schema shadows a required table.');
+                throw_if(strcasecmp((string) $name, $connection->getTablePrefix() . 'users') === 0 || strcasecmp((string) $name, $connection->getTablePrefix() . $languagesTable) === 0, RuntimeException::class, 'SQLite temporary schema shadows a required table.');
             }
 
             $target = $pdo->prepare("SELECT name, pk FROM pragma_table_info(?, 'main')");
-            $target->execute([$connection->getTablePrefix() . 'languages']);
+            $target->execute([$connection->getTablePrefix() . $languagesTable]);
             $targetColumns = $target->fetchAll(PDO::FETCH_ASSOC);
             $primaryColumns = array_values(array_filter($targetColumns, static fn (array $column): bool => (int) $column['pk'] > 0));
             throw_if(count($primaryColumns) !== 1 || strcasecmp((string) $primaryColumns[0]['name'], 'id') !== 0, RuntimeException::class, 'SQLite languages.id must exist as the sole primary key before user repair.');
@@ -69,7 +71,7 @@ return new class extends Migration
                     continue;
                 }
 
-                $languageTable = $connection->getTablePrefix() . 'languages';
+                $languageTable = $connection->getTablePrefix() . $languagesTable;
                 $languageSchema = match ($connection->getDriverName()) {
                     'mysql', 'mariadb' => $connection->getDatabaseName(),
                     'sqlite' => 'main',
@@ -92,7 +94,7 @@ return new class extends Migration
         if ($connection->getDriverName() === 'sqlite' && $hasLanguageColumn && ! $hasExpectedForeignKey) {
             throw_if($connection->transactionLevel() !== 0, RuntimeException::class, 'SQLite user repair requires no active transaction.');
 
-            $this->sqliteRebuildUsers($connection->getPdo(), $connection->getTablePrefix() . 'users', $connection->getTablePrefix() . 'languages', null, $sqliteSchemaVersion);
+            $this->sqliteRebuildUsers($connection->getPdo(), $connection->getTablePrefix() . 'users', $connection->getTablePrefix() . $languagesTable, null, $sqliteSchemaVersion);
 
             return;
         }
@@ -105,7 +107,7 @@ return new class extends Migration
 
             $grammar = $connection->getSchemaGrammar();
             $lockSql = 'UPDATE ' . $grammar->wrapTable('users') . ' SET ' . $grammar->wrap($writableColumns[0]['name']) . ' = ' . $grammar->wrap($writableColumns[0]['name']) . ' WHERE 0';
-            $this->sqliteDirectRepair($connection->getPdo(), $sqliteSchemaVersion, function () use ($connection, $hasLanguageColumn): void {
+            $this->sqliteDirectRepair($connection->getPdo(), $sqliteSchemaVersion, function () use ($connection, $hasLanguageColumn, $languagesTable): void {
                 if (! Schema::hasColumn('users', 'bio')) {
                     Schema::table('users', fn (Blueprint $table) => $table->text('bio')->nullable());
                 }
@@ -120,7 +122,7 @@ return new class extends Migration
                         'alter table %s add column %s integer references %s (%s) on delete set null',
                         $grammar->wrapTable('users'),
                         $grammar->wrap('preferred_admin_language_id'),
-                        $grammar->wrapTable('languages'),
+                        $grammar->wrapTable($languagesTable),
                         $grammar->wrap('id'),
                     ));
                 }
@@ -148,8 +150,8 @@ return new class extends Migration
         }
 
         if (! $hasExpectedForeignKey) {
-            Schema::table('users', function (Blueprint $table) use ($languageColumn): void {
-                $table->foreign($languageColumn)->references('id')->on('languages')->nullOnDelete();
+            Schema::table('users', function (Blueprint $table) use ($languageColumn, $languagesTable): void {
+                $table->foreign($languageColumn)->references('id')->on($languagesTable)->nullOnDelete();
             });
         }
     }
