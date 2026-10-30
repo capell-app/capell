@@ -64,7 +64,7 @@ class TitleWithSlugInput
                             return '/';
                         }
 
-                        $languageId = self::languageIdState($component);
+                        $languageId = RawState::of($component, 'language_id');
 
                         if (blank($languageId)) {
                             return '';
@@ -130,7 +130,7 @@ class TitleWithSlugInput
 
                         return self::getSiteHost(
                             (int) $get('../../site_id'),
-                            (int) self::languageIdState($component),
+                            (int) RawState::of($component, 'language_id'),
                             $page instanceof Pageable ? $page : null,
                         );
                     },
@@ -157,7 +157,7 @@ class TitleWithSlugInput
                         'column' => 'meta->slug',
                         'table' => TableName::resolve('translations'),
                         'modifyRuleUsing' => function (Unique $rule, Get $get, Component $component, ?Translation $record, LivewireComponent $livewire, string $operation) use ($schema, $context): void {
-                            $language_id = self::languageIdState($component);
+                            $language_id = RawState::of($component, 'language_id');
 
                             $page = $record?->translatable;
 
@@ -225,7 +225,7 @@ class TitleWithSlugInput
                     ->extraFieldWrapperAttributes([
                         'class' => 'page-title-with-slug-input',
                     ])
-                    ->columnSpan(fn (Component $component): int => ((int) self::languageIdState($component)) !== 0 ? 3 : 2)
+                    ->columnSpan(fn (Component $component): int => ((int) RawState::of($component, 'language_id')) !== 0 ? 3 : 2)
                     ->registerActions(self::resolveExtenderActions())
                     ->afterLabel(fn (FusedGroup $component): ?Schema => self::resolveAfterLabelSchema($component)),
 
@@ -236,23 +236,6 @@ class TitleWithSlugInput
                     // cannot resolve the translation relationship from the page template.
                     ->hidden(fn (TranslationLanguageSelect $component): bool => is_numeric($state = $component->getRawState()) && (int) $state !== 0),
             ]);
-    }
-
-    /**
-     * Read the sibling language without Filament's relationship-aware state casts:
-     * they need a model instance, which embedded and unsaved page forms do not have.
-     */
-    private static function languageIdState(Component $component): mixed
-    {
-        $path = $component->resolveRelativeStatePath('language_id');
-        $select = $component->getRootContainer()->getComponentByStatePath(
-            $path,
-            withHidden: true,
-            withAbsoluteStatePath: true,
-            skipComponentsChildContainersWhileSearching: [$component],
-        );
-
-        return $select instanceof Component ? $select->getRawState() : data_get($component->getLivewire(), $path);
     }
 
     /**
