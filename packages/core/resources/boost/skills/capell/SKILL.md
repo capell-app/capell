@@ -52,6 +52,10 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 - Remote logo and page images must use the declared HTTPS origin and pass public-DNS, size, and image-type checks.
 - Full contract, registration, and security details live in `references/site-spec.md`.
 
+## Voyager Migration
+
+- Migrate a Voyager site with `voyager-importer:inventory`, then `voyager-importer:import` (preview first, `--execute` to write). Read `references/voyager-migration.md` before running either.
+
 ## Fresh Demo Install
 
 - To verify a fresh demo setup, run `php artisan capell:install --fresh=force --demo`.
@@ -75,6 +79,7 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 - `references/extending.md`: full extension point examples.
 - `references/commands.md`: Capell commands and cache operations.
 - `references/site-spec.md`: deterministic import contract and package-owned appliers.
+- `references/voyager-migration.md`: Voyager Importer commands, order of work, rules and what is not imported.
 - `references/testing.md`: Pest patterns and integration coverage.
 
 ## Verification
