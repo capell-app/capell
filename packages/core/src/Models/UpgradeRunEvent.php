@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Enums\Upgrade\UpgradeRunEventLevel;
 use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Carbon\CarbonImmutable;
@@ -27,6 +28,8 @@ use Override;
  */
 final class UpgradeRunEvent extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 

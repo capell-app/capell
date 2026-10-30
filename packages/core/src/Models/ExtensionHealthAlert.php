@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Enums\ExtensionHealthAlertCategory;
 use Capell\Core\Enums\ExtensionHealthAlertSeverity;
 use Carbon\CarbonImmutable;
@@ -36,6 +37,8 @@ use Override;
  */
 final class ExtensionHealthAlert extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 

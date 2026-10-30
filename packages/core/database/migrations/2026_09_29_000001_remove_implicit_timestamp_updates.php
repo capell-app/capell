@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Query\Expression;
@@ -36,6 +37,9 @@ return new class extends Migration
         }
 
         foreach (self::COLUMNS as $table => $column) {
+            $table = $table === 'stored_events'
+                ? (string) config('capell.database.external_tables.stored_events', 'stored_events')
+                : TableName::resolve($table);
             $this->dropImplicitTimestampUpdate($table, $column, $connection);
         }
     }

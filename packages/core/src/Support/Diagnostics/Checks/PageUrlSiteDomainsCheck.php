@@ -8,6 +8,7 @@ use Capell\Core\Actions\FindPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 
 final class PageUrlSiteDomainsCheck extends AbstractDoctorCheck
@@ -24,7 +25,7 @@ final class PageUrlSiteDomainsCheck extends AbstractDoctorCheck
 
     protected function run(bool $installSummary): DoctorCheckResultData
     {
-        if (! Schema::hasTable('page_urls') || ! Schema::hasTable('site_domains') || ! Schema::hasTable('sites') || ! Schema::hasTable('languages')) {
+        if (! Schema::hasTable(TableName::resolve('page_urls')) || ! Schema::hasTable(TableName::resolve('site_domains')) || ! Schema::hasTable(TableName::resolve('sites')) || ! Schema::hasTable(TableName::resolve('languages'))) {
             return new DoctorCheckResultData('Page URLs have site domains', true, 'Skipped until page URL, site domain, site, and language tables exist.');
         }
 

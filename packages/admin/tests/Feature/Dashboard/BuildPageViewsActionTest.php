@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\BuildPageViewsAction;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Metrics\ActivityBucketsDailyMetricsCollector;
@@ -12,6 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 uses(CreatesAdminUser::class);
 
@@ -99,4 +101,51 @@ it('does not expose analytics to users without an analytics role', function (): 
     $data = resolve(BuildPageViewsAction::class)->handle($user, null, null);
 
     expect($data->status)->toBe('unauthorised')->and($data->current)->toBeNull();
+});
+
+it('reads page views from a prefixed Capell schema', function (): void {
+    test()->actingAsAdmin();
+    CarbonImmutable::setTestNow('2026-10-28 12:00:00 UTC');
+    $site = Site::factory()->createOne();
+    $language = $site->language->code;
+    $scope = MetricScopeData::siteLanguage($site->uuid, $language, 'UTC')->key();
+    $hash = (new ActivityBucketsDailyMetricsCollector)->definitions()[0]->semanticHash();
+    $runId = DB::table('metric_collection_runs')->insertGetId([
+        'day' => '2026-10-27', 'owner_package' => 'capell-app/core', 'collector_key' => 'activity',
+        'definition_hash' => $hash, 'status' => 'completed', 'started_at' => now(), 'completed_at' => now(),
+    ]);
+    DB::table('metric_daily_rollups')->insert([
+        'metric_collection_run_id' => $runId, 'day' => '2026-10-27', 'owner_package' => 'capell-app/core',
+        'collector_key' => 'activity', 'metric_key' => 'page_views', 'definition_hash' => $hash,
+        'scope_key' => $scope, 'scope_type' => 'site_language', 'site_id' => $site->id, 'site_uuid' => $site->uuid,
+        'language' => $language, 'timezone' => 'UTC', 'day_starts_at' => '00:00:00', 'unit' => 'count',
+        'value_type' => 'integer', 'value' => '4', 'point_state' => 'present', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $copied = [];
+    try {
+        foreach (resolve(FindTableCollisionsAction::class)->planned(['capell-app/admin']) as $table) {
+            if (! str_starts_with($table->configKey, 'capell.database.table_aliases.')) {
+                continue;
+            }
+
+            if (! Schema::hasTable($table->name)) {
+                continue;
+            }
+
+            $target = 'cms_' . $table->name;
+            DB::statement('CREATE TABLE "' . $target . '" AS SELECT * FROM "' . $table->name . '"');
+            $copied[] = $target;
+        }
+
+        config()->set('capell.database.table_prefix', 'cms_');
+        $views = resolve(BuildPageViewsAction::class)->handle(test()->authenticatedUser(), $site->id, null, 1);
+        expect($views->status)->toBe('available')->and($views->current)->toBe(4);
+    } finally {
+        config()->set('capell.database.table_prefix', '');
+        foreach ($copied as $table) {
+            Schema::dropIfExists($table);
+        }
+
+        CarbonImmutable::setTestNow();
+    }
 });

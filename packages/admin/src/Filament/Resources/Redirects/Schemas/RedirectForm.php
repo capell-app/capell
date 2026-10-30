@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Redirects\Schemas;
 
+use Capell\Admin\Actions\Redirects\BuildRedirectAdviceAction;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
@@ -16,17 +17,21 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Closure;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rules\Unique;
 
 class RedirectForm implements FormConfigurator
@@ -35,6 +40,18 @@ class RedirectForm implements FormConfigurator
     {
         return $schema->components(static::getFormSchema($schema))
             ->columns();
+    }
+
+    /** @return list<string> */
+    protected static function chainAdvice(Get $get, ?Model $record): array
+    {
+        return BuildRedirectAdviceAction::run(
+            sourceUrl: $get('url'),
+            targetUrl: $get('target_url'),
+            siteId: $get('site_id'),
+            languageId: $get('language_id'),
+            excludeId: $record instanceof Model ? (int) $record->getKey() : null,
+        );
     }
 
     /** @return array<int, mixed> */
@@ -62,7 +79,7 @@ class RedirectForm implements FormConfigurator
                                 $get('site_id'),
                                 fn (Builder $query, int $siteId): Builder => $query->whereHas(
                                     'sites',
-                                    fn (BuilderContract $query): BuilderContract => $query->where('sites.id', $siteId),
+                                    fn (BuilderContract $query): BuilderContract => $query->where(TableName::resolve('sites') . '.id', $siteId),
                                 ),
                             ),
                         )
@@ -127,6 +144,7 @@ class RedirectForm implements FormConfigurator
                         ->helperText(__('capell-admin::generic.redirect_target_url_info'))
                         ->required()
                         ->placeholder(__('capell-admin::form.target_url_placeholder'))
+                        ->live(onBlur: true)
                         ->rules([
                             fn (Get $get): Closure => function (string $attribute, ?string $value, Closure $fail) use ($get): void {
                                 if ($value === null || $value === '' || $get('url') === null) {
@@ -150,6 +168,12 @@ class RedirectForm implements FormConfigurator
                                 }
                             },
                         ]),
+
+                    Text::make(fn (Get $get, ?Model $record): string => implode(' ', static::chainAdvice($get, $record)))
+                        ->icon(Heroicon::OutlinedExclamationTriangle)
+                        ->color('warning')
+                        ->columnSpanFull()
+                        ->visible(fn (Get $get, ?Model $record): bool => static::chainAdvice($get, $record) !== []),
                 ]),
 
             Section::make(__('capell-admin::form.redirect_status'))

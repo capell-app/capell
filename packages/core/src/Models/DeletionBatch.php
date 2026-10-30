@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,6 +33,8 @@ use Override;
  */
 final class DeletionBatch extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 

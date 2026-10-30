@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\TermPropertyValueFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,6 +33,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class TermPropertyValue extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<TermPropertyValueFactory> */
     use HasFactory;
 

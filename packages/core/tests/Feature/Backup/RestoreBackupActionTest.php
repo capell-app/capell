@@ -7,6 +7,7 @@ use Capell\Core\Actions\Backup\RestoreBackupAction;
 use Capell\Core\Actions\Backup\SignBackupManifestAction;
 use Capell\Core\Contracts\Backup\DatabaseBackupDriver;
 use Capell\Core\Data\Backup\BackupRestoreResultData;
+use Capell\Core\Exceptions\Backup\ScratchRestoreFailedException;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
@@ -14,6 +15,7 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Capell\Core\Tests\Support\Stubs\RecordingBackupFilesystem;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\UnableToCreateDirectory;
 
@@ -51,13 +53,16 @@ beforeEach(function (): void {
         /** @var list<array<string, string|false>> */
         public array $environments = [];
 
+        /** @var list<string> */
+        public array $process = ['/usr/bin/printf', '{"status":"passed","checks":[]}'];
+
         #[Override]
         public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
         {
             $this->commands[] = $command;
             $this->environments[] = $environment ?? [];
 
-            return new Process(['/usr/bin/printf', '{"status":"passed","checks":[]}']);
+            return new Process($this->process);
         }
     };
     app()->instance(ProcessFactoryInterface::class, $this->doctorProcesses);
@@ -335,8 +340,10 @@ it('rejects a restore target symlink introduced after preflight when links are s
     ]));
 
     try {
-        expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restored'))
-            ->toThrow(InvalidArgumentException::class, __('capell-core::backup.destinations_collide'))
+        $previous = scratchRestorePrevious(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restored'));
+
+        expect($previous)->toBeInstanceOf(InvalidArgumentException::class)
+            ->and($previous?->getMessage())->toBe(__('capell-core::backup.destinations_collide'))
             ->and(file_get_contents($outsideFile))->toBe('keep');
     } finally {
         if (is_link($link)) {
@@ -427,12 +434,12 @@ it('cleans real local scratch files after a restore write failure and succeeds o
     try {
         chmod($scratchMediaRoot, 0500);
 
-        expect(fn (): BackupRestoreResultData => RestoreBackupAction::run(
+        expect(scratchRestorePrevious(fn (): BackupRestoreResultData => RestoreBackupAction::run(
             $manifest->snapshotId,
             'capell_restore_failed',
             'scratch-media',
             'restored',
-        ))->toThrow(UnableToCreateDirectory::class)
+        )))->toBeInstanceOf(UnableToCreateDirectory::class)
             ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([]);
 
         chmod($scratchMediaRoot, 0700);
@@ -477,3 +484,110 @@ it('rejects NTFS stream and trailing-dot names only when restoring on Windows', 
     'traversal' => ['../x', false, false],
     'plain file' => ['images/logo.png', true, true],
 ]);
+
+function failedDoctorReport(): string
+{
+    return json_encode([
+        'status' => 'failed',
+        'checks' => [
+            ['id' => 'database.migrations', 'severity' => 'critical', 'label' => 'Migrations', 'passed' => false, 'message' => 'Two migrations are pending.', 'remediation' => 'Run php artisan migrate against the scratch database.', 'evidence' => []],
+            ['id' => 'cache.store', 'severity' => 'critical', 'label' => 'Cache', 'passed' => true, 'message' => 'Cache works.', 'remediation' => null, 'evidence' => []],
+        ],
+    ], JSON_THROW_ON_ERROR);
+}
+
+it('reports the failed doctor checks with their remedy and keeps the scratch database', function (): void {
+    $manifest = CreateBackupAction::run();
+    $this->doctorProcesses->process = ['/usr/bin/printf', '%s', failedDoctorReport()];
+
+    try {
+        RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_checks');
+        $this->fail('Expected the doctor failure to be reported.');
+    } catch (ScratchRestoreFailedException $scratchRestoreFailedException) {
+        expect($scratchRestoreFailedException->failure->doctorFailure)->toBe('checks')
+            ->and($scratchRestoreFailedException->failure->failedChecks)->toHaveCount(1)
+            ->and($scratchRestoreFailedException->failure->failedChecks[0]['id'])->toBe('database.migrations')
+            ->and($scratchRestoreFailedException->failure->failedChecks[0]['remediation'])->toContain('migrate')
+            ->and($scratchRestoreFailedException->failure->database)->toEndWith('capell_restore_checks.sqlite')
+            ->and($scratchRestoreFailedException->failure->database)->toBeFile();
+    }
+});
+
+it('distinguishes a doctor process failure from invalid doctor output and redacts secrets', function (): void {
+    $manifest = CreateBackupAction::run();
+    $this->doctorProcesses->process = ['/bin/sh', '-c', 'echo "SQLSTATE connection refused password=hunter2 mysql://admin:hunter2@db/x" >&2; exit 3'];
+
+    try {
+        RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_process');
+        $this->fail('Expected the process failure to be reported.');
+    } catch (ScratchRestoreFailedException $scratchRestoreFailedException) {
+        expect($scratchRestoreFailedException->failure->doctorFailure)->toBe('process')
+            ->and($scratchRestoreFailedException->failure->exitCode)->toBe(3)
+            ->and($scratchRestoreFailedException->failure->reason)->toContain('connection refused')
+            ->and($scratchRestoreFailedException->failure->reason)->not->toContain('hunter2')
+            ->and($scratchRestoreFailedException->getMessage())->not->toContain('hunter2');
+    }
+
+    $this->doctorProcesses->process = ['/usr/bin/printf', 'PHP Fatal error: not json'];
+
+    try {
+        RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_json');
+        $this->fail('Expected the invalid output to be reported.');
+    } catch (ScratchRestoreFailedException $scratchRestoreFailedException) {
+        expect($scratchRestoreFailedException->failure->doctorFailure)->toBe('invalid_json')
+            ->and($scratchRestoreFailedException->failure->reason)->toContain('not json');
+    }
+});
+
+it('names the partially populated scratch targets when media restore fails part way', function (): void {
+    foreach (range(1, 5) as $index) {
+        Storage::disk('media')->put(sprintf('%02d.txt', $index), str_repeat('x', 64));
+    }
+
+    $manifest = CreateBackupAction::run();
+    $destination = new RecordingBackupFilesystem(Storage::disk('scratch-media'));
+    Storage::set('scratch-media', $destination);
+    $destination->failWriteAt = 3;
+
+    try {
+        RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_partial', 'scratch-media', 'restored');
+        $this->fail('Expected the media failure to be reported.');
+    } catch (ScratchRestoreFailedException $scratchRestoreFailedException) {
+        expect($scratchRestoreFailedException->failure->stage->value)->toBe('media')
+            ->and($scratchRestoreFailedException->failure->database)->toEndWith('capell_restore_partial.sqlite')
+            ->and($scratchRestoreFailedException->failure->database)->toBeFile()
+            ->and($scratchRestoreFailedException->failure->mediaDisk)->toBe('scratch-media')
+            ->and($scratchRestoreFailedException->failure->mediaPrefix)->toBe('restored')
+            ->and($scratchRestoreFailedException->failure->mediaFilesRestored)->toBe(2)
+            ->and($scratchRestoreFailedException->failure->mediaFilesExpected)->toBe(5)
+            ->and($scratchRestoreFailedException->getPrevious())->not->toBeNull();
+    }
+
+    expect($this->doctorProcesses->commands)->toBeEmpty()
+        ->and(backupRestoredValue($this->databasePath))->toBe('original');
+});
+
+it('prints the failed check, the retained scratch targets and a safe retry on the restore command', function (): void {
+    $manifest = CreateBackupAction::run();
+    $this->doctorProcesses->process = ['/usr/bin/printf', '%s', failedDoctorReport()];
+
+    $exitCode = Artisan::call('capell:backup:restore', ['snapshot' => $manifest->snapshotId, 'scratch-database' => 'capell_restore_cmd']);
+    $output = preg_replace('/\s+/', ' ', Artisan::output());
+
+    expect($exitCode)->toBe(1)
+        ->and($output)->toContain('Migrations', 'database.migrations', 'Run php artisan migrate against the scratch database', 'capell_restore_cmd');
+
+    expect(glob($this->scratchDirectory . '/capell_restore_cmd.sqlite'))->toHaveCount(1);
+});
+
+/** The underlying error of a scratch restore that failed after the database was restored. */
+function scratchRestorePrevious(Closure $restore): ?Throwable
+{
+    try {
+        $restore();
+    } catch (ScratchRestoreFailedException $scratchRestoreFailedException) {
+        return $scratchRestoreFailedException->getPrevious();
+    }
+
+    return null;
+}

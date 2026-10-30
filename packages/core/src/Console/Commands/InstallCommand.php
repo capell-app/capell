@@ -10,14 +10,17 @@ use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\BuildInstallReviewAction;
 use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
+use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\ReportInstallFailureAction;
+use Capell\Core\Actions\Install\ResolveTableCollisionsAction;
 use Capell\Core\Actions\Install\RunArtisanCommandAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Actions\Install\SaveInstallProfileAction;
 use Capell\Core\Actions\Install\UpdateInstallAppUrlAction;
 use Capell\Core\Actions\Install\WriteInstallHandoffAction;
+use Capell\Core\Actions\Install\WriteTableConfigurationAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
@@ -30,6 +33,7 @@ use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
+use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
@@ -60,6 +64,7 @@ use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\TableName;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -102,6 +107,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--recommendation-action= : Recommendation action: select, confirm, custom, or skip}
         {--package-mode= : Package selection mode: core, all, or custom}
         {--packages= : Comma-separated package names (defaults to all installable)}
+        {--table-prefix= : Prefix for Capell database tables}
+        {--table-alias=* : Map a table to a new name as name=alias}
         {--all-packages : Install all composer-installed Capell packages}
         {--theme= : Theme key to activate when multiple themes are available}
         {--remove-installer : Remove capell-app/installer after a successful install}
@@ -712,35 +719,67 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 fn (string $command): bool => $this->getApplication()?->has($command) === true,
             ));
 
-        $inputData = $this->buildInstallInput(
-            siteUrl: $siteUrl,
-            packages: $packages,
-            languages: $languages,
-            demo: $demo,
-            siteOptions: $siteOptions,
-            newUser: $resolvedNewUser,
-            seedDefaultData: $seedDefaultData,
-            seedDatabase: $seedDatabase,
-            freshInstall: $freshInstall,
-            installWelcomeRoute: $installWelcomeRoute,
-            developerToolingChoice: $developerToolingChoice,
-            selectedThemeKey: $selectedThemeKey,
-            extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
-            generateSitemap: $generateSitemap,
-            userId: $userId,
-            additionalUsers: $additionalUsers,
-        );
+        try {
+            $tableChanges = $this->chooseCollisionTableNames(array_values(array_unique([...$packages->keys()->all(), ...$installTimePackageNames, ...$themeExtraPackages])));
+        } catch (RuntimeException $runtimeException) {
+            $this->error($runtimeException->getMessage());
+
+            return CommandAlias::FAILURE;
+        }
+
+        $originalTableConfig = [];
+        foreach ($tableChanges as $key => $value) {
+            $originalTableConfig[$key] = config($key);
+            config()->set($key, $value);
+        }
+
+        try {
+            $inputData = $this->buildInstallInput(
+                siteUrl: $siteUrl,
+                packages: $packages,
+                languages: $languages,
+                demo: $demo,
+                siteOptions: $siteOptions,
+                newUser: $resolvedNewUser,
+                seedDefaultData: $seedDefaultData,
+                seedDatabase: $seedDatabase,
+                freshInstall: $freshInstall,
+                installWelcomeRoute: $installWelcomeRoute,
+                developerToolingChoice: $developerToolingChoice,
+                selectedThemeKey: $selectedThemeKey,
+                extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
+                generateSitemap: $generateSitemap,
+                userId: $userId,
+                additionalUsers: $additionalUsers,
+            );
+        } finally {
+            foreach ($originalTableConfig as $key => $value) {
+                config()->set($key, $value);
+            }
+        }
+
+        foreach ($tableChanges as $key => $value) {
+            $this->line((string) __('capell-core::install.tables.review', ['key' => $key, 'table' => $value]));
+        }
 
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
         $this->outputPlan($inputData, collapseWhenInteractive: true);
 
         if (! $this->reviewInstallation($inputData)) {
+            foreach ($originalTableConfig as $key => $value) {
+                config()->set($key, $value);
+            }
+
             $this->info(__('capell-core::install.review.cancelled'));
 
             return CommandAlias::SUCCESS;
         }
 
         if ($this->restartReview) {
+            foreach ($originalTableConfig as $key => $value) {
+                config()->set($key, $value);
+            }
+
             return CommandAlias::SUCCESS;
         }
 
@@ -759,6 +798,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
             return CommandAlias::FAILURE;
         }
+
+        WriteTableConfigurationAction::run($tableChanges);
 
         if ($this->configureHomepage) {
             resolve(InstallPostInstallOptionResolver::class)->configureWelcomeRoute(
@@ -781,6 +822,62 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             removeInstallerPackage: $removeInstallerPackage,
             cachesToClear: $cachesToClear,
         );
+    }
+
+    /**
+     * @param  list<string>  $packages
+     * @return array<string, string>
+     */
+    private function chooseCollisionTableNames(array $packages): array
+    {
+        $collisions = FindTableCollisionsAction::run($packages);
+        $prefixOption = $this->option('table-prefix');
+        $prefix = is_string($prefixOption) && $prefixOption !== '' ? $prefixOption : null;
+        $aliases = [];
+        foreach ((array) $this->option('table-alias') as $option) {
+            $parts = explode('=', (string) $option, 2);
+            throw_unless(count($parts) === 2 && $parts[0] !== '' && $parts[1] !== '', RuntimeException::class, (string) __('capell-core::install.tables.invalid_option'));
+            $aliases[$parts[0]] = $parts[1];
+        }
+
+        if ($collisions !== [] && $prefix === null && $aliases === [] && $this->input->isInteractive()) {
+            $choice = select(
+                label: (string) __('capell-core::install.tables.choice_label'),
+                options: ['prefix' => (string) __('capell-core::install.tables.prefix_choice'), 'aliases' => (string) __('capell-core::install.tables.aliases_choice')],
+            );
+            if ($choice === 'prefix') {
+                $prefix = text(label: (string) __('capell-core::install.tables.prefix_label'), required: true);
+            } else {
+                foreach ($collisions as $collision) {
+                    $aliases[$collision->name] = text(label: (string) __('capell-core::install.tables.alias_label', ['table' => $collision->table]), required: true);
+                }
+            }
+        }
+
+        $changes = ResolveTableCollisionsAction::run($collisions, $prefix, $aliases, resolve(FindTableCollisionsAction::class)->planned($packages));
+        $previous = [];
+        try {
+            foreach ($changes as $key => $value) {
+                $previous[$key] = config($key);
+                config()->set($key, $value);
+            }
+
+            $detector = resolve(FindTableCollisionsAction::class);
+            $remaining = FindTableCollisionsAction::run($packages);
+            if ($remaining !== []) {
+                $names = array_map(static fn ($collision): string => $collision->table, $remaining);
+                throw new RuntimeException((string) __('capell-core::install.tables.choice_required', ['tables' => implode(', ', $names)]));
+            }
+
+            $tables = array_map(static fn (TableCollisionData $table): string => $table->table, $detector->planned($packages));
+            throw_if(count($tables) !== count(array_unique($tables)), RuntimeException::class, (string) __('capell-core::install.tables.duplicate_targets'));
+        } finally {
+            foreach ($previous as $key => $value) {
+                config()->set($key, $value);
+            }
+        }
+
+        return $changes;
     }
 
     /** @param array<string> $cachesToClear */
@@ -1261,7 +1358,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function installFirstPageStatus(): string
     {
         try {
-            if (! Schema::hasTable('pages')) {
+            if (! Schema::hasTable(TableName::resolve('pages'))) {
                 return 'missing';
             }
 

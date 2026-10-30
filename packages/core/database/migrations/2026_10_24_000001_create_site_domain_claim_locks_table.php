@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -11,14 +12,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('site_domain_claim_locks', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('site_domain_claim_locks'), function (Blueprint $table): void {
             $table->unsignedInteger('id')->primary();
         });
-        DB::table('site_domain_claim_locks')->insert(['id' => 1]);
+        DB::table(TableName::resolve('site_domain_claim_locks'))->insert(['id' => 1]);
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('site_domain_claim_locks');
+        Schema::dropIfExists(TableName::resolve('site_domain_claim_locks'));
     }
 };

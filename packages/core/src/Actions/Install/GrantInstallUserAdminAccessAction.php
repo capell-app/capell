@@ -22,7 +22,7 @@ final class GrantInstallUserAdminAccessAction
 
     public function handle(Authenticatable $user, ProgressReporter $reporter): void
     {
-        if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+        if (! Schema::hasTable((string) config('permission.table_names.roles', 'roles')) || ! Schema::hasTable((string) config('permission.table_names.model_has_roles', 'model_has_roles'))) {
             return;
         }
 
@@ -68,12 +68,12 @@ final class GrantInstallUserAdminAccessAction
             'model_id' => $user->getAuthIdentifier(),
         ];
 
-        $query = DB::table('model_has_roles')
+        $query = DB::table((string) config('permission.table_names.model_has_roles', 'model_has_roles'))
             ->where('role_id', $attributes['role_id'])
             ->where('model_type', $attributes['model_type'])
             ->where('model_id', $attributes['model_id']);
 
-        if (Schema::hasColumn('model_has_roles', 'team_id')) {
+        if (Schema::hasColumn((string) config('permission.table_names.model_has_roles', 'model_has_roles'), 'team_id')) {
             $attributes['team_id'] = null;
             $query->whereNull('team_id');
         }
@@ -82,7 +82,7 @@ final class GrantInstallUserAdminAccessAction
             return;
         }
 
-        DB::table('model_has_roles')->insert($attributes);
+        DB::table((string) config('permission.table_names.model_has_roles', 'model_has_roles'))->insert($attributes);
     }
 
     private function resolveModelType(Authenticatable $user): string

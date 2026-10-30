@@ -143,7 +143,10 @@ jobs:
 
       - name: Audit updated dependencies
         if: ${{ inputs.audit && matrix.shard == 1 }}
-        run: composer audit --no-interaction --ansi
+        # Security advisories still fail the audit. An abandoned package with no
+        # replacement, such as the dev-only symplify/rule-doc-generator-contracts that
+        # the latest Rector tooling pulls in, is reported without failing the nightly.
+        run: composer audit --no-interaction --ansi --abandoned=report
 
       - name: Configure environment
         run: |

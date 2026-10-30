@@ -13,6 +13,7 @@ use Capell\Admin\Filament\Resources\Languages\Schemas\LanguageForm;
 use Capell\Admin\Filament\Resources\Languages\Tables\LanguagesTable;
 use Capell\Core\Models\Language;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,7 +68,7 @@ class LanguageResource extends Resource
                 'editor',
             ])
             ->withCount([
-                'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
+                'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, TableName::resolve('sites') . '.id'),
             ])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,

@@ -21,6 +21,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -277,7 +278,7 @@ final class ListExtensionManagementEntriesAction
         }
 
         try {
-            if (! resolve(RuntimeSchemaState::class)->hasTable('capell_extensions')) {
+            if (! resolve(RuntimeSchemaState::class)->hasTable(TableName::resolve('capell_extensions'))) {
                 return $this->extensions = collect();
             }
 

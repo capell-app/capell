@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Upgrade\CheckCapellApiForUpdatesAction;
 use Capell\Core\Actions\Upgrade\ResolveInstalledComposerVersionsAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -33,11 +34,11 @@ class CheckForUpdatesAction
 
     private function recordLocalUpdateCheck(): void
     {
-        if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
+        if (! Schema::hasTable(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))) {
             return;
         }
 
-        DB::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->insert([
+        DB::table(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))->insert([
             'source' => 'admin',
             'checked_at' => now(),
             'capell_version' => CapellCore::getInstalledPrettyVersion('capell-app/capell'),

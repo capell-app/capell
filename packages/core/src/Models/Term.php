@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\TermFactory;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class Term extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<TermFactory> */
     use HasFactory;
 
@@ -83,6 +87,6 @@ final class Term extends Model
      */
     public function pages(): BelongsToMany
     {
-        return $this->belongsToMany(Page::class, 'page_term')->withPivot('position')->withTimestamps();
+        return $this->belongsToMany(Page::class, TableName::resolve('page_term'))->withPivot('position')->withTimestamps();
     }
 }

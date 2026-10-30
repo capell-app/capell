@@ -21,6 +21,7 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Models\UpgradeRunEvent;
+use Capell\Core\Support\TableName;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -320,7 +321,7 @@ class UpgradePage extends Page
         }
 
         try {
-            DB::table(self::UPDATE_NOTICE_DISMISSALS_TABLE)->updateOrInsert(
+            DB::table(TableName::resolve(self::UPDATE_NOTICE_DISMISSALS_TABLE))->updateOrInsert(
                 [
                     'user_id' => $userId,
                     'notice_id' => $this->noticeId($notice),
@@ -458,7 +459,7 @@ class UpgradePage extends Page
 
     public function currentOrLastUpgradeRun(): ?UpgradeRun
     {
-        if (! Schema::hasTable('capell_upgrade_runs')) {
+        if (! Schema::hasTable(TableName::resolve('capell_upgrade_runs'))) {
             return null;
         }
 
@@ -624,12 +625,12 @@ class UpgradePage extends Page
 
         $userId = auth()->id();
 
-        if (! is_int($userId) || ! Schema::hasTable(self::UPDATE_NOTICE_DISMISSALS_TABLE)) {
+        if (! is_int($userId) || ! Schema::hasTable(TableName::resolve(self::UPDATE_NOTICE_DISMISSALS_TABLE))) {
             return $this->dismissedNoticeIds = [];
         }
 
         try {
-            $noticeIds = DB::table(self::UPDATE_NOTICE_DISMISSALS_TABLE)
+            $noticeIds = DB::table(TableName::resolve(self::UPDATE_NOTICE_DISMISSALS_TABLE))
                 ->where('user_id', $userId)
                 ->where(function (QueryBuilder $query): void {
                     $query
