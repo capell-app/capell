@@ -412,7 +412,8 @@ it('builds an upgrade plan with a prefixed Capell schema', function (): void {
             }
 
             $target = 'cms_' . $table->name;
-            DB::statement('CREATE TABLE "' . $target . '" AS SELECT * FROM "' . $table->name . '"');
+            $grammar = DB::connection()->getQueryGrammar();
+            DB::statement('CREATE TABLE ' . $grammar->wrap($target) . ' AS SELECT * FROM ' . $grammar->wrap($table->name));
             $copied[] = $target;
         }
 
