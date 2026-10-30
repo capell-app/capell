@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\ValidateForceDeleteAction;
+use Capell\Admin\Filament\Actions\ForceDeleteAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Admin\Filament\Resources\Sites\Pages\ListSites;
@@ -138,4 +139,28 @@ it('explains that descendants must be removed before permanently deleting their 
 
     expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2)
         ->and(__('capell-admin::message.page_descendants_not_deletable_info'))->toBe('This page has children. Permanently delete the children first.');
+});
+
+it('retains a site with a live first-page recovery but not an expired or another site recovery', function (): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->createOne();
+    $other = Site::factory()->createOne();
+    $draft = EditorScratchDraft::query()->create([
+        'site_id' => $site->id, 'user_id' => test()->authenticatedUser()->id,
+        'locale' => 'en', 'record_type' => (new Page)->getMorphClass(), 'record_id' => 0,
+        'context' => 'page-create:retained', 'payload' => ['name' => 'Unfinished'],
+        'content_hash' => hash('sha256', 'unfinished'), 'saved_at' => now(), 'expires_at' => now()->addDays(7),
+    ]);
+    expect(HasRetainedDeletionDependenciesAction::run($site))->toBeTrue()
+        ->and(ValidateForceDeleteAction::run($site, null))->toBeFalse()
+        ->and(HasRetainedDeletionDependenciesAction::run($other))->toBeFalse();
+    $draft->update(['expires_at' => now()->subSecond()]);
+    expect(HasRetainedDeletionDependenciesAction::run($site))->toBeFalse()
+        ->and(ValidateForceDeleteAction::run($site, null))->toBeTrue();
+});
+
+it('keeps site force deletion transactional even if the action is configured otherwise', function (): void {
+    $site = Site::factory()->createOne();
+    $action = ForceDeleteAction::make()->record($site)->databaseTransaction(false);
+    expect($action->hasDatabaseTransactions())->toBeTrue();
 });

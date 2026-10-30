@@ -38,6 +38,13 @@ CAPELL_MARIADB_CONNECTION=mariadb vendor/bin/pest --configuration=phpunit.mariad
 
 The proof fails if the connection name is absent or the test session cannot set `explicit_defaults_for_timestamp=0`, the only precondition for the legacy behaviour it repairs; it never checks which server version it runs on, and no environment skip is used. It creates and removes only its own database. `DB_HOST` alone never selects this proof.
 
+The same file declares the editor recovery lock proofs (`packages/admin/tests/MariaDB/EditorScratchDraftConcurrencyTest.php`). They hold row locks on separately committed connections, so they run against a disposable server's `capell_editor_race_test` database and throw, never skip, when pointed anywhere else:
+
+```bash
+DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=3306 DB_USERNAME=root DB_PASSWORD=secret DB_DATABASE=capell_editor_race_test \
+CAPELL_MARIADB_CONNECTION=mysql vendor/bin/pest --configuration=phpunit.mariadb.xml
+```
+
 ## Extension Lifecycle Ledger
 
 Composer presence makes a package available. The `capell_extensions` row controls whether it can affect runtime.

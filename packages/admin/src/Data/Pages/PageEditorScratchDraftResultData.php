@@ -12,6 +12,7 @@ final class PageEditorScratchDraftResultData extends Data
     public function __construct(
         public readonly PageEditorScratchDraftStatus $status,
         public readonly int $affectedRows = 0,
+        public readonly ?string $revision = null,
     ) {}
 
     public function wasSaved(): bool

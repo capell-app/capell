@@ -5,6 +5,9 @@
       <!-- Pest keys explicit files by canonical path; a ./ prefix discovers no tests. -->
       <file>packages/core/tests/MariaDB/ImplicitTimestampRepairTest.php</file>
     </testsuite>
+    <testsuite name="MariaDBEditorRecoveryConcurrency">
+      <file>packages/admin/tests/MariaDB/EditorScratchDraftConcurrencyTest.php</file>
+    </testsuite>
   </testsuites>
   <source restrictNotices="true" restrictWarnings="true" ignoreSuppressionOfDeprecations="true" ignoreIndirectDeprecations="true">
     <include>
@@ -23,8 +26,8 @@
     <env name="BCRYPT_ROUNDS" value="4"/>
     <env name="CACHE_STORE" value="array" force="true"/>
     <env name="CURATOR_GLIDE_TOKEN" value="123456789"/>
-    <env name="DB_CONNECTION" value="sqlite" force="true"/>
-    <env name="DB_DATABASE" value=":memory:" force="true"/>
+    <env name="DB_CONNECTION" value="sqlite"/>
+    <env name="DB_DATABASE" value=":memory:"/>
     <env name="DB_URL" value=""/>
     <env name="MAIL_MAILER" value="array"/>
     <env name="PULSE_ENABLED" value="false"/>

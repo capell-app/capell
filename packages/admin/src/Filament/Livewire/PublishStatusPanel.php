@@ -35,6 +35,7 @@ use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as AuthenticatedUser;
 use Illuminate\Support\Facades\Gate;
@@ -330,7 +331,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ->where('pageable_type', $record->getMorphClass())
             ->where('pageable_id', $record->getKey())
             ->where('site_id', $record->site_id)
-            ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
+            ->where(fn (Builder $query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
             ->status(false)
             ->whereHas('language')
             ->with('site')

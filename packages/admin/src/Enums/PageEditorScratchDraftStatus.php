@@ -6,6 +6,7 @@ namespace Capell\Admin\Enums;
 
 enum PageEditorScratchDraftStatus: string
 {
+    case Conflict = 'conflict';
     case Discarded = 'discarded';
     case Locked = 'locked';
     case Saved = 'saved';

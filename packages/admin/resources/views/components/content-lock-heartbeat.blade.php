@@ -32,10 +32,13 @@
     x-data="capellContentLockHeartbeat(@js($config))"
     x-init="init()"
     x-on:content-lock-taken-over.window="if (Number($event.detail.pageId) === {{ $config['pageId'] }}) clearConflict()"
-    x-on:page-editor-saved.window="if (Number($event.detail.pageId) === {{ $config['pageId'] }}) markEditorSaved()"
+    x-on:page-editor-save-acknowledged.window="if (Number($event.detail.pageId) === {{ $config['pageId'] }}) markEditorSaved($event.detail.data)"
+    x-on:page-scratch-context-changed.window="if (Number($event.detail.pageId) === {{ $config['pageId'] }}) changeDraftSession($event.detail.context)"
     data-capell-content-lock-heartbeat
     class="flex flex-col gap-3"
 >
+    <p x-cloak x-show="localDraftChanged" role="status" class="text-sm text-warning-600" x-text="localDraftChangedMessage"></p>
+    <p x-cloak x-show="localDraftUnavailable" role="alert" class="text-sm text-danger-600" x-text="localDraftUnavailableMessage"></p>
     <div
         x-cloak
         x-show="localDraftAvailable"

@@ -17,6 +17,8 @@ use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final readonly class AgentPageDraftSaveTool implements AgentAdminTool
@@ -131,6 +133,7 @@ final readonly class AgentPageDraftSaveTool implements AgentAdminTool
             user: $invocation->user,
             locale: $this->locale($invocation),
             payload: $invocation->payload,
+            context: 'page-editor:' . Str::uuid(),
         ));
 
         if ($result->status !== PageEditorScratchDraftStatus::Saved) {
@@ -183,7 +186,14 @@ final readonly class AgentPageDraftSaveTool implements AgentAdminTool
     private function scratchDraft(AgentAdminToolInvocationData $invocation, Page $page): ?EditorScratchDraft
     {
         return SiteAccess::current()->query(EditorScratchDraft::class)
-            ->forEditor($invocation->user, $page, $this->locale($invocation), 'page-editor')
+            ->where('user_id', $invocation->user->getAuthIdentifier())
+            ->where('site_id', $page->site_id)
+            ->where('record_type', $page->getMorphClass())
+            ->where('record_id', $page->getKey())
+            ->where('locale', $this->locale($invocation))
+            ->where(fn (Builder $query) => $query->where('context', 'page-editor')->orWhere('context', 'like', 'page-editor:%'))
+            ->where('expires_at', '>', now())
+            ->latest('saved_at')->orderByDesc('id')
             ->first();
     }
 }

@@ -27,14 +27,16 @@
     @if ($draft)
         <div class="mt-3 flex flex-wrap gap-2">
             <x-filament::button
-                wire:click="restore"
+                wire:click="restore({{ $draft->id }}, '{{ $draft->revision ?? '' }}', '{{ $draft->content_hash }}')"
+                wire:confirm="{{ __('capell-admin::scratch_drafts.restore_confirm') }}"
                 size="sm"
             >
                 {{ __('capell-admin::scratch_drafts.restore') }}
             </x-filament::button>
 
             <x-filament::button
-                wire:click="discard"
+                wire:click="discard({{ $draft->id }}, '{{ $draft->revision ?? '' }}', '{{ $draft->content_hash }}')"
+                wire:confirm="{{ __('capell-admin::scratch_drafts.discard_confirm') }}"
                 color="gray"
                 size="sm"
             >

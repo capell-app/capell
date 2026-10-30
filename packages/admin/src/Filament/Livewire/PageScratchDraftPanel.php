@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Livewire;
 
-use Capell\Core\Actions\EditorScratchDrafts\DiscardEditorScratchDraftAction;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -12,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -31,8 +31,12 @@ final class PageScratchDraftPanel extends Component
     #[Locked]
     public string $locale;
 
-    public function mount(int $pageId, ?string $locale = null): void
+    #[Locked]
+    public ?string $currentContext = null;
+
+    public function mount(int $pageId, ?string $locale = null, ?string $currentContext = null): void
     {
+        $this->currentContext = $currentContext;
         $this->pageId = $pageId;
         $this->locale = $locale ?? app()->getLocale();
     }
@@ -48,16 +52,28 @@ final class PageScratchDraftPanel extends Component
         }
 
         return SiteAccess::current()->query(EditorScratchDraft::class)
-            ->forEditor($user, $page, $this->locale, self::CONTEXT)
+            ->where('user_id', $user->getAuthIdentifier())
+            ->where('site_id', $page->site_id)
+            ->where('record_type', $page->getMorphClass())
+            ->where('record_id', $page->getKey())
+            ->where('locale', $this->locale)
+            ->where(fn (Builder $query) => $query->where('context', self::CONTEXT)->orWhere('context', 'like', self::CONTEXT . ':%'))
+            ->when($this->currentContext !== null, fn (Builder $query) => $query->where('context', '!=', $this->currentContext))
             ->where('expires_at', '>', CarbonImmutable::now('UTC'))
+            ->oldest('saved_at')->orderBy('id')
             ->first();
     }
 
-    public function restore(): void
+    public function restore(?int $draftId = null, ?string $revision = null, ?string $contentHash = null): void
     {
         $draft = $this->draft;
+        $revision = $revision === '' ? null : $revision;
 
-        if (! $draft instanceof EditorScratchDraft) {
+        if (! $draft instanceof EditorScratchDraft || ($draftId !== null && ($draft->id !== $draftId || $draft->revision !== $revision || $draft->content_hash !== $contentHash))) {
+            if ($draftId !== null) {
+                $this->notifyRecoveryChanged();
+            }
+
             return;
         }
 
@@ -65,10 +81,13 @@ final class PageScratchDraftPanel extends Component
             'page-scratch-draft-restored',
             pageId: $this->pageId,
             data: $draft->payload,
+            draftId: $draft->id,
+            revision: $draft->revision,
+            contentHash: $draft->content_hash,
         );
     }
 
-    public function discard(): void
+    public function discard(?int $draftId = null, ?string $revision = null, ?string $contentHash = null): void
     {
         $user = auth()->user();
         $page = $this->page();
@@ -77,13 +96,42 @@ final class PageScratchDraftPanel extends Component
             return;
         }
 
-        DiscardEditorScratchDraftAction::run($page, $user, $this->locale, self::CONTEXT);
+        $draft = $this->draft;
+        $revision = $revision === '' ? null : $revision;
+        if (! $draft instanceof EditorScratchDraft || ($draftId !== null && ($draft->id !== $draftId || $draft->revision !== $revision || $draft->content_hash !== $contentHash))) {
+            if ($draftId !== null) {
+                $this->notifyRecoveryChanged();
+            }
+
+            return;
+        }
+
+        $deleted = $page->getConnection()->transaction(function () use ($draft, $page): int {
+            SiteAccess::current()->query($page::class)->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
+
+            return SiteAccess::current()->query(EditorScratchDraft::class)->whereKey($draft->id)->where('revision', $draft->revision)->where('content_hash', $draft->content_hash)->delete();
+        });
         unset($this->draft);
+
+        if ($deleted !== 1) {
+            $this->notifyRecoveryChanged();
+
+            return;
+        }
 
         Notification::make('editor-scratch-draft-discarded')
             ->success()
             ->title(__('capell-admin::scratch_drafts.discarded'))
             ->send();
+    }
+
+    #[On('page-scratch-draft-conflict')]
+    public function showCurrentRecovery(int $pageId, ?string $currentContext = null): void
+    {
+        if ($pageId === $this->pageId) {
+            $this->currentContext = $currentContext;
+            unset($this->draft);
+        }
     }
 
     #[On('page-scratch-draft-updated')]
@@ -102,5 +150,15 @@ final class PageScratchDraftPanel extends Component
     private function page(): ?Page
     {
         return SiteAccess::current()->query(Page::class)->find($this->pageId);
+    }
+
+    private function notifyRecoveryChanged(): void
+    {
+        unset($this->draft);
+
+        Notification::make('editor-scratch-draft-changed')
+            ->warning()
+            ->title(__('capell-admin::scratch_drafts.recovery_changed'))
+            ->send();
     }
 }

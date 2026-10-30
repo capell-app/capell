@@ -15,6 +15,7 @@ use Capell\Admin\Support\Agent\AgentPagePublicationTool;
 use Capell\Admin\Support\Agent\AgentPageReadinessTool;
 use Capell\Admin\Support\Agent\AgentSettingsWriteTool;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
+use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Blueprint;
@@ -308,4 +309,23 @@ it('rejects global property-set writes from a site administrator', function (): 
         sessionId: 'site-admin-session',
     ))->toThrow(AuthorizationException::class);
     expect(PropertySet::query()->where('key', 'forbidden')->exists())->toBeFalse();
+});
+
+it('preserves an interrupted editor draft when an agent saves a new draft', function (): void {
+    $user = test()->actingAsAdmin()->authenticatedUser();
+    $page = Page::factory()->create();
+    $prior = SaveEditorScratchDraftAction::run($page, $user, app()->getLocale(), 'page-editor', ['name' => 'Interrupted']);
+    $invocation = new AgentAdminToolInvocationData(
+        tool: 'admin.page.draft.save',
+        payload: ['page_id' => $page->id, 'fields' => ['name' => 'Agent changes']],
+        siteId: $page->site_id,
+        user: $user,
+    );
+    $tool = new AgentPageDraftSaveTool(new AgentAdminAuthorization);
+    $tool->authorize($invocation);
+    $tool->execute($invocation);
+
+    expect($prior->fresh()->payload)->toBe(['name' => 'Interrupted'])
+        ->and(EditorScratchDraft::query()->where('user_id', $user->getAuthIdentifier())->where('record_id', $page->id)->count())->toBe(2)
+        ->and($tool->preview($invocation)->data['before'])->toMatchArray(['fields' => ['name' => 'Agent changes']]);
 });
