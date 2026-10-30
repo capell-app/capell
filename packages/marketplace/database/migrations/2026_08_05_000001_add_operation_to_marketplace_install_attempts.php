@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,12 +23,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('marketplace_install_attempts', function (Blueprint $table): void {
-            if (! Schema::hasColumn('marketplace_install_attempts', 'operation')) {
-                $table->string('operation')->default('install')->index();
+        TableName::existsAndIsOwned('marketplace_install_attempts', '2026_05_10_190837_09_create_marketplace_install_attempts_table');
+
+        Schema::table(TableName::resolve('marketplace_install_attempts'), function (Blueprint $table): void {
+            if (! Schema::hasColumn(TableName::resolve('marketplace_install_attempts'), 'operation')) {
+                $table->string('operation')->default('install')->index(TableName::index('marketplace_install_attempts', 'operation', 'index'));
             }
 
-            if (! Schema::hasColumn('marketplace_install_attempts', 'uninstall_options')) {
+            if (! Schema::hasColumn(TableName::resolve('marketplace_install_attempts'), 'uninstall_options')) {
                 $table->json('uninstall_options')->nullable();
             }
         });
@@ -35,13 +38,15 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('marketplace_install_attempts', function (Blueprint $table): void {
-            if (Schema::hasColumn('marketplace_install_attempts', 'operation')) {
-                $table->dropIndex(['operation']);
+        TableName::existsAndIsOwned('marketplace_install_attempts', '2026_05_10_190837_09_create_marketplace_install_attempts_table');
+
+        Schema::table(TableName::resolve('marketplace_install_attempts'), function (Blueprint $table): void {
+            if (Schema::hasColumn(TableName::resolve('marketplace_install_attempts'), 'operation')) {
+                $table->dropIndex(TableName::index('marketplace_install_attempts', ['operation'], 'index'));
                 $table->dropColumn('operation');
             }
 
-            if (Schema::hasColumn('marketplace_install_attempts', 'uninstall_options')) {
+            if (Schema::hasColumn(TableName::resolve('marketplace_install_attempts'), 'uninstall_options')) {
                 $table->dropColumn('uninstall_options');
             }
         });

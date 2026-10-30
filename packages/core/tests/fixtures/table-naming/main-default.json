@@ -1,0 +1,1116 @@
+{
+    "activity_buckets": {
+        "indexes": [
+            "activity_buckets_identity_unique",
+            "activity_buckets_site_language_time_index",
+            "activity_buckets_subject_time_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "activity_visitors": {
+        "indexes": [
+            "activity_visitors_day_index",
+            "activity_visitors_identity_unique",
+            "activity_visitors_site_time_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "asset_attachments": {
+        "indexes": [
+            "asset_attachments_asset_lookup_index",
+            "asset_attachments_asset_type_asset_id_index",
+            "asset_attachments_related_type_related_id_index",
+            "primary",
+            "related_asset_index"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "block_templates": {
+        "indexes": [
+            "block_templates_enabled_index",
+            "block_templates_key_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "blueprint_property_sets": {
+        "indexes": ["blueprint_property_sets_pair_unique", "primary"],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["blueprint_id"],
+                "foreign_schema": "main",
+                "foreign_table": "blueprints",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["property_set_id"],
+                "foreign_schema": "main",
+                "foreign_table": "property_sets",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "blueprint_schema_snapshots": {
+        "indexes": [
+            "blueprint_schema_snapshots_lookup_index",
+            "blueprint_schema_snapshots_taken_at_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["actor_id"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["blueprint_id"],
+                "foreign_schema": "main",
+                "foreign_table": "blueprints",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "blueprints": {
+        "indexes": [
+            "blueprints_component_index",
+            "blueprints_component_item_index",
+            "blueprints_order_index",
+            "blueprints_type_default_index",
+            "blueprints_type_key_unique",
+            "blueprints_type_status_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "capell_admin_notification_subscriptions": {
+        "indexes": [
+            "capell_admin_notification_subscriptions_group_key_index",
+            "capell_admin_notification_subscriptions_unique",
+            "capell_admin_notification_subscriptions_user_idx",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_extension_health_alerts": {
+        "indexes": [
+            "capell_extension_health_alerts_affected_install_id_index",
+            "capell_extension_health_alerts_affected_site_id_index",
+            "capell_extension_health_alerts_alert_id_unique",
+            "capell_extension_health_alerts_category_index",
+            "capell_extension_health_alerts_composer_name_index",
+            "capell_extension_health_alerts_expires_at_index",
+            "capell_extension_health_alerts_extension_slug_index",
+            "capell_extension_health_alerts_issued_at_index",
+            "capell_extension_health_alerts_severity_index",
+            "capell_extension_health_alerts_source_index",
+            "capell_health_alerts_severity_composer_expiry_idx",
+            "capell_health_alerts_severity_slug_expiry_idx",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_extensions": {
+        "indexes": [
+            "capell_extensions_auto_update_policy_index",
+            "capell_extensions_composer_name_unique",
+            "capell_extensions_marketplace_runtime_status_index",
+            "capell_extensions_provider_recovery_state_index",
+            "capell_extensions_status_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_marketplace_installs": {
+        "indexes": ["capell_marketplace_installs_install_id_unique", "primary"],
+        "foreign_keys": []
+    },
+    "capell_public_render_contract_events": {
+        "indexes": [
+            "capell_public_render_contract_events_layout_id_index",
+            "capell_public_render_contract_events_package_name_index",
+            "capell_public_render_contract_events_page_id_index",
+            "capell_public_render_contract_events_path_hash_index",
+            "capell_public_render_contract_events_response_hash_index",
+            "capell_public_render_contract_events_result_index",
+            "capell_public_render_contract_events_source_index",
+            "capell_public_render_contract_events_theme_id_index",
+            "capell_public_render_contract_events_url_hash_index",
+            "capell_render_contract_created_idx",
+            "capell_render_contract_package_result_idx",
+            "capell_render_contract_result_created_idx",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_reporting_incidents": {
+        "indexes": [
+            "capell_reporting_incidents_checked_at_index",
+            "capell_reporting_incidents_health_status_index",
+            "capell_reporting_incidents_resolved_at_index",
+            "sqlite_autoindex_capell_reporting_incidents_1"
+        ],
+        "foreign_keys": []
+    },
+    "capell_upgrade_locks": {
+        "indexes": [
+            "capell_upgrade_locks_expires_at_index",
+            "capell_upgrade_locks_name_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_upgrade_log": {
+        "indexes": [
+            "capell_upgrade_log_lookup_idx",
+            "capell_upgrade_log_package_idx",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_upgrade_run_events": {
+        "indexes": [
+            "capell_upgrade_run_events_level_time_idx",
+            "capell_upgrade_run_events_run_time_idx",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["upgrade_run_id"],
+                "foreign_schema": "main",
+                "foreign_table": "capell_upgrade_runs",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "capell_upgrade_runs": {
+        "indexes": [
+            "capell_upgrade_runs_created_idx",
+            "capell_upgrade_runs_dry_run_status_idx",
+            "capell_upgrade_runs_status_created_idx",
+            "capell_upgrade_runs_user_id_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "content_graph_edges": {
+        "indexes": [
+            "content_graph_edges_site_id_language_id_index",
+            "content_graph_edges_source_type_source_id_index",
+            "content_graph_edges_target_type_target_id_index",
+            "content_graph_edges_unique_edge",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "content_locks": {
+        "indexes": [
+            "content_locks_expires_at_index",
+            "content_locks_model_type_model_id_unique",
+            "content_locks_user_id_expires_at_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["user_id"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "deletion_batch_records": {
+        "indexes": [
+            "deletion_batch_records_model_type_model_id_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["deletion_batch_id"],
+                "foreign_schema": "main",
+                "foreign_table": "deletion_batches",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "deletion_batches": {
+        "indexes": [
+            "deletion_batches_root_type_root_id_restored_at_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "editor_scratch_drafts": {
+        "indexes": [
+            "editor_scratch_drafts_identity_unique",
+            "editor_scratch_drafts_record_index",
+            "editor_scratch_drafts_user_expiry_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["user_id"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "languages": {
+        "indexes": [
+            "languages_code_unique",
+            "languages_default_index",
+            "languages_default_order_name_index",
+            "languages_order_index",
+            "languages_status_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "layout_content_snapshots": {
+        "indexes": [
+            "layout_content_snapshots_lookup_index",
+            "layout_content_snapshots_taken_at_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["actor_id"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["layout_id"],
+                "foreign_schema": "main",
+                "foreign_table": "layouts",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["theme_id"],
+                "foreign_schema": "main",
+                "foreign_table": "themes",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "layouts": {
+        "indexes": [
+            "layouts_default_index",
+            "layouts_key_deleted_at_unique",
+            "layouts_order_index",
+            "layouts_status_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["theme_id"],
+                "foreign_schema": "main",
+                "foreign_table": "themes",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "metric_collection_runs": {
+        "indexes": [
+            "metric_collection_runs_collector_day_idx",
+            "metric_collection_runs_status_started_idx",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "metric_daily_rollups": {
+        "indexes": [
+            "metric_daily_rollups_identity_unique",
+            "metric_daily_rollups_run_metric_idx",
+            "metric_daily_rollups_site_day_idx",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["metric_collection_run_id"],
+                "foreign_schema": "main",
+                "foreign_table": "metric_collection_runs",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "metric_events": {
+        "indexes": [
+            "metric_events_identity_scope_idx",
+            "metric_events_occurred_id_idx",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "model_has_permissions": {
+        "indexes": [
+            "model_has_permissions_capell_global_team_unique",
+            "model_has_permissions_model_id_model_type_index",
+            "model_has_permissions_team_foreign_key_index"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["permission_id"],
+                "foreign_schema": "main",
+                "foreign_table": "permissions",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "model_has_roles": {
+        "indexes": [
+            "model_has_roles_capell_global_team_unique",
+            "model_has_roles_model_id_model_type_index",
+            "model_has_roles_team_foreign_key_index"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["role_id"],
+                "foreign_schema": "main",
+                "foreign_table": "roles",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "page_property_values": {
+        "indexes": [
+            "page_property_values_identity_unique",
+            "page_property_values_numeric_lookup",
+            "page_property_values_text_lookup",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["page_id"],
+                "foreign_schema": "main",
+                "foreign_table": "pages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["property_definition_id"],
+                "foreign_schema": "main",
+                "foreign_table": "property_definitions",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["referenced_page_id"],
+                "foreign_schema": "main",
+                "foreign_table": "pages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["term_id"],
+                "foreign_schema": "main",
+                "foreign_table": "terms",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["translation_id"],
+                "foreign_schema": "main",
+                "foreign_table": "translations",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "page_revisions": {
+        "indexes": [
+            "page_revisions_page_uuid_occurred_at_index",
+            "page_revisions_page_uuid_version_unique",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["actor_id"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "page_role_restrictions": {
+        "indexes": [
+            "page_role_restrictions_restrictable_type_restrictable_id_index",
+            "primary",
+            "restrictable_role"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["role_id"],
+                "foreign_schema": "main",
+                "foreign_table": "roles",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "page_term": {
+        "indexes": [
+            "page_term_page_position_index",
+            "page_term_pair_unique",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["page_id"],
+                "foreign_schema": "main",
+                "foreign_table": "pages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["term_id"],
+                "foreign_schema": "main",
+                "foreign_table": "terms",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "page_urls": {
+        "indexes": [
+            "page_urls_pageable_type_pageable_id_index",
+            "page_urls_site_language_pageable_index",
+            "page_urls_site_language_url_unique",
+            "page_urls_status_index",
+            "page_urls_type_index",
+            "page_urls_url_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "page_workflow_states": {
+        "indexes": [
+            "page_workflow_states_page_uuid_unique",
+            "page_workflow_states_status_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["approver_id"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "pages": {
+        "indexes": [
+            "pages__lft__rgt_index",
+            "pages__rgt_index",
+            "pages_parent_id__lft_index",
+            "pages_site_id_blueprint_id_index",
+            "pages_site_id_order_index",
+            "pages_site_id_visible_from_index",
+            "pages_site_id_visible_until_index",
+            "pages_uuid_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["blueprint_id"],
+                "foreign_schema": "main",
+                "foreign_table": "blueprints",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["layout_id"],
+                "foreign_schema": "main",
+                "foreign_table": "layouts",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "permissions": {
+        "indexes": ["permissions_name_guard_name_unique", "primary"],
+        "foreign_keys": []
+    },
+    "property_definitions": {
+        "indexes": ["primary", "property_definitions_set_key_unique"],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["property_set_id"],
+                "foreign_schema": "main",
+                "foreign_table": "property_sets",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "property_sets": {
+        "indexes": ["primary", "property_sets_key_unique"],
+        "foreign_keys": []
+    },
+    "redirect_health_snapshots": {
+        "indexes": [
+            "primary",
+            "redirect_health_snapshots_has_chain_has_loop_index",
+            "redirect_health_snapshots_page_url_id_unique"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["page_url_id"],
+                "foreign_schema": "main",
+                "foreign_table": "page_urls",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "role_has_permissions": {
+        "indexes": ["sqlite_autoindex_role_has_permissions_1"],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["permission_id"],
+                "foreign_schema": "main",
+                "foreign_table": "permissions",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["role_id"],
+                "foreign_schema": "main",
+                "foreign_table": "roles",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "roles": {
+        "indexes": [
+            "primary",
+            "roles_capell_global_team_unique",
+            "roles_team_foreign_key_index"
+        ],
+        "foreign_keys": []
+    },
+    "settings": {
+        "indexes": ["primary", "settings_group_name_unique"],
+        "foreign_keys": []
+    },
+    "site_domain_claim_locks": {
+        "indexes": ["primary"],
+        "foreign_keys": []
+    },
+    "site_domains": {
+        "indexes": [
+            "primary",
+            "site_domains_active_routing_identity_unique",
+            "site_domains_domain_scheme_status_index",
+            "site_domains_origin_status_index",
+            "site_domains_site_id_default_index",
+            "site_domains_status_index"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "sites": {
+        "indexes": [
+            "primary",
+            "sites_default_index",
+            "sites_order_index",
+            "sites_status_index",
+            "sites_uuid_unique"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["blueprint_id"],
+                "foreign_schema": "main",
+                "foreign_table": "blueprints",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["theme_id"],
+                "foreign_schema": "main",
+                "foreign_table": "themes",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "snapshots": {
+        "indexes": ["primary", "snapshots_aggregate_uuid_index"],
+        "foreign_keys": []
+    },
+    "stored_events": {
+        "indexes": [
+            "primary",
+            "stored_events_aggregate_uuid_aggregate_version_unique",
+            "stored_events_aggregate_uuid_index",
+            "stored_events_event_class_index"
+        ],
+        "foreign_keys": []
+    },
+    "taxonomies": {
+        "indexes": ["primary", "taxonomies_site_key_unique"],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["property_set_id"],
+                "foreign_schema": "main",
+                "foreign_table": "property_sets",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["site_id"],
+                "foreign_schema": "main",
+                "foreign_table": "sites",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "term_property_values": {
+        "indexes": [
+            "primary",
+            "term_property_values_identity_unique",
+            "term_property_values_numeric_lookup",
+            "term_property_values_text_lookup"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["property_definition_id"],
+                "foreign_schema": "main",
+                "foreign_table": "property_definitions",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["referenced_page_id"],
+                "foreign_schema": "main",
+                "foreign_table": "pages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["referenced_term_id"],
+                "foreign_schema": "main",
+                "foreign_table": "terms",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["term_id"],
+                "foreign_schema": "main",
+                "foreign_table": "terms",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "terms": {
+        "indexes": [
+            "primary",
+            "terms_taxonomy_parent_index",
+            "terms_taxonomy_slug_unique"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["parent_id"],
+                "foreign_schema": "main",
+                "foreign_table": "terms",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["taxonomy_id"],
+                "foreign_schema": "main",
+                "foreign_table": "taxonomies",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "themes": {
+        "indexes": [
+            "primary",
+            "themes_active_key_unique",
+            "themes_default_index",
+            "themes_key_deleted_at_unique",
+            "themes_order_index",
+            "themes_status_index"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["blueprint_id"],
+                "foreign_schema": "main",
+                "foreign_table": "blueprints",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "translations": {
+        "indexes": [
+            "primary",
+            "translations_key_unique",
+            "translations_translatable_type_translatable_id_index"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["created_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["deleted_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
+                "columns": ["updated_by"],
+                "foreign_schema": "main",
+                "foreign_table": "users",
+                "foreign_columns": ["id"]
+            }
+        ]
+    }
+}

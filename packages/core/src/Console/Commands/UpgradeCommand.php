@@ -13,6 +13,7 @@ use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\UpgradeRunOptions;
 use Capell\Core\Enums\Upgrade\UpgradeRunStatus;
 use Capell\Core\Models\UpgradeRun;
+use Capell\Core\Support\TableName;
 use Capell\Core\Support\Upgrade\AggregateUpgradeReporter;
 use Capell\Core\Support\Upgrade\ConsoleUpgradeReporter;
 use Capell\Core\Support\Upgrade\DatabaseUpgradeReporter;
@@ -140,7 +141,7 @@ class UpgradeCommand extends Command
 
     private function createDurableRun(UpgradeRunOptions $options): ?UpgradeRun
     {
-        if (! Schema::hasTable('capell_upgrade_runs') || ! Schema::hasTable('capell_upgrade_run_events')) {
+        if (! Schema::hasTable(TableName::resolve('capell_upgrade_runs')) || ! Schema::hasTable(TableName::resolve('capell_upgrade_run_events'))) {
             return null;
         }
 

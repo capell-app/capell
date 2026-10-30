@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -23,7 +24,7 @@ return new class extends Migration
                 ->foreignId('preferred_admin_language_id')
                 ->nullable()
                 ->after('email')
-                ->constrained('languages')
+                ->constrained(TableName::resolve('languages'))
                 ->nullOnDelete();
         });
     }

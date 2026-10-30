@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\PagePropertyValueFactory;
 use Capell\Core\Models\Concerns\HasPublishDates;
 use Carbon\CarbonImmutable;
@@ -41,6 +42,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 final class PagePropertyValue extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<PagePropertyValueFactory> */
     use HasFactory;
 

@@ -1294,6 +1294,35 @@
                                     </div>
                                 </div>
                             </fieldset>
+                            <fieldset
+                                class="panel-body"
+                                data-installer-step="options"
+                                hidden
+                            >
+                                <legend>
+                                    {{ __('capell-installer::installer.table_names_title') }}
+                                </legend>
+                                <p class="section-help">{{ __('capell-installer::installer.table_names_help') }}</p>
+                                <label
+                                    for="table_prefix"
+                                    >{{ __('capell-installer::installer.table_prefix') }}</label
+                                >
+                                <input
+                                    id="table_prefix"
+                                    name="table_prefix"
+                                    type="text"
+                                    value="{{ old('table_prefix') }}"
+                                />
+                                <label
+                                    for="table_aliases"
+                                    >{{ __('capell-installer::installer.table_aliases') }}</label
+                                >
+                                <textarea
+                                    id="table_aliases"
+                                    name="table_aliases"
+                                    >{{ old('table_aliases') }}</textarea
+                                >
+                            </fieldset>
                         </div>
 
                         <section

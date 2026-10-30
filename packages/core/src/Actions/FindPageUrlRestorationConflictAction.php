@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\JoinClause;
@@ -28,16 +29,16 @@ final class FindPageUrlRestorationConflictAction
         $urls = $urlsToRestore->pluck('url')->unique()->all();
         // Let SQL compare route keys using the same collation as normal routing.
         $conflict = PageUrl::on($url->getConnectionName())->withTrashed()
-            ->whereIn('page_urls.url', $urls)->where('page_urls.status', true)
-            ->where(fn (Builder $query): Builder => $query->whereNull('page_urls.deleted_at')->orWhereIn('page_urls.id', $urlsToRestore->modelKeys()))
-            ->join('page_urls as restoring_urls', function (JoinClause $join): void {
-                $join->on('page_urls.site_id', '=', 'restoring_urls.site_id')
-                    ->on('page_urls.language_id', '=', 'restoring_urls.language_id')
-                    ->on('page_urls.url', '=', 'restoring_urls.url')
-                    ->on('page_urls.id', '!=', 'restoring_urls.id');
+            ->whereIn(TableName::resolve('page_urls') . '.url', $urls)->where(TableName::resolve('page_urls') . '.status', true)
+            ->where(fn (Builder $query): Builder => $query->whereNull(TableName::resolve('page_urls') . '.deleted_at')->orWhereIn(TableName::resolve('page_urls') . '.id', $urlsToRestore->modelKeys()))
+            ->join(TableName::resolve('page_urls') . ' as restoring_urls', function (JoinClause $join): void {
+                $join->on(TableName::resolve('page_urls') . '.site_id', '=', 'restoring_urls.site_id')
+                    ->on(TableName::resolve('page_urls') . '.language_id', '=', 'restoring_urls.language_id')
+                    ->on(TableName::resolve('page_urls') . '.url', '=', 'restoring_urls.url')
+                    ->on(TableName::resolve('page_urls') . '.id', '!=', 'restoring_urls.id');
             })
             ->whereIn('restoring_urls.id', $urlsToRestore->modelKeys())
-            ->select(['restoring_urls.*', 'page_urls.pageable_id as conflicting_page_id'])
+            ->select(['restoring_urls.*', TableName::resolve('page_urls') . '.pageable_id as conflicting_page_id'])
             ->lockForUpdate()->first();
 
         return $conflict;

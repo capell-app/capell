@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Concerns\HasCapellMedia;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Database\Factories\SiteFactory;
 use Capell\Core\Enums\CacheEnum;
@@ -135,6 +136,7 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
     use Cloneable;
     use HasBlueprint;
     use HasCapellMedia;
+    use HasCapellTable;
 
     /** @use HasDefault<Site> */
     use HasDefault;

@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Dashboard;
 
 use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 final class NullDashboardAnalyticsDataProvider implements DashboardAnalyticsDataProvider
@@ -18,6 +19,7 @@ final class NullDashboardAnalyticsDataProvider implements DashboardAnalyticsData
             searches: 0,
             activePages: 0,
             collecting: false,
+            availability: DashboardAnalyticsAvailabilityEnum::NotConfigured,
         );
     }
 }

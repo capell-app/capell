@@ -18,6 +18,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Properties\PropertyValuePrecedenceExpression;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -44,7 +45,7 @@ final class QueryPagesByPropertiesAction
         $attachments = BlueprintPropertySet::query()->where('property_set_id', $set->id)->get();
         $query = Page::query()->published()
             ->whereHas('blueprint', static fn (Builder $blueprint): Builder => $blueprint->enabled()->accessible())
-            ->where('pages.site_id', $site->id)
+            ->where(TableName::resolve('pages') . '.site_id', $site->id)
             ->where(function (Builder $eligible) use ($attachments, $set, $site): void {
                 $eligible->whereIn('blueprint_id', $attachments->pluck('blueprint_id'))
                     ->orWhereHas('terms.taxonomy', static fn (Builder $taxonomy): Builder => $taxonomy
@@ -102,7 +103,7 @@ final class QueryPagesByPropertiesAction
             }
         }
 
-        return $query->orderBy('pages.id')->paginate($input->size, ['pages.*'], 'page[number]', $input->page);
+        return $query->orderBy(TableName::resolve('pages') . '.id')->paginate($input->size, [TableName::resolve('pages') . '.*'], 'page[number]', $input->page);
     }
 
     /**
@@ -148,17 +149,17 @@ final class QueryPagesByPropertiesAction
     private function pageValues(PropertyDefinition $definition, ?int $languageId): Builder
     {
         $values = PagePropertyValue::query()
-            ->whereColumn('page_property_values.page_id', 'pages.id')
-            ->whereColumn('page_property_values.site_id', 'pages.site_id')
+            ->whereColumn(TableName::resolve('page_property_values') . '.page_id', TableName::resolve('pages') . '.id')
+            ->whereColumn(TableName::resolve('page_property_values') . '.site_id', TableName::resolve('pages') . '.site_id')
             ->where('property_definition_id', $definition->id);
         if ($definition->localised) {
             if ($languageId === null) {
                 $values->whereNull('translation_id');
             } else {
                 $values->where(function (Builder $selected) use ($languageId): void {
-                    $selected->whereExists($this->translationForValue('page_property_values', $languageId))
+                    $selected->whereExists($this->translationForValue(TableName::resolve('page_property_values'), $languageId))
                         ->orWhere(function (Builder $fallback) use ($languageId): void {
-                            $fallback->whereNull('translation_id')->whereNotExists($this->preferredPageValue('page_property_values', $languageId));
+                            $fallback->whereNull('translation_id')->whereNotExists($this->preferredPageValue(TableName::resolve('page_property_values'), $languageId));
                         });
                 });
             }
@@ -167,16 +168,16 @@ final class QueryPagesByPropertiesAction
         if (! $definition->multiple) {
             // Match the resolver's deterministic scalar winner, even if legacy
             // nullable identities contain more than one row.
-            $values->where('page_property_values.id', function (QueryBuilder $first) use ($definition): void {
-                $first->select('first_values.id')->from('page_property_values as first_values')
-                    ->whereColumn('first_values.page_id', 'pages.id')
-                    ->whereColumn('first_values.site_id', 'pages.site_id')
+            $values->where(TableName::resolve('page_property_values') . '.id', function (QueryBuilder $first) use ($definition): void {
+                $first->select('first_values.id')->from(TableName::resolve('page_property_values') . ' as first_values')
+                    ->whereColumn('first_values.page_id', TableName::resolve('pages') . '.id')
+                    ->whereColumn('first_values.site_id', TableName::resolve('pages') . '.site_id')
                     ->where('first_values.property_definition_id', $definition->id);
                 if ($definition->localised) {
                     $first->where(function (QueryBuilder $locale): void {
-                        $locale->whereColumn('first_values.translation_id', 'page_property_values.translation_id')
+                        $locale->whereColumn('first_values.translation_id', TableName::resolve('page_property_values') . '.translation_id')
                             ->orWhere(function (QueryBuilder $default): void {
-                                $default->whereNull('first_values.translation_id')->whereNull('page_property_values.translation_id');
+                                $default->whereNull('first_values.translation_id')->whereNull(TableName::resolve('page_property_values') . '.translation_id');
                             });
                     });
                 }
@@ -192,21 +193,21 @@ final class QueryPagesByPropertiesAction
     private function translationForValue(string $valueAlias, int $languageId): Builder
     {
         return Translation::query()
-            ->whereColumn('translations.id', $valueAlias . '.translation_id')
-            ->whereColumn('translations.translatable_id', $valueAlias . '.page_id')
-            ->where('translations.translatable_type', TranslatableType::Page->value)
-            ->where('translations.language_id', $languageId);
+            ->whereColumn(TableName::resolve('translations') . '.id', $valueAlias . '.translation_id')
+            ->whereColumn(TableName::resolve('translations') . '.translatable_id', $valueAlias . '.page_id')
+            ->where(TableName::resolve('translations') . '.translatable_type', TranslatableType::Page->value)
+            ->where(TableName::resolve('translations') . '.language_id', $languageId);
     }
 
     /** @return Builder<PagePropertyValue> */
     private function preferredPageValue(string $valueAlias, int $languageId): Builder
     {
-        return PagePropertyValue::query()->from('page_property_values as preferred_values')
+        return PagePropertyValue::query()->from(TableName::resolve('page_property_values') . ' as preferred_values')
             ->whereColumn('preferred_values.page_id', $valueAlias . '.page_id')
             ->whereColumn('preferred_values.site_id', $valueAlias . '.site_id')
             ->whereColumn('preferred_values.property_definition_id', $valueAlias . '.property_definition_id')
             ->whereExists(function (QueryBuilder $translations) use ($languageId): void {
-                $translations->selectRaw('1')->from('translations as preferred_translations')
+                $translations->selectRaw('1')->from(TableName::resolve('translations') . ' as preferred_translations')
                     ->whereColumn('preferred_translations.id', 'preferred_values.translation_id')
                     ->whereColumn('preferred_translations.translatable_id', 'preferred_values.page_id')
                     ->where('preferred_translations.translatable_type', TranslatableType::Page->value)
@@ -217,20 +218,20 @@ final class QueryPagesByPropertiesAction
     /** @return Builder<TermPropertyValue> */
     private function winningTermValue(PropertyDefinition $definition): Builder
     {
-        return TermPropertyValue::query()->from('term_property_values as term_values')
-            ->join('page_term as term_assignments', 'term_assignments.term_id', '=', 'term_values.term_id')
-            ->join('terms as inherited_terms', 'inherited_terms.id', '=', 'term_values.term_id')
-            ->join('taxonomies as inherited_taxonomies', 'inherited_taxonomies.id', '=', 'inherited_terms.taxonomy_id')
-            ->whereColumn('term_assignments.page_id', 'pages.id')
-            ->whereColumn('inherited_taxonomies.site_id', 'pages.site_id')
+        return TermPropertyValue::query()->from(TableName::resolve('term_property_values') . ' as term_values')
+            ->join(TableName::resolve('page_term') . ' as term_assignments', 'term_assignments.term_id', '=', 'term_values.term_id')
+            ->join(TableName::resolve('terms') . ' as inherited_terms', 'inherited_terms.id', '=', 'term_values.term_id')
+            ->join(TableName::resolve('taxonomies') . ' as inherited_taxonomies', 'inherited_taxonomies.id', '=', 'inherited_terms.taxonomy_id')
+            ->whereColumn('term_assignments.page_id', TableName::resolve('pages') . '.id')
+            ->whereColumn('inherited_taxonomies.site_id', TableName::resolve('pages') . '.site_id')
             ->where('term_values.property_definition_id', $definition->id)
             ->whereNotExists(function (QueryBuilder $earlier) use ($definition): void {
-                $earlier->selectRaw('1')->from('term_property_values as earlier_values')
-                    ->join('page_term as earlier_assignments', 'earlier_assignments.term_id', '=', 'earlier_values.term_id')
-                    ->join('terms as earlier_terms', 'earlier_terms.id', '=', 'earlier_values.term_id')
-                    ->join('taxonomies as earlier_taxonomies', 'earlier_taxonomies.id', '=', 'earlier_terms.taxonomy_id')
-                    ->whereColumn('earlier_assignments.page_id', 'pages.id')
-                    ->whereColumn('earlier_taxonomies.site_id', 'pages.site_id')
+                $earlier->selectRaw('1')->from(TableName::resolve('term_property_values') . ' as earlier_values')
+                    ->join(TableName::resolve('page_term') . ' as earlier_assignments', 'earlier_assignments.term_id', '=', 'earlier_values.term_id')
+                    ->join(TableName::resolve('terms') . ' as earlier_terms', 'earlier_terms.id', '=', 'earlier_values.term_id')
+                    ->join(TableName::resolve('taxonomies') . ' as earlier_taxonomies', 'earlier_taxonomies.id', '=', 'earlier_terms.taxonomy_id')
+                    ->whereColumn('earlier_assignments.page_id', TableName::resolve('pages') . '.id')
+                    ->whereColumn('earlier_taxonomies.site_id', TableName::resolve('pages') . '.site_id')
                     ->where('earlier_values.property_definition_id', $definition->id)
                     ->where(function (QueryBuilder $order) use ($definition): void {
                         $order->whereColumn('earlier_taxonomies.position', '<', 'inherited_taxonomies.position')

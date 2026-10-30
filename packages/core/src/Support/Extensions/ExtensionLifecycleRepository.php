@@ -11,6 +11,7 @@ use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Collection;
 use Throwable;
 
@@ -265,7 +266,7 @@ final class ExtensionLifecycleRepository
     private function tableExists(bool $refresh = false): bool
     {
         return app()->bound('db')
-            && $this->schemaState->hasTable('capell_extensions', refresh: $refresh);
+            && $this->schemaState->hasTable(TableName::resolve('capell_extensions'), refresh: $refresh);
     }
 
     private function writableTableExists(): bool

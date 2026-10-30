@@ -11,8 +11,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        apt-transport-https ca-certificates curl dnsutils git gnupg gosu imagemagick \
-        libcap2-bin lsb-release mariadb-client openssh-client sqlite3 unzip wget zip zsh \
+        apt-transport-https ca-certificates curl dnsutils git gnupg gosu imagemagick jq \
+        libcap2-bin lsb-release mariadb-client openssh-client rsync sqlite3 unzip wget zip zsh \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/keyrings/sury-php.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/sury-php.gpg] https://packages.sury.org/php/ bookworm main" > /etc/apt/sources.list.d/sury-php.list \

@@ -7,9 +7,13 @@ namespace Capell\Core\Actions\Backup;
 use Capell\Core\Data\Backup\BackupArtifactData;
 use Capell\Core\Data\Backup\BackupManifestData;
 use Capell\Core\Data\Backup\BackupRestoreResultData;
+use Capell\Core\Data\Backup\ScratchRestoreFailureData;
+use Capell\Core\Enums\Backup\ScratchRestoreStage;
+use Capell\Core\Exceptions\Backup\ScratchRestoreFailedException;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\Install\InstallReportRedactor;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
@@ -17,6 +21,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemManager;
 use Illuminate\Filesystem\LocalFilesystemAdapter;
 use InvalidArgumentException;
+use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Normalizer;
@@ -90,8 +95,21 @@ final class RestoreBackupAction
                 $scratchDatabase,
             );
             $temporaryFiles->release($databaseArtifact);
-            $mediaFiles = $this->restoreMedia($manifest, $mediaDisk, $mediaPrefix, $temporaryFiles);
-            $doctorStatus = $this->runDoctor($manifest->connectionName, $restoredDatabase);
+            $mediaFiles = 0;
+
+            try {
+                $this->restoreMedia($manifest, $mediaDisk, $mediaPrefix, $temporaryFiles, $mediaFiles);
+            } catch (Throwable $throwable) {
+                $reason = $this->redact($throwable->getMessage(), $manifest->connectionName);
+
+                throw new ScratchRestoreFailedException(
+                    (string) __('capell-core::backup.restore_media_failed', ['restored' => $mediaFiles, 'expected' => count($manifest->media), 'reason' => $reason]),
+                    new ScratchRestoreFailureData(ScratchRestoreStage::Media, $snapshotId, $restoredDatabase, $mediaDisk, $mediaPrefix, $mediaFiles, count($manifest->media), $reason),
+                    $throwable,
+                );
+            }
+
+            $doctorStatus = $this->runDoctor($manifest, $snapshotId, $restoredDatabase, $mediaDisk, $mediaPrefix, $mediaFiles);
 
             return new BackupRestoreResultData($snapshotId, $restoredDatabase, $mediaFiles, $doctorStatus);
         } finally {
@@ -281,9 +299,10 @@ final class RestoreBackupAction
         ?string $mediaDisk,
         ?string $mediaPrefix,
         BackupTemporaryFiles $temporaryFiles,
-    ): int {
+        int &$restored,
+    ): void {
         if ($manifest->media === []) {
-            return 0;
+            return;
         }
 
         throw_if($mediaDisk === null || $mediaPrefix === null, RuntimeException::class, 'Scratch media target was not validated.');
@@ -309,13 +328,30 @@ final class RestoreBackupAction
             }
 
             $temporaryFiles->release($temporaryPath);
+            $restored = $index + 1;
         }
-
-        return count($manifest->media);
     }
 
-    private function runDoctor(string $connectionName, string $restoredDatabase): string
-    {
+    private function runDoctor(
+        BackupManifestData $manifest,
+        string $snapshotId,
+        string $restoredDatabase,
+        ?string $mediaDisk,
+        ?string $mediaPrefix,
+        int $mediaFiles,
+    ): string {
+        $base = new ScratchRestoreFailureData(
+            ScratchRestoreStage::Doctor,
+            $snapshotId,
+            $restoredDatabase,
+            $mediaDisk,
+            $mediaPrefix,
+            $mediaFiles,
+            count($manifest->media),
+            '',
+        );
+        $connection = $manifest->connectionName;
+
         try {
             $process = $this->processes->make(
                 [
@@ -323,22 +359,103 @@ final class RestoreBackupAction
                     base_path('artisan'),
                     'capell:doctor',
                     '--json',
-                    '--connection=' . $connectionName,
+                    '--connection=' . $connection,
                     '--database=' . $restoredDatabase,
                 ],
                 base_path(),
                 ArtisanProcessEnvironment::prepare(),
             );
             $process->setTimeout(max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600)));
-            $process->mustRun();
-            $report = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            throw new RuntimeException('Scratch restore doctor verification failed.');
+            $process->run();
+        } catch (Throwable $throwable) {
+            $reason = $this->redact($throwable->getMessage(), $connection);
+
+            throw new ScratchRestoreFailedException(
+                (string) __('capell-core::backup.restore_doctor_process_failed', ['exit' => 'n/a', 'reason' => $reason]),
+                $base->withDoctorResult('process', $reason),
+                $throwable,
+            );
         }
 
-        throw_if(! is_array($report) || ($report['status'] ?? null) !== 'passed', RuntimeException::class, 'Scratch restore doctor verification failed.');
+        $exitCode = $process->getExitCode();
 
-        return 'passed';
+        try {
+            $report = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            $report = null;
+        }
+
+        if (! is_array($report) || ! isset($report['status'])) {
+            $kind = $process->isSuccessful() ? 'invalid_json' : 'process';
+            $reason = $this->redact(trim($process->getErrorOutput()) !== '' ? $process->getErrorOutput() : $process->getOutput(), $connection);
+
+            throw new ScratchRestoreFailedException(
+                $kind === 'process'
+                    ? (string) __('capell-core::backup.restore_doctor_process_failed', ['exit' => (string) $exitCode, 'reason' => $reason])
+                    : (string) __('capell-core::backup.restore_doctor_invalid_json', ['exit' => (string) $exitCode, 'reason' => $reason]),
+                $base->withDoctorResult($kind, $reason, $exitCode),
+            );
+        }
+
+        if ($report['status'] === 'passed' && $process->isSuccessful()) {
+            return 'passed';
+        }
+
+        $failedChecks = $this->failedChecks($report, $connection);
+
+        if ($failedChecks === []) {
+            $reason = $this->redact($process->getErrorOutput(), $connection);
+
+            throw new ScratchRestoreFailedException(
+                (string) __('capell-core::backup.restore_doctor_process_failed', ['exit' => (string) $exitCode, 'reason' => $reason]),
+                $base->withDoctorResult('process', $reason, $exitCode),
+            );
+        }
+
+        throw new ScratchRestoreFailedException(
+            (string) __('capell-core::backup.restore_doctor_checks_failed', ['count' => count($failedChecks)]),
+            $base->withDoctorResult('checks', '', $exitCode, $failedChecks),
+        );
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $report
+     * @return list<array{id: string, label: string, message: string, remediation: string|null}>
+     */
+    private function failedChecks(array $report, string $connectionName): array
+    {
+        $checks = is_array($report['checks'] ?? null) ? $report['checks'] : [];
+        $failed = [];
+
+        foreach ($checks as $check) {
+            if (! is_array($check)) {
+                continue;
+            }
+
+            if (($check['passed'] ?? true) !== false) {
+                continue;
+            }
+
+            $remediation = $check['remediation'] ?? null;
+            $failed[] = [
+                'id' => $this->redact(is_string($check['id'] ?? null) ? $check['id'] : 'unknown', $connectionName),
+                'label' => $this->redact(is_string($check['label'] ?? null) ? $check['label'] : 'Unnamed check', $connectionName),
+                'message' => $this->redact(is_string($check['message'] ?? null) ? $check['message'] : '', $connectionName),
+                'remediation' => is_string($remediation) ? $this->redact($remediation, $connectionName) : null,
+            ];
+        }
+
+        return $failed;
+    }
+
+    /** Redact credentials and bound the length of text taken from a failed child process. */
+    private function redact(string $text, string $connectionName): string
+    {
+        $password = $this->config->get(sprintf('database.connections.%s.password', $connectionName));
+        $secrets = is_string($password) && $password !== '' ? [$password] : [];
+        $redacted = InstallReportRedactor::redact(trim($text), $secrets);
+
+        return mb_strimwidth(is_string($redacted) ? $redacted : '', 0, 600, '...');
     }
 
     private function safeRelativePath(string $path): bool

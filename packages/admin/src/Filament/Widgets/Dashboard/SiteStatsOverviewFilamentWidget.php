@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Widgets\Dashboard;
 
+use Capell\Admin\Actions\Dashboard\ResolveDashboardPeriodWindowsAction;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\SiteStatsData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
+use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Override;
@@ -41,6 +44,35 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
             $this->makePendingStat($data),
             $this->makeExpiredStat($data),
         ];
+    }
+
+    #[Override]
+    protected function getDescription(): string
+    {
+        $windows = ResolveDashboardPeriodWindowsAction::make();
+        $period = $this->getDashboardPeriod();
+
+        return implode(' ', [
+            $this->scopeDescription(),
+            __('capell-admin::dashboard.window_published', ['window' => $windows->describeCalendar($period)]),
+            __('capell-admin::dashboard.window_current_counts'),
+        ]);
+    }
+
+    /**
+     * These counts always cover every site the person can access. When the
+     * dashboard is filtered to one site, say so rather than imply the filter applies.
+     */
+    private function scopeDescription(): string
+    {
+        $siteId = $this->getDashboardSiteId();
+        $site = $siteId === null || $siteId < 1
+            ? null
+            : SiteAccess::current()->query(Site::class)->find($siteId);
+
+        return $site instanceof Site
+            ? (string) __('capell-admin::dashboard.scope_other_site', ['site' => $site->name])
+            : (string) __('capell-admin::dashboard.scope_all_sites');
     }
 
     private function makeWorkQueueStat(SiteStatsData $data): Stat

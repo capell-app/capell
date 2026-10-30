@@ -371,13 +371,7 @@ final class BuildDashboardAnalyticsSnapshotAction
 
     private function periodDays(string $period): int
     {
-        return match ($period) {
-            'today' => 1,
-            'this_week' => 7,
-            'this_month', 'last_30_days' => 30,
-            'this_year' => 365,
-            default => max(1, min(365, AdminSettings::instance()->analytics_default_period_days)),
-        };
+        return ResolveDashboardPeriodWindowsAction::make()->rollingDays($period);
     }
 
     private function topLimit(): int

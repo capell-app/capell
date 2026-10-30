@@ -8,6 +8,7 @@ use Capell\Core\Data\Marketplace\ExtensionHealthReportData;
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\TableName;
 use Illuminate\Foundation\Application;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -90,6 +91,6 @@ final class BuildExtensionHealthReportAction
             return SchemaProbeResult::Absent;
         }
 
-        return resolve(RuntimeSchemaState::class)->tableResult('capell_extensions');
+        return resolve(RuntimeSchemaState::class)->tableResult(TableName::resolve('capell_extensions'));
     }
 }

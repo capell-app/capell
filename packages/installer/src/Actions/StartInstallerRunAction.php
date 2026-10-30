@@ -37,6 +37,7 @@ final class StartInstallerRunAction
         string $installId,
         InstallInputData $inputData,
         InstallerRunMode $mode,
+        array $tableChanges = [],
     ): InstallerRunStartData {
         if ($inputData->freshInstall) {
             throw ValidationException::withMessages(['fresh_install' => __('capell-installer::installer.fresh_install_cli_only')]);
@@ -44,12 +45,12 @@ final class StartInstallerRunAction
 
         return match ($mode) {
             InstallerRunMode::BrowserSteps => $this->startBrowserSteps($installId, $inputData),
-            InstallerRunMode::Queued => $this->startQueued($installId, $inputData),
+            InstallerRunMode::Queued => $this->startQueued($installId, $inputData, $tableChanges),
             InstallerRunMode::Synchronous => $this->startSynchronous($installId, $inputData),
         };
     }
 
-    private function startQueued(string $installId, InstallInputData $inputData): InstallerRunStartData
+    private function startQueued(string $installId, InstallInputData $inputData, array $tableChanges): InstallerRunStartData
     {
         AssertQueueConnectionReadyAction::run();
 
@@ -64,7 +65,7 @@ final class StartInstallerRunAction
             }
         });
 
-        dispatch(new RunCapellInstallJob($inputData, $installId));
+        dispatch(new RunCapellInstallJob($inputData, $installId, $tableChanges));
 
         return new InstallerRunStartData(
             installId: $installId,

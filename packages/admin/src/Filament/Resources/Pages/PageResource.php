@@ -45,6 +45,7 @@ use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Filament\Widgets\Widget;
@@ -392,7 +393,7 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
             parse_url((string) config('app.url'), PHP_URL_HOST),
         );
 
-        $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
+        $query->whereColumn(TableName::resolve('site_domains') . '.language_id', TableName::resolve('page_urls') . '.language_id');
 
         new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%%%s%%', $search)])
             ->applyWhere($query->getQuery());

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,7 +11,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('metric_collection_runs', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('metric_collection_runs'), function (Blueprint $table): void {
             $table->id();
             $table->date('day');
             $table->string('owner_package', 191);
@@ -26,14 +27,14 @@ return new class extends Migration
 
             $table->index(
                 ['day', 'owner_package', 'collector_key'],
-                'metric_collection_runs_collector_day_idx',
+                TableName::namedIndex('metric_collection_runs', 'metric_collection_runs_collector_day_idx'),
             );
-            $table->index(['status', 'started_at'], 'metric_collection_runs_status_started_idx');
+            $table->index(['status', 'started_at'], TableName::namedIndex('metric_collection_runs', 'metric_collection_runs_status_started_idx'));
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('metric_collection_runs');
+        Schema::dropIfExists(TableName::resolve('metric_collection_runs'));
     }
 };

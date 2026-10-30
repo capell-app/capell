@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 return [
+    'table_names_title' => 'Existing database tables',
+    'table_names_help' => 'If the review reports existing tables, enter a prefix or one alias per line in the form pages=cms_pages. Leave both empty when there are no collisions.',
+    'table_prefix' => 'Table prefix',
+    'table_aliases' => 'Table aliases',
+    'table_names_review' => 'Table name configuration',
     'unlock' => 'Continue to installer',
     'review_loading' => 'Preparing installation review…',
     'review_changed' => 'Settings changed while the review was loading. Review the installation again.',

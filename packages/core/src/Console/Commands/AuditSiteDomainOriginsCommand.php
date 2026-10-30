@@ -6,6 +6,7 @@ namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
+use Capell\Core\Support\TableName;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +19,7 @@ final class AuditSiteDomainOriginsCommand extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('site_domains')) {
+        if (! Schema::hasTable(TableName::resolve('site_domains'))) {
             if ($this->option('json')) {
                 $this->line(json_encode(['conflicts' => []], JSON_THROW_ON_ERROR));
             } else {

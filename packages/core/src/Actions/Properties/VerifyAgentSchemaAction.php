@@ -13,6 +13,7 @@ use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Support\Properties\BuiltInPropertySets;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -30,6 +31,7 @@ final class VerifyAgentSchemaAction
             $failures[] = ['check' => $check, 'subject' => $subject, 'problem' => $problem];
         };
         foreach (['sites', 'pages', 'blueprint_property_sets', 'capell_extensions', 'property_sets', 'property_definitions', 'page_property_values', 'term_property_values'] as $table) {
+            $table = TableName::resolve($table);
             if (! Schema::hasTable($table)) {
                 $fail('schema', $table, 'Required table is missing.');
             }
