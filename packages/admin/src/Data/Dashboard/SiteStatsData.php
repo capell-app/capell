@@ -16,5 +16,7 @@ final class SiteStatsData extends Data
         public readonly int $pendingCount = 0,
         public readonly int $expiredCount = 0,
         public readonly int $totalPagesCount = 0,
+        /** True when the counts honour the dashboard site selection and rolling window. */
+        public readonly bool $scoped = false,
     ) {}
 }

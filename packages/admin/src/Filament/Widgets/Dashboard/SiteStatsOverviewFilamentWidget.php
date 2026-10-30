@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Widgets\Dashboard;
 
+use Capell\Admin\Actions\Dashboard\ResolveDashboardPeriodWindowsAction;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\SiteStatsData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
+use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Override;
+use Throwable;
 
 final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implements CapellFilamentWidgetContract
 {
@@ -33,7 +37,19 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
     #[Override]
     protected function getStats(): array
     {
-        $data = resolve(AdminDashboardDataRequestCache::class)->siteStats($this->getDashboardPeriod());
+        $data = $this->siteStats();
+
+        if (! $data instanceof SiteStatsData) {
+            return array_map(
+                static fn (string $label): Stat => Stat::make(__($label), (string) __('capell-admin::dashboard.overview_stat_unavailable')),
+                [
+                    'capell-admin::dashboard.stat_work_queue',
+                    'capell-admin::dashboard.stat_published',
+                    'capell-admin::dashboard.stat_scheduled',
+                    'capell-admin::dashboard.stat_expired',
+                ],
+            );
+        }
 
         return [
             $this->makeWorkQueueStat($data),
@@ -41,6 +57,81 @@ final class SiteStatsOverviewFilamentWidget extends StatsOverviewWidget implemen
             $this->makePendingStat($data),
             $this->makeExpiredStat($data),
         ];
+    }
+
+    #[Override]
+    protected function getDescription(): string
+    {
+        $data = $this->siteStats();
+
+        if (! $data instanceof SiteStatsData) {
+            return (string) __('capell-admin::dashboard.site_stats_unavailable_description');
+        }
+
+        if (! $data->scoped) {
+            // A provider that predates scoped statistics ignores the site filter and states no window.
+            return implode(' ', [$this->legacyScopeDescription(), __('capell-admin::dashboard.window_current_counts')]);
+        }
+
+        return implode(' ', [
+            $this->scopeDescription(),
+            ResolveDashboardPeriodWindowsAction::make()->describePublishedRolling($this->getDashboardPeriod()),
+            __('capell-admin::dashboard.window_current_counts'),
+        ]);
+    }
+
+    /**
+     * A failing provider must not take the dashboard down or read as zero activity.
+     */
+    private function siteStats(): ?SiteStatsData
+    {
+        try {
+            return resolve(AdminDashboardDataRequestCache::class)->siteStats($this->getDashboardPeriod(), $this->getDashboardSiteId());
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return null;
+        }
+    }
+
+    private function selectedSite(): ?Site
+    {
+        $siteId = $this->getDashboardSiteId();
+
+        return $siteId === null || $siteId < 1
+            ? null
+            : SiteAccess::current()->query(Site::class)->find($siteId);
+    }
+
+    /**
+     * The counts follow the dashboard site selection; an unavailable site is
+     * named as such rather than silently widened to every site.
+     */
+    private function scopeDescription(): string
+    {
+        $siteId = $this->getDashboardSiteId();
+
+        if ($siteId === null) {
+            return (string) __('capell-admin::dashboard.scope_applied_all_sites');
+        }
+
+        $site = $this->selectedSite();
+
+        return $site instanceof Site
+            ? (string) __('capell-admin::dashboard.scope_applied_site', ['site' => $site->name])
+            : (string) __('capell-admin::dashboard.scope_site_unavailable');
+    }
+
+    /**
+     * A provider without scoped support always counts every accessible site.
+     */
+    private function legacyScopeDescription(): string
+    {
+        $site = $this->selectedSite();
+
+        return $site instanceof Site
+            ? (string) __('capell-admin::dashboard.scope_other_site', ['site' => $site->name])
+            : (string) __('capell-admin::dashboard.scope_all_sites');
     }
 
     private function makeWorkQueueStat(SiteStatsData $data): Stat

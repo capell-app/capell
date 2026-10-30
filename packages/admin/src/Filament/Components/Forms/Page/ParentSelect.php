@@ -12,6 +12,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Utilities\Get;
@@ -195,11 +196,11 @@ class ParentSelect extends PageSelect
 
             $base = $base->when(
                 $operation !== 'replicate',
-                fn (Builder $q): Builder => $q->where('pages.id', '!=', $record->id),
+                fn (Builder $q): Builder => $q->where(TableName::resolve('pages') . '.id', '!=', $record->id),
             )
                 ->when(
                     $descendantIds !== null && count($descendantIds) > 0,
-                    fn (Builder $q): Builder => $q->whereNotIn('pages.id', $descendantIds),
+                    fn (Builder $q): Builder => $q->whereNotIn(TableName::resolve('pages') . '.id', $descendantIds),
                 );
         }
 

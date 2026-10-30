@@ -237,8 +237,8 @@ task is active in the same worktree:
   commits the **whole index**, including unrelated files staged in that checkout.
 - For a new file, `git add -N <path>` first, or the pathspec commit errors.
 - Verify immediately with `git show --stat`: the file count must match your pathspec.
-- Commit each slice as its edits land rather than batching until the end. Isolation
-  protects you from other sessions; frequent commits protect you from everything else.
+- Verify the intended slice, inspect the staged paths and commit only that slice.
+  Isolation protects you from other sessions; it does not replace verification.
 
 ### Shared checkouts
 
@@ -248,14 +248,45 @@ uncommitted edits, so:
 
 - Run `git branch --show-current` immediately before every commit. The checkout can be
   switched to another feature branch mid-session; note which branch a commit landed on.
-- Commit each slice as soon as its edits land, before verification. Batch verification
-  only inside your own worktree.
-- The pre-commit framework stashes and restores unstaged files around each commit. A
-  concurrent write inside that window can be replayed over, so "my edits vanished" is an
-  expected failure mode here: record the commit SHAs rather than debugging it.
-- A commit that sweeps in another session's staged files can silently revert their work
-  (the staged copy may be older than their working tree). Undo your own top commit with
-  `git reset --soft HEAD~1`, then re-commit by pathspec.
+- Verify each intended slice and inspect the index before committing it. Prefer an
+  isolated worktree when another session is writing.
+- Install the snapshot hooks once from the primary checkout with
+  `python3 scripts/hooks/install-pre-commit.py`. Linked worktrees share that hook; the
+  installer refuses to change shared hooks from a linked worktree. The hook checks the
+  active commit index in a private snapshot; pre-push checks each pushed range against
+  its own target-commit snapshot. Neither hook stashes the original checkout.
+  Existing legacy hooks are copied and run in that snapshot; review any legacy hook
+  first because arbitrary code can still write absolute paths outside it. If a formatter
+  changes the snapshot, the commit stops: coordinate with other writers before
+  formatting, then review the result and re-stage.
+- The commit snapshot refuses merge commits, unmerged or sparse indexes, staged symlinks,
+  submodules, clean/smudge filters such as LFS, checkout encoding or ident substitutions,
+  unspecified text line endings and local `info/attributes`; it also requires the
+  corresponding host dependencies for PHP or frontend checks. The installed Composer
+  and npm graphs must agree with the snapshot manifests and lock files. Dependency
+  trees are copied and checked for concurrent changes; their temporary disk demand
+  depends on the installed graph. Shared dependency symlinks and path dependencies
+  that cannot be represented inside the snapshot are refused; provision a coherent,
+  supported dependency graph before retrying. It does not bypass checks or change
+  Git configuration.
+  The known hook configuration selects the needed dependency trees by staged file
+  type; an existing legacy hook or an unfamiliar hook configuration or local hook
+  implementation conservatively checks both. When changing the hook set or its
+  scripts, review and refresh the fingerprints in `scripts/hooks/pre-commit.py` to
+  restore selective checks. Dependencies of the listed scripts need the same review.
+- Both snapshots refuse symlinks that escape the snapshot. The push snapshot also
+  refuses submodules and the same unsupported checkout attributes. For origin
+  branches, PHP analysis requires the pushed commit to be checked out and refuses
+  uncommitted edits to changed PHP files.
+- Reinstall the snapshot entrypoints after running `pre-commit install` for either
+  hook type: the framework's entrypoint reintroduces its worktree stash.
+  A missing hook in a newly cloned checkout is not protected until installation.
+  Coordinate installation with every linked worktree: the shared launcher loads the
+  entrypoint from the invoking checkout, so older branches without these scripts
+  cannot commit or push until they include the hook tooling.
+- A commit that sweeps in another session's staged files can record an older copy of
+  their work. Stop and preserve the commit and current files; inspect the impact and
+  obtain the required approval before any reset or revert.
 
 ### Cleaning up
 

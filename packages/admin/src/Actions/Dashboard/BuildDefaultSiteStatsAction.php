@@ -17,9 +17,15 @@ final class BuildDefaultSiteStatsAction
     use AsFake;
     use AsObject;
 
-    public function handle(string $period = 'last_30_days'): SiteStatsData
+    private ?int $siteId = null;
+
+    /**
+     * @param  int|null  $siteId  Restricts every count to one site; a site the person cannot access yields zero counts.
+     */
+    public function handle(string $period = 'last_30_days', ?int $siteId = null, bool $scoped = false): SiteStatsData
     {
-        [$rangeStart, $rangeEnd] = $this->resolveDateRange($period);
+        $this->siteId = $siteId;
+        [$rangeStart, $rangeEnd] = ResolveDashboardPeriodWindowsAction::run($period);
 
         // Genuine schedules only: sentinel drafts are not upcoming work.
         $pendingCount = $this->basePageQuery()->scheduled()->count();
@@ -32,21 +38,8 @@ final class BuildDefaultSiteStatsAction
             pendingCount: $pendingCount,
             expiredCount: $expiredCount,
             totalPagesCount: $this->basePageQuery()->count(),
+            scoped: $scoped,
         );
-    }
-
-    /** @return array{CarbonImmutable, CarbonImmutable} */
-    private function resolveDateRange(string $period): array
-    {
-        $now = CarbonImmutable::now();
-
-        return match ($period) {
-            'today' => [$now->startOfDay(), $now->endOfDay()],
-            'this_week' => [$now->startOfWeek(), $now->endOfWeek()],
-            'this_month' => [$now->startOfMonth(), $now->endOfMonth()],
-            'this_year' => [$now->startOfYear(), $now->endOfYear()],
-            default => [$now->subDays(30)->startOfDay(), $now->endOfDay()],
-        };
     }
 
     private function publishedWithin(CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): int
@@ -97,6 +90,10 @@ final class BuildDefaultSiteStatsAction
     {
         /** @var Builder<Page> $query */
         $query = SiteAccess::current()->query(Page::class);
+
+        if ($this->siteId !== null) {
+            $query->where($query->getModel()->qualifyColumn('site_id'), $this->siteId);
+        }
 
         return $query;
     }

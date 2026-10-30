@@ -74,7 +74,7 @@ final class ReconcileContentImpactAction
 
     private function recordActivity(Model $target, ContentImpactReconciliationData $result): void
     {
-        if (! Schema::hasTable('activity_log')) {
+        if (! Schema::hasTable((string) config('activitylog.table_name', 'activity_log'))) {
             return;
         }
 

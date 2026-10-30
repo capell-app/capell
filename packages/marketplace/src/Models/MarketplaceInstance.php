@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Marketplace\Casts\EncryptedString;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Carbon\CarbonImmutable;
@@ -28,6 +29,7 @@ use Override;
  */
 final class MarketplaceInstance extends Model
 {
+    use HasCapellTable;
     use HasFactory;
 
     /** @var list<string> */

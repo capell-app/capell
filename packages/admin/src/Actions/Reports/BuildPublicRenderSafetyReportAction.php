@@ -12,6 +12,7 @@ use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Models\PublicRenderContractEvent;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -28,7 +29,7 @@ final class BuildPublicRenderSafetyReportAction implements BuildsReportSnapshot
 
     public function handle(): ReportSnapshotData
     {
-        if (! $this->schemaState->hasTable('capell_public_render_contract_events')) {
+        if (! $this->schemaState->hasTable(TableName::resolve('capell_public_render_contract_events'))) {
             return new ReportSnapshotData(
                 key: 'core.public_render_safety',
                 emptyState: __('capell-admin::reports.empty_state_public_render_safety'),

@@ -19,7 +19,9 @@ Working locally? Start with [Mac and Windows local development](local-developmen
 | Node.js     | 20+                                                |
 | Composer    | 2.7+                                               |
 
-Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
+Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, `PDO`, and either `gd` or `imagick`. Enable the PDO driver for the database you selected: `pdo_sqlite` for SQLite, `pdo_mysql` for MySQL or MariaDB, or `pdo_pgsql` for PostgreSQL.
+
+Run `php -m` with the PHP binary used for Composer and Artisan to check the CLI extensions. Check the web server's PHP configuration separately, and the queue worker's runtime if it uses another PHP binary or configuration; they may not use the CLI settings.
 
 Before changing an existing application, back up its database and media and confirm that the backup can be read. Capell page history is not a substitute for that backup.
 
@@ -153,6 +155,8 @@ For a fresh full-foundation install, select:
 - a new first administrator;
 - cache clearing after installation;
 - welcome-route replacement only when Capell should own `/`.
+
+Before migrations, the installer checks the selected packages' table names against the database. If a table already exists without its creation migration, choose a prefix or names for the colliding tables. The installer records your choices in published configuration before migrations. On a clean database, it writes table-name configuration only if you supply a prefix or aliases. In the web installer, enter a prefix or one `name=alias` pair per line in the table-name options, then review the changes. For unattended installs, pass `--table-prefix=cms_` or repeat `--table-alias=pages=content_pages`. Without a choice the command stops and names any collisions. External packages use their own table configuration where available; see the [configuration reference](../development/configuration.md#core-config).
 
 The installer may change `composer.json`, `composer.lock`, `app/Models/User.php`, the Filament Admin panel provider, `routes/web.php`, configuration, migrations, and generated frontend assets. Review the printed plan before accepting changes in an established repository.
 
@@ -364,6 +368,33 @@ npm run build
 
 When preparation has not already completed, explicitly run `php artisan capell:frontend-after-install --apply --no-interaction`. This applies registered dependencies and builds assets; without `--apply`, non-interactive use is report-only. Browser installation runs Node only when **Rebuild resources** is selected. That installer build path supports npm; pnpm, Yarn, and Bun hosts should leave it unselected and use the explicit Frontend command or their normal package manager install/build after preparation. A completed setup/doctor handoff alone does not verify built assets.
 
+### Recover missing frontend CSS
+
+Use a writable build environment with Node.js 20+ and the package manager selected by the application. First print the dependency and build plan without changing files:
+
+```bash
+php artisan capell:frontend-after-install --no-interaction
+```
+
+If the command stops on conflicting lockfiles, a `packageManager` declaration, or dependency constraints, resolve the reported conflict and run it again. The Vite integration advice is printed only after the dependency plan can be resolved.
+
+If the plan says Vite integration is missing, add its exact import and input snippet to the application's Vite configuration while preserving existing inputs. Capell looks for `vite.config.js`, `vite.config.mjs` or `vite.config.ts` in the application root. If none exists, create a supported Laravel Vite configuration before adding the snippet. Both `frontend-install` and Frontend preparation require a supported configuration; a custom build pipeline does not remove that requirement.
+
+Review the Frontend lifecycle writes before regenerating assets: it publishes settings migrations, force-publishes Frontend assets and configuration, generates CSS and a Vite input manifest, and may edit the Vite configuration. Keep the lockfile and existing Vite inputs under version control, then run:
+
+```bash
+php artisan capell:frontend-install
+php artisan capell:frontend-after-install --no-interaction
+```
+
+If `frontend-install` cannot update a customised Vite configuration, apply the printed integration manually and rerun the command. Review the fresh plan and its package-manager commands. If the application dependencies have not been installed, run the selected package manager's install command first. Apply the reviewed plan and check that its production build completes successfully:
+
+```bash
+php artisan capell:frontend-after-install --apply --no-interaction
+```
+
+The apply step prepares registered dependencies, installs those required by the plan, and runs the selected package manager's build. A custom build pipeline can run the package-manager install and production build after the Frontend lifecycle and preparation have completed with a supported, integrated Vite configuration. Apply the reviewed dependency plan in that pipeline and deploy its output. Generated input files or a printed plan alone do not prove a successful build. Reload the Admin and public pages and confirm that the expected styling is present.
+
 Do not copy package-specific Tailwind paths from an unrelated project. Use the generated entry file and the installed package's documented integration.
 
 Choose optional themes only from a listing that states a released Composer path, compatible Capell line, screenshots, install command, support boundary, and removal path. Source-only examples and Labs packages are not part of this installation guide.
@@ -420,7 +451,7 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                                 |
 | Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                            |
-| Frontend CSS is missing                         | `php artisan capell:frontend-install`, then the host npm build                                    |
+| Frontend CSS is missing                         | Follow the [frontend asset recovery steps](#recover-missing-frontend-css) and verify the styled page |
 | Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                               |
 | A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)                   |
 | Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)                     |

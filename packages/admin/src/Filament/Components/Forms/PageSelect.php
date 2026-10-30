@@ -21,6 +21,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -275,12 +276,12 @@ class PageSelect extends Select
         $model = Page::class;
 
         $query = SiteAccess::current()->query($model)->select([
-            'pages.id',
-            'pages.name',
-            'pages.site_id',
-            'pages.parent_id',
-            'pages._lft',
-            'pages._rgt',
+            TableName::resolve('pages') . '.id',
+            TableName::resolve('pages') . '.name',
+            TableName::resolve('pages') . '.site_id',
+            TableName::resolve('pages') . '.parent_id',
+            TableName::resolve('pages') . '._lft',
+            TableName::resolve('pages') . '._rgt',
         ])
             ->when($this->eligibilityOptionId !== null, fn (Builder $query): Builder => $query->whereKey($this->eligibilityOptionId))
             ->when(
@@ -320,7 +321,7 @@ class PageSelect extends Select
             ->when(
                 $search,
                 fn (Builder $query, string $search): Builder => self::applyNameSearchRelevance(
-                    $query->whereLike('pages.name', sprintf('%%%s%%', $search)),
+                    $query->whereLike(TableName::resolve('pages') . '.name', sprintf('%%%s%%', $search)),
                     $search,
                 ),
                 fn (Builder $query): Builder => $query->limit(10),

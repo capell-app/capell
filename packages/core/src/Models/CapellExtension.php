@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Enums\ExtensionAutoUpdatePolicyEnum;
 use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
@@ -42,6 +43,8 @@ use Override;
  */
 class CapellExtension extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<Factory<static>> */
     use HasFactory;
 

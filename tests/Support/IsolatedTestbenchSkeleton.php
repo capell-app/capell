@@ -174,7 +174,10 @@ final class IsolatedTestbenchSkeleton
 
     private static function pathForToken(string $token): string
     {
-        return dirname(__DIR__, 2) . '/var/testbench-skeletons/' . $token;
+        $root = getenv('CAPELL_TESTBENCH_SKELETON_ROOT');
+        $root = is_string($root) && $root !== '' ? rtrim($root, DIRECTORY_SEPARATOR) : dirname(__DIR__, 2) . '/var/testbench-skeletons';
+
+        return $root . DIRECTORY_SEPARATOR . $token;
     }
 
     /**

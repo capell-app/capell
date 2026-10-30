@@ -36,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Foundation\Console\ClosureCommand;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -3301,4 +3302,81 @@ it('keeps APP_URL and profile exports untouched when Composer preflight refuses 
     expect($fake->callCount)->toBe(0)
         ->and(is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null)->toBe($envBefore)
         ->and(is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null)->toBe($profileBefore);
+});
+
+it('reports an existing foreign page table before non-interactive installation', function (): void {
+    setupInstallTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    $repository = resolve('migrator')->getRepository();
+    if ($repository->repositoryExists()) {
+        DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->delete();
+    }
+
+    $exit = Artisan::call('capell:install', [
+        '--packages' => 'test', '--url' => 'https://example.test', '--user' => 'test@example.com',
+        '--clear-cache' => true, '--theme' => 'foundation', '--no-interaction' => true,
+    ]);
+    $output = Artisan::output();
+    expect($exit)->toBe(Command::FAILURE)
+        ->and($output)->toContain('pages')
+        ->and($fake->callCount)->toBe(0);
+});
+
+it('writes a non-interactive collision alias before invoking the install action', function (): void {
+    setupInstallTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    $fake->throwable = new RuntimeException('Stop after configuration for this test.');
+    DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->delete();
+    $configPath = config_path('capell.php');
+    $original = is_file($configPath) ? file_get_contents($configPath) : null;
+    try {
+        $exit = Artisan::call('capell:install', [
+            '--packages' => 'test', '--url' => 'https://example.test', '--user' => 'test@example.com',
+            '--clear-cache' => true, '--theme' => 'foundation', '--no-interaction' => true,
+            '--table-alias' => ['pages=content_pages'],
+        ]);
+        $published = require $configPath;
+        expect($exit)->toBe(Command::FAILURE)
+            ->and($fake->callCount)->toBe(1)
+            ->and($published['database']['table_aliases']['pages'])->toBe('content_pages');
+    } finally {
+        if (is_string($original)) {
+            file_put_contents($configPath, $original);
+        } elseif (is_file($configPath)) {
+            unlink($configPath);
+        }
+    }
+});
+
+it('offers individual names for foreign tables in an interactive install', function (): void {
+    setupInstallTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    $fake->throwable = new RuntimeException('Stop after configuration for this test.');
+    DB::table('migrations')->where('migration', '2026_05_10_190832_12_create_pages_table')->delete();
+    $configPath = config_path('capell.php');
+    $original = is_file($configPath) ? file_get_contents($configPath) : null;
+    try {
+        artisanCommand('capell:install', [
+            '--packages' => 'test', '--url' => 'https://example.test', '--user' => 'test@example.com',
+            '--clear-cache' => true, '--theme' => 'foundation',
+        ])
+            ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+            ->expectsConfirmation('Build production frontend assets now?', 'no')
+            ->expectsQuestion('Some database tables already exist. How would you like to name the new tables?', 'aliases')
+            ->expectsQuestion('New table name for pages', 'content_pages')
+            ->expectsConfirmation('Install Capell with these settings?', 'yes')
+            ->assertExitCode(Command::FAILURE);
+        $published = require $configPath;
+        expect($fake->callCount)->toBe(1)
+            ->and($published['database']['table_aliases']['pages'])->toBe('content_pages');
+    } finally {
+        if (is_string($original)) {
+            file_put_contents($configPath, $original);
+        } elseif (is_file($configPath)) {
+            unlink($configPath);
+        }
+    }
 });

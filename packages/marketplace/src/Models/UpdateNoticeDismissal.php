@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ use Override;
  */
 final class UpdateNoticeDismissal extends Model
 {
+    use HasCapellTable;
     use HasFactory;
 
     /** @var list<string> */

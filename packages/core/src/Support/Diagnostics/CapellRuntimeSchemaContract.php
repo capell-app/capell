@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Diagnostics;
 
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 
 final class CapellRuntimeSchemaContract
@@ -11,13 +12,13 @@ final class CapellRuntimeSchemaContract
     /** @return list<string> */
     public function footprintAnchors(): array
     {
-        return ['sites', 'pages', 'capell_extensions'];
+        return array_map(TableName::resolve(...), ['sites', 'pages', 'capell_extensions']);
     }
 
     /** @return list<string> */
     public function coreTables(): array
     {
-        return [
+        return array_map(TableName::resolve(...), [
             'languages',
             'blueprints',
             'sites',
@@ -34,19 +35,19 @@ final class CapellRuntimeSchemaContract
             'capell_extensions',
             'page_workflow_states',
             'page_revisions',
-        ];
+        ]);
     }
 
     /** @return list<string> */
     public function themeAndLayoutTables(): array
     {
-        return ['themes', 'layouts'];
+        return array_map(TableName::resolve(...), ['themes', 'layouts']);
     }
 
     /** @return list<string> */
     public function eventSourcingTables(): array
     {
-        return ['stored_events', 'snapshots'];
+        return [(string) config('capell.database.external_tables.stored_events', 'stored_events'), (string) config('capell.database.external_tables.snapshots', 'snapshots')];
     }
 
     /** @return list<string> */
@@ -78,12 +79,19 @@ final class CapellRuntimeSchemaContract
     /** @param list<string>|null $existingTables */
     public function hasFootprint(?array $existingTables = null): bool
     {
-        if ($existingTables !== null) {
-            return array_intersect($this->footprintAnchors(), $existingTables) !== [];
+        $anchors = [
+            'sites' => '2026_05_10_190832_05_create_sites_table',
+            'pages' => '2026_05_10_190832_12_create_pages_table',
+            'capell_extensions' => '2026_05_10_190832_24_create_capell_extensions_table',
+        ];
+        foreach ($anchors as $base => $migration) {
+            $table = TableName::resolve($base);
+            $exists = $existingTables !== null ? in_array($table, $existingTables, true) : Schema::hasTable($table);
+            if ($exists && TableName::migrationRecorded($migration)) {
+                return true;
+            }
         }
 
-        return collect($this->footprintAnchors())->contains(
-            static fn (string $table): bool => Schema::hasTable($table),
-        );
+        return false;
     }
 }

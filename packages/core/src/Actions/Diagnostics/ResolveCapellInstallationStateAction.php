@@ -8,6 +8,7 @@ use Capell\Core\Enums\Diagnostics\CapellInstallationState;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -27,9 +28,10 @@ final class ResolveCapellInstallationStateAction
         ?ExtensionStatusEnum $coreStatus = null,
         ?bool $coreRecorded = null,
     ): CapellInstallationState {
-        $hasLifecycleTable = $existingTables !== null
-            ? in_array('capell_extensions', $existingTables, true)
-            : Schema::hasTable('capell_extensions');
+        $hasLifecycleTable = ($existingTables !== null
+            ? in_array(TableName::resolve('capell_extensions'), $existingTables, true)
+            : Schema::hasTable(TableName::resolve('capell_extensions')))
+            && TableName::migrationRecorded('2026_05_10_190832_24_create_capell_extensions_table');
 
         if ($coreRecorded === null) {
             $core = $hasLifecycleTable

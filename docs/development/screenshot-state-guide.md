@@ -87,6 +87,8 @@ The FLUX connector must be authenticated before generating these assets. Once au
 
 Core documentation captures come from `scripts/screenshots/prepare-workbench.sh`, which runs `capell:install --demo --package-mode=core --theme=none`. That seeds almost no content, because the core, admin and frontend `capell.json` files all declare `"demo": null`, and no theme is installed. Content-rich captures (for example the "Index of Practice" demo) come from the `theme-submissions` package's demo content in capell-packages-4, so run those passes from capell-packages-4.
 
+`prepare-workbench.sh` rewrites the shared Testbench skeleton under `vendor/` and leaves a `.capell-workbench-prepared` marker there. `composer preflight` refuses to run the test and PHPStan stages while the marker exists, because tests booted from a rewritten skeleton fail for reasons unrelated to the change. Run workbench and screenshot work from a separate checkout, or restore the skeleton with `composer reinstall orchestra/testbench-core --no-scripts`.
+
 After a fresh `composer install`, `post-autoload-dump` removes `vendor/orchestra/testbench-core/laravel/database/migrations`; `prepare-workbench.sh` recreates the directory before the install step, so a manual `testbench capell:install` straight after `composer install` has nowhere to publish vendor migrations to.
 
 ## Next

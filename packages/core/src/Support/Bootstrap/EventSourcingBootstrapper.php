@@ -7,6 +7,8 @@ namespace Capell\Core\Support\Bootstrap;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\EventSourcing\Aggregates\PageAggregate;
 use Capell\Core\EventSourcing\Listeners\RecordPageRevision;
+use Capell\Core\EventSourcing\Models\Snapshot;
+use Capell\Core\EventSourcing\Models\StoredEvent;
 use Capell\Core\EventSourcing\Projectors\PageProjector;
 use Capell\Core\EventSourcing\Reactors\PageWorkflowReactor;
 use Capell\Core\EventSourcing\Rollback\RollbackValidatorRegistry;
@@ -22,6 +24,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
 use ReflectionClass;
 use Spatie\EventSourcing\EventSourcingServiceProvider;
+use Spatie\EventSourcing\Snapshots\EloquentSnapshot;
+use Spatie\EventSourcing\StoredEvents\Models\EloquentStoredEvent;
 
 final readonly class EventSourcingBootstrapper
 {
@@ -44,6 +48,14 @@ final readonly class EventSourcingBootstrapper
                 $defaults = require dirname($providerFile, 2) . '/config/event-sourcing.php';
                 $this->config->set('event-sourcing', array_merge($defaults, $this->config->get('event-sourcing', [])));
             }
+        }
+
+        if ($this->config->get('event-sourcing.stored_event_model') === EloquentStoredEvent::class) {
+            $this->config->set('event-sourcing.stored_event_model', StoredEvent::class);
+        }
+
+        if ($this->config->get('event-sourcing.snapshot_model') === EloquentSnapshot::class) {
+            $this->config->set('event-sourcing.snapshot_model', Snapshot::class);
         }
 
         $this->config->set([

@@ -16,7 +16,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('snapshots', function (Blueprint $table): void {
+        Schema::create((string) config('capell.database.external_tables.snapshots', 'snapshots'), function (Blueprint $table): void {
             $table->id();
             $table->uuid('aggregate_uuid');
             $table->unsignedBigInteger('aggregate_version');
@@ -29,6 +29,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('snapshots');
+        Schema::dropIfExists((string) config('capell.database.external_tables.snapshots', 'snapshots'));
     }
 };

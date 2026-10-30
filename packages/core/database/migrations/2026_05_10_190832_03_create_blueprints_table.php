@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,11 +14,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('blueprints')) {
+        if (TableName::existsAndIsOwned('blueprints', basename(__FILE__, '.php'))) {
             return;
         }
 
-        Schema::create('blueprints', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('blueprints'), function (Blueprint $table): void {
             $table->id();
             $table->string('name');
             $table->string('type', 64);
@@ -25,19 +26,19 @@ return new class extends Migration
             $table->string('group')->nullable();
             $table->json('meta')->nullable();
             $table->json('admin')->nullable();
-            $table->string('component')->nullable()->index();
-            $table->string('component_item')->nullable()->index();
+            $table->string('component')->nullable()->index(TableName::index('blueprints', 'component', 'index'));
+            $table->string('component_item')->nullable()->index(TableName::index('blueprints', 'component_item', 'index'));
             $table->boolean('is_livewire')->nullable();
             $table->string('view_file')->nullable();
-            $table->unsignedInteger('order')->default(0)->index();
+            $table->unsignedInteger('order')->default(0)->index(TableName::index('blueprints', 'order', 'index'));
             $table->boolean('default')->default(0);
             $table->boolean('status')->default(1);
             $table->userstamps();
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['type', 'key']);
-            $table->index(['type', 'default']);
-            $table->index(['type', 'status']);
+            $table->unique(['type', 'key'], TableName::index('blueprints', ['type', 'key'], 'unique'));
+            $table->index(['type', 'default'], TableName::index('blueprints', ['type', 'default'], 'index'));
+            $table->index(['type', 'status'], TableName::index('blueprints', ['type', 'status'], 'index'));
         });
     }
 
@@ -46,6 +47,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('blueprints');
+        Schema::dropIfExists(TableName::resolve('blueprints'));
     }
 };

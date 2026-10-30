@@ -50,15 +50,15 @@
             >
                 <div class="flex items-start justify-between gap-3">
                     <dt class="text-gray-500 dark:text-gray-400">
-                        {{ __('capell-admin::reports.publishing_readiness_public_effect') }}
+                        {{ __('capell-admin::publish_panel.readiness_summary') }}
                     </dt>
                     <dd
                         class="text-right font-medium text-gray-950 dark:text-white"
                     >
                         {{
-                            $readiness->publicEligible
-                            ? __('capell-admin::reports.publishing_readiness_public_effect_visible')
-                            : __('capell-admin::reports.publishing_readiness_public_effect_not_visible')
+                            $readiness->blockingCheckIds === []
+                            ? __('capell-admin::publish_panel.readiness_checks_passed')
+                            : __('capell-admin::publish_panel.readiness_checks_incomplete')
                         }}
                     </dd>
                 </div>
@@ -84,7 +84,13 @@
                             >
                                 @foreach ($readiness->blockingCheckIds as $checkId)
                                     <li>
-                                        {{ __('capell-admin::publish_panel.blocker_' . str_replace(['publishing.', '.', '-'], ['', '_', '_'], $checkId)) }}
+                                        {{ match ($checkId) {
+                                            'publishing.blueprint.missing' => __('capell-admin::publish_panel.blocker_blueprint_missing'),
+                                            'publishing.layout.missing' => __('capell-admin::publish_panel.blocker_layout_missing'),
+                                            'publishing.translation.missing' => __('capell-admin::publish_panel.blocker_translation_missing'),
+                                            'publishing.url.active-missing' => __('capell-admin::publish_panel.blocker_url_active_missing'),
+                                            default => __('capell-admin::publish_panel.blocker_unknown'),
+                                        } }}
                                         @if ($checkId === 'publishing.url.active-missing')
                                             <span
                                                 class="block text-xs"
@@ -93,7 +99,12 @@
                                         @elseif ($this->canManage())
                                             <span
                                                 class="block text-xs"
-                                                >{{ __('capell-admin::publish_panel.blocker_next_' . str_replace(['publishing.', '.', '-'], ['', '_', '_'], $checkId)) }}</span
+                                                >{{ match ($checkId) {
+                                                    'publishing.blueprint.missing' => __('capell-admin::publish_panel.blocker_next_blueprint_missing'),
+                                                    'publishing.layout.missing' => __('capell-admin::publish_panel.blocker_next_layout_missing'),
+                                                    'publishing.translation.missing' => __('capell-admin::publish_panel.blocker_next_translation_missing'),
+                                                    default => __('capell-admin::publish_panel.blocker_ask_editor'),
+                                                } }}</span
                                             >
                                         @else
                                             <span

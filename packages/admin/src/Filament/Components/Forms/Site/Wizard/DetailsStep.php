@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Site\Wizard;
 
-use Capell\Core\Models\Language;
+use Capell\Admin\Actions\Sites\ReconcileWizardSiteDomainsAction;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard\Step;
@@ -22,17 +22,13 @@ class DetailsStep extends Step
             ->afterValidation(function (Get $get, Set $set): void {
                 $languages = array_merge([$get('language_id')], (array) $get('languages'));
 
-                $domains = Language::query()->whereIn('id', $languages)
-                    ->orderByDesc('default')
-                    ->get()
-                    ->map(fn (Language $language, int $index): array => [
-                        'url' => request()->schemeAndHttpHost() . ($language->default ? '' : '/' . $language->code),
-                        'language_id' => $language->id,
-                        'default' => $index === 0,
-                        'use_host_domain' => true,
-                    ]);
+                $domains = ReconcileWizardSiteDomainsAction::run(
+                    (array) $get('site_domains'),
+                    $languages,
+                    request()->schemeAndHttpHost(),
+                );
 
-                $set('site_domains', $domains->all());
+                $set('site_domains', $domains);
             });
     }
 }

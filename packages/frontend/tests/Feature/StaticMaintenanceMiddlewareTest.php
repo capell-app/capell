@@ -541,6 +541,134 @@ it('removes stale matching domain entries from other sites when replacing manife
         ->and(data_get($manifestStore->read(), 'sites.20.domains.0.site_id'))->toBe(20);
 });
 
+/**
+ * Writes an active maintenance entry whose stored file exists but cannot be read.
+ * The file is made unreadable with chmod, so callers must skip when running as root.
+ */
+function unreadableMaintenanceFixture(): string
+{
+    $path = storage_path('framework/testing/unreadable-maintenance.html');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<h1>Stored maintenance</h1>');
+
+    app()->singleton(StaticMaintenancePageStore::class, fn (): object => new readonly class($path) implements StaticMaintenancePageStore
+    {
+        public function __construct(private string $path) {}
+
+        public function exists(string $file): bool
+        {
+            return true;
+        }
+
+        public function path(string $file): string
+        {
+            return $this->path;
+        }
+
+        public function put(string $file, string $contents): void {}
+    });
+
+    resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
+        'global_active' => true,
+        'sites' => [
+            '10' => [
+                'active' => false,
+                'domains' => [[
+                    'scheme' => 'https',
+                    'port' => null,
+                    'domain' => 'example.test',
+                    'path' => '/',
+                    'site_id' => 10,
+                    'file' => 'maintenance/https.example.test/index.html',
+                ]],
+            ],
+        ],
+    ]);
+
+    chmod($path, 0000);
+
+    return $path;
+}
+
+it('denies access with the readable fallback when the stored maintenance file throws on read', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('File permissions cannot make a file unreadable for root.');
+    }
+
+    $path = unreadableMaintenanceFixture();
+
+    try {
+        $response = resolve(ServeStaticMaintenancePage::class)->handle(
+            Request::create('https://example.test/products'),
+            fn (): Response => response('fresh html'),
+        );
+    } finally {
+        chmod($path, 0644);
+    }
+
+    expect($response->getStatusCode())->toBe(503)
+        ->and($response->getContent())->not->toBe('')
+        ->and($response->getContent())->not->toContain('fresh html')
+        ->and($response->getContent())->toContain('Service unavailable')
+        ->and($response->getContent())->toContain('temporarily unavailable')
+        ->and($response->getContent())->not->toContain($path);
+});
+
+it('denies access with the readable fallback when the stored maintenance file read returns false', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('File permissions cannot make a file unreadable for root.');
+    }
+
+    $path = unreadableMaintenanceFixture();
+
+    // Swallow the read warning so the read yields false rather than an exception.
+    set_error_handler(fn (): bool => true);
+
+    try {
+        $response = resolve(ServeStaticMaintenancePage::class)->handle(
+            Request::create('https://example.test/products'),
+            fn (): Response => response('fresh html'),
+        );
+    } finally {
+        restore_error_handler();
+        chmod($path, 0644);
+    }
+
+    expect($response->getStatusCode())->toBe(503)
+        ->and($response->getContent())->not->toBe('')
+        ->and($response->getContent())->not->toContain('fresh html')
+        ->and($response->getContent())->toContain('temporarily unavailable');
+});
+
+it('keeps Laravel maintenance status and headers when the stored maintenance file is unreadable', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('File permissions cannot make a file unreadable for root.');
+    }
+
+    $path = unreadableMaintenanceFixture();
+
+    app()->maintenanceMode()->activate([
+        'template' => '<h1>Laravel maintenance</h1>',
+        'status' => 503,
+        'retry' => 60,
+    ]);
+
+    try {
+        $response = resolve(ServeStaticMaintenancePage::class)->handle(
+            Request::create('https://example.test/products'),
+            fn (): Response => response('fresh html'),
+        );
+    } finally {
+        app()->maintenanceMode()->deactivate();
+        chmod($path, 0644);
+    }
+
+    expect($response->getStatusCode())->toBe(503)
+        ->and($response->getContent())->not->toContain('fresh html')
+        ->and($response->getContent())->not->toBe('');
+});
+
 function lockdownTestUser(): Authenticatable
 {
     return new class implements Authenticatable

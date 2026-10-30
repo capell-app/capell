@@ -5,13 +5,23 @@ const os = require('node:os')
 const path = require('node:path')
 const test = require('node:test')
 
+// Running under an outer git hook leaks GIT_DIR, GIT_INDEX_FILE and friends into
+// the fixture repository, so `git init` would act on the real one.
+const cleanGitEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+)
+
 const hook = path.join(__dirname, '../.pre-commit/prettier.sh')
 
 test('formats supplied paths without staging changes or contending on the index', (t) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'capell-prettier-hook-'))
     t.after(() => fs.rmSync(root, { recursive: true, force: true }))
     const git = (...args) => {
-        const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+        const result = spawnSync('git', args, {
+            cwd: root,
+            encoding: 'utf8',
+            env: cleanGitEnv,
+        })
         assert.equal(result.status, 0, result.stderr)
         return result.stdout
     }
@@ -35,6 +45,7 @@ test('formats supplied paths without staging changes or contending on the index'
     const result = spawnSync('bash', [hook, 'selected file.md'], {
         cwd: root,
         encoding: 'utf8',
+        env: cleanGitEnv,
     })
     assert.equal(result.status, 0, result.stderr)
     assert.deepEqual(fs.readFileSync(path.join(root, '.git/index')), index)

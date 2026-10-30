@@ -45,10 +45,10 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Page;
@@ -440,7 +440,7 @@ class CapellDashboard extends Dashboard
                     ->visible(fn (Get $get): bool => ! $get('restore_defaults'))
                     ->schema([
                         Hidden::make('key'),
-                        Placeholder::make('name')->hiddenLabel()->content(fn (Get $get): string => $this->dashboardWidgetLabel((string) $get('key'))),
+                        TextEntry::make('name')->hiddenLabel()->state(fn (Get $get): string => $this->dashboardWidgetLabel((string) $get('key'))),
                         Select::make('size')->label(__('capell-admin::dashboard.work_first_widget_size'))
                             ->options(['standard' => __('capell-admin::dashboard.work_first_size_standard'), 'wide' => __('capell-admin::dashboard.work_first_size_wide')])
                             ->visible(fn (Get $get): bool => $this->supportsDashboardSize($get('key'))),

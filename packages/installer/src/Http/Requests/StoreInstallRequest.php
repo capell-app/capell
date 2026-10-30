@@ -32,6 +32,8 @@ final class StoreInstallRequest extends FormRequest
         $userRules = $options->adminUserValidationRules((string) ($input['admin_user_mode'] ?? 'create'));
 
         return [
+            'table_prefix' => ['nullable', 'string', 'max:64'],
+            'table_aliases' => ['nullable', 'string', 'max:10000'],
             'review_only' => ['nullable', 'boolean'],
             'review_token' => ['nullable', 'string'],
             'installation_confirmed' => ['nullable', 'boolean'],

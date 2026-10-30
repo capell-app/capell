@@ -6,6 +6,7 @@ use Capell\Admin\Data\Pages\PublishPanelViewData;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Tests\Fixtures\Publishing\SharedStatusRecordPolicy;
 use Capell\Admin\Tests\Fixtures\Publishing\StatusOnlyRecord;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -271,4 +272,40 @@ it('checks each disabled URL until it finds one the editor may update', function
 
     Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $page->getKey()])
         ->assertSee(__('capell-admin::publish_panel.blocker_next_url_enable'));
+});
+
+it('does not recommend enabling redirects or URLs belonging to another site', function (): void {
+    $site = Site::factory()->create();
+    $actor = sharedPanelActor($site);
+    foreach (['View:Page', 'Update:Page', 'ViewAny:PageUrl', 'Update:PageUrl'] as $permission) {
+        Permission::findOrCreate($permission);
+        $actor->givePermissionTo($permission);
+    }
+
+    $page = Page::factory()->create(['site_id' => $site->getKey()]);
+    $page->pageUrls()->delete();
+    PageUrl::factory()->site($site)->page($page)->create(['status' => false, 'type' => UrlTypeEnum::Redirect]);
+    PageUrl::factory()->site(Site::factory()->create())->page($page)->create(['status' => false, 'is_manual' => true]);
+
+    Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $page->getKey()])
+        ->assertSee(__('capell-admin::publish_panel.blocker_ask_editor'))
+        ->assertDontSee(__('capell-admin::publish_panel.blocker_next_url_enable'));
+});
+
+it('does not recommend enabling a URL hidden by a deleted language', function (): void {
+    $site = Site::factory()->create();
+    $actor = sharedPanelActor($site);
+    foreach (['View:Page', 'Update:Page', 'ViewAny:PageUrl', 'Update:PageUrl'] as $permission) {
+        Permission::findOrCreate($permission);
+        $actor->givePermissionTo($permission);
+    }
+
+    $page = Page::factory()->create(['site_id' => $site->getKey()]);
+    $page->pageUrls()->delete();
+    $url = PageUrl::factory()->site($site)->page($page)->create(['status' => false]);
+    $url->language->delete();
+
+    Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $page->getKey()])
+        ->assertSee(__('capell-admin::publish_panel.blocker_ask_editor'))
+        ->assertDontSee(__('capell-admin::publish_panel.blocker_next_url_enable'));
 });

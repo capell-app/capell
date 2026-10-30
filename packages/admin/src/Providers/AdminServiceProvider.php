@@ -101,6 +101,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionDependencyGraphFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionDiagnosticsFilamentWidget;
@@ -1033,6 +1034,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         $widgets = [
             DashboardEnum::Main->value => [
+                SiteStatsOverviewFilamentWidget::class,
                 AnalyticsOverviewFilamentWidget::class,
                 AnalyticsTrendFilamentWidget::class,
                 AnalyticsInsightsFilamentWidget::class,
@@ -1172,6 +1174,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         $snapshot = resolve(AdminDashboardDataRequestCache::class)->analyticsSnapshot($actor, 'this_week');
+
+        if (! $snapshot->isAvailable()) {
+            return __('capell-admin::dashboard.overview_stat_unavailable');
+        }
 
         if (! $snapshot->collecting) {
             return __('capell-admin::dashboard.overview_stat_collection_disabled');
