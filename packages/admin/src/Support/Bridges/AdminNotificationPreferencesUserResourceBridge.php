@@ -10,6 +10,7 @@ use Capell\Admin\Data\Notifications\AdminNotificationGroupData;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Enums\UserSchemaHookEnum;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
+use Capell\Core\Support\TableName;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -26,7 +27,7 @@ final class AdminNotificationPreferencesUserResourceBridge extends AbstractUserR
             return [];
         }
 
-        if (! SchemaFacade::hasTable('capell_admin_notification_subscriptions')) {
+        if (! SchemaFacade::hasTable(TableName::resolve('capell_admin_notification_subscriptions'))) {
             return [];
         }
 

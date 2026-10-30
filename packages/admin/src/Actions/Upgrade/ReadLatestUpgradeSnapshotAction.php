@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Upgrade;
 
 use Capell\Admin\Data\Upgrade\UpgradeAdvisorySnapshotData;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -22,12 +23,12 @@ final class ReadLatestUpgradeSnapshotAction
 
     public function handle(): ?UpgradeAdvisorySnapshotData
     {
-        if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
+        if (! Schema::hasTable(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))) {
             return null;
         }
 
         try {
-            $snapshot = DB::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)
+            $snapshot = DB::table(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))
                 ->latest('checked_at')
                 ->first();
         } catch (Throwable) {

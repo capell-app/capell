@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Notifications;
 
 use Capell\Admin\Models\AdminNotificationSubscription;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -23,7 +24,7 @@ final class ListAdminNotificationSubscriptionStateAction
     {
         $groups = resolve(AdminNotificationGroupRegistry::class)->all();
 
-        if (! Schema::hasTable('capell_admin_notification_subscriptions')) {
+        if (! Schema::hasTable(TableName::resolve('capell_admin_notification_subscriptions'))) {
             return $this->defaultSubscribedGroups($groups, $user);
         }
 

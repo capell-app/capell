@@ -8,6 +8,7 @@ use Awobaz\Compoships\Compoships;
 use Capell\Core\Actions\Content\ExtractTextContentAction;
 use Capell\Core\Casts\DynamicContentCast;
 use Capell\Core\Concerns\HasCapellMedia;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Database\Factories\TranslationFactory;
 use Capell\Core\Enums\MediaCollectionEnum;
@@ -92,6 +93,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
 {
     use Compoships;
     use HasCapellMedia;
+    use HasCapellTable;
 
     /** @use HasFactory<TranslationFactory> */
     use HasFactory;

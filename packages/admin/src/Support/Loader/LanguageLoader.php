@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Loader;
 
 use Capell\Admin\Enums\CacheEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -40,7 +41,7 @@ class LanguageLoader
         return Cache::remember(
             CacheEnum::siteLanguages($siteId),
             30,
-            fn (): Collection => Language::query()->whereRelation('sites', 'sites.id', $siteId)->enabled()->ordered()->get(),
+            fn (): Collection => Language::query()->whereRelation('sites', TableName::resolve('sites') . '.id', $siteId)->enabled()->ordered()->get(),
         );
     }
 

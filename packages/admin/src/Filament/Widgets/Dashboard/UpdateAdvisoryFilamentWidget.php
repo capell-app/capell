@@ -8,6 +8,7 @@ use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Pages\UpgradePage;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\TableName;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -42,12 +43,12 @@ final class UpdateAdvisoryFilamentWidget extends Widget implements CapellFilamen
      */
     public static function criticalSecurityAdvisories(): array
     {
-        if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
+        if (! Schema::hasTable(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))) {
             return [];
         }
 
         try {
-            $snapshot = DB::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)
+            $snapshot = DB::table(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))
                 ->latest('checked_at')
                 ->first();
         } catch (Throwable) {

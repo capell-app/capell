@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Media;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 
 final class LocalizedMediaMetadataResolver
@@ -94,9 +95,9 @@ final class LocalizedMediaMetadataResolver
             ->whereHas('language', fn (Builder $query): Builder => $query->default())
             ->first()
             ?? $media->translations()
-                ->join('languages', 'translations.language_id', '=', 'languages.id')
-                ->orderBy('languages.order')
-                ->select('translations.*')
+                ->join(TableName::resolve('languages'), TableName::resolve('translations') . '.language_id', '=', TableName::resolve('languages') . '.id')
+                ->orderBy(TableName::resolve('languages') . '.order')
+                ->select(TableName::resolve('translations') . '.*')
                 ->first();
     }
 }

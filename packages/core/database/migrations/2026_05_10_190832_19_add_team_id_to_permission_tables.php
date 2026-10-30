@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,7 @@ return new class extends Migration
         $modelHasRolesTeamUnique = $this->teamUniqueIndexName($tableNames['model_has_roles'], 'role');
         $modelHasPermissionsTeamUnique = $this->teamUniqueIndexName($tableNames['model_has_permissions'], 'permission');
 
-        if (Schema::hasTable($tableNames['roles'])) {
+        if (TableName::externalExistsAndIsOwned($tableNames['roles'], 'create_permission_tables')) {
             if (! Schema::hasColumn($tableNames['roles'], $columnName)) {
                 Schema::table($tableNames['roles'], function (Blueprint $table) use ($columnName): void {
                     $table->unsignedBigInteger($columnName)->nullable()->after('id');
@@ -58,7 +59,7 @@ return new class extends Migration
             }
         }
 
-        if (Schema::hasTable($tableNames['model_has_roles'])) {
+        if (TableName::externalExistsAndIsOwned($tableNames['model_has_roles'], 'create_permission_tables')) {
             if (! Schema::hasColumn($tableNames['model_has_roles'], $columnName)) {
                 Schema::table($tableNames['model_has_roles'], function (Blueprint $table) use ($columnName): void {
                     $table->unsignedBigInteger($columnName)->nullable()->after('role_id');
@@ -81,7 +82,7 @@ return new class extends Migration
             );
         }
 
-        if (Schema::hasTable($tableNames['model_has_permissions'])) {
+        if (TableName::externalExistsAndIsOwned($tableNames['model_has_permissions'], 'create_permission_tables')) {
             if (! Schema::hasColumn($tableNames['model_has_permissions'], $columnName)) {
                 Schema::table($tableNames['model_has_permissions'], function (Blueprint $table) use ($columnName): void {
                     $table->unsignedBigInteger($columnName)->nullable()->after('permission_id');
@@ -122,7 +123,7 @@ return new class extends Migration
         $modelHasPermissionsTeamUnique = $this->teamUniqueIndexName($tableNames['model_has_permissions'], 'permission');
 
         foreach ($tableNames as $tableName) {
-            if (Schema::hasTable($tableName)
+            if (TableName::externalExistsAndIsOwned($tableName, 'create_permission_tables')
                 && Schema::hasColumn($tableName, $columnName)
                 && DB::table($tableName)->whereNotNull($columnName)->exists()
             ) {
@@ -149,7 +150,7 @@ return new class extends Migration
         ];
 
         foreach ($pivotTables as $pivotTable) {
-            if (Schema::hasTable($pivotTable['table'])
+            if (TableName::externalExistsAndIsOwned($pivotTable['table'], 'create_permission_tables')
                 && DB::table($pivotTable['table'])
                     ->select($pivotTable['columns'])
                     ->groupBy($pivotTable['columns'])
@@ -163,7 +164,7 @@ return new class extends Migration
             }
         }
 
-        if (Schema::hasTable($tableNames['roles'])
+        if (TableName::externalExistsAndIsOwned($tableNames['roles'], 'create_permission_tables')
             && Schema::hasColumn($tableNames['roles'], $columnName)
         ) {
             if (Schema::hasIndex($tableNames['roles'], [$columnName, 'name', 'guard_name'], 'unique')) {
@@ -189,7 +190,7 @@ return new class extends Migration
             }
         }
 
-        if (Schema::hasTable($tableNames['model_has_roles'])
+        if (TableName::externalExistsAndIsOwned($tableNames['model_has_roles'], 'create_permission_tables')
             && Schema::hasColumn($tableNames['model_has_roles'], $columnName)
         ) {
             $this->replaceTeamUniqueWithLegacyPrimaryKey(
@@ -211,7 +212,7 @@ return new class extends Migration
             });
         }
 
-        if (Schema::hasTable($tableNames['model_has_permissions'])
+        if (TableName::externalExistsAndIsOwned($tableNames['model_has_permissions'], 'create_permission_tables')
             && Schema::hasColumn($tableNames['model_has_permissions'], $columnName)
         ) {
             $this->replaceTeamUniqueWithLegacyPrimaryKey(
@@ -400,10 +401,16 @@ return new class extends Migration
                 continue;
             }
 
-            Schema::table($tableName, static function (Blueprint $table) use ($foreignKeyDefinition): void {
+            $prefix = DB::connection()->getTablePrefix();
+            $foreignTable = $foreignKeyDefinition['foreign_table'];
+            if ($prefix !== '' && str_starts_with($foreignTable, $prefix)) {
+                $foreignTable = substr($foreignTable, strlen($prefix));
+            }
+
+            Schema::table($tableName, static function (Blueprint $table) use ($foreignKeyDefinition, $foreignTable): void {
                 $foreign = $table->foreign($foreignKeyDefinition['columns'], $foreignKeyDefinition['name'])
                     ->references($foreignKeyDefinition['foreign_columns'])
-                    ->on($foreignKeyDefinition['foreign_table']);
+                    ->on($foreignTable);
 
                 if ($foreignKeyDefinition['on_delete'] !== null) {
                     $foreign->onDelete($foreignKeyDefinition['on_delete']);

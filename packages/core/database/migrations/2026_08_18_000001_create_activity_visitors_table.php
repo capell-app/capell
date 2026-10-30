@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,9 +11,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('activity_visitors', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('activity_visitors'), function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('site_id')->constrained(TableName::resolve('sites'), indexName: TableName::index('activity_visitors', 'site_id', 'foreign'))->cascadeOnDelete();
             $table->string('language', 32);
             $table->date('day');
             $table->string('visitor_hash', 32);
@@ -20,15 +21,15 @@ return new class extends Migration
 
             $table->unique(
                 ['site_id', 'language', 'day', 'visitor_hash'],
-                'activity_visitors_identity_unique',
+                TableName::namedIndex('activity_visitors', 'activity_visitors_identity_unique'),
             );
-            $table->index(['site_id', 'first_seen_at'], 'activity_visitors_site_time_index');
-            $table->index('day', 'activity_visitors_day_index');
+            $table->index(['site_id', 'first_seen_at'], TableName::namedIndex('activity_visitors', 'activity_visitors_site_time_index'));
+            $table->index('day', TableName::namedIndex('activity_visitors', 'activity_visitors_day_index'));
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('activity_visitors');
+        Schema::dropIfExists(TableName::resolve('activity_visitors'));
     }
 };

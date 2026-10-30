@@ -171,6 +171,7 @@ use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -199,6 +200,7 @@ use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Capell\Core\Support\TableName;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
@@ -213,6 +215,7 @@ use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
+use Composer\InstalledVersions;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -251,6 +254,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             CapellCoreManager::class,
             static fn (): CapellCoreManager => $coreManager,
         );
+        $this->app->singleton(TableName::class);
+        $this->app->singleton(MigrationRootRegistry::class);
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerRuntimeRole();
@@ -265,6 +270,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ResolvePublicPageableMorphTypesAction::class);
 
         config(['media-library.media_model' => Media::class]);
+        if (config('capell.database.external_tables.tags', 'tags') !== 'tags'
+            && InstalledVersions::isInstalled('spatie/laravel-tags')
+            && config('tags.tag_model', TableName::SPATIE_TAG_MODEL) === TableName::SPATIE_TAG_MODEL) {
+            require_once dirname(__DIR__, 2) . '/stubs/external-tag-model.php.stub';
+            config(['tags.tag_model' => 'Capell\\Core\\Models\\ExternalTag']);
+        }
+
         $this->app->register(MediaLibraryServiceProvider::class);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::$name);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-core');

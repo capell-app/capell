@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Carbon\CarbonImmutable;
@@ -26,6 +27,7 @@ use Override;
  */
 final class MarketplaceInstallAttemptEvent extends Model
 {
+    use HasCapellTable;
     use HasFactory;
 
     protected $fillable = [

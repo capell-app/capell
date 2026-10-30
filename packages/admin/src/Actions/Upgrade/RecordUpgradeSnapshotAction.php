@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Upgrade;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -25,11 +26,11 @@ final class RecordUpgradeSnapshotAction
      */
     public function handle(string $source, array $updates, array $advisories, array $metadata = [], ?string $capellVersion = null): void
     {
-        if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
+        if (! Schema::hasTable(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))) {
             return;
         }
 
-        DB::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->insert([
+        DB::table(TableName::resolve(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE))->insert([
             'source' => $source,
             'checked_at' => now(),
             'capell_version' => $capellVersion ?? CapellCore::getInstalledPrettyVersion('capell-app/capell'),

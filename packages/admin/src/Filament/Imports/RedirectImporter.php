@@ -13,6 +13,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -85,7 +86,7 @@ class RedirectImporter extends Importer
                         $get('site_id'),
                         fn (Builder $query, int $siteId): Builder => $query->whereHas(
                             'sites',
-                            fn (BuilderContract $query): BuilderContract => $query->where('sites.id', $siteId),
+                            fn (BuilderContract $query): BuilderContract => $query->where(TableName::resolve('sites') . '.id', $siteId),
                         ),
                     ),
                 )

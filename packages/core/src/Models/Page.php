@@ -14,6 +14,7 @@ use Capell\Core\Actions\ResolveFirstPageByTypeAction;
 use Capell\Core\Actions\RestorePageCascadeRecordsAction;
 use Capell\Core\Actions\ValidatePageHierarchyAction;
 use Capell\Core\Concerns\HasCapellMedia;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Concerns\WhenBootedShim;
 use Capell\Core\Contracts\DraftableContract;
 use Capell\Core\Contracts\Media\HasMediaContract;
@@ -48,6 +49,7 @@ use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Activity\LogOptions;
 use Capell\Core\Support\Activity\LogsActivity;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -233,6 +235,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     use HasBlueprint;
     use HasBlueprints;
     use HasCapellMedia;
+    use HasCapellTable;
 
     /** @use HasFactory<PageFactory> */
     use HasFactory;
@@ -563,7 +566,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
      */
     public function terms(): BelongsToMany
     {
-        return $this->belongsToMany(Term::class, 'page_term')->withPivot('position')->withTimestamps()->orderByPivot('position');
+        return $this->belongsToMany(Term::class, TableName::resolve('page_term'))->withPivot('position')->withTimestamps()->orderByPivot('position');
     }
 
     /**

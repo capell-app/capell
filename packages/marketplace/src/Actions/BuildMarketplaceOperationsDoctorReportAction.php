@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Support\TableName;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -138,11 +139,11 @@ final class BuildMarketplaceOperationsDoctorReportAction
 
     private function schemaCheck(): DoctorCheckResultData
     {
-        $tableExists = Schema::hasTable('marketplace_install_attempts');
+        $tableExists = Schema::hasTable(TableName::resolve('marketplace_install_attempts'));
         $missingColumns = $tableExists
             ? array_values(array_filter(
                 self::RUNTIME_COLUMNS,
-                static fn (string $column): bool => ! Schema::hasColumn('marketplace_install_attempts', $column),
+                static fn (string $column): bool => ! Schema::hasColumn(TableName::resolve('marketplace_install_attempts'), $column),
             ))
             : self::RUNTIME_COLUMNS;
 

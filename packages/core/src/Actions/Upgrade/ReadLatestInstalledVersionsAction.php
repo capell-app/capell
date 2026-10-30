@@ -32,16 +32,18 @@ final class ReadLatestInstalledVersionsAction
             ->selectRaw('MAX(ran_at) as latest_ran_at')
             ->groupBy('key');
 
+        $model = new UpgradeLogEntry;
+        $table = $model->getTable();
         $latestSnapshotIds = UpgradeLogEntry::query()
             ->versionSnapshots()
-            ->when($packages !== null, fn (Builder $query): Builder => $query->whereIn('capell_upgrade_log.key', $packages))
-            ->joinSub($latestRanAtByKey, 'latest_version_snapshots', function (JoinClause $join): void {
+            ->when($packages !== null, fn (Builder $query): Builder => $query->whereIn($table . '.key', $packages))
+            ->joinSub($latestRanAtByKey, 'latest_version_snapshots', function (JoinClause $join) use ($table): void {
                 $join
-                    ->on('capell_upgrade_log.key', '=', 'latest_version_snapshots.key')
-                    ->on('capell_upgrade_log.ran_at', '=', 'latest_version_snapshots.latest_ran_at');
+                    ->on($table . '.key', '=', 'latest_version_snapshots.key')
+                    ->on($table . '.ran_at', '=', 'latest_version_snapshots.latest_ran_at');
             })
-            ->selectRaw('MAX(capell_upgrade_log.id) as id')
-            ->groupBy('capell_upgrade_log.key')
+            ->selectRaw('MAX(id) as id')
+            ->groupBy($table . '.key')
             ->pluck('id')
             ->all();
 

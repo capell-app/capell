@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Data\Metrics\MetricRepresentationData;
 use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Data\Metrics\MetricValueData;
@@ -50,6 +51,8 @@ use Override;
  */
 final class MetricDailyRollup extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 

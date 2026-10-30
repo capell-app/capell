@@ -23,6 +23,7 @@ use Capell\Core\Data\PageVariationData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -209,7 +210,7 @@ class PageUrlsTable implements TableConfigurator
             parse_url((string) config('app.url'), PHP_URL_HOST),
         );
 
-        $query->whereColumn('site_domains.language_id', 'page_urls.language_id');
+        $query->whereColumn(TableName::resolve('site_domains') . '.language_id', TableName::resolve('page_urls') . '.language_id');
 
         new SqlFragment($url->sql . ' LIKE ?', [...$url->bindings, sprintf('%s%%', $search)])
             ->applyWhere($query->getQuery());

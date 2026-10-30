@@ -95,6 +95,14 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
 
     protected static string $factory = MediaFactory::class;
 
+    #[Override]
+    public function getTable(): string
+    {
+        $table = parent::getTable();
+
+        return $table === 'media' ? (string) config('capell.database.external_tables.media', 'media') : $table;
+    }
+
     /**
      * @param  array<string, mixed>|null  $attr
      */
