@@ -10,6 +10,7 @@ use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\TermPropertyValue;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -51,7 +52,7 @@ class EvaluatePropertyCompletenessAction
 
         $termIds = $page->terms()
             ->whereHas('taxonomy', static fn (Builder $query): Builder => $query->where('site_id', $page->site_id))
-            ->pluck('terms.id');
+            ->pluck(TableName::resolve('terms') . '.id');
 
         if ($termIds->isNotEmpty()) {
             $definitionIdsWithValues = array_unique([

@@ -1,9 +1,13 @@
 @php
     use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
+    use Capell\Admin\Actions\Media\CountOmittedMediaUsageAction;
     use Capell\Core\Models\Media;
 
     /** @var Media|null $record */
-    $items = BuildMediaUsageItemsAction::run($record instanceof Media ? $record : null);
+    $usageMedia = $record instanceof Media ? $record : null;
+    $showAll = (bool) ($getLivewire()->showAllMediaUsage ?? false);
+    $items = BuildMediaUsageItemsAction::run($usageMedia, $showAll);
+    $omitted = $showAll ? 0 : CountOmittedMediaUsageAction::run($usageMedia);
 @endphp
 
 @if ($items === [])
@@ -32,4 +36,19 @@
             </div>
         @endforeach
     </div>
+
+    @if ($omitted > 0)
+        <div
+            class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600 dark:text-gray-300"
+        >
+            <p>{{ trans_choice('capell-admin::media.usage_omitted', $omitted, ['count' => $omitted]) }}</p>
+            <button
+                type="button"
+                wire:click="showAllUsage"
+                class="text-primary-600 hover:text-primary-500 dark:text-primary-400 font-medium"
+            >
+                {{ __('capell-admin::media.usage_show_all') }}
+            </button>
+        </div>
+    @endif
 @endif

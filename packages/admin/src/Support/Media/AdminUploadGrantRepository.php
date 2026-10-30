@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Media;
 
+use Capell\Core\Support\TableName;
 use Closure;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
@@ -62,7 +63,7 @@ final class AdminUploadGrantRepository
         // Duplicate issuance must not refresh the original expiry or journal.
         if ($this->query()->insertOrIgnore($row) && $connection->transactionLevel() > 0) {
             $this->pending[spl_object_id($connection)][$scope . $row['path_hash']] = static function () use ($connection, $row): void {
-                $connection->table('admin_upload_grants')->insertOrIgnore($row);
+                $connection->table(TableName::resolve('admin_upload_grants'))->insertOrIgnore($row);
             };
         }
     }
@@ -91,7 +92,7 @@ final class AdminUploadGrantRepository
     {
         $connection = DB::connection();
         $write = static function () use ($connection, $scope, $path): void {
-            $connection->table('admin_upload_grants')->where('scope_hash', $scope)->where('path_hash', hash('sha256', $path))->delete();
+            $connection->table(TableName::resolve('admin_upload_grants'))->where('scope_hash', $scope)->where('path_hash', hash('sha256', $path))->delete();
         };
         $write();
         if ($connection->transactionLevel() > 0) {
@@ -120,6 +121,6 @@ final class AdminUploadGrantRepository
     {
         // Retry authority must not depend on replication lag. Laravel applies
         // the configured connection's table prefix to every statement.
-        return DB::table('admin_upload_grants')->useWritePdo();
+        return DB::table(TableName::resolve('admin_upload_grants'))->useWritePdo();
     }
 }

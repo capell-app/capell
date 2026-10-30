@@ -14,6 +14,7 @@ use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 
 final readonly class AgentPageTermsWriteTool implements AgentAdminTool
 {
@@ -110,7 +111,7 @@ final readonly class AgentPageTermsWriteTool implements AgentAdminTool
     private function termIds(AgentAdminToolInvocationData $invocation, Page $page): array
     {
         /** @var list<int> $termIds */
-        $termIds = SiteAccess::forActor($invocation->user)->scope($page->terms()->getQuery())->pluck('terms.id')->map(static fn (mixed $id): int => (int) $id)->values()->all();
+        $termIds = SiteAccess::forActor($invocation->user)->scope($page->terms()->getQuery())->pluck(TableName::resolve('terms') . '.id')->map(static fn (mixed $id): int => (int) $id)->values()->all();
 
         return $termIds;
     }

@@ -107,6 +107,25 @@ it('reports missing event sourcing tables as a critical finding with remediation
         ->and($finding->remediation)->toContain('php artisan migrate');
 });
 
+it('checks the configured event sourcing and revision table names', function (): void {
+    demoInstallHealthSeedInstall();
+    Schema::rename('stored_events', 'health_events');
+    Schema::rename('page_revisions', 'health_revisions');
+    config()->set('capell.database.external_tables.stored_events', 'health_events');
+    config()->set('capell.database.table_aliases.page_revisions', 'health_revisions');
+
+    resolve(RuntimeSchemaState::class)->flush();
+
+    try {
+        $findings = collect(BuildDemoInstallHealthReportAction::run()->findings)->keyBy('id');
+        expect($findings->has('core.schema.event-sourcing'))->toBeFalse()
+            ->and($findings->has('core.schema.required'))->toBeFalse();
+    } finally {
+        Schema::rename('health_events', 'stored_events');
+        Schema::rename('health_revisions', 'page_revisions');
+    }
+});
+
 it('reports invalid queue and cache configuration as critical operational findings', function (): void {
     demoInstallHealthSeedInstall();
 

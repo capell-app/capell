@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -19,24 +20,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('page_workflow_states', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('page_workflow_states'), function (Blueprint $table): void {
             $table->id();
             $table->char('page_uuid', 36);
             $table->string('status')->default('draft');
-            $table->foreignId('approver_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUserId('approver_id')->nullable()->constrained('users', indexName: TableName::index('page_workflow_states', 'approver_id', 'foreign'))->nullOnDelete();
             $table->text('requested_changes_note')->nullable();
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('scheduled_for')->nullable();
             $table->unsignedBigInteger('aggregate_version')->default(0);
             $table->timestamps();
 
-            $table->unique('page_uuid');
-            $table->index('status');
+            $table->unique('page_uuid', TableName::index('page_workflow_states', 'page_uuid', 'unique'));
+            $table->index('status', TableName::index('page_workflow_states', 'status', 'index'));
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('page_workflow_states');
+        Schema::dropIfExists(TableName::resolve('page_workflow_states'));
     }
 };

@@ -77,7 +77,7 @@ final class CreateAdditionalInstallUsersAction
             return;
         }
 
-        if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+        if (! Schema::hasTable((string) config('permission.table_names.roles', 'roles')) || ! Schema::hasTable((string) config('permission.table_names.model_has_roles', 'model_has_roles'))) {
             $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically.', $userData->roleName, $userData->email));
 
             return;

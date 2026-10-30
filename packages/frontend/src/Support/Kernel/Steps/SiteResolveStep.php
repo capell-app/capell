@@ -10,6 +10,7 @@ use Capell\Core\Exceptions\UrlSiteDomainNotFoundException;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Site\SiteDomainFinder;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Core\Support\Url\UrlPathNormalizer;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Support\Loader\SiteLoader;
@@ -70,6 +71,13 @@ final class SiteResolveStep
                     }
 
                     $target = $scheme . '://' . $host;
+
+                    // Public matching requires the configured port, so a non-standard port must survive the redirect.
+                    $port = SiteDomainAddressing::normalizeStoredPort($scheme, $defaultDomain->port);
+
+                    if ($port !== null) {
+                        $target .= ':' . $port;
+                    }
 
                     // Only prepend the prefix when the request is not already inside it.
                     // A request such as /showcase/missing-page under a default domain with

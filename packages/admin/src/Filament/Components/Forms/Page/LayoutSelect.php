@@ -15,6 +15,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -47,7 +48,7 @@ class LayoutSelect extends Select
                 titleAttribute: 'name',
                 modifyQueryUsing: fn (Builder $query, ?string $search = null) => $this->applyAccessibleLayoutQuery($query)
                     ->select([
-                        'layouts.*',
+                        TableName::resolve('layouts') . '.*',
                         LayoutsTable::getUsesCountSelect($query, 'pages_count'),
                     ])
                     ->with(['image'])

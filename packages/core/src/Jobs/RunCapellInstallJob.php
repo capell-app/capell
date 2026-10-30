@@ -11,7 +11,9 @@ use Capell\Core\Support\Install\InstallReportRedactor;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use ReflectionProperty;
 use Throwable;
 
 final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
@@ -28,9 +30,11 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = self::CACHE_TTL;
 
+    /** @param  array<string, string>  $tableChanges  Config keys to apply for the duration of the install. */
     public function __construct(
         private readonly InstallInputData $inputData,
         private readonly string $installId,
+        private readonly array $tableChanges = [],
     ) {}
 
     /** @return array<int, int> */
@@ -64,6 +68,12 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $previousConfig = [];
+        foreach ($this->queuedTableChanges() as $key => $value) {
+            $previousConfig[$key] = [config()->has($key), config($key)];
+            config()->set($key, $value);
+        }
+
         try {
             RunInstallAction::run($this->inputData, $reporter);
             $this->duringUpdate(function () use ($reporter): void {
@@ -91,6 +101,21 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
             });
 
             throw $throwable;
+        } finally {
+            foreach ($previousConfig as $key => [$existed, $value]) {
+                if ($existed) {
+                    config()->set($key, $value);
+
+                    continue;
+                }
+
+                [$root, $path] = explode('.', $key, 2);
+                $rootConfig = config($root);
+                if (is_array($rootConfig)) {
+                    Arr::forget($rootConfig, $path);
+                    config()->set($root, $rootConfig);
+                }
+            }
         }
     }
 
@@ -155,5 +180,15 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
     private function statusKey(): string
     {
         return sprintf('capell.install.%s.status', $this->installId);
+    }
+
+    /**
+     * A job serialised before the table changes existed has no such property, so it is uninitialised after unserialising.
+     *
+     * @return array<string, string>
+     */
+    private function queuedTableChanges(): array
+    {
+        return new ReflectionProperty($this, 'tableChanges')->isInitialized($this) ? $this->tableChanges : [];
     }
 }

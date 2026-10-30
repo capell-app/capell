@@ -9,6 +9,7 @@ use BackedEnum;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
 use Capell\Core\Concerns\HasCapellMedia;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Database\Factories\BlueprintFactory;
@@ -28,6 +29,7 @@ use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\BlueprintObserver;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -125,6 +127,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
 {
     use Cloneable;
     use HasCapellMedia;
+    use HasCapellTable;
 
     /** @use HasDefault<Blueprint> */
     use HasDefault;
@@ -180,11 +183,11 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     public static function getGroups(): array
     {
-        return DB::table('blueprints')
+        return DB::table(TableName::resolve('blueprints'))
             ->select('group')
             ->selectRaw('COUNT(*) AS aggregate')
             ->groupBy('group')
-            ->orderBy('blueprints.group')
+            ->orderBy(TableName::resolve('blueprints') . '.group')
             ->whereNotNull('group')
             ->pluck('aggregate', 'group')
             ->mapWithKeys(static fn (int|string $count, string $group): array => [
@@ -198,7 +201,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      */
     public static function getTypes(): array
     {
-        return DB::table('blueprints')
+        return DB::table(TableName::resolve('blueprints'))
             ->select('type')
             ->selectRaw('COUNT(*) AS aggregate')
             ->groupBy('type')

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,10 +11,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('metric_daily_rollups', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('metric_daily_rollups'), function (Blueprint $table): void {
             $table->id();
             $table->foreignId('metric_collection_run_id')
-                ->constrained('metric_collection_runs')
+                ->constrained(TableName::resolve('metric_collection_runs'), indexName: TableName::index('metric_daily_rollups', 'metric_collection_run_id', 'foreign'))
                 ->restrictOnDelete();
             $table->date('day');
             $table->string('owner_package', 191);
@@ -22,7 +23,7 @@ return new class extends Migration
             $table->char('definition_hash', 64);
             $table->string('scope_key', 191);
             $table->string('scope_type', 32);
-            $table->foreignId('site_id')->nullable()->constrained('sites')->nullOnDelete();
+            $table->foreignId('site_id')->nullable()->constrained(TableName::resolve('sites'), indexName: TableName::index('metric_daily_rollups', 'site_id', 'foreign'))->nullOnDelete();
             $table->uuid('site_uuid')->nullable();
             $table->string('language', 35)->nullable();
             $table->string('timezone', 64);
@@ -37,15 +38,15 @@ return new class extends Migration
 
             $table->unique(
                 ['day', 'owner_package', 'collector_key', 'metric_key', 'scope_key'],
-                'metric_daily_rollups_identity_unique',
+                TableName::namedIndex('metric_daily_rollups', 'metric_daily_rollups_identity_unique'),
             );
-            $table->index(['site_uuid', 'day'], 'metric_daily_rollups_site_day_idx');
-            $table->index(['metric_collection_run_id', 'metric_key'], 'metric_daily_rollups_run_metric_idx');
+            $table->index(['site_uuid', 'day'], TableName::namedIndex('metric_daily_rollups', 'metric_daily_rollups_site_day_idx'));
+            $table->index(['metric_collection_run_id', 'metric_key'], TableName::namedIndex('metric_daily_rollups', 'metric_daily_rollups_run_metric_idx'));
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('metric_daily_rollups');
+        Schema::dropIfExists(TableName::resolve('metric_daily_rollups'));
     }
 };

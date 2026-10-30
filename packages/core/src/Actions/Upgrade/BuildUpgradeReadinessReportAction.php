@@ -10,6 +10,7 @@ use Capell\Core\Data\Upgrade\UpgradeReadinessReportData;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\Upgrade\UpgradeReadinessResult;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\TableName;
 use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -61,7 +62,7 @@ final class BuildUpgradeReadinessReportAction
     private function operationTablesCheck(): UpgradeReadinessCheckData
     {
         try {
-            $tablesExist = Schema::hasTable('capell_upgrade_runs') && Schema::hasTable('capell_upgrade_run_events');
+            $tablesExist = Schema::hasTable(TableName::resolve('capell_upgrade_runs')) && Schema::hasTable(TableName::resolve('capell_upgrade_run_events'));
         } catch (Throwable $throwable) {
             return new UpgradeReadinessCheckData(
                 key: 'upgrade_operation_tables',

@@ -31,9 +31,22 @@ Installer and Marketplace config are loaded from their packages. Publish or over
 
 Source: `packages/core/config/capell.php`
 
+`capell.database.table_prefix` defaults to an empty string. The resolver uses
+`capell.database.table_aliases` (an empty array by default) for explicit
+base-name-to-table-name mappings; an alias takes precedence over the prefix.
+For example, the alias `pages => cms_pages` resolves `pages` to `cms_pages`.
+External packages use their own configuration for the tables they own:
+Spatie Permission uses `permission.table_names`, Settings uses
+`settings.repositories.database.table`, Activitylog uses `activitylog.table_name`,
+and Tags uses `tags.taggable.table_name` for its pivot table. For packages without
+table-name keys, `capell.database.external_tables.media`,
+`capell.database.external_tables.tags`, `capell.database.external_tables.stored_events`,
+and `capell.database.external_tables.snapshots` configure their respective external
+package tables. These names do not inherit the Capell table prefix or aliases.
+
 | Variable                                     | Default                                   | Used for                                                                                                                                                            |
 | -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CAPELL_SKIP_TWO_FACTOR_WHEN_LOCAL` | `true` | Sets `capell.auth.skip_two_factor_when_local`; consumers may skip 2FA only when the application environment is `local`. Set to `false` to exercise local 2FA. |
+| `CAPELL_SKIP_TWO_FACTOR_WHEN_LOCAL`          | `true`                                    | Sets `capell.auth.skip_two_factor_when_local`; consumers may skip 2FA only when the application environment is `local`. Set to `false` to exercise local 2FA.       |
 | `CAPELL_VERSION`                             | _(null)_                                  | Optional Capell version override for Marketplace health reports                                                                                                     |
 | `CAPELL_RUNTIME_ROLE`                        | `combined`                                | Immutable process composition: `combined`, `public`, or `authoring`; see [Runtime roles](../operations/runtime-roles.md)                                            |
 | `CAPELL_CACHE_PATH`                          | `bootstrap/cache/capell`                  | Directory used for Capell component cache files                                                                                                                     |
@@ -217,15 +230,15 @@ HTML content rendering is sanitized by `RenderHtmlContentAction`; Blade directiv
 
 Source: `packages/installer/config/capell-installer.php`
 
-| Variable                        | Default                   | Used for                                                |
-| ------------------------------- | ------------------------- | ------------------------------------------------------- |
+| Variable                        | Default                   | Used for                                                                                                |
+| ------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `CAPELL_SETUP_ALLOW_REINSTALL`  | `APP_DEBUG`, then `false` | Allows reinstall only while `APP_DEBUG=true`; enabling this setting cannot override disabled debug mode |
-| `CAPELL_SETUP_COMPOSER_BINARY`  | `composer`                | Composer binary used by the browser installer           |
-| `CAPELL_SETUP_PHP_BINARY`       | `php`                     | CLI PHP binary used for fresh Artisan processes         |
-| `CAPELL_SETUP_DEFAULT_PACKAGES` | `capell-app/filamentors`  | Optional packages preselected in the browser installer  |
-| `CAPELL_SETUP_ADMIN_NAME`       | _(empty)_                 | First admin name prefilled in the browser installer     |
-| `CAPELL_SETUP_ADMIN_EMAIL`      | _(empty)_                 | First admin email prefilled in the browser installer    |
-| `CAPELL_SETUP_ADMIN_PASSWORD`   | _(empty)_                 | First admin plaintext password input; hashed on create  |
+| `CAPELL_SETUP_COMPOSER_BINARY`  | `composer`                | Composer binary used by the browser installer                                                           |
+| `CAPELL_SETUP_PHP_BINARY`       | `php`                     | CLI PHP binary used for fresh Artisan processes                                                         |
+| `CAPELL_SETUP_DEFAULT_PACKAGES` | `capell-app/filamentors`  | Optional packages preselected in the browser installer                                                  |
+| `CAPELL_SETUP_ADMIN_NAME`       | _(empty)_                 | First admin name prefilled in the browser installer                                                     |
+| `CAPELL_SETUP_ADMIN_EMAIL`      | _(empty)_                 | First admin email prefilled in the browser installer                                                    |
+| `CAPELL_SETUP_ADMIN_PASSWORD`   | _(empty)_                 | First admin plaintext password input; hashed on create                                                  |
 
 Set `CAPELL_SETUP_PHP_BINARY` when the web SAPI sees `PHP_BINARY` as `php-fpm` or another non-CLI executable.
 
@@ -305,7 +318,7 @@ env var, so they are only settable by publishing the config file — and easy to
 | Config key                                                    | Default                                                                                                                                                                              | Effect                                                                                                                                                                       |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `capell-admin.security_headers.headers`                       | `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `X-Frame-Options: SAMEORIGIN` | Literal header map stamped on every admin response. Publishing replaces the whole map, so add a CSP or change the frame policy here. Only the `enabled` flag has an env var. |
-| `capell-frontend.fallback_public_views.view_names`            | `[]`                                                                                                                                                                                 | Allowlist of full Blade view names unresolved public paths or route names may render; top-level views also require registration                                                                                                      |
+| `capell-frontend.fallback_public_views.view_names`            | `[]`                                                                                                                                                                                 | Allowlist of full Blade view names unresolved public paths or route names may render; top-level views also require registration                                              |
 | `capell-frontend.fallback_public_views.prefixes`              | `[]`                                                                                                                                                                                 | Permitted leading view segments for fallback views. Widening this exposes more application templates to anonymous visitors.                                                  |
 | `capell-frontend.route.reserved_domains`                      | `[]`                                                                                                                                                                                 | Hosts the frontend catch-all must never serve. The admin domain is reserved automatically.                                                                                   |
 | `capell-frontend.route.reserved_prefixes`                     | `[]`                                                                                                                                                                                 | Path prefixes excluded from frontend catch-all routing                                                                                                                       |
@@ -412,3 +425,21 @@ Relation::morphMap([
 - [Admin setup](../admin/setup.md)
 - [Frontend guide](../frontend/guide.md)
 - [Operations troubleshooting](../operations/troubleshooting.md)
+
+Package providers can register migration roots and their created tables with
+`Capell\Core\Support\Migration\MigrationRootRegistry` during registration. Pass
+the Composer package name, the migration directory, and a map from the creating
+migration name to its base table name:
+
+```php
+app(\Capell\Core\Support\Migration\MigrationRootRegistry::class)->register(
+    'example/widgets',
+    __DIR__ . '/../database/migrations',
+    ['2026_01_01_000000_create_widgets_table' => 'widgets'],
+);
+```
+
+The installer checks registered roots for the selected packages before migrations.
+Package migrations and models must use `TableName::resolve()` for those names;
+registering a literal migration alone does not make that migration honour aliases.
+External dependencies retain their own table-name configuration.

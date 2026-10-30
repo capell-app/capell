@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\AssetAttachmentFactory;
 use Capell\Core\Models\Concerns\HasUserstamps;
 use Capell\Core\Models\Contracts\Userstampable;
@@ -52,6 +53,8 @@ use Illuminate\Foundation\Auth\User as AuthenticatableUser;
  */
 class AssetAttachment extends Model implements Userstampable
 {
+    use HasCapellTable;
+
     /** @use HasFactory<AssetAttachmentFactory> */
     use HasFactory;
 

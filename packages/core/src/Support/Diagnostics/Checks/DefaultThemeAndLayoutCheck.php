@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Diagnostics\Checks;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Support\Facades\Schema;
 
@@ -26,11 +27,11 @@ final class DefaultThemeAndLayoutCheck extends AbstractDoctorCheck
     {
         $issues = [];
 
-        if (Schema::hasTable('themes') && ! resolve(ConnectionResolverInterface::class)->table('themes')->where('default', true)->exists()) {
+        if (Schema::hasTable(TableName::resolve('themes')) && ! resolve(ConnectionResolverInterface::class)->table(TableName::resolve('themes'))->where('default', true)->exists()) {
             $issues[] = 'No default theme';
         }
 
-        if (Schema::hasTable('layouts') && ! Layout::query()->default()->exists()) {
+        if (Schema::hasTable(TableName::resolve('layouts')) && ! Layout::query()->default()->exists()) {
             $issues[] = 'No default layout';
         }
 

@@ -19,7 +19,7 @@ final class BuildDefaultSiteStatsAction
 
     public function handle(string $period = 'last_30_days'): SiteStatsData
     {
-        [$rangeStart, $rangeEnd] = $this->resolveDateRange($period);
+        [$rangeStart, $rangeEnd] = ResolveDashboardPeriodWindowsAction::run($period);
 
         // Genuine schedules only: sentinel drafts are not upcoming work.
         $pendingCount = $this->basePageQuery()->scheduled()->count();
@@ -33,20 +33,6 @@ final class BuildDefaultSiteStatsAction
             expiredCount: $expiredCount,
             totalPagesCount: $this->basePageQuery()->count(),
         );
-    }
-
-    /** @return array{CarbonImmutable, CarbonImmutable} */
-    private function resolveDateRange(string $period): array
-    {
-        $now = CarbonImmutable::now();
-
-        return match ($period) {
-            'today' => [$now->startOfDay(), $now->endOfDay()],
-            'this_week' => [$now->startOfWeek(), $now->endOfWeek()],
-            'this_month' => [$now->startOfMonth(), $now->endOfMonth()],
-            'this_year' => [$now->startOfYear(), $now->endOfYear()],
-            default => [$now->subDays(30)->startOfDay(), $now->endOfDay()],
-        };
     }
 
     private function publishedWithin(CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): int

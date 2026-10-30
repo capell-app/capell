@@ -21,6 +21,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Closure;
 use DateTimeInterface;
 use Filament\Actions\Action;
@@ -569,11 +570,11 @@ class TranslationsRepeater extends RepeaterTabs
         return $query
             ->with(['language'])
             ->select($query->getModel()->qualifyColumn('*'))
-            ->join('languages', $query->getModel()->qualifyColumn('language_id'), '=', 'languages.id')
-            ->whereNull('languages.deleted_at')
-            ->orderByDesc('languages.default')
-            ->orderBy('languages.order')
-            ->orderBy('languages.name');
+            ->join(TableName::resolve('languages'), $query->getModel()->qualifyColumn('language_id'), '=', TableName::resolve('languages') . '.id')
+            ->whereNull(TableName::resolve('languages') . '.deleted_at')
+            ->orderByDesc(TableName::resolve('languages') . '.default')
+            ->orderBy(TableName::resolve('languages') . '.order')
+            ->orderBy(TableName::resolve('languages') . '.name');
     }
 
     private function resolveTypeRecord(?Model $record): ?Blueprint

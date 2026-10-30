@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Awobaz\Compoships\Compoships;
 use Capell\Core\Actions\DiagnosePageUrlSiteDomainAction;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Database\Factories\UrlFactory;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
@@ -16,6 +17,7 @@ use Capell\Core\Models\Concerns\HasUserstamps;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\PageUrlObserver;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -94,6 +96,7 @@ use Override;
 class PageUrl extends Model implements Statusable, Userstampable
 {
     use Compoships;
+    use HasCapellTable;
 
     /** @use HasFactory<UrlFactory> */
     use HasFactory;
@@ -153,7 +156,7 @@ class PageUrl extends Model implements Statusable, Userstampable
                 fn (Builder $query) => $query->whereHas(
                     'blueprint',
                     fn (BuilderContract $query): BuilderContract => $query->where(
-                        'blueprints.meta->cache_frequency',
+                        TableName::resolve('blueprints') . '.meta->cache_frequency',
                         'always',
                     ),
                 ),
@@ -268,7 +271,7 @@ class PageUrl extends Model implements Statusable, Userstampable
     {
         $query->orderBy(
             Language::query()->select('order')
-                ->whereColumn('languages.id', 'page_urls.language_id')
+                ->whereColumn(TableName::resolve('languages') . '.id', TableName::resolve('page_urls') . '.language_id')
                 ->limit(1),
         );
     }

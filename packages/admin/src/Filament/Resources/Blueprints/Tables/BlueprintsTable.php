@@ -21,6 +21,7 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\TableName;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -65,9 +66,9 @@ class BlueprintsTable implements TableConfigurator
 
                     $sql .= sprintf(
                         ' WHEN %s = ? THEN (SELECT COUNT(*) FROM %s WHERE %s = %s)',
-                        $grammar->wrap('blueprints.type'),
+                        $grammar->wrap(TableName::resolve('blueprints') . '.type'),
                         $grammar->wrapTable($table),
-                        $grammar->wrap('blueprints.id'),
+                        $grammar->wrap(TableName::resolve('blueprints') . '.id'),
                         $grammar->wrap($table . '.blueprint_id'),
                     );
                     $bindings[] = $type->name;
@@ -76,7 +77,7 @@ class BlueprintsTable implements TableConfigurator
                 $sql .= sprintf(' ELSE 0 END) AS %s', $grammar->wrap('count'));
                 $count = new SqlFragment($sql, $bindings);
 
-                $query->select('blueprints.*');
+                $query->select(TableName::resolve('blueprints') . '.*');
                 $count->applySelect($query->getQuery());
 
                 return $query;

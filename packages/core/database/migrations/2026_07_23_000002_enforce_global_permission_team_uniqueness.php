@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ return new class extends Migration
         $contracts = $this->uniqueContracts();
 
         foreach ($contracts as $contract) {
-            if (! Schema::hasTable($contract['table'])) {
+            if (! TableName::externalExistsAndIsOwned($contract['table'], 'create_permission_tables')) {
                 continue;
             }
 
@@ -38,7 +39,7 @@ return new class extends Migration
         }
 
         foreach ($contracts as $contract) {
-            if (! Schema::hasTable($contract['table'])) {
+            if (! TableName::externalExistsAndIsOwned($contract['table'], 'create_permission_tables')) {
                 continue;
             }
 
@@ -80,7 +81,7 @@ return new class extends Migration
     public function down(): void
     {
         foreach (array_reverse($this->uniqueContracts()) as $contract) {
-            if (! Schema::hasTable($contract['table'])) {
+            if (! TableName::externalExistsAndIsOwned($contract['table'], 'create_permission_tables')) {
                 continue;
             }
 
@@ -184,8 +185,9 @@ return new class extends Migration
         ?string $pivot = null,
     ): array {
         $legacyColumns = [$teamColumn, ...$identityColumns];
+        $indexTable = DB::connection()->getConfig('prefix_indexes') ? DB::connection()->getTablePrefix() . $table : $table;
         $legacyIndex = $pivot === null
-            ? $this->indexName($table, $teamColumn . '_name_guard_name_unique')
+            ? $this->indexName($indexTable, $teamColumn . '_name_guard_name_unique')
             : $this->indexName($table, 'team_' . $pivot . '_model_type_unique');
 
         return [

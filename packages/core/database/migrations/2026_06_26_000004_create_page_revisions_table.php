@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,23 +17,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('page_revisions', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('page_revisions'), function (Blueprint $table): void {
             $table->id();
             $table->char('page_uuid', 36);
             $table->unsignedBigInteger('version');
-            $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUserId('actor_id')->nullable()->constrained('users', indexName: TableName::index('page_revisions', 'actor_id', 'foreign'))->nullOnDelete();
             $table->string('summary');
             $table->boolean('is_rollback')->default(false);
             $table->timestamp('occurred_at');
             $table->timestamps();
 
-            $table->unique(['page_uuid', 'version']);
-            $table->index(['page_uuid', 'occurred_at']);
+            $table->unique(['page_uuid', 'version'], TableName::index('page_revisions', ['page_uuid', 'version'], 'unique'));
+            $table->index(['page_uuid', 'occurred_at'], TableName::index('page_revisions', ['page_uuid', 'occurred_at'], 'index'));
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('page_revisions');
+        Schema::dropIfExists(TableName::resolve('page_revisions'));
     }
 };
