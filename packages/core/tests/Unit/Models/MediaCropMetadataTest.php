@@ -29,3 +29,20 @@ it('stores crop presets using the current focal point', function (): void {
         ->and($media->getFocalPointForConversion('missing'))
         ->toBe(['x' => 35, 'y' => 65]);
 });
+
+it('lists crop presets in registered order whatever order storage returns them in', function (): void {
+    config()->set('capell.media.crop_presets', [
+        'thumbnail' => ['ratio' => '1:1', 'width' => 400, 'height' => 400],
+        'hero' => ['ratio' => '16:9', 'width' => 1600, 'height' => 900],
+    ]);
+    $media = new Media;
+    // A MySQL JSON column returns object keys shortest first, so 'hero' comes back before 'thumbnail'.
+    $media->custom_properties = ['capell' => ['crops' => [
+        'retired' => ['focal' => ['x' => 50, 'y' => 50]],
+        'hero' => ['focal' => ['x' => 50, 'y' => 50]],
+        'archived' => ['focal' => ['x' => 50, 'y' => 50]],
+        'thumbnail' => ['focal' => ['x' => 50, 'y' => 50]],
+    ]]];
+
+    expect($media->getCropPresetNames())->toBe(['thumbnail', 'hero', 'archived', 'retired']);
+});
