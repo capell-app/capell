@@ -256,11 +256,11 @@ not again on the pull request. A pull request runs the fast PR gate, PHP
 Quality and the other cheap checks for quick feedback. The `Merge queue full
 matrix` check then runs every matrix cell on each merge-group commit and
 validates a non-empty, passing JUnit report for every configured cell from that
-attempt. A failing entry leaves the queue without blocking the entries behind
-it. To run the matrix on a pull request before queueing it, dispatch Test All
-manually for the branch. To enforce the check, add it to the existing
-main-branch required checks only after this workflow is available on `main`.
-Keep the existing required checks in place.
+attempt. `Merge queue full matrix` is a required check on `main`, so an entry
+whose matrix fails leaves the queue instead of merging, without blocking the
+entries behind it. On a pull request the same check passes without running the
+matrix, so a PR can still join the queue. To run the matrix on a pull request
+before queueing it, dispatch Test All manually for the branch.
 
 Adding `ready-to-merge` to an open, non-draft PR targeting `main` authorises
 GitHub to merge it through the `main` merge queue without a further per-PR chat
@@ -290,11 +290,11 @@ queues write permissions, without bypass rights. Store its ID and private key
 in `MERGE_QUEUE_APP_ID` and `MERGE_QUEUE_APP_PRIVATE_KEY` repository secrets.
 The workflow creates a short-lived installation token for each run. The
 `ready-to-merge` label must exist. Verify the App can enqueue and required
-checks run before relying on the queue. `actionlint` and `PHP Quality (8.4)` run
-on `merge_group`; review branch protection and rulesets for any additional
-required checks and ensure each reports on `merge_group`. Hosted Actions billing
-or credential restrictions can prevent the worker from running; local checks
-do not produce the required merge-group status.
+checks run before relying on the queue. The `main` ruleset requires
+`PHP Quality (8.4)` and `Merge queue full matrix`; both, and `actionlint`, run
+on `merge_group`. Any further required check must also report on `merge_group`.
+Hosted Actions billing or credential restrictions can prevent the worker from
+running; local checks do not produce the required merge-group status.
 
 For concurrent local screenshot runs, set `CAPELL_SCREENSHOT_PORT` to an available
 port from 1024 to 65535 (the default is 8145). The Testbench server, runner and
