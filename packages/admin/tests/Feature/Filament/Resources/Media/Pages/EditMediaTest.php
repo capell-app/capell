@@ -806,7 +806,9 @@ it('rolls back an image save with clear feedback when conversion fails and succe
     expect($media->name)->toBe('Hero')
         ->and($media->getFocalPoint())->toBe(['x' => 50, 'y' => 50])
         ->and($media->getCropPresetNames())->toBe(['thumbnail'])
-        ->and($manipulator->calls)->toBe([['thumbnail', 'hero'], ['thumbnail']]);
+        // MySQL JSON columns reorder object keys, so each call's preset order is storage-defined.
+        ->and(array_map(fn (array $names): array => collect($names)->sort()->values()->all(), $manipulator->calls))
+        ->toBe([['hero', 'thumbnail'], ['thumbnail']]);
 
     $manipulator->fail = false;
     $component->call('save')->assertHasNoFormErrors();
