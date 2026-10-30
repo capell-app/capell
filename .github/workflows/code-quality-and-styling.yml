@@ -18,7 +18,9 @@ permissions:
 
 concurrency:
   group: php-quality-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A newer push supersedes a pull request run, and a newer merge supersedes a main run (which
+  # only refreshes the caches). Merge-group runs are required checks and are never cancelled.
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 jobs:
   scope:

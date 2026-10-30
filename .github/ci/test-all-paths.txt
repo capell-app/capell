@@ -7,7 +7,6 @@ docs/packages/catalog.md
 scripts/**/*.php
 docs/getting-started/install.md
 docs/getting-started/quickstart.md
-docs/development/ci.md
 .docker/Dockerfile
 .github/workflows/test-fast-pr.yml
 .github/workflows/test-full.yml
