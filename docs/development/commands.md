@@ -13,6 +13,7 @@ This page is the short command map for the host packages in this repository. Run
 | `capell:health`                 | Run bounded operational checks (`--json` for monitoring)                   |
 | `capell:publish-migrations`     | Publish Capell migrations or selected migration files                      |
 | `capell:delete-migrations`      | Delete published migration files for an extension                          |
+| `capell:tables:adopt`           | Record the creating migration of a Capell table that lost its row          |
 | `capell:publish-components`     | Publish frontend Blade component views                                     |
 | `capell:cache-components`       | Cache registered component metadata                                        |
 | `capell:clear-components-cache` | Clear cached component metadata                                            |

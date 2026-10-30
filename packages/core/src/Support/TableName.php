@@ -27,7 +27,29 @@ final class TableName
     /** @throws ForeignTableException when the table exists without its creating migration being recorded */
     public static function externalExistsAndIsOwned(string $table, string $migration, ?string $configKey = null): bool
     {
-        return AssertTableOwnershipAction::run($table, $migration, $configKey ?? (string) __('capell-core::install.tables.external_config'));
+        return AssertTableOwnershipAction::run($table, $migration, $configKey ?? self::externalConfigKey($table));
+    }
+
+    /** The real config key that names an externally owned table, so a message can point at it. */
+    public static function externalConfigKey(string $table): string
+    {
+        $candidates = [
+            'permission.table_names' => config('permission.table_names'),
+            'capell.database.external_tables' => config('capell.database.external_tables'),
+        ];
+        foreach ($candidates as $prefix => $names) {
+            if (is_array($names) && ($key = array_search($table, $names, true)) !== false) {
+                return $prefix . '.' . $key;
+            }
+        }
+
+        foreach (['settings.repositories.database.table', 'activitylog.table_name', 'tags.taggable.table_name'] as $key) {
+            if (config($key) === $table) {
+                return $key;
+            }
+        }
+
+        return 'capell.database.external_tables.' . $table;
     }
 
     public static function base(string $table): string

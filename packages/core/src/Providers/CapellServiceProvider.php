@@ -10,6 +10,7 @@ use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
+use Capell\Core\Console\Commands\AdoptTableCommand;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
 use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
 use Capell\Core\Console\Commands\BackupHealthCommand;
@@ -319,6 +320,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             CoreFakerCommand::class,
             CreateBackupCommand::class,
             DeleteMigrationsCommand::class,
+            AdoptTableCommand::class,
             DoctorCommand::class,
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,

@@ -47,10 +47,11 @@ package tables. These names do not inherit the Capell table prefix or aliases.
 A prefix may contain letters, numbers and underscores, must not start with a number, and
 must leave the longest Capell table name within 63 characters (the PostgreSQL identifier
 cap). Capell never takes over a table it did not create: an upgrade or migration that
-finds an existing table without its creating migration recorded stops and names
-`capell.database.table_prefix` and the table's alias key. Package migrations call
+finds an existing table adopts it when its columns match the Capell migration (a lost
+`migrations` row) and otherwise stops, naming `capell:tables:adopt` and, for another
+application's table, `capell.database.table_prefix` and the table's alias key. Package migrations call
 `Capell\Core\Actions\Install\AssertTableOwnershipAction::run($baseTable, $migration)`
-for the same guard; it returns `true` when the table is already Capell's (skip the create),
+for the same guard; it returns `true` when the table is already Capell's, recorded or matching its columns (skip the create),
 `false` when it is absent and throws `Capell\Core\Exceptions\ForeignTableException` otherwise.
 
 | Variable                                     | Default                                   | Used for                                                                                                                                                            |

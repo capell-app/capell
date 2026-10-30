@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\AssertTableOwnershipAction;
 use Capell\Core\Actions\Install\FindTableCollisionsAction;
+use Capell\Core\Actions\Install\ResolveTableCollisionsAction;
 use Capell\Core\Actions\Install\ValidateTablePrefixAction;
+use Capell\Core\Actions\Upgrade\ReportCapellUpgradeDryRunAction;
+use Capell\Core\Contracts\UpgradeReporter;
 use Capell\Core\Data\Install\TableCollisionData;
+use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Exceptions\ForeignTableException;
 use Capell\Core\Support\Migration\CoreSchemaMigrations;
+use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -127,4 +133,112 @@ it('derives the page role restriction unique index from the prefixed table', fun
     $migration->up();
 
     expect(Schema::hasIndex('cms_page_role_restrictions', 'cms_page_role_restrictions_restrictable_role'))->toBeTrue();
+});
+
+function createRealCapellTable(string $file): void
+{
+    (require __DIR__ . '/../../database/migrations/' . $file . '.php')->up();
+}
+
+it('adopts a real Capell table whose migrations row was pruned and logs its create migration', function (): void {
+    createRealCapellTable('2026_05_10_190832_02_create_languages_table');
+
+    expect(CoreSchemaMigrations::createsExistingTable('2026_05_10_190832_02_create_languages_table'))->toBeTrue()
+        ->and(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeFalse();
+
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages']))->toBe(1);
+    expect(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeFalse();
+
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(0);
+    expect(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeTrue();
+});
+
+it('refuses a foreign table with the same name and names the table, migration and recovery command', function (): void {
+    Schema::create('languages', fn (Blueprint $table) => $table->id());
+
+    try {
+        CoreSchemaMigrations::createsExistingTable('2026_05_10_190832_02_create_languages_table');
+        $message = '';
+    } catch (ForeignTableException $foreignTableException) {
+        $message = $foreignTableException->getMessage();
+    }
+
+    expect($message)->toContain('languages')
+        ->and($message)->toContain('2026_05_10_190832_02_create_languages_table')
+        ->and($message)->toContain('capell:tables:adopt languages --confirm')
+        ->and($message)->toContain('for foreign tables only');
+
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(1);
+    expect(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeFalse();
+});
+
+it('adopts a table created by a registered package migration and a renamed legacy table', function (): void {
+    resolve(MigrationRootRegistry::class)->register('example/widgets', __DIR__ . '/../fixtures/table-naming/widget-package', ['2026_01_01_000001_create_widgets_table' => 'widgets']);
+    (require __DIR__ . '/../fixtures/table-naming/widget-package/2026_01_01_000001_create_widgets_table.php')->up();
+
+    expect(AssertTableOwnershipAction::run('widgets', '2026_01_01_000001_create_widgets_table'))->toBeTrue();
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'widgets', '--confirm' => true]))->toBe(0);
+    expect(TableName::migrationRecorded('2026_01_01_000001_create_widgets_table'))->toBeTrue();
+
+    createRealCapellTable('2026_05_10_190832_15_create_asset_attachments_table');
+    Schema::rename('asset_attachments', 'asset_relations');
+
+    expect(AssertTableOwnershipAction::run('asset_relations', '2026_05_10_190832_15_create_asset_relations_table'))->toBeTrue();
+});
+
+it('reports a conflicting table in the upgrade dry run instead of throwing', function (): void {
+    resolve('migrator')->getRepository()->createRepository();
+    Schema::create('pages', fn (Blueprint $table) => $table->id());
+    $lines = [];
+    $reporter = new class($lines) implements UpgradeReporter
+    {
+        public function __construct(public array &$lines) {}
+
+        public function stage(UpgradeStage $stage, string $message): void {}
+
+        public function line(string $message): void {}
+
+        public function info(string $message): void {}
+
+        public function warn(string $message): void
+        {
+            $this->lines[] = $message;
+        }
+
+        public function error(string $message): void {}
+
+        public function newLine(): void {}
+
+        public function confirm(string $message, bool $default = true): bool
+        {
+            return $default;
+        }
+
+        public function multiselect(string $label, array $options): array
+        {
+            return [];
+        }
+
+        public function commandExists(string $command): bool
+        {
+            return false;
+        }
+
+        public function callCommand(string $command, array $parameters = []): int
+        {
+            return 0;
+        }
+    };
+
+    $method = new ReflectionMethod(ReportCapellUpgradeDryRunAction::class, 'reportPendingSchemaMigrations');
+    $method->invoke(resolve(ReportCapellUpgradeDryRunAction::class), $reporter);
+
+    expect(implode(' ', $lines))->toContain('capell:tables:adopt pages --confirm');
+});
+
+it('counts tables from registered packages when validating a prefix, even with no collision', function (): void {
+    resolve(MigrationRootRegistry::class)->register('example/widgets', __DIR__ . '/../fixtures/table-naming/widget-package', ['2026_01_01_000001_create_widgets_table' => str_repeat('w', 60)]);
+
+    expect(fn (): array => ResolveTableCollisionsAction::run([], 'cms_', []))->toThrow(RuntimeException::class, 'too long');
+    expect(ResolveTableCollisionsAction::run([], 'c_', []))->toBe(['capell.database.table_prefix' => 'c_']);
 });

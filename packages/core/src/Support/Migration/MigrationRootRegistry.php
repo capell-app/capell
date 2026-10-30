@@ -34,4 +34,10 @@ final class MigrationRootRegistry
 
         return $roots;
     }
+
+    /** @return list<array{root: string, tables: array<string, string|list<string>>}> */
+    public function all(): array
+    {
+        return $this->roots === [] ? [] : array_merge(...array_values($this->roots));
+    }
 }
