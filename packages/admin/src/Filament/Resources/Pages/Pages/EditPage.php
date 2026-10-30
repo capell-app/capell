@@ -516,7 +516,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
 
         if ($draftId !== null) {
-            $draft = EditorScratchDraft::query()
+            $draft = SiteAccess::current()->query(EditorScratchDraft::class)
                 ->whereKey($draftId)->where('user_id', $user->getAuthIdentifier())
                 ->where('site_id', $this->record->site_id)->where('record_type', $this->record->getMorphClass())
                 ->where('record_id', $this->record->getKey())->where('locale', app()->getLocale())

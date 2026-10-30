@@ -11,6 +11,7 @@ use Capell\Admin\Enums\PageEditorLockOperation;
 use Capell\Admin\Enums\PageEditorScratchDraftStatus;
 use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Models\EditorScratchDraft;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
@@ -34,7 +35,7 @@ final class SavePageEditorScratchDraftAction
         }
 
         return $input->page->getConnection()->transaction(function () use ($input): PageEditorScratchDraftResultData {
-            $input->page->newQuery()->whereKey($input->page->getKey())->lockForUpdate()->firstOrFail();
+            SiteAccess::forActor($input->user)->query($input->page::class)->whereKey($input->page->getKey())->lockForUpdate()->firstOrFail();
 
             return $this->saveLocked($input);
         });
@@ -90,13 +91,13 @@ final class SavePageEditorScratchDraftAction
             'updated_at' => $now,
         ];
         if ($input->expectedRevision === null) {
-            $affected = EditorScratchDraft::query()->insertOrIgnore([...$identity, ...$values, 'created_at' => $now]);
+            $affected = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)->insertOrIgnore([...$identity, ...$values, 'created_at' => $now]);
         } else {
-            $affected = EditorScratchDraft::query()->where($identity)->where('revision', $input->expectedRevision)->update($values);
+            $affected = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)->where($identity)->where('revision', $input->expectedRevision)->update($values);
         }
 
         if ($affected === 0) {
-            $committed = EditorScratchDraft::query()->where($identity)
+            $committed = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)->where($identity)
                 ->where('previous_revision', $input->expectedRevision)->where('content_hash', $hash)->first();
             if ($committed instanceof EditorScratchDraft && $committed->revision !== null) {
                 return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 0, $committed->revision);

@@ -106,9 +106,9 @@ final class PageScratchDraftPanel extends Component
         }
 
         $deleted = $page->getConnection()->transaction(function () use ($draft, $page): int {
-            $page->newQuery()->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
+            SiteAccess::current()->query($page::class)->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
 
-            return EditorScratchDraft::query()->whereKey($draft->id)->where('revision', $draft->revision)->where('content_hash', $draft->content_hash)->delete();
+            return SiteAccess::current()->query(EditorScratchDraft::class)->whereKey($draft->id)->where('revision', $draft->revision)->where('content_hash', $draft->content_hash)->delete();
         });
         unset($this->draft);
 

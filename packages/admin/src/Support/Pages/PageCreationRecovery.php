@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Admin\Actions\Pages;
+namespace Capell\Admin\Support\Pages;
 
 use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Models\EditorScratchDraft;
@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
-final class PageCreationRecoveryAction
+final class PageCreationRecovery
 {
     /** @param array<string, mixed> $data */
     public function save(?Authenticatable $user, int $siteId, string $locale, string $context, ?string $expectedRevision, array $data): ?string
@@ -24,8 +24,10 @@ final class PageCreationRecoveryAction
             return null;
         }
 
-        return Site::query()->getConnection()->transaction(function () use ($user, $siteId, $locale, $context, $expectedRevision, $data): ?string {
-            $site = Site::query()->whereKey($siteId)->lockForUpdate()->first();
+        $access = SiteAccess::forActor($user);
+
+        return $access->query(Site::class)->getConnection()->transaction(function () use ($access, $user, $siteId, $locale, $context, $expectedRevision, $data): ?string {
+            $site = $access->query(Site::class)->whereKey($siteId)->lockForUpdate()->first();
             if (! $site instanceof Site || ! $this->allowed($user, $siteId)) {
                 return null;
             }
@@ -38,14 +40,14 @@ final class PageCreationRecoveryAction
             $values = ['payload' => $encoded, 'content_hash' => hash('sha256', $encoded), 'revision' => $revision, 'previous_revision' => $expectedRevision,
                 'saved_at' => $now, 'expires_at' => $now->addMinutes(SaveEditorScratchDraftAction::DEFAULT_TTL_MINUTES), 'updated_at' => $now];
             $affected = $expectedRevision === null
-                ? EditorScratchDraft::query()->insertOrIgnore([...$identity, ...$values, 'created_at' => $now])
-                : EditorScratchDraft::query()->where($identity)->where('revision', $expectedRevision)->update($values);
+                ? $access->query(EditorScratchDraft::class)->insertOrIgnore([...$identity, ...$values, 'created_at' => $now])
+                : $access->query(EditorScratchDraft::class)->where($identity)->where('revision', $expectedRevision)->update($values);
 
             if ($affected === 1) {
                 return $revision;
             }
 
-            $committed = EditorScratchDraft::query()->where($identity)
+            $committed = $access->query(EditorScratchDraft::class)->where($identity)
                 ->where('previous_revision', $expectedRevision)->where('content_hash', hash('sha256', $encoded))->first();
 
             return $committed?->revision;
@@ -90,7 +92,7 @@ final class PageCreationRecoveryAction
     /** @return Builder<EditorScratchDraft> */
     private function drafts(Authenticatable $user, int $siteId, string $locale): Builder
     {
-        return EditorScratchDraft::query()->where('user_id', $user->getAuthIdentifier())
+        return SiteAccess::forActor($user)->query(EditorScratchDraft::class)->where('user_id', $user->getAuthIdentifier())
             ->where('site_id', $siteId)->where('locale', $locale)
             ->where('record_type', (new Page)->getMorphClass())->where('record_id', 0)
             ->where('context', 'like', 'page-create:%');

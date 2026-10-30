@@ -9,6 +9,7 @@ use Capell\Admin\Enums\PageEditorScratchDraftStatus;
 use Capell\Core\Actions\EditorScratchDrafts\DiscardEditorScratchDraftAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\EditorScratchDraft;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -34,11 +35,11 @@ final class DiscardPageEditorScratchDraftAction
         }
 
         $deleted = $page->getConnection()->transaction(function () use ($page, $user, $locale, $context, $expectedRevision): int {
-            $page->newQuery()->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
+            SiteAccess::forActor($user)->query($page::class)->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
 
             return $context === 'page-editor'
                 ? DiscardEditorScratchDraftAction::run($page, $user, $locale, $context)
-                : ($expectedRevision === null ? 0 : EditorScratchDraft::query()
+                : ($expectedRevision === null ? 0 : SiteAccess::forActor($user)->query(EditorScratchDraft::class)
                     ->forEditor($user, $page, $locale, $context)
                     ->where('revision', $expectedRevision)
                     ->delete());

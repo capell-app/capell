@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Actions;
 use Capell\Admin\Actions\ValidateForceDeleteAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Override;
 
 final class ForceDeleteBulkAction extends \Filament\Actions\ForceDeleteBulkAction
@@ -41,7 +42,7 @@ final class ForceDeleteBulkAction extends \Filament\Actions\ForceDeleteBulkActio
 
         // Lock sites in stable order before checking dependencies and deleting.
         foreach ($this->getSelectedRecords()->filter(fn ($record): bool => $record instanceof Site)->sortBy(fn (Site $site): int => (int) $site->getKey()) as $site) {
-            $site->newQueryWithoutScopes()->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
+            SiteAccess::current()->query(Site::class)->withTrashed()->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
         }
 
         // Validate the whole selection before deleting any of its records.

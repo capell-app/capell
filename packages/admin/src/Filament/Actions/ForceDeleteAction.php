@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Actions;
 use Capell\Admin\Actions\ValidateForceDeleteAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 use Override;
@@ -32,7 +33,7 @@ final class ForceDeleteAction extends \Filament\Actions\ForceDeleteAction
         throw_unless($record instanceof Model, LogicException::class, 'Permanent deletion requires a model record.');
 
         if ($record instanceof Site) {
-            $record->newQueryWithoutScopes()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+            SiteAccess::current()->query(Site::class)->withTrashed()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
         }
 
         $livewire = $this->getLivewire();

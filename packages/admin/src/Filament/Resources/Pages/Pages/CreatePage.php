@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\BuildDefaultTranslationsAction;
-use Capell\Admin\Actions\Pages\PageCreationRecoveryAction;
 use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
 use Capell\Admin\Actions\Pages\SavePageAuthoringAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
@@ -19,6 +18,7 @@ use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\Pages\PageCreationRecovery;
 use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
@@ -152,7 +152,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             $this->creationRecoverySite = $site;
         }
 
-        $revision = resolve(PageCreationRecoveryAction::class)->save(
+        $revision = resolve(PageCreationRecovery::class)->save(
             $this->recoveryUser(),
             $site,
             app()->getLocale(),
@@ -162,7 +162,7 @@ class CreatePage extends CreateRecord implements HasPageResource
         );
         if ($revision === null) {
             $newContext = 'page-create:' . Str::uuid();
-            $revision = resolve(PageCreationRecoveryAction::class)->save(
+            $revision = resolve(PageCreationRecovery::class)->save(
                 $this->recoveryUser(),
                 $site,
                 app()->getLocale(),
@@ -191,7 +191,7 @@ class CreatePage extends CreateRecord implements HasPageResource
     {
         $site = $this->recoverySiteId();
 
-        return $site === null ? null : resolve(PageCreationRecoveryAction::class)->find($this->recoveryUser(), $site, app()->getLocale(), $this->creationRecoveryContext);
+        return $site === null ? null : resolve(PageCreationRecovery::class)->find($this->recoveryUser(), $site, app()->getLocale(), $this->creationRecoveryContext);
     }
 
     public function restoreCreationRecovery(int $id, ?string $revision, string $hash): void
@@ -216,7 +216,7 @@ class CreatePage extends CreateRecord implements HasPageResource
     public function discardCreationRecovery(int $id, ?string $revision, string $hash): void
     {
         $site = $this->recoverySiteId();
-        $discarded = $site !== null && resolve(PageCreationRecoveryAction::class)->discard($this->recoveryUser(), $site, app()->getLocale(), $id, $revision === '' ? null : $revision, $hash);
+        $discarded = $site !== null && resolve(PageCreationRecovery::class)->discard($this->recoveryUser(), $site, app()->getLocale(), $id, $revision === '' ? null : $revision, $hash);
         unset($this->creationRecovery);
         if (! $discarded) {
             Notification::make('creation-recovery-changed')->warning()->title(__('capell-admin::scratch_drafts.recovery_changed'))->send();
@@ -406,7 +406,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             notifyCache: true,
         ));
         if ($this->creationRecoverySite !== null) {
-            resolve(PageCreationRecoveryAction::class)->discardSession($this->recoveryUser(), $this->creationRecoverySite, app()->getLocale(), $this->creationRecoveryContext, $this->creationRecoveryRevision);
+            resolve(PageCreationRecovery::class)->discardSession($this->recoveryUser(), $this->creationRecoverySite, app()->getLocale(), $this->creationRecoveryContext, $this->creationRecoveryRevision);
             $this->creationRecoveryRevision = null;
         }
     }

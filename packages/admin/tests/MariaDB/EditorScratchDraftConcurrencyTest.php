@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Actions\Pages\PageCreationRecoveryAction;
 use Capell\Admin\Actions\Pages\SavePageEditorScratchDraftAction;
 use Capell\Admin\Data\Pages\PageEditorScratchDraftInputData;
+use Capell\Admin\Support\Pages\PageCreationRecovery;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -14,12 +14,24 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
-uses(CreatesAdminUser::class)->group('page');
+uses(CreatesAdminUser::class)->group('mariadb');
+
+/**
+ * These proofs need separately committed connections, so SQLite cannot run them.
+ * They are declared only in phpunit.mariadb.xml and fail loudly, rather than skip,
+ * when pointed at anything but the disposable concurrency database.
+ */
+function requireEditorRaceDatabase(): void
+{
+    throw_unless(
+        DB::connection()->getDriverName() === 'mysql' && DB::connection()->getDatabaseName() === 'capell_editor_race_test',
+        RuntimeException::class,
+        'Run with DB_CONNECTION=mysql DB_DATABASE=capell_editor_race_test against a disposable MariaDB server: vendor/bin/pest --configuration=phpunit.mariadb.xml',
+    );
+}
 
 it('serialises editor scratch saves behind the agent page lock', function (): void {
-    if (DB::connection()->getDriverName() !== 'mysql' || DB::connection()->getDatabaseName() !== 'capell_editor_race_test') {
-        $this->markTestSkipped('Requires the isolated MariaDB concurrency database.');
-    }
+    requireEditorRaceDatabase();
 
     // Trigger test migrations before switching to separately committed connections.
     DB::connection()->getSchemaBuilder()->hasTable('pages');
@@ -55,9 +67,7 @@ it('serialises editor scratch saves behind the agent page lock', function (): vo
 });
 
 it('serialises first-page recovery writes behind the site deletion lock', function (bool $deleteSite): void {
-    if (DB::connection()->getDriverName() !== 'mysql' || DB::connection()->getDatabaseName() !== 'capell_editor_race_test') {
-        $this->markTestSkipped('Requires the isolated MariaDB concurrency database.');
-    }
+    requireEditorRaceDatabase();
 
     DB::connection()->getSchemaBuilder()->hasTable('sites');
     $previous = DB::getDefaultConnection();
@@ -75,7 +85,7 @@ it('serialises first-page recovery writes behind the site deletion lock', functi
         DB::connection()->statement('SET SESSION innodb_lock_wait_timeout=1');
         $deleter->beginTransaction();
         $deleter->table('sites')->where('id', $site->id)->lockForUpdate()->first();
-        $store = resolve(PageCreationRecoveryAction::class);
+        $store = resolve(PageCreationRecovery::class);
         expect(fn () => $store->save($user, $site->id, 'en', $context, null, ['name' => 'New']))->toThrow(QueryException::class)
             ->and(EditorScratchDraft::query()->where('context', $context)->exists())->toBeFalse();
         if ($deleteSite) {
