@@ -11,7 +11,6 @@ use Capell\Core\Support\CapellCoreHelper;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Forms\Components\Field;
-use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -41,7 +40,7 @@ class FieldMacro
     public function requiredBasedOnType(): Closure
     {
         return fn (): Field => $this
-            ->required(function (Field $component, Get $get): bool {
+            ->required(function (Field $component): bool {
                 $record = $component->getRootContainer()->getRecord();
                 $rawState = RawState::array($component->getRootContainer()->getRawState());
 
@@ -73,7 +72,7 @@ class FieldMacro
                     );
                 }
 
-                $languageId = $get('language_id');
+                $languageId = (int) RawState::of($component, 'language_id');
 
                 $requiredTranslationCodes = $site?->admin['require_translations'] ?? [];
 

@@ -179,6 +179,7 @@ return [
     'site_domain_invalid' => 'Enter a full public URL including http:// or https://.',
     'site_domain_not_unique' => 'This site domain is already in use.',
     'site_language_route_taken' => 'The :language route :url is already used by :site. Change that domain or add the language manually with a different path.',
+    'site_language_route_taken_generic' => 'The :language route is already in use by another site. Choose a different path, or ask an administrator with access to that site to change it.',
     'site_domain_taken_by_site' => 'This site domain is already used by :site.',
     'site_domain_scheme_invalid' => 'Site domains must use http:// or https://.',
     'site_language_not_accessible' => 'This site language is not accessible.',

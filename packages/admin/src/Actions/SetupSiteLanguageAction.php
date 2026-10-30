@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -91,13 +92,19 @@ class SetupSiteLanguageAction
             return;
         }
 
-        throw ValidationException::withMessages([
-            'path' => __('capell-admin::message.site_language_route_taken', [
+        // The owning site's URL and name are only disclosed to an editor who can
+        // access that site; everyone else learns only that the address is taken.
+        $message = SiteAccess::current()->can($existing->site)
+            ? __('capell-admin::message.site_language_route_taken', [
                 'language' => $language->name,
                 'url' => $existing->full_url,
                 'site' => $existing->site->name,
-            ]),
-        ]);
+            ])
+            : __('capell-admin::message.site_language_route_taken_generic', [
+                'language' => $language->name,
+            ]);
+
+        throw ValidationException::withMessages(['path' => $message]);
     }
 
     /**
