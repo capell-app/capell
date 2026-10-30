@@ -21,7 +21,9 @@ Allow about ten minutes for the first Composer install.
 | Composer    | 2.7+                                                                    |
 | Database    | MySQL 8+, MariaDB 10.5+, PostgreSQL 16+, or SQLite                      |
 
-Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
+Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, `PDO`, and either `gd` or `imagick`. Enable the PDO driver for the database you selected: `pdo_sqlite` for SQLite, `pdo_mysql` for MySQL or MariaDB, or `pdo_pgsql` for PostgreSQL.
+
+Run `php -m` with the PHP binary used for Composer and Artisan to check the CLI extensions. Check the web server's PHP configuration separately, and the queue worker's runtime if it uses another PHP binary or configuration; they may not use the CLI settings.
 
 Capell renders through this Laravel application. This quickstart does not create a hosted Capell account or a public content-delivery API.
 
@@ -34,7 +36,7 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Configure `APP_URL` and a database in `.env`. SQLite is enough for a disposable local evaluation:
+Configure `APP_URL` and a database in `.env`. SQLite is enough for a disposable local evaluation; its CLI and web PHP runtimes need `pdo_sqlite`:
 
 ```bash
 touch database/database.sqlite
@@ -88,7 +90,7 @@ php artisan capell:frontend-after-install --apply --no-interaction
 php artisan serve
 ```
 
-The Frontend command applies the dependency and asset plan and builds once. With `--no-interaction`, omitting `--apply` only prints the plan; interactive runs ask before applying. If the install handoff records a successful resource rebuild, skip that command and run `php artisan serve`.
+The Frontend command applies the dependency and asset plan and builds once. It requires a supported Vite configuration with Capell's inputs integrated; if that is missing, follow the [frontend asset recovery steps](install.md#recover-missing-frontend-css). With `--no-interaction`, omitting `--apply` only prints the plan; interactive runs ask before applying. If the install handoff records a successful resource rebuild, skip that command and run `php artisan serve`.
 
 Open:
 
@@ -143,7 +145,7 @@ Before production, also configure and prove the separate [database and media bac
 | A queued publish never finishes                        | Start `php artisan queue:work`                                                                                  | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate)                 |
 | The public page remains stale                          | Follow the refresh procedure for the installed cache package, then verify the canonical response                | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
 | A package class is missing after Composer              | `composer dump-autoload && php artisan optimize:clear`                                                          | [Package discovery](../packages/debugging-package-discovery.md)                                                   |
-| Frontend CSS is missing                                | `php artisan capell:frontend-install`, then run the application's normal npm build if the installer requests it | [Themes and frontend assets](install.md#themes-and-frontend-assets)                                               |
+| Frontend CSS is missing                                | Review the [frontend asset recovery plan and writes](install.md#recover-missing-frontend-css), then verify the styled page | [Themes and frontend assets](install.md#themes-and-frontend-assets)                                               |
 | The installer stops at health review                   | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor`                                      | [Site Health](../operations/site-health.md)                                                                       |
 
 ## Other install paths
