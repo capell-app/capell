@@ -101,6 +101,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionDependencyGraphFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionDiagnosticsFilamentWidget;
@@ -1033,6 +1034,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         $widgets = [
             DashboardEnum::Main->value => [
+                SiteStatsOverviewFilamentWidget::class,
                 AnalyticsOverviewFilamentWidget::class,
                 AnalyticsTrendFilamentWidget::class,
                 AnalyticsInsightsFilamentWidget::class,
