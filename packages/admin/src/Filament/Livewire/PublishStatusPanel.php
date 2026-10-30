@@ -326,7 +326,9 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             return __('capell-admin::publish_panel.blocker_ask_editor');
         }
 
-        foreach (SiteAccess::forActor($user)->scope($record->pageUrls()->getQuery())
+        foreach (SiteAccess::current()->query(PageUrl::class)
+            ->where('pageable_type', $record->getMorphClass())
+            ->where('pageable_id', $record->getKey())
             ->where('site_id', $record->site_id)
             ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
             ->status(false)
