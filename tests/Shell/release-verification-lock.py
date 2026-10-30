@@ -47,7 +47,10 @@ class ReleaseVerificationLockTest(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.path = self.root / 'release.lock'
-        self.environment = dict(os.environ, CAPELL_RELEASE_VERIFICATION_LOCK_PATH=str(self.path))
+        # A private heavy-slot root keeps admission exercised without queueing
+        # behind, or blocking, real host-wide heavy work.
+        self.environment = dict(os.environ, CAPELL_RELEASE_VERIFICATION_LOCK_PATH=str(self.path),
+                                HEAVY_SLOT_ROOT=str(self.root / 'heavy-slots'))
         for name in ['CAPELL_RELEASE_VERIFICATION_OWNER', 'CAPELL_NO_RELEASE_LOCK', 'COMPOSER', 'COMPOSER_VENDOR_DIR']:
             self.environment.pop(name, None)
         self.php = shutil.which('php')
