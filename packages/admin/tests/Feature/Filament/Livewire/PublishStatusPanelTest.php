@@ -183,7 +183,7 @@ it('refreshes the existing panel when its parent saves and publishes without a r
     $panel = panelFor($page);
     $componentId = $panel->instance()->getId();
     expect($panel->instance()->viewData->isDraft())->toBeTrue();
-    $panel->assertSee(__('capell-admin::reports.publishing_readiness_public_effect_not_visible'));
+    $panel->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'));
 
     Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
         ->call('save')
@@ -192,7 +192,8 @@ it('refreshes the existing panel when its parent saves and publishes without a r
 
     expect($page->refresh()->publishVisibilityState()->value)->toBe('published');
     $panel->dispatch('page-editor-saved', pageId: (int) $page->getKey())
-        ->assertSee(__('capell-admin::reports.publishing_readiness_public_effect_visible'));
+        ->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'))
+        ->assertDontSee('Visible now');
     expect($panel->instance()->getId())->toBe($componentId)
         ->and($panel->instance()->viewData->isLive())->toBeTrue()
         ->and($panel->instance()->readiness->publicEligible)->toBeTrue();
@@ -398,3 +399,34 @@ it('keeps showing the workspace row for an older handler that only counts retain
 
     panelFor($page)->assertSeeHtml('data-workspace-draft-status');
 });
+
+it('names each publishing blocker and explains the next step', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create();
+    $page->translations()->delete();
+    $page->pageUrls()->delete();
+
+    panelFor($page)
+        ->assertSee(__('capell-admin::publish_panel.blocker_translation_missing'))
+        ->assertSee(__('capell-admin::publish_panel.blocker_url_active_missing'))
+        ->assertSee(__('capell-admin::publish_panel.blocker_next_url_active_missing'));
+});
+
+it('reports basic checks separately from the publication lifecycle', function (bool $scheduled): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->hasSiteDomains()->create();
+    $page = Page::factory()->site($site)->home()->create([
+        'visible_from' => $scheduled ? now()->addDay() : PagePublishSentinel::draftValue(),
+        'visible_until' => null,
+    ]);
+    foreach ($site->siteDomains as $domain) {
+        $page->translations()->save(Translation::factory()->make(['language_id' => $domain->language_id]));
+    }
+
+    $panel = panelFor($page);
+    expect($panel->instance()->readiness->blockingCheckIds)->toBe([])
+        ->and($panel->instance()->readiness->publicEligible)->toBeFalse()
+        ->and($panel->instance()->viewData->status)->toBe($scheduled ? PublishPanelStatusEnum::scheduled : PublishPanelStatusEnum::draft);
+    $panel->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'))
+        ->assertDontSee(__('capell-admin::publish_panel.readiness_checks_incomplete'));
+})->with([false, true]);

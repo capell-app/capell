@@ -50,15 +50,15 @@
             >
                 <div class="flex items-start justify-between gap-3">
                     <dt class="text-gray-500 dark:text-gray-400">
-                        {{ __('capell-admin::reports.publishing_readiness_public_effect') }}
+                        {{ __('capell-admin::publish_panel.readiness_summary') }}
                     </dt>
                     <dd
                         class="text-right font-medium text-gray-950 dark:text-white"
                     >
                         {{
-                            $readiness->publicEligible
-                            ? __('capell-admin::reports.publishing_readiness_public_effect_visible')
-                            : __('capell-admin::reports.publishing_readiness_public_effect_not_visible')
+                            $readiness->blockingCheckIds === []
+                            ? __('capell-admin::publish_panel.readiness_checks_passed')
+                            : __('capell-admin::publish_panel.readiness_checks_incomplete')
                         }}
                     </dd>
                 </div>
@@ -72,6 +72,49 @@
                             class="text-danger-600 dark:text-danger-400 text-right font-medium"
                         >
                             {{ trans_choice('capell-admin::reports.publishing_readiness_blocker_count', count($readiness->blockingCheckIds), ['count' => count($readiness->blockingCheckIds)]) }}
+                        </dd>
+                    </div>
+                    <div class="space-y-2">
+                        <dt class="sr-only">
+                            {{ __('capell-admin::reports.publishing_readiness_blockers') }}
+                        </dt>
+                        <dd>
+                            <ul
+                                class="list-disc space-y-2 pl-5 text-gray-700 dark:text-gray-300"
+                            >
+                                @foreach ($readiness->blockingCheckIds as $checkId)
+                                    <li>
+                                        {{ match ($checkId) {
+                                            'publishing.blueprint.missing' => __('capell-admin::publish_panel.blocker_blueprint_missing'),
+                                            'publishing.layout.missing' => __('capell-admin::publish_panel.blocker_layout_missing'),
+                                            'publishing.translation.missing' => __('capell-admin::publish_panel.blocker_translation_missing'),
+                                            'publishing.url.active-missing' => __('capell-admin::publish_panel.blocker_url_active_missing'),
+                                            default => __('capell-admin::publish_panel.blocker_unknown'),
+                                        } }}
+                                        @if ($checkId === 'publishing.url.active-missing')
+                                            <span
+                                                class="block text-xs"
+                                                >{{ $this->pageUrlRecoveryInstruction() }}</span
+                                            >
+                                        @elseif ($this->canManage())
+                                            <span
+                                                class="block text-xs"
+                                                >{{ match ($checkId) {
+                                                    'publishing.blueprint.missing' => __('capell-admin::publish_panel.blocker_next_blueprint_missing'),
+                                                    'publishing.layout.missing' => __('capell-admin::publish_panel.blocker_next_layout_missing'),
+                                                    'publishing.translation.missing' => __('capell-admin::publish_panel.blocker_next_translation_missing'),
+                                                    default => __('capell-admin::publish_panel.blocker_ask_editor'),
+                                                } }}</span
+                                            >
+                                        @else
+                                            <span
+                                                class="block text-xs"
+                                                >{{ __('capell-admin::publish_panel.blocker_ask_editor') }}</span
+                                            >
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
                         </dd>
                     </div>
                 @endif
