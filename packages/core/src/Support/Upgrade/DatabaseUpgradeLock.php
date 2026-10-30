@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Upgrade;
 
+use Capell\Core\Support\TableName;
 use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -64,7 +65,7 @@ final class DatabaseUpgradeLock
         $this->releaseExpired($name, $now);
 
         try {
-            DB::table(self::TABLE)->insert([
+            DB::table(TableName::resolve(self::TABLE))->insert([
                 'name' => $name,
                 'token' => $token,
                 'owner' => $owner,
@@ -94,7 +95,7 @@ final class DatabaseUpgradeLock
         }
 
         try {
-            DB::table(self::TABLE)
+            DB::table(TableName::resolve(self::TABLE))
                 ->where('name', $name)
                 ->where('token', $token)
                 ->delete();
@@ -116,7 +117,7 @@ final class DatabaseUpgradeLock
                 return $this->isHeldThroughCache($name);
             }
 
-            return DB::table(self::TABLE)
+            return DB::table(TableName::resolve(self::TABLE))
                 ->where('name', $name)
                 ->where('expires_at', '>', Date::now())
                 ->exists();
@@ -185,7 +186,7 @@ final class DatabaseUpgradeLock
 
     private function tableExists(): bool
     {
-        return Schema::hasTable(self::TABLE);
+        return Schema::hasTable(TableName::resolve(self::TABLE));
     }
 
     /**
@@ -199,7 +200,7 @@ final class DatabaseUpgradeLock
     private function releaseExpired(string $name, CarbonInterface $now): void
     {
         try {
-            DB::table(self::TABLE)
+            DB::table(TableName::resolve(self::TABLE))
                 ->where('name', $name)
                 ->where('expires_at', '<=', $now)
                 ->delete();

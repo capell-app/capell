@@ -56,3 +56,25 @@ it('removes published create migrations when the target table already exists wit
 
     expect(File::exists($publishedMigrationPath))->toBeFalse();
 });
+
+it('records the canonical create migration on upgrade when its table already exists under an older ledger name', function (): void {
+    $canonical = '2026_05_10_190832_20_create_page_role_restrictions_table';
+    $older = '2026_01_01_000000_create_page_role_restrictions_table';
+    $original = DB::table('migrations')->whereIn('migration', [$canonical, $older])->get();
+    DB::table('migrations')->whereIn('migration', [$canonical, $older])->delete();
+    DB::table('migrations')->insert(['migration' => $older, 'batch' => 1]);
+
+    try {
+        expect(Schema::hasTable('page_role_restrictions'))->toBeTrue()
+            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeFalse();
+        $result = RunDatabaseMigrationsAction::run();
+        expect($result->exitCode)->toBe(0)
+            ->and(Schema::hasTable('page_role_restrictions'))->toBeTrue()
+            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeTrue();
+    } finally {
+        DB::table('migrations')->whereIn('migration', [$canonical, $older])->delete();
+        foreach ($original as $row) {
+            DB::table('migrations')->insert((array) $row);
+        }
+    }
+});

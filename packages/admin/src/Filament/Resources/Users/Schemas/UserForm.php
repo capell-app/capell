@@ -13,6 +13,7 @@ use Capell\Admin\Filament\Contracts\FormConfigurator;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -192,7 +193,7 @@ class UserForm implements FormConfigurator
                 ->options(fn (): array => ListAdminLanguageOptionsAction::run()->all())
                 ->rules([
                     'nullable',
-                    Rule::exists('languages', 'id')->where('status', true),
+                    Rule::exists(TableName::resolve('languages'), 'id')->where('status', true),
                 ])
                 ->searchable()
                 ->preload()

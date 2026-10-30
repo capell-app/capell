@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -27,19 +28,19 @@ class FindPageUrlsMissingSiteDomainsAction
         return PageUrl::query()
             ->whereDoesntHave(
                 'siteDomain',
-                fn (Builder $query): Builder => $query->whereNull('site_domains.deleted_at'),
+                fn (Builder $query): Builder => $query->whereNull(TableName::resolve('site_domains') . '.deleted_at'),
             )
             ->whereExists(function (QueryBuilder $query): void {
                 $query->selectRaw('1')
-                    ->from('sites')
-                    ->whereColumn('sites.id', 'page_urls.site_id')
-                    ->whereNull('sites.deleted_at');
+                    ->from(TableName::resolve('sites'))
+                    ->whereColumn(TableName::resolve('sites') . '.id', TableName::resolve('page_urls') . '.site_id')
+                    ->whereNull(TableName::resolve('sites') . '.deleted_at');
             })
             ->whereExists(function (QueryBuilder $query): void {
                 $query->selectRaw('1')
-                    ->from('languages')
-                    ->whereColumn('languages.id', 'page_urls.language_id')
-                    ->whereNull('languages.deleted_at');
+                    ->from(TableName::resolve('languages'))
+                    ->whereColumn(TableName::resolve('languages') . '.id', TableName::resolve('page_urls') . '.language_id')
+                    ->whereNull(TableName::resolve('languages') . '.deleted_at');
             })
             ->with(['language', 'site'])
             ->get();

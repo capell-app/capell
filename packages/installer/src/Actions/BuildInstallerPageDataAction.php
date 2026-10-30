@@ -265,7 +265,7 @@ final class BuildInstallerPageDataAction
 
     private function shouldShowRoleUsersToggle(): bool
     {
-        if (! Schema::hasTable('roles')) {
+        if (! Schema::hasTable((string) config('permission.table_names.roles', 'roles'))) {
             return true;
         }
 

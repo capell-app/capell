@@ -41,6 +41,29 @@ it('is queued when dispatched', function (): void {
     Queue::assertPushed(RunCapellInstallJob::class);
 });
 
+it('handles a queued payload created before table changes existed', function (): void {
+    $installId = 'legacy-install-payload';
+    $input = new InstallInputData(
+        siteUrl: 'https://example.com',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        newUser: new NewUserData('Test', 'legacy@example.com', 'password'),
+    );
+    $payload = new RunCapellInstallJob($input, $installId)->__serialize();
+    unset($payload["\0" . RunCapellInstallJob::class . "\0tableChanges"]);
+    $job = new ReflectionClass(RunCapellInstallJob::class)->newInstanceWithoutConstructor();
+    $job->__unserialize($payload);
+    Cache::put('capell.install.lock', ['installId' => $installId]);
+    app()->instance(RunInstallAction::class, new FakeRunInstallAction);
+
+    $job->handle();
+    expect(Cache::get('capell.install.' . $installId . '.status'))->toBe('complete');
+});
+
 it('sets complete status in cache after successful run', function (): void {
     $installId = 'test-complete-uuid';
     Cache::put('capell.install.lock', ['installId' => $installId]);
@@ -244,4 +267,42 @@ it('fences a queued completion against replacement under the ownership boundary'
     expect($interleaved)->toBeFalse()
         ->and(Cache::get('capell.install.' . $id . '.status'))->toBe('complete')
         ->and(Cache::get('capell.install.lock'))->toBeNull();
+});
+
+it('uses the confirmed table names in a long-running worker and restores its configuration', function (): void {
+    $id = 'table-config-install';
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    config()->set('capell.database.table_prefix', 'stale_');
+    $fake = new class
+    {
+        public mixed $observed = null;
+
+        public function handle(InstallInputData $input, ProgressReporter $reporter): void
+        {
+            $this->observed = config('capell.database.table_prefix');
+        }
+    };
+    app()->instance(RunInstallAction::class, $fake);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    new RunCapellInstallJob($input, $id, ['capell.database.table_prefix' => 'cms_'])->handle();
+    expect($fake->observed)->toBe('cms_')->and(config('capell.database.table_prefix'))->toBe('stale_');
+});
+
+it('restores an absent table alias after running a queued install', function (): void {
+    $id = 'table-alias-install';
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    config()->set('capell.database.table_aliases', []);
+    $fake = new class
+    {
+        public mixed $observed = null;
+
+        public function handle(InstallInputData $input, ProgressReporter $reporter): void
+        {
+            $this->observed = config('capell.database.table_aliases.pages');
+        }
+    };
+    app()->instance(RunInstallAction::class, $fake);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    new RunCapellInstallJob($input, $id, ['capell.database.table_aliases.pages' => 'cms_pages'])->handle();
+    expect($fake->observed)->toBe('cms_pages')->and(config('capell.database.table_aliases'))->toBe([]);
 });

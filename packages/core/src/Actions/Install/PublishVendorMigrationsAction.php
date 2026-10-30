@@ -65,7 +65,10 @@ final class PublishVendorMigrationsAction
             }
 
             $destinationPath = database_path('migrations/' . $targetName);
-            File::copy($stubPath, $destinationPath);
+            $source = File::get($stubPath);
+            $prepared = PrepareVendorTableMigrationAction::run($migrationName, $source);
+            $written = File::put($destinationPath, $prepared);
+            throw_unless($written === strlen((string) $prepared), RuntimeException::class, 'Failed to publish vendor migration: ' . $targetName);
 
             // Permissions stub is critical — the page_role_restrictions migration needs it.
             throw_if($migrationName === 'create_permission_tables' && ! File::exists($destinationPath), RuntimeException::class, 'Failed to publish Spatie permission migrations. '

@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -192,8 +193,8 @@ final class SiteAccessQueryGuard
             if ($call instanceof StaticCall) {
                 $class = self::className($call->class, $call, $finder, $nodes);
                 if (in_array($class, [DB::class, 'DB'], true) && $method === 'table') {
-                    $table = $call->args[0]->value ?? null;
-                    if (! $table instanceof String_ || self::siteTable($table->value)) {
+                    $table = self::tableLiteral($call->args[0]->value ?? null);
+                    if ($table === null || self::siteTable($table)) {
                         $violations[] = 'DB::table at line ' . $call->getStartLine() . ' [' . $origin . ']';
                     }
                 } elseif (self::queryMethod($method) && (self::siteModel($class) !== null || self::unknownModelClass($class))) {
@@ -201,8 +202,8 @@ final class SiteAccessQueryGuard
                 }
             } elseif ($method === 'table' && $call->var instanceof StaticCall
                 && $call->var->class instanceof Name && in_array($call->var->class->toString(), [DB::class, 'DB'], true)) {
-                $table = $call->args[0]->value ?? null;
-                if (! $table instanceof String_ || self::siteTable($table->value)) {
+                $table = self::tableLiteral($call->args[0]->value ?? null);
+                if ($table === null || self::siteTable($table)) {
                     $violations[] = 'unscoped raw table at line ' . $call->getStartLine() . ' [' . $origin . ']';
                 }
             } elseif (in_array($method, ['newQuery', 'newModelQuery', 'newQueryWithoutScopes', 'newQueryForRestoration'], true)) {
@@ -625,6 +626,17 @@ final class SiteAccessQueryGuard
         }
 
         return null;
+    }
+
+    /** A literal table name, or a literal wrapped in TableName::resolve(), which only applies the configured prefix. */
+    private static function tableLiteral(?Node $table): ?string
+    {
+        if ($table instanceof StaticCall && $table->class instanceof Name && $table->class->toString() === TableName::class
+            && $table->name instanceof Identifier && $table->name->toString() === 'resolve') {
+            $table = $table->args[0]->value ?? null;
+        }
+
+        return $table instanceof String_ ? $table->value : null;
     }
 
     private static function siteTable(string $table): bool

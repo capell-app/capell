@@ -6,7 +6,10 @@ use Capell\Core\Contracts\Database\RepairsImplicitTimestampUpdates;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 it('repairs implicit timestamp updates under legacy MariaDB semantics through an explicitly named connection', function (): void {
     $connectionName = getenv('CAPELL_MARIADB_CONNECTION');
@@ -172,3 +175,91 @@ it('repairs implicit timestamp updates under legacy MariaDB semantics through an
     throw_if($databases === false, RuntimeException::class, 'Unable to verify proof database cleanup.');
     expect($databases->fetchAll(PDO::FETCH_COLUMN))->not->toContain($database);
 });
+
+it('installs Core with host unsigned integer keys and configured table names on MariaDB', function (array $naming, string $pageTable, bool $foreignPage, string $connectionPrefix = ''): void {
+    $connectionName = getenv('CAPELL_MARIADB_CONNECTION');
+    throw_unless(is_string($connectionName) && $connectionName !== '', RuntimeException::class, 'Set CAPELL_MARIADB_CONNECTION to an owned disposable MariaDB connection.');
+    $service = config('database.connections.' . $connectionName);
+    throw_unless(is_array($service) && in_array($service['driver'] ?? null, ['mysql', 'mariadb'], true), RuntimeException::class, 'The named connection must use MySQL or MariaDB.');
+    $server = new PDO(sprintf('mysql:host=%s;port=%s', $service['host'], $service['port']), $service['username'], $service['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $database = 'capell_naming_test_' . getmypid() . '_' . bin2hex(random_bytes(4));
+    $server->exec('CREATE DATABASE `' . $database . '`');
+    $previous = DB::getDefaultConnection();
+
+    try {
+        config()->set('database.connections.table_naming_mariadb', [...$service, 'database' => $database, 'prefix' => $connectionPrefix, 'prefix_indexes' => true]);
+        config()->set('capell.database', $naming);
+        if ($foreignPage) {
+            config()->set('settings.repositories.database.table', 'content_settings');
+            config()->set('permission.table_names.roles', 'content_roles');
+            config()->set('permission.table_names.permissions', 'content_permissions');
+        }
+
+        DB::setDefaultConnection('table_naming_mariadb');
+        Schema::create('users', function (Blueprint $table): void {
+            $table->increments('id');
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->string('password');
+            $table->timestamps();
+        });
+        if ($foreignPage) {
+            Schema::create('pages', function (Blueprint $table): void {
+                $table->id();
+                $table->string('foreign_data');
+            });
+            DB::table('pages')->insert(['foreign_data' => 'preserved']);
+        }
+
+        $settings = require dirname(__DIR__, 4) . '/vendor/spatie/laravel-settings/database/migrations/create_settings_table.php.stub';
+        $permissions = require dirname(__DIR__, 4) . '/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub';
+        $settings->up();
+        $permissions->up();
+        $repository = resolve('migrator')->getRepository();
+        $repository->createRepository();
+        $repository->log('2026_05_10_190824_create_permission_tables', 1);
+        $exit = Artisan::call('migrate', ['--path' => realpath(__DIR__ . '/../../database/migrations'), '--realpath' => true, '--force' => true]);
+        expect($exit)->toBe(0)->and(Schema::hasTable($pageTable))->toBeTrue();
+        $columns = collect(Schema::getColumns($pageTable))->keyBy('name');
+        expect($columns->get('created_by')['type'])->toContain('int')->toContain('unsigned')->not->toContain('bigint');
+        $foreignKeys = Schema::getForeignKeys($pageTable);
+        expect(collect($foreignKeys)->contains(fn (array $key): bool => $key['foreign_table'] === $connectionPrefix . 'users' && in_array('created_by', $key['columns'], true)))->toBeTrue();
+        if ($foreignPage) {
+            expect(DB::table('pages')->value('foreign_data'))->toBe('preserved');
+        }
+
+        if ($naming === [] && $connectionPrefix === '') {
+            $snapshot = [];
+            foreach (Schema::getTables() as $table) {
+                $name = $table['name'];
+                if (in_array($name, ['migrations', 'users'], true)) {
+                    continue;
+                }
+
+                $indexes = array_column(Schema::getIndexes($name), 'name');
+                sort($indexes);
+                $keys = Schema::getForeignKeys($name);
+                foreach ($keys as &$key) {
+                    unset($key['on_update'], $key['on_delete'], $key['foreign_schema']);
+                }
+
+                unset($key);
+                usort($keys, fn (array $a, array $b): int => strcmp(json_encode($a), json_encode($b)));
+                $snapshot[$name] = ['indexes' => $indexes, 'foreign_keys' => $keys];
+            }
+
+            ksort($snapshot);
+            $expected = json_decode(file_get_contents(dirname(__DIR__) . '/fixtures/table-naming/main-mariadb-default.json'), true, flags: JSON_THROW_ON_ERROR);
+            expect($snapshot)->toBe($expected);
+        }
+    } finally {
+        DB::setDefaultConnection($previous);
+        DB::purge('table_naming_mariadb');
+        $server->exec('DROP DATABASE `' . $database . '`');
+    }
+})->with([
+    'defaults' => [[], 'pages', false],
+    'prefix' => [['table_prefix' => 'cms_'], 'cms_pages', false],
+    'DB_PREFIX' => [[], 'pages', false, 'dbp_'],
+    'aliases' => [['table_aliases' => ['pages' => 'content_pages', 'translations' => 'content_translations']], 'content_pages', true],
+]);

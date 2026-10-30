@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Query\JoinClause;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -29,13 +30,13 @@ final class GetPageUrlPathAction
         }
 
         $paths = $page->newQuery()
-            ->select('translations.meta->slug AS slug')
+            ->select(TableName::resolve('translations') . '.meta->slug AS slug')
             ->join(
-                'translations',
-                fn (JoinClause $join) => $join->on('translations.translatable_id', $page->qualifyColumn('id'))
-                    ->where('translations.translatable_type', $page->getMorphClass()),
+                TableName::resolve('translations'),
+                fn (JoinClause $join) => $join->on(TableName::resolve('translations') . '.translatable_id', $page->qualifyColumn('id'))
+                    ->where(TableName::resolve('translations') . '.translatable_type', $page->getMorphClass()),
             )
-            ->where('translations.language_id', $language->id)
+            ->where(TableName::resolve('translations') . '.language_id', $language->id)
             ->whereAncestorOf($page->parent_id, true)
             ->where('site_id', $page->site_id)
             ->ordered()

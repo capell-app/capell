@@ -6,6 +6,7 @@ namespace Capell\Admin\Data\Themes;
 
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Spatie\LaravelData\Data;
 
@@ -59,7 +60,7 @@ final class ThemeLibraryCardData extends Data
             installed: true,
             active: $theme->isDefault(),
             enabled: $theme->status,
-            siteCount: $theme->sites_count ?? SiteAccess::current()->scope($theme->sites()->getQuery(), 'sites.id')->count(),
+            siteCount: $theme->sites_count ?? SiteAccess::current()->scope($theme->sites()->getQuery(), TableName::resolve('sites') . '.id')->count(),
             package: self::stringValue($admin['package'] ?? null, $definition?->package ?: $theme->key),
             tags: array_values($definition?->tags ?: self::stringList($admin['tags'] ?? [])),
             bestFit: array_values($definition?->bestFit ?: self::stringList($admin['bestFit'] ?? $admin['best_fit'] ?? [])),

@@ -16,6 +16,7 @@ use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
@@ -122,7 +123,7 @@ final readonly class AgentAdminToolInvocationService
     private function lockWriteTargets(AgentAdminToolInvocationData $invocation): void
     {
         if ($invocation->tool === 'admin.settings.write') {
-            DB::table('settings')
+            DB::table((string) (config('settings.repositories.database.table') ?: 'settings'))
                 ->where('group', (string) ($invocation->payload['group'] ?? ''))
                 ->lockForUpdate()
                 ->get();
@@ -148,7 +149,7 @@ final readonly class AgentAdminToolInvocationService
             $id = $invocation->payload['id'] ?? null;
 
             if (is_numeric($id)) {
-                DB::table('blueprints')
+                DB::table(TableName::resolve('blueprints'))
                     ->where('id', (int) $id)
                     ->lockForUpdate()
                     ->first();
@@ -187,7 +188,7 @@ final readonly class AgentAdminToolInvocationService
             ->lockForUpdate()
             ->get();
 
-        DB::table('page_term')
+        DB::table(TableName::resolve('page_term'))
             ->where('page_id', $pageId)
             ->lockForUpdate()
             ->get();

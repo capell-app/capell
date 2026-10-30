@@ -55,6 +55,7 @@ use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Capell\Core\Support\Metrics\MetricsManager;
+use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -133,6 +134,7 @@ final class SingletonLifetimeInventory
     {
         return [
             // Core boot registration state.
+            MigrationRootRegistry::class => self::boot('Companion packages register migration roots at boot; the registry is read-only afterwards.'),
             CapellPackageRegistry::class => self::boot('Package manifests are discovered once and invalidated only by explicit package mutation.'),
             InstalledRuntimeLifecycle::class => self::boot('Provider activation belongs to application wiring and must survive request and job resets; failures are referenced weakly.'),
             RuntimeRolePackageManifest::class => self::boot('The selected package graph and its lazy manifest cache are immutable process boot metadata.'),

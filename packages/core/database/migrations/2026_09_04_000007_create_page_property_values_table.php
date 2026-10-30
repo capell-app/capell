@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Concerns\HasPublishDates;
+use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -28,12 +29,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('page_property_values', function (Blueprint $table): void {
+        Schema::create(TableName::resolve('page_property_values'), function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('site_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('page_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('translation_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->foreignId('property_definition_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('site_id')->constrained(TableName::resolve('sites'), indexName: TableName::index('page_property_values', 'site_id', 'foreign'))->cascadeOnDelete();
+            $table->foreignId('page_id')->constrained(TableName::resolve('pages'), indexName: TableName::index('page_property_values', 'page_id', 'foreign'))->cascadeOnDelete();
+            $table->foreignId('translation_id')->nullable()->constrained(TableName::resolve('translations'), indexName: TableName::index('page_property_values', 'translation_id', 'foreign'))->cascadeOnDelete();
+            $table->foreignId('property_definition_id')->constrained(TableName::resolve('property_definitions'), indexName: TableName::index('page_property_values', 'property_definition_id', 'foreign'))->cascadeOnDelete();
             $table->unsignedInteger('position')->default(0);
             $table->text('value_text')->nullable();
             $table->decimal('value_number', 20, 6)->nullable();
@@ -41,8 +42,8 @@ return new class extends Migration
             $table->dateTime('value_datetime')->nullable();
             $table->char('currency', 3)->nullable();
             $table->string('unit')->nullable();
-            $table->foreignId('term_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('referenced_page_id')->nullable()->constrained('pages')->nullOnDelete();
+            $table->foreignId('term_id')->nullable()->constrained(TableName::resolve('terms'), indexName: TableName::index('page_property_values', 'term_id', 'foreign'))->nullOnDelete();
+            $table->foreignId('referenced_page_id')->nullable()->constrained(TableName::resolve('pages'), indexName: TableName::index('page_property_values', 'referenced_page_id', 'foreign'))->nullOnDelete();
             $table->unsignedBigInteger('media_id')->nullable();
             $table->timestamps();
 
@@ -55,11 +56,11 @@ return new class extends Migration
             // resolution, not by this index.
             $table->unique(
                 ['page_id', 'property_definition_id', 'translation_id', 'position'],
-                'page_property_values_identity_unique',
+                TableName::namedIndex('page_property_values', 'page_property_values_identity_unique'),
             );
             $table->index(
                 ['site_id', 'property_definition_id', 'value_number'],
-                'page_property_values_numeric_lookup',
+                TableName::namedIndex('page_property_values', 'page_property_values_numeric_lookup'),
             );
         });
 
@@ -69,14 +70,14 @@ return new class extends Migration
         // families need different DDL for the same logical index.
         if (in_array(CapellDatabase::for(DB::connection())->family(), [DatabaseFamily::MySql, DatabaseFamily::MariaDb], true)) {
             DB::statement(
-                'ALTER TABLE page_property_values '
+                'ALTER TABLE ' . DB::connection()->getQueryGrammar()->wrapTable(TableName::resolve('page_property_values')) . ' '
                 . 'ADD INDEX page_property_values_text_lookup (site_id, property_definition_id, value_text(64))',
             );
         } else {
-            Schema::table('page_property_values', function (Blueprint $table): void {
+            Schema::table(TableName::resolve('page_property_values'), function (Blueprint $table): void {
                 $table->index(
                     ['site_id', 'property_definition_id', 'value_text'],
-                    'page_property_values_text_lookup',
+                    TableName::namedIndex('page_property_values', 'page_property_values_text_lookup'),
                 );
             });
         }
@@ -84,6 +85,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('page_property_values');
+        Schema::dropIfExists(TableName::resolve('page_property_values'));
     }
 };

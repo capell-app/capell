@@ -18,7 +18,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('stored_events', function (Blueprint $table): void {
+        Schema::create((string) config('capell.database.external_tables.stored_events', 'stored_events'), function (Blueprint $table): void {
             $table->id();
             $table->uuid('aggregate_uuid')->nullable();
             $table->unsignedBigInteger('aggregate_version')->nullable();
@@ -36,6 +36,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('stored_events');
+        Schema::dropIfExists((string) config('capell.database.external_tables.stored_events', 'stored_events'));
     }
 };

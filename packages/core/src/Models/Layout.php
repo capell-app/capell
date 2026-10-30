@@ -7,6 +7,7 @@ namespace Capell\Core\Models;
 use Aimeos\Nestedset\Collection;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Concerns\HasCapellMedia;
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Database\Factories\LayoutFactory;
@@ -24,6 +25,7 @@ use Capell\Core\Observers\LayoutObserver;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Activity\LogOptions;
 use Capell\Core\Support\Activity\LogsActivity;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -117,6 +119,7 @@ class Layout extends Model implements Defaultable, HasMedia, HasMediaContract, S
     use Cloneable;
     use ExtensibleModel;
     use HasCapellMedia;
+    use HasCapellTable;
 
     /** @use HasDefault<self> */
     use HasDefault;
@@ -162,10 +165,10 @@ class Layout extends Model implements Defaultable, HasMedia, HasMediaContract, S
      */
     public static function getGroups(): array
     {
-        $query = DB::table('layouts');
+        $query = DB::table(TableName::resolve('layouts'));
         $grammar = $query->getGrammar();
         $group = $grammar->wrap('group');
-        $table = $grammar->wrapTable('layouts');
+        $table = $grammar->wrapTable(TableName::resolve('layouts'));
         $alias = $grammar->wrapTable('c2');
         $count = sprintf('(SELECT COUNT(*) FROM %s %s WHERE %s.%s = %s.%s)', $table, $alias, $alias, $group, $table, $group);
         $label = CapellDatabase::for()->queryDialect()->concatenate(

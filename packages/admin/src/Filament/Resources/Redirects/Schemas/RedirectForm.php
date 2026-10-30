@@ -17,6 +17,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Closure;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
@@ -78,7 +79,7 @@ class RedirectForm implements FormConfigurator
                                 $get('site_id'),
                                 fn (Builder $query, int $siteId): Builder => $query->whereHas(
                                     'sites',
-                                    fn (BuilderContract $query): BuilderContract => $query->where('sites.id', $siteId),
+                                    fn (BuilderContract $query): BuilderContract => $query->where(TableName::resolve('sites') . '.id', $siteId),
                                 ),
                             ),
                         )

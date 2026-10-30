@@ -20,6 +20,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\FusedGroup;
@@ -153,7 +154,7 @@ class TitleWithSlugInput
                     slugStatePath: 'meta.slug',
                     slugRuleUniqueParameters: [
                         'column' => 'meta->slug',
-                        'table' => 'translations',
+                        'table' => TableName::resolve('translations'),
                         'modifyRuleUsing' => function (Unique $rule, Get $get, ?Translation $record, LivewireComponent $livewire, string $operation) use ($schema, $context): void {
                             $language_id = $get('language_id');
 
@@ -186,9 +187,9 @@ class TitleWithSlugInput
                             $pageIds = SiteAccess::current()->query($model)
                                 ->select($modelId)
                                 ->join(
-                                    'translations',
-                                    fn (JoinClause $join): JoinClause => $join->on($modelId, '=', 'translations.translatable_id')
-                                        ->where('translations.translatable_type', resolve($model)->getMorphClass()),
+                                    TableName::resolve('translations'),
+                                    fn (JoinClause $join): JoinClause => $join->on($modelId, '=', TableName::resolve('translations') . '.translatable_id')
+                                        ->where(TableName::resolve('translations') . '.translatable_type', resolve($model)->getMorphClass()),
                                 )
                                 ->when(
                                     $siteId,
@@ -211,7 +212,7 @@ class TitleWithSlugInput
                                 ->all();
 
                             $rule->where('language_id', $language_id)
-                                ->whereIn('translations.translatable_id', $pageIds);
+                                ->whereIn(TableName::resolve('translations') . '.translatable_id', $pageIds);
                         },
                         'ignorable' => fn (?Model $record, string $operation): Model|null|false => in_array($operation, ['edit', 'editOption'], true) ? $record : false,
                     ],
