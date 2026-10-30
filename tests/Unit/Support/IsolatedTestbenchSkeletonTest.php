@@ -8,8 +8,14 @@ it('keeps generated skeletons outside test discovery in the repository runtime d
     $pathForToken = new ReflectionMethod(IsolatedTestbenchSkeleton::class, 'pathForToken');
     $repositoryPath = dirname(__DIR__, 3);
 
-    expect($pathForToken->invoke(null, '11_run-unique'))
-        ->toBe($repositoryPath . '/var/testbench-skeletons/11_run-unique');
+    $previous = getenv('CAPELL_TESTBENCH_SKELETON_ROOT');
+    try {
+        putenv('CAPELL_TESTBENCH_SKELETON_ROOT');
+        expect($pathForToken->invoke(null, '11_run-unique'))
+            ->toBe($repositoryPath . '/var/testbench-skeletons/11_run-unique');
+    } finally {
+        putenv($previous === false ? 'CAPELL_TESTBENCH_SKELETON_ROOT' : 'CAPELL_TESTBENCH_SKELETON_ROOT=' . $previous);
+    }
 });
 
 it('uses the run-unique Paratest token and falls back to the worker token', function (): void {
@@ -29,5 +35,16 @@ it('uses the run-unique Paratest token and falls back to the worker token', func
     } finally {
         putenv($originalUniqueToken === false ? 'UNIQUE_TEST_TOKEN' : 'UNIQUE_TEST_TOKEN=' . $originalUniqueToken);
         putenv($originalTestToken === false ? 'TEST_TOKEN' : 'TEST_TOKEN=' . $originalTestToken);
+    }
+});
+
+it('can place an isolated skeleton in an explicitly owned scratch root', function (): void {
+    $previous = getenv('CAPELL_TESTBENCH_SKELETON_ROOT');
+    $pathForToken = new ReflectionMethod(IsolatedTestbenchSkeleton::class, 'pathForToken');
+    try {
+        putenv('CAPELL_TESTBENCH_SKELETON_ROOT=/owned/scratch');
+        expect($pathForToken->invoke(null, 'worker'))->toBe('/owned/scratch/worker');
+    } finally {
+        putenv($previous === false ? 'CAPELL_TESTBENCH_SKELETON_ROOT' : 'CAPELL_TESTBENCH_SKELETON_ROOT=' . $previous);
     }
 });

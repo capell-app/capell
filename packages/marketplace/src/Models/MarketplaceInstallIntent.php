@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Carbon\CarbonImmutable;
@@ -28,6 +29,7 @@ use Override;
  */
 final class MarketplaceInstallIntent extends Model
 {
+    use HasCapellTable;
     use HasFactory;
 
     protected $fillable = [

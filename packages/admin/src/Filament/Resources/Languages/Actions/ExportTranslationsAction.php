@@ -11,6 +11,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Override;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -35,7 +36,8 @@ class ExportTranslationsAction extends Action
                     ->searchable()
                     ->required(),
                 Select::make('language_id')
-                    ->label(__('capell-admin::table.language'))
+                    ->label(__('capell-admin::exchanger.export_translations.target_language'))
+                    ->helperText(self::sourceLanguageHelp(...))
                     ->options(self::getLanguageOptions(...))
                     ->placeholder(__('capell-admin::exchanger.export_translations.all_languages'))
                     ->searchable(),
@@ -71,7 +73,19 @@ class ExportTranslationsAction extends Action
         return $options;
     }
 
+    protected static function sourceLanguageHelp(): string
+    {
+        $source = ExportSiteTranslationsAction::make()->sourceLanguage();
+
+        return $source instanceof Language
+            ? (string) __('capell-admin::exchanger.export_translations.source_language_help', ['language' => $source->name])
+            : (string) __('capell-admin::exchanger.export_translations.source_language_unknown');
+    }
+
     /**
+     * Only languages that can be a translation target: the source language is
+     * what the export translates from, so it is not offered.
+     *
      * @return array<int, string>
      */
     protected static function getLanguageOptions(): array
@@ -81,6 +95,7 @@ class ExportTranslationsAction extends Action
 
         /** @var array<int, string> $options */
         $options = $model::query()
+            ->where('default', false)
             ->ordered()
             ->pluck('name', 'id')
             ->all();
@@ -106,6 +121,32 @@ class ExportTranslationsAction extends Action
         $language = $languageId === null || $languageId === ''
             ? null
             : Language::query()->find($languageId);
+
+        $export = ExportSiteTranslationsAction::make();
+        $source = $export->sourceLanguage();
+
+        if ($language instanceof Language && $source instanceof Language && $language->is($source)) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-admin::exchanger.export_translations.source_not_target_title'))
+                ->body((string) __('capell-admin::exchanger.export_translations.source_not_target_body', ['language' => $source->name]))
+                ->send();
+
+            return null;
+        }
+
+        if (! $export->hasTargetLanguages($site, $language)) {
+            Notification::make()
+                ->warning()
+                ->title((string) __('capell-admin::exchanger.export_translations.nothing_to_export_title'))
+                ->body((string) __('capell-admin::exchanger.export_translations.nothing_to_export_body', [
+                    'site' => $site->name,
+                    'language' => $source instanceof Language ? $source->name : '',
+                ]))
+                ->send();
+
+            return null;
+        }
 
         return ExportSiteTranslationsAction::run($site, $language);
     }

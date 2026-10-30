@@ -156,6 +156,8 @@ For a fresh full-foundation install, select:
 - cache clearing after installation;
 - welcome-route replacement only when Capell should own `/`.
 
+Before migrations, the installer checks the selected packages' table names against the database. If a table already exists without its creation migration, choose a prefix or names for the colliding tables. The installer records your choices in published configuration before migrations. On a clean database, it writes table-name configuration only if you supply a prefix or aliases. In the web installer, enter a prefix or one `name=alias` pair per line in the table-name options, then review the changes. For unattended installs, pass `--table-prefix=cms_` or repeat `--table-alias=pages=content_pages`. Without a choice the command stops and names any collisions. External packages use their own table configuration where available; see the [configuration reference](../development/configuration.md#core-config).
+
 The installer may change `composer.json`, `composer.lock`, `app/Models/User.php`, the Filament Admin panel provider, `routes/web.php`, configuration, migrations, and generated frontend assets. Review the printed plan before accepting changes in an established repository.
 
 For a demo:

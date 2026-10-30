@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\PropertyDefinitionFactory;
 use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Enums\PropertyType;
@@ -36,6 +37,8 @@ use RuntimeException;
  */
 final class PropertyDefinition extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<PropertyDefinitionFactory> */
     use HasFactory;
 

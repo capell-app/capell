@@ -7,6 +7,20 @@ use Capell\Core\Models\Media;
 return [
     'version' => env('CAPELL_VERSION'),
 
+    'database' => [
+        // Prefix Capell-owned tables unless an explicit table alias is set.
+        'table_prefix' => '',
+        // Map a Capell base table name to its complete database table name.
+        'table_aliases' => [],
+        // Tables owned by external packages that do not expose table-name config.
+        'external_tables' => [
+            'media' => 'media',
+            'tags' => 'tags',
+            'stored_events' => 'stored_events',
+            'snapshots' => 'snapshots',
+        ],
+    ],
+
     'cache_path' => env('CAPELL_CACHE_PATH', base_path('bootstrap/cache/capell')),
     'cache_ttl' => (int) env('CAPELL_CACHE_TTL', 60),
     'cache_lock_seconds' => (int) env('CAPELL_CACHE_LOCK_SECONDS', 30),

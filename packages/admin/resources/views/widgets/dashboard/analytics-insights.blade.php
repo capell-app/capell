@@ -2,7 +2,15 @@
     <x-filament::section
         :heading="__('capell-admin::dashboard.analytics_insights')"
     >
-        @if ($this->data()->topPages === [] && $this->data()->topSearchTerms === [])
+        @if (! $this->data()->isAvailable())
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{
+                    $this->data()->availability === \Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum::NotConfigured
+                        ? __('capell-admin::dashboard.analytics_not_configured_description')
+                        : __('capell-admin::dashboard.analytics_unavailable_description')
+                }}
+            </p>
+        @elseif ($this->data()->topPages === [] && $this->data()->topSearchTerms === [])
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 {{ __('capell-admin::dashboard.analytics_no_insights') }}
             </p>

@@ -17,6 +17,7 @@ use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Capell\Core\Support\TableName;
 use Capell\Core\Support\Upgrade\UpgradePipelineIo;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -138,7 +139,7 @@ final class ReconcileEnabledPackageRequirementsAction
 
     private function extension(string $name): ?CapellExtension
     {
-        return Schema::hasTable('capell_extensions')
+        return Schema::hasTable(TableName::resolve('capell_extensions'))
             ? CapellExtension::query()->where('composer_name', $name)->first()
             : null;
     }

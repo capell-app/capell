@@ -3,10 +3,10 @@
 # lint-changed.sh: Lint changed files.
 # Usage: ./scripts/lint-changed.sh [--staged|--committed|--base <git-ref>]
 #
-# This script is kept byte-for-byte identical in capell-4 and capell-packages-4.
-# The two repositories share pre-commit habits, so any behavioural difference
-# between the copies surfaces as "it passed locally" on whichever repository the
-# author happened not to run.
+# The two repositories share pre-commit habits (capell-packages-4 has its own
+# copy, which already includes untracked files and has a --check mode), so any
+# behavioural difference between the copies surfaces as "it passed locally" on
+# whichever repository the author happened not to run.
 
 set -eo pipefail
 
@@ -51,6 +51,12 @@ else
   while IFS= read -r file; do
     CHANGED_FILES+=("$file")
   done < <(git diff --name-only --diff-filter=ACMRT HEAD)
+  # New files that are not yet added are invisible to `git diff`, so a whole
+  # new directory of Markdown or Blade would otherwise skip Prettier locally
+  # and first fail in hosted CI.
+  while IFS= read -r file; do
+    CHANGED_FILES+=("$file")
+  done < <(git ls-files --others --exclude-standard)
 fi
 
 PHP_FILES=()

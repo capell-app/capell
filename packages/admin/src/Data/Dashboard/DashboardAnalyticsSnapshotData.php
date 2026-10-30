@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Data\Dashboard;
 
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
 use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Data;
 
@@ -33,7 +34,13 @@ final class DashboardAnalyticsSnapshotData extends Data
         public readonly array $recentActivity = [],
         public readonly ?CarbonImmutable $freshThrough = null,
         public readonly bool $collecting = false,
+        public readonly DashboardAnalyticsAvailabilityEnum $availability = DashboardAnalyticsAvailabilityEnum::Available,
     ) {}
+
+    public function isAvailable(): bool
+    {
+        return $this->availability === DashboardAnalyticsAvailabilityEnum::Available;
+    }
 
     /**
      * Visitors counted once per site, per day. The visitor hash is salted with

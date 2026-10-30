@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Redirects;
 
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +14,7 @@ final class PageUrlRedirectHitRecorder
 {
     public function recordHit(PageUrl $pageUrl): void
     {
-        if (! Schema::hasColumn('page_urls', 'hit_count') || ! Schema::hasColumn('page_urls', 'last_hit_at')) {
+        if (! Schema::hasColumn(TableName::resolve('page_urls'), 'hit_count') || ! Schema::hasColumn(TableName::resolve('page_urls'), 'last_hit_at')) {
             return;
         }
 

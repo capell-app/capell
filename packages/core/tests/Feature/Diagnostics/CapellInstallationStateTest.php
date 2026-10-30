@@ -21,7 +21,12 @@ it('resolves the installation-state schema matrix', function (
 
     expect($state)->toBe($expected);
 })->with(function (): array {
-    $required = resolve(CapellRuntimeSchemaContract::class)->requiredTables();
+    $required = [
+        'languages', 'blueprints', 'sites', 'site_domains', 'translations', 'pages', 'page_urls',
+        'asset_attachments', 'content_graph_edges', 'content_locks', 'block_templates', 'layout_content_snapshots',
+        'blueprint_schema_snapshots', 'capell_extensions', 'page_workflow_states', 'page_revisions',
+        'themes', 'layouts', 'stored_events', 'snapshots',
+    ];
 
     return [
         'no footprint' => [[], false, null, CapellInstallationState::NotInstalled],

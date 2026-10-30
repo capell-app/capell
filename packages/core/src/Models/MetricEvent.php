@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Enums\Metrics\MetricScopeType;
 use Carbon\CarbonImmutable;
@@ -40,6 +41,8 @@ use Override;
  */
 final class MetricEvent extends Model
 {
+    use HasCapellTable;
+
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 

@@ -17,6 +17,7 @@ use Capell\Core\Models\MetricDailyRollup;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Metrics\ActivityBucketsDailyMetricsCollector;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
@@ -72,7 +73,7 @@ final class BuildPageViewsAction
                 ->where('day', '>=', $period->previousStart->toDateString())
                 ->where('day', '<', $period->end->toDateString())
                 ->whereHas('collectionRun', fn (Builder $query): Builder => $query->where('status', MetricCollectionRunStatus::Completed->value)
-                    ->whereColumn('metric_collection_runs.day', 'metric_daily_rollups.day'))
+                    ->whereColumn(TableName::resolve('metric_collection_runs') . '.day', TableName::resolve('metric_daily_rollups') . '.day'))
                 ->get();
         } catch (QueryException $queryException) {
             report($queryException);

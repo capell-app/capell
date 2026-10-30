@@ -6,6 +6,7 @@ namespace Capell\Admin\Support;
 
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\TableName;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
@@ -46,11 +47,11 @@ final class DatabaseUrlExpression
         $grammar = $query->getQuery()->getGrammar();
 
         return CapellDatabase::for($query->getModel())->queryDialect()->concatenate(
-            new SqlFragment('COALESCE(' . $grammar->wrap('site_domains.scheme') . ', ?)', [$defaultScheme]),
+            new SqlFragment('COALESCE(' . $grammar->wrap(TableName::resolve('site_domains') . '.scheme') . ', ?)', [$defaultScheme]),
             SqlFragment::raw("'://'"),
-            new SqlFragment('COALESCE(' . $grammar->wrap('site_domains.domain') . ', ?)', [$defaultDomain]),
-            SqlFragment::raw('COALESCE(' . $grammar->wrap('site_domains.path') . ", '')"),
-            SqlFragment::raw($grammar->wrap('page_urls.url')),
+            new SqlFragment('COALESCE(' . $grammar->wrap(TableName::resolve('site_domains') . '.domain') . ', ?)', [$defaultDomain]),
+            SqlFragment::raw('COALESCE(' . $grammar->wrap(TableName::resolve('site_domains') . '.path') . ", '')"),
+            SqlFragment::raw($grammar->wrap(TableName::resolve('page_urls') . '.url')),
         );
     }
 
@@ -59,9 +60,9 @@ final class DatabaseUrlExpression
         $grammar = $query->getQuery()->getGrammar();
 
         return CapellDatabase::for($query->getModel())->queryDialect()->concatenate(
-            new SqlFragment('COALESCE(' . $grammar->wrap('site_domains.domain') . ', ?)', [$defaultDomain]),
-            SqlFragment::raw('COALESCE(' . $grammar->wrap('site_domains.path') . ", '')"),
-            SqlFragment::raw($grammar->wrap('page_urls.url')),
+            new SqlFragment('COALESCE(' . $grammar->wrap(TableName::resolve('site_domains') . '.domain') . ', ?)', [$defaultDomain]),
+            SqlFragment::raw('COALESCE(' . $grammar->wrap(TableName::resolve('site_domains') . '.path') . ", '')"),
+            SqlFragment::raw($grammar->wrap(TableName::resolve('page_urls') . '.url')),
         );
     }
 }

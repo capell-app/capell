@@ -68,13 +68,15 @@ trait HasSitePermissions
         $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
         $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
 
+        $rolesTable = (new Role)->getTable();
+
         return Role::query()
-            ->join($modelHasRolesTable, $modelHasRolesTable . '.role_id', '=', 'roles.id')
+            ->join($modelHasRolesTable, $modelHasRolesTable . '.role_id', '=', $rolesTable . '.id')
             ->where($modelHasRolesTable . '.model_type', $this->getMorphClass())
             ->where($modelHasRolesTable . '.model_id', $this->getKey())
             ->where($modelHasRolesTable . '.' . $teamColumn, $site->getKey())
-            ->where(fn (Builder $query): Builder => $query->whereNull('roles.' . $teamColumn)->orWhere('roles.' . $teamColumn, $site->getKey()))
-            ->select('roles.*')
+            ->where(fn (Builder $query): Builder => $query->whereNull($rolesTable . '.' . $teamColumn)->orWhere($rolesTable . '.' . $teamColumn, $site->getKey()))
+            ->select($rolesTable . '.*')
             ->get();
     }
 

@@ -14,6 +14,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\CapellCoreHelper;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -38,11 +39,11 @@ class TranslationsRepeater extends BaseTranslationsRepeater
             modifyQueryUsing: fn (Builder $query): Builder => $query
                 ->with(['language', 'pageUrl.siteDomain'])
                 ->select($query->getModel()->qualifyColumn('*'))
-                ->join('languages', $query->getModel()->qualifyColumn('language_id'), '=', 'languages.id')
-                ->whereNull('languages.deleted_at')
+                ->join(TableName::resolve('languages'), $query->getModel()->qualifyColumn('language_id'), '=', TableName::resolve('languages') . '.id')
+                ->whereNull(TableName::resolve('languages') . '.deleted_at')
                 ->orderByDesc('default')
-                ->orderBy('languages.order')
-                ->orderBy('languages.name'),
+                ->orderBy(TableName::resolve('languages') . '.order')
+                ->orderBy(TableName::resolve('languages') . '.name'),
         )
             ->setupActiveTabAfterStateHydrated()
             ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
