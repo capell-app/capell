@@ -142,7 +142,7 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Actions/CreatePageAction.php' => ['handle|$pageModel::create(' . Arr::class . '::except($data, [\'translations\']))'],
             // A language route must be unique across every site, so the collision
             // lookup deliberately ignores the editor's site access; the message
-            // names the owning site only after the route is already taken.
+            // names the owning site only when the editor can access that site.
             'packages/admin/src/Actions/SetupSiteLanguageAction.php' => ['assertRouteIsFree|' . SiteDomain::class . "::query()->where('routing_identity', \$identity)->with('site')->first()"],
             'packages/admin/src/Filament/Resources/Sites/Pages/CreateSite.php' => ['createSiteDomainsFromState|$this->record->siteDomains()->exists()'],
             // Generic replication also serves system callers. This reload is
