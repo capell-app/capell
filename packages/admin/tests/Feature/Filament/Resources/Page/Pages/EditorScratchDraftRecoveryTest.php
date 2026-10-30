@@ -282,7 +282,7 @@ it('keeps separate recoveries for two editor sessions and ignores expired snapsh
         ->and(EditorScratchDraft::query()->forEditor($editor, $page, app()->getLocale(), $second->instance()->scratchDraftContext)->sole()->payload['name'])->toBe('Second session');
     Livewire::test(PageScratchDraftPanel::class, ['pageId' => $page->getKey(), 'currentContext' => $second->instance()->scratchDraftContext])
         ->call('restore')
-        ->assertDispatched('page-scratch-draft-restored', fn ($event, $params): bool => ($params['data']['name'] ?? null) === 'First session');
+        ->assertDispatched('page-scratch-draft-restored', fn (string $event, array $params): bool => ($params['data']['name'] ?? null) === 'First session');
 });
 
 it('initialises a session context when hydrating an editor from an older snapshot', function (): void {
@@ -333,7 +333,7 @@ it('offers the current editor snapshot after a stale autosave conflict', functio
     Livewire::test(PageScratchDraftPanel::class, ['pageId' => $page->id, 'currentContext' => $context])
         ->dispatch('page-scratch-draft-conflict', pageId: $page->id)
         ->call('restore')
-        ->assertDispatched('page-scratch-draft-restored', fn ($event, $params): bool => ($params['data']['name'] ?? null) === 'Committed');
+        ->assertDispatched('page-scratch-draft-restored', fn (string $event, array $params): bool => ($params['data']['name'] ?? null) === 'Committed');
     expect($draft->refresh()->payload['name'])->toBe('Committed');
     $newContext = $component->instance()->scratchDraftContext;
     expect(EditorScratchDraft::query()->where('context', $newContext)->sole()->payload['name'])->toBe('New unsaved');
@@ -361,7 +361,7 @@ it('sends the acknowledged form data with the editor saved event', function (): 
         ->call('save')
         ->assertHasNoFormErrors()
         ->assertDispatched('page-editor-saved', pageId: (int) $page->id)
-        ->assertDispatched('page-editor-save-acknowledged', fn ($event, $params): bool => $params['pageId'] === $page->id && ($params['data']['name'] ?? null) === 'Acknowledged');
+        ->assertDispatched('page-editor-save-acknowledged', fn (string $event, array $params): bool => $params['pageId'] === $page->id && ($params['data']['name'] ?? null) === 'Acknowledged');
 });
 
 it('acknowledges the form when Filament mounts the save-as-draft action', function (): void {
@@ -369,7 +369,7 @@ it('acknowledges the form when Filament mounts the save-as-draft action', functi
     Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
         ->set('data.name', 'Draft acknowledgement')
         ->call('mountAction', 'saveAsDraft')
-        ->assertDispatched('page-editor-save-acknowledged', fn ($event, $params): bool => ($params['data']['name'] ?? null) === 'Draft acknowledgement');
+        ->assertDispatched('page-editor-save-acknowledged', fn (string $event, array $params): bool => ($params['data']['name'] ?? null) === 'Draft acknowledgement');
 });
 
 it('acknowledges the draft only when a mounted confirmation action executes', function (): void {
@@ -399,5 +399,5 @@ it('acknowledges the draft only when a mounted confirmation action executes', fu
         ->assertNotDispatched('page-editor-save-acknowledged')
         ->call('mountAction', 'saveAsDraft')
         ->call('callMountedAction')
-        ->assertDispatched('page-editor-save-acknowledged', fn ($event, $params): bool => ($params['data']['name'] ?? null) === 'Confirmed draft');
+        ->assertDispatched('page-editor-save-acknowledged', fn (string $event, array $params): bool => ($params['data']['name'] ?? null) === 'Confirmed draft');
 });

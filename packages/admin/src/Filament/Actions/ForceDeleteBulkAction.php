@@ -15,7 +15,7 @@ final class ForceDeleteBulkAction extends \Filament\Actions\ForceDeleteBulkActio
     #[Override]
     public function hasDatabaseTransactions(): bool
     {
-        if ($this->getSelectedRecords()->contains(fn ($record): bool => $record instanceof Site)) {
+        if ($this->getSelectedRecords()->contains(fn (mixed $record): bool => $record instanceof Site)) {
             return true;
         }
 
@@ -41,7 +41,7 @@ final class ForceDeleteBulkAction extends \Filament\Actions\ForceDeleteBulkActio
         $validator = $livewire instanceof ValidatesDelete ? $livewire : null;
 
         // Lock sites in stable order before checking dependencies and deleting.
-        foreach ($this->getSelectedRecords()->filter(fn ($record): bool => $record instanceof Site)->sortBy(fn (Site $site): int => (int) $site->getKey()) as $site) {
+        foreach ($this->getSelectedRecords()->filter(fn (mixed $record): bool => $record instanceof Site)->sortBy(fn (Site $site): int => (int) $site->getKey()) as $site) {
             SiteAccess::current()->query(Site::class)->withTrashed()->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
         }
 

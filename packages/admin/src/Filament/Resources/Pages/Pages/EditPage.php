@@ -520,7 +520,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 ->whereKey($draftId)->where('user_id', $user->getAuthIdentifier())
                 ->where('site_id', $this->record->site_id)->where('record_type', $this->record->getMorphClass())
                 ->where('record_id', $this->record->getKey())->where('locale', app()->getLocale())
-                ->where(fn ($query) => $query->where('context', 'page-editor')->orWhere('context', 'like', 'page-editor:%'))
+                ->where(fn (Builder $query) => $query->where('context', 'page-editor')->orWhere('context', 'like', 'page-editor:%'))
                 ->where('revision', $revision)->where('content_hash', $contentHash)
                 ->where('expires_at', '>', now())->first();
             if ($draft === null || $draft->payload !== $data) {

@@ -17,6 +17,7 @@ use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -190,7 +191,7 @@ final readonly class AgentPageDraftSaveTool implements AgentAdminTool
             ->where('record_type', $page->getMorphClass())
             ->where('record_id', $page->getKey())
             ->where('locale', $this->locale($invocation))
-            ->where(fn ($query) => $query->where('context', 'page-editor')->orWhere('context', 'like', 'page-editor:%'))
+            ->where(fn (Builder $query) => $query->where('context', 'page-editor')->orWhere('context', 'like', 'page-editor:%'))
             ->where('expires_at', '>', now())
             ->latest('saved_at')->orderByDesc('id')
             ->first();

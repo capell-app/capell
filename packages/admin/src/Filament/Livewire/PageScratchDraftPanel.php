@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -56,8 +57,8 @@ final class PageScratchDraftPanel extends Component
             ->where('record_type', $page->getMorphClass())
             ->where('record_id', $page->getKey())
             ->where('locale', $this->locale)
-            ->where(fn ($query) => $query->where('context', self::CONTEXT)->orWhere('context', 'like', self::CONTEXT . ':%'))
-            ->when($this->currentContext !== null, fn ($query) => $query->where('context', '!=', $this->currentContext))
+            ->where(fn (Builder $query) => $query->where('context', self::CONTEXT)->orWhere('context', 'like', self::CONTEXT . ':%'))
+            ->when($this->currentContext !== null, fn (Builder $query) => $query->where('context', '!=', $this->currentContext))
             ->where('expires_at', '>', CarbonImmutable::now('UTC'))
             ->oldest('saved_at')->orderBy('id')
             ->first();
