@@ -6,55 +6,16 @@ use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Filament\Components\Forms\Page\TitleWithSlugInput;
 use Capell\Admin\Filament\Components\Forms\SlugInput;
-use Capell\Admin\Filament\Contracts\HasPageResource;
-use Capell\Admin\Filament\Resources\Pages\PageResource;
-use Capell\Admin\Tests\Fixtures\Livewire;
+use Capell\Admin\Tests\Fixtures\Filament\PageContext\ActionPageContextResource;
+use Capell\Admin\Tests\Fixtures\Filament\PageContext\CustomPageContextLivewire;
+use Capell\Admin\Tests\Fixtures\Filament\PageContext\UnrelatedContextLivewire;
+use Capell\Admin\Tests\Fixtures\Filament\PageContext\UnrelatedContextResource;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\FusedGroup;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
-
-class CustomPageContextResource extends PageResource
-{
-    public static function getBasePath(Site $site, Language $language): string
-    {
-        return '/custom/';
-    }
-}
-
-class ActionPageContextResource extends PageResource
-{
-    public static function getBasePath(Site $site, Language $language): string
-    {
-        return '/action/';
-    }
-}
-
-class CustomPageContextLivewire extends Livewire implements HasPageResource
-{
-    public static function getResource(): string
-    {
-        return CustomPageContextResource::class;
-    }
-}
-
-class UnrelatedContextResource
-{
-    public static function getBasePath(Site $site, Language $language): string
-    {
-        return '/unrelated/';
-    }
-}
-
-class UnrelatedContextLivewire extends Livewire
-{
-    public static function getResource(): string
-    {
-        return UnrelatedContextResource::class;
-    }
-}
 
 it('uses the page resource context for the page title field', function (bool $customPageResource, string $operation, ?string $actionResource, string $expectedPath): void {
     test()->actingAsAdmin();

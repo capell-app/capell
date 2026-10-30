@@ -104,7 +104,7 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Actions/Users/ResolvePreferredAdminLanguageIdAction.php' => ['handle|$user->newQuery()->whereKey($user->getKey())->value(\'preferred_admin_language_id\')'],
             'packages/marketplace/src/Actions/ResolveMarketplaceInstallAttemptUserAction.php' => ['handle|$user->newQuery()->whereKey($attempt->user_id)->first()'],
             // Language definitions are global metadata, including a host override.
-            'packages/admin/src/Filament/Components/Forms/Page/TitleWithSlugInput.php' => ['make|resolve(' . Language::class . '::class)::query()->find($languageId)'],
+            'packages/admin/src/Filament/Components/Forms/Page/TitleWithSlugInput.php' => ['makeForContext|resolve(' . Language::class . '::class)::query()->find($languageId)'],
             'packages/admin/src/Support/Loader/LanguageLoader.php' => [
                 'all|$model::query()->ordered()->get()',
                 'getDefault|$model::getDefault()',
