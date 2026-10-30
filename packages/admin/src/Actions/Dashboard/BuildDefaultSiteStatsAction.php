@@ -25,7 +25,7 @@ final class BuildDefaultSiteStatsAction
     public function handle(string $period = 'last_30_days', ?int $siteId = null, bool $scoped = false): SiteStatsData
     {
         $this->siteId = $siteId;
-        [$rangeStart, $rangeEnd] = ResolveDashboardPeriodWindowsAction::make()->handle($period);
+        [$rangeStart, $rangeEnd] = ResolveDashboardPeriodWindowsAction::run($period);
 
         // Genuine schedules only: sentinel drafts are not upcoming work.
         $pendingCount = $this->basePageQuery()->scheduled()->count();
