@@ -24,6 +24,7 @@ use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -325,7 +326,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             return __('capell-admin::publish_panel.blocker_ask_editor');
         }
 
-        foreach ($record->pageUrls()
+        foreach (SiteAccess::forActor($user)->scope($record->pageUrls()->getQuery())
             ->where('site_id', $record->site_id)
             ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
             ->status(false)
