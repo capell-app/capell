@@ -250,6 +250,24 @@ it('removes a pending published settings migration when a registered migration p
     });
 });
 
+it('does not publish activity log follow-up migrations when a registered path supplies the activity log table', function (): void {
+    withIsolatedVendorDependencyMigrationFiles(function (string $migrationDirectory): void {
+        $registeredDirectory = sys_get_temp_dir() . '/capell-registered-migrations-' . uniqid();
+        File::ensureDirectoryExists($registeredDirectory);
+        File::put($registeredDirectory . '/2025_08_02_100000_create_activity_log_table.php', "<?php\n\ndeclare(strict_types=1);\n");
+        resolve('migrator')->path($registeredDirectory);
+
+        try {
+            PublishVendorMigrationsAction::run(new NullProgressReporter);
+
+            expect(File::exists($migrationDirectory . '/2026_05_10_190828_add_event_column_to_activity_log_table.php'))->toBeFalse()
+                ->and(File::exists($migrationDirectory . '/2026_05_10_190829_add_batch_uuid_column_to_activity_log_table.php'))->toBeFalse();
+        } finally {
+            File::deleteDirectory($registeredDirectory);
+        }
+    });
+});
+
 it('removes a pending canonical vendor migration when a non-canonical one already ran', function (): void {
     withIsolatedVendorDependencyMigrationFiles(function (string $migrationDirectory): void {
         $spatiePublishedMigrationPath = $migrationDirectory . '/2035_01_01_000000_create_media_table.php';

@@ -132,6 +132,23 @@ it('leaves published migration duplicates for the migrate command to handle', fu
     }
 });
 
+it('names the activity log columns a registered migration path left out', function (): void {
+    Schema::dropIfExists('activity_log');
+    Schema::create('activity_log', function (Blueprint $table): void {
+        $table->id();
+        $table->string('log_name')->nullable();
+    });
+
+    FakeConsoleKernel::bind()->returns('migrate', 0, 'Nothing to migrate');
+
+    try {
+        expect(fn (): mixed => RunMigrationsAction::run(new NullProgressReporter))
+            ->toThrow(RuntimeException::class, 'missing the event and batch_uuid columns');
+    } finally {
+        Schema::dropIfExists('activity_log');
+    }
+});
+
 it('leaves existing create migrations for the migrate command to handle', function (): void {
     if (! Schema::hasTable('marketplace_registration_sessions')) {
         Schema::create('marketplace_registration_sessions', function (Blueprint $table): void {

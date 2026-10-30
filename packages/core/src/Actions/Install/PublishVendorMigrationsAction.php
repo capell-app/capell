@@ -19,12 +19,18 @@ final class PublishVendorMigrationsAction
     use AsFake;
     use AsObject;
 
+    /** @var array<string, string> */
+    private const array FOLLOW_UP_BASE_MIGRATIONS = [
+        'add_event_column_to_activity_log' => 'create_activity_log',
+        'add_batch_uuid_column_to_activity_log' => 'create_activity_log',
+    ];
+
     public function handle(ProgressReporter $reporter): void
     {
         $reporter->step('Publishing vendor migrations…');
 
         foreach ($this->stubs() as [$migrationName, $stubRelativePath, $targetName, $successLabel]) {
-            if ($this->registeredPathSuppliesMigration($migrationName)) {
+            if ($this->registeredPathSuppliesMigration($migrationName) || $this->registeredPathOwnsBaseTable($migrationName)) {
                 $this->removePendingCanonicalMigration($targetName);
 
                 continue;
@@ -189,6 +195,17 @@ final class PublishVendorMigrationsAction
         }
 
         return false;
+    }
+
+    /**
+     * Follow-up stubs only evolve a table Capell published itself. When a registered path supplies
+     * the base table, that path owns its schema and the follow-up would add columns twice.
+     */
+    private function registeredPathOwnsBaseTable(string $name): bool
+    {
+        $baseName = self::FOLLOW_UP_BASE_MIGRATIONS[$name] ?? null;
+
+        return $baseName !== null && $this->registeredPathSuppliesMigration($baseName);
     }
 
     private function removePendingCanonicalMigration(string $targetName): void
