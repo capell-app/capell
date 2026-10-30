@@ -1,3 +1,8 @@
 includes:
     - ../vendor/phpstan/phpstan-deprecation-rules/rules.neon
     - ../phpstan.neon
+
+parameters:
+    # A separate result cache: sharing the full run's directory with different rules
+    # invalidates each run's cache on every pass.
+    tmpDir: %currentWorkingDirectory%/var/phpstan/deprecations

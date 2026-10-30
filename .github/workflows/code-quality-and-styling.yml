@@ -3,6 +3,11 @@ name: PHP Quality
 on:
   merge_group:
     types: [checks_requested]
+  # Caches saved on main are the only ones every pull request can restore;
+  # merge-group and pull request caches stay scoped to their own refs.
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -158,7 +163,9 @@ jobs:
       - name: Cache PHPStan result cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: var/phpstan/full
+          path: |
+            var/phpstan/full
+            var/phpstan/deprecations
           key: phpstan-${{ runner.os }}-${{ hashFiles('composer.lock', 'phpstan.neon', 'phpstan/**/*.neon') }}-${{ github.sha }}
           restore-keys: |
             phpstan-${{ runner.os }}-${{ hashFiles('composer.lock', 'phpstan.neon', 'phpstan/**/*.neon') }}-
@@ -167,7 +174,10 @@ jobs:
       - name: Run PHPStan
         run: composer phpstan
 
+      # Advisory only (it cannot fail the gate), so it runs on main pushes rather than on every
+      # pull request and merge group; its result cache is still saved on main.
       - name: Run PHPStan deprecation rules
+        if: github.event_name == 'push'
         continue-on-error: true
         run: composer phpstan:deprecations
 

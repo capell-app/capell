@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Database\SchemaDialects\AncillaryUserColumnRepair;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
@@ -326,7 +327,7 @@ it('rolls back SQLite user repair and restores foreign-key mode after each failu
     $previous = DB::getDefaultConnection();
     config()->set('database.connections.ancillary_sqlite_fault', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true]);
     DB::setDefaultConnection('ancillary_sqlite_fault');
-    $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
+    $repairer = new AncillaryUserColumnRepair;
     try {
         $pdo = ancillarySqliteRebuildFixture();
         if (! $foreignKeysEnabled) {
@@ -334,8 +335,8 @@ it('rolls back SQLite user repair and restores foreign-key mode after each failu
         }
 
         $before = ancillarySqliteSnapshot($pdo);
-        $rebuild = new ReflectionMethod($migration, 'sqliteRebuildUsers');
-        expect(fn (): mixed => $rebuild->invoke($migration, $pdo, 'users', 'languages', static function (string $current) use ($phase): void {
+        $rebuild = new ReflectionMethod($repairer, 'sqliteRebuildUsers');
+        expect(fn (): mixed => $rebuild->invoke($repairer, $pdo, 'users', 'languages', static function (string $current) use ($phase): void {
             throw_if($current === $phase, RuntimeException::class, 'Injected failure');
         }))->toThrow(RuntimeException::class, 'Injected failure');
         expect(ancillarySqliteSnapshot($pdo))->toBe($before)
@@ -709,9 +710,9 @@ it('refuses SQLite repair when another connection changes the schema before the 
         $first->exec('PRAGMA foreign_keys=ON; CREATE TABLE languages(id INTEGER PRIMARY KEY); CREATE TABLE users(id INTEGER PRIMARY KEY, preferred_admin_language_id INTEGER); INSERT INTO users VALUES (7, NULL)');
         $version = (int) ancillarySqliteQuery($first, 'PRAGMA main.schema_version')->fetchColumn();
         $second->exec('CREATE INDEX host_index ON users(id)');
-        $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
-        $rebuild = new ReflectionMethod($migration, 'sqliteRebuildUsers');
-        expect(fn (): mixed => $rebuild->invoke($migration, $first, 'users', 'languages', null, $version))->toThrow(RuntimeException::class, 'schema changed')
+        $repairer = new AncillaryUserColumnRepair;
+        $rebuild = new ReflectionMethod($repairer, 'sqliteRebuildUsers');
+        expect(fn (): mixed => $rebuild->invoke($repairer, $first, 'users', 'languages', null, $version))->toThrow(RuntimeException::class, 'schema changed')
             ->and((int) ancillarySqliteQuery($first, 'SELECT id FROM users')->fetchColumn())->toBe(7)
             ->and(ancillarySqliteQuery($first, "SELECT name FROM sqlite_schema WHERE name='host_index'")->fetchColumn())->toBe('host_index')
             ->and((int) ancillarySqliteQuery($first, 'PRAGMA foreign_keys')->fetchColumn())->toBe(1);
@@ -729,9 +730,9 @@ it('refuses direct SQLite repair if the target changes before locking', function
         $first->exec("CREATE TABLE languages(id INTEGER PRIMARY KEY); CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT); INSERT INTO users VALUES (7, 'kept')");
         $version = (int) ancillarySqliteQuery($first, 'PRAGMA main.schema_version')->fetchColumn();
         $second->exec('DROP TABLE languages');
-        $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
-        $repair = new ReflectionMethod($migration, 'sqliteDirectRepair');
-        expect(fn (): mixed => $repair->invoke($migration, $first, $version, static fn (): int|false => $first->exec('ALTER TABLE users ADD COLUMN bio TEXT')))->toThrow(RuntimeException::class, 'schema changed')
+        $repairer = new AncillaryUserColumnRepair;
+        $repair = new ReflectionMethod($repairer, 'sqliteDirectRepair');
+        expect(fn (): mixed => $repair->invoke($repairer, $first, $version, static fn (): int|false => $first->exec('ALTER TABLE users ADD COLUMN bio TEXT')))->toThrow(RuntimeException::class, 'schema changed')
             ->and(ancillarySqliteQuery($first, 'SELECT name FROM users')->fetchColumn())->toBe('kept')
             ->and(ancillarySqliteQuery($first, "SELECT COUNT(*) FROM pragma_table_info('users') WHERE name='bio'")->fetchColumn())->toBe(0);
     } finally {
@@ -744,9 +745,9 @@ it('rolls back all direct SQLite alterations after a failure', function (): void
     $pdo->exec("CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT); INSERT INTO users VALUES (7, 'kept')");
 
     $version = (int) ancillarySqliteQuery($pdo, 'PRAGMA main.schema_version')->fetchColumn();
-    $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
-    $repair = new ReflectionMethod($migration, 'sqliteDirectRepair');
-    expect(fn (): mixed => $repair->invoke($migration, $pdo, $version, static function () use ($pdo): void {
+    $repairer = new AncillaryUserColumnRepair;
+    $repair = new ReflectionMethod($repairer, 'sqliteDirectRepair');
+    expect(fn (): mixed => $repair->invoke($repairer, $pdo, $version, static function () use ($pdo): void {
         $pdo->exec('ALTER TABLE users ADD COLUMN bio TEXT');
         throw new RuntimeException('injected failure');
     }))->toThrow(RuntimeException::class, 'injected failure')
@@ -761,9 +762,9 @@ it('rolls back a failed nested direct repair while preserving the caller transac
     $pdo->exec("UPDATE users SET name='caller' WHERE id=7");
 
     $version = (int) ancillarySqliteQuery($pdo, 'PRAGMA main.schema_version')->fetchColumn();
-    $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
-    $repair = new ReflectionMethod($migration, 'sqliteDirectRepair');
-    expect(fn (): mixed => $repair->invoke($migration, $pdo, $version, static function () use ($pdo): void {
+    $repairer = new AncillaryUserColumnRepair;
+    $repair = new ReflectionMethod($repairer, 'sqliteDirectRepair');
+    expect(fn (): mixed => $repair->invoke($repairer, $pdo, $version, static function () use ($pdo): void {
         $pdo->exec('ALTER TABLE users ADD COLUMN bio TEXT');
         throw new RuntimeException('injected nested failure');
     }, 'UPDATE users SET id=id WHERE 0'))->toThrow(RuntimeException::class, 'injected nested failure')
@@ -784,9 +785,9 @@ it('refuses a nested SQLite repair when another writer holds the lock', function
         $first->beginTransaction();
         $version = (int) ancillarySqliteQuery($first, 'PRAGMA main.schema_version')->fetchColumn();
         $second->exec('BEGIN IMMEDIATE');
-        $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_29_000002_repair_ancillary_user_columns.php';
-        $repair = new ReflectionMethod($migration, 'sqliteDirectRepair');
-        expect(fn (): mixed => $repair->invoke($migration, $first, $version, static fn (): int|false => $first->exec('ALTER TABLE users ADD COLUMN bio TEXT'), 'UPDATE users SET id=id WHERE 0'))->toThrow(PDOException::class)
+        $repairer = new AncillaryUserColumnRepair;
+        $repair = new ReflectionMethod($repairer, 'sqliteDirectRepair');
+        expect(fn (): mixed => $repair->invoke($repairer, $first, $version, static fn (): int|false => $first->exec('ALTER TABLE users ADD COLUMN bio TEXT'), 'UPDATE users SET id=id WHERE 0'))->toThrow(PDOException::class)
             ->and($first->inTransaction())->toBeTrue()
             ->and(ancillarySqliteQuery($first, 'SELECT name FROM users')->fetchColumn())->toBe('kept')
             ->and(ancillarySqliteQuery($first, "SELECT COUNT(*) FROM pragma_table_info('users') WHERE name='bio'")->fetchColumn())->toBe(0);

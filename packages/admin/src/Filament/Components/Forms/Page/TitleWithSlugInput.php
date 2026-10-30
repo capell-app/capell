@@ -23,6 +23,7 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\TableName;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\FusedGroup;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
@@ -51,7 +52,7 @@ class TitleWithSlugInput
                 BaseTitleWithSlugInput::make(
                     fieldTitle: 'title',
                     fieldSlug: 'slug',
-                    urlPath: function (Get $get, ?string $state, string $operation, LivewireComponent $livewire) use ($schema, $context): string {
+                    urlPath: function (Get $get, Component $component, ?string $state, string $operation, LivewireComponent $livewire) use ($schema, $context): string {
                         $siteId = $get('../../site_id');
 
                         if ((blank($siteId)) && in_array($operation, ['edit', 'editOption'], true)) {
@@ -63,7 +64,7 @@ class TitleWithSlugInput
                             return '/';
                         }
 
-                        $languageId = $get('language_id');
+                        $languageId = RawState::of($component, 'language_id');
 
                         if (blank($languageId)) {
                             return '';
@@ -124,12 +125,12 @@ class TitleWithSlugInput
 
                         return $basePath . implode('/', $paths) . $endingSlash;
                     },
-                    urlHost: function (Get $get, ?Translation $record): ?string {
+                    urlHost: function (Get $get, Component $component, ?Translation $record): ?string {
                         $page = $record?->translatable;
 
                         return self::getSiteHost(
                             (int) $get('../../site_id'),
-                            (int) $get('language_id'),
+                            (int) RawState::of($component, 'language_id'),
                             $page instanceof Pageable ? $page : null,
                         );
                     },
@@ -155,8 +156,8 @@ class TitleWithSlugInput
                     slugRuleUniqueParameters: [
                         'column' => 'meta->slug',
                         'table' => TableName::resolve('translations'),
-                        'modifyRuleUsing' => function (Unique $rule, Get $get, ?Translation $record, LivewireComponent $livewire, string $operation) use ($schema, $context): void {
-                            $language_id = $get('language_id');
+                        'modifyRuleUsing' => function (Unique $rule, Get $get, Component $component, ?Translation $record, LivewireComponent $livewire, string $operation) use ($schema, $context): void {
+                            $language_id = RawState::of($component, 'language_id');
 
                             $page = $record?->translatable;
 
@@ -224,7 +225,7 @@ class TitleWithSlugInput
                     ->extraFieldWrapperAttributes([
                         'class' => 'page-title-with-slug-input',
                     ])
-                    ->columnSpan(fn (Get $get): int => ((int) $get('language_id')) !== 0 ? 3 : 2)
+                    ->columnSpan(fn (Component $component): int => ((int) RawState::of($component, 'language_id')) !== 0 ? 3 : 2)
                     ->registerActions(self::resolveExtenderActions())
                     ->afterLabel(fn (FusedGroup $component): ?Schema => self::resolveAfterLabelSchema($component)),
 

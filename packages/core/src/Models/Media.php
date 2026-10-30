@@ -13,6 +13,7 @@ use Capell\Core\Models\Concerns\HasTranslations;
 use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Support\Media\LocalizedMediaMetadata;
 use Capell\Core\Support\Media\LocalizedMediaMetadataResolver;
+use Capell\Core\Support\Media\MediaCropPresetRepository;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -310,7 +311,13 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
      */
     public function getCropPresetNames(): array
     {
-        return array_keys($this->getCropPresets());
+        // Follow the registered preset order: JSON columns (MySQL) reorder stored object keys.
+        $names = array_keys($this->getCropPresets());
+        $registered = array_values(array_intersect(resolve(MediaCropPresetRepository::class)->names(), $names));
+        $unregistered = array_values(array_diff($names, $registered));
+        sort($unregistered, SORT_STRING);
+
+        return [...$registered, ...$unregistered];
     }
 
     /**

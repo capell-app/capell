@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Components\Forms\TranslationLanguageSelect;
 use Capell\Admin\Filament\Support\HelperText;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Fixtures\Livewire;
@@ -10,6 +11,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Icon;
 use Filament\Schemas\Schema;
@@ -156,3 +158,38 @@ it('requires blueprint fields only for site languages that must be translated', 
         ->and($optionalLanguageField->isRequired())->toBeFalse()
         ->and($optionalBlueprintField->isRequired())->toBeFalse();
 });
+
+it('reads the sibling translation language without a model behind the form', function (string $language, bool $required): void {
+    test()->actingAsAdmin();
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+    $site = Site::factory()
+        ->language($english)
+        ->withTranslations([$english, $welsh])
+        ->createOne(['admin' => ['require_translations' => [$english->code]]]);
+    $blueprint = Blueprint::factory()->page()->createOne(['admin' => ['required_fields' => ['title']]]);
+    $languageId = $language === 'english' ? $english->getKey() : $welsh->getKey();
+
+    // Browsers submit the selected option as a string; the schema has no model, as in an embedded form.
+    $schema = Schema::make(Livewire::make()->data([
+        'site_id' => $site->getKey(),
+        'blueprint_id' => $blueprint->getKey(),
+        'translations' => ['item' => ['language_id' => (string) $languageId, 'title' => null]],
+    ]))
+        ->statePath('data')
+        ->components([
+            Repeater::make('translations')->schema([
+                TextInput::make('title')->requiredBasedOnType(),
+                TranslationLanguageSelect::make()->withRelationship(),
+            ]),
+        ]);
+    $repeater = $schema->getComponents()[0];
+    assert($repeater instanceof Repeater);
+    $title = $repeater->getItems()['item']->getComponents()[0];
+    assert($title instanceof TextInput);
+
+    expect($title->isRequired())->toBe($required);
+})->with([
+    'language that must be translated' => ['english', true],
+    'optional language' => ['welsh', false],
+]);
