@@ -16,6 +16,7 @@ use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Widgets\WidgetConfiguration;
 use Livewire\Livewire;
+use Sinnbeck\DomAssertions\Support\DomParser;
 
 uses(CreatesAdminUser::class);
 
@@ -55,6 +56,34 @@ it('saves an allowed personal order and rejects tampered widget keys', function 
         'widgets' => array_map(static fn (string $key): array => ['key' => $key], $tampered),
     ]);
     expect($store->dashboardLayout($user, true))->toBe($order);
+});
+
+it('renders translated and safely escaped widget names in the layout editor', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    config()->set('capell-admin.dashboard.work_first.widget_metadata', [WorkFirstMetadataFixtureWidget::class => [
+        'label' => '<img src=x onerror=alert(1)>',
+    ]]);
+    CapellAdmin::registerDashboardFilamentWidget(WorkFirstMetadataFixtureWidget::class, DashboardEnum::Main);
+
+    $component = Livewire::test(CapellDashboard::class)->mountAction('editWorkFirstLayout');
+    $component->assertActionMounted('editWorkFirstLayout');
+
+    $html = $component->getMountedActionModalHtml();
+
+    $xpath = new DOMXPath(DomParser::new($html)->getDocument());
+    $repeaters = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " fi-fo-repeater ")]');
+    assert($repeaters instanceof DOMNodeList);
+    expect($repeaters->length)->toBe(1);
+    $repeater = $repeaters->item(0);
+    assert($repeater instanceof DOMElement);
+    $images = $xpath->query('.//img', $repeater);
+    assert($images instanceof DOMNodeList);
+
+    expect($repeater->textContent)->toContain((string) __('capell-admin::dashboard.work_first_drafts_heading'))
+        ->toContain('<img src=x onerror=alert(1)>')
+        ->and($images->length)->toBe(0);
 });
 
 it('does not save a changed layout when editing is cancelled', function (): void {
