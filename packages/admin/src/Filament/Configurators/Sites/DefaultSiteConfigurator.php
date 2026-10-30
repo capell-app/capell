@@ -203,7 +203,8 @@ class DefaultSiteConfigurator implements ConfiguratorInterface
             TranslationLanguageSelect::make()
                 ->dehydratedWhenHidden()
                 ->withRelationship()
-                ->hidden(fn (?int $state): bool => (bool) $state),
+                // Raw state avoids the relationship-aware state casts, which need a model instance.
+                ->hidden(fn (TranslationLanguageSelect $component): bool => is_numeric($state = $component->getRawState()) && (int) $state !== 0),
 
             Group::make()
                 ->statePath('meta')

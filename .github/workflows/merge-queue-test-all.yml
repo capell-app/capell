@@ -16,8 +16,45 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  scope:
+    name: Merge queue test scope
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.scope.outputs.relevant }}
+    steps:
+      - name: Checkout
+        if: ${{ github.event_name == 'merge_group' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the merge group changes anything the matrix tests
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: |
+          if [ "$EVENT_NAME" != "merge_group" ]; then
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The glob magic gives these entries GitHub's own path-filter meaning,
+          # where ** also matches zero directories (a file directly under tests/).
+          mapfile -t pathspecs < .github/ci/test-all-paths.txt
+          pathspecs=("${pathspecs[@]/#/:(glob)}")
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- "${pathspecs[@]}")"
+          if [ -n "$changed" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No changed file is covered by .github/ci/test-all-paths.txt; the full matrix is skipped."
+          fi
+
   full-matrix:
-    if: ${{ github.event_name == 'merge_group' }}
+    needs: scope
+    # A failed scope job must not skip the matrix, so it also runs whenever the scope could not be decided.
+    if: ${{ !cancelled() && github.event_name == 'merge_group' && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true') }}
     uses: ./.github/workflows/test-full.yml
     with:
       merge_queue_evidence: true
@@ -36,7 +73,7 @@ jobs:
   gate:
     name: Merge queue full matrix
     if: always()
-    needs: [full-matrix, evidence-tests]
+    needs: [scope, full-matrix, evidence-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,7 +83,7 @@ jobs:
       - name: Check workflow results
         env:
           EVENT_NAME: ${{ github.event_name }}
-          MATRIX_REQUIRED: ${{ github.event_name == 'merge_group' }}
+          MATRIX_REQUIRED: ${{ github.event_name == 'merge_group' && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true') }}
           MATRIX_RESULT: ${{ needs.full-matrix.result }}
           VALIDATOR_RESULT: ${{ needs.evidence-tests.result }}
         run: bash scripts/check-merge-group-workflow-result.sh

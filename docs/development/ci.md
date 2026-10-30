@@ -259,8 +259,11 @@ validates a non-empty, passing JUnit report for every configured cell from that
 attempt. `Merge queue full matrix` is a required check on `main`, so an entry
 whose matrix fails leaves the queue instead of merging, without blocking the
 entries behind it. On a pull request the same check passes without running the
-matrix, so a PR can still join the queue. To run the matrix on a pull request
-before queueing it, dispatch Test All manually for the branch.
+matrix, so a PR can still join the queue. A merge group that changes no file
+listed in `.github/ci/test-all-paths.txt` (Test All's own path filter plus the
+merge queue's files) skips the matrix, and the check passes. To run the matrix
+on a pull request before queueing it, dispatch Test All manually for the
+branch.
 
 Adding `ready-to-merge` to an open, non-draft PR targeting `main` authorises
 GitHub to merge it through the `main` merge queue without a further per-PR chat

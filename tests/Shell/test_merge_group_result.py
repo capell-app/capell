@@ -30,6 +30,12 @@ class MergeGroupResultTest(unittest.TestCase):
         self.assertNotEqual(self.result('pull_request', 'failure', 'success').returncode, 0)
         self.assertNotEqual(self.result('pull_request', 'skipped', 'success', 'true').returncode, 0)
         self.assertNotEqual(self.result('merge_group', 'success', 'success', 'false').returncode, 0)
+
+    def test_accepts_a_skipped_matrix_only_when_the_merge_group_does_not_need_it(self):
+        self.assertEqual(self.result('merge_group', 'skipped', 'success', 'false').returncode, 0)
+        self.assertNotEqual(self.result('merge_group', 'skipped', 'success', 'true').returncode, 0)
+        self.assertNotEqual(self.result('merge_group', 'skipped', 'failure', 'false').returncode, 0)
+        self.assertNotEqual(self.result('merge_group', 'failure', 'success', 'false').returncode, 0)
         self.assertNotEqual(self.result('push', 'success', 'success').returncode, 0)
 
 
