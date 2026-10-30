@@ -211,7 +211,10 @@ command receipt.
 
 The shard timing warning for `tests/.pest/shards.json` is advisory. Refresh it
 only as an intentional, separately reviewed change; updating timings to make a
-failure disappear is not a repair. A complete Coverage gate requires every
+failure disappear is not a repair. The Update Pest shards workflow runs monthly
+(and on manual dispatch from `main`) and opens or refreshes a
+`chore/update-pest-shards` pull request when the timings change; it is not
+labelled, so it merges only once someone reviews it and adds `ready-to-merge`. A complete Coverage gate requires every
 shard plus the merge/threshold job to finish successfully.
 
 ## Database Portability Matrix
