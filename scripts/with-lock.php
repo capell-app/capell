@@ -68,7 +68,9 @@ $runCommand = static function (array $command) use ($heavyWeight, $arguments): i
         array_unshift($command, 'env');
     }
 
-    $command = capellHeavyCommand($command, $heavyWeight, $arguments[0]);
+    // The heavy queue admits bounded hook work into its light lane by label; the lock name stays shared.
+    $heavyLabel = getenv('CAPELL_HEAVY_LABEL');
+    $command = capellHeavyCommand($command, $heavyWeight, is_string($heavyLabel) && $heavyLabel !== '' ? $heavyLabel : $arguments[0]);
 
     $quoted = implode(' ', array_map(escapeshellarg(...), $command));
 
@@ -140,7 +142,14 @@ if (! is_dir($lockDir) && ! @mkdir($lockDir, 0o777, true) && ! is_dir($lockDir))
     exit($runCommand($command));
 }
 
-$lockFile = $lockDir . '/' . preg_replace('/[^a-z0-9._-]/i', '-', $name) . '.lock';
+// Light-lane hook work is already bounded host-wide by the heavy queue (at most two
+// jobs). A host-wide lock taken before admission would queue it behind another
+// checkout's full analysis again, so it serialises within its own checkout only,
+// which still keeps that checkout's PHPStan cache to one writer.
+$lockName = getenv('HEAVY_LANE') === 'light'
+    ? $name . '-' . substr(sha1((string) realpath((string) getcwd())), 0, 12)
+    : $name;
+$lockFile = $lockDir . '/' . preg_replace('/[^a-z0-9._-]/i', '-', $lockName) . '.lock';
 // 'c+' rather than 'c': we read the holder's identity back out of the file to
 // report who we are waiting for, and 'c' opens write-only.
 $handle = @fopen($lockFile, 'c+');
