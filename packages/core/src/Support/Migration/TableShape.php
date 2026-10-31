@@ -37,11 +37,7 @@ final class TableShape
         'asset_relations' => ['asset_attachments', '2026_05_10_190832_15_create_asset_relations_table'],
     ];
 
-    /** @var array<string, string>|null */
-    private static ?array $installedPaths = null;
-
-    /** @var array<string, array{shape: array<string, array{type: string, nullable: bool, primary: bool}>|null, failure: string|null}> */
-    private static array $probed = [];
+    private const string PACKAGES_BINDING = 'capell.table-shape.packages';
 
     /** True when every column the creating migration defines exists live with the same type family, nullability and primary-key membership (later migrations may add columns). */
     public static function matches(string $baseTable, string $migration): bool
@@ -154,13 +150,19 @@ final class TableShape
      */
     public static function usingInstalledPackages(array $packagePaths, callable $callback): mixed
     {
-        $previous = self::$installedPaths;
-        self::$installedPaths = $packagePaths;
+        $app = app();
+        $previous = $app->bound(self::PACKAGES_BINDING) ? (array) $app->make(self::PACKAGES_BINDING) : null;
+        $app->instance(self::PACKAGES_BINDING, $packagePaths);
 
         try {
             return $callback();
         } finally {
-            self::$installedPaths = $previous;
+            if ($previous === null) {
+                $app->forgetInstance(self::PACKAGES_BINDING);
+                unset($app[self::PACKAGES_BINDING]);
+            } else {
+                $app->instance(self::PACKAGES_BINDING, $previous);
+            }
         }
     }
 
@@ -266,8 +268,8 @@ final class TableShape
      */
     private static function installedPackagePaths(): array
     {
-        if (self::$installedPaths !== null) {
-            return array_values(self::$installedPaths);
+        if (app()->bound(self::PACKAGES_BINDING)) {
+            return array_values((array) resolve(self::PACKAGES_BINDING));
         }
 
         $paths = [];
@@ -328,11 +330,6 @@ final class TableShape
             return ['shape' => null, 'failure' => 'the table shape cannot be compared while the application runs under Octane; run this from the command line instead'];
         }
 
-        $key = $table . '|' . implode(',', $files) . '|' . json_encode([config('capell.database.table_prefix'), config('capell.database.table_aliases')]);
-        if (isset(self::$probed[$key])) {
-            return self::$probed[$key];
-        }
-
         $connection = 'capell_table_shape_probe';
         $app = app();
         $originalResolver = Model::getConnectionResolver();
@@ -359,7 +356,7 @@ final class TableShape
             $repository->setSource($connection);
             $repository->createRepository();
 
-            return self::$probed[$key] = TableName::usingLedger($repository, function () use ($files, $repository, $table, &$current): array {
+            return TableName::usingLedger($repository, function () use ($files, $repository, $table, &$current): array {
                 foreach ($files as $path) {
                     $current = basename($path, '.php');
                     $migration = self::load($path);
@@ -373,7 +370,7 @@ final class TableShape
                     : ['shape' => null, 'failure' => 'the migrations that define this table produce no table on SQLite'];
             });
         } catch (Throwable $throwable) {
-            return self::$probed[$key] = ['shape' => null, 'failure' => sprintf('migration %s cannot run on SQLite (%s), so the table cannot be compared', $current, $throwable->getMessage())];
+            return ['shape' => null, 'failure' => sprintf('migration %s cannot run on SQLite (%s), so the table cannot be compared', $current, $throwable->getMessage())];
         } finally {
             $manager->purge($connection);
             $app->instance('db', $originalManager);

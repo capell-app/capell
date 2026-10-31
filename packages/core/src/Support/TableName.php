@@ -19,7 +19,7 @@ final class TableName
     /** PostgreSQL's identifier cap; MySQL and MariaDB allow 64. */
     public const int MAX_IDENTIFIER_LENGTH = 63;
 
-    private static ?MigrationRepositoryInterface $ledger = null;
+    private const string LEDGER_BINDING = 'capell.table-name.ledger';
 
     /**
      * Runs a callback reading the migration ledger from another repository (the table-shape probe's scratch database).
@@ -31,13 +31,20 @@ final class TableName
      */
     public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback): mixed
     {
-        $previous = self::$ledger;
-        self::$ledger = $ledger;
+        $app = app();
+        $current = $app->bound(self::LEDGER_BINDING) ? $app->make(self::LEDGER_BINDING) : null;
+        $previous = $current instanceof MigrationRepositoryInterface ? $current : null;
+        $app->instance(self::LEDGER_BINDING, $ledger);
 
         try {
             return $callback();
         } finally {
-            self::$ledger = $previous;
+            if (! $previous instanceof MigrationRepositoryInterface) {
+                $app->forgetInstance(self::LEDGER_BINDING);
+                unset($app[self::LEDGER_BINDING]);
+            } else {
+                $app->instance(self::LEDGER_BINDING, $previous);
+            }
         }
     }
 
@@ -139,7 +146,7 @@ final class TableName
 
     public static function migrationRecorded(string $migration): bool
     {
-        $repository = self::$ledger ?? resolve('migrator')->getRepository();
+        $repository = app()->bound(self::LEDGER_BINDING) ? resolve(self::LEDGER_BINDING) : resolve('migrator')->getRepository();
 
         if (! $repository->repositoryExists()) {
             return false;
