@@ -74,7 +74,6 @@ return [
         'unused' => [
             'illuminate/database',
             'illuminate/support',
-            'spatie/laravel-tags',
             'symfony/filesystem',
         ],
     ],

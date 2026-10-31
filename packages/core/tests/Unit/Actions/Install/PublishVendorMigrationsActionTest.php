@@ -394,6 +394,38 @@ PHP);
     }
 });
 
+it('publishes no tag migration when the tags package has not supplied the vendor stub', function (): void {
+    $migrationDirectory = database_path('migrations');
+    $stubPath = base_path('vendor/spatie/laravel-tags/database/migrations/create_tag_tables.php.stub');
+
+    expect(File::exists($stubPath))->toBeFalse();
+
+    File::ensureDirectoryExists($migrationDirectory);
+
+    $existingFiles = File::glob($migrationDirectory . '/*.php') ?? [];
+
+    try {
+        PublishVendorMigrationsAction::run(new NullProgressReporter);
+
+        $newFilenames = array_map(
+            basename(...),
+            array_values(array_diff(File::glob($migrationDirectory . '/*.php') ?? [], $existingFiles)),
+        );
+
+        expect(implode("\n", $newFilenames))->not->toContain('create_tag_tables');
+    } finally {
+        foreach (array_diff(File::glob($migrationDirectory . '/*.php') ?? [], $existingFiles) as $fileToDelete) {
+            File::delete($fileToDelete);
+        }
+    }
+})->skip(fn (): bool => File::exists(base_path('vendor/spatie/laravel-tags/database/migrations/create_tag_tables.php.stub')), 'The tags package is installed in this host.');
+
+it('does not require spatie/laravel-tags from Core', function (): void {
+    $composer = json_decode((string) file_get_contents(dirname(__DIR__, 4) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($composer['require'])->not->toHaveKey('spatie/laravel-tags');
+});
+
 it('does not borrow a missing stub from another installed version of a host vendor package', function (): void {
     $relativePath = 'vendor/spatie/laravel-activitylog/database/migrations/add_event_column_to_activity_log_table.php.stub';
     File::shouldReceive('exists')->once()->with(base_path($relativePath))->andReturn(false);

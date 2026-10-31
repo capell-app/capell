@@ -62,7 +62,7 @@ When you delete a media item, you can see which pages or content items reference
 
 ## Tags and Categories
 
-If the [Blog package](../../../docs/packages/catalog.md#extension-catalogue) is installed, article pages support tagging via Spatie Tags. Tags are managed in the admin under their own resource and can be applied to multiple articles.
+If the [Blog package](../../../docs/packages/catalog.md#extension-catalogue) is installed, article pages support tagging through the Tags package. Tags are managed in the admin under their own resource and can be applied to multiple articles.
 
 ---
 
