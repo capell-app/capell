@@ -21,7 +21,10 @@ final class ActivityLogCompat
     {
         $class = class_exists(self::ModernLogOptions) ? self::ModernLogOptions : 'Spatie\\Activitylog\\LogOptions';
 
-        throw_unless(class_exists($class), LogicException::class, 'Activity log options are unavailable.');
+        // Composer loads this from an autoload "files" entry, which can run before Laravel's helpers exist.
+        if (! class_exists($class)) {
+            throw new LogicException('Activity log options are unavailable.');
+        }
 
         return $class;
     }

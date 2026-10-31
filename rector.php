@@ -209,6 +209,8 @@ return RectorConfig::configure()
         ],
         ThrowIfRector::class => [
             __DIR__ . '/packages/core/tests/fixtures/cold-cloud-install-provider.php',
+            // Reached from Composer autoload "files", which can load before Laravel's helpers.
+            __DIR__ . '/packages/core/src/Support/Activity/ActivityLogCompat.php',
             __DIR__ . '/scripts',
         ],
         ThrowIfAndThrowUnlessExceptionsToUseClassStringRector::class => [
