@@ -10,7 +10,7 @@ declare(strict_types=1);
  * Usage:
  *   php scripts/with-admission.php <label> -- <command> [args...]
  *
- * The run takes weight 3 (the whole host). Nested with-lock.php stages see
+ * The run takes weight 3 (three of the five default slots). Nested with-lock.php stages see
  * CAPELL_HEAVY_ADMITTED=1 and run inside this slot. Already-admitted runs,
  * CAPELL_NO_LOCK=1, HEAVY_SLOT_ENABLED=0 and hosts without a guard (CI) behave
  * as scripts/heavy-admission.php describes. Exit code is the command's.
