@@ -15,7 +15,7 @@ final class CoreSchemaMigrations
         return dirname(__DIR__, 3) . '/database/migrations';
     }
 
-    /** @throws ForeignTableException when the table exists but is neither recorded nor Capell-shaped */
+    /** @throws ForeignTableException when the table exists but its creating migration is not recorded */
     public static function createsExistingTable(string $migration): bool
     {
         // Core create migrations only create a table; side effects belong in later migrations.
@@ -23,7 +23,7 @@ final class CoreSchemaMigrations
             return false;
         }
 
-        // Adopt a table that is recorded or has Capell's columns (the caller then logs the migration); anything else is refused with a message naming the recovery command.
+        // Only a recorded table is adopted; an unrecorded one is refused with a message naming capell:tables:adopt, which logs the migration after a full shape match.
         return AssertTableOwnershipAction::run($matches[1], $migration);
     }
 

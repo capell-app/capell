@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Migration;
 
 use Capell\Core\Support\TableName;
+use Composer\InstalledVersions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -24,33 +25,44 @@ final class TableShape
         'asset_relations' => ['asset_attachments', '2026_05_10_190832_15_create_asset_relations_table'],
     ];
 
-    /** @var array<string, array<string, list<string>>|null> */
+    /** @var array<string, array<string, array<string, array{type: string, nullable: bool, primary: bool}>>|null> */
     private static array $probed = [];
 
-    /** True when the live table has every column the creating migration defines (later migrations may add more). */
+    /** True when every column the creating migration defines exists live with the same type family, nullability and primary-key membership (later migrations may add columns). */
     public static function matches(string $baseTable, string $migration): bool
     {
-        $expected = self::expectedColumns($baseTable, $migration);
+        return self::expected($baseTable, $migration) !== null && self::differences($baseTable, $migration) === [];
+    }
+
+    /** @return list<string> Human-readable differences; a missing migration file reports one entry. */
+    public static function differences(string $baseTable, string $migration): array
+    {
+        $expected = self::expected($baseTable, $migration);
         if ($expected === null) {
-            return false;
+            return ['no Capell migration defines this table'];
         }
 
-        $live = array_map(strtolower(...), Schema::getColumnListing(TableName::resolve($baseTable)));
+        $live = self::describe(TableName::resolve($baseTable));
+        $differences = [];
+        foreach ($expected as $name => $column) {
+            if (! isset($live[$name])) {
+                $differences[] = $name . ' is missing';
 
-        return array_diff($expected, $live) === [];
+                continue;
+            }
+
+            foreach (['type' => 'type', 'nullable' => 'nullability', 'primary' => 'primary key'] as $key => $label) {
+                if ($live[$name][$key] !== $column[$key]) {
+                    $differences[] = $name . ' differs in ' . $label;
+                }
+            }
+        }
+
+        return $differences;
     }
 
-    /** @return list<string> */
-    public static function missingColumns(string $baseTable, string $migration): array
-    {
-        $expected = self::expectedColumns($baseTable, $migration) ?? [];
-        $live = array_map(strtolower(...), Schema::getColumnListing(TableName::resolve($baseTable)));
-
-        return array_values(array_diff($expected, $live));
-    }
-
-    /** @return list<string>|null null when no migration file defines the table */
-    public static function expectedColumns(string $baseTable, string $migration): ?array
+    /** @return array<string, array{type: string, nullable: bool, primary: bool}>|null null when no migration file defines the table */
+    public static function expected(string $baseTable, string $migration): ?array
     {
         $table = $baseTable;
         $path = self::locate($migration);
@@ -95,7 +107,7 @@ final class TableShape
             }
         }
 
-        foreach (self::coreDirectories() as $directory) {
+        foreach (self::packageDirectories() as $directory) {
             foreach (glob($directory . '/*.php') ?: [] as $path) {
                 if (in_array($baseTable, self::createdBaseTables($path), true)) {
                     return basename($path, '.php');
@@ -110,7 +122,7 @@ final class TableShape
     public static function allBaseTables(): array
     {
         $tables = [];
-        foreach (self::coreDirectories() as $directory) {
+        foreach (self::packageDirectories() as $directory) {
             foreach (glob($directory . '/*.php') ?: [] as $path) {
                 array_push($tables, ...self::createdBaseTables($path));
             }
@@ -123,6 +135,43 @@ final class TableShape
         }
 
         return array_values(array_unique($tables));
+    }
+
+    /** @return array<string, array{type: string, nullable: bool, primary: bool}> */
+    private static function describe(string $table): array
+    {
+        $primary = [];
+        foreach (Schema::getIndexes($table) as $index) {
+            if ($index['primary']) {
+                array_push($primary, ...array_map(strtolower(...), $index['columns']));
+            }
+        }
+
+        $columns = [];
+        foreach (Schema::getColumns($table) as $column) {
+            $name = strtolower((string) $column['name']);
+            $columns[$name] = [
+                'type' => self::family((string) $column['type_name']),
+                'nullable' => (bool) $column['nullable'],
+                'primary' => in_array($name, $primary, true),
+            ];
+        }
+
+        return $columns;
+    }
+
+    /** Collapses driver-specific type names into families that compare across SQLite, MySQL, MariaDB and PostgreSQL. */
+    private static function family(string $type): string
+    {
+        $type = strtolower((string) preg_replace('/\(.*$/', '', trim($type)));
+
+        return match (true) {
+            in_array($type, ['int', 'integer', 'tinyint', 'smallint', 'mediumint', 'bigint', 'int2', 'int4', 'int8', 'bool', 'boolean', 'serial', 'bigserial'], true) => 'integer',
+            in_array($type, ['decimal', 'numeric', 'float', 'double', 'real', 'float4', 'float8', 'double precision'], true) => 'number',
+            in_array($type, ['datetime', 'timestamp', 'timestamptz', 'date', 'time', 'timetz', 'year', 'timestamp without time zone', 'timestamp with time zone'], true) => 'temporal',
+            in_array($type, ['blob', 'tinyblob', 'mediumblob', 'longblob', 'bytea', 'binary', 'varbinary'], true) => 'binary',
+            default => 'text',
+        };
     }
 
     /** @return list<string> */
@@ -138,22 +187,44 @@ final class TableShape
         return $matches[1];
     }
 
-    /** @return list<string> */
-    private static function coreDirectories(): array
+    /**
+     * Migration directories of every installed Capell package (resolved through Composer, so a vendor
+     * layout works as well as the monorepo), this package, and every registered migration root.
+     *
+     * @return list<string>
+     */
+    private static function packageDirectories(): array
     {
-        return glob(dirname(__DIR__, 4) . '/*/database/migrations', GLOB_ONLYDIR) ?: [];
+        $directories = [CoreSchemaMigrations::path()];
+        foreach (InstalledVersions::getInstalledPackages() as $package) {
+            if (! str_starts_with($package, 'capell-app/')) {
+                continue;
+            }
+
+            $path = InstalledVersions::getInstallPath($package);
+            if ($path !== null && is_dir($path . '/database/migrations')) {
+                $directories[] = $path . '/database/migrations';
+            }
+        }
+
+        $unique = [];
+        foreach ($directories as $directory) {
+            $unique[realpath($directory) ?: $directory] = $directory;
+        }
+
+        return array_values($unique);
     }
 
     /** @return list<string> */
     private static function directories(): array
     {
         return [
-            ...self::coreDirectories(),
+            ...self::packageDirectories(),
             ...array_map(static fn (array $root): string => rtrim($root['root'], DIRECTORY_SEPARATOR), resolve(MigrationRootRegistry::class)->all()),
         ];
     }
 
-    /** @return array<string, list<string>> physical table => lower-case column names, from running the migration on a scratch database */
+    /** @return array<string, array<string, array{type: string, nullable: bool, primary: bool}>> physical table => column shape, from running the migration on a scratch database */
     private static function probe(string $path): array
     {
         $key = $path . '|' . json_encode([config('capell.database.table_prefix'), config('capell.database.table_aliases')]);
@@ -172,7 +243,7 @@ final class TableShape
             $migration->up();
             $tables = [];
             foreach (Schema::getTables() as $table) {
-                $tables[$table['name']] = array_values(array_map(static fn (array $column): string => strtolower((string) $column['name']), Schema::getColumns($table['name'])));
+                $tables[$table['name']] = self::describe($table['name']);
             }
 
             return self::$probed[$key] = $tables;

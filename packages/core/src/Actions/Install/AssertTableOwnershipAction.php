@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Exceptions\ForeignTableException;
-use Capell\Core\Support\Migration\TableShape;
 use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -14,9 +13,10 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * Decides whether a create migration may skip because its table already exists.
  *
- * Returns true when the table exists and is ours: its creating migration is recorded, or its columns
- * match what that migration creates (a pruned migrations row). The create can then be skipped, false when the table is absent (go ahead and create it) and
- * throws ForeignTableException when the table exists but is neither recorded nor Capell-shaped.
+ * Returns true when the table exists and its creating migration is recorded (the table is ours, so
+ * the create can be skipped), false when the table is absent (go ahead and create it) and
+ * throws ForeignTableException when the table exists without that migration being recorded; only
+ * capell:tables:adopt records a lost migration, after checking the table's shape.
  * Package migrations call this instead of a bare Schema::hasTable() guard, so a Capell table is
  * never silently adopted from another application.
  */
@@ -42,11 +42,6 @@ final class AssertTableOwnershipAction
         }
 
         if (TableName::migrationRecorded($migration)) {
-            return true;
-        }
-
-        // A Capell table whose migrations row was pruned still has Capell's columns; another application's table does not.
-        if ($configKey === null && TableShape::matches($table, $migration)) {
             return true;
         }
 

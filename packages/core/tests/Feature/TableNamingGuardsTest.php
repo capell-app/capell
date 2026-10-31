@@ -13,7 +13,9 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Exceptions\ForeignTableException;
 use Capell\Core\Support\Migration\CoreSchemaMigrations;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
+use Capell\Core\Support\Migration\TableShape;
 use Capell\Core\Support\TableName;
+use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -71,7 +73,7 @@ it('stops an upgrade from adopting a foreign table instead of marking its create
         ->toThrow(ForeignTableException::class, 'capell.database.table_aliases.pages');
 });
 
-it('still adopts an owned table during an upgrade', function (): void {
+it('still adopts a recorded table during an upgrade', function (): void {
     Schema::create('pages', fn (Blueprint $table) => $table->id());
     $repository = resolve('migrator')->getRepository();
     $repository->createRepository();
@@ -140,50 +142,120 @@ function createRealCapellTable(string $file): void
     (require __DIR__ . '/../../database/migrations/' . $file . '.php')->up();
 }
 
-it('adopts a real Capell table whose migrations row was pruned and logs its create migration', function (): void {
-    createRealCapellTable('2026_05_10_190832_02_create_languages_table');
-
-    expect(CoreSchemaMigrations::createsExistingTable('2026_05_10_190832_02_create_languages_table'))->toBeTrue()
-        ->and(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeFalse();
-
-    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages']))->toBe(1);
-    expect(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeFalse();
-
-    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(0);
-    expect(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeTrue();
-});
-
-it('refuses a foreign table with the same name and names the table, migration and recovery command', function (): void {
-    Schema::create('languages', fn (Blueprint $table) => $table->id());
-
+function upgradeRefusal(string $migration): string
+{
     try {
-        CoreSchemaMigrations::createsExistingTable('2026_05_10_190832_02_create_languages_table');
-        $message = '';
+        CoreSchemaMigrations::createsExistingTable($migration);
     } catch (ForeignTableException $foreignTableException) {
-        $message = $foreignTableException->getMessage();
+        return $foreignTableException->getMessage();
     }
 
+    return '';
+}
+
+it('refuses a matching Capell table during an upgrade, then adopts it only through the command', function (): void {
+    createRealCapellTable('2026_05_10_190832_02_create_languages_table');
+    $migration = '2026_05_10_190832_02_create_languages_table';
+
+    expect(upgradeRefusal($migration))->toContain('languages')
+        ->and(upgradeRefusal($migration))->toContain($migration)
+        ->and(upgradeRefusal($migration))->toContain('capell:tables:adopt languages --confirm')
+        ->and(TableName::migrationRecorded($migration))->toBeFalse();
+
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages']))->toBe(1)
+        ->and(TableName::migrationRecorded($migration))->toBeFalse();
+
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(0)
+        ->and(TableName::migrationRecorded($migration))->toBeTrue()
+        ->and(CoreSchemaMigrations::createsExistingTable($migration))->toBeTrue();
+});
+
+it('refuses a foreign table with the same name from both the upgrade and the command', function (): void {
+    Schema::create('languages', fn (Blueprint $table) => $table->id());
+    $migration = '2026_05_10_190832_02_create_languages_table';
+    $message = upgradeRefusal($migration);
+
     expect($message)->toContain('languages')
-        ->and($message)->toContain('2026_05_10_190832_02_create_languages_table')
+        ->and($message)->toContain($migration)
         ->and($message)->toContain('capell:tables:adopt languages --confirm')
         ->and($message)->toContain('for foreign tables only');
 
-    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(1);
-    expect(TableName::migrationRecorded('2026_05_10_190832_02_create_languages_table'))->toBeFalse();
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(1)
+        ->and(TableName::migrationRecorded($migration))->toBeFalse();
 });
 
-it('adopts a table created by a registered package migration and a renamed legacy table', function (): void {
+it('refuses a table with the same column names but different types, nullability or keys', function (): void {
+    createRealCapellTable('2026_05_10_190832_02_create_languages_table');
+    $names = Schema::getColumnListing('languages');
+    Schema::drop('languages');
+    Schema::create('languages', function (Blueprint $table) use ($names): void {
+        foreach ($names as $name) {
+            $table->text($name)->nullable();
+        }
+    });
+    $migration = '2026_05_10_190832_02_create_languages_table';
+
+    expect(Schema::getColumnListing('languages'))->toBe($names)
+        ->and(upgradeRefusal($migration))->toContain('capell:tables:adopt languages --confirm')
+        ->and(Artisan::call('capell:tables:adopt', ['table' => 'languages', '--confirm' => true]))->toBe(1)
+        ->and(TableName::migrationRecorded($migration))->toBeFalse()
+        ->and(TableShape::differences('languages', $migration))->toContain('id differs in type', 'id differs in primary key');
+});
+
+it('refuses package and legacy tables during an upgrade and adopts them through the command', function (): void {
     resolve(MigrationRootRegistry::class)->register('example/widgets', __DIR__ . '/../fixtures/table-naming/widget-package', ['2026_01_01_000001_create_widgets_table' => 'widgets']);
     (require __DIR__ . '/../fixtures/table-naming/widget-package/2026_01_01_000001_create_widgets_table.php')->up();
 
-    expect(AssertTableOwnershipAction::run('widgets', '2026_01_01_000001_create_widgets_table'))->toBeTrue();
-    expect(Artisan::call('capell:tables:adopt', ['table' => 'widgets', '--confirm' => true]))->toBe(0);
-    expect(TableName::migrationRecorded('2026_01_01_000001_create_widgets_table'))->toBeTrue();
+    expect(fn (): bool => AssertTableOwnershipAction::run('widgets', '2026_01_01_000001_create_widgets_table'))->toThrow(ForeignTableException::class, 'capell:tables:adopt widgets --confirm');
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'widgets', '--confirm' => true]))->toBe(0)
+        ->and(AssertTableOwnershipAction::run('widgets', '2026_01_01_000001_create_widgets_table'))->toBeTrue();
 
     createRealCapellTable('2026_05_10_190832_15_create_asset_attachments_table');
     Schema::rename('asset_attachments', 'asset_relations');
+    $legacy = '2026_05_10_190832_15_create_asset_relations_table';
 
-    expect(AssertTableOwnershipAction::run('asset_relations', '2026_05_10_190832_15_create_asset_relations_table'))->toBeTrue();
+    expect(fn (): bool => AssertTableOwnershipAction::run('asset_relations', $legacy))->toThrow(ForeignTableException::class);
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'asset_relations', '--confirm' => true]))->toBe(0)
+        ->and(AssertTableOwnershipAction::run('asset_relations', $legacy))->toBeTrue();
+});
+
+it('finds migrations of installed packages in a vendor layout, not only the monorepo', function (): void {
+    $root = sys_get_temp_dir() . '/capell-vendor-layout-' . bin2hex(random_bytes(4));
+    $directory = $root . '/vendor/capell-app/gadgets/database/migrations';
+    mkdir($directory, 0777, true);
+    file_put_contents($directory . '/2026_02_01_000001_create_gadgets_table.php', <<<'PHP'
+<?php
+
+use Capell\Core\Support\TableName;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(TableName::resolve('gadgets'), fn (Blueprint $table) => $table->id());
+    }
+};
+PHP);
+
+    InstalledVersions::reload(['root' => InstalledVersions::getRootPackage(), 'versions' => ['capell-app/gadgets' => ['pretty_version' => '1.0.0', 'version' => '1.0.0.0', 'reference' => null, 'type' => 'library', 'install_path' => $root . '/vendor/capell-app/gadgets', 'aliases' => [], 'dev_requirement' => false]]]);
+
+    try {
+        expect(TableShape::migrationFor('gadgets'))->toBe('2026_02_01_000001_create_gadgets_table')
+            ->and(TableShape::allBaseTables())->toContain('gadgets');
+
+        (require $directory . '/2026_02_01_000001_create_gadgets_table.php')->up();
+        expect(Artisan::call('capell:tables:adopt', ['table' => 'gadgets', '--confirm' => true]))->toBe(0)
+            ->and(TableName::migrationRecorded('2026_02_01_000001_create_gadgets_table'))->toBeTrue();
+    } finally {
+        InstalledVersions::reload(require base_path('vendor/composer/installed.php'));
+        unlink($directory . '/2026_02_01_000001_create_gadgets_table.php');
+        foreach ([$directory, dirname($directory), dirname($directory, 2), $root . '/vendor/capell-app', $root . '/vendor', $root] as $path) {
+            rmdir($path);
+        }
+    }
 });
 
 it('reports a conflicting table in the upgrade dry run instead of throwing', function (): void {

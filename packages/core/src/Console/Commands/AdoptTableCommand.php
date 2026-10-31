@@ -46,8 +46,8 @@ final class AdoptTableCommand extends Command
         }
 
         if (! TableShape::matches($base, $migration)) {
-            $missing = TableShape::missingColumns($base, $migration);
-            $this->error(__('capell-core::install.tables.adopt_mismatch', ['table' => $physical, 'migration' => $migration]) . ($missing === [] ? '' : ' (' . implode(', ', $missing) . ')'));
+            $differences = implode(', ', TableShape::differences($base, $migration));
+            $this->error(__('capell-core::install.tables.adopt_mismatch', ['table' => $physical, 'migration' => $migration]) . ' (' . $differences . ')');
 
             return CommandAlias::FAILURE;
         }

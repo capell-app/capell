@@ -420,7 +420,7 @@ Use package install commands for normal installs. Reach for direct migration pub
 php artisan capell:tables:adopt languages --confirm
 ```
 
-Records the creating migration of a Capell table whose `migrations` row was lost, but only when the table has every column that migration creates. Without `--confirm` it reports what it would record. A table that does not match is refused: that is another application's table, so use `capell.database.table_prefix` or `capell.database.table_aliases.<table>` instead. Upgrades adopt a matching table automatically and stop with this command's name when one does not match.
+Records the creating migration of a Capell table whose `migrations` row was lost, but only when every column that migration creates exists with the same type, nullability and primary-key membership. Without `--confirm` it reports what it would record. A table that does not match is refused: that is another application's table, so use `capell.database.table_prefix` or `capell.database.table_aliases.<table>` instead. Upgrades never adopt a table on their own: they stop and name this command whenever a table exists without its creating migration recorded.
 
 ## Admin Commands
 
