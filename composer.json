@@ -152,12 +152,20 @@
         ],
         "coverage:blade": "@php scripts/with-lock.php capell-release-verification -- php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --blade-coverage --parallel --colors=always --configuration=phpunit-coverage.xml",
         "coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php scripts/with-admission.php composer-coverage -- composer run --no-interaction coverage:run --"
+        ],
+        "coverage:run": [
             "@php scripts/with-lock.php capell-release-verification -- composer run --no-interaction prepare --",
             "@php scripts/with-lock.php capell-release-verification -- php scripts/run-testbench-command.php optimize --except=routes --ansi",
             "@php scripts/with-lock.php capell-release-verification -- php -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage-clover=.cache/phpunit/coverage-clover.xml --parallel --colors=always --configuration=phpunit-coverage.xml",
             "@php scripts/with-lock.php capell-release-verification -- php scripts/merge-clover-coverage.php --output .cache/phpunit/coverage-clover-checked.xml .cache/phpunit/coverage-clover.xml"
         ],
         "coverage-report": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php scripts/with-admission.php composer-coverage-report -- composer run --no-interaction coverage-report:run --"
+        ],
+        "coverage-report:run": [
             "rm -rf .cache/phpunit/code-coverage",
             "@php scripts/with-lock.php capell-release-verification -- composer run --no-interaction prepare --",
             "@php scripts/with-lock.php capell-release-verification -- php scripts/run-testbench-command.php optimize --except=routes --ansi",

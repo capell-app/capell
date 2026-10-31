@@ -33,6 +33,7 @@ function heavyAdmissionRun(array $arguments, array $env): Process
         'CAPELL_NO_LOCK' => false,
         'HEAVY_SLOT_ENABLED' => false,
         'CAPELL_HEAVY_WEIGHT' => false,
+        'CAPELL_HEAVY_ADMITTED' => false,
         'HEAVY_SLOT_OWNER' => false,
     ], $env));
     $process->run();
@@ -121,3 +122,54 @@ it('queues a second preflight behind a holder in the real shared pool', function
         ->and(microtime(true) - $started)->toBeGreaterThan(2.0)
         ->and($holder->getExitCode())->toBe(0);
 })->skip(fn (): bool => ! is_executable((getenv('HOME') ?: '') . '/.local/share/heavy/heavy-slot.sh'), 'host heavy-slot guard not installed');
+
+it('admits a multi-step run once at weight 3 and lets its nested stages inherit the slot', function (): void {
+    $fixture = heavyAdmissionFixture();
+    $process = heavyAdmissionRun([
+        'scripts/with-admission.php', 'composer-coverage', '--',
+        PHP_BINARY, 'scripts/with-lock.php', 'capell-release-verification', '--',
+        PHP_BINARY, 'scripts/with-lock.php', 'capell-release-verification', '--', '/bin/sh', '-c', 'exit 7',
+    ], [
+        'HEAVY_SLOT_GUARD' => $fixture['guard'],
+        'CAPELL_NO_RELEASE_LOCK' => '1',
+        'CAPELL_HEAVY_ADMITTED' => false,
+    ]);
+
+    expect($process->getExitCode())->toBe(7)
+        ->and(trim((string) file_get_contents($fixture['log'])))->toBe('--weight 3 composer-coverage');
+});
+
+it('starts no coverage step when the host refuses admission', function (string $script): void {
+    $fixture = heavyAdmissionFixture();
+    $refusingGuard = dirname($fixture['guard']) . '/refusing-guard.sh';
+    file_put_contents($refusingGuard, "#!/bin/sh\necho \"\$1 \$2 \$3\" >> '{$fixture['log']}'\necho 'heavy: host busy' >&2\nexit 75\n");
+    chmod($refusingGuard, 0o755);
+
+    $process = new Process(['composer', 'run', '--no-interaction', $script], dirname(__DIR__, 2), [
+        'HEAVY_SLOT_GUARD' => $refusingGuard,
+        'CAPELL_PREFLIGHT_ADMITTED' => false,
+        'CAPELL_HEAVY_ADMITTED' => false,
+        'CAPELL_NO_LOCK' => false,
+        'HEAVY_SLOT_ENABLED' => false,
+        'HEAVY_SLOT_OWNER' => false,
+    ]);
+    $process->setTimeout(120);
+    $process->run();
+
+    expect($process->getExitCode())->not->toBe(0)
+        ->and($process->getErrorOutput())->toContain('heavy: host busy')
+        ->and(trim((string) file_get_contents($fixture['log'])))->toBe('--weight 3 composer-' . $script);
+})->with(['coverage', 'coverage-report']);
+
+it('does not queue a run that is already admitted or explicitly bypassed', function (array $env): void {
+    $fixture = heavyAdmissionFixture();
+    $process = heavyAdmissionRun(['scripts/with-admission.php', 'composer-coverage', '--', '/bin/sh', '-c', 'exit 0'], $env + [
+        'HEAVY_SLOT_GUARD' => $fixture['guard'],
+    ]);
+
+    expect($process->getExitCode())->toBe(0)
+        ->and(file_exists($fixture['log']))->toBeFalse();
+})->with([
+    'admitted' => [['CAPELL_HEAVY_ADMITTED' => '1']],
+    'CAPELL_NO_LOCK' => [['CAPELL_NO_LOCK' => '1']],
+]);

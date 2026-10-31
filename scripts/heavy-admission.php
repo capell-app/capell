@@ -14,6 +14,8 @@ declare(strict_types=1);
  * unqueued and a warning says so.
  *
  * Bypass: CAPELL_NO_LOCK=1 or HEAVY_SLOT_ENABLED=0 (diagnostics only).
+ * Inheritance: CAPELL_HEAVY_ADMITTED=1 (set by with-admission.php and
+ * run-preflight.php) marks a run that already holds its slot.
  */
 function capellHeavyGuard(): ?string
 {
@@ -38,7 +40,7 @@ function capellHeavyGuard(): ?string
  */
 function capellHeavyCommand(array $command, int $weight, string $label): array
 {
-    if (getenv('CAPELL_NO_LOCK') === '1' || getenv('HEAVY_SLOT_ENABLED') === '0') {
+    if (getenv('CAPELL_NO_LOCK') === '1' || getenv('HEAVY_SLOT_ENABLED') === '0' || getenv('CAPELL_HEAVY_ADMITTED') === '1') {
         return $command;
     }
 
