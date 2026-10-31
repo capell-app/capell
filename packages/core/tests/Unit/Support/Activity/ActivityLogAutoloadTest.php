@@ -33,7 +33,8 @@ it('loads the exact vendor aliases with a generated Composer classmap', function
             'name' => 'capell-test/activity-autoload',
             'autoload' => [
                 'psr-4' => ['Capell\\Core\\' => 'src/', 'Spatie\\Activitylog\\' => $source . '/src/'],
-                'files' => [$root . '/vendor/laravel/framework/src/Illuminate/Support/helpers.php', ...$files],
+                // A fresh application can load Core's files before Laravel's helpers, so they must not need them.
+                'files' => [...$files, $root . '/vendor/laravel/framework/src/Illuminate/Support/helpers.php'],
             ],
         ], JSON_THROW_ON_ERROR));
         // A caller may select its own manifest or vendor directory through the
