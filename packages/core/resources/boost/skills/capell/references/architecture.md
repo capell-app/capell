@@ -153,7 +153,6 @@ Packages implement this to subscribe to model lifecycle events (created/updated/
 | `spatie/laravel-activitylog`   | Audit trail         |
 | `spatie/laravel-medialibrary`  | Media management    |
 | `spatie/laravel-settings`      | Type-safe settings  |
-| `spatie/laravel-tags`          | Tagging (Blog)      |
 | `spatie/laravel-translatable`  | Model translation   |
 | `lorisleiva/laravel-actions`   | Action classes      |
 | `livewire/livewire`            | Frontend components |

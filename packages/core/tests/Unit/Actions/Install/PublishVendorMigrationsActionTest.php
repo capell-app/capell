@@ -344,54 +344,33 @@ it('publishes the media library migration before Capell media indexes run', func
     });
 });
 
-it('publishes tag tables before package tag migrations run', function (): void {
+it('leaves tag tables to the tags package, which owns spatie/laravel-tags', function (): void {
     $migrationDirectory = database_path('migrations');
-    $stubDirectory = base_path('vendor/spatie/laravel-tags/database/migrations');
-    $stubPath = $stubDirectory . '/create_tag_tables.php.stub';
-    $createdStub = false;
 
     File::ensureDirectoryExists($migrationDirectory);
-
-    foreach (File::glob($migrationDirectory . '/*_create_tag_tables.php') ?? [] as $tagMigration) {
-        File::delete($tagMigration);
-    }
-
-    if (! File::exists($stubPath)) {
-        File::ensureDirectoryExists($stubDirectory);
-        File::put($stubPath, <<<'PHP'
-<?php
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-Schema::create('tags', function (Blueprint $table) { $table->id(); });
-Schema::create('taggables', function (Blueprint $table) { $table->foreignId('tag_id')->constrained(); });
-PHP);
-
-        $createdStub = true;
-    }
 
     $existingFiles = File::glob($migrationDirectory . '/*.php') ?? [];
 
     try {
         PublishVendorMigrationsAction::run(new NullProgressReporter);
 
-        $currentFiles = File::glob($migrationDirectory . '/*.php') ?? [];
-        $newFiles = array_values(array_diff($currentFiles, $existingFiles));
-        $newFilenames = array_map(basename(...), $newFiles);
+        $newFilenames = array_map(
+            basename(...),
+            array_values(array_diff(File::glob($migrationDirectory . '/*.php') ?? [], $existingFiles)),
+        );
 
-        expect(implode("\n", $newFilenames))
-            ->toContain('create_tag_tables.php');
+        expect(implode("\n", $newFilenames))->not->toContain('create_tag_tables');
     } finally {
-        $currentFiles = File::glob($migrationDirectory . '/*.php') ?? [];
-        $filesToDelete = array_diff($currentFiles, $existingFiles);
-
-        foreach ($filesToDelete as $fileToDelete) {
+        foreach (array_diff(File::glob($migrationDirectory . '/*.php') ?? [], $existingFiles) as $fileToDelete) {
             File::delete($fileToDelete);
         }
-
-        if ($createdStub) {
-            File::delete($stubPath);
-        }
     }
+});
+
+it('does not require spatie/laravel-tags from Core', function (): void {
+    $composer = json_decode((string) file_get_contents(dirname(__DIR__, 4) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($composer['require'])->not->toHaveKey('spatie/laravel-tags');
 });
 
 it('does not borrow a missing stub from another installed version of a host vendor package', function (): void {
