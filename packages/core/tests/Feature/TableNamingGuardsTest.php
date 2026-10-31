@@ -219,6 +219,51 @@ it('refuses package and legacy tables during an upgrade and adopts them through 
         ->and(AssertTableOwnershipAction::run('asset_relations', $legacy))->toBeTrue();
 });
 
+it('counts later alter migrations: adopts a table the recorded alter changed, refuses one it did not', function (): void {
+    $root = __DIR__ . '/../fixtures/table-naming/alter-package';
+    resolve(MigrationRootRegistry::class)->register('example/gizmos', $root, ['2026_03_01_000001_create_gizmos_table' => 'gizmos']);
+    $create = '2026_03_01_000001_create_gizmos_table';
+    $repository = resolve('migrator')->getRepository();
+    $repository->createRepository();
+    $repository->log('2026_03_02_000001_make_gizmo_name_nullable', 1);
+
+    Schema::create('gizmos', function (Blueprint $table): void {
+        $table->id();
+        $table->string('name')->nullable();
+    });
+
+    expect(fn (): bool => AssertTableOwnershipAction::run('gizmos', $create))->toThrow(ForeignTableException::class, 'capell:tables:adopt gizmos --confirm')
+        ->and(TableShape::differences('gizmos', $create))->toBe([]);
+    expect(Artisan::call('capell:tables:adopt', ['table' => 'gizmos', '--confirm' => true]))->toBe(0)
+        ->and(TableName::migrationRecorded($create))->toBeTrue();
+
+    Schema::drop('gizmos');
+    DB::table('migrations')->where('migration', $create)->delete();
+    Schema::create('gizmos', function (Blueprint $table): void {
+        $table->id();
+        $table->string('name');
+    });
+
+    expect(TableShape::differences('gizmos', $create))->toBe(['name differs in nullability'])
+        ->and(Artisan::call('capell:tables:adopt', ['table' => 'gizmos', '--confirm' => true]))->toBe(1);
+});
+
+it('refuses with a clear message when a migration cannot run on SQLite', function (): void {
+    $root = sys_get_temp_dir() . '/capell-sqlite-fail-' . bin2hex(random_bytes(4));
+    mkdir($root);
+    file_put_contents($root . '/2026_04_01_000001_create_sprockets_table.php', "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Support\\Facades\\DB;\nreturn new class extends Migration { public function up(): void { DB::statement('ALTER TABLE sprockets ENGINE=InnoDB'); } };\n");
+    resolve(MigrationRootRegistry::class)->register('example/sprockets', $root, ['2026_04_01_000001_create_sprockets_table' => 'sprockets']);
+    Schema::create('sprockets', fn (Blueprint $table) => $table->id());
+
+    try {
+        expect(TableShape::differences('sprockets', '2026_04_01_000001_create_sprockets_table')[0])->toContain('cannot run on SQLite')
+            ->and(Artisan::call('capell:tables:adopt', ['table' => 'sprockets', '--confirm' => true]))->toBe(1);
+    } finally {
+        unlink($root . '/2026_04_01_000001_create_sprockets_table.php');
+        rmdir($root);
+    }
+});
+
 it('finds migrations of installed packages in a vendor layout, not only the monorepo', function (): void {
     $root = sys_get_temp_dir() . '/capell-vendor-layout-' . bin2hex(random_bytes(4));
     $directory = $root . '/vendor/capell-app/gadgets/database/migrations';

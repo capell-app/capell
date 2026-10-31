@@ -25,7 +25,7 @@ final class TableShape
         'asset_relations' => ['asset_attachments', '2026_05_10_190832_15_create_asset_relations_table'],
     ];
 
-    /** @var array<string, array<string, array<string, array{type: string, nullable: bool, primary: bool}>>|null> */
+    /** @var array<string, array{shape: array<string, array{type: string, nullable: bool, primary: bool}>|null, failure: string|null}> */
     private static array $probed = [];
 
     /** True when every column the creating migration defines exists live with the same type family, nullability and primary-key membership (later migrations may add columns). */
@@ -37,9 +37,10 @@ final class TableShape
     /** @return list<string> Human-readable differences; a missing migration file reports one entry. */
     public static function differences(string $baseTable, string $migration): array
     {
-        $expected = self::expected($baseTable, $migration);
+        $result = self::resolveExpected($baseTable, $migration);
+        $expected = $result['shape'];
         if ($expected === null) {
-            return ['no Capell migration defines this table'];
+            return [$result['failure'] ?? 'no Capell migration defines this table'];
         }
 
         $live = self::describe(TableName::resolve($baseTable));
@@ -61,21 +62,10 @@ final class TableShape
         return $differences;
     }
 
-    /** @return array<string, array{type: string, nullable: bool, primary: bool}>|null null when no migration file defines the table */
+    /** @return array<string, array{type: string, nullable: bool, primary: bool}>|null null when the shape cannot be built */
     public static function expected(string $baseTable, string $migration): ?array
     {
-        $table = $baseTable;
-        $path = self::locate($migration);
-        if ($path === null && isset(self::LEGACY_TABLES[$baseTable])) {
-            $table = self::LEGACY_TABLES[$baseTable][0];
-            $path = self::locate('create_' . $table . '_table');
-        }
-
-        if ($path === null) {
-            return null;
-        }
-
-        return self::probe($path)[TableName::resolve($table)] ?? null;
+        return self::resolveExpected($baseTable, $migration)['shape'];
     }
 
     public static function locate(string $migration): ?string
@@ -135,6 +125,50 @@ final class TableShape
         }
 
         return array_values(array_unique($tables));
+    }
+
+    /**
+     * The table as it stands after the create migration and every recorded migration that mentions it,
+     * built on a scratch SQLite database so later alter migrations count and the live database is untouched.
+     *
+     * @return array{shape: array<string, array{type: string, nullable: bool, primary: bool}>|null, failure: string|null}
+     */
+    private static function resolveExpected(string $baseTable, string $migration): array
+    {
+        $table = $baseTable;
+        $create = self::locate($migration);
+        if ($create === null && isset(self::LEGACY_TABLES[$baseTable])) {
+            $table = self::LEGACY_TABLES[$baseTable][0];
+            $create = self::locate('create_' . $table . '_table');
+        }
+
+        if ($create === null) {
+            return ['shape' => null, 'failure' => null];
+        }
+
+        $ran = [];
+        $repository = resolve('migrator')->getRepository();
+        if ($repository->repositoryExists()) {
+            foreach ($repository->getRan() as $recorded) {
+                $ran[self::withoutTimestamp((string) $recorded)] = true;
+            }
+        }
+
+        $files = [];
+        foreach (self::directories() as $directory) {
+            foreach (glob($directory . '/*.php') ?: [] as $path) {
+                $name = basename($path, '.php');
+                $source = (string) file_get_contents($path);
+                if (($path === $create || isset($ran[self::withoutTimestamp($name)])) && str_contains($source, "'" . $table . "'")) {
+                    $files[$name] = $path;
+                }
+            }
+        }
+
+        $files[basename($create, '.php')] = $create;
+        ksort($files);
+
+        return self::probe(array_values($files), TableName::resolve($table));
     }
 
     /** @return array<string, array{type: string, nullable: bool, primary: bool}> */
@@ -224,12 +258,15 @@ final class TableShape
         ];
     }
 
-    /** @return array<string, array<string, array{type: string, nullable: bool, primary: bool}>> physical table => column shape, from running the migration on a scratch database */
-    private static function probe(string $path): array
+    /**
+     * @param  list<string>  $files  Migration files to run, oldest first.
+     * @return array{shape: array<string, array{type: string, nullable: bool, primary: bool}>|null, failure: string|null}
+     */
+    private static function probe(array $files, string $table): array
     {
-        $key = $path . '|' . json_encode([config('capell.database.table_prefix'), config('capell.database.table_aliases')]);
-        if (array_key_exists($key, self::$probed)) {
-            return self::$probed[$key] ?? [];
+        $key = $table . '|' . implode(',', $files) . '|' . json_encode([config('capell.database.table_prefix'), config('capell.database.table_aliases')]);
+        if (isset(self::$probed[$key])) {
+            return self::$probed[$key];
         }
 
         $connection = 'capell_table_shape_probe';
@@ -238,19 +275,23 @@ final class TableShape
         DB::purge($connection);
         DB::setDefaultConnection($connection);
 
+        $current = '';
+
         try {
-            $migration = require $path;
-            $migration->up();
-            $tables = [];
-            foreach (Schema::getTables() as $table) {
-                $tables[$table['name']] = self::describe($table['name']);
+            // Migrations check ownership through the ledger, so give the scratch database its own.
+            $repository = resolve('migrator')->getRepository();
+            $repository->createRepository();
+            foreach ($files as $path) {
+                $current = basename($path, '.php');
+                (require $path)->up();
+                $repository->log($current, 1);
             }
 
-            return self::$probed[$key] = $tables;
-        } catch (Throwable) {
-            self::$probed[$key] = null;
-
-            return [];
+            return self::$probed[$key] = Schema::hasTable($table)
+                ? ['shape' => self::describe($table), 'failure' => null]
+                : ['shape' => null, 'failure' => 'the migrations that define this table produce no table on SQLite'];
+        } catch (Throwable $throwable) {
+            return self::$probed[$key] = ['shape' => null, 'failure' => sprintf('migration %s cannot run on SQLite (%s), so the table cannot be compared', $current, $throwable->getMessage())];
         } finally {
             DB::setDefaultConnection($previous);
             DB::purge($connection);
