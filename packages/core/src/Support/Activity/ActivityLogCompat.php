@@ -29,6 +29,20 @@ final class ActivityLogCompat
         return $class;
     }
 
+    /**
+     * The activity log columns the installed major writes on every entry.
+     *
+     * Version 5 records changes in attribute_changes and has no batches; version 4 writes batch_uuid.
+     *
+     * @return list<string>
+     */
+    public static function writtenColumns(): array
+    {
+        return class_exists(self::ModernLogOptions)
+            ? ['event', 'attribute_changes']
+            : ['event', 'batch_uuid'];
+    }
+
     public static function logsActivityTrait(): string
     {
         return class_exists(self::ModernLogOptions)
