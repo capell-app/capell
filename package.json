@@ -16,6 +16,7 @@
         "test:installer-modules": "npm run test:installer-unit && playwright test packages/installer/tests/Browser/installer-modules.spec.js --project=chromium",
         "test:installer-live": "playwright test packages/installer/tests/Browser/installer-csrf-retry.spec.js --project=chromium",
         "test:installer-browser:required": "CAPELL_INSTALLER_SMOKE_REQUIRED=true playwright test packages/installer/tests/Browser",
+        "test:dashboard-browser": "bash scripts/screenshots/prepare-workbench.sh && playwright test packages/admin/tests/Browser/dashboard-work-first.spec.js --project=chromium",
         "test:demo-smoke": "playwright test packages/frontend/tests/Browser/default-demo-smoke.spec.js",
         "test:critical-css-layout-parity": "playwright test packages/frontend/tests/Browser/homepage-critical-css-layout-parity.spec.js",
         "test:demo-smoke:required": "CAPELL_SMOKE_REQUIRED=true playwright test packages/frontend/tests/Browser/default-demo-smoke.spec.js",
