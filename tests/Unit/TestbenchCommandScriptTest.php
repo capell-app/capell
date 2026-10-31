@@ -65,8 +65,8 @@ CHILD);
     }
 })->with([
     'clearing' => ['clear', 'package:purge-skeleton'],
-    'coverage' => ['coverage', 'optimize'],
-    'coverage report' => ['coverage-report', 'optimize'],
+    'coverage' => ['coverage:run', 'optimize'],
+    'coverage report' => ['coverage-report:run', 'optimize'],
 ]);
 
 it('runs portable commands with an array cache and isolated cache paths', function (string $command, bool $ready): void {

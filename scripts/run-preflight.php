@@ -156,6 +156,7 @@ if (getenv('CAPELL_PREFLIGHT_ADMITTED') !== '1') {
 
     if ($admitted[0] !== PHP_BINARY) {
         putenv('CAPELL_PREFLIGHT_ADMITTED=1');
+        putenv('CAPELL_HEAVY_ADMITTED=1');
         $process = proc_open($admitted, [STDIN, STDOUT, STDERR], $pipes);
         exit(is_resource($process) ? proc_close($process) : 127);
     }

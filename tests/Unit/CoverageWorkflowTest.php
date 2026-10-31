@@ -19,6 +19,37 @@ function coverageComposerScripts(): array
     return json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR)['scripts'];
 }
 
+/**
+ * The shell steps a Composer script runs, following a with-admission.php
+ * wrapper into the inner script it admits and skipping Composer callbacks.
+ *
+ * @return list<string>
+ */
+function coverageScriptSteps(string $name): array
+{
+    $steps = [];
+
+    foreach ((array) coverageComposerScripts()[$name] as $command) {
+        if (! is_string($command)) {
+            continue;
+        }
+
+        if (str_starts_with($command, 'Composer\\')) {
+            continue;
+        }
+
+        if (preg_match('/^@php scripts\/with-admission\.php \S+ -- composer run --no-interaction (\S+) --$/', $command, $match) === 1) {
+            array_push($steps, ...coverageScriptSteps($match[1]));
+
+            continue;
+        }
+
+        $steps[] = $command;
+    }
+
+    return $steps;
+}
+
 /** @return list<string> */
 function coverageJobCommands(string $job): array
 {
@@ -107,7 +138,7 @@ it('dispatches coverage and mutation workers with the coverage configuration', f
     $fixture = new CommandFixture;
     $fixture->fake('php');
     try {
-        foreach ((array) coverageComposerScripts()[$name] as $command) {
+        foreach (coverageScriptSteps($name) as $command) {
             $process = $fixture->run(['bash', '-c', str_replace('@php ', 'php ', $command)]);
             expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
         }
