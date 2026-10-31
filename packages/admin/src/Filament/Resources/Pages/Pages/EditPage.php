@@ -374,6 +374,14 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 force: true,
             );
         }
+
+        // The loop above writes persisted, list-keyed content straight into the
+        // state, so the editor would hold block `0` with stored (unformatted)
+        // field values. Rebuild the form for the new structure, then fill it:
+        // that runs the same hydration as a fresh mount, so builder items are
+        // keyed by uuid and field formatters run.
+        unset($this->cachedSchemas['form']);
+        $this->getSchema('form')?->fill($this->data);
     }
 
     public function saveAsDraft(): void

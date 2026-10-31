@@ -22,6 +22,8 @@ use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\PageUrlPresenter;
+use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Admin\Tests\Fixtures\Widgets\FormattedFieldFilamentWidget;
 use Capell\Core\Actions\Redirects\CreateAutomaticRedirectAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\ContentStructure;
@@ -42,6 +44,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -1742,10 +1745,13 @@ it('can convert html content to blocks from the content editor hint action', fun
 
     expect($page->refresh()->content_structure)->toBe(ContentStructure::Blocks);
 
-    expect(data_get($component->instance()->data, sprintf('translations.record-%d.content', $translation->getKey())))
-        ->toBe([['type' => 'content', 'data' => [
-            'content' => $content,
-        ]]]);
+    // The editor holds hydrated builder state (items keyed by uuid), as after a fresh mount.
+    $blocks = data_get($component->instance()->data, sprintf('translations.record-%d.content', $translation->getKey()));
+    $block = array_values($blocks)[0];
+    expect(Str::isUuid((string) array_key_first($blocks)))->toBeTrue()
+        ->and($blocks)->toHaveCount(1)
+        ->and($block['type'])->toBe('content')
+        ->and(trim(strip_tags(RichContentRenderer::make($block['data']['content'])->toHtml())))->toBe(trim(strip_tags((string) $content)));
 });
 
 it('content structure conversion action is only added to the main page content editor', function (): void {
@@ -1817,8 +1823,10 @@ it('can convert content blocks back to html from the content editor hint action'
 
     expect($page->refresh()->content_structure)->toBe(ContentStructure::Html);
 
-    expect(data_get($component->instance()->data, sprintf('translations.record-%d.content', $translation->getKey())))
-        ->toBe($content);
+    // The rich editor holds its hydrated document, as after a fresh mount.
+    $document = data_get($component->instance()->data, sprintf('translations.record-%d.content', $translation->getKey()));
+    expect($document)->toBeArray()->toHaveKey('type', 'doc')
+        ->and(trim(strip_tags(RichContentRenderer::make($document)->toHtml())))->toBe(trim(strip_tags($content)));
 });
 
 it('can edit page type and handle updated the content data changing to builder', function (): void {
@@ -1863,6 +1871,53 @@ it('can edit page type and handle updated the content data changing to builder',
         ->and($savedContent[0]['data']['mediaAlign'])->toBeNull()
         ->and($savedContent[0]['data']['mediaOrdering'])->toBeNull()
         ->and(Str::isUuid($savedContent[0]['data']['__capell']['instance_id']))->toBeTrue();
+});
+
+it('hydrates stored blocks when the content structure changes so fields are keyed and formatted like a fresh mount', function (): void {
+    resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Html)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
+    $translation = Translation::factory()
+        ->language($language)
+        ->translatable($page)
+        ->state(['content' => [['type' => FormattedFieldFilamentWidget::getWidgetName(), 'data' => ['reference' => FormattedFieldFilamentWidget::STORED]]]])
+        ->create();
+    $path = sprintf('translations.record-%d.content', $translation->getKey());
+
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->set('data.' . $path, [])
+        ->call('pageTypeContentStructureUpdated', ContentStructure::Blocks);
+
+    $blocks = data_get($component->instance()->data, $path);
+
+    expect($blocks)->toBeArray()->toHaveCount(1)
+        ->and(array_keys($blocks)[0])->toBeString()
+        ->and(Str::isUuid(array_keys($blocks)[0]))->toBeTrue()
+        ->and(array_values($blocks)[0]['type'])->toBe(FormattedFieldFilamentWidget::getWidgetName())
+        ->and(array_values($blocks)[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
+});
+
+it('keeps blocks already in the editor as blocks when the content structure is confirmed', function (): void {
+    resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
+    $translation = Translation::factory()
+        ->language($language)
+        ->translatable($page)
+        ->state(['content' => [['type' => FormattedFieldFilamentWidget::getWidgetName(), 'data' => ['reference' => FormattedFieldFilamentWidget::STORED]]]])
+        ->create();
+    $path = sprintf('translations.record-%d.content', $translation->getKey());
+
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->call('pageTypeContentStructureUpdated', ContentStructure::Blocks);
+
+    $blocks = array_values(data_get($component->instance()->data, $path));
+
+    expect($blocks)->toHaveCount(1)
+        ->and($blocks[0]['type'])->toBe(FormattedFieldFilamentWidget::getWidgetName())
+        ->and($blocks[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
 });
 
 it('warns editors when the page type content structure changes', function (): void {

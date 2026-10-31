@@ -60,3 +60,10 @@ it('defaults to Html structure if not provided', function (): void {
     $result = MutateContentPresenterAction::run($content);
     expect($result)->toBe('<em>Default</em>');
 });
+
+it('does not wrap content that is already a collection of blocks when forced', function (array $input): void {
+    expect(MutateContentPresenterAction::run($input, ContentStructure::Blocks, true))->toBe($input);
+})->with([
+    'list of blocks' => [[['type' => 'hero', 'data' => ['title' => 'A']], ['type' => 'content', 'data' => []]]],
+    'uuid keyed blocks' => [['5c3f1a52-6f0d-4a3e-9a2c-0f2a8f4f6b10' => ['type' => 'hero', 'data' => ['title' => 'A']]]],
+]);
