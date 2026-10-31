@@ -24,6 +24,7 @@ use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\Date;
@@ -286,6 +287,36 @@ it('saves and discards editor scratch drafts through typed outcomes', function (
         user: $editor,
         locale: 'en',
     );
+
+    expect($discarded->status)->toBe(PageEditorScratchDraftStatus::Discarded)
+        ->and($discarded->affectedRows)->toBe(1)
+        ->and(EditorScratchDraft::query()->count())->toBe(0);
+});
+
+it('discards editor scratch drafts for a page that an extension global scope hides from ordinary queries', function (): void {
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+
+    SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: ['name' => 'Recovered page name'],
+    ));
+
+    $hiddenId = $page->getKey();
+
+    Page::addGlobalScope('hide-test-page', fn (Builder $query): Builder => $query->whereKeyNot($hiddenId));
+
+    try {
+        $discarded = DiscardPageEditorScratchDraftAction::run(
+            page: $page,
+            user: $editor,
+            locale: 'en',
+        );
+    } finally {
+        Page::clearBootedModels();
+    }
 
     expect($discarded->status)->toBe(PageEditorScratchDraftStatus::Discarded)
         ->and($discarded->affectedRows)->toBe(1)

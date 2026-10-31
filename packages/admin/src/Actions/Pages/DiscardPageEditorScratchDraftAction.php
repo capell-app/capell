@@ -35,7 +35,7 @@ final class DiscardPageEditorScratchDraftAction
         }
 
         $deleted = $page->getConnection()->transaction(function () use ($page, $user, $locale, $context, $expectedRevision): int {
-            SiteAccess::forActor($user)->query($page::class)->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
+            SiteAccess::forActor($user)->scope($page->newQueryWithoutScopes())->whereKey($page->getKey())->lockForUpdate()->firstOrFail();
 
             return $context === 'page-editor'
                 ? DiscardEditorScratchDraftAction::run($page, $user, $locale, $context)
