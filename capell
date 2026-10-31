@@ -314,12 +314,12 @@ case "$command_name" in
     preflight)
         require_test_dependencies
         require_container_node_dependencies
-        verification_container_command full app composer preflight "$@"
+        verification_container_command full test composer preflight "$@"
         ;;
     preflight-all)
         require_test_dependencies
         require_container_node_dependencies
-        verification_container_command full app composer preflight:all "$@"
+        verification_container_command full test composer preflight:all "$@"
         ;;
     exec)
         if [ "$#" -eq 0 ]; then
