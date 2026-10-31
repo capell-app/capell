@@ -16,6 +16,7 @@ use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Migration\TableShape;
 use Capell\Core\Support\TableName;
 use Composer\InstalledVersions;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -292,6 +293,40 @@ it('keeps a migration that names another connection away from the live database'
     } finally {
         unlink($file);
         rmdir($root);
+    }
+});
+
+it('keeps Eloquent writes made by a probed migration off the live database', function (): void {
+    $root = sys_get_temp_dir() . '/capell-eloquent-' . bin2hex(random_bytes(4));
+    mkdir($root);
+    $file = $root . '/2026_05_04_000001_create_bolts_table.php';
+    file_put_contents($file, "<?php\nuse Illuminate\\Database\\Eloquent\\Model;\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\nreturn new class extends Migration { public function up(): void { Schema::create('bolts', fn (Blueprint \$table) => \$table->id()); (new class extends Model { protected \$table = 'bolts'; public \$timestamps = false; })->newQuery()->insert(['id' => 99]); } };\n");
+    resolve(MigrationRootRegistry::class)->register('example/bolts', $root, ['2026_05_04_000001_create_bolts_table' => 'bolts']);
+    Schema::create('bolts', fn (Blueprint $table) => $table->id());
+    $resolver = Model::getConnectionResolver();
+
+    try {
+        expect(TableShape::differences('bolts', '2026_05_04_000001_create_bolts_table'))->toBe([])
+            ->and(DB::table('bolts')->count())->toBe(0)
+            ->and(Model::getConnectionResolver())->toBe($resolver);
+    } finally {
+        unlink($file);
+        rmdir($root);
+    }
+});
+
+it('refuses to probe under Octane', function (): void {
+    $create = '2026_03_01_000001_create_gizmos_table';
+    resolve(MigrationRootRegistry::class)->register('example/gizmos', __DIR__ . '/../fixtures/table-naming/alter-package', [$create => 'gizmos']);
+    Schema::create('gizmos', fn (Blueprint $table) => $table->id());
+    app()->instance('octane', new stdClass);
+
+    try {
+        expect(TableShape::differences('gizmos', $create)[0])->toContain('Octane')
+            ->and(Artisan::call('capell:tables:adopt', ['table' => 'gizmos', '--confirm' => true]))->toBe(1);
+    } finally {
+        app()->forgetInstance('octane');
+        app()->offsetUnset('octane');
     }
 });
 

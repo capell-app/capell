@@ -9,6 +9,7 @@ use Composer\InstalledVersions;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Connectors\ConnectionFactory;
 use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Migrations\DatabaseMigrationRepository;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
@@ -20,6 +21,10 @@ use Throwable;
 /**
  * Compares a live table with the table a Capell create migration produces, so a table that
  * lost its migrations row can be told apart from another application's table of the same name.
+ *
+ * The probe swaps process-wide database state (the container's manager, the Eloquent connection
+ * resolver and the database config) for its duration, so it is not coroutine-safe and refuses to
+ * run under Octane or Swoole.
  */
 final class TableShape
 {
@@ -271,6 +276,10 @@ final class TableShape
      */
     private static function probe(array $files, string $table): array
     {
+        if (app()->bound('octane') || filter_var(getenv('LARAVEL_OCTANE'), FILTER_VALIDATE_BOOLEAN)) {
+            return ['shape' => null, 'failure' => 'the table shape cannot be compared while the application runs under Octane; run this from the command line instead'];
+        }
+
         $key = $table . '|' . implode(',', $files) . '|' . json_encode([config('capell.database.table_prefix'), config('capell.database.table_aliases')]);
         if (isset(self::$probed[$key])) {
             return self::$probed[$key];
@@ -278,6 +287,7 @@ final class TableShape
 
         $connection = 'capell_table_shape_probe';
         $app = app();
+        $originalResolver = Model::getConnectionResolver();
         $originalManager = $app->make(ConnectionResolverInterface::class);
         $originalConnections = config('database.connections');
         $originalDefault = config('database.default');
@@ -289,6 +299,7 @@ final class TableShape
 
         $manager = new DatabaseManager($app, $app->make(ConnectionFactory::class));
         $app->instance('db', $manager);
+        Model::setConnectionResolver($manager);
         Facade::clearResolvedInstance('db');
         Facade::clearResolvedInstance('db.schema');
 
@@ -318,6 +329,12 @@ final class TableShape
         } finally {
             $manager->purge($connection);
             $app->instance('db', $originalManager);
+            if ($originalResolver instanceof ConnectionResolverInterface) {
+                Model::setConnectionResolver($originalResolver);
+            } else {
+                Model::unsetConnectionResolver();
+            }
+
             config()->set('database.connections', $originalConnections);
             config()->set('database.default', $originalDefault);
             Facade::clearResolvedInstance('db');
