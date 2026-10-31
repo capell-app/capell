@@ -11,7 +11,7 @@ declare(strict_types=1);
  * repeat work after the first actionable failure. The default remains the
  * complete diagnostic pass used by the broad preflight gate.
  *
- * A whole-tree run takes weight 3 (the whole host) in the host-wide heavy pool,
+ * A whole-tree run takes weight 3 (three of the five default slots) in the host-wide heavy pool,
  * so two runs from different worktrees queue instead of doubling the parallel
  * Pest/Rector/PHPStan workers. The script re-executes itself under the guard
  * once (CAPELL_PREFLIGHT_ADMITTED marks the admitted process); stages inherit
