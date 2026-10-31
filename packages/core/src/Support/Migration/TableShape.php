@@ -37,6 +37,9 @@ final class TableShape
         'asset_relations' => ['asset_attachments', '2026_05_10_190832_15_create_asset_relations_table'],
     ];
 
+    /** @var array<string, string>|null */
+    private static ?array $installedPaths = null;
+
     /** @var array<string, array{shape: array<string, array{type: string, nullable: bool, primary: bool}>|null, failure: string|null}> */
     private static array $probed = [];
 
@@ -140,6 +143,28 @@ final class TableShape
     }
 
     /**
+     * Runs a callback with a fixed set of installed package paths instead of Composer's data, so callers
+     * and tests do not depend on the environment's installed.php.
+     *
+     * @template T
+     *
+     * @param  array<string, string>  $packagePaths  Package name => install path.
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public static function usingInstalledPackages(array $packagePaths, callable $callback): mixed
+    {
+        $previous = self::$installedPaths;
+        self::$installedPaths = $packagePaths;
+
+        try {
+            return $callback();
+        } finally {
+            self::$installedPaths = $previous;
+        }
+    }
+
+    /**
      * The table as it stands after the create migration and every recorded migration that mentions it,
      * built on a scratch SQLite database so later alter migrations count and the live database is untouched.
      *
@@ -234,6 +259,34 @@ final class TableShape
     }
 
     /**
+     * Install paths of the installed capell-app packages. A Composer data file that is missing or
+     * unreadable (a rebuilt test skeleton, a stripped deployment) contributes nothing instead of failing.
+     *
+     * @return list<string>
+     */
+    private static function installedPackagePaths(): array
+    {
+        if (self::$installedPaths !== null) {
+            return array_values(self::$installedPaths);
+        }
+
+        $paths = [];
+
+        try {
+            foreach (InstalledVersions::getInstalledPackages() as $package) {
+                $path = str_starts_with($package, 'capell-app/') ? InstalledVersions::getInstallPath($package) : null;
+                if ($path !== null) {
+                    $paths[] = $path;
+                }
+            }
+        } catch (Throwable) {
+            return $paths;
+        }
+
+        return $paths;
+    }
+
+    /**
      * Migration directories of every installed Capell package (resolved through Composer, so a vendor
      * layout works as well as the monorepo), this package, and every registered migration root.
      *
@@ -242,13 +295,8 @@ final class TableShape
     private static function packageDirectories(): array
     {
         $directories = [CoreSchemaMigrations::path()];
-        foreach (InstalledVersions::getInstalledPackages() as $package) {
-            if (! str_starts_with($package, 'capell-app/')) {
-                continue;
-            }
-
-            $path = InstalledVersions::getInstallPath($package);
-            if ($path !== null && is_dir($path . '/database/migrations')) {
+        foreach (self::installedPackagePaths() as $path) {
+            if (is_dir($path . '/database/migrations')) {
                 $directories[] = $path . '/database/migrations';
             }
         }

@@ -15,7 +15,6 @@ use Capell\Core\Support\Migration\CoreSchemaMigrations;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Migration\TableShape;
 use Capell\Core\Support\TableName;
-use Composer\InstalledVersions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
@@ -369,17 +368,16 @@ return new class extends Migration
 };
 PHP);
 
-    InstalledVersions::reload(['root' => InstalledVersions::getRootPackage(), 'versions' => ['capell-app/gadgets' => ['pretty_version' => '1.0.0', 'version' => '1.0.0.0', 'reference' => null, 'type' => 'library', 'install_path' => $root . '/vendor/capell-app/gadgets', 'aliases' => [], 'dev_requirement' => false]]]);
-
     try {
-        expect(TableShape::migrationFor('gadgets'))->toBe('2026_02_01_000001_create_gadgets_table')
-            ->and(TableShape::allBaseTables())->toContain('gadgets');
+        TableShape::usingInstalledPackages(['capell-app/gadgets' => $root . '/vendor/capell-app/gadgets', 'capell-app/absent' => $root . '/vendor/capell-app/absent'], function () use ($directory): void {
+            expect(TableShape::migrationFor('gadgets'))->toBe('2026_02_01_000001_create_gadgets_table')
+                ->and(TableShape::allBaseTables())->toContain('gadgets');
 
-        (require $directory . '/2026_02_01_000001_create_gadgets_table.php')->up();
-        expect(Artisan::call('capell:tables:adopt', ['table' => 'gadgets', '--confirm' => true]))->toBe(0)
-            ->and(TableName::migrationRecorded('2026_02_01_000001_create_gadgets_table'))->toBeTrue();
+            (require $directory . '/2026_02_01_000001_create_gadgets_table.php')->up();
+            expect(Artisan::call('capell:tables:adopt', ['table' => 'gadgets', '--confirm' => true]))->toBe(0)
+                ->and(TableName::migrationRecorded('2026_02_01_000001_create_gadgets_table'))->toBeTrue();
+        });
     } finally {
-        InstalledVersions::reload(require base_path('vendor/composer/installed.php'));
         unlink($directory . '/2026_02_01_000001_create_gadgets_table.php');
         foreach ([$directory, dirname($directory), dirname($directory, 2), $root . '/vendor/capell-app', $root . '/vendor', $root] as $path) {
             rmdir($path);
