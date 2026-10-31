@@ -6,6 +6,7 @@ namespace Capell\Core\Support;
 
 use Capell\Core\Actions\Install\AssertTableOwnershipAction;
 use Capell\Core\Exceptions\ForeignTableException;
+use Illuminate\Database\Migrations\MigrationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -17,6 +18,28 @@ final class TableName
 
     /** PostgreSQL's identifier cap; MySQL and MariaDB allow 64. */
     public const int MAX_IDENTIFIER_LENGTH = 63;
+
+    private static ?MigrationRepositoryInterface $ledger = null;
+
+    /**
+     * Runs a callback reading the migration ledger from another repository (the table-shape probe's scratch database).
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback): mixed
+    {
+        $previous = self::$ledger;
+        self::$ledger = $ledger;
+
+        try {
+            return $callback();
+        } finally {
+            self::$ledger = $previous;
+        }
+    }
 
     /** @throws ForeignTableException when the table exists without its creating migration being recorded */
     public static function existsAndIsOwned(string $name, string $migration): bool
@@ -116,7 +139,7 @@ final class TableName
 
     public static function migrationRecorded(string $migration): bool
     {
-        $repository = resolve('migrator')->getRepository();
+        $repository = self::$ledger ?? resolve('migrator')->getRepository();
 
         if (! $repository->repositoryExists()) {
             return false;

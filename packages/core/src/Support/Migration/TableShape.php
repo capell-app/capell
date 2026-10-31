@@ -6,8 +6,15 @@ namespace Capell\Core\Support\Migration;
 
 use Capell\Core\Support\TableName;
 use Composer\InstalledVersions;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\Connectors\ConnectionFactory;
+use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Migrations\DatabaseMigrationRepository;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use ReflectionClass;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -270,32 +277,72 @@ final class TableShape
         }
 
         $connection = 'capell_table_shape_probe';
-        $previous = DB::getDefaultConnection();
-        config()->set('database.connections.' . $connection, ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
-        DB::purge($connection);
-        DB::setDefaultConnection($connection);
+        $app = app();
+        $originalManager = $app->make(ConnectionResolverInterface::class);
+        $originalConnections = config('database.connections');
+        $originalDefault = config('database.default');
+
+        // Only the scratch connection exists while the probe runs, so a migration that names another
+        // connection (Schema::connection('mysql')) fails here instead of touching the live database.
+        config()->set('database.connections', [$connection => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]);
+        config()->set('database.default', $connection);
+
+        $manager = new DatabaseManager($app, $app->make(ConnectionFactory::class));
+        $app->instance('db', $manager);
+        Facade::clearResolvedInstance('db');
+        Facade::clearResolvedInstance('db.schema');
 
         $current = '';
 
         try {
-            // Migrations check ownership through the ledger, so give the scratch database its own.
-            $repository = resolve('migrator')->getRepository();
+            $migrations = config('database.migrations');
+            $repository = new DatabaseMigrationRepository($manager, (string) (is_array($migrations) ? ($migrations['table'] ?? 'migrations') : ($migrations ?? 'migrations')));
+            $repository->setSource($connection);
             $repository->createRepository();
-            foreach ($files as $path) {
-                $current = basename($path, '.php');
-                (require $path)->up();
-                $repository->log($current, 1);
-            }
 
-            return self::$probed[$key] = Schema::hasTable($table)
-                ? ['shape' => self::describe($table), 'failure' => null]
-                : ['shape' => null, 'failure' => 'the migrations that define this table produce no table on SQLite'];
+            return self::$probed[$key] = TableName::usingLedger($repository, function () use ($files, $repository, $table, &$current): array {
+                foreach ($files as $path) {
+                    $current = basename($path, '.php');
+                    $migration = self::load($path);
+                    throw_unless(method_exists($migration, 'up'), RuntimeException::class, 'migration has no up() method');
+                    $migration->up();
+                    $repository->log($current, 1);
+                }
+
+                return Schema::hasTable($table)
+                    ? ['shape' => self::describe($table), 'failure' => null]
+                    : ['shape' => null, 'failure' => 'the migrations that define this table produce no table on SQLite'];
+            });
         } catch (Throwable $throwable) {
             return self::$probed[$key] = ['shape' => null, 'failure' => sprintf('migration %s cannot run on SQLite (%s), so the table cannot be compared', $current, $throwable->getMessage())];
         } finally {
-            DB::setDefaultConnection($previous);
-            DB::purge($connection);
+            $manager->purge($connection);
+            $app->instance('db', $originalManager);
+            config()->set('database.connections', $originalConnections);
+            config()->set('database.default', $originalDefault);
+            Facade::clearResolvedInstance('db');
+            Facade::clearResolvedInstance('db.schema');
         }
+    }
+
+    /**
+     * Loads a migration the way Laravel's Migrator does: anonymous classes are returned by the file,
+     * legacy named classes are instantiated, and a named class that is already declared is reused.
+     */
+    private static function load(string $path): object
+    {
+        $class = Str::studly(implode('_', array_slice(explode('_', basename($path, '.php')), 4)));
+        if (class_exists($class, false)) {
+            if (realpath($path) === new ReflectionClass($class)->getFileName()) {
+                return new $class;
+            }
+
+            throw_if(preg_match('/^\s*(?:final\s+|abstract\s+)?class\s+' . preg_quote($class, '/') . '\b/m', (string) file_get_contents($path)) === 1, RuntimeException::class, sprintf('class %s is already declared by another file', $class));
+        }
+
+        $migration = require $path;
+
+        return is_object($migration) ? $migration : new $class;
     }
 
     private static function withoutTimestamp(string $migration): string

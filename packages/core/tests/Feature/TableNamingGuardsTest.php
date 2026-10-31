@@ -264,6 +264,55 @@ it('refuses with a clear message when a migration cannot run on SQLite', functio
     }
 });
 
+it('reports the nullable mismatch when the alter migration is not recorded', function (): void {
+    $create = '2026_03_01_000001_create_gizmos_table';
+    resolve(MigrationRootRegistry::class)->register('example/gizmos', __DIR__ . '/../fixtures/table-naming/alter-package', [$create => 'gizmos']);
+    Schema::create('gizmos', function (Blueprint $table): void {
+        $table->id();
+        $table->string('name')->nullable();
+    });
+
+    expect(TableShape::differences('gizmos', $create))->toBe(['name differs in nullability'])
+        ->and(Artisan::call('capell:tables:adopt', ['table' => 'gizmos', '--confirm' => true]))->toBe(1);
+});
+
+it('keeps a migration that names another connection away from the live database', function (): void {
+    $root = sys_get_temp_dir() . '/capell-other-connection-' . bin2hex(random_bytes(4));
+    mkdir($root);
+    $file = $root . '/2026_05_02_000001_create_cogs_table.php';
+    file_put_contents($file, "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\nreturn new class extends Migration { public function up(): void { Schema::connection('naming_guards')->create('cogs_elsewhere', fn (Blueprint \$table) => \$table->id()); } };\n");
+    resolve(MigrationRootRegistry::class)->register('example/cogs', $root, ['2026_05_02_000001_create_cogs_table' => 'cogs']);
+    Schema::create('cogs', fn (Blueprint $table) => $table->id());
+
+    try {
+        expect(TableShape::differences('cogs', '2026_05_02_000001_create_cogs_table')[0])->toContain('2026_05_02_000001_create_cogs_table')->toContain('cannot run on SQLite')
+            ->and(Schema::hasTable('cogs_elsewhere'))->toBeFalse()
+            ->and(DB::getDefaultConnection())->toBe('naming_guards')
+            ->and(Schema::hasTable('cogs'))->toBeTrue();
+    } finally {
+        unlink($file);
+        rmdir($root);
+    }
+});
+
+it('loads a legacy named-class migration that is already declared', function (): void {
+    $root = sys_get_temp_dir() . '/capell-named-class-' . bin2hex(random_bytes(4));
+    mkdir($root);
+    $file = $root . '/2026_05_03_000001_create_doodads_table.php';
+    file_put_contents($file, "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\nclass CreateDoodadsTable extends Migration { public function up(): void { Schema::create('doodads', fn (Blueprint \$table) => \$table->id()); } }\n");
+    require_once $file;
+    resolve(MigrationRootRegistry::class)->register('example/doodads', $root, ['2026_05_03_000001_create_doodads_table' => 'doodads']);
+    Schema::create('doodads', fn (Blueprint $table) => $table->id());
+
+    try {
+        expect(TableShape::differences('doodads', '2026_05_03_000001_create_doodads_table'))->toBe([])
+            ->and(Artisan::call('capell:tables:adopt', ['table' => 'doodads', '--confirm' => true]))->toBe(0);
+    } finally {
+        unlink($file);
+        rmdir($root);
+    }
+});
+
 it('finds migrations of installed packages in a vendor layout, not only the monorepo', function (): void {
     $root = sys_get_temp_dir() . '/capell-vendor-layout-' . bin2hex(random_bytes(4));
     $directory = $root . '/vendor/capell-app/gadgets/database/migrations';
