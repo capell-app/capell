@@ -45,7 +45,7 @@ php artisan voyager-importer:make-resource <data_type>
 - Posts need `--post-url-prefix` (for example `/articles`) so source URLs are preserved.
 - Populated fields with no Capell mapping fail the import unless `--skip-unmapped` is passed, which records field names, never values.
 - Setting values are never printed; keys that look like secrets appear as `[redacted]`.
-- Rollback is a Migration Assistant action, not an artisan command.
+- Roll back with `migration-assistant:rollback-report <session>`, then `migration-assistant:rollback-execute <session> --actor=<id> --dry-run`, then without `--dry-run`.
 
 ## Not imported
 
@@ -56,4 +56,4 @@ php artisan voyager-importer:make-resource <data_type>
 
 ## Keeping this file current
 
-Refresh this reference whenever the importer's command signatures or entity list change. Check it against `packages/voyager-importer/src/Console/*Command.php` and `php artisan list voyager-importer`, and update the migration phase notes at each Legal Show Plates phase close.
+Refresh this reference whenever the importer's command signatures or entity list change. Check it against `packages/voyager-importer/src/Console/*Command.php` and `php artisan list voyager-importer`.
