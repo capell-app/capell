@@ -120,6 +120,12 @@ final class PublishVendorMigrationsAction
                 '✓ Media library migrations published',
             ],
             [
+                'create_tag_tables',
+                'vendor/spatie/laravel-tags/database/migrations/create_tag_tables.php.stub',
+                '2026_05_10_190827_create_tag_tables.php',
+                '✓ Tag migrations published',
+            ],
+            [
                 'create_queue_monitors',
                 'vendor/croustibat/filament-jobs-monitor/database/migrations/create_filament-jobs-monitor_table.php.stub',
                 '2026_05_29_000001_create_queue_monitors_table.php',
