@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\Install\TableCollisionData;
+use Capell\Core\Support\Migration\TableShape;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -28,11 +29,14 @@ final class ResolveTableCollisionsAction
         }
 
         if ($prefix !== null && $prefix !== '') {
-            foreach ($planned as $table) {
-                if (str_starts_with($table->configKey, 'capell.database.table_aliases.')) {
-                    throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,62}$/D', $prefix . $table->name) !== 1, RuntimeException::class, (string) __('capell-core::install.tables.invalid_name', ['table' => $prefix . $table->name]));
-                }
-            }
+            $registered = array_values(array_unique([
+                ...TableShape::allBaseTables(),
+                ...array_map(
+                    static fn (TableCollisionData $table): string => $table->name,
+                    array_filter($planned, static fn (TableCollisionData $table): bool => str_starts_with($table->configKey, 'capell.database.table_aliases.')),
+                ),
+            ]));
+            ValidateTablePrefixAction::run($prefix, array_values(array_diff($registered, array_keys($aliases))));
         }
 
         $names = array_map(static fn (TableCollisionData $collision): string => $collision->table, $collisions);

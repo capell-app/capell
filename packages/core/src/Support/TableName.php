@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support;
 
+use Capell\Core\Actions\Install\AssertTableOwnershipAction;
+use Capell\Core\Exceptions\ForeignTableException;
+use Illuminate\Database\Migrations\MigrationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class TableName
@@ -13,31 +16,70 @@ final class TableName
     /** Spatie's tag model is an optional integration, so it is referenced by name. */
     public const string SPATIE_TAG_MODEL = 'Spatie\\Tags\\Tag';
 
-    public static function existsAndIsOwned(string $name, string $migration): bool
+    /** PostgreSQL's identifier cap; MySQL and MariaDB allow 64. */
+    public const int MAX_IDENTIFIER_LENGTH = 63;
+
+    private const string LEDGER_BINDING = 'capell.table-name.ledger';
+
+    /**
+     * Runs a callback reading the migration ledger from another repository (the table-shape probe's scratch database).
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback): mixed
     {
-        $table = self::resolve($name);
-        if (! Schema::hasTable($table)) {
-            return false;
-        }
+        $app = app();
+        $current = $app->bound(self::LEDGER_BINDING) ? $app->make(self::LEDGER_BINDING) : null;
+        $previous = $current instanceof MigrationRepositoryInterface ? $current : null;
+        $app->instance(self::LEDGER_BINDING, $ledger);
 
-        if (! self::migrationRecorded($migration)) {
-            throw new RuntimeException(sprintf('Table %s already exists without its Capell creation migration. Choose a table alias or prefix before installing.', $table));
+        try {
+            return $callback();
+        } finally {
+            if (! $previous instanceof MigrationRepositoryInterface) {
+                $app->forgetInstance(self::LEDGER_BINDING);
+                unset($app[self::LEDGER_BINDING]);
+            } else {
+                $app->instance(self::LEDGER_BINDING, $previous);
+            }
         }
-
-        return true;
     }
 
-    public static function externalExistsAndIsOwned(string $table, string $migration): bool
+    /** @throws ForeignTableException when the table exists without its creating migration being recorded */
+    public static function existsAndIsOwned(string $name, string $migration): bool
     {
-        if (! Schema::hasTable($table)) {
-            return false;
+        return AssertTableOwnershipAction::run($name, $migration);
+    }
+
+    /** @throws ForeignTableException when the table exists without its creating migration being recorded */
+    public static function externalExistsAndIsOwned(string $table, string $migration, ?string $configKey = null): bool
+    {
+        return AssertTableOwnershipAction::run($table, $migration, $configKey ?? self::externalConfigKey($table));
+    }
+
+    /** The real config key that names an externally owned table, so a message can point at it. */
+    public static function externalConfigKey(string $table): string
+    {
+        $candidates = [
+            'permission.table_names' => config('permission.table_names'),
+            'capell.database.external_tables' => config('capell.database.external_tables'),
+        ];
+        foreach ($candidates as $prefix => $names) {
+            if (is_array($names) && ($key = array_search($table, $names, true)) !== false) {
+                return $prefix . '.' . $key;
+            }
         }
 
-        if (self::migrationRecorded($migration)) {
-            return true;
+        foreach (['settings.repositories.database.table', 'activitylog.table_name', 'tags.taggable.table_name'] as $key) {
+            if (config($key) === $table) {
+                return $key;
+            }
         }
 
-        throw new RuntimeException(sprintf('Table %s already exists without its package creation migration. Choose a table alias or prefix before installing.', $table));
+        return 'capell.database.external_tables.' . $table;
     }
 
     public static function base(string $table): string
@@ -86,19 +128,25 @@ final class TableName
 
     public static function resolve(string $name): string
     {
-        $aliases = config('capell.database.table_aliases', []);
-        $resolved = is_array($aliases) && isset($aliases[$name]) && is_string($aliases[$name])
-            ? $aliases[$name]
-            : config('capell.database.table_prefix', '') . $name;
+        throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $name) !== 1, InvalidArgumentException::class, 'Invalid base table name: ' . $name);
 
-        throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,62}$/D', $resolved) !== 1, RuntimeException::class, 'Invalid database table name: ' . $resolved);
+        $aliases = config('capell.database.table_aliases', []);
+        $alias = is_array($aliases) ? ($aliases[$name] ?? null) : null;
+        throw_if($alias !== null && ! is_string($alias), RuntimeException::class, 'Invalid database table alias for ' . $name);
+
+        $prefix = config('capell.database.table_prefix', '');
+        throw_unless(is_string($prefix), RuntimeException::class, 'Invalid database table prefix: capell.database.table_prefix must be a string.');
+
+        $resolved = $alias ?? $prefix . $name;
+
+        throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,' . (self::MAX_IDENTIFIER_LENGTH - 1) . '}$/D', $resolved) !== 1, RuntimeException::class, 'Invalid database table name: ' . $resolved);
 
         return $resolved;
     }
 
     public static function migrationRecorded(string $migration): bool
     {
-        $repository = resolve('migrator')->getRepository();
+        $repository = app()->bound(self::LEDGER_BINDING) ? resolve(self::LEDGER_BINDING) : resolve('migrator')->getRepository();
 
         if (! $repository->repositoryExists()) {
             return false;

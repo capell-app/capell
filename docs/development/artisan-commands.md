@@ -414,6 +414,14 @@ php artisan capell:delete-migrations vendor/example
 Use package install commands for normal installs. Reach for direct migration publishing when building packages or debugging install flow.
 `capell:delete-migrations` removes published schema migration files whose basenames match registered package `database/migrations` directories. Extension uninstall runs the same cleanup for the selected extension automatically.
 
+### capell:tables:adopt
+
+```bash
+php artisan capell:tables:adopt languages --confirm
+```
+
+Records the creating migration of a Capell table whose `migrations` row was lost, but only when every column of the table exists with the same type, nullability and primary-key membership. The expected shape is built on a scratch SQLite database from the create migration plus every recorded migration that changes the table; a migration that cannot run on SQLite makes the command refuse and name it. Without `--confirm` it reports what it would record. A table that does not match is refused: that is another application's table, so use `capell.database.table_prefix` or `capell.database.table_aliases.<table>` instead. Upgrades never adopt a table on their own: they stop and name this command whenever a table exists without its creating migration recorded.
+
 ## Admin Commands
 
 ### `capell:admin-install`

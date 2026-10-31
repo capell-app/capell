@@ -8,6 +8,7 @@ use Capell\Core\Actions\Packages\FindUnmetPackageRequirementsAction;
 use Capell\Core\Contracts\UpgradeReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Data\VersionAudit;
+use Capell\Core\Exceptions\ForeignTableException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Migration\MigrationFileScanner;
@@ -155,6 +156,11 @@ final class ReportCapellUpgradeDryRunAction
             }
 
             $pending = ResolvePendingUpgradeMigrationsAction::run();
+        } catch (ForeignTableException $exception) {
+            $reporter->warn('  Pending migrations cannot be resolved: ' . $exception->getMessage());
+            $reporter->newLine();
+
+            return;
         } catch (Throwable) {
             $reporter->warn('  Pending migrations are unknown because the migration repository could not be read.');
             $reporter->newLine();
