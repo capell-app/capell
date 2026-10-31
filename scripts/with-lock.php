@@ -49,7 +49,7 @@ if ($command === []) {
 require_once __DIR__ . '/heavy-admission.php';
 
 // Stage commands queue in the host-wide heavy pool: weight 2 for static
-// analysis, 3 (the whole host) for everything else behind the release lease.
+// analysis, 3 (three of the five default slots) for everything else behind the release lease.
 // CAPELL_HEAVY_WEIGHT lowers it for a focused run. A run already admitted by
 // run-preflight.php inherits its slot and does not wait again.
 $heavyWeight = getenv('CAPELL_HEAVY_WEIGHT');
