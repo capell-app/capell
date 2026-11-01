@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\ThemeStudio\Data;
 
 use BackedEnum;
+use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
 use Spatie\LaravelData\Data;
 
 class BrandProfileData extends Data
@@ -163,12 +164,7 @@ class BrandProfileData extends Data
 
     private function fontStack(string $font): string
     {
-        return match ($font) {
-            'playfair' => "'Playfair Display', Georgia, serif",
-            'sora' => "'Sora', 'Inter', system-ui, sans-serif",
-            'manrope' => "'Manrope', 'Inter', system-ui, sans-serif",
-            default => "'Inter', system-ui, sans-serif",
-        };
+        return ThemeFontCatalogue::stack($font);
     }
 
     private function radiusValue(string $radius): string
