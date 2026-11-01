@@ -208,8 +208,13 @@ final class ExtensionLifecycleRepository
         $this->runtimeGateCache = [];
         $this->recordCache = [];
         $this->recordsPreloaded = false;
-        $this->schemaState->forgetTable($this->tableName());
-        $this->tableName = null;
+
+        // Forget only a name this repository resolved: resolving here would
+        // make a clear throw on invalid table configuration.
+        if ($this->tableName !== null) {
+            $this->schemaState->forgetTable($this->tableName);
+            $this->tableName = null;
+        }
     }
 
     /** @param Collection<string, PackageData> $packages */

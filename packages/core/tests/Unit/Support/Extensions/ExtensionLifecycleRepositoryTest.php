@@ -9,6 +9,7 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 it('surfaces schema probe failures instead of silently dropping lifecycle writes', function (Closure $operation): void {
@@ -58,26 +59,21 @@ it('keeps extension reads fail closed when schema probing fails', function (Clos
     ),
 ]);
 
-it('resolves the lifecycle table name once per repository and again after it is cleared', function (): void {
-    Config::set('capell.database.table_prefix', 'first_');
-    Schema::shouldReceive('hasTable')->with('first_capell_extensions')->once()->andReturn(false);
-    Schema::shouldReceive('hasTable')->with('second_capell_extensions')->once()->andReturn(false);
+it('records an install in the table that the configured prefix resolves to', function (): void {
+    Schema::rename('capell_extensions', 'pfx_capell_extensions');
+    Config::set('capell.database.table_prefix', 'pfx_');
 
+    new ExtensionLifecycleRepository(new RuntimeSchemaState)->recordInstalled('vendor/example', null);
+
+    expect(DB::table('pfx_capell_extensions')->where('composer_name', 'vendor/example')->exists())->toBeTrue();
+});
+
+it('clears without resolving the table name, so invalid table configuration cannot break a clear', function (): void {
     $repository = new ExtensionLifecycleRepository(new RuntimeSchemaState);
-
-    /** @var Collection<string, PackageData> $packages */
-    $packages = new Collection;
-
-    // A bootstrap asks for package status thousands of times; the table name
-    // must not be rebuilt from configuration on each probe.
-    expect($repository->status('vendor/example', $packages))->toBeNull();
-
-    Config::set('capell.database.table_prefix', 'second_');
-
-    expect($repository->status('vendor/example', $packages))->toBeNull()
-        ->and($repository->status('vendor/other', $packages))->toBeNull();
+    Config::set('capell.database.table_prefix', ['not', 'a', 'string']);
 
     $repository->clear();
 
-    expect($repository->status('vendor/example', $packages))->toBeNull();
+    expect(fn (): ?ExtensionStatusEnum => $repository->status('vendor/example', new Collection))
+        ->toThrow(RuntimeException::class);
 });
