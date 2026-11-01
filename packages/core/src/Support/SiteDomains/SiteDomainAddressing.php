@@ -124,6 +124,27 @@ final class SiteDomainAddressing
         return $normalized === '/' ? '/' : rtrim($normalized, '/');
     }
 
+    /**
+     * The path a language route takes inside the path its site is already mounted on.
+     *
+     * A mount that itself ends in its own language code (/showcase/en) is not part of the site's mount.
+     */
+    public static function languagePath(mixed $mountPath, ?string $mountLanguageCode, string $languageCode): string
+    {
+        $segments = array_values(array_filter(
+            explode('/', self::normalizePath($mountPath)),
+            static fn (string $segment): bool => $segment !== '',
+        ));
+
+        if ($segments !== [] && $mountLanguageCode !== null && $mountLanguageCode === end($segments)) {
+            array_pop($segments);
+        }
+
+        $segments[] = $languageCode;
+
+        return '/' . implode('/', $segments);
+    }
+
     public static function routingIdentity(
         ?string $scheme,
         ?string $host,

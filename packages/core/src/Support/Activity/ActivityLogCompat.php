@@ -21,9 +21,26 @@ final class ActivityLogCompat
     {
         $class = class_exists(self::ModernLogOptions) ? self::ModernLogOptions : 'Spatie\\Activitylog\\LogOptions';
 
-        throw_unless(class_exists($class), LogicException::class, 'Activity log options are unavailable.');
+        // Composer loads this from an autoload "files" entry, which can run before Laravel's helpers exist.
+        if (! class_exists($class)) {
+            throw new LogicException('Activity log options are unavailable.');
+        }
 
         return $class;
+    }
+
+    /**
+     * The activity log columns the installed major writes on every entry.
+     *
+     * Version 5 records changes in attribute_changes and has no batches; version 4 writes batch_uuid.
+     *
+     * @return list<string>
+     */
+    public static function writtenColumns(): array
+    {
+        return class_exists(self::ModernLogOptions)
+            ? ['event', 'attribute_changes']
+            : ['event', 'batch_uuid'];
     }
 
     public static function logsActivityTrait(): string

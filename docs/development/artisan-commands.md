@@ -515,7 +515,7 @@ php artisan capell:doctor --json
 | `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                    |
 | `--connection=`             | Verify against an existing database connection instead of the default                   |
 | `--database=`               | Override that connection's database name or path for isolated verification              |
-| `--repair-page-url-domains` | **Writes data.** Creates or restores missing site domains for page URLs before checking |
+| `--repair-page-url-domains` | **Writes data.** Creates or restores a site domain at a free address for each site and language whose page URLs have none, before checking |
 
 Every option except `--repair-page-url-domains` is read-only. That one repairs records before reporting, so run the command without it first and read the result before letting it change anything.
 
