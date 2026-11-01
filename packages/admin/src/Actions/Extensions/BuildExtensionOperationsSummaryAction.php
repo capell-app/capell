@@ -53,6 +53,7 @@ final class BuildExtensionOperationsSummaryAction
     public static function forgetRequestCache(): void
     {
         resolve(ExtensionOperationsRequestCache::class)->forget(self::REQUEST_CACHE_KEY);
+        ResolveExtensionNavigationBadgeCountsAction::forgetRequestCache();
     }
 
     public function handle(): ExtensionOperationsSummaryData

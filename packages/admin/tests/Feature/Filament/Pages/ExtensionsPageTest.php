@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Actions\Extensions\PrepareInstalledExtensionReloadAction;
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
@@ -41,6 +42,7 @@ use Capell\Core\Enums\PackageScaffoldProfile;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\ExtensionHealthAlert;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
@@ -58,8 +60,12 @@ use Filament\Actions\Action;
 use Filament\Navigation\NavigationItem;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\Column;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
@@ -273,6 +279,135 @@ it('shows a navigation badge for unhealthy extensions only', function (): void {
 
     expect(ExtensionsPage::getNavigationBadge())->toBe('1')
         ->and(ExtensionsPage::getNavigationBadgeColor())->toBe('warning');
+});
+
+function seedExtensionsBadgeFixture(): ExtensionHealthAlert
+{
+    grantExtensionsPageAccess();
+    fakeExtensionsPageComposerAvailability();
+
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/badge-extension',
+        overrides: ['displayName' => 'Badge Extension', 'version' => '1.0.0'],
+    ));
+
+    resolve(CapellPackageRegistry::class)->fill([$manifest->name => $manifest]);
+    CapellCore::registerManifestPackage($manifest);
+
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/badge-extension',
+        'name' => 'Badge Extension',
+        'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled,
+        'installed_at' => now(),
+    ]);
+
+    return ExtensionHealthAlert::query()->create([
+        'alert_id' => 'badge-extension-warning',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/badge-extension',
+        'severity' => ExtensionHealthAlertSeverity::Warning,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Security warning',
+        'message' => 'Review the badge extension.',
+        'required_action' => 'review',
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'expires_at' => now()->addHour(),
+        'signature' => 'test-signature',
+    ]);
+}
+
+/** @return array{badge: string|null, color: string|array<string, string>|null, queries: int} */
+function renderExtensionsBadgeInFreshRequest(): array
+{
+    app()->instance('request', Request::create('/admin'));
+    BuildExtensionOperationsSummaryAction::forgetRequestCache();
+    resolve(RuntimeSchemaState::class)->flush();
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $badge = ExtensionsPage::getNavigationBadge();
+    $color = ExtensionsPage::getNavigationBadgeColor();
+    // Site-access role checks belong to every admin request, not to the badge.
+    $queries = collect(DB::getQueryLog())
+        ->reject(fn (array $query): bool => str_contains($query['query'], 'roles') || str_contains($query['query'], 'permissions'))
+        ->count();
+    DB::disableQueryLog();
+
+    return ['badge' => $badge, 'color' => $color, 'queries' => $queries];
+}
+
+it('serves the navigation badge on later admin requests without rebuilding the extension summary', function (): void {
+    seedExtensionsBadgeFixture();
+
+    $cold = renderExtensionsBadgeInFreshRequest();
+    $warm = renderExtensionsBadgeInFreshRequest();
+
+    expect($cold['badge'])->toBe('1')
+        ->and($warm['badge'])->toBe('1')
+        ->and($warm['color'])->toBe('warning')
+        ->and($warm['queries'])->toBeLessThanOrEqual(3)
+        ->and($warm['queries'])->toBeLessThan($cold['queries']);
+});
+
+it('recomputes the cached navigation badge as soon as any input changes', function (): void {
+    $alert = seedExtensionsBadgeFixture();
+
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBe('1');
+
+    // A raw write leaves updated_at untouched; the fingerprint still sees it.
+    DB::table($alert->getTable())->where('id', $alert->getKey())->update(['composer_name' => 'vendor/unregistered']);
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBeNull();
+
+    DB::table($alert->getTable())->where('id', $alert->getKey())->update(['composer_name' => 'vendor/badge-extension']);
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBe('1');
+
+    CapellExtension::query()->where('composer_name', 'vendor/badge-extension')->update(['marketplace_runtime_status' => 'revoked']);
+    expect(renderExtensionsBadgeInFreshRequest()['color'])->toBe('danger');
+
+    CapellExtension::query()->where('composer_name', 'vendor/badge-extension')->update(['marketplace_runtime_status' => null]);
+    $alert->delete();
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBeNull();
+});
+
+it('recomputes the cached navigation badge after a migration creates a required table', function (): void {
+    grantExtensionsPageAccess();
+    fakeExtensionsPageComposerAvailability();
+
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/table-extension',
+        overrides: ['displayName' => 'Table Extension', 'version' => '1.0.0', 'database' => ['requiredTables' => ['badge_required_records']]],
+    ));
+    resolve(CapellPackageRegistry::class)->fill([$manifest->name => $manifest]);
+    CapellCore::registerManifestPackage($manifest);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/table-extension',
+        'name' => 'Table Extension',
+        'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled,
+        'installed_at' => now(),
+    ]);
+
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBe('1');
+
+    Schema::create('badge_required_records', function (Blueprint $table): void {
+        $table->id();
+    });
+    DB::table('migrations')->insert(['migration' => '2026_11_01_000000_create_badge_required_records', 'batch' => 99]);
+
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBeNull();
+});
+
+it('drops an expired alert from the cached navigation badge without any write', function (): void {
+    seedExtensionsBadgeFixture();
+
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBe('1');
+
+    $this->travel(2)->hours();
+
+    expect(renderExtensionsBadgeInFreshRequest()['badge'])->toBeNull();
 });
 
 it('hides the extension health widget when there are no critical or warning alerts', function (): void {
