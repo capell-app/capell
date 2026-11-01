@@ -19,7 +19,12 @@ final class ResolveExtensionAssetPathAction
 
     private const int MAX_DECODED_PIXELS = 8_000_000;
 
-    public function handle(CapellManifestData $manifest, string $path): ?string
+    /**
+     * @param  bool  $verifyDecode  Fully decode raster images to prove they are intact. Serving an asset needs
+     *                              that; building a link to it does not, and decoding every declared screenshot
+     *                              of every package on each Extensions page render takes minutes.
+     */
+    public function handle(CapellManifestData $manifest, string $path, bool $verifyDecode = true): ?string
     {
         if ($manifest->installPath === null || ! $this->isImagePath($path)) {
             return null;
@@ -71,6 +76,12 @@ final class ResolveExtensionAssetPathAction
 
         if (! in_array($mimeType, ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'], true)) {
             return null;
+        }
+
+        if (! $verifyDecode) {
+            $dimensions = @getimagesize($assetPath);
+
+            return $dimensions !== false && $dimensions[0] >= 1 && $dimensions[1] >= 1 ? $assetPath : null;
         }
 
         return $this->decodesAsRaster($assetPath, $mimeType) ? $assetPath : null;

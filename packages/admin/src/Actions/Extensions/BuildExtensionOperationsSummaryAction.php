@@ -468,7 +468,7 @@ final class BuildExtensionOperationsSummaryAction
             return $path;
         }
 
-        if (Route::has('capell-admin.extension-asset') && ResolveExtensionAssetPathAction::run($manifest, $path) !== null) {
+        if (Route::has('capell-admin.extension-asset') && ResolveExtensionAssetPathAction::run($manifest, $path, verifyDecode: false) !== null) {
             return route('capell-admin.extension-asset', [
                 'package' => $manifest->name,
                 'path' => $path,
