@@ -11,6 +11,7 @@ use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
 use Capell\Core\Tests\Support\PageNoteStateContributor;
 use Illuminate\Database\Schema\Blueprint;
@@ -125,3 +126,47 @@ it('refuses a contributor whose key collides with a core snapshot section', func
 
     resolve(PageStateSerializer::class)->capture(contributorTestPage());
 })->throws(LogicException::class);
+
+it('rolls back the taxonomy terms assigned to a page', function (): void {
+    $page = contributorTestPage();
+    [$news, $guides, $events] = Term::factory()->count(3)->create()->all();
+
+    $page->terms()->sync([$news->id => ['position' => 0], $guides->id => ['position' => 1]]);
+    replacePageNotes($page, []);
+    $targetVersion = resolve(RollbackService::class)->currentVersion((string) $page->uuid);
+
+    $page->terms()->sync([$events->id => ['position' => 0]]);
+    replacePageNotes($page->refresh(), []);
+
+    ApplyRollbackAction::run($page->refresh(), $targetVersion);
+
+    expect($page->terms()->pluck('terms.id')->all())->toBe([$news->id, $guides->id]);
+});
+
+it('keeps current property values and terms when a revision predates their capture', function (): void {
+    $page = contributorTestPage();
+    $term = Term::factory()->create();
+    $page->terms()->sync([$term->id => ['position' => 0]]);
+
+    $legacyState = resolve(PageStateSerializer::class)->capture($page->refresh());
+    unset($legacyState['terms'], $legacyState['propertyValues']);
+
+    resolve(PageStateSerializer::class)->restore($page->refresh(), $legacyState);
+
+    expect($page->terms()->pluck('terms.id')->all())->toBe([$term->id]);
+});
+
+it('warns when a revision assigns terms that no longer exist', function (): void {
+    $page = contributorTestPage();
+    $term = Term::factory()->create();
+    $page->terms()->sync([$term->id => ['position' => 0]]);
+    replacePageNotes($page, []);
+    $targetVersion = resolve(RollbackService::class)->currentVersion((string) $page->uuid);
+
+    $term->delete();
+
+    $preview = BuildRollbackPreviewAction::run($page->refresh(), $targetVersion);
+
+    expect(collect($preview->issues)->pluck('code')->all())->toContain('missing_terms')
+        ->and($preview->isBlocked())->toBeFalse();
+});

@@ -113,7 +113,7 @@ Rollback restores content state, not unrelated operational data. For example, pa
 
 ## Contributing Package-Owned Page State
 
-A page revision captures the page's attributes, translations, URLs and property values. State an optional package owns for a page, such as a page layout, joins the revision through a tagged `PageStateContributor`:
+A page revision captures the page's attributes, translations, URLs, property values and taxonomy terms. State an optional package owns for a page, such as a page layout, joins the revision through a tagged `PageStateContributor`:
 
 ```php
 use Capell\Core\EventSourcing\Contracts\PageStateContributor;

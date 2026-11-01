@@ -10,6 +10,7 @@ use Capell\Core\EventSourcing\Contracts\PageStateContributor;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -40,7 +41,7 @@ final class PageStateSerializer implements EventSourcedStateSerializer
      *
      * @var list<string>
      */
-    public const array CORE_SECTIONS = ['attributes', 'translations', 'pageUrls', 'propertyValues'];
+    public const array CORE_SECTIONS = ['attributes', 'translations', 'pageUrls', 'propertyValues', 'terms'];
 
     /**
      * @return array<string, mixed>
@@ -120,6 +121,19 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 ])
                 ->values()
                 ->all(),
+            // Taxonomy assignments, in assignment order. Term records are
+            // shared across pages and are not owned by the page.
+            'terms' => DB::table($page->terms()->getTable())
+                ->where($page->terms()->getForeignPivotKeyName(), $page->getKey())
+                ->orderBy('position')
+                ->orderBy($page->terms()->getRelatedPivotKeyName())
+                ->get([$page->terms()->getRelatedPivotKeyName() . ' as term_id', 'position'])
+                ->map(static fn (object $assignment): array => [
+                    'term_id' => (int) $assignment->term_id,
+                    'position' => (int) $assignment->position,
+                ])
+                ->values()
+                ->all(),
         ];
 
         foreach ($this->contributors() as $key => $contributor) {
@@ -141,10 +155,18 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 $this->restoreAttributes($page, $state['attributes'] ?? []);
                 $this->restoreTranslations($page, $state['translations'] ?? []);
                 $this->restorePageUrls($page, $state['pageUrls'] ?? []);
-                $this->restorePropertyValues($page, $state['propertyValues'] ?? []);
 
-                // A snapshot recorded before a contributor existed carries no
-                // section for it: leave that state as it is rather than wipe it.
+                // Sections added to the snapshot after a revision was recorded
+                // are absent from it; leave that state as it is rather than
+                // wipe it.
+                if (array_key_exists('propertyValues', $state)) {
+                    $this->restorePropertyValues($page, $state['propertyValues'] ?? []);
+                }
+
+                if (array_key_exists('terms', $state)) {
+                    $this->restoreTerms($page, $state['terms'] ?? []);
+                }
+
                 foreach ($this->contributors() as $key => $contributor) {
                     if (array_key_exists($key, $state) && is_array($state[$key])) {
                         $contributor->restore($page, $state[$key]);
@@ -330,6 +352,38 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 'media_id' => $data['media_id'] ?? null,
             ]);
         }
+    }
+
+    /**
+     * Terms that no longer exist are skipped: the assignment cannot be
+     * restored, and the referential-integrity validator reports the loss.
+     *
+     * @param  list<array<string, mixed>>  $terms
+     */
+    private function restoreTerms(Page $page, array $terms): void
+    {
+        $termIds = array_values(array_filter(
+            array_map(static fn (array $term): mixed => $term['term_id'] ?? null, $terms),
+            static fn (mixed $termId): bool => $termId !== null,
+        ));
+        $existing = Term::query()->whereKey($termIds)->pluck('id')->all();
+        $assignments = [];
+
+        foreach ($terms as $term) {
+            $termId = $term['term_id'] ?? null;
+
+            if ($termId === null) {
+                continue;
+            }
+
+            if (! in_array($termId, $existing, false)) {
+                continue;
+            }
+
+            $assignments[$termId] = ['position' => $term['position'] ?? 0];
+        }
+
+        $page->terms()->sync($assignments);
     }
 
     /**
