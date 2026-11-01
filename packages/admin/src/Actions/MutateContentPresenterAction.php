@@ -51,13 +51,21 @@ class MutateContentPresenterAction
             ];
         }
 
-        if ($force && (! is_array($content) || ! array_key_exists('type', $content) || ! array_key_exists('data', $content))) {
+        if ($force && ! $this->isBlockCollection($content) && (! is_array($content) || ! array_key_exists('type', $content) || ! array_key_exists('data', $content))) {
             return [
                 ['type' => 'content', 'data' => ['content' => $content]],
             ];
         }
 
         return $content;
+    }
+
+    /** A non-empty list or uuid-keyed map in which every item is already a `type`/`data` block. */
+    private function isBlockCollection(mixed $content): bool
+    {
+        return is_array($content)
+            && $content !== []
+            && array_all($content, static fn (mixed $item): bool => is_array($item) && array_key_exists('type', $item) && array_key_exists('data', $item));
     }
 
     private function normalizeRichEditorDocument(mixed $content): mixed
