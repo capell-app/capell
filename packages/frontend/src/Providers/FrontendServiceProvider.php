@@ -81,6 +81,7 @@ use Capell\Frontend\Support\Agent\AgentSchemaRenderHook;
 use Capell\Frontend\Support\Assets\ActivityBeaconResourceContributor;
 use Capell\Frontend\Support\Assets\AgentBridgeResourceContributor;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
+use Capell\Frontend\Support\Assets\CompressedAssetSize;
 use Capell\Frontend\Support\Assets\CoreFrontendRuntimeContributor;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
 use Capell\Frontend\Support\Assets\FrontendAssetsService;
@@ -223,6 +224,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             fn (): FrontendUrlSignatureService => new FrontendUrlSignatureService((string) config('app.key')),
         );
         $this->app->singleton(AssetsRegistryInterface::class, FrontendAssetsService::class);
+        $this->app->scoped(CompressedAssetSize::class);
         $this->app->singleton('capell.tailwind.generator', fn (Application $application): TailwindAssetsGenerator => new TailwindAssetsGenerator(
             $application->make(Filesystem::class),
         ));
