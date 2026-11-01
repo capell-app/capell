@@ -28,6 +28,14 @@ final class ExtensionLifecycleRepository
 
     private bool $recordsPreloaded = false;
 
+    /**
+     * The resolved lifecycle table name. Every installed-package check probes
+     * this table, and a bootstrap performs thousands of those checks, so the
+     * alias and prefix configuration is read once per repository rather than
+     * on every probe.
+     */
+    private ?string $tableName = null;
+
     public function __construct(private readonly RuntimeSchemaState $schemaState) {}
 
     /** @param Collection<string, PackageData> $packages */
@@ -200,7 +208,13 @@ final class ExtensionLifecycleRepository
         $this->runtimeGateCache = [];
         $this->recordCache = [];
         $this->recordsPreloaded = false;
-        $this->schemaState->forgetTable('capell_extensions');
+
+        // Forget only a name this repository resolved: resolving here would
+        // make a clear throw on invalid table configuration.
+        if ($this->tableName !== null) {
+            $this->schemaState->forgetTable($this->tableName);
+            $this->tableName = null;
+        }
     }
 
     /** @param Collection<string, PackageData> $packages */
@@ -266,13 +280,18 @@ final class ExtensionLifecycleRepository
     private function tableExists(bool $refresh = false): bool
     {
         return app()->bound('db')
-            && $this->schemaState->hasTable(TableName::resolve('capell_extensions'), refresh: $refresh);
+            && $this->schemaState->hasTable($this->tableName(), refresh: $refresh);
+    }
+
+    private function tableName(): string
+    {
+        return $this->tableName ??= TableName::resolve('capell_extensions');
     }
 
     private function writableTableExists(): bool
     {
         return app()->bound('db')
-            && $this->schemaState->hasTableOrFail('capell_extensions', refresh: true);
+            && $this->schemaState->hasTableOrFail($this->tableName(), refresh: true);
     }
 
     /** @return array<string, string|null> */

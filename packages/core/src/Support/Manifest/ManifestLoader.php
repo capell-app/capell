@@ -322,7 +322,13 @@ final class ManifestLoader
             return;
         }
 
-        $loader = new ClassLoader($manifestDirectory);
+        // Each manifest gets its own loader so a class probed before its
+        // package was discovered is not remembered as missing. The loader
+        // carries no vendor directory: a loader registered with one is listed
+        // by Composer as a vendor directory, and InstalledVersions then stats
+        // "<directory>/composer/installed.php" for every such loader on every
+        // version lookup, which a bootstrap performs hundreds of times.
+        $loader = new ClassLoader;
 
         foreach ($prefixes as $prefix => $paths) {
             $loader->setPsr4($prefix, array_values($paths));

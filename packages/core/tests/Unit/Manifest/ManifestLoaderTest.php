@@ -6,6 +6,7 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
+use Composer\Autoload\ClassLoader;
 
 function makeManifestFile(array $data, ?array $composerJson = null): string
 {
@@ -234,6 +235,46 @@ it('loads package-local psr-4 classes before validating manifest classes', funct
 
     expect($manifest->name)->toBe('vendor/local-autoload-package')
         ->and(class_exists('Vendor\\LocalAutoload\\Providers\\PackageServiceProvider'))->toBeTrue();
+});
+
+it('registers manifest autoloaders without adding Composer vendor directories', function (): void {
+    $vendorDirectories = array_keys(ClassLoader::getRegisteredLoaders());
+    $loader = new ManifestLoader(new ManifestValidator);
+    $classes = [];
+
+    foreach (['first', 'second'] as $suffix) {
+        $directory = sys_get_temp_dir() . '/capell-manifest-shared-autoload-' . $suffix . '-' . bin2hex(random_bytes(6));
+        $namespace = 'Vendor\\SharedAutoload' . ucfirst($suffix);
+        $class = $namespace . '\\Providers\\PackageServiceProvider';
+        $classes[] = $class;
+
+        mkdir($directory . '/src/Providers', recursive: true);
+        file_put_contents(
+            $directory . '/src/Providers/PackageServiceProvider.php',
+            "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespace}\\Providers;\n\nfinal class PackageServiceProvider extends \\Illuminate\\Support\\ServiceProvider\n{\n}\n",
+        );
+        file_put_contents($directory . '/composer.json', json_encode([
+            'name' => 'vendor/shared-autoload-' . $suffix,
+            'autoload' => ['psr-4' => [$namespace . '\\' => 'src/']],
+        ], JSON_THROW_ON_ERROR));
+        file_put_contents($directory . '/capell.json', json_encode(capellManifestV3Array(
+            name: 'vendor/shared-autoload-' . $suffix,
+            providers: ['runtime' => [$class]],
+        ), JSON_THROW_ON_ERROR));
+
+        expect(class_exists($class))->toBeFalse();
+
+        $loader->load($directory . '/capell.json');
+    }
+
+    // Composer's InstalledVersions stats "<vendor dir>/composer/installed.php"
+    // for every registered loader on every version lookup, so manifest
+    // directories must never be registered as vendor directories.
+    expect(array_keys(ClassLoader::getRegisteredLoaders()))->toBe($vendorDirectories);
+
+    foreach ($classes as $class) {
+        expect(class_exists($class))->toBeTrue();
+    }
 });
 
 function manifestV3LoaderFixture(): array
