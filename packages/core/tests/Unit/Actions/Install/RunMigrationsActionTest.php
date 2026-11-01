@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Tests\Support\Fakes\FakeConsoleKernel;
 use Illuminate\Database\Schema\Blueprint;
@@ -26,10 +27,13 @@ it('leaves published migration duplicates for the migrate command to handle', fu
         $table->id();
     });
 
+    // A table shaped for the installed activity log major: event plus batch_uuid (4) or attribute_changes (5).
     Schema::create('activity_log', function (Blueprint $table): void {
         $table->id();
-        $table->string('event')->nullable();
-        $table->uuid('batch_uuid')->nullable();
+
+        foreach (ActivityLogCompat::writtenColumns() as $column) {
+            $table->text($column)->nullable();
+        }
     });
 
     Schema::create('media', function (Blueprint $table): void {
@@ -46,8 +50,7 @@ it('leaves published migration duplicates for the migrate command to handle', fu
 
     expect(Schema::hasTable('settings'))->toBeTrue()
         ->and(Schema::hasTable('permissions'))->toBeTrue()
-        ->and(Schema::hasColumn('activity_log', 'event'))->toBeTrue()
-        ->and(Schema::hasColumn('activity_log', 'batch_uuid'))->toBeTrue()
+        ->and(Schema::hasColumns('activity_log', ActivityLogCompat::writtenColumns()))->toBeTrue()
         ->and(Schema::hasTable('media'))->toBeTrue()
         ->and(Schema::hasTable('languages'))->toBeTrue();
 
