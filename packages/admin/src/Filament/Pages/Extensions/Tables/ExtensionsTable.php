@@ -176,10 +176,12 @@ class ExtensionsTable implements TableConfigurator
                 ->modalHeading(fn (?array $record): string => self::managementHeading($record ?? []))
                 ->schema(fn (?array $record, Schema $schema): array => self::managementSchema($record ?? [], $schema))
                 ->fillForm(fn (?array $record): array => self::managementFormData($record ?? []))
+                ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
                 ->action(function (array $record, array $data): void {
                     self::saveManagementSurface($record, $data);
                 })
-                ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) !== null),
+                ->visible(fn (array $record): bool => ExtensionsPage::canManageExtensions()
+                    && self::getPrimaryManagementSurface($record) !== null),
             Action::make('openExtension')
                 ->label(__('capell-admin::button.edit'))
                 ->icon(Heroicon::OutlinedPencilSquare)
@@ -430,6 +432,8 @@ class ExtensionsTable implements TableConfigurator
      */
     private static function saveManagementSurface(array $record, array $data): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $settingsClass = self::managementSettingsClass($record);
 
         if ($settingsClass === null) {

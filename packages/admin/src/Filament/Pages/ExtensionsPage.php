@@ -223,6 +223,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
             ->icon(Heroicon::OutlinedCog6Tooth)
             ->slideOver()
             ->modalWidth(Width::ScreenLarge)
+            ->authorize(fn (): bool => self::canManageExtensions())
             ->modalSubmitActionLabel(__('capell-admin::button.settings.save'))
             ->modalCancelActionLabel(__('capell-admin::button.cancel'))
             ->modalHeading(fn (Action $action): string => $this->managementHeading($action))
@@ -392,6 +393,8 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
      */
     private function saveManagementSurface(array $data, Action $action): void
     {
+        abort_unless(self::canManageExtensions(), 403);
+
         $settingsClass = $this->managementSettingsClass($action);
 
         if ($settingsClass === null) {
