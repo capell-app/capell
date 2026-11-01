@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Tests\Support\Fakes\FakeConsoleKernel;
 use Illuminate\Database\Schema\Blueprint;
@@ -26,10 +27,13 @@ it('leaves published migration duplicates for the migrate command to handle', fu
         $table->id();
     });
 
+    // A table shaped for the installed activity log major: event plus batch_uuid (4) or attribute_changes (5).
     Schema::create('activity_log', function (Blueprint $table): void {
         $table->id();
-        $table->string('event')->nullable();
-        $table->uuid('batch_uuid')->nullable();
+
+        foreach (ActivityLogCompat::writtenColumns() as $column) {
+            $table->text($column)->nullable();
+        }
     });
 
     Schema::create('media', function (Blueprint $table): void {
@@ -46,8 +50,7 @@ it('leaves published migration duplicates for the migrate command to handle', fu
 
     expect(Schema::hasTable('settings'))->toBeTrue()
         ->and(Schema::hasTable('permissions'))->toBeTrue()
-        ->and(Schema::hasColumn('activity_log', 'event'))->toBeTrue()
-        ->and(Schema::hasColumn('activity_log', 'batch_uuid'))->toBeTrue()
+        ->and(Schema::hasColumns('activity_log', ActivityLogCompat::writtenColumns()))->toBeTrue()
         ->and(Schema::hasTable('media'))->toBeTrue()
         ->and(Schema::hasTable('languages'))->toBeTrue();
 
@@ -143,11 +146,35 @@ it('names the activity log columns a registered migration path left out', functi
 
     try {
         expect(fn (): mixed => RunMigrationsAction::run(new NullProgressReporter))
-            ->toThrow(RuntimeException::class, 'missing the event and batch_uuid columns');
+            ->toThrow(RuntimeException::class, 'missing the event and ' . installedActivityLogChangeColumn() . ' columns');
     } finally {
         Schema::dropIfExists('activity_log');
     }
 });
+
+it('accepts an activity log table with the columns the installed activity log major writes', function (): void {
+    // Version 5's own create stub has attribute_changes and no batch_uuid, which a fresh application installs.
+    Schema::dropIfExists('activity_log');
+    Schema::create('activity_log', function (Blueprint $table): void {
+        $table->id();
+        $table->string('log_name')->nullable();
+        $table->string('event')->nullable();
+        $table->json(installedActivityLogChangeColumn())->nullable();
+    });
+
+    FakeConsoleKernel::bind()->returns('migrate', 0, 'Nothing to migrate');
+
+    try {
+        expect(fn (): mixed => RunMigrationsAction::run(new NullProgressReporter))->not->toThrow(RuntimeException::class);
+    } finally {
+        Schema::dropIfExists('activity_log');
+    }
+});
+
+function installedActivityLogChangeColumn(): string
+{
+    return class_exists('Spatie\\Activitylog\\Support\\LogOptions') ? 'attribute_changes' : 'batch_uuid';
+}
 
 it('leaves existing create migrations for the migrate command to handle', function (): void {
     if (! Schema::hasTable('marketplace_registration_sessions')) {

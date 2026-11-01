@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Events\DatabaseSchemaChanged;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Artisan;
@@ -80,7 +81,7 @@ final class RunMigrationsAction
         }
 
         $missing = array_values(array_filter(
-            ['event', 'batch_uuid'],
+            ActivityLogCompat::writtenColumns(),
             fn (string $column): bool => ! $schema->hasColumn($table, $column),
         ));
 
