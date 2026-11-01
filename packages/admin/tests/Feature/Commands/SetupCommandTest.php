@@ -8,18 +8,23 @@ use Capell\Admin\Console\Commands\SetupCommand;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Setup\TailwindSourceRegistrar;
 use Capell\Admin\Tests\Support\AdminPanelProviderFixtures;
+use Capell\Core\Actions\FindPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\StylesheetRuntime;
 use Illuminate\Console\OutputStyle;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -57,6 +62,38 @@ it('runs admin setup command successfully', function (): void {
         ->expectsOutput('Setting up site: Sub Site')
         ->expectsOutput('Admin setup: syncing dashboard Filament widget settings')
         ->expectsOutput('Admin setup complete.');
+});
+
+it('creates every site and language the installer passes as repeated options, each with a site domain', function (): void {
+    $user = User::factory()->createOne(['email' => 'repeated-options@example.com']);
+
+    // The installer runs setup in a fresh process and repeats list options once per value.
+    $exitCode = resolve(ConsoleKernel::class)->handle(new ArgvInput([
+        'artisan',
+        'capell:admin-setup',
+        '--url=https://example.test',
+        '--user=' . $user->email,
+        '--languages=en',
+        '--languages=fr',
+        '--languages=de',
+        '--sites=Main Site',
+        '--sites=Sub Site',
+        '--skip-shield',
+        '--skip-panel-integration',
+        '--no-interaction',
+    ]), new BufferedOutput);
+
+    expect($exitCode)->toBe(0)
+        ->and(Site::query()->orderBy('id')->pluck('name')->all())->toBe(['Main Site', 'Sub Site'])
+        ->and(Language::query()->default()->value('code'))->toBe('en');
+
+    Site::query()->each(function (Site $site): void {
+        expect($site->siteDomains()->where('status', true)->pluck('language_id')->sort()->values()->all())
+            ->toBe(Language::query()->orderBy('id')->pluck('id')->all());
+    });
+
+    expect(PageUrl::query()->exists())->toBeTrue()
+        ->and(FindPageUrlsMissingSiteDomainsAction::run())->toBeEmpty();
 });
 
 it('uses default frontend assets when no assets option is passed', function (): void {

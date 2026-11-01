@@ -54,8 +54,8 @@ class SetupCommand extends Command
     protected $signature = 'capell:admin-setup
         {--url=}
         {--user=}
-        {--languages=}
-        {--sites=}
+        {--languages=* : Language codes, repeated or comma-separated}
+        {--sites=* : Site names, repeated or comma-separated}
         {--theme= : Theme key to create and assign to the initial site}
         {--assets=*}
         {--skip-shield}
@@ -444,28 +444,24 @@ class SetupCommand extends Command
     {
         $option = $this->option($optionName);
 
-        if (is_string($option)) {
-            $values = array_values(array_filter(
-                array_map(trim(...), explode(',', $option)),
-                static fn (string $value): bool => $value !== '',
-            ));
-
-            return $values !== [] ? $values : null;
+        if (! is_string($option) && ! is_array($option)) {
+            return null;
         }
 
-        if (is_array($option)) {
-            $values = array_values(array_filter(
-                array_map(
-                    static fn (mixed $value): string => trim((string) $value),
-                    $option,
-                ),
-                static fn (string $value): bool => $value !== '',
-            ));
+        // The installer repeats the option once per value; people and older callers pass one comma-separated value.
+        $values = [];
 
-            return $values !== [] ? $values : null;
+        foreach ((array) $option as $item) {
+            foreach (explode(',', (string) $item) as $value) {
+                $value = trim($value);
+
+                if ($value !== '' && ! in_array($value, $values, true)) {
+                    $values[] = $value;
+                }
+            }
         }
 
-        return null;
+        return $values !== [] ? $values : null;
     }
 
     /**

@@ -50,7 +50,7 @@ class SetupSiteLanguageAction
         $siteDomain = $site->siteDomains()->first();
 
         if ($siteDomain !== null) {
-            $path = $this->languagePath($siteDomain, $language);
+            $path = SiteDomainAddressing::languagePath($siteDomain->path, $siteDomain->language?->code, $language->code);
 
             $replica = $siteDomain->replicate([
                 'routing_identity',
@@ -105,25 +105,5 @@ class SetupSiteLanguageAction
             ]);
 
         throw ValidationException::withMessages(['path' => $message]);
-    }
-
-    /**
-     * Keep the language route inside the path the site is already mounted on.
-     */
-    private function languagePath(SiteDomain $siteDomain, Language $language): string
-    {
-        $segments = array_values(array_filter(
-            explode('/', SiteDomainAddressing::normalizePath($siteDomain->path)),
-            static fn (string $segment): bool => $segment !== '',
-        ));
-
-        // A first domain that is itself a language route (/showcase/en) is not part of the mount.
-        if ($segments !== [] && $siteDomain->language?->code === end($segments)) {
-            array_pop($segments);
-        }
-
-        $segments[] = $language->code;
-
-        return '/' . implode('/', $segments);
     }
 }
