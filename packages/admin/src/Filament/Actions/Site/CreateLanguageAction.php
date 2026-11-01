@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Size;
 use Filament\Support\Facades\FilamentIcon;
+use Illuminate\Support\Facades\Gate;
 use Override;
 
 class CreateLanguageAction extends CreateAction
@@ -24,6 +25,7 @@ class CreateLanguageAction extends CreateAction
 
         $this->label(__('capell-admin::button.create_language'))
             ->schema(fn (Schema $schema): Schema => LanguageForm::configure($schema->model(Language::class)))
+            ->authorize(static fn (): bool => Gate::allows('create', Language::class))
             ->color('primary')
             ->icon(FilamentIcon::resolve('form-builder::components.select.actions.create-option') ?? 'heroicon-m-plus')
             ->link()
@@ -31,6 +33,8 @@ class CreateLanguageAction extends CreateAction
             ->modalHeading(__('filament-forms::components.select.actions.create_option.modal.heading'))
             ->modalSubmitActionLabel(__('filament-forms::components.select.actions.create_option.modal.actions.create.label'))
             ->action(static function (Action $action, Section $component, array $data, Schema $schema): void {
+                Gate::authorize('create', Language::class);
+
                 $languagesComponent = $component->getContainer()->getComponent('languages');
 
                 if (! $languagesComponent instanceof AdditionalSiteLanguages) {
