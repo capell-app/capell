@@ -6,6 +6,7 @@ namespace Capell\Core\EventSourcing\Serializers;
 
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
+use Capell\Core\EventSourcing\Contracts\PageStateContributor;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
@@ -14,10 +15,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use LogicException;
 
 /**
  * Captures and restores the full owned state of a Page aggregate: page
- * attributes + per-translation content/title/meta + pageUrls + tree position.
+ * attributes + per-translation content/title/meta + pageUrls + tree position,
+ * plus every section contributed by a tagged {@see PageStateContributor}
+ * (state owned by optional packages, such as page layouts).
  *
  * The translation content path deliberately mirrors the legacy snapshot system
  * (capture getRawOriginal('content'), restore via forceFill) so an event-sourced
@@ -32,6 +36,13 @@ use InvalidArgumentException;
 final class PageStateSerializer implements EventSourcedStateSerializer
 {
     /**
+     * Sections the serializer captures itself; contributors cannot claim them.
+     *
+     * @var list<string>
+     */
+    public const array CORE_SECTIONS = ['attributes', 'translations', 'pageUrls', 'propertyValues'];
+
+    /**
      * @return array<string, mixed>
      */
     public function capture(Model $model): array
@@ -42,7 +53,7 @@ final class PageStateSerializer implements EventSourcedStateSerializer
         // relation must never be snapshotted.
         $page->load(['translations', 'pageUrls']);
 
-        return [
+        $state = [
             'attributes' => [
                 'name' => $page->name,
                 'blueprint_id' => $page->blueprint_id,
@@ -110,6 +121,12 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 ->values()
                 ->all(),
         ];
+
+        foreach ($this->contributors() as $key => $contributor) {
+            $state[$key] = $contributor->capture($page);
+        }
+
+        return $state;
     }
 
     /**
@@ -125,6 +142,14 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 $this->restoreTranslations($page, $state['translations'] ?? []);
                 $this->restorePageUrls($page, $state['pageUrls'] ?? []);
                 $this->restorePropertyValues($page, $state['propertyValues'] ?? []);
+
+                // A snapshot recorded before a contributor existed carries no
+                // section for it: leave that state as it is rather than wipe it.
+                foreach ($this->contributors() as $key => $contributor) {
+                    if (array_key_exists($key, $state) && is_array($state[$key])) {
+                        $contributor->restore($page, $state[$key]);
+                    }
+                }
             });
 
             // The PageSaved bridge can record the initial authoring revision
@@ -321,6 +346,34 @@ final class PageStateSerializer implements EventSourcedStateSerializer
             $values,
             static fn (mixed $value): bool => $value !== null,
         ));
+    }
+
+    /**
+     * @return array<string, PageStateContributor>
+     */
+    private function contributors(): array
+    {
+        $contributors = [];
+
+        foreach (app()->tagged(PageStateContributor::TAG) as $contributor) {
+            if (! $contributor instanceof PageStateContributor) {
+                continue;
+            }
+
+            $key = $contributor->key();
+
+            if ($key === '' || in_array($key, self::CORE_SECTIONS, true) || array_key_exists($key, $contributors)) {
+                throw new LogicException(sprintf(
+                    'Page state contributor %s cannot use the snapshot section "%s": it is empty, a core section or already contributed.',
+                    $contributor::class,
+                    $key,
+                ));
+            }
+
+            $contributors[$key] = $contributor;
+        }
+
+        return $contributors;
     }
 
     private function asPage(Model $model): Page
