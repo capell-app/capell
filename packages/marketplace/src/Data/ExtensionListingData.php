@@ -309,7 +309,7 @@ final class ExtensionListingData extends Data
         $registry = resolve(CapellPackageRegistry::class);
         $manifest = $registry->all()[$composerName] ?? null;
 
-        if ($manifest === null || ResolveExtensionAssetPathAction::run($manifest, ResolveExtensionAssetPathAction::CARD_IMAGE_PATH) === null) {
+        if ($manifest === null || ResolveExtensionAssetPathAction::run($manifest, ResolveExtensionAssetPathAction::CARD_IMAGE_PATH, verifyDecode: false) === null) {
             return null;
         }
 

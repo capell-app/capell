@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
+use Capell\Admin\Actions\Extensions\ResolveExtensionAssetPathAction;
 use Capell\Core\Data\Manifest\ExtensionScreenshotData;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
@@ -270,3 +271,15 @@ it('links only serviceable local screenshots and preserves the marketplace fallb
     'disguised text' => ['docs/fake.png', false],
     'escaping symlink' => ['docs/escaped.png', false],
 ]);
+
+it('builds links to declared images from their headers without decoding them', function (): void {
+    $manifest = resolve(CapellPackageRegistry::class)->all()['capell-app/asset-test'];
+
+    // header-only.png has a valid header but no pixel data, so only a full decode can reject it.
+    expect(ResolveExtensionAssetPathAction::run($manifest, 'docs/header-only.png', verifyDecode: false))->toBeString()
+        ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/header-only.png'))->toBeNull()
+        ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/large-truncated.png', verifyDecode: false))->toBeString()
+        ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/large-truncated.png'))->toBeNull()
+        ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/undeclared.png', verifyDecode: false))->toBeNull()
+        ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/fake.png', verifyDecode: false))->toBeNull();
+});
