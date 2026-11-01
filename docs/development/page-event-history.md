@@ -111,6 +111,20 @@ Apply performs the validation again inside the recovery path, restores the page 
 
 Rollback restores content state, not unrelated operational data. For example, page URL visit counts remain live rather than returning to their historical value.
 
+## Contributing Package-Owned Page State
+
+A page revision captures the page's attributes, translations, URLs, property values and taxonomy terms. State an optional package owns for a page, such as a page layout, joins the revision through a tagged `PageStateContributor`:
+
+```php
+use Capell\Core\EventSourcing\Contracts\PageStateContributor;
+
+$this->app->tag([PackagePageStateContributor::class], PageStateContributor::TAG);
+```
+
+The contributor names its snapshot section with `key()`, captures its rows from the database in `capture()`, and replaces them in `restore()`. Restore runs inside the rollback transaction with model events silenced, so it must not rely on observers. Each section appears as its own entry in the rollback preview, and validators registered for `Page` receive it in the target state. A key that repeats a core section or another contributor is refused.
+
+Revisions recorded before a contributor was installed have no section for it. Rolling back to one leaves that contributor's current state as it is, and the preview does not list it as removed. A contributor that changes the shape of its section must keep restoring every shape it has written.
+
 ## Adding a Rollback Validator
 
 Packages should validate relationships they own without changing `RollbackService`:
