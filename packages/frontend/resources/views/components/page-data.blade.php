@@ -1,3 +1,1 @@
-<?php
-
-declare(strict_types=1);
+{{-- Legacy compatibility shim: renders nothing. --}}
