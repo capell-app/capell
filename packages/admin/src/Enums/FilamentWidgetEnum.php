@@ -10,6 +10,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\PageStatusFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\SecurityAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\UpdateAdvisoryFilamentWidget;
 use Filament\Support\Contracts\HasLabel;
@@ -23,6 +24,7 @@ enum FilamentWidgetEnum: string implements HasLabel
     case PageStatusFilamentWidget = PageStatusFilamentWidget::class;
     case RecentlyPublishedFilamentWidget = RecentlyPublishedFilamentWidget::class;
     case SiteStatsOverviewFilamentWidget = SiteStatsOverviewFilamentWidget::class;
+    case SecurityAttentionFilamentWidget = SecurityAttentionFilamentWidget::class;
     case UpdateAdvisoryFilamentWidget = UpdateAdvisoryFilamentWidget::class;
 
     public function getLabel(): string
@@ -35,6 +37,7 @@ enum FilamentWidgetEnum: string implements HasLabel
             self::PageStatusFilamentWidget => __('capell-admin::dashboard.widget_page_status'),
             self::RecentlyPublishedFilamentWidget => __('capell-admin::dashboard.widget_recently_published'),
             self::SiteStatsOverviewFilamentWidget => __('capell-admin::dashboard.widget_site_stats'),
+            self::SecurityAttentionFilamentWidget => __('capell-admin::security.widget'),
             self::UpdateAdvisoryFilamentWidget => __('capell-admin::dashboard.widget_update_advisories'),
         };
     }

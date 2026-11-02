@@ -6,6 +6,7 @@ Use this section if you edit content, administer a site, or extend Capell's Fila
 | ----------------------------------------- | ----------------------------------------------------------------------- |
 | Tour the admin screens                    | [Admin interface](interface.md)                                         |
 | Manage users, roles, and access           | [Users and roles](users-and-roles.md)                                   |
+| Review security findings and automatic fixes | [Security findings](security.md)                                        |
 | Keep admin accounts secure                | [Account security](account-security.md)                                 |
 | Install or repair the admin panel         | [Admin setup](setup.md)                                                 |
 | Understand the admin domain model         | [Admin domain](admin-domain.md)                                         |
