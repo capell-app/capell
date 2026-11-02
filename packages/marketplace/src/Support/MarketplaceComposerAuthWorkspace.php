@@ -47,6 +47,7 @@ final class MarketplaceComposerAuthWorkspace
     {
         $path = $this->root() . '/' . self::DIRECTORY_PREFIX . bin2hex(random_bytes(8));
 
+        throw_if(is_link($this->root()) || is_link($path), RuntimeException::class, 'Unable to create a private Composer home.');
         $this->ensureDirectory($this->root());
         if (! @mkdir($path, 0700) || ! @chmod($path, 0700)) {
             $this->removeDirectory($path);
@@ -141,6 +142,18 @@ final class MarketplaceComposerAuthWorkspace
 
     public function removeDirectory(string $path): void
     {
+        $root = realpath($this->root());
+        $parent = realpath(dirname($path));
+        if ($root === false || $parent === false || ($parent !== $root && ! str_starts_with($parent, $root . DIRECTORY_SEPARATOR))) {
+            return;
+        }
+
+        if (is_link($path)) {
+            @unlink($path);
+
+            return;
+        }
+
         if (! is_dir($path)) {
             return;
         }
@@ -161,6 +174,12 @@ final class MarketplaceComposerAuthWorkspace
             }
 
             $itemPath = $path . DIRECTORY_SEPARATOR . $item;
+
+            if (is_link($itemPath)) {
+                @unlink($itemPath);
+
+                continue;
+            }
 
             if (is_dir($itemPath)) {
                 $this->removeDirectory($itemPath);

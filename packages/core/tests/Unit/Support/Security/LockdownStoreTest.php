@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function (): void {
     config()->set('capell.lockdown.file', storage_path('framework/testing/lockdown-store.json'));
@@ -141,3 +142,45 @@ function lockdownStoreTestFile(): string
 
     return $lockdownFile;
 }
+
+it('honours an explicit inactive shared marker without consulting the local file', function (): void {
+    $cache = new Repository(new ArrayStore);
+    $cache->forever('capell.security.lockdown', ['active' => false, 'deactivated_at' => now()->toIso8601String()]);
+    config(['capell.multi_node' => true, 'cache.default' => 'shared-test', 'cache.stores.shared-test.driver' => 'redis']);
+    Cache::shouldReceive('store')->with('shared-test')->andReturn($cache);
+    File::ensureDirectoryExists(dirname(lockdownStoreTestFile()));
+    File::put(lockdownStoreTestFile(), '{"active":true}');
+    Log::shouldReceive('warning')->never();
+    expect(new LockdownStore(new Filesystem)->active())->toBeFalse();
+});
+
+it('falls back to the local file and warns when shared state is missing', function (bool $localActive): void {
+    $cache = new Repository(new ArrayStore);
+    config(['capell.multi_node' => true, 'cache.default' => 'shared-test', 'cache.stores.shared-test.driver' => 'redis']);
+    Cache::shouldReceive('store')->with('shared-test')->andReturn($cache);
+    if ($localActive) {
+        File::ensureDirectoryExists(dirname(lockdownStoreTestFile()));
+        File::put(lockdownStoreTestFile(), '{"active":true}');
+    }
+
+    Log::shouldReceive('warning')->once()->with('capell-core: lockdown state missing from shared cache');
+    $store = new LockdownStore(new Filesystem);
+    expect($store->active())->toBe($localActive)->and($store->active())->toBe($localActive);
+})->with([true, false]);
+
+it('fails closed for invalid shared state', function (): void {
+    $cache = new Repository(new ArrayStore);
+    $cache->forever('capell.security.lockdown', ['active' => 'false']);
+    config(['capell.multi_node' => true, 'cache.default' => 'shared-test', 'cache.stores.shared-test.driver' => 'redis']);
+    Cache::shouldReceive('store')->with('shared-test')->andReturn($cache);
+    $store = new LockdownStore(new Filesystem);
+    expect($store->active())->toBeTrue()->and($store->canAccessAdmin(lockdownStoreTestUser(1, 'owner@example.com')))->toBeFalse();
+});
+
+it('throws when the shared inactive marker cannot be written', function (): void {
+    $cache = Mockery::mock(Repository::class, [new ArrayStore])->makePartial();
+    $cache->shouldReceive('forever')->once()->andReturnFalse();
+    config(['capell.multi_node' => true, 'cache.default' => 'shared-test', 'cache.stores.shared-test.driver' => 'redis']);
+    Cache::shouldReceive('store')->with('shared-test')->andReturn($cache);
+    expect(fn () => new LockdownStore(new Filesystem)->deactivate())->toThrow(RuntimeException::class, 'Unable to persist lockdown state');
+});

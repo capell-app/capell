@@ -10,6 +10,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Security\LockdownStore;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Panel;
@@ -167,4 +168,28 @@ it('retains preview access to assigned sites outside the current authoring scope
     ]);
 
     test()->get($url)->assertOk()->assertSee('Assigned site French preview');
+});
+
+it('enforces lockdown on a valid signed page preview', function (): void {
+    $theme = Theme::factory()->defaultMeta()->createOne();
+    $site = Site::factory()->theme($theme)->withTranslations()->createOne();
+    $page = Page::factory()->site($site)->withTranslations(languages: $site->language)->createOne();
+    $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
+    $renderer->shouldReceive('render')->once()->andReturn(new Response('preview available'));
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+    config(['capell.lockdown.file' => storage_path('framework/testing/page-preview-lockdown.json')]);
+    test()->actingAsAdmin();
+    $owner = test()->authenticatedUser();
+    $blocked = test()->createUserWithRole('super_admin');
+    $store = resolve(LockdownStore::class);
+    try {
+        $store->activateFor($owner);
+        $url = IssuePagePreviewTokenAction::run($page);
+        test()->actingAs($blocked)->get($url)->assertStatus(423);
+        auth()->logout();
+        test()->get($url)->assertRedirect('/admin/login');
+        test()->actingAs($owner)->get($url)->assertOk()->assertSee('preview available');
+    } finally {
+        $store->deactivate();
+    }
 });

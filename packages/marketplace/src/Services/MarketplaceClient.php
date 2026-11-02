@@ -9,6 +9,7 @@ use Capell\Core\Support\Http\OutboundHttpRetry;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Marketplace\Actions\BuildMarketplaceConnectionContextAction;
+use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
 use Capell\Marketplace\Data\ExtensionFeedbackData;
 use Capell\Marketplace\Data\ExtensionListingData;
@@ -506,8 +507,8 @@ final class MarketplaceClient
             }
         } catch (ConnectionException|RuntimeException $throwable) {
             Log::warning('capell-marketplace: install intent telemetry failed', [
-                'error' => $throwable->getMessage(),
-                'composer_name' => $payload['composer_name'] ?? null,
+                'exception' => $throwable::class,
+                'error' => RedactMarketplaceDiagnosticContextAction::run(['error' => __('capell-marketplace::marketplace.errors.remote_failure')])['error'],
             ]);
         }
     }
@@ -971,7 +972,7 @@ final class MarketplaceClient
 
         throw new PurchaseRequiredException(
             purchaseUrl: $purchaseUrl,
-            message: (string) __('capell-marketplace::marketplace.errors.remote_failure'),
+            message: (string) __('capell-marketplace::marketplace.errors.purchase_required'),
         );
     }
 

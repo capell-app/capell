@@ -418,7 +418,7 @@ it('rejects heartbeat responses for a different connected instance', function ()
     $result = RunMarketplaceHeartbeatAction::run();
 
     expect($result->successful)->toBeFalse()
-        ->and($result->failureMessage)->toContain('did not confirm the connected instance ID');
+        ->and($result->failureMessage)->toContain('did not confirm the connected instance.');
 });
 
 it('keeps failure details isolated to the operation that produced them', function (): void {

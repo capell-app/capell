@@ -9,6 +9,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewSigner;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Capell\Frontend\Providers\FrontendServiceProvider;
@@ -217,4 +218,23 @@ it('rejects signed preview requests from site-scoped admins for unassigned sites
 
     test()->get(CreateThemePreviewUrlAction::run($theme, $site, $page))
         ->assertForbidden();
+});
+
+it('enforces lockdown on a valid signed theme preview', function (): void {
+    [$theme, $site, $page] = createThemePreviewTestRecords();
+    config(['capell.lockdown.file' => storage_path('framework/testing/theme-preview-lockdown.json')]);
+    test()->actingAsAdmin();
+    $owner = test()->authenticatedUser();
+    $blocked = test()->createUserWithRole('super_admin');
+    $store = resolve(LockdownStore::class);
+    try {
+        $store->activateFor($owner);
+        $url = CreateThemePreviewUrlAction::run($theme, $site, $page);
+        test()->actingAs($blocked)->get($url)->assertStatus(423);
+        auth()->logout();
+        test()->get($url)->assertRedirect('/admin/login');
+        test()->actingAs($owner)->get($url)->assertOk();
+    } finally {
+        $store->deactivate();
+    }
 });

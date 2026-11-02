@@ -24,11 +24,11 @@ if (($adminDomain = AdminPanelEntrypoint::domain()) !== null) {
 
 $adminRoutes->group(function (): void {
     Route::get('theme-preview/{theme}/{site}/{page}', ThemePreviewController::class)
-        ->middleware(['web', 'signed'])
+        ->middleware(['web', 'signed', EnforceLockdownAdminAccess::class])
         ->name('capell.admin.theme-preview');
 
     Route::get('preview/page/{page}', PagePreviewController::class)
-        ->middleware(['web', 'signed'])
+        ->middleware(['web', 'signed', EnforceLockdownAdminAccess::class])
         ->name('capell.admin.preview-page');
 
     // Internal admin API routes - CSRF-protected, with site-scoped policy authorization.
@@ -62,6 +62,6 @@ $adminRoutes->group(function (): void {
         ->name('capell-admin.avatar');
 
     Route::get('extension-asset', ExtensionAssetController::class)
-        ->middleware(['web'])
+        ->middleware(['web', EnforceLockdownAdminAccess::class])
         ->name('capell-admin.extension-asset');
 });

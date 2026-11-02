@@ -407,3 +407,40 @@ it('writes authentication only inside a private workspace', function (): void {
 
     expect(is_dir($home))->toBeFalse();
 });
+
+it('unlinks workspace directory symlinks without traversing their targets', function (): void {
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    $home = $workspace->create();
+    $target = sys_get_temp_dir() . '/capell-auth-target-' . bin2hex(random_bytes(8));
+    mkdir($target);
+    file_put_contents($target . '/keep.txt', 'keep');
+    symlink($target, $home . '/linked');
+    try {
+        $workspace->removeDirectory($home);
+        expect(is_link($home . '/linked'))->toBeFalse()->and(is_dir($home))->toBeFalse()
+            ->and(file_get_contents($target . '/keep.txt'))->toBe('keep');
+    } finally {
+        $workspace->removeDirectory($home);
+        unlink($target . '/keep.txt');
+        rmdir($target);
+    }
+});
+
+it('refuses a symlinked composer workspace root', function (): void {
+    $originalStorage = app()->storagePath();
+    $temporaryStorage = sys_get_temp_dir() . '/capell-auth-storage-' . bin2hex(random_bytes(8));
+    mkdir($temporaryStorage . '/framework', 0755, true);
+    mkdir($temporaryStorage . '/target');
+    symlink($temporaryStorage . '/target', $temporaryStorage . '/framework/composer');
+    app()->useStoragePath($temporaryStorage);
+    try {
+        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())->toThrow(RuntimeException::class, 'Unable to create a private Composer home.');
+        expect(scandir($temporaryStorage . '/target'))->toBe(['.', '..']);
+    } finally {
+        app()->useStoragePath($originalStorage);
+        unlink($temporaryStorage . '/framework/composer');
+        rmdir($temporaryStorage . '/framework');
+        rmdir($temporaryStorage . '/target');
+        rmdir($temporaryStorage);
+    }
+});

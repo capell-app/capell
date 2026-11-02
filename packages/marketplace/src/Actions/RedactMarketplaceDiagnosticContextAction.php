@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/** Regex redaction is defence in depth, not a complete secret boundary. */
 final class RedactMarketplaceDiagnosticContextAction
 {
     use AsFake;
@@ -60,20 +61,33 @@ final class RedactMarketplaceDiagnosticContextAction
             return $value;
         }
 
-        return preg_replace([
+        $value = preg_replace_callback(
+            '/"(?:github-oauth|http-basic|bearer|gitlab-token|bitbucket-oauth)"\s*:\s*\{(?:[^{}]|\{[^{}]*\})*\}/i',
+            static fn (array $matches): string => preg_replace(
+                '/("(?:[^"\\\\]|\\\\.)*"\s*:\s*")((?:[^"\\\\]|\\\\.)*)(")/',
+                '$1' . self::REDACTED . '$3',
+                $matches[0],
+            ) ?? self::REDACTED,
+            $value,
+        ) ?? self::REDACTED;
+
+        $value = preg_replace([
             '~([a-z][a-z0-9+.-]*://)[^\s/@]+@~i',
-            '/(bearer\s+)[^\s,"\']+/i',
-            // Keep the scheme word ("Bearer") so the earlier pattern's redaction reads as such.
-            '/([a-z_]*(?:auth|oauth|secret|token|key|password|licen[cs]e)[a-z_]*\s*[=:]\s*)(?!bearer\s)([^\s,"\'&]+)/i',
-            '/("[^"]*(?:auth|oauth|secret|token|key|password|licen[cs]e)[^"]*"\s*:\s*")([^"]+)(")/i',
-            '/("[^"]*(?:github-oauth|http-basic)[^"]*"\s*:\s*\{[^}]*:\s*")([^"]+)(")/i',
+            '/((?:bearer|basic|digest|token)\s+)[^\s,"\']+/i',
+            '/("[^"\\\\]*(?:auth|oauth|secret|token|key|password|licen[cs]e)[^"\\\\]*"\s*:\s*")((?:[^"\\\\]|\\\\.)*)(")/i',
         ], [
             '$1' . self::REDACTED . '@',
             '$1' . self::REDACTED,
-            '$1' . self::REDACTED,
-            '$1' . self::REDACTED . '$3',
             '$1' . self::REDACTED . '$3',
         ], $value) ?? self::REDACTED;
+
+        return preg_replace_callback(
+            '/([a-z0-9_%.-]+)(\s*[=:]\s*)(?!bearer\s|basic\s|digest\s|token\s)([^\s,"\'&]+)/i',
+            fn (array $matches): string => $this->shouldRedactKey(rawurldecode($matches[1]))
+                ? $matches[1] . $matches[2] . self::REDACTED
+                : $matches[0],
+            $value,
+        ) ?? self::REDACTED;
     }
 
     private function shouldRedactKey(string $key): bool

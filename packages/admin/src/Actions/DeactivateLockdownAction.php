@@ -21,9 +21,10 @@ final class DeactivateLockdownAction
 
     public function handle(): void
     {
-        $lockdownData = $this->lockdownStore->data();
+        if (! config('capell.multi_node', false)) {
+            $this->staticCacheSwitcher->deactivate($this->lockdownStore->data());
+        }
 
-        $this->staticCacheSwitcher->deactivate($lockdownData);
         $this->lockdownStore->deactivate();
     }
 }
