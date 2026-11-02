@@ -1,0 +1,24 @@
+{
+  "tool": "pest",
+  "result": "failed",
+  "tests": 11930,
+  "passed": 11925,
+  "assertions": 97808,
+  "duration_ms": 399955,
+  "failed": 2,
+  "failures": [
+    {
+      "test": "P\\Packages\\admin\\tests\\Arch\\AdminPackageTest::__pest_evaluable_actions",
+      "file": "packages/admin/src/Actions/Dashboard/TrackDashboardAttentionRecoveryAction.php",
+      "line": 23,
+      "message": "Expecting 'packages/admin/src/Actions/Dashboard/TrackDashboardAttentionRecoveryAction.php' to have method [handle]."
+    },
+    {
+      "test": "P\\Packages\\admin\\tests\\Arch\\DashboardWidgetsTest::__pest_evaluable_every_admin_dashboard_action_has_a_handle_method",
+      "file": "packages/admin/src/Actions/Dashboard/TrackDashboardAttentionRecoveryAction.php",
+      "line": 23,
+      "message": "Expecting 'packages/admin/src/Actions/Dashboard/TrackDashboardAttentionRecoveryAction.php' to have method [handle]."
+    }
+  ],
+  "skipped": 3
+}

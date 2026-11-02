@@ -1,0 +1,16 @@
+[
+  "tests/Unit/PublicReleaseContractTest.php",
+  "tests/Unit/EditorPublicGoldenPathWorkflowTest.php",
+  "tests/Unit/FullTestWorkflowDatabaseIsolationTest.php",
+  "tests/Unit/TestbenchCommandScriptTest.php",
+  "tests/Unit/TestAllCellEvidenceTest.php",
+  "tests/Unit/CoverageWorkflowTest.php",
+  "tests/Unit/CiWorkflowCredentialHygieneTest.php",
+  "tests/Unit/CapellHarnessTest.php",
+  "tests/Unit/SplitPrForwardingWorkflowTest.php",
+  "tests/Unit/TestAllMatrixScriptTest.php",
+  "tests/Unit/DocumentationArtisanCommandsScriptTest.php",
+  "tests/Unit/CommandFixtureTest.php",
+  "tests/Unit/ContainerDocumentationContractTest.php",
+  "tests/Unit/ReleaseVerificationLockTest.php"
+]

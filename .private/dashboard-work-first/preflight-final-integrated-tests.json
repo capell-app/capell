@@ -1,0 +1,92 @@
+{
+  "tool": "pest",
+  "result": "failed",
+  "tests": 11904,
+  "passed": 11894,
+  "assertions": 97568,
+  "duration_ms": 324630,
+  "failed": 2,
+  "failures": [
+    {
+      "test": "P\\Packages\\frontend\\tests\\Unit\\View\\ThemeViewRegistrarTest::__pest_evaluable_it_does_not_reuse_a_located_view_after_the_active_theme_changes_in_one_process",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/frontend/tests/Unit/View/ThemeViewRegistrarTest.php",
+      "line": 113,
+      "message": "Failed asserting that two strings are identical.\n--- Expected\n+++ Actual\n@@ @@\n-'/var/folders/90/htb0b7qx6kl2gs5x6zx932h40000gn/T/capell-theme-view-9a180f4fd7a1/first/widget.blade.php'\n+'/private/var/folders/90/htb0b7qx6kl2gs5x6zx932h40000gn/T/capell-theme-view-9a180f4fd7a1/first/widget.blade.php'"
+    },
+    {
+      "test": "P\\Packages\\core\\tests\\Integration\\Actions\\InstallPackageActionTest::__pest_evaluable_it_marks_packages_failed_when_declared_migrations_do_not_run_successfully",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/tests/Integration/Actions/InstallPackageActionTest.php",
+      "line": 479,
+      "message": "Failed asserting that 'No matching handler found for Mockery_18_Illuminate_Contracts_Console_Kernel::call('migrate', ['--force' => true, '--path' => [...], '--realpath' => true]). Either the method was unexpected or its arguments matched no expected argument list for this method\\n\n\\n\n' [ASCII](length: 258) contains \"Migration command exited with status 1.\" [ASCII](length: 39)."
+    }
+  ],
+  "errors": 5,
+  "error_details": [
+    {
+      "test": "P\\Packages\\frontend\\tests\\Feature\\Commands\\AfterInstallCommandTest::__pest_evaluable_it_executes_the_manifest_frontend_hook_from_the_install_plan_without_starting_Node",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/laravel/framework/src/Illuminate/Container/Container.php",
+      "line": 1151,
+      "message": "Target class [filament-shield] does not exist.",
+      "trace": [
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/laravel/framework/src/Illuminate/Container/Container.php:1151",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/admin/src/Enums/ResourceEnum.php:53",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/admin/src/Filament/Plugin/CapellAdminPlugin.php:329",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/admin/src/Filament/Plugin/CapellAdminPlugin.php:178",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/var/testbench-skeletons/3_6ae2ab853aea1/app/Providers/Filament/AdminPanelProvider.php:62"
+      ]
+    },
+    {
+      "test": "P\\Packages\\frontend\\tests\\Integration\\Commands\\RequiredChildCommandsTest::__pest_evaluable_it_fails_frontend_lifecycle_commands_when_required_asset_publication_fails with data set \"dataset \"upgrade assets\"\"",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/laravel/framework/src/Illuminate/Database/Connection.php",
+      "line": 602,
+      "message": "SQLSTATE[HY000]: General error: 1 table \"settings\" already exists (Connection: sqlite, Database: :memory:, SQL: create table \"settings\" (\"id\" integer primary key autoincrement not null, \"group\" varchar not null, \"name\" varchar not null, \"locked\" tinyint(1) not null default '0', \"payload\" text not null, \"created_at\" datetime, \"updated_at\" datetime))",
+      "trace": [
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/laravel/framework/src/Illuminate/Database/Connection.php:602",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/var/testbench-skeletons/4_6ae2ab853b063/database/migrations/2026_05_10_190823_create_settings_table.php:11",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/Upgrade/RunPublishedDatabaseMigrationsAction.php:30",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/frontend/src/Console/Commands/UpgradeCommand.php:46",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/frontend/tests/Integration/Commands/RequiredChildCommandsTest.php:41"
+      ]
+    },
+    {
+      "test": "P\\Packages\\frontend\\tests\\Integration\\Commands\\RequiredChildCommandsTest::__pest_evaluable_it_fails_frontend_lifecycle_commands_when_required_asset_publication_fails with data set \"dataset \"upgrade publish\"\"",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/laravel/framework/src/Illuminate/Database/Connection.php",
+      "line": 602,
+      "message": "SQLSTATE[HY000]: General error: 1 table \"settings\" already exists (Connection: sqlite, Database: :memory:, SQL: create table \"settings\" (\"id\" integer primary key autoincrement not null, \"group\" varchar not null, \"name\" varchar not null, \"locked\" tinyint(1) not null default '0', \"payload\" text not null, \"created_at\" datetime, \"updated_at\" datetime))",
+      "trace": [
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/laravel/framework/src/Illuminate/Database/Connection.php:602",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/var/testbench-skeletons/4_6ae2ab853b063/database/migrations/2026_05_10_190823_create_settings_table.php:11",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/Upgrade/RunPublishedDatabaseMigrationsAction.php:30",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/frontend/src/Console/Commands/UpgradeCommand.php:46",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/frontend/tests/Integration/Commands/RequiredChildCommandsTest.php:41"
+      ]
+    },
+    {
+      "test": "P\\Packages\\core\\tests\\Integration\\Actions\\InstallPackageActionTest::__pest_evaluable_it_publishes_and_runs_declared_schema_and_settings_migrations_for_packages_without_install_lifecycle",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/mockery/mockery/library/Mockery/ExpectationDirector.php",
+      "line": 92,
+      "message": "No matching handler found for Mockery_18_Illuminate_Contracts_Console_Kernel::call('migrate', ['--force' => true, '--path' => [...], '--realpath' => true]). Either the method was unexpected or its arguments matched no expected argument list for this method",
+      "trace": [
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/mockery/mockery/library/Mockery/ExpectationDirector.php:92",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/Install/RunMigrationsAction.php:41",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/Install/RunDeclaredPackageMigrationsAction.php:35",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/InstallPackageAction.php:99",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Support/BlueprintSubjectRegistry.php:217"
+      ]
+    },
+    {
+      "test": "P\\Packages\\core\\tests\\Integration\\Actions\\InstallPackageActionTest::__pest_evaluable_it_completes_declared_migrations_while_installing_before_running_an_explicit_lifecycle_action",
+      "file": "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/mockery/mockery/library/Mockery/ExpectationDirector.php",
+      "line": 92,
+      "message": "No matching handler found for Mockery_18_Illuminate_Contracts_Console_Kernel::call('migrate', ['--force' => true, '--path' => [...], '--realpath' => true]). Either the method was unexpected or its arguments matched no expected argument list for this method",
+      "trace": [
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/vendor/mockery/mockery/library/Mockery/ExpectationDirector.php:92",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/Install/RunMigrationsAction.php:41",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/Install/RunDeclaredPackageMigrationsAction.php:35",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Actions/InstallPackageAction.php:99",
+        "/Users/ben/.codex/worktrees/dashboard-work-first/capell-4/packages/core/src/Support/BlueprintSubjectRegistry.php:217"
+      ]
+    }
+  ],
+  "skipped": 3
+}
