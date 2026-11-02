@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'history_title' => 'History',
+    'history_title' => 'Versions',
     'version' => 'Version',
     'summary' => 'Change',
     'type' => 'Type',
@@ -27,7 +27,7 @@ return [
     'system_actor' => 'System',
     'system_actor_help' => 'Saved outside the admin (for example an import or a console command).',
     'change_revision' => 'Content updated',
-    'empty_heading' => 'No history yet',
+    'empty_heading' => 'No saved versions yet',
     'empty_description' => 'Every save is recorded here automatically. You can return to any earlier version without losing your current work.',
     'rollback_done' => 'The page was rolled back.',
     'rollback_blocked' => "Can't restore this version yet",
