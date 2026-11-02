@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Http\Controllers;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\CompleteMarketplaceAccountConnectionAction;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,7 +38,7 @@ final class MarketplaceAccountConnectionCallbackController
         try {
             CompleteMarketplaceAccountConnectionAction::run($connectionSessionId, $code, $state);
         } catch (Throwable $throwable) {
-            Log::warning('capell-marketplace: account connection callback failed', ['error' => $throwable->getMessage()]);
+            Log::warning('capell-marketplace: account connection callback failed', ['error' => MarketplaceRemoteFailureException::diagnostic($throwable)]);
 
             Notification::make()
                 ->title((string) __('capell-marketplace::marketplace.marketplace.account_connection_failed'))

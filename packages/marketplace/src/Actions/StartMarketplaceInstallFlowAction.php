@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
 use Capell\Marketplace\Data\InstalledPackageData;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceApprovalUrl;
@@ -62,7 +63,7 @@ final class StartMarketplaceInstallFlowAction
             $flowId = $this->requiredString($response, 'flow_id');
             $approvalUrl = MarketplaceApprovalUrl::validate($this->requiredString($response, 'approval_url'));
         } catch (Throwable $throwable) {
-            MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Failed, $throwable->getMessage());
+            MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Failed, MarketplaceRemoteFailureException::diagnostic($throwable));
 
             throw $throwable;
         }

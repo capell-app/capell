@@ -19,6 +19,7 @@ use Capell\Marketplace\Data\MarketplaceInstallAuthorizationData;
 use Capell\Marketplace\Data\MarketplaceUpgradeAuthorizationData;
 use Capell\Marketplace\Enums\MarketplaceCatalogueFailure;
 use Capell\Marketplace\Exceptions\MarketplaceCatalogueException;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Exceptions\PurchaseRequiredException;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceApprovalUrl;
@@ -53,7 +54,6 @@ final class MarketplaceClient
         return $this->postJsonData(
             '/marketplace/connections',
             $payload,
-            'Marketplace could not start account connection.',
             'Marketplace did not return account connection data.',
         );
     }
@@ -67,7 +67,6 @@ final class MarketplaceClient
         return $this->postJsonData(
             '/marketplace/connections/exchange',
             $payload,
-            'Marketplace could not complete account connection.',
             'Marketplace did not return connected account data.',
         );
     }
@@ -82,7 +81,6 @@ final class MarketplaceClient
         $data = $this->postJsonData(
             $path,
             $this->installFlowPayload($payload, $path),
-            'Marketplace could not start the install flow.',
             'Marketplace did not return install flow data.',
         );
 
@@ -105,7 +103,6 @@ final class MarketplaceClient
         return $this->postJsonData(
             $path,
             $this->installFlowPayload($payload, $path),
-            'Marketplace could not complete the install flow.',
             'Marketplace did not return install flow exchange data.',
         );
     }
@@ -122,7 +119,7 @@ final class MarketplaceClient
         if (! $response->successful()) {
             throw new RuntimeException(
                 'The marketplace rejected the heartbeat with HTTP status ' . $response->status() . '.'
-                . $this->responseFailureDetails($response, $heartbeatUrl)
+                . $this->responseFailureDetails($response)
                 . ' Check the marketplace URL, instance ID, and server logs.',
             );
         }
@@ -132,11 +129,11 @@ final class MarketplaceClient
         if (! is_array($responseData)) {
             throw new RuntimeException(
                 'The marketplace response did not include the expected data payload.'
-                . $this->responseFailureDetails($response, $heartbeatUrl),
+                . $this->responseFailureDetails($response),
             );
         }
 
-        $this->validateHeartbeatResponseData($responseData, $response, $heartbeatUrl);
+        $this->validateHeartbeatResponseData($responseData, $response);
         $responseData = $this->verifiedHeartbeatResponseData($responseData);
 
         return HeartbeatResultData::fromApiResponse($responseData);
@@ -437,7 +434,7 @@ final class MarketplaceClient
         $this->throwIfPurchaseRequired($response);
 
         if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not authorize this install.'));
+            throw new RuntimeException($this->friendlyResponseMessage());
         }
 
         return MarketplaceInstallAuthorizationData::fromApiResponse($response->json() ?? []);
@@ -452,7 +449,6 @@ final class MarketplaceClient
                 'domain' => $this->licenceDecisionDomain($domain),
                 'app_url' => config('app.url'),
             ],
-            'Marketplace could not resolve this licence decision.',
             'The marketplace licence decision response did not include a data object.',
         );
 
@@ -472,7 +468,6 @@ final class MarketplaceClient
                 'tip' => $feedback->tip,
                 'app_url' => config('app.url'),
             ],
-            'Marketplace could not submit this feedback.',
             'The marketplace feedback response did not include a data object.',
         );
     }
@@ -491,7 +486,7 @@ final class MarketplaceClient
         ]);
 
         if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not authorize this update.'));
+            throw new RuntimeException($this->friendlyResponseMessage());
         }
 
         return MarketplaceUpgradeAuthorizationData::fromApiResponse($response->json() ?? []);
@@ -532,7 +527,7 @@ final class MarketplaceClient
             ->post($this->marketplaceUrl('/extensions/install-intents'), $payload);
 
         if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'Marketplace could not record free install telemetry.'));
+            throw new RuntimeException($this->friendlyResponseMessage());
         }
     }
 
@@ -725,28 +720,27 @@ final class MarketplaceClient
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function postJsonData(string $path, array $payload, string $failureMessage, string $missingDataMessage): array
+    private function postJsonData(string $path, array $payload, string $missingDataMessage): array
     {
-        return $this->responseDataOrFail($this->postJson($path, $payload), $failureMessage, $missingDataMessage);
+        return $this->responseDataOrFail($this->postJson($path, $payload), $missingDataMessage);
     }
 
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function postSignedJsonData(string $path, array $payload, string $failureMessage, string $missingDataMessage): array
+    private function postSignedJsonData(string $path, array $payload, string $missingDataMessage): array
     {
-        return $this->responseDataOrFail($this->postSignedJson($path, $payload), $failureMessage, $missingDataMessage);
+        return $this->responseDataOrFail($this->postSignedJson($path, $payload), $missingDataMessage);
     }
 
     /** @return array<string, mixed> */
     private function responseDataOrFail(
         Response $response,
-        string $failureMessage,
         string $missingDataMessage,
     ): array {
         if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, $failureMessage));
+            throw new MarketplaceRemoteFailureException($response->status());
         }
 
         return $this->dataOrFail($response, $missingDataMessage);
@@ -823,7 +817,7 @@ final class MarketplaceClient
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException($this->friendlyResponseMessage($response, 'The marketplace extension detail is unavailable right now.'));
+            throw new RuntimeException($this->friendlyResponseMessage());
         }
 
         $data = $response->json('data');
@@ -975,11 +969,9 @@ final class MarketplaceClient
             return;
         }
 
-        $message = $response->json('message');
-
         throw new PurchaseRequiredException(
             purchaseUrl: $purchaseUrl,
-            message: is_string($message) && $message !== '' ? $message : 'Purchase is required before this plugin can be installed.',
+            message: (string) __('capell-marketplace::marketplace.errors.remote_failure'),
         );
     }
 
@@ -995,58 +987,13 @@ final class MarketplaceClient
         return BuildMarketplaceConnectionContextAction::run($marketplaceInstance);
     }
 
-    private function friendlyResponseMessage(Response $response, string $fallback): string
+    private function friendlyResponseMessage(): string
     {
-        $validationError = $this->firstResponseValidationError($response);
-
-        if ($validationError !== null) {
-            return $validationError;
-        }
-
-        $message = $response->json('message');
-
-        if (is_string($message) && $message !== '') {
-            return $message;
-        }
-
-        $licenceErrors = $response->json('errors.licence');
-
-        if (is_array($licenceErrors)) {
-            $firstError = collect($licenceErrors)->first(fn (mixed $value): bool => is_string($value) && $value !== '');
-
-            if (is_string($firstError)) {
-                return $firstError;
-            }
-        }
-
-        return $fallback . ' Please check the Marketplace connection and try again.';
+        return (string) __('capell-marketplace::marketplace.errors.remote_failure');
     }
 
-    private function firstResponseValidationError(Response $response): ?string
-    {
-        $errors = $response->json('errors');
-
-        if (! is_array($errors)) {
-            return null;
-        }
-
-        foreach ($errors as $fieldErrors) {
-            $fieldErrors = is_array($fieldErrors) ? $fieldErrors : [$fieldErrors];
-
-            foreach ($fieldErrors as $error) {
-                if (is_string($error) && $error !== '') {
-                    return $error;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $responseData
-     */
-    private function validateHeartbeatResponseData(array $responseData, Response $response, string $heartbeatUrl): void
+    /** @param array<string, mixed> $responseData */
+    private function validateHeartbeatResponseData(array $responseData, Response $response): void
     {
         $instanceId = $responseData['instance_id'] ?? null;
         $signingSecret = $responseData['signing_secret'] ?? null;
@@ -1056,21 +1003,21 @@ final class MarketplaceClient
         if (! is_string($instanceId) || $instanceId === '') {
             throw new RuntimeException(
                 'The marketplace response did not include an instance ID.'
-                . $this->responseFailureDetails($response, $heartbeatUrl),
+                . $this->responseFailureDetails($response),
             );
         }
 
         if ($signingSecret !== null && (! is_string($signingSecret) || $signingSecret === '')) {
             throw new RuntimeException(
                 'The marketplace response included an invalid signing secret.'
-                . $this->responseFailureDetails($response, $heartbeatUrl),
+                . $this->responseFailureDetails($response),
             );
         }
 
         if (($updates !== null && ! is_array($updates)) || ($advisories !== null && ! is_array($advisories))) {
             throw new RuntimeException(
                 'The marketplace response did not include update and advisory lists.'
-                . $this->responseFailureDetails($response, $heartbeatUrl),
+                . $this->responseFailureDetails($response),
             );
         }
 
@@ -1078,7 +1025,7 @@ final class MarketplaceClient
             if (! is_array($update)) {
                 throw new RuntimeException(
                     'The marketplace response included an invalid update notice.'
-                    . $this->responseFailureDetails($response, $heartbeatUrl),
+                    . $this->responseFailureDetails($response),
                 );
             }
         }
@@ -1087,7 +1034,7 @@ final class MarketplaceClient
             if (! is_array($advisory)) {
                 throw new RuntimeException(
                     'The marketplace response included an invalid advisory notice.'
-                    . $this->responseFailureDetails($response, $heartbeatUrl),
+                    . $this->responseFailureDetails($response),
                 );
             }
         }
@@ -1177,51 +1124,8 @@ final class MarketplaceClient
         return array_values(array_filter($values, is_array(...)));
     }
 
-    private function responseFailureDetails(Response $response, string $heartbeatUrl): string
+    private function responseFailureDetails(Response $response): string
     {
-        $contentType = $response->header('content-type');
-
-        $details = ' Heartbeat URL: ' . $heartbeatUrl . '.';
-
-        if ($contentType !== '') {
-            $details .= ' The marketplace returned ' . $contentType . '.';
-        }
-
-        $detail = $response->json('error')
-            ?? $response->json('message')
-            ?? $this->htmlResponseSummary($response)
-            ?? $response->body();
-
-        if (! is_scalar($detail)) {
-            return $details;
-        }
-
-        $detail = trim((string) $detail);
-
-        if ($detail === '') {
-            return $details;
-        }
-
-        return $details . ' Marketplace response: ' . str($detail)->limit(300);
-    }
-
-    private function htmlResponseSummary(Response $response): ?string
-    {
-        $contentType = strtolower($response->header('content-type'));
-        $body = $response->body();
-
-        if (! str_contains($contentType, 'html') && ! str_starts_with(ltrim($body), '<')) {
-            return null;
-        }
-
-        if (preg_match('/<title[^>]*>(.*?)<\\/title>/is', $body, $matches) === 1) {
-            $title = trim(html_entity_decode(strip_tags($matches[1])));
-
-            if ($title !== '') {
-                return 'The heartbeat URL returned HTML instead of JSON. Page title: ' . $title;
-            }
-        }
-
-        return 'The heartbeat URL returned HTML instead of JSON.';
+        return ' Marketplace response status: ' . $response->status() . '.';
     }
 }

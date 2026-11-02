@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Security\LockdownStore;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -64,6 +67,28 @@ it('reloads lockdown state after an Octane reset', function (): void {
 
     expect($store->active())->toBeTrue();
 });
+
+it('shares multi-node lockdown across stores with different local files', function (): void {
+    $cache = new Repository(new ArrayStore);
+    config(['capell.multi_node' => true, 'cache.default' => 'shared-test', 'cache.stores.shared-test.driver' => 'redis']);
+    Cache::shouldReceive('store')->with('shared-test')->andReturn($cache);
+    $first = new LockdownStore(new Filesystem);
+    $second = new LockdownStore(new Filesystem);
+    $first->activateFor(lockdownStoreTestUser(1, 'owner@example.com'));
+    config(['capell.lockdown.file' => storage_path('framework/testing/another-node.json')]);
+    expect($second->canAccessAdmin(lockdownStoreTestUser(2, 'blocked@example.com')))->toBeFalse()
+        ->and($second->canAccessAdmin(lockdownStoreTestUser(1, 'owner@example.com')))->toBeTrue();
+    $first->deactivate();
+    $second->flushOctaneState();
+    expect($second->active())->toBeFalse();
+    File::delete(storage_path('framework/testing/lockdown-store.json'));
+});
+
+it('refuses node-local cache stores for multi-node lockdown', function (string $driver): void {
+    config(['capell.multi_node' => true, 'cache.default' => 'local-test', 'cache.stores.local-test.driver' => $driver]);
+    expect(fn (): array => new LockdownStore(new Filesystem)->activateFor(lockdownStoreTestUser(1, 'owner@example.com')))
+        ->toThrow(RuntimeException::class, 'Multi-node lockdown requires a shared cache store.');
+})->with(['array', 'file']);
 
 function lockdownStoreTestUser(int $id, string $email): Authenticatable
 {

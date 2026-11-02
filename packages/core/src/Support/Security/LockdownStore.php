@@ -9,9 +9,13 @@ use Capell\Core\Support\Json\JsonCodec;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Cache;
+use RuntimeException;
 
 final class LockdownStore implements Resettable
 {
+    private const string CACHE_KEY = 'capell.security.lockdown';
+
     /** @var array<string, mixed>|null */
     private ?array $cachedData = null;
 
@@ -41,6 +45,11 @@ final class LockdownStore implements Resettable
             'static_cache' => $staticCacheState,
         ];
 
+        if (config('capell.multi_node', false)) {
+            $this->assertSharedCache();
+            throw_unless(Cache::store(config('cache.default'))->forever(self::CACHE_KEY, $payload), RuntimeException::class, 'Unable to persist lockdown state in the shared cache.');
+        }
+
         $this->write($payload);
 
         return $payload;
@@ -48,6 +57,11 @@ final class LockdownStore implements Resettable
 
     public function deactivate(): void
     {
+        if (config('capell.multi_node', false)) {
+            $this->assertSharedCache();
+            Cache::store(config('cache.default'))->forget(self::CACHE_KEY);
+        }
+
         if ($this->files->exists($this->path())) {
             $this->files->delete($this->path());
         }
@@ -85,6 +99,19 @@ final class LockdownStore implements Resettable
     {
         if ($this->cachedData !== null) {
             return $this->cachedData;
+        }
+
+        if (config('capell.multi_node', false)) {
+            $this->assertSharedCache();
+            $data = Cache::store(config('cache.default'))->get(self::CACHE_KEY);
+
+            if ($data === null) {
+                return $this->cachedData = [];
+            }
+
+            return $this->cachedData = is_array($data) && ($data['active'] ?? null) === true
+                ? $data
+                : ['active' => true, 'invalid' => true];
         }
 
         if (! $this->files->exists($this->path())) {
@@ -146,6 +173,14 @@ final class LockdownStore implements Resettable
             strtolower(...),
             $this->stringList(config('capell.lockdown.break_glass_emails', [])),
         )));
+    }
+
+    private function assertSharedCache(): void
+    {
+        $store = config('cache.default');
+        $driver = is_string($store) ? config('cache.stores.' . $store . '.driver') : null;
+
+        throw_if(! is_string($driver) || in_array($driver, ['array', 'file', 'null'], true), RuntimeException::class, 'Multi-node lockdown requires a shared cache store.');
     }
 
     private function userId(Authenticatable $user): string

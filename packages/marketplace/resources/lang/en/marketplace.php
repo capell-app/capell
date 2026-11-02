@@ -11,6 +11,7 @@ return [
         'recheck' => 'Recheck cached catalogue (refresh requests are limited)',
     ],
     'errors' => [
+        'remote_failure' => 'Marketplace could not complete the request. Check the connection and try again.',
         'invalid_composer_coordinates' => 'Marketplace returned invalid Composer package coordinates.',
         'unsafe_update_constraint' => 'Marketplace returned an update constraint that permits the current version or a downgrade.',
         'reviewed_selection_changed' => 'Marketplace extension does not match the reviewed selection. Review the selection again before installing.',

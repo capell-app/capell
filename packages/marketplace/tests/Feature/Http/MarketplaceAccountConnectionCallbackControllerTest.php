@@ -10,6 +10,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
@@ -74,4 +75,27 @@ it('shows a safe callback failure message without exposing internal session deta
             ->danger()
             ->persistent(),
     );
+});
+
+it('does not store or log credentials echoed in a failed connection exchange', function (): void {
+    config(['capell-marketplace.marketplace.base_url' => 'https://capell.test/api/v1']);
+    test()->actingAsAdmin();
+    Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web');
+    auth()->user()?->givePermissionTo(ExtensionsPage::MANAGE_PERMISSION);
+    $session = MarketplaceAccountConnectionSession::query()->create([
+        'connection_session_id' => 'mcs_secret', 'state_hash' => hash('sha256', 'private_state'),
+        'code_verifier_hash' => hash('sha256', 'private_verifier'), 'code_verifier_encrypted' => 'private_verifier',
+        'claimed_domain' => 'capell-ruby.test', 'app_url' => 'http://capell-ruby.test',
+        'callback_url' => 'http://capell-ruby.test/admin/marketplace/connection/callback',
+        'status' => MarketplaceAccountConnectionSessionStatus::Pending, 'expires_at' => now()->addMinutes(10),
+    ]);
+    Http::fake(['*' => Http::response(['message' => 'private_state private_verifier'], 422)]);
+    $log = Log::spy();
+    $this->get('/admin/marketplace/connection/callback?connection_session_id=mcs_secret&code=code&state=private_state')->assertRedirect();
+    expect($session->refresh()->last_error)->toBe('remote_failure:422');
+    $log->shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
+        $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+        return ! str_contains($encoded, 'private_state') && ! str_contains($encoded, 'private_verifier');
+    })->once();
 });

@@ -50,6 +50,11 @@ final class MarketplaceInstallFlowSessionTransitionAction
             ));
         }
 
+        if ($status === MarketplaceInstallFlowSessionStatus::Failed && $reason !== null
+            && preg_match('/\A(?:operation_failed|remote_failure:[1-5]\d{2})\z/', $reason) !== 1) {
+            $reason = 'operation_failed';
+        }
+
         $transitionLog = array_values(array_filter($session->transition_log ?? [], is_array(...)));
         $transitionLog[] = [
             'from' => $currentStatus,

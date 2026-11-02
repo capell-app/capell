@@ -387,3 +387,23 @@ SH);
         rmdir($directory);
     }
 }
+
+it('writes authentication only inside a private workspace', function (): void {
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    $home = $workspace->create();
+    try {
+        $workspace->writeAuthFile($home, ['token' => 'private']);
+        if (PHP_OS_FAMILY !== 'Windows') {
+            clearstatcache();
+            expect(fileperms($home) & 0777)->toBe(0700)
+                ->and(fileperms($home . '/auth.json') & 0777)->toBe(0600);
+        }
+
+        expect(json_decode((string) file_get_contents($home . '/auth.json'), true))->toBe(['token' => 'private']);
+        expect(fn () => $workspace->writeAuthFile($home, ['token' => 'replacement']))->toThrow(RuntimeException::class);
+    } finally {
+        $workspace->removeDirectory($home);
+    }
+
+    expect(is_dir($home))->toBeFalse();
+});

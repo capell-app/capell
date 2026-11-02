@@ -17,7 +17,8 @@ final class EnforceLockdownAdminAccess
 
     public function handle(Request $request, Closure $next): mixed
     {
-        $user = Filament::auth()->user();
+        // Standalone admin routes authenticate with Laravel's guard, the panel with Filament's; honour whichever resolved the user.
+        $user = $request->user() ?? Filament::auth()->user();
 
         if (! $this->lockdownStore->canAccessAdmin($user)) {
             throw new HttpException(

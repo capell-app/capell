@@ -47,7 +47,17 @@ final class MarketplaceComposerAuthWorkspace
     {
         $path = $this->root() . '/' . self::DIRECTORY_PREFIX . bin2hex(random_bytes(8));
 
-        $this->ensureDirectory($path);
+        $this->ensureDirectory($this->root());
+        if (! @mkdir($path, 0700) || ! @chmod($path, 0700)) {
+            $this->removeDirectory($path);
+            throw new RuntimeException('Unable to create a private Composer home.');
+        }
+
+        clearstatcache(true, $path);
+        if ((fileperms($path) & 0777) !== 0700) {
+            $this->removeDirectory($path);
+            throw new RuntimeException('Unable to secure the Composer home.');
+        }
 
         return $path;
     }
@@ -60,14 +70,18 @@ final class MarketplaceComposerAuthWorkspace
     public function writeAuthFile(string $composerHome, array $composerAuth): void
     {
         $path = $composerHome . '/auth.json';
-        $written = @file_put_contents(
-            $path,
-            JsonCodec::encode($composerAuth, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
-        );
+        $file = @fopen($path, 'x');
+        throw_if($file === false, RuntimeException::class, 'Unable to create Composer authentication file.');
 
-        throw_if($written === false, RuntimeException::class, 'Unable to write Composer authentication file.');
-
-        @chmod($path, 0600);
+        try {
+            throw_unless(@chmod($path, 0600), RuntimeException::class, 'Unable to secure Composer authentication file.');
+            clearstatcache(true, $path);
+            throw_unless((fileperms($path) & 0777) === 0600, RuntimeException::class, 'Unable to secure Composer authentication file.');
+            $content = JsonCodec::encode($composerAuth, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            throw_unless(fwrite($file, $content) === strlen($content), RuntimeException::class, 'Unable to write Composer authentication file.');
+        } finally {
+            fclose($file);
+        }
     }
 
     /**

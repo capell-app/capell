@@ -61,11 +61,14 @@ final class RedactMarketplaceDiagnosticContextAction
         }
 
         return preg_replace([
+            '~([a-z][a-z0-9+.-]*://)[^\s/@]+@~i',
             '/(bearer\s+)[^\s,"\']+/i',
-            '/([a-z_]*(?:auth|oauth|secret|token|key|password|licen[cs]e)[a-z_]*\s*[=:]\s*)([^\s,"\']+)/i',
+            // Keep the scheme word ("Bearer") so the earlier pattern's redaction reads as such.
+            '/([a-z_]*(?:auth|oauth|secret|token|key|password|licen[cs]e)[a-z_]*\s*[=:]\s*)(?!bearer\s)([^\s,"\'&]+)/i',
             '/("[^"]*(?:auth|oauth|secret|token|key|password|licen[cs]e)[^"]*"\s*:\s*")([^"]+)(")/i',
             '/("[^"]*(?:github-oauth|http-basic)[^"]*"\s*:\s*\{[^}]*:\s*")([^"]+)(")/i',
         ], [
+            '$1' . self::REDACTED . '@',
             '$1' . self::REDACTED,
             '$1' . self::REDACTED,
             '$1' . self::REDACTED . '$3',

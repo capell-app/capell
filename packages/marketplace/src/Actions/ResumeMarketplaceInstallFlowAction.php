@@ -12,6 +12,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -40,7 +41,7 @@ final class ResumeMarketplaceInstallFlowAction
             $reservedSession = $this->reserveSessionForQueueing($session);
             $attempts = $this->queueInstallAttempts($reservedSession, $actor);
         } catch (Throwable $throwable) {
-            MarketplaceInstallFlowSessionTransitionAction::run($session->refresh(), MarketplaceInstallFlowSessionStatus::Failed, $throwable->getMessage());
+            MarketplaceInstallFlowSessionTransitionAction::run($session->refresh(), MarketplaceInstallFlowSessionStatus::Failed, MarketplaceRemoteFailureException::diagnostic($throwable));
 
             throw $throwable;
         }

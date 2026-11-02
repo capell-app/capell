@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Data\MarketplaceInstallFlowResultData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -76,7 +77,7 @@ final class CompleteMarketplaceInstallFlowAction
 
             MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Returned, 'authorized');
         } catch (Throwable $throwable) {
-            MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Failed, $throwable->getMessage());
+            MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Failed, MarketplaceRemoteFailureException::diagnostic($throwable));
 
             throw $throwable;
         }

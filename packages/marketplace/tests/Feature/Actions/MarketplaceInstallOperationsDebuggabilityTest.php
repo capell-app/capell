@@ -253,12 +253,14 @@ it('builds a redacted diagnostic bundle with status, timeline, and output', func
 
 it('redacts composer auth credentials embedded in diagnostic strings', function (): void {
     $redacted = RedactMarketplaceDiagnosticContextAction::run([
-        'output' => 'Bearer abc+/= password=hunter2 {"github-oauth":{"github.com":"ghp_secret_token"},"http-basic":{"repo.example.com":"basic_secret"}}',
+        'output' => 'postgres://user:uri_secret@host/db?token=query_secret&key=key_secret Authorization: Bearer abc+/= password=hunter2 {"github-oauth":{"github.com":"ghp_secret_token"},"http-basic":{"repo.example.com":"basic_secret"}}',
     ]);
 
     expect($redacted['output'])
         ->toContain('Bearer [redacted]')
         ->toContain('password=[redacted]')
+        ->not->toContain('uri_secret', 'query_secret', 'key_secret')
+        ->toContain('postgres://[redacted]@host/db')
         ->not->toContain('abc+/=')
         ->not->toContain('hunter2')
         ->not->toContain('ghp_secret_token')
