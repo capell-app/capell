@@ -35,6 +35,15 @@
         @endforelse
     </x-filament::section>
     <x-filament::section :heading="__('capell-admin::security.history')">
+        @unless ($this->showAllHistory)
+            <p>{{ __('capell-admin::security.history_limit') }}</p>
+        @endunless
+        <x-filament::button
+            color="gray"
+            wire:click="$toggle('showAllHistory')"
+        >
+            {{ $this->showAllHistory ? __('capell-admin::security.show_recent_history') : __('capell-admin::security.show_all_history') }}
+        </x-filament::button>
         @forelse ($runs as $run)
             <article class="border-b py-3">
                 <h3 class="font-semibold">

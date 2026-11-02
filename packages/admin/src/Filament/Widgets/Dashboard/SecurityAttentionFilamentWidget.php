@@ -18,7 +18,7 @@ final class SecurityAttentionFilamentWidget extends Widget implements CapellFila
 
     protected int|string|array $columnSpan = ['default' => 'full'];
 
-    protected static ?int $sort = 29;
+    protected static ?int $sort = -1;
 
     #[Override]
     public static function canView(): bool

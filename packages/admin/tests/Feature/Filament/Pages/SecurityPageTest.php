@@ -5,6 +5,10 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Pages\SecurityPage;
 use Capell\Admin\Filament\Widgets\Dashboard\SecurityAttentionFilamentWidget;
 use Capell\Core\Actions\Security\ApplyApprovedSecurityRemediationsAction;
+use Capell\Core\Actions\Security\ApproveSecurityRemediationAction;
+use Capell\Core\Actions\Security\DismissSecurityWeaknessFindingAction;
+use Capell\Core\Actions\Security\ReopenSecurityWeaknessFindingAction;
+use Capell\Core\Actions\Security\RevokeSecurityRemediationApprovalAction;
 use Capell\Core\Actions\Security\RunSecurityWeaknessScanAction;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
 use Capell\Core\Data\Security\SecurityRemediationBatchResultData;
@@ -17,6 +21,7 @@ use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 
 use function Pest\Laravel\get;
@@ -46,11 +51,13 @@ function securityFinding(array $attributes = []): SecurityWeaknessFinding
     ], $attributes));
 }
 
-function securityRemediation(): void
+function securityRemediation(bool $reversible = true): void
 {
     $registry = new SecurityWeaknessRegistry;
-    $registry->registerRemediation(new class implements SecurityWeaknessRemediation
+    $registry->registerRemediation(new readonly class($reversible) implements SecurityWeaknessRemediation
     {
+        public function __construct(private bool $reversible) {}
+
         #[Override]
         public function weaknessId(): string
         {
@@ -66,7 +73,7 @@ function securityRemediation(): void
         #[Override]
         public function isReversible(): bool
         {
-            return true;
+            return $this->reversible;
         }
 
         #[Override]
@@ -104,7 +111,7 @@ it('shows the fix description and records and revokes approval', function (): vo
     securityRemediation();
     $finding = securityFinding();
     Livewire::test(SecurityPage::class)->mountTableAction('approve', $finding)->assertMountedActionModalSee('Turn off the unsafe option.')
-        ->assertMountedActionModalSee(__('capell-admin::security.approval_consequence'))->callMountedTableAction();
+        ->assertMountedActionModalSee(__('capell-admin::security.approval_scope', ['weakness' => 'test.weakness']))->callMountedTableAction();
     expect(SecurityRemediationApproval::query()->where('weakness_id', 'test.weakness')->firstOrFail()->isActive())->toBeTrue();
     Livewire::test(SecurityPage::class)->callTableAction('revoke', $finding);
     expect(SecurityRemediationApproval::query()->where('weakness_id', 'test.weakness')->firstOrFail()->isActive())->toBeFalse();
@@ -114,11 +121,14 @@ it('applies only the selected approved weakness', function (): void {
     securityUser(true);
     securityRemediation();
     $finding = securityFinding();
+    securityFinding();
     SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now()]);
     ApplyApprovedSecurityRemediationsAction::mock()->shouldReceive('handle')->once()
         ->with('user:' . test()->authenticatedUser()->getAuthIdentifier(), false, 'test.weakness')
         ->andReturn(new SecurityRemediationBatchResultData(false, 1, 1, 0));
-    Livewire::test(SecurityPage::class)->callTableAction('fixNow', $finding)
+    Livewire::test(SecurityPage::class)->mountTableAction('fixNow', $finding)
+        ->assertMountedActionModalSee(trans_choice('capell-admin::security.fix_now_scope', 2, ['count' => 2, 'weakness' => 'test.weakness']))
+        ->callMountedTableAction()
         ->assertNotified(__('capell-admin::security.fix_result', ['applied' => 1, 'failed' => 0, 'skipped' => 0]));
 });
 
@@ -180,4 +190,162 @@ it('shows revoked approvals and the recorded remediation history', function (): 
     Livewire::test(SecurityPage::class)->assertSee('test.removed')->assertSee(__('capell-admin::security.no_longer_available'))
         ->assertSee(__('capell-admin::security.revoked'))->assertSee('Reviewed')->assertSee('Changed setting')
         ->assertSee('user:7')->assertSee('on')->assertSee('off');
+});
+
+it('explains approval scope, reversibility and the current schedule before approval', function (bool $scheduled, bool $fixScheduled, bool $reversible): void {
+    securityUser(true);
+    securityRemediation($reversible);
+    config()->set('capell.security.scan.scheduled', $scheduled);
+    config()->set('capell.security.scan.fix_approved', $fixScheduled);
+
+    $finding = securityFinding();
+    $enabled = $scheduled && $fixScheduled;
+
+    Livewire::test(SecurityPage::class)->mountTableAction('approve', $finding)
+        ->assertMountedActionModalSee(__('capell-admin::security.approval_scope', ['weakness' => 'test.weakness']))
+        ->assertMountedActionModalSee(__($reversible ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'))
+        ->assertMountedActionModalSee(__($enabled ? 'capell-admin::security.approval_schedule_enabled' : 'capell-admin::security.approval_schedule_disabled'))
+        ->assertMountedActionModalDontSee(__($enabled ? 'capell-admin::security.approval_schedule_disabled' : 'capell-admin::security.approval_schedule_enabled'));
+})->with([[true, true, true], [true, false, false], [false, true, true], [false, false, false]]);
+
+it('explains fix now scope, reversibility and the current schedule before applying it', function (bool $scheduled, bool $fixScheduled, bool $reversible): void {
+    securityUser(true);
+    securityRemediation($reversible);
+    config()->set('capell.security.scan.scheduled', $scheduled);
+    config()->set('capell.security.scan.fix_approved', $fixScheduled);
+
+    $finding = securityFinding();
+    securityFinding();
+    SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now()]);
+    $enabled = $scheduled && $fixScheduled;
+
+    Livewire::test(SecurityPage::class)->mountTableAction('fixNow', $finding)
+        ->assertMountedActionModalSee(trans_choice('capell-admin::security.fix_now_scope', 2, ['count' => 2, 'weakness' => 'test.weakness']))
+        ->assertMountedActionModalSee(__('capell-admin::security.approval_scope', ['weakness' => 'test.weakness']))
+        ->assertMountedActionModalSee(__($reversible ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'))
+        ->assertMountedActionModalSee(__($enabled ? 'capell-admin::security.approval_schedule_enabled' : 'capell-admin::security.approval_schedule_disabled'))
+        ->assertMountedActionModalDontSee(__($enabled ? 'capell-admin::security.approval_schedule_disabled' : 'capell-admin::security.approval_schedule_enabled'));
+})->with([[true, true, true], [true, false, false], [false, true, true], [false, false, false]]);
+
+it('requires view permission even with manage permission and redirects unauthenticated visitors', function (): void {
+    get(SecurityPage::getUrl())->assertRedirect();
+    Permission::findOrCreate('Manage:SecurityPage', 'web');
+    test()->actingAsUser();
+    test()->authenticatedUser()->givePermissionTo('Manage:SecurityPage');
+    get(SecurityPage::getUrl())->assertForbidden();
+});
+
+it('does not execute mutations without manage permission, including after an action is mounted', function (string $action, bool $table, bool $revokeAfterMount): void {
+    securityUser($revokeAfterMount);
+    securityRemediation();
+    $finding = securityFinding(['status' => $action === 'reopen' ? 'dismissed' : 'open']);
+    if (in_array($action, ['revoke', 'revokeApproval', 'fixNow'], true)) {
+        SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now()]);
+    }
+
+    foreach ([RunSecurityWeaknessScanAction::class, ApproveSecurityRemediationAction::class, RevokeSecurityRemediationApprovalAction::class, ApplyApprovedSecurityRemediationsAction::class, DismissSecurityWeaknessFindingAction::class, ReopenSecurityWeaknessFindingAction::class] as $coreAction) {
+        $coreAction::mock()->shouldNotReceive('handle');
+    }
+
+    $findingsBefore = SecurityWeaknessFinding::query()->get()->toArray();
+    $approvalsBefore = SecurityRemediationApproval::query()->get()->toArray();
+    $runsBefore = SecurityRemediationRun::query()->get()->toArray();
+    $component = Livewire::test(SecurityPage::class);
+    if ($action === 'reopen') {
+        $component->filterTable('status', 'dismissed');
+    }
+
+    $arguments = $action === 'revokeApproval' ? ['weakness' => 'test.weakness'] : [];
+    if ($revokeAfterMount) {
+        $hasModal = ! in_array($action, ['scan', 'reopen'], true);
+        if ($hasModal) {
+            $testAction = $table ? TestAction::make($action)->table($finding) : $action;
+            $component->mountAction($testAction, arguments: $arguments)->assertActionMounted($testAction);
+            if ($action === 'dismiss') {
+                $component->setActionData(['note' => 'Attempted']);
+            }
+        }
+
+        test()->authenticatedUser()->revokePermissionTo('Manage:SecurityPage');
+        if ($hasModal) {
+            $component->callMountedAction();
+        } elseif ($table) {
+            $component->callTableAction($action, $finding);
+        } else {
+            $component->callAction($action);
+        }
+    } elseif ($table) {
+        $component->assertTableActionDisabled($action, $finding)
+            ->callTableAction($action, $finding, data: $action === 'dismiss' ? ['note' => 'Attempted'] : []);
+    } else {
+        $component->assertActionDisabled($action)->callAction($action, arguments: $arguments);
+    }
+
+    expect(SecurityWeaknessFinding::query()->get()->toArray())->toBe($findingsBefore)
+        ->and(SecurityRemediationApproval::query()->get()->toArray())->toBe($approvalsBefore)
+        ->and(SecurityRemediationRun::query()->get()->toArray())->toBe($runsBefore);
+})->with(function (): array {
+    $cases = [];
+    foreach (['scan' => false, 'approve' => true, 'revoke' => true, 'revokeApproval' => false, 'fixNow' => true, 'fixApproved' => false, 'dismiss' => true, 'reopen' => true] as $action => $table) {
+        foreach ([false, true] as $revoked) {
+            $cases[] = [$action, $table, $revoked];
+        }
+    }
+
+    return $cases;
+});
+
+it('limits history to the latest 50 runs until all history is requested', function (): void {
+    securityUser();
+    foreach (range(1, 60) as $number) {
+        SecurityRemediationRun::query()->create([
+            'weakness_id' => 'history.' . $number, 'remediation_class' => 'Example', 'actor' => 'user:7',
+            'outcome' => 'applied', 'message' => 'Run #' . $number . '#', 'started_at' => now()->subMinutes(60 - $number),
+        ]);
+    }
+
+    $component = Livewire::test(SecurityPage::class)->assertSee(__('capell-admin::security.history_limit'));
+    foreach (range(1, 60) as $number) {
+        if ($number <= 10) {
+            $component->assertDontSee('Run #' . $number . '#');
+        } else {
+            $component->assertSee('Run #' . $number . '#');
+        }
+    }
+
+    $component->set('showAllHistory', true)->assertDontSee(__('capell-admin::security.history_limit'));
+    foreach (range(1, 60) as $number) {
+        $component->assertSee('Run #' . $number . '#');
+    }
+});
+
+it('distinguishes an empty database from findings excluded by filters', function (): void {
+    securityUser();
+    Livewire::test(SecurityPage::class)->assertSee(__('capell-admin::security.no_findings'))
+        ->assertDontSee(__('capell-admin::security.no_matching_findings'));
+    securityFinding(['status' => 'resolved']);
+    Livewire::test(SecurityPage::class)->assertSee(__('capell-admin::security.no_matching_findings'))
+        ->assertDontSee(__('capell-admin::security.no_findings'));
+});
+
+it('escapes finding and history content including the evidence modal', function (): void {
+    securityUser();
+    $finding = securityFinding([
+        'title' => '<script>title</script>', 'summary' => '<script>summary</script>',
+        'evidence' => ['value' => '<script>evidence</script>'], 'dismissal_note' => '<script>note</script>',
+    ]);
+    SecurityRemediationRun::query()->create([
+        'weakness_id' => 'test.weakness', 'remediation_class' => 'Example', 'actor' => 'user:7',
+        'outcome' => 'applied', 'message' => '<script>history</script>', 'started_at' => now(),
+    ]);
+    $component = Livewire::test(SecurityPage::class)
+        ->assertSee('&lt;script&gt;title&lt;/script&gt;', false)
+        ->assertSee('&lt;script&gt;history&lt;/script&gt;', false)
+        ->assertDontSee('<script>title</script>', false)->assertDontSee('<script>history</script>', false)
+        ->mountTableAction('evidence', $finding)
+        ->assertMountedActionModalSee('summary')->assertMountedActionModalSee('evidence')->assertMountedActionModalSee('note');
+    foreach (['summary', 'evidence', 'note'] as $value) {
+        $component->assertMountedActionModalSee('&lt;script&gt;' . $value, false)
+            ->assertMountedActionModalDontSee('<script>' . $value, false);
+    }
 });

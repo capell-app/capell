@@ -43,6 +43,8 @@ final class SecurityPage extends Page implements HasTable
 
     public const string MANAGE_PERMISSION = 'Manage:SecurityPage';
 
+    public bool $showAllHistory = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
     protected static ?string $slug = 'security';
@@ -89,7 +91,7 @@ final class SecurityPage extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table->query(SecurityWeaknessFinding::query()->orderByRaw("case severity when 'critical' then 4 when 'high' then 3 when 'medium' then 2 else 1 end desc")->latest('last_detected_at'))
-            ->emptyStateHeading(__('capell-admin::security.no_matching_findings'))
+            ->emptyStateHeading(fn (): string => (string) __(SecurityWeaknessFinding::query()->exists() ? 'capell-admin::security.no_matching_findings' : 'capell-admin::security.no_findings'))
             ->columns([
                 TextColumn::make('severity')->label(__('capell-admin::security.severity'))->badge()->formatStateUsing(fn (SecurityWeaknessSeverity $state): string => (string) __('capell-admin::security.severities.' . $state->value)),
                 TextColumn::make('title')->label(__('capell-admin::security.finding'))->description(fn (SecurityWeaknessFinding $record): string => $record->weakness_id . ($record->source === SecurityFindingSource::Analyser ? ' — ' . __('capell-admin::security.advice_only') : '')),
@@ -129,6 +131,7 @@ final class SecurityPage extends Page implements HasTable
                         $this->approvalCache = null;
                     }),
                 Action::make('fixNow')->label(__('capell-admin::security.fix_now'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
+                    ->modalDescription(fn (SecurityWeaknessFinding $record): string => $this->fixNowDescription($record))
                     ->visible(fn (SecurityWeaknessFinding $record): bool => $record->source->mayRemediateAutomatically() && $record->status === SecurityFindingStatus::Open && $record->remediable && resolve(SecurityWeaknessRegistry::class)->remediation($record->weakness_id) !== null && (($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false))
                     ->action(function (SecurityWeaknessFinding $record): void {
                         $this->assertManager();
@@ -187,7 +190,7 @@ final class SecurityPage extends Page implements HasTable
                 'active' => $approval->isActive(),
                 'revokedAt' => $approval->revoked_at?->toDateTimeString(),
             ])->all(),
-            'runs' => SecurityRemediationRun::query()->latest('started_at')->get()->map(fn (SecurityRemediationRun $run): array => [
+            'runs' => SecurityRemediationRun::query()->latest('started_at')->latest('id')->unless($this->showAllHistory, fn (Builder $query): Builder => $query->limit(50))->get()->map(fn (SecurityRemediationRun $run): array => [
                 'when' => $run->started_at->toDateTimeString(), 'weakness' => $run->weakness_id,
                 'actor' => $run->actor, 'outcome' => __('capell-admin::security.outcomes.' . $run->outcome->value), 'message' => $run->message,
                 'before' => $run->before, 'after' => $run->after,
@@ -261,7 +264,26 @@ final class SecurityPage extends Page implements HasTable
     {
         $remediation = resolve(SecurityWeaknessRegistry::class)->remediation($finding->weakness_id);
 
-        return implode("\n\n", [$remediation?->describe() ?? (string) __('capell-admin::security.no_longer_available'), (string) __($remediation?->isReversible() ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'), (string) __('capell-admin::security.approval_consequence')]);
+        $scheduled = config('capell.security.scan.scheduled', true) === true;
+        $fixScheduled = config('capell.security.scan.fix_approved', true) === true;
+
+        return implode("\n\n", [
+            $remediation?->describe() ?? (string) __('capell-admin::security.no_longer_available'),
+            (string) __('capell-admin::security.approval_scope', ['weakness' => $finding->weakness_id]),
+            (string) __($remediation?->isReversible() ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'),
+            (string) __($scheduled && $fixScheduled ? 'capell-admin::security.approval_schedule_enabled' : 'capell-admin::security.approval_schedule_disabled'),
+        ]);
+    }
+
+    private function fixNowDescription(SecurityWeaknessFinding $finding): string
+    {
+        $count = SecurityWeaknessFinding::query()->where('weakness_id', $finding->weakness_id)
+            ->where('status', SecurityFindingStatus::Open->value)->count();
+
+        return implode("\n\n", [
+            trans_choice('capell-admin::security.fix_now_scope', $count, ['weakness' => $finding->weakness_id, 'count' => $count]),
+            $this->approvalDescription($finding),
+        ]);
     }
 
     private function evidenceDescription(SecurityWeaknessFinding $finding): string
@@ -273,6 +295,7 @@ final class SecurityPage extends Page implements HasTable
             $finding->source === SecurityFindingSource::Analyser ? (string) __('capell-admin::security.advice_only') : null,
             $evidence === false ? null : $evidence,
             $finding->recommended_action,
+            $finding->dismissal_note === null ? null : (string) __('capell-admin::security.dismissal_note', ['note' => $finding->dismissal_note]),
         ];
 
         return implode("\n\n", array_filter($parts, static fn (?string $part): bool => $part !== null && $part !== ''));
