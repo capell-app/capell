@@ -10,6 +10,11 @@ return [
         'action' => 'Run php artisan capell:security:scan and review the findings.',
     ],
     'remediation' => [
+        'advice_only' => 'Analyser findings are advice only.',
+        'not_confirmed' => 'Not confirmed by the latest scan.',
+        'fix_changed' => 'The fix changed since it was approved; approve it again.',
+        'env_ambiguous' => 'The environment file needs manual review before changing this setting.',
+        'env_locked' => 'The environment file is being changed; try again later.',
         'started' => 'The approved change is starting.',
         'failed' => 'The change could not be completed. Review the installation settings.',
         'already_set' => 'The settings already have the required values.',

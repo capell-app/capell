@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create(TableName::resolve('capell_security_remediation_approvals'), function (Blueprint $table): void {
             $table->id();
             $table->string('weakness_id', 120)->unique(TableName::index('capell_security_remediation_approvals', 'weakness_id', 'unique'));
+            $table->string('remediation_class', 255)->nullable();
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at');
             $table->unsignedBigInteger('revoked_by')->nullable();

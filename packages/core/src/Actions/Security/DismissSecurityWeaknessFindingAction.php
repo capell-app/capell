@@ -16,7 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * fingerprint is unchanged; new evidence produces a new fingerprint and a
  * fresh open finding.
  */
-final class DismissSecurityWeaknessFindingAction
+class DismissSecurityWeaknessFindingAction
 {
     use AsFake;
     use AsObject;

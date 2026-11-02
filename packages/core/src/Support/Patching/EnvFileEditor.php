@@ -15,6 +15,7 @@ final class EnvFileEditor
 
     public function __construct(string $filePath)
     {
+        throw_if(is_link($filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
         throw_unless(file_exists($filePath), RuntimeException::class, 'File does not exist at path: ' . $filePath);
 
         $this->filePath = $filePath;
@@ -56,13 +57,21 @@ final class EnvFileEditor
 
     public function save(): void
     {
-        $bytesWritten = @file_put_contents($this->filePath, $this->content);
-
-        throw_if(
-            $bytesWritten === false || $bytesWritten !== strlen($this->content),
-            RuntimeException::class,
-            'Failed to write environment file at path: ' . $this->filePath,
-        );
+        throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
+        $temporary = tempnam(dirname($this->filePath), '.capell-env-');
+        throw_if($temporary === false, RuntimeException::class, 'Failed to create a temporary environment file.');
+        try {
+            $permissions = fileperms($this->filePath);
+            throw_if($permissions === false || ! chmod($temporary, $permissions & 0777), RuntimeException::class, 'Failed to preserve environment file permissions.');
+            $written = file_put_contents($temporary, $this->content);
+            throw_if($written !== strlen($this->content), RuntimeException::class, 'Failed to write the environment file.');
+            throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
+            throw_unless(rename($temporary, $this->filePath), RuntimeException::class, 'Failed to replace the environment file.');
+        } finally {
+            if (file_exists($temporary)) {
+                unlink($temporary);
+            }
+        }
     }
 
     public function backup(): string

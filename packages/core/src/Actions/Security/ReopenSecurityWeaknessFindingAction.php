@@ -10,7 +10,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Undo a dismissal so the finding counts as open again. */
-final class ReopenSecurityWeaknessFindingAction
+class ReopenSecurityWeaknessFindingAction
 {
     use AsFake;
     use AsObject;

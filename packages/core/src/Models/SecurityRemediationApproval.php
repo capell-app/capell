@@ -20,6 +20,7 @@ use Override;
  *
  * @property int $id
  * @property string $weakness_id
+ * @property string|null $remediation_class
  * @property int|null $approved_by
  * @property CarbonImmutable $approved_at
  * @property int|null $revoked_by
@@ -41,6 +42,7 @@ final class SecurityRemediationApproval extends Model
     /** @var list<string> */
     protected $fillable = [
         'weakness_id',
+        'remediation_class',
         'approved_by',
         'approved_at',
         'revoked_by',

@@ -11,8 +11,7 @@ namespace Capell\Core\Enums\Security;
  * An `Advisory` names a vulnerable package version and may trigger an update
  * path that is itself health-checked. An `Analyser` finding (an AI or other
  * heuristic reviewer) is advice to a person: it is recorded and shown, never
- * acted on unattended, unless it carries the id of a registered known
- * weakness whose remediation an operator has approved.
+ * acted on unattended.
  */
 enum SecurityFindingSource: string
 {

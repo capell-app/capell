@@ -55,6 +55,8 @@ final class SecurityWeaknessFinding extends Model
 
     protected $table = 'capell_security_weakness_findings';
 
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
     /** @var list<string> */
     protected $fillable = [
         'weakness_id',

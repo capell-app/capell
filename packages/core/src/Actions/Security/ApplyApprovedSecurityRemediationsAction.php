@@ -7,13 +7,13 @@ namespace Capell\Core\Actions\Security;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
 use Capell\Core\Data\Security\SecurityRemediationBatchResultData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
-use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Enums\Security\SecurityRemediationOutcome;
 use Capell\Core\Events\SecurityRemediationApplied;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +28,10 @@ class ApplyApprovedSecurityRemediationsAction
 
     public function __construct(private readonly SecurityWeaknessRegistry $registry) {}
 
-    public function handle(string $actor, bool $dryRun = false, ?string $onlyWeaknessId = null): SecurityRemediationBatchResultData
+    /**
+     * @param  list<string>  $failedChecks  weakness ids whose check failed in the latest scan; their findings are skipped
+     */
+    public function handle(string $actor, bool $dryRun = false, ?string $onlyWeaknessId = null, ?CarbonImmutable $detectedSince = null, array $failedChecks = []): SecurityRemediationBatchResultData
     {
         $query = SecurityWeaknessFinding::query()->where('status', SecurityFindingStatus::Open->value);
         if ($onlyWeaknessId !== null) {
@@ -42,20 +45,32 @@ class ApplyApprovedSecurityRemediationsAction
         $skipped = [];
         foreach ($query->get() as $candidate) {
             $considered++;
-            $result = DB::transaction(function () use ($candidate, $actor, $dryRun): array {
+            $result = DB::transaction(function () use ($candidate, $actor, $dryRun, $detectedSince, $failedChecks): array {
                 $finding = SecurityWeaknessFinding::query()->lockForUpdate()->find($candidate->id);
                 if ($finding === null || $finding->status !== SecurityFindingStatus::Open) {
                     return ['skip' => 'no longer open'];
                 }
 
+                if (! $finding->source->mayRemediateAutomatically()) {
+                    return ['skip' => __('capell-core::security.remediation.advice_only')];
+                }
+
+                if (in_array($finding->weakness_id, $failedChecks, true) || ($detectedSince instanceof CarbonImmutable && $finding->last_detected_at->lt($detectedSince))) {
+                    return ['skip' => __('capell-core::security.remediation.not_confirmed')];
+                }
+
                 $remediation = $this->registry->remediation($finding->weakness_id);
                 $approval = SecurityRemediationApproval::query()->where('weakness_id', $finding->weakness_id)->lockForUpdate()->first();
-                if (! $finding->remediable || ! $remediation instanceof SecurityWeaknessRemediation || (! $finding->source->mayRemediateAutomatically() && $finding->source !== SecurityFindingSource::Analyser)) {
+                if (! $finding->remediable || ! $remediation instanceof SecurityWeaknessRemediation) {
                     return ['skip' => 'not eligible'];
                 }
 
                 if ($approval === null || ! $approval->isActive()) {
                     return ['skip' => 'approval required'];
+                }
+
+                if ($approval->remediation_class !== $remediation::class) {
+                    return ['skip' => __('capell-core::security.remediation.fix_changed')];
                 }
 
                 if ($dryRun) {
@@ -82,8 +97,9 @@ class ApplyApprovedSecurityRemediationsAction
                         recommendedAction: $finding->recommended_action,
                         confidence: $finding->confidence,
                     ));
+                    $sanitiser = new SecurityOutputSanitiser;
                     $run->fill(['outcome' => $outcome->applied ? SecurityRemediationOutcome::Applied : SecurityRemediationOutcome::Skipped,
-                        'message' => $outcome->message, 'before' => $outcome->before, 'after' => $outcome->after]);
+                        'message' => $sanitiser->text($outcome->message, 1000), 'before' => $sanitiser->context($outcome->before), 'after' => $sanitiser->context($outcome->after)]);
                     if ($outcome->applied) {
                         $finding->update(['status' => SecurityFindingStatus::Remediated, 'remediated_at' => CarbonImmutable::now()]);
                     }

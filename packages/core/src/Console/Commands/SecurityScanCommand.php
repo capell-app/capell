@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
 
 final class SecurityScanCommand extends Command
 {
-    protected $signature = 'capell:security:scan {--fix-approved} {--dry-run} {--no-analyser} {--json}';
+    protected $signature = 'capell:security:scan {--fix-approved} {--dry-run} {--no-analyser} {--json} {--only=} {--actor=console}';
 
     protected $description = 'Scan the installation for security weaknesses.';
 
@@ -23,8 +23,11 @@ final class SecurityScanCommand extends Command
     {
         $scan = RunSecurityWeaknessScanAction::run(! $this->option('no-analyser'));
         $batch = $this->option('fix-approved') ? ApplyApprovedSecurityRemediationsAction::run(
-            SecurityRemediationRun::ACTOR_SCHEDULER,
+            $this->option('actor') === 'scheduler' ? SecurityRemediationRun::ACTOR_SCHEDULER : 'system:console',
             (bool) $this->option('dry-run'),
+            $this->option('only'),
+            $scan->scannedAt,
+            array_values(array_map(static fn (string $failure): string => substr($failure, 7), array_filter($scan->failures, static fn (string $failure): bool => str_starts_with($failure, 'check: ')))),
         ) : null;
         $findings = ListSecurityWeaknessFindingsAction::run();
         $approvals = SecurityRemediationApproval::query()->active()->pluck('weakness_id')->all();
@@ -54,6 +57,10 @@ final class SecurityScanCommand extends Command
             foreach ($scan->failures as $failure) {
                 $this->warn($failure);
             }
+        }
+
+        if ($scan->failures !== [] || ($batch !== null && $batch->failed > 0)) {
+            return 2;
         }
 
         return $findings->contains(fn ($finding): bool => $finding->status === SecurityFindingStatus::Open && $finding->severity === SecurityWeaknessSeverity::Critical) ? self::FAILURE : self::SUCCESS;

@@ -115,7 +115,7 @@ final class SecurityWeaknessRegistry
 
     private function assertWeaknessId(string $weaknessId): string
     {
-        if (preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $weaknessId) !== 1) {
+        if (strlen($weaknessId) > 120 || preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $weaknessId) !== 1) {
             throw new InvalidArgumentException(sprintf('Security weakness id "%s" must be lower-case dotted segments, e.g. "app.debug_enabled".', $weaknessId));
         }
 

@@ -26,7 +26,7 @@ return new class extends Migration
             $table->text('recommended_action')->nullable();
             $table->decimal('confidence', 4, 3)->nullable();
             $table->timestamp('first_detected_at');
-            $table->timestamp('last_detected_at');
+            $table->timestamp('last_detected_at', 6);
             $table->timestamp('remediated_at')->nullable();
             $table->timestamp('resolved_at')->nullable();
             $table->timestamp('dismissed_at')->nullable();

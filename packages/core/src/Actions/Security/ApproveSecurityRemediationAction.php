@@ -18,7 +18,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * own. Only weaknesses with a registered remediation can be approved, so the
  * approval always names something Capell can actually do.
  */
-final class ApproveSecurityRemediationAction
+class ApproveSecurityRemediationAction
 {
     use AsFake;
     use AsObject;
@@ -34,12 +34,14 @@ final class ApproveSecurityRemediationAction
 
     public function handle(string $weaknessId, Authenticatable $user, ?string $note = null): SecurityRemediationApproval
     {
-        if (! $this->registry->remediation($weaknessId) instanceof SecurityWeaknessRemediation) {
+        $remediation = $this->registry->remediation($weaknessId);
+        if (! $remediation instanceof SecurityWeaknessRemediation) {
             throw new InvalidArgumentException(sprintf('No automatic fix is registered for security weakness "%s".', $weaknessId));
         }
 
         $approval = SecurityRemediationApproval::query()->firstOrNew(['weakness_id' => $weaknessId]);
         $approval->fill([
+            'remediation_class' => $remediation::class,
             'approved_by' => self::userId($user),
             'approved_at' => CarbonImmutable::now(),
             'revoked_by' => null,

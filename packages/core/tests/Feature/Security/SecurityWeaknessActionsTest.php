@@ -44,7 +44,7 @@ it('requires active approval and records an approved change but not a dry run', 
     $finding = SecurityWeaknessFinding::factory()->create();
     $action = new ApplyApprovedSecurityRemediationsAction($registry);
     expect($action->handle('test')->applied)->toBe(0);
-    $approval = SecurityRemediationApproval::factory()->create(['weakness_id' => $finding->weakness_id, 'revoked_at' => now()]);
+    $approval = SecurityRemediationApproval::factory()->create(['weakness_id' => $finding->weakness_id, 'revoked_at' => now(), 'remediation_class' => TestRemediation::class]);
     expect($action->handle('test')->applied)->toBe(0);
     $approval->update(['revoked_at' => null]);
     expect($action->handle('test', true)->skipped[$finding->fingerprint])->toBe('dry-run')

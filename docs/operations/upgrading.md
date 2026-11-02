@@ -430,3 +430,5 @@ Static error entries without a recorded port or mount cannot establish ownership
 and return the generic fallback until regeneration. Run
 `php artisan capell:generate-error-pages` to rebuild both route-scoped manifests on
 deployment, and stop previous workers to prevent further legacy rewrites.
+
+Security scans and approved remediation are described in [Security weakness scans](../operations/security-weaknesses.md). A security scan dry run still records findings.

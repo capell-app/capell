@@ -3,16 +3,21 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
+use Capell\Core\Data\Security\SecurityRemediationOutcomeData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
 use Capell\Core\Enums\ExtensionAutoUpdatePolicyEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Patching\UnsafeEnvironmentFileException;
 use Capell\Core\Support\Security\Remediations\AutoUpdatesForAdvisoryRemediation;
 use Capell\Core\Support\Security\Remediations\DebugEnabledRemediation;
 use Capell\Core\Support\Security\Remediations\EnvironmentRemediation;
 use Capell\Core\Support\Security\Remediations\InsecureCookieRemediation;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 
 function remediationFinding(?string $composerName = null): SecurityWeaknessFindingData
@@ -70,4 +75,51 @@ it('enables security updates once and describes the reversible change', function
         ->and($result->after)->toEqual(['auto_update_policy' => 'security'])
         ->and($extension->refresh()->auto_update_policy)->toBe(ExtensionAutoUpdatePolicyEnum::Security)
         ->and($remediation->apply($finding)->applied)->toBeFalse();
+});
+
+it('refuses ambiguous environment files without writing or backing up', function (string $contents): void {
+    $directory = sys_get_temp_dir() . '/capell-remediation-' . uniqid();
+    File::ensureDirectoryExists($directory);
+    $base = app()->basePath();
+    $storage = app()->storagePath();
+    file_put_contents($directory . '/.env', $contents);
+    app()->setBasePath($directory);
+    app()->useStoragePath($directory . '/storage');
+    try {
+        $outcome = (new EnvironmentRemediation)->apply(['APP_DEBUG' => 'false']);
+        expect($outcome->applied)->toBeFalse()->and($outcome->message)->toBe(__('capell-core::security.remediation.env_ambiguous'))
+            ->and(file_get_contents($directory . '/.env'))->toBe($contents)
+            ->and(is_dir($directory . '/storage'))->toBeFalse();
+    } finally {
+        app()->setBasePath($base);
+        app()->useStoragePath($storage);
+        File::deleteDirectory($directory);
+    }
+})->with(["APP_DEBUG=true\nAPP_DEBUG=false\n", "APP_DEBUG=true\r\n", "OTHER=\"first\nAPP_DEBUG=true\nlast\"\n"]);
+
+it('refuses a symbolic link before creating a backup', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-remediation-' . uniqid();
+    File::ensureDirectoryExists($directory);
+    $base = app()->basePath();
+    $storage = app()->storagePath();
+    file_put_contents($directory . '/target', "APP_DEBUG=true\n");
+    symlink($directory . '/target', $directory . '/.env');
+    app()->setBasePath($directory);
+    app()->useStoragePath($directory . '/storage');
+    try {
+        expect(fn (): SecurityRemediationOutcomeData => (new EnvironmentRemediation)->apply(['APP_DEBUG' => 'false']))->toThrow(UnsafeEnvironmentFileException::class)
+            ->and(file_get_contents($directory . '/target'))->toBe("APP_DEBUG=true\n")
+            ->and(is_dir($directory . '/storage'))->toBeFalse();
+    } finally {
+        app()->setBasePath($base);
+        app()->useStoragePath($storage);
+        File::deleteDirectory($directory);
+    }
+});
+
+it('skips environment changes when the lock cannot be obtained', function (): void {
+    $lock = Mockery::mock(Lock::class);
+    $lock->shouldReceive('block')->once()->with(10, Mockery::type('closure'))->andThrow(new LockTimeoutException);
+    Cache::shouldReceive('lock')->once()->with('capell:security:env-remediation', 30)->andReturn($lock);
+    expect((new EnvironmentRemediation)->apply(['APP_DEBUG' => 'false'])->message)->toBe(__('capell-core::security.remediation.env_locked'));
 });

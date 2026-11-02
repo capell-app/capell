@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Security\RunSecurityWeaknessScanAction;
+use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
+use Capell\Core\Data\Security\SecurityRemediationOutcomeData;
 use Capell\Core\Data\Security\SecurityScanResultData;
+use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Tests\Support\Security\TestRemediation;
 use Carbon\CarbonImmutable;
@@ -16,7 +20,7 @@ use Illuminate\Support\Facades\Artisan;
 function fakeCommandScan(bool $includeAnalyser): void
 {
     RunSecurityWeaknessScanAction::mock()->shouldReceive('handle')->once()->with($includeAnalyser)
-        ->andReturn(new SecurityScanResultData(CarbonImmutable::now(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High));
+        ->andReturn(new SecurityScanResultData(CarbonImmutable::now()->subMinute(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High));
 }
 
 it('lists active findings in a table and fails for open critical findings', function (): void {
@@ -45,7 +49,7 @@ it('applies approved fixes and reports their runs', function (): void {
 
     app()->instance(SecurityWeaknessRegistry::class, $registry);
     SecurityWeaknessFinding::factory()->create();
-    SecurityRemediationApproval::factory()->create();
+    SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
     fakeCommandScan(true);
     $exit = Artisan::call('capell:security:scan', ['--fix-approved' => true]);
     expect($exit)->toBe(0)->and(Artisan::output())->toContain('app.debug_enabled: applied');
@@ -58,9 +62,78 @@ it('reports dry runs without writing a remediation', function (): void {
 
     app()->instance(SecurityWeaknessRegistry::class, $registry);
     $finding = SecurityWeaknessFinding::factory()->create();
-    SecurityRemediationApproval::factory()->create();
+    SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
     fakeCommandScan(true);
     $exit = Artisan::call('capell:security:scan', ['--fix-approved' => true, '--dry-run' => true]);
     expect($exit)->toBe(0)->and(Artisan::output())->toContain('dry-run');
     expect(SecurityRemediationRun::query()->count())->toBe(0)->and($finding->refresh()->status->value)->toBe('open');
 });
+
+it('returns two for incomplete scans and honours the only option', function (): void {
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerRemediation(new TestRemediation);
+
+    app()->instance(SecurityWeaknessRegistry::class, $registry);
+    $finding = SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
+    RunSecurityWeaknessScanAction::mock()->shouldReceive('handle')->once()->andReturn(new SecurityScanResultData(CarbonImmutable::now()->subMinute(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High, ['check: app.debug_enabled']));
+    expect(Artisan::call('capell:security:scan', ['--fix-approved' => true, '--only' => 'app.debug_enabled']))->toBe(2)
+        ->and($finding->fresh()->status->value)->toBe('open')
+        ->and(SecurityRemediationRun::query()->count())->toBe(0);
+});
+
+it('uses the scheduler actor and skips analyser advice in scheduled fixes', function (): void {
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerRemediation(new TestRemediation);
+
+    app()->instance(SecurityWeaknessRegistry::class, $registry);
+    $builtin = SecurityWeaknessFinding::factory()->create();
+    $advice = SecurityWeaknessFinding::factory()->create(['source' => SecurityFindingSource::Analyser]);
+    SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
+    fakeCommandScan(true);
+    expect(Artisan::call('capell:security:scan', ['--fix-approved' => true, '--actor' => 'scheduler']))->toBe(0)
+        ->and($builtin->fresh()->status->value)->toBe('remediated')->and($advice->fresh()->status->value)->toBe('open')
+        ->and(SecurityRemediationRun::query()->sole()->actor)->toBe('system:scheduler');
+});
+
+it('returns two when an approved fix fails', function (): void {
+    $fix = Mockery::mock(SecurityWeaknessRemediation::class);
+    $fix->shouldReceive('weaknessId')->andReturn('app.debug_enabled');
+    $fix->shouldReceive('apply')->once()->andThrow(new RuntimeException('failure'));
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerRemediation($fix);
+
+    app()->instance(SecurityWeaknessRegistry::class, $registry);
+    SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create(['remediation_class' => $fix::class]);
+    fakeCommandScan(true);
+    expect(Artisan::call('capell:security:scan', ['--fix-approved' => true]))->toBe(2)
+        ->and(SecurityRemediationRun::query()->sole()->actor)->toBe('system:console');
+});
+
+it('limits requested remediation to the selected weakness', function (): void {
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerRemediation(new TestRemediation);
+
+    app()->instance(SecurityWeaknessRegistry::class, $registry);
+    $finding = SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
+    fakeCommandScan(true);
+    expect(Artisan::call('capell:security:scan', ['--fix-approved' => true, '--only' => 'other.issue']))->toBe(0)
+        ->and($finding->fresh()->status->value)->toBe('open')->and(SecurityRemediationRun::query()->count())->toBe(0);
+});
+
+it('prints sanitised stored findings and remediation messages in both formats', function (bool $json): void {
+    $fix = Mockery::mock(SecurityWeaknessRemediation::class);
+    $fix->shouldReceive('weaknessId')->andReturn('app.debug_enabled');
+    $fix->shouldReceive('apply')->once()->andReturn(new SecurityRemediationOutcomeData(true, 'Bearer distinctiveToken123'));
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerRemediation($fix);
+
+    app()->instance(SecurityWeaknessRegistry::class, $registry);
+    SecurityWeaknessFinding::factory()->create(['title' => (new SecurityOutputSanitiser)->text('APP_KEY=base64:distinctiveSecret123', 200)]);
+    SecurityRemediationApproval::factory()->create(['remediation_class' => $fix::class]);
+    fakeCommandScan(true);
+    Artisan::call('capell:security:scan', ['--fix-approved' => true, '--json' => $json]);
+    expect(Artisan::output())->not->toContain('distinctiveToken123')->not->toContain('distinctiveSecret123');
+})->with([false, true]);

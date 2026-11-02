@@ -11,7 +11,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Withdraw consent; the row stays as history and nothing already applied is undone. */
-final class RevokeSecurityRemediationApprovalAction
+class RevokeSecurityRemediationApprovalAction
 {
     use AsFake;
     use AsObject;

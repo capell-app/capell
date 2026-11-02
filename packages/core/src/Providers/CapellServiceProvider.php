@@ -883,7 +883,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         }
 
         $this->registerSchedule(function (Schedule $schedule): void {
-            $command = 'capell:security:scan';
+            $command = 'capell:security:scan --actor=scheduler';
             if (config('capell.security.scan.fix_approved', true) === true) {
                 $command .= ' --fix-approved';
             }

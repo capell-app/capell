@@ -30,3 +30,9 @@ it('rejects malformed weakness IDs', function (): void {
     $check->shouldReceive('weaknessId')->andReturn('Unsafe ID');
     expect(fn (): SecurityWeaknessRegistry => (new SecurityWeaknessRegistry)->registerCheck($check))->toThrow(InvalidArgumentException::class);
 });
+
+it('rejects weakness IDs longer than the database column', function (): void {
+    $check = Mockery::mock(SecurityWeaknessCheck::class);
+    $check->shouldReceive('weaknessId')->andReturn(str_repeat('a', 121));
+    expect(fn (): SecurityWeaknessRegistry => (new SecurityWeaknessRegistry)->registerCheck($check))->toThrow(InvalidArgumentException::class);
+});

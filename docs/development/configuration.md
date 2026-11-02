@@ -457,3 +457,5 @@ The installer checks registered roots for the selected packages before migration
 Package migrations and models must use `TableName::resolve()` for those names;
 registering a literal migration alone does not make that migration honour aliases.
 External dependencies retain their own table-name configuration.
+
+Security scans and approved remediation are described in [Security weakness scans](../operations/security-weaknesses.md). A security scan dry run still records findings.
