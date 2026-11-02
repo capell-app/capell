@@ -62,6 +62,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
@@ -165,6 +166,7 @@ final class SingletonLifetimeInventory
             RollbackValidatorRegistry::class => self::boot('Rollback validators are package boot registrations.'),
             SettingsSchemaRegistry::class => self::boot('Settings schemas and metadata are package boot registrations.'),
             SiteAccessPolicyRegistry::class => self::boot('Site access policy providers are package boot registrations.'),
+            PublicPageReadEligibilityRegistry::class => self::boot('Public-read eligibility contributors are package registrations; decisions are read per call, never cached.'),
             MetricEventRegistry::class => self::boot('Metric event definitions are package boot registrations.'),
             MetricCollectorRegistry::class => self::boot('Metric collectors are package boot registrations.'),
             OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
