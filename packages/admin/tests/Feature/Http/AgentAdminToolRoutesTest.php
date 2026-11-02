@@ -14,6 +14,7 @@ use Capell\Core\Data\Agent\AgentToolDefinitionData;
 use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Security\LockdownStore;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -155,4 +156,31 @@ it('takes the authenticated user and session from the request rather than the to
 
 it('does not emit the admin tool schema in public HTML', function (): void {
     test()->get('/')->assertDontSee('capellAgentSchema', false);
+});
+
+it('blocks standalone admin routes in lockdown and permits the break-glass user', function (): void {
+    $allowed = test()->actingAsAdmin()->authenticatedUser();
+    $blocked = test()->actingAsAdmin()->authenticatedUser();
+    $store = resolve(LockdownStore::class);
+    $store->activateFor($allowed);
+
+    try {
+        test()->actingAs($blocked);
+        foreach ([
+            ['get', route('capell-admin.agent.tools')],
+            ['post', route('capell-admin.agent.tools.invoke')],
+            ['get', route('capell-admin.api.page-tree')],
+            ['post', route('capell-admin.profile.language.update')],
+            ['get', route('capell-admin.avatar', ['initials' => 'AB'])],
+        ] as [$method, $url]) {
+            $response = $method === 'post' ? $this->post($url) : $this->get($url);
+            $response->assertStatus(423);
+        }
+
+        $site = Site::factory()->createOne();
+        test()->actingAs($allowed)->withSession(['capell.current_site_id' => $site->getKey()])
+            ->getJson(route('capell-admin.agent.tools'))->assertOk();
+    } finally {
+        $store->deactivate();
+    }
 });

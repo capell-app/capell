@@ -8,6 +8,7 @@ use Capell\Core\Data\Manifest\ExtensionScreenshotData;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Security\LockdownStore;
 use Filament\Facades\Filament;
 use Filament\Panel;
 use Filament\PanelRegistry;
@@ -282,4 +283,21 @@ it('builds links to declared images from their headers without decoding them', f
         ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/large-truncated.png'))->toBeNull()
         ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/undeclared.png', verifyDecode: false))->toBeNull()
         ->and(ResolveExtensionAssetPathAction::run($manifest, 'docs/fake.png', verifyDecode: false))->toBeNull();
+});
+
+it('enforces lockdown on declared extension assets', function (): void {
+    config(['capell.lockdown.file' => storage_path('framework/testing/asset-lockdown.json')]);
+    test()->actingAsAdmin();
+    $owner = test()->authenticatedUser();
+    $blocked = test()->createUserWithRole('super_admin');
+    $store = resolve(LockdownStore::class);
+    try {
+        $store->activateFor($owner);
+        test()->actingAs($blocked)->get(extensionAssetUrl('docs/screenshot.png'))->assertStatus(423);
+        auth()->logout();
+        test()->getJson(extensionAssetUrl('docs/screenshot.png'))->assertUnauthorized();
+        test()->actingAs($owner)->get(extensionAssetUrl('docs/screenshot.png'))->assertOk();
+    } finally {
+        $store->deactivate();
+    }
 });

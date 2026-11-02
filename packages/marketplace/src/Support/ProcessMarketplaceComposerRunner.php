@@ -46,9 +46,9 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         $this->authWorkspace->sweep();
 
         $composerHome = $this->authWorkspace->create();
-        $this->authWorkspace->writeAuthFile($composerHome, $composerAuth);
-
         try {
+            $this->authWorkspace->writeAuthFile($composerHome, $composerAuth);
+
             return $this->runComposer($composerName, $versionConstraint, $timeoutSeconds, $composerHome)->redacted();
         } finally {
             $this->authWorkspace->removeDirectory($composerHome);

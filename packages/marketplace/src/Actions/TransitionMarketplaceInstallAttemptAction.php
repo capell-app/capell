@@ -385,7 +385,7 @@ final class TransitionMarketplaceInstallAttemptAction
     {
         $output = trim($output);
 
-        return $output === '' ? null : $this->redactedText(Str::limit($output, 4000, ''));
+        return $output === '' ? null : Str::limit($this->redactedText($output), 4000, '');
     }
 
     private function redactedText(string $text): string

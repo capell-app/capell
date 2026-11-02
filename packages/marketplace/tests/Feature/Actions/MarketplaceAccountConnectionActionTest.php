@@ -6,6 +6,7 @@ use Capell\Marketplace\Actions\CompleteMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Actions\StartMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Enums\MarketplaceAccountConnectionSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceAccountConnectionSession;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Illuminate\Support\Facades\Http;
@@ -146,13 +147,13 @@ it('marks the local account session failed when marketplace cannot start the rem
     ]);
 
     expect(fn (): string => StartMarketplaceAccountConnectionAction::run())
-        ->toThrow(RuntimeException::class, 'Marketplace unavailable.');
+        ->toThrow(RuntimeException::class, (string) __('capell-marketplace::marketplace.errors.remote_failure'));
 
     $session = expectPresent(MarketplaceAccountConnectionSession::query()->first());
 
     expect($session)->toBeInstanceOf(MarketplaceAccountConnectionSession::class)
         ->and($session->status)->toBe(MarketplaceAccountConnectionSessionStatus::Failed)
-        ->and($session->last_error)->toBe(RuntimeException::class);
+        ->and($session->last_error)->toBe(MarketplaceRemoteFailureException::class);
 });
 
 it('rejects account connection approval redirects outside the configured marketplace host', function (): void {

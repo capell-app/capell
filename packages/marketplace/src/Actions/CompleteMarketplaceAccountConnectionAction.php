@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceAccountConnectionSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceAccountConnectionSession;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -37,7 +38,7 @@ final class CompleteMarketplaceAccountConnectionAction
         } catch (Throwable $throwable) {
             $session->update([
                 'status' => MarketplaceAccountConnectionSessionStatus::Failed,
-                'last_error' => $throwable->getMessage(),
+                'last_error' => MarketplaceRemoteFailureException::diagnostic($throwable),
             ]);
 
             throw $throwable;
@@ -58,7 +59,7 @@ final class CompleteMarketplaceAccountConnectionAction
         } catch (Throwable $throwable) {
             $session->update([
                 'status' => MarketplaceAccountConnectionSessionStatus::Failed,
-                'last_error' => $throwable->getMessage(),
+                'last_error' => MarketplaceRemoteFailureException::diagnostic($throwable),
             ]);
 
             throw $throwable;

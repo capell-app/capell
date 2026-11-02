@@ -51,7 +51,7 @@ it('keeps free install telemetry pending when marketplace is unavailable', funct
     expect($attempt->telemetry_status)->toBe('pending')
         ->and($attempt->telemetry_attempted_at)->not->toBeNull()
         ->and($attempt->telemetry_synced_at)->toBeNull()
-        ->and($attempt->telemetry_failure)->toContain('Marketplace unavailable');
+        ->and($attempt->telemetry_failure)->toContain((string) __('capell-marketplace::marketplace.errors.remote_failure'));
 });
 
 it('does not send local user or account email in free install telemetry', function (): void {

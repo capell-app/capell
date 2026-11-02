@@ -9,6 +9,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
 use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -722,7 +723,7 @@ it('normalizes successful heartbeat responses from marketplace', function (): vo
         && ! array_key_exists('domain', $request->data()));
 });
 
-it('includes useful details when marketplace heartbeat returns html', function (): void {
+it('reports the status but never the page content when marketplace heartbeat returns html', function (): void {
     Http::fake([
         'https://marketplace.test/api/instances/heartbeat' => Http::response(
             '<html><head><title>Maintenance Mode</title></head><body>Down</body></html>',
@@ -731,8 +732,13 @@ it('includes useful details when marketplace heartbeat returns html', function (
         ),
     ]);
 
-    resolve(MarketplaceClient::class)->heartbeat(['domain' => 'example.com']);
-})->throws(RuntimeException::class, 'Page title: Maintenance Mode');
+    expect(fn () => resolve(MarketplaceClient::class)->heartbeat(['domain' => 'example.com']))
+        ->toThrow(function (RuntimeException $exception): void {
+            expect($exception->getMessage())->toContain('HTTP status 503')
+                ->not->toContain('Maintenance Mode')
+                ->not->toContain('Down');
+        });
+});
 
 it('fails closed when marketplace heartbeat responses have an invalid payload shape', function (array $responseData, string $message): void {
     Http::fake([
@@ -1099,12 +1105,16 @@ it('surfaces purchase requirements from install authorization responses', functi
         ], 402),
     ]);
 
-    resolve(MarketplaceClient::class)->createInstallAuthorization(
+    expect(fn () => resolve(MarketplaceClient::class)->createInstallAuthorization(
         slug: 'paid-plugin',
         licenseKey: null,
         email: null,
-    );
-})->throws(PurchaseRequiredException::class, 'Buy this extension before installing it.');
+    ))->toThrow(function (PurchaseRequiredException $exception): void {
+        expect($exception->getMessage())->toBe(__('capell-marketplace::marketplace.errors.purchase_required'))
+            ->not->toContain('Buy this extension before installing it.')
+            ->and($exception->purchaseUrl)->toBe('https://marketplace.test/checkout/paid-plugin');
+    });
+});
 
 it('applies the configured proxy and CA bundle to every outbound marketplace call', function (): void {
     config([
@@ -1177,3 +1187,20 @@ function marketplaceHeartbeatOptions(): array
 
     return $options;
 }
+
+it('logs bounded install intent transport failures without credentials', function (): void {
+    config([
+        'capell-marketplace.instance.id' => 'instance-123',
+        'capell-marketplace.marketplace.webhook_secret' => 'secret-value',
+    ]);
+    Http::fake(fn () => throw new ConnectionException('https://user:p4ss@example.test/x?token=abc'));
+    Log::shouldReceive('warning')->once()->withArgs(function (string $message, array $context): bool {
+        $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+        return $message === 'capell-marketplace: install intent telemetry failed'
+            && ($context['exception'] ?? null) === ConnectionException::class
+            && str_contains($encoded, 'Marketplace could not complete the request')
+            && ! str_contains($encoded, 'p4ss') && ! str_contains($encoded, 'token=abc');
+    });
+    resolve(MarketplaceClient::class)->recordInstallIntent(['composer_name' => 'capell-app/seo-suite']);
+});

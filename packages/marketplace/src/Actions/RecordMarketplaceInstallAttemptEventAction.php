@@ -32,7 +32,7 @@ final class RecordMarketplaceInstallAttemptEventAction
             'marketplace_install_attempt_id' => $attempt->getKey(),
             'level' => $level,
             'stage' => $stage,
-            'message' => Str::limit($message, 255, ''),
+            'message' => Str::limit((string) (RedactMarketplaceDiagnosticContextAction::run(['text' => $message])['text'] ?? '[redacted]'), 255, ''),
             'context' => $context === [] ? null : RedactMarketplaceDiagnosticContextAction::run($context),
             'output_excerpt' => $this->excerpt($outputExcerpt),
             'occurred_at' => now(),
@@ -48,9 +48,9 @@ final class RecordMarketplaceInstallAttemptEventAction
         }
 
         $redacted = RedactMarketplaceDiagnosticContextAction::run([
-            'output' => Str::limit($output, 4000, ''),
+            'output' => $output,
         ]);
 
-        return is_string($redacted['output'] ?? null) ? $redacted['output'] : null;
+        return is_string($redacted['output'] ?? null) ? Str::limit($redacted['output'], 4000, '') : null;
     }
 }
