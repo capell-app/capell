@@ -24,5 +24,6 @@ final class ExtensionAcquisitionData extends Data
         public array $signedActivation = [],
         public array $metadata = [],
         public ?MarketplaceInstallEligibilityData $authorizationEligibilityPolicy = null,
+        public ?string $releaseChecksum = null,
     ) {}
 }

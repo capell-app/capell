@@ -74,6 +74,7 @@ final class CreateExtensionAcquisitionAction
                         'can_install' => true,
                     ],
                 ),
+                releaseChecksum: $listing->releaseChecksum,
             );
         }
 
@@ -111,6 +112,7 @@ final class CreateExtensionAcquisitionAction
             signedActivation: $authorization->signedActivation,
             metadata: $authorization->metadata,
             authorizationEligibilityPolicy: $authorization->installEligibilityPolicy,
+            releaseChecksum: $listing->releaseChecksum,
         );
 
         if ($this->authorizationPolicy->blocksInstall($authorization->installEligibilityPolicy)) {

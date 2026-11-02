@@ -44,6 +44,7 @@ it('keeps the composer cache by default so an install does not re-download the w
         'require',
         '--no-interaction',
         '--no-scripts',
+        '--no-plugins',
         '--no-audit',
         '--no-progress',
         '--prefer-dist',
@@ -175,7 +176,7 @@ SH);
         ->and($result->output)->toContain('COMPOSER_HOME=' . storage_path('framework/composer'))
         ->and($result->output)->toContain('HOME=' . storage_path('framework/composer'))
         ->and($result->output)->not->toContain('--no-cache')
-        ->and($result->output)->toContain('--no-scripts')
+        ->and($result->output)->toContain('--no-scripts', '--no-plugins')
         ->and($result->output)->toContain('vendor/example:^1.2')
         ->and($result->errorOutput)->toContain('composer stderr')
         ->and(is_dir(storage_path('framework/composer')))->toBeTrue();

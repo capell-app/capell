@@ -23,19 +23,19 @@ beforeEach(function (): void {
 /** @return list<string> */
 function composerRemovalArgv(string $package): array
 {
-    return [...capellComposerArgv(), 'remove', $package, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
+    return [...capellComposerArgv(), 'remove', $package, '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress'];
 }
 
 /** @return list<string> */
 function composerRecoveryArgv(): array
 {
-    return [...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'];
+    return [...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts', '--no-plugins'];
 }
 
 /** @return list<string> */
 function composerMemberUpdateArgv(string $member): array
 {
-    return [...capellComposerArgv(), 'update', $member, '--with-dependencies', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
+    return [...capellComposerArgv(), 'update', $member, '--with-dependencies', '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress'];
 }
 
 function expectComposerRemovalProcess(FakeProcess $process, string $package, int $timeout = 600): void
@@ -170,7 +170,7 @@ it('removes a package from the command line while server side tooling is disable
 it('builds a symfony process from the factory', function (): void {
     $factory = new SymfonyProcessFactory;
 
-    $process = $factory->make([...capellComposerArgv(), 'remove', 'vendor/package', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], base_path());
+    $process = $factory->make([...capellComposerArgv(), 'remove', 'vendor/package', '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress'], base_path());
     $commandLine = $process->getCommandLine();
 
     expect($process)

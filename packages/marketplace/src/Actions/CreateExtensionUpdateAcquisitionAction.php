@@ -40,10 +40,11 @@ final class CreateExtensionUpdateAcquisitionAction
     public function handle(ExtensionListingData $listing, string $currentVersion): ExtensionAcquisitionData
     {
         $this->assertUpdateAllowed($listing);
-        MarketplaceComposerCoordinates::assertValid($listing->composerName, $this->latestVersionConstraint($listing));
+        MarketplaceComposerCoordinates::assertValid($listing->composerName, '*');
 
         if (! $this->authorizationPolicy->requiresAuthorization($listing)) {
             $versionConstraint = $this->latestVersionConstraint($listing);
+            AssertMarketplaceUpdateConstraintAction::assertStrictConstraint($versionConstraint);
             MarketplaceComposerCoordinates::assertUpgrade($listing->composerName, $versionConstraint, $currentVersion);
 
             return new ExtensionAcquisitionData(
@@ -67,6 +68,7 @@ final class CreateExtensionUpdateAcquisitionAction
                         'can_update' => true,
                     ],
                 ),
+                releaseChecksum: $listing->releaseChecksum,
             );
         }
 
@@ -86,6 +88,7 @@ final class CreateExtensionUpdateAcquisitionAction
             ? $authorization->versionConstraint
             : $this->latestVersionConstraint($listing);
 
+        AssertMarketplaceUpdateConstraintAction::assertStrictConstraint($versionConstraint);
         MarketplaceComposerCoordinates::assertUpgrade($composerName, $versionConstraint, $currentVersion);
 
         return new ExtensionAcquisitionData(
@@ -99,6 +102,7 @@ final class CreateExtensionUpdateAcquisitionAction
             signedActivation: $authorization->signedActivation,
             metadata: $authorization->metadata,
             authorizationEligibilityPolicy: $listing->installEligibilityPolicy,
+            releaseChecksum: $listing->releaseChecksum,
         );
     }
 

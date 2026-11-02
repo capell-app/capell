@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\Upgrade\PublishPendingMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunSettingsMigrationsAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Data\MigrationPublishResult;
 use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Facades\CapellCore;
@@ -26,6 +29,7 @@ use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -37,6 +41,20 @@ uses(CreatesAdminUser::class);
 const UPDATE_PACKAGE_NAME = 'capell-app/marketplace-update-package';
 
 beforeEach(function (): void {
+    // These tests exercise the later lifecycle with synthetic packages, rather
+    // than a Composer-installed distribution on disk.
+    VerifyInstalledExtensionAction::shouldRun()->byDefault()->andReturnUsing(
+        fn (string $name, ?string $constraint = null, ?string $previous = null): ExtensionVerificationReportData => new ExtensionVerificationReportData(
+            $name,
+            '3.0.0',
+            $constraint,
+            $previous,
+            true,
+            [],
+            [],
+            CarbonImmutable::now(),
+        ),
+    );
     app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
     {
         #[Override]
@@ -402,4 +420,30 @@ it('fails an update whose package is no longer discoverable after composer ran',
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
         ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::PackageDiscovery->value)
         ->and($attempt->failure_reason)->toContain('was not discovered by Capell');
+});
+
+it('verifies an update against the version observed under the lock before running migrations', function (): void {
+    Notification::fake();
+    $packagePath = registerUpdatablePackage();
+    CapellCore::forcePackageInstalled(UPDATE_PACKAGE_NAME);
+    fakeMigrationPipeline();
+    fakeComposerRestore();
+    $composer = succeedingComposerRunner();
+    $checksum = str_repeat('b', 64);
+    $attempt = updateAttempt(['context' => ['update_from_version' => '1.0.0', 'release_checksum' => $checksum]]);
+    $issue = new ExtensionVerificationIssueData('checksum_mismatch', 'bad', 'retry');
+    VerifyInstalledExtensionAction::shouldRun()->once()->with(UPDATE_PACKAGE_NAME, '^3.0.0', '2.1.0', 'marketplace-update-package', $checksum)
+        ->andReturn(new ExtensionVerificationReportData(UPDATE_PACKAGE_NAME, '3.0.0', '^3.0.0', '2.1.0', false, [$issue], [], CarbonImmutable::now()));
+    try {
+        new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handle($composer);
+        expect($composer->ran())->toBeTrue()
+            ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+            ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+            ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeTrue()
+            ->and($attempt->context['verification_report']['passed'] ?? null)->toBeFalse()
+            ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::Migration->value)->exists())->toBeFalse()
+            ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::HealthCheck->value)->exists())->toBeFalse();
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
 });

@@ -105,6 +105,8 @@ final class ManifestValidator
         'agent_tools_reason',
     ];
 
+    private bool $loadClasses = true;
+
     private readonly ManifestValidationRules $rules;
 
     /** @var list<ManifestSectionValidator> */
@@ -119,6 +121,20 @@ final class ManifestValidator
             new CommercialSectionValidator,
             new MarketplaceSectionValidator($this->rules),
         ];
+    }
+
+    /**
+     * Validate manifest structure and namespaces without loading package classes.
+     * Class existence and contract checks must be performed separately before activation.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $composerJson
+     */
+    public function validateStructure(array $data, ?array $composerJson = null, ?string $packageName = null, ?string $discoverySource = null): void
+    {
+        $validator = clone $this;
+        $validator->loadClasses = false;
+        $validator->validate($data, $composerJson, $packageName, $discoverySource);
     }
 
     /**
@@ -569,6 +585,10 @@ final class ManifestValidator
 
         if (! $isTrustedCore && $this->classIsInNamespace($class, self::TRUSTED_PLATFORM_NAMESPACE_PREFIXES)) {
             throw InvalidManifestException::invalidField('class', $class . ' spoofs a trusted Capell platform namespace');
+        }
+
+        if (! $this->loadClasses) {
+            return;
         }
 
         if (! class_exists($class) && ! interface_exists($class)) {

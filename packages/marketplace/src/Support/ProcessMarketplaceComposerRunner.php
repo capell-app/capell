@@ -115,6 +115,7 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
             'require',
             '--no-interaction',
             '--no-scripts',
+            '--no-plugins',
             '--no-audit',
             '--no-progress',
             '--prefer-dist',

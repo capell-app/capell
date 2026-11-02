@@ -133,6 +133,7 @@ final class QueueMarketplaceUpdateAttemptAction
             context: MarketplaceComposerAuthContext::encryptedInto([
                 ...$context,
                 'update_from_version' => $currentVersion,
+                'release_checksum' => $acquisition->releaseChecksum,
             ], $acquisition->composerAuth),
             idempotencyKey: $idempotencyKey,
             timelineMessage: (string) __('capell-marketplace::marketplace.operations.timeline_created'),

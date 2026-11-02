@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Jobs;
 
 use Capell\Core\Actions\BuildPackageCacheAction;
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
@@ -32,6 +34,7 @@ use Capell\Marketplace\Actions\UpdateMarketplaceInstallOperationProgressAction;
 use Capell\Marketplace\Contracts\MarketplaceAuthenticatedComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
@@ -41,6 +44,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Exceptions\MarketplaceHealthCheckFailedException;
+use Capell\Marketplace\Exceptions\MarketplaceVerificationFailedException;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
@@ -507,6 +511,10 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
 
     protected function failureStageFor(Throwable $throwable): MarketplaceInstallFailureStage
     {
+        if ($throwable instanceof MarketplaceVerificationFailedException) {
+            return MarketplaceInstallFailureStage::Verification;
+        }
+
         if ($throwable instanceof MarketplaceHealthCheckFailedException) {
             return MarketplaceInstallFailureStage::HealthCheck;
         }
@@ -673,6 +681,11 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         }
     }
 
+    protected function requiresVerification(): bool
+    {
+        return true;
+    }
+
     private static function positiveConfiguredSeconds(string $key, int $default): int
     {
         $configured = config($key, $default);
@@ -728,11 +741,14 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
             return;
         }
 
+        $previousVersion = null;
+
         // Persisted attempts and retries must be checked against today's installed
         // release, not their acquisition-time update_from_version context.
         if ($attempt->operation === MarketplaceOperationType::Update) {
             try {
                 AssertMarketplaceUpdateConstraintAction::run($attempt->composer_name, $attempt->version_constraint ?? '');
+                $previousVersion = resolve(MarketplaceInstalledPackageVersionResolver::class)->prettyVersion($attempt->composer_name);
             } catch (Throwable $throwable) {
                 $this->markComposerThrowable($attempt, $throwable);
 
@@ -837,6 +853,10 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         }
 
         try {
+            if ($this->requiresVerification()) {
+                $this->verifyInstalledPackage($attempt, $previousVersion);
+            }
+
             $this->applyOperation($attempt);
 
             // Inside the try, and before success is declared. This is the last
@@ -876,6 +896,80 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         }
 
         $this->announceSucceededAttempt($attempt);
+    }
+
+    private function verifyInstalledPackage(MarketplaceInstallAttempt $attempt, ?string $previousVersion): void
+    {
+        try {
+            $checksum = $attempt->context['release_checksum'] ?? null;
+            $report = VerifyInstalledExtensionAction::run(
+                $attempt->composer_name,
+                $attempt->version_constraint ?: null,
+                $previousVersion,
+                $attempt->extension_slug ?: null,
+                is_string($checksum) && $checksum !== '' ? $checksum : null,
+            );
+
+            // Store only operator-safe report fields. The core report also
+            // contains a local install path and distribution details.
+            $issues = (static fn (array $items): array => array_map(static function (ExtensionVerificationIssueData $issue) use ($attempt): array {
+                $key = 'capell::extensions.verification.' . $issue->code;
+                $known = in_array($issue->code, [
+                    ExtensionVerificationIssueData::NOT_INSTALLED,
+                    ExtensionVerificationIssueData::VERSION_OUTSIDE_CONSTRAINT,
+                    ExtensionVerificationIssueData::NOT_AN_UPGRADE,
+                    ExtensionVerificationIssueData::COMPOSER_PLUGIN,
+                    ExtensionVerificationIssueData::MANIFEST_MISSING,
+                    ExtensionVerificationIssueData::MANIFEST_INVALID,
+                    ExtensionVerificationIssueData::MANIFEST_IDENTITY_MISMATCH,
+                    ExtensionVerificationIssueData::AUTOLOAD_ESCAPES_PACKAGE,
+                    ExtensionVerificationIssueData::PROVIDER_FILE_MISSING,
+                    ExtensionVerificationIssueData::CHECKSUM_MISMATCH,
+                    ExtensionVerificationIssueData::CHECKSUM_MISSING,
+                ], true);
+
+                return [
+                    'code' => $known ? $issue->code : 'unknown',
+                    'message' => $known ? (string) __($key . '.message', ['package' => $attempt->composer_name]) : '',
+                    'next_action' => $known ? (string) __($key . '.next_action', ['package' => $attempt->composer_name]) : '',
+                ];
+            }, $items));
+            $safeReport = [
+                'composer_name' => $report->composerName,
+                'installed_version' => $report->installedVersion,
+                'expected_version_constraint' => $report->expectedVersionConstraint,
+                'previous_version' => $report->previousVersion,
+                'passed' => $report->passed,
+                'failures' => $issues($report->failures),
+                'warnings' => $issues($report->warnings),
+                'checked_at' => $report->checkedAt->toIso8601String(),
+                'dist_sha' => is_string($report->distSha) && preg_match('/\A[a-f0-9]{64}\z/i', $report->distSha) === 1 ? $report->distSha : null,
+            ];
+            $attempt->forceFill(['context' => [...($attempt->context ?? []), 'verification_report' => $safeReport]])->save();
+            $this->recordEvent(
+                $attempt,
+                $report->passed ? MarketplaceInstallAttemptEventLevel::Success : MarketplaceInstallAttemptEventLevel::Error,
+                $report->passed ? 'timeline_verification_completed' : 'timeline_verification_failed',
+                MarketplaceInstallFailureStage::Verification,
+                ['verification_report' => $safeReport],
+            );
+
+            if (! $report->passed) {
+                $first = $safeReport['failures'][0] ?? null;
+                throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
+                    'message' => $first['message'] ?? '',
+                    'action' => ($first['next_action'] ?? '') ?: __('capell-marketplace::marketplace.operations.verification_next_action'),
+                ]));
+            }
+        } catch (MarketplaceVerificationFailedException $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
+                'message' => '',
+                'action' => __('capell-marketplace::marketplace.operations.verification_next_action'),
+            ]), $throwable->getCode(), $throwable);
+        }
     }
 
     /**
@@ -972,19 +1066,22 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         } catch (Throwable $rollbackThrowable) {
             report($rollbackThrowable);
 
+            $rollbackError = $stage === MarketplaceInstallFailureStage::Verification
+                ? (string) __('capell-marketplace::marketplace.operations.verification_rollback_failed')
+                : $rollbackThrowable->getMessage();
             $reason = (string) __('capell-marketplace::marketplace.operations.rollback_failed', [
                 'error' => $originalReason,
-                'rollback_error' => $rollbackThrowable->getMessage(),
+                'rollback_error' => $rollbackError,
             ]);
             $context = [
                 'reason' => $reason,
                 'error' => $originalReason,
-                'rollback_error' => $rollbackThrowable->getMessage(),
+                'rollback_error' => $rollbackError,
                 'rolled_back' => false,
             ];
 
             $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_rollback_failed', $stage, $context);
-            $this->recordRollbackOutcome($attempt, false, $originalReason, $rollbackThrowable->getMessage());
+            $this->recordRollbackOutcome($attempt, false, $originalReason, $rollbackError);
 
             return [
                 'rolled_back' => false,

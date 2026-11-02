@@ -184,6 +184,26 @@ it('accepts a valid manifest v3 package contract', function (): void {
     ))->not->toThrow(InvalidManifestException::class);
 });
 
+it('validates structure without autoloading declared package classes', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['providers']['runtime'] = ['Vendor\\Example\\UnloadedProvider'];
+    $autoloaded = [];
+    $loader = static function (string $class) use (&$autoloaded): void {
+        $autoloaded[] = $class;
+    };
+    spl_autoload_register($loader, prepend: true);
+
+    try {
+        $validator = new ManifestValidator;
+        $validator->validateStructure($manifest, composerJson: manifestV3ComposerJson());
+        expect($autoloaded)->not->toContain('Vendor\\Example\\UnloadedProvider');
+        expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+            ->toThrow(InvalidManifestException::class, 'cannot be resolved');
+    } finally {
+        spl_autoload_unregister($loader);
+    }
+});
+
 it('accepts package security contract metadata', function (): void {
     $validator = new ManifestValidator;
     $manifest = manifestV3Fixture('valid-premium-package');

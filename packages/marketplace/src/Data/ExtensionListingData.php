@@ -84,6 +84,7 @@ final class ExtensionListingData extends Data
         public readonly string $currency = 'USD',
         /** @var array<string, mixed> */
         public readonly array $trial = [],
+        public readonly ?string $releaseChecksum = null,
     ) {}
 
     /**
@@ -157,6 +158,7 @@ final class ExtensionListingData extends Data
             maturityLabel: $catalogueReleaseMetadata->maturityLabel,
             currency: self::nonEmptyString($item['currency'] ?? $item['price_currency'] ?? data_get($item, 'commercial.currency')) ?? 'USD',
             trial: self::arrayValue($item['trial'] ?? data_get($item, 'commercial.trial', [])),
+            releaseChecksum: self::nonEmptyString($item['release_checksum'] ?? $item['releaseChecksum'] ?? null),
         );
     }
 

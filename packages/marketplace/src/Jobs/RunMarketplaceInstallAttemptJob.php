@@ -30,7 +30,7 @@ final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperation
     #[Override]
     protected function progressTotal(): int
     {
-        return 5;
+        return 6;
     }
 
     #[Override]
@@ -40,12 +40,13 @@ final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperation
             MarketplaceInstallFailureStage::Preflight,
             MarketplaceInstallFailureStage::Queue => 0,
             MarketplaceInstallFailureStage::Composer => 1,
-            MarketplaceInstallFailureStage::PackageDiscovery => 2,
+            MarketplaceInstallFailureStage::Verification => 2,
+            MarketplaceInstallFailureStage::PackageDiscovery => 3,
             MarketplaceInstallFailureStage::Lifecycle,
-            MarketplaceInstallFailureStage::Migration => 3,
-            MarketplaceInstallFailureStage::HealthCheck => 4,
+            MarketplaceInstallFailureStage::Migration => 4,
+            MarketplaceInstallFailureStage::HealthCheck => 5,
             MarketplaceInstallFailureStage::Notification,
-            MarketplaceInstallFailureStage::DeploymentHandoff => 5,
+            MarketplaceInstallFailureStage::DeploymentHandoff => 6,
         };
     }
 

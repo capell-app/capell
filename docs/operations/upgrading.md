@@ -80,6 +80,11 @@ authorisation for the current installation; retrying the same unsafe constraint
 does not bypass the check. These changes require no schema or stored payload
 migration.
 
+### Install verification
+
+Marketplace installs and updates verify the downloaded package before loading its code.
+A failed check stops the operation and restores Composer state. See [install verification](../packages/extension-lifecycle.md#install-verification) for policy and recovery guidance.
+
 ## Admin view escaping fixes
 
 If your application overrides Capell Admin Blade views under

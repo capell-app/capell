@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Extensions\EnforceExtensionVerificationAction;
 use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
@@ -12,6 +13,7 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageInstalled;
+use Capell\Core\Exceptions\ExtensionVerificationFailedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\Install\NullProgressReporter;
@@ -72,6 +74,14 @@ class InstallPackageAction
                     sprintf("Plugin '%s' cannot be installed. Missing required plugin(s): ", $name) . implode(', ', $missing) . '.',
                 );
             }
+        }
+
+        try {
+            EnforceExtensionVerificationAction::run($name, $reporter);
+        } catch (ExtensionVerificationFailedException $extensionVerificationFailedException) {
+            CapellCore::markPackageFailed($name, $extensionVerificationFailedException->getMessage());
+
+            throw $extensionVerificationFailedException;
         }
 
         CapellCore::markPackageInstalling($package->name);

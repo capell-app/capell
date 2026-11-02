@@ -317,6 +317,7 @@ final class TransitionMarketplaceInstallAttemptAction
 
         return match ($stage) {
             MarketplaceInstallFailureStage::Preflight => 'timeline_preflight_failed',
+            MarketplaceInstallFailureStage::Verification => 'timeline_verification_failed',
             MarketplaceInstallFailureStage::PackageDiscovery => 'timeline_package_discovery_failed',
             MarketplaceInstallFailureStage::Lifecycle => 'timeline_lifecycle_failed',
             MarketplaceInstallFailureStage::HealthCheck => 'timeline_health_check_failed',

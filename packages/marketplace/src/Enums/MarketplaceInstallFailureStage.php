@@ -11,6 +11,7 @@ enum MarketplaceInstallFailureStage: string implements HasLabel
     case Preflight = 'preflight';
     case DeploymentHandoff = 'deployment_handoff';
     case Composer = 'composer';
+    case Verification = 'verification';
     case PackageDiscovery = 'package_discovery';
     case Lifecycle = 'lifecycle';
     case Migration = 'migration';
@@ -37,6 +38,7 @@ enum MarketplaceInstallFailureStage: string implements HasLabel
             self::Preflight => __('capell-marketplace::marketplace.progress.stage_preflight'),
             self::DeploymentHandoff => __('capell-marketplace::marketplace.progress.stage_deployment_handoff'),
             self::Composer => __('capell-marketplace::marketplace.progress.stage_composer'),
+            self::Verification => __('capell-marketplace::marketplace.progress.stage_verification'),
             self::PackageDiscovery => __('capell-marketplace::marketplace.progress.stage_package_discovery'),
             self::Lifecycle => __('capell-marketplace::marketplace.progress.stage_lifecycle'),
             self::Migration => __('capell-marketplace::marketplace.progress.stage_migration'),
