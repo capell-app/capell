@@ -6,11 +6,13 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
+use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
 use Capell\Frontend\Data\FrontendRenderContextData;
@@ -24,8 +26,11 @@ use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
+use Capell\Frontend\Support\ModelServing\NullRenderedModelTracker;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\State\FrontendState;
+use Capell\Frontend\Tests\Fixtures\RecordingRenderedModelTracker;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 
@@ -442,4 +447,117 @@ it('changes render data cache identity when a resource selection policy is regis
     $after = $cache->keyForContext($context);
     expect($after)->not->toBe($before)
         ->and($cache->keyForContext($context))->toBe($after);
+});
+
+/**
+ * A listing page whose cached render data shows another page.
+ *
+ * @return array{context: FrontendRenderContextData, embedded: Page, builder: Closure(): PublicPageRenderData, calls: ArrayObject<int, int>}
+ */
+function publicRenderDataListingThatShowsAnotherPage(): array
+{
+    config()->set('cache.default', 'array');
+    config()->set('capell-frontend.public_render_data_cache', true);
+
+    $listing = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $listing->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $listing->site_id);
+    $embedded = Page::factory()->site($site)->withTranslations($language)->createOne();
+    $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
+    $context = new FrontendRenderContextData(
+        page: $listing,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($listing->layout_id),
+        theme: $site->theme,
+        runtimeManifest: $runtime,
+    );
+    /** @var ArrayObject<int, int> $calls */
+    $calls = new ArrayObject;
+
+    $builder = function () use ($calls, $context, $runtime, $embedded): PublicPageRenderData {
+        $calls->append(1);
+        // Rendering the listing loads the page it shows, translations included.
+        resolve(RenderedModelTracker::class)->track(Page::query()->with('translations')->findOrFail($embedded->getKey()));
+
+        return new PublicPageRenderData(
+            page: $context->page,
+            site: $context->site,
+            language: $context->language,
+            layout: $context->layout,
+            theme: $context->theme,
+            layoutGraph: null,
+            runtimeManifest: $runtime,
+            resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
+            surrogateKeys: [],
+        );
+    };
+
+    return ['context' => $context, 'embedded' => $embedded, 'builder' => $builder, 'calls' => $calls];
+}
+
+it('declares every model a cached render shows when the next request is served from cache', function (): void {
+    $listing = publicRenderDataListingThatShowsAnotherPage();
+    $cache = resolve(PublicPageRenderDataCache::class);
+    app()->instance(RenderedModelTracker::class, new RecordingRenderedModelTracker);
+
+    $cache->remember($listing['context'], $listing['builder']);
+
+    // The next request starts with nothing tracked and is served from the cached render data.
+    $nextRequest = new RecordingRenderedModelTracker;
+    app()->instance(RenderedModelTracker::class, $nextRequest);
+
+    $renderData = $cache->remember($listing['context'], $listing['builder']);
+
+    $embedded = $listing['embedded'];
+    $translationKeys = $embedded->translations->map(fn (Model $translation): string => (string) $translation->getKey())->all();
+
+    expect($listing['calls'])->toHaveCount(1)
+        ->and($renderData)->toBeInstanceOf(PublicPageRenderData::class)
+        ->and($nextRequest->keysFor($embedded))->toBe([(string) $embedded->getKey()])
+        ->and($translationKeys)->not->toBeEmpty()
+        ->and($nextRequest->keysFor($embedded->translations->first()))->toEqualCanonicalizing($translationKeys)
+        ->and($nextRequest->capturing())->toBeFalse();
+});
+
+it('rebuilds a cached render that cannot say which models it shows', function (string $entry): void {
+    $listing = publicRenderDataListingThatShowsAnotherPage();
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $key = $cache->keyForContext($listing['context']);
+    expect($key)->toBeString();
+
+    app()->instance(RenderedModelTracker::class, new NullRenderedModelTracker);
+
+    if ($entry === 'written before render data carried model identities') {
+        resolve(CapellCacheManager::class)->setToCache((string) $key, $listing['builder']());
+    } else {
+        $cache->remember($listing['context'], $listing['builder']);
+    }
+
+    $tracker = new RecordingRenderedModelTracker;
+    app()->instance(RenderedModelTracker::class, $tracker);
+    $cache->remember($listing['context'], $listing['builder']);
+
+    $nextRequest = new RecordingRenderedModelTracker;
+    app()->instance(RenderedModelTracker::class, $nextRequest);
+    $cache->remember($listing['context'], $listing['builder']);
+
+    expect($listing['calls'])->toHaveCount(2)
+        ->and($tracker->keysFor($listing['embedded']))->toBe([(string) $listing['embedded']->getKey()])
+        ->and($nextRequest->keysFor($listing['embedded']))->toBe([(string) $listing['embedded']->getKey()]);
+})->with([
+    'written before render data carried model identities',
+    'written while no tracker captured model identities',
+]);
+
+it('stops capturing model identities when building render data fails', function (): void {
+    $listing = publicRenderDataListingThatShowsAnotherPage();
+    $tracker = new RecordingRenderedModelTracker;
+    app()->instance(RenderedModelTracker::class, $tracker);
+
+    expect(fn (): PublicPageRenderData => resolve(PublicPageRenderDataCache::class)->remember(
+        $listing['context'],
+        static fn (): PublicPageRenderData => throw new RuntimeException('Render failed.'),
+    ))->toThrow(RuntimeException::class, 'Render failed.')
+        ->and($tracker->capturing())->toBeFalse();
 });

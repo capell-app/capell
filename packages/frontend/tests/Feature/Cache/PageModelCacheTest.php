@@ -8,10 +8,12 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Tests\Fixtures\Cache\First\Page as FirstExtensionPage;
 use Capell\Frontend\Tests\Fixtures\Cache\Second\Page as SecondExtensionPage;
+use Capell\Frontend\Tests\Fixtures\RecordingRenderedModelTracker;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
@@ -159,3 +161,33 @@ it('rejects foreign site models on cold warm and uncached paths', function (stri
         ->and($cache->get(Page::class, $page->id, $ownerSite, $language)?->id)->toBe($page->id)
         ->and($cache->get(Page::class, $page->id, null, $language)?->id)->toBe($page->id);
 })->with(['cold', 'warm', 'uncached']);
+
+it('declares a page served from the page model cache to the rendered model tracker', function (bool $withEvents): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->recycle($language)->withTranslations()->create();
+    $page = Page::factory()
+        ->site($site)
+        ->type(Blueprint::factory()->page()->create())
+        ->published(CarbonImmutable::now())
+        ->withTranslations($language, ['title' => 'Embedded Page'], slug: 'embedded-page')
+        ->create();
+    $cache = resolve(PageModelCache::class);
+
+    expectPresent($cache->get(Page::class, $page->id, $site, $language, withEvents: $withEvents));
+
+    // The next request is served from the warm cache, so no model is retrieved.
+    $tracker = new RecordingRenderedModelTracker;
+    app()->instance(RenderedModelTracker::class, $tracker);
+    $cached = expectPresent($cache->get(Page::class, $page->id, $site, $language, withEvents: $withEvents));
+    $translation = expectPresent($cached->translation);
+
+    if (! $withEvents) {
+        // Callers that load without model events ask not to be recorded.
+        expect($tracker->tracked)->toBe([]);
+
+        return;
+    }
+
+    expect($tracker->keysFor($page))->toBe([(string) $page->id])
+        ->and($tracker->keysFor($translation))->toContain((string) $translation->getKey());
+})->with(['with model events' => true, 'without model events' => false]);

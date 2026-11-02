@@ -13,6 +13,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
+use Capell\Frontend\Data\CachedPublicPageRenderData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
@@ -85,7 +86,7 @@ it('invalidates only pages that depend on mutated localized media metadata', fun
     expect($pageModelCache->getFromCache($dependentModelKey))->toBeNull()
         ->and($pageModelCache->getFromCache($unrelatedModelKey))->not->toBeNull()
         ->and($renderCache->getFromCache($dependentRenderKey))->toBeNull()
-        ->and($renderCache->getFromCache($unrelatedRenderKey))->toBeInstanceOf(PublicPageRenderData::class)
+        ->and($renderCache->getFromCache($unrelatedRenderKey))->toBeInstanceOf(CachedPublicPageRenderData::class)
         ->and($coldTranslation->relationLoaded('translatable'))->toBeTrue();
 })->with([
     'alternative text' => ['alt', 'After'],

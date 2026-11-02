@@ -25,6 +25,12 @@ Use this when changing `capell-app/frontend` routing, cache behavior, runtime se
 - `FontMimeTypeResolverInterface` maps to `FontMimeTypeResolver`.
 - `FrontendResponseRendererRegistry` is scoped and registers Blade and Livewire response renderers.
 - `RenderedModelTracker` is scoped and defaults to `NullRenderedModelTracker`.
+  Loaders that serve a model from cache track it, because a cache hit fires no
+  `retrieved` event. A tracker that also implements
+  `CapturesRenderedModelIdentities` lets `PublicPageRenderDataCache` store the
+  model types and keys a render tracked beside the cached render data and
+  declare them again on every hit. These identities are internal cache
+  metadata and never reach public output.
 
 Scoped state:
 
