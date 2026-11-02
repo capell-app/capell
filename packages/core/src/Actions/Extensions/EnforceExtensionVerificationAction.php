@@ -19,20 +19,20 @@ final class EnforceExtensionVerificationAction
     public function handle(string $name, ?ProgressReporter $reporter = null): void
     {
         if (TrustedCorePackages::contains($name)) {
-            $reporter?->report(__('capell::extensions.verification.skipped', ['package' => $name]));
+            $reporter?->report(__('capell-core::extensions.verification.skipped', ['package' => $name]));
 
             return;
         }
 
         $report = VerifyInstalledExtensionAction::run($name);
         if ($report->failures === []) {
-            $reporter?->report(__('capell::extensions.verification.passed', ['package' => $name]));
+            $reporter?->report(__('capell-core::extensions.verification.passed', ['package' => $name]));
 
             return;
         }
 
         if (config('capell.extensions.verification.strict', true)) {
-            $reporter?->report(__('capell::extensions.verification.failed', ['package' => $name]));
+            $reporter?->report(__('capell-core::extensions.verification.failed', ['package' => $name]));
 
             throw new ExtensionVerificationFailedException($report);
         }
@@ -41,6 +41,6 @@ final class EnforceExtensionVerificationAction
             'package' => $name,
             'failures' => array_map(static fn (ExtensionVerificationIssueData $issue): string => $issue->code, $report->failures),
         ]);
-        $reporter?->report(__('capell::extensions.verification.continued', ['package' => $name]));
+        $reporter?->report(__('capell-core::extensions.verification.continued', ['package' => $name]));
     }
 }

@@ -59,11 +59,20 @@ class InstallPackageAction
         ?ProgressReporter $reporter,
         bool $allowLegacyCommand,
         bool $freshLifecycleProcess,
+        bool $alreadyVerified = false,
     ): void {
         $name = $package->name;
         $reporter ??= new NullProgressReporter;
 
-        if ($package->getKind() === 'bundle') {
+        $isBundle = $package->getKind() === 'bundle';
+        if ($isBundle) {
+            // A bundle verifies itself and every member it will install before
+            // the first member runs any lifecycle work; members installed from
+            // that loop therefore skip their own pass.
+            self::verifyBeforeInstall($package, $reporter, $alreadyVerified, array_values(array_filter(
+                $package->getRequirements(),
+                static fn (string $memberName): bool => ! CapellCore::getPackage($memberName)->isInstalled(),
+            )));
             self::installBundleMembers($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
         }
 
@@ -76,12 +85,8 @@ class InstallPackageAction
             }
         }
 
-        try {
-            EnforceExtensionVerificationAction::run($name, $reporter);
-        } catch (ExtensionVerificationFailedException $extensionVerificationFailedException) {
-            CapellCore::markPackageFailed($name, $extensionVerificationFailedException->getMessage());
-
-            throw $extensionVerificationFailedException;
+        if (! $isBundle) {
+            self::verifyBeforeInstall($package, $reporter, $alreadyVerified, []);
         }
 
         CapellCore::markPackageInstalling($package->name);
@@ -137,6 +142,26 @@ class InstallPackageAction
     }
 
     /**
+     * @param  list<string>  $memberNames  bundle members that are not installed yet
+     */
+    private static function verifyBeforeInstall(PackageData $package, ProgressReporter $reporter, bool $alreadyVerified, array $memberNames): void
+    {
+        try {
+            if (! $alreadyVerified) {
+                EnforceExtensionVerificationAction::run($package->name, $reporter);
+            }
+
+            foreach ($memberNames as $memberName) {
+                EnforceExtensionVerificationAction::run($memberName, $reporter);
+            }
+        } catch (ExtensionVerificationFailedException $extensionVerificationFailedException) {
+            CapellCore::markPackageFailed($package->name, $extensionVerificationFailedException->getMessage());
+
+            throw $extensionVerificationFailedException;
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $arguments
      */
     private static function installBundleMembers(
@@ -155,7 +180,7 @@ class InstallPackageAction
                     continue;
                 }
 
-                self::install($member, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
+                self::install($member, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess, alreadyVerified: true);
                 $newlyInstalled[] = $member;
             }
         } catch (Throwable $throwable) {

@@ -7,14 +7,17 @@ namespace Capell\Marketplace\Jobs;
 use Capell\Core\Actions\BuildPackageCacheAction;
 use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
+use Capell\Core\Support\Extensions\ExtensionIntegrityVerifier;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Marketplace\Actions\AssertMarketplaceUpdateConstraintAction;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
@@ -855,6 +858,15 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         try {
             if ($this->requiresVerification()) {
                 $this->verifyInstalledPackage($attempt, $previousVersion);
+                $this->verifyChangedDependencies($attempt, $snapshot);
+            }
+
+            $attempt->refresh();
+            if ($attempt->status === MarketplaceInstallIntentStatus::CancelRequested) {
+                $this->restoreInterruptedComposerState($attempt, $snapshot, (string) __('capell-marketplace::marketplace.operations.cancelled_after_composer'));
+                $this->markCancelledAfterComposer($attempt, $result);
+
+                return;
             }
 
             $this->applyOperation($attempt);
@@ -902,64 +914,95 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
     {
         try {
             $checksum = $attempt->context['release_checksum'] ?? null;
+            $checksumVersion = $attempt->context['release_checksum_version'] ?? null;
             $report = VerifyInstalledExtensionAction::run(
                 $attempt->composer_name,
                 $attempt->version_constraint ?: null,
                 $previousVersion,
                 $attempt->extension_slug ?: null,
                 is_string($checksum) && $checksum !== '' ? $checksum : null,
+                is_string($checksumVersion) && $checksumVersion !== '' ? $checksumVersion : '',
             );
+            $this->recordVerificationReport($attempt, $report);
+        } catch (MarketplaceVerificationFailedException $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
+                'message' => '',
+                'action' => __('capell-marketplace::marketplace.operations.verification_next_action'),
+            ]), $throwable->getCode(), $throwable);
+        }
+    }
 
-            // Store only operator-safe report fields. The core report also
-            // contains a local install path and distribution details.
-            $issues = (static fn (array $items): array => array_map(static function (ExtensionVerificationIssueData $issue) use ($attempt): array {
-                $key = 'capell::extensions.verification.' . $issue->code;
-                $known = in_array($issue->code, [
-                    ExtensionVerificationIssueData::NOT_INSTALLED,
-                    ExtensionVerificationIssueData::VERSION_OUTSIDE_CONSTRAINT,
-                    ExtensionVerificationIssueData::NOT_AN_UPGRADE,
-                    ExtensionVerificationIssueData::COMPOSER_PLUGIN,
-                    ExtensionVerificationIssueData::MANIFEST_MISSING,
-                    ExtensionVerificationIssueData::MANIFEST_INVALID,
-                    ExtensionVerificationIssueData::MANIFEST_IDENTITY_MISMATCH,
-                    ExtensionVerificationIssueData::AUTOLOAD_ESCAPES_PACKAGE,
-                    ExtensionVerificationIssueData::PROVIDER_FILE_MISSING,
-                    ExtensionVerificationIssueData::CHECKSUM_MISMATCH,
-                    ExtensionVerificationIssueData::CHECKSUM_MISSING,
-                ], true);
+    private function recordVerificationReport(MarketplaceInstallAttempt $attempt, ExtensionVerificationReportData $report): void
+    {
+        // Recreate text without validator diagnostics or local paths.
+        $issues = static fn (array $items): array => array_map(static function (ExtensionVerificationIssueData $issue) use ($report): array {
+            $description = ExtensionVerificationIssueData::describe($issue->code, $report->composerName);
 
-                return [
-                    'code' => $known ? $issue->code : 'unknown',
-                    'message' => $known ? (string) __($key . '.message', ['package' => $attempt->composer_name]) : '',
-                    'next_action' => $known ? (string) __($key . '.next_action', ['package' => $attempt->composer_name]) : '',
-                ];
-            }, $items));
-            $safeReport = [
-                'composer_name' => $report->composerName,
-                'installed_version' => $report->installedVersion,
-                'expected_version_constraint' => $report->expectedVersionConstraint,
-                'previous_version' => $report->previousVersion,
-                'passed' => $report->passed,
-                'failures' => $issues($report->failures),
-                'warnings' => $issues($report->warnings),
-                'checked_at' => $report->checkedAt->toIso8601String(),
-                'dist_sha' => is_string($report->distSha) && preg_match('/\A[a-f0-9]{64}\z/i', $report->distSha) === 1 ? $report->distSha : null,
+            return [
+                'code' => $description['message'] === '' ? 'unknown' : $issue->code,
+                'message' => $description['message'],
+                'next_action' => $description['next_action'],
             ];
-            $attempt->forceFill(['context' => [...($attempt->context ?? []), 'verification_report' => $safeReport]])->save();
-            $this->recordEvent(
-                $attempt,
-                $report->passed ? MarketplaceInstallAttemptEventLevel::Success : MarketplaceInstallAttemptEventLevel::Error,
-                $report->passed ? 'timeline_verification_completed' : 'timeline_verification_failed',
-                MarketplaceInstallFailureStage::Verification,
-                ['verification_report' => $safeReport],
-            );
+        }, $items);
+        $safeReport = [
+            'composer_name' => $report->composerName,
+            'installed_version' => $report->installedVersion,
+            'expected_version_constraint' => $report->expectedVersionConstraint,
+            'previous_version' => $report->previousVersion,
+            'passed' => $report->passed,
+            'failures' => $issues($report->failures),
+            'warnings' => $issues($report->warnings),
+            'checked_at' => $report->checkedAt->toIso8601String(),
+            'omitted_issue_count' => $report->omittedIssueCount,
+            'dist_sha' => is_string($report->distSha) && preg_match('/\A[a-f0-9]{40}(?:[a-f0-9]{24})?\z/i', $report->distSha) === 1 ? $report->distSha : null,
+        ];
+        $attempt->forceFill(['context' => [...($attempt->context ?? []), 'verification_report' => $safeReport]])->save();
+        $this->recordEvent(
+            $attempt,
+            $report->passed ? MarketplaceInstallAttemptEventLevel::Success : MarketplaceInstallAttemptEventLevel::Error,
+            $report->passed ? 'timeline_verification_completed' : 'timeline_verification_failed',
+            MarketplaceInstallFailureStage::Verification,
+            ['verification_report' => $safeReport],
+        );
 
-            if (! $report->passed) {
-                $first = $safeReport['failures'][0] ?? null;
-                throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
-                    'message' => $first['message'] ?? '',
-                    'action' => ($first['next_action'] ?? '') ?: __('capell-marketplace::marketplace.operations.verification_next_action'),
-                ]));
+        if (! $report->passed) {
+            $first = $safeReport['failures'][0] ?? null;
+            throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
+                'message' => $first['message'] ?? '',
+                'action' => ($first['next_action'] ?? '') ?: __('capell-marketplace::marketplace.operations.verification_next_action'),
+            ]));
+        }
+    }
+
+    private function verifyChangedDependencies(MarketplaceInstallAttempt $attempt, ComposerStateSnapshot $snapshot): void
+    {
+        try {
+            $before = $this->lockVersions($snapshot->lockContents);
+            $contents = is_file($snapshot->lockPath) ? file_get_contents($snapshot->lockPath) : false;
+            throw_if($contents === false && $snapshot->lockContents !== null, RuntimeException::class, 'Composer lock file is missing after acquisition.');
+
+            $after = $this->lockVersions($contents === false ? null : $contents);
+            $verifier = new ExtensionIntegrityVerifier(base_path('vendor'), resolve(ManifestValidator::class));
+            foreach ($after as $name => $version) {
+                if ($name === $attempt->composer_name) {
+                    continue;
+                }
+
+                if (TrustedCorePackages::contains($name)) {
+                    continue;
+                }
+
+                if (($before[$name] ?? null) === $version) {
+                    continue;
+                }
+
+                $report = $verifier->verifyDependency($name);
+                if (! $report->passed) {
+                    $this->recordVerificationReport($attempt, $report);
+                }
             }
         } catch (MarketplaceVerificationFailedException $exception) {
             throw $exception;
@@ -970,6 +1013,26 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                 'action' => __('capell-marketplace::marketplace.operations.verification_next_action'),
             ]), $throwable->getCode(), $throwable);
         }
+    }
+
+    /** @return array<string, string> */
+    private function lockVersions(?string $contents): array
+    {
+        if ($contents === null) {
+            return [];
+        }
+
+        $lock = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        throw_if(! is_array($lock) || ! is_array($lock['packages'] ?? null), RuntimeException::class, 'Invalid Composer lock file.');
+
+        $versions = [];
+        foreach (array_merge($lock['packages'], is_array($lock['packages-dev'] ?? null) ? $lock['packages-dev'] : []) as $package) {
+            throw_if(! is_array($package) || ! is_string($package['name'] ?? null) || ! is_string($package['version'] ?? null), RuntimeException::class, 'Invalid Composer lock package.');
+
+            $versions[$package['name']] = $package['version'];
+        }
+
+        return $versions;
     }
 
     /**

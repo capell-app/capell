@@ -1418,7 +1418,7 @@ it('rolls back a failed verification before discovery or health checks and store
     $runner = new RecordingMarketplaceComposerRunner('installed');
     $issue = new ExtensionVerificationIssueData('checksum_mismatch', '/private/path', '/private/path');
     $report = new ExtensionVerificationReportData($attempt->composer_name, '2.2.0', '^2.1', null, false, [$issue], [], CarbonImmutable::now(), installPath: '/private/path');
-    VerifyInstalledExtensionAction::shouldRun()->once()->with($attempt->composer_name, '^2.1', null, 'verification-fixture', $checksum)->andReturn($report);
+    VerifyInstalledExtensionAction::shouldRun()->once()->with($attempt->composer_name, '^2.1', null, 'verification-fixture', $checksum, '')->andReturn($report);
 
     new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
 
@@ -1454,7 +1454,7 @@ it('continues from a passing verification to the health check', function (): voi
     $health = new StatusRecordingPostOperationHealthCheckAction;
     app()->instance(RunPostOperationHealthCheckAction::class, $health);
     $attempt = marketplaceOperationAttempt(['composer_name' => 'capell-app/verified-package', 'extension_slug' => 'verified-package']);
-    VerifyInstalledExtensionAction::shouldRun()->once()->with('capell-app/verified-package', '^2.1', null, 'verified-package', null)
+    VerifyInstalledExtensionAction::shouldRun()->once()->with('capell-app/verified-package', '^2.1', null, 'verified-package', null, '')
         ->andReturn(new ExtensionVerificationReportData('capell-app/verified-package', '2.2.0', '^2.1', null, true, [], [], CarbonImmutable::now()));
     try {
         new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
@@ -1463,5 +1463,180 @@ it('continues from a passing verification to the health check', function (): voi
             ->and($health->observedStatuses)->toBe([MarketplaceInstallIntentStatus::Running->value]);
     } finally {
         File::deleteDirectory($path);
+    }
+});
+
+it('restores Composer state and stops before lifecycle work when cancelled during verification', function (): void {
+    Notification::fake();
+    $health = new StatusRecordingPostOperationHealthCheckAction;
+    app()->instance(RunPostOperationHealthCheckAction::class, $health);
+    $attempt = marketplaceOperationAttempt();
+    VerifyInstalledExtensionAction::shouldRun()->once()->andReturnUsing(function (string $name) use ($attempt): ExtensionVerificationReportData {
+        MarketplaceInstallAttempt::query()->whereKey($attempt->getKey())->update(['status' => MarketplaceInstallIntentStatus::CancelRequested]);
+
+        return new ExtensionVerificationReportData($name, '2.2.0', '^2.1', null, true, [], [], CarbonImmutable::now());
+    });
+
+    withMarketplaceVerificationTree([], [], function (string $root, string $composerBefore, string $lockBefore) use ($attempt, $health): void {
+        $runner = marketplaceFixtureComposerRunner($root, [], []);
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
+
+        expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+            ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
+            ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore)
+            ->and($health->observedStatuses)->toBeEmpty()
+            ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::Lifecycle->value)->exists())->toBeFalse()
+            ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::PackageDiscovery->value)->exists())->toBeFalse();
+    });
+});
+
+/**
+ * Run against an isolated application root and a real file restore. Only the
+ * recovery subprocess is faked; no Composer process is started by these tests.
+ *
+ * @param  list<array<string, mixed>>  $before
+ * @param  list<array<string, mixed>>  $installed
+ */
+function withMarketplaceVerificationTree(array $before, array $installed, Closure $test): void
+{
+    $previousBase = app()->basePath();
+    $root = sys_get_temp_dir() . '/marketplace-verification-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($root . '/vendor/composer');
+    // The lifecycle stage refreshes the runtime manifests under bootstrap/cache and storage, so give the relocated root both.
+    File::ensureDirectoryExists($root . '/bootstrap/cache');
+    File::ensureDirectoryExists($root . '/storage/framework/cache');
+    $composerBefore = "{\n  \"require\": {}\n}\n";
+    $lockBefore = json_encode(['packages' => $before, 'packages-dev' => []], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
+    File::put($root . '/composer.json', $composerBefore);
+    File::put($root . '/composer.lock', $lockBefore);
+    File::put($root . '/vendor/composer/installed.json', json_encode(['packages' => $installed], JSON_THROW_ON_ERROR));
+    app()->setBasePath($root);
+
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setEnv')->andReturnSelf();
+    $process->shouldReceive('setTimeout')->andReturnSelf();
+    $process->shouldReceive('run')->andReturn(0);
+    $process->shouldReceive('isSuccessful')->andReturnTrue();
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    app()->instance(PackageManifest::class, new class(resolve(Filesystem::class), $root, $root . '/packages.php') extends PackageManifest
+    {
+        public function build(): void {}
+    });
+    app()->instance(MarketplaceComposerScriptRunner::class, new class implements MarketplaceComposerScriptRunner
+    {
+        public function replayRootScript(string $event, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            return new MarketplaceComposerResultData(exitCode: 0, output: '', errorOutput: '');
+        }
+    });
+
+    try {
+        $test($root, $composerBefore, $lockBefore);
+    } finally {
+        app()->setBasePath($previousBase);
+        File::deleteDirectory($root);
+    }
+}
+
+/** @param list<array<string, mixed>> $after
+ * @param  list<array<string, mixed>>  $installed
+ */
+function marketplaceFixtureComposerRunner(string $root, array $after, array $installed, ?Closure $onRequire = null): MarketplaceComposerRunner
+{
+    return new readonly class($root, $after, $installed, $onRequire) implements MarketplaceComposerRunner
+    {
+        public function __construct(private string $root, private array $after, private array $installed, private ?Closure $onRequire) {}
+
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            File::put($this->root . '/composer.json', '{"require":{"vendor/changed":"^1.0"}}');
+            File::put($this->root . '/composer.lock', json_encode(['packages' => $this->after, 'packages-dev' => []], JSON_THROW_ON_ERROR));
+            File::put($this->root . '/vendor/composer/installed.json', json_encode(['packages' => $this->installed], JSON_THROW_ON_ERROR));
+            ($this->onRequire)?->__invoke();
+
+            return new MarketplaceComposerResultData(exitCode: 0, output: 'installed', errorOutput: '');
+        }
+    };
+}
+
+it('bounds a real verification report and restores both Composer files', function (): void {
+    Notification::fake();
+    $name = 'vendor/bounded-fixture';
+    $package = ['name' => $name, 'version' => '2.2.0', 'type' => 'library', 'install-path' => '../vendor/bounded-fixture', 'autoload' => ['files' => array_fill(0, 1000, '../outside.php')]];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'bounded-fixture']);
+
+    withMarketplaceVerificationTree([], [], function (string $root, string $composerBefore, string $lockBefore) use ($attempt, $package, $name): void {
+        $path = $root . '/vendor/vendor/bounded-fixture';
+        File::ensureDirectoryExists($path);
+        $manifest = json_decode(File::get(__DIR__ . '/../../../../core/tests/fixtures/manifest-v3/valid-premium-package.json'), true, flags: JSON_THROW_ON_ERROR);
+        $manifest['name'] = $name;
+        $manifest['slug'] = 'bounded-fixture';
+        $manifest['providers']['runtime'] = [];
+        $manifest['contributes'] = [];
+        $manifest['healthChecks'] = [];
+        File::put($path . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        app()->instance(VerifyInstalledExtensionAction::class, new VerifyInstalledExtensionAction);
+
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$package], [$package]));
+
+        $attempt->refresh();
+        $report = $attempt->context['verification_report'] ?? [];
+        $event = $attempt->events()->where('stage', MarketplaceInstallFailureStage::Verification->value)->where('message', __('capell-marketplace::marketplace.operations.timeline_verification_failed'))->firstOrFail();
+        expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+            ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+            ->and($report['failures'] ?? null)->toHaveCount(50)
+            ->and($report['omitted_issue_count'] ?? null)->toBe(950)
+            ->and($event?->context['verification_report']['failures'] ?? null)->toHaveCount(50)
+            ->and($event?->context['verification_report']['omitted_issue_count'] ?? null)->toBe(950)
+            ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
+            ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore);
+    });
+});
+
+it('rejects a newly added Composer plugin dependency and restores the snapshot', function (): void {
+    Notification::fake();
+    $dependency = ['name' => 'vendor/new-plugin', 'version' => '1.0.0', 'type' => 'composer-plugin', 'install-path' => '../vendor/new-plugin'];
+    $attempt = marketplaceOperationAttempt();
+    withMarketplaceVerificationTree([], [], function (string $root, string $composerBefore, string $lockBefore) use ($attempt, $dependency): void {
+        File::ensureDirectoryExists($root . '/vendor/vendor/new-plugin');
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$dependency], [$dependency]));
+        $attempt->refresh();
+        $report = $attempt->context['verification_report'] ?? [];
+
+        expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+            ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+            ->and($report['composer_name'] ?? null)->toBe('vendor/new-plugin')
+            ->and($report['failures'][0]['code'])->toBe('composer_plugin')
+            ->and(json_encode($attempt->context, JSON_THROW_ON_ERROR))->not->toContain($root)
+            ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
+            ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore);
+    });
+});
+
+it('does not reverify an unchanged dependency', function (): void {
+    Notification::fake();
+    $name = 'capell-app/unchanged-dependency-target';
+    $packagePath = null;
+    $dependency = ['name' => 'vendor/unchanged-dependency', 'version' => '1.0.0', 'install-path' => '../vendor/unchanged-dependency', 'autoload' => ['files' => ['../outside.php']]];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'unchanged-dependency-target']);
+    // The requested package is a registered fixture, not a Composer install: pass its own verification so only the dependency path is real.
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+
+    try {
+        withMarketplaceVerificationTree([$dependency], [], function (string $root) use ($attempt, $dependency, $name, &$packagePath): void {
+            File::ensureDirectoryExists($root . '/vendor/vendor/unchanged-dependency');
+            $runner = marketplaceFixtureComposerRunner($root, [$dependency], [$dependency], function () use ($name, &$packagePath): void {
+                $packagePath = registerHealthyLifecyclePackage($name, 'Unchanged Dependency Target');
+            });
+            new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
+            expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+                ->and($attempt->failure_stage)->toBeNull();
+        });
+    } finally {
+        if ($packagePath !== null) {
+            File::deleteDirectory($packagePath);
+        }
     }
 });

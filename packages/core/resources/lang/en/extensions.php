@@ -45,6 +45,10 @@ return [
             'message' => 'A class declared by :package has no matching file inside the package, so it cannot be accepted.',
             'next_action' => 'Restore the declared class file and try again.',
         ],
+        'checksum_not_for_installed_release' => [
+            'message' => 'The checksum for :package does not apply to the installed release.',
+            'next_action' => 'Obtain a checksum for the installed release.',
+        ],
         'checksum_missing' => [
             'message' => 'The distribution checksum for :package is missing, so it cannot be compared.',
             'next_action' => 'Reinstall the package with its expected checksum.',

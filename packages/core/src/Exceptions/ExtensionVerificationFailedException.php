@@ -15,7 +15,7 @@ final class ExtensionVerificationFailedException extends RuntimeException
         $first = $report->failures[0] ?? null;
         $message = match (true) {
             $first === null => '',
-            $first->code === ExtensionVerificationIssueData::MANIFEST_INVALID => (string) __('capell::extensions.verification.manifest_invalid_safe', ['package' => $report->composerName]),
+            $first->code === ExtensionVerificationIssueData::MANIFEST_INVALID => (string) __('capell-core::extensions.verification.manifest_invalid_safe', ['package' => $report->composerName]),
             default => $first->message,
         };
         parent::__construct($report->composerName . ': ' . ($first !== null ? $message . ' ' . $first->nextAction : 'Extension verification failed.'));

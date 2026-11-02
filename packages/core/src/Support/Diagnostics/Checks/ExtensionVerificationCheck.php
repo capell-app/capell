@@ -37,7 +37,7 @@ final class ExtensionVerificationCheck implements DoctorCheck
             $first = $report->failures[0] ?? null;
             if ($first !== null) {
                 $message = $first->code === ExtensionVerificationIssueData::MANIFEST_INVALID
-                    ? __('capell::extensions.verification.manifest_invalid_safe', ['package' => $package->name])
+                    ? __('capell-core::extensions.verification.manifest_invalid_safe', ['package' => $package->name])
                     : $first->message;
                 $issues[] = $package->name . ' → ' . $message . ' → ' . $first->nextAction;
             }

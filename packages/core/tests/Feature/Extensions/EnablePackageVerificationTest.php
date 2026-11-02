@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Log;
 
 afterEach(fn () => VerifyInstalledExtensionAction::clearFake());
 
+// The suite runs lenient by default (phpunit.xml); these tests are about strict enforcement.
+beforeEach(function (): void {
+    config()->set('capell.extensions.verification.strict', true);
+});
+
 it('refuses to enable an invalid package without changing its state', function (): void {
     $name = 'vendor/verification-enable';
     CapellCore::registerPackage($name);

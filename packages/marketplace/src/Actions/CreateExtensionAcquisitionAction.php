@@ -75,6 +75,7 @@ final class CreateExtensionAcquisitionAction
                     ],
                 ),
                 releaseChecksum: $listing->releaseChecksum,
+                releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
             );
         }
 
@@ -113,6 +114,7 @@ final class CreateExtensionAcquisitionAction
             metadata: $authorization->metadata,
             authorizationEligibilityPolicy: $authorization->installEligibilityPolicy,
             releaseChecksum: $listing->releaseChecksum,
+            releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
         );
 
         if ($this->authorizationPolicy->blocksInstall($authorization->installEligibilityPolicy)) {

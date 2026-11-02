@@ -81,7 +81,7 @@ SH);
                 // Composer is handed the event name, not a list of commands
                 // Capell reconstructed: the application owns that list.
                 expect($result?->successful())->toBeTrue()
-                    ->and($result?->output)->toContain('run-script')
+                    ->and($result?->output)->toContain("run-script\n--no-interaction\n--no-plugins\npost-autoload-dump")
                     ->and($result?->output)->toContain('post-autoload-dump');
             },
         );

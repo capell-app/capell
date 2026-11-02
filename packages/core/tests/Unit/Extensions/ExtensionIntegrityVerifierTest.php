@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Support\Extensions\ExtensionIntegrityVerifier;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Illuminate\Filesystem\Filesystem;
@@ -135,4 +136,53 @@ it('permits Composer plugins when explicitly configured', function (): void {
     $this->package['type'] = 'composer-plugin';
     ($this->writeTree)();
     expect($this->verifier->verify('vendor/example')->passed)->toBeTrue();
+});
+
+it('bounds recorded failures while counting every omitted issue', function (): void {
+    $this->package['autoload']['files'] = array_fill(0, 1000, '../outside.php');
+    ($this->writeTree)();
+    $report = $this->verifier->verify('vendor/example');
+
+    expect($report->passed)->toBeFalse()
+        ->and($report->failures)->toHaveCount(50)
+        ->and($report->omittedIssueCount)->toBe(950)
+        ->and($report->failures[0]->code)->toBe('autoload_escapes_package');
+});
+
+it('warns instead of comparing a checksum for a different release', function (): void {
+    ($this->writeTree)();
+    $report = $this->verifier->verify('vendor/example', expectedDistSha: 'different', releaseChecksumVersion: '1.0.0');
+
+    expect($report->passed)->toBeTrue()
+        ->and($report->failures)->toBeEmpty()
+        ->and(array_column($report->warnings, 'code'))->toBe(['checksum_not_for_installed_release']);
+});
+
+it('rejects a source install when its release checksum is expected', function (): void {
+    unset($this->package['dist']);
+    ($this->writeTree)();
+    $report = $this->verifier->verify('vendor/example', expectedDistSha: str_repeat('a', 40), releaseChecksumVersion: '2.0.0');
+
+    expect($report->passed)->toBeFalse()
+        ->and(array_column($report->failures, 'code'))->toContain('checksum_missing')
+        ->and($report->warnings)->toBeEmpty();
+});
+
+it('checks dependency plugins and autoload paths without requiring a Capell manifest', function (): void {
+    $this->package['type'] = 'composer-plugin';
+    ($this->writeTree)();
+    unlink($this->packageDir . '/capell.json');
+    $report = $this->verifier->verifyDependency('vendor/example');
+
+    expect($report->passed)->toBeFalse()
+        ->and(array_column($report->failures, 'code'))->toContain('composer_plugin')->not->toContain('manifest_missing');
+});
+
+it('uses safe manifest text when diagnostics are not supplied', function (): void {
+    $description = ExtensionVerificationIssueData::describe('manifest_invalid', 'vendor/example');
+    $unknown = ExtensionVerificationIssueData::describe('unknown', 'vendor/example');
+
+    expect($description['message'])->toContain('vendor/example')->not->toContain(':reason')
+        ->and($description['next_action'])->not->toBeEmpty()
+        ->and($unknown)->toBe(['message' => '', 'next_action' => '']);
 });

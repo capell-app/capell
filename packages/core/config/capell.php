@@ -9,6 +9,7 @@ return [
 
     'extensions' => [
         'verification' => [
+            // Leniency applies to local install and enable paths only; Marketplace is always strict.
             'strict' => (bool) env('CAPELL_EXTENSION_VERIFICATION_STRICT', true),
             'allow_composer_plugins' => (bool) env('CAPELL_EXTENSION_ALLOW_COMPOSER_PLUGINS', false),
         ],

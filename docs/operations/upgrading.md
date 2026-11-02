@@ -82,7 +82,7 @@ migration.
 
 ### Install verification
 
-Marketplace installs and updates verify the downloaded package before loading its code.
+Marketplace acquisition runs Composer without plugins or scripts, then checks the requested package and new or version-changed dependencies before lifecycle work, migrations and provider activation. This does not isolate Composer's own execution or prevent other processes observing the changed vendor tree before verification.
 A failed check stops the operation and restores Composer state. See [install verification](../packages/extension-lifecycle.md#install-verification) for policy and recovery guidance.
 
 ## Admin view escaping fixes

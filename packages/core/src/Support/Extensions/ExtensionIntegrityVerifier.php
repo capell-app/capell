@@ -17,12 +17,20 @@ final class ExtensionIntegrityVerifier
 {
     public function __construct(private readonly string $vendorDir, private readonly ManifestValidator $validator) {}
 
-    public function verify(string $composerName, ?string $expectedVersionConstraint = null, ?string $previousVersion = null, ?string $expectedSlug = null, ?string $expectedDistSha = null): ExtensionVerificationReportData
+    public function verify(string $composerName, ?string $expectedVersionConstraint = null, ?string $previousVersion = null, ?string $expectedSlug = null, ?string $expectedDistSha = null, ?string $releaseChecksumVersion = null, bool $dependency = false): ExtensionVerificationReportData
     {
         $failures = [];
-        $add = static function (string $code, array $replace = []) use (&$failures, $composerName): void {
-            $replace['package'] = $composerName;
-            $failures[] = new Issue($code, (string) __('capell::extensions.verification.' . $code . '.message', $replace), (string) __('capell::extensions.verification.' . $code . '.next_action', $replace));
+        $warnings = [];
+        $omitted = 0;
+        $add = static function (string $code, ?string $reason = null) use (&$failures, &$omitted, $composerName): void {
+            if (count($failures) >= 50) {
+                $omitted++;
+
+                return;
+            }
+
+            $description = Issue::describe($code, $composerName, $reason);
+            $failures[] = new Issue($code, $description['message'], $description['next_action']);
         };
         $installed = $this->readJson($this->vendorDir . '/composer/installed.json');
         $packages = $installed['packages'] ?? $installed;
@@ -70,7 +78,7 @@ final class ExtensionIntegrityVerifier
             $trusted = TrustedCorePackages::contains($composerName);
             $require = is_array($package['require'] ?? null) ? $package['require'] : [];
             $requireDev = is_array($package['require-dev'] ?? null) ? $package['require-dev'] : [];
-            if (! $trusted && ! config('capell.extensions.verification.allow_composer_plugins', false)
+            if (! $trusted && ($dependency || ! config('capell.extensions.verification.allow_composer_plugins', false))
                 && (($package['type'] ?? null) === 'composer-plugin' || array_key_exists('composer-plugin-api', $require) || array_key_exists('composer-plugin-api', $requireDev))) {
                 $add(Issue::COMPOSER_PLUGIN);
             }
@@ -93,30 +101,39 @@ final class ExtensionIntegrityVerifier
                 }
             }
 
-            $manifestPath = $realPackage !== false ? $realPackage . '/capell.json' : null;
-            if ($manifestPath === null || ! is_file($manifestPath)) {
-                $add(Issue::MANIFEST_MISSING);
-            } else {
-                $manifest = $this->readJson($manifestPath);
-                try {
-                    // Use installed metadata for the namespace boundary; never load classes.
-                    $this->validator->validateStructure($manifest, ['autoload' => $autoload]);
-                } catch (Throwable $exception) {
-                    $add(Issue::MANIFEST_INVALID, ['reason' => $exception->getMessage()]);
-                }
+            if (! $dependency) {
+                $manifestPath = $realPackage !== false ? $realPackage . '/capell.json' : null;
+                if ($manifestPath === null || ! is_file($manifestPath)) {
+                    $add(Issue::MANIFEST_MISSING);
+                } else {
+                    $manifest = $this->readJson($manifestPath);
+                    try {
+                        // Use installed metadata for the namespace boundary; never load classes.
+                        $this->validator->validateStructure($manifest, ['autoload' => $autoload]);
+                    } catch (Throwable $exception) {
+                        $add(Issue::MANIFEST_INVALID, $exception->getMessage());
+                    }
 
-                if (! $trusted && (($manifest['name'] ?? null) !== $composerName || ($expectedSlug !== null && ($manifest['slug'] ?? null) !== $expectedSlug))) {
-                    $add(Issue::MANIFEST_IDENTITY_MISMATCH);
-                }
+                    if (! $trusted && (($manifest['name'] ?? null) !== $composerName || ($expectedSlug !== null && ($manifest['slug'] ?? null) !== $expectedSlug))) {
+                        $add(Issue::MANIFEST_IDENTITY_MISMATCH);
+                    }
 
-                foreach ($this->manifestClasses($manifest) as $class) {
-                    if (! $this->classFileExists($class, $autoload['psr-4'] ?? [], $realPackage)) {
-                        $add(Issue::PROVIDER_FILE_MISSING);
+                    foreach ($this->manifestClasses($manifest) as $class) {
+                        if (! $this->classFileExists($class, $autoload['psr-4'] ?? [], $realPackage)) {
+                            $add(Issue::PROVIDER_FILE_MISSING);
+                        }
                     }
                 }
             }
 
-            if ($expectedDistSha !== null) {
+            if ($expectedDistSha !== null && $releaseChecksumVersion !== null && $version !== $releaseChecksumVersion) {
+                if (count($failures) >= 50) {
+                    $omitted++;
+                } else {
+                    $description = Issue::describe(Issue::CHECKSUM_NOT_FOR_INSTALLED_RELEASE, $composerName);
+                    $warnings[] = new Issue(Issue::CHECKSUM_NOT_FOR_INSTALLED_RELEASE, $description['message'], $description['next_action']);
+                }
+            } elseif ($expectedDistSha !== null) {
                 if ($sha === null) {
                     $add(Issue::CHECKSUM_MISSING);
                 } elseif (! hash_equals($expectedDistSha, $sha)) {
@@ -125,7 +142,12 @@ final class ExtensionIntegrityVerifier
             }
         }
 
-        return new ExtensionVerificationReportData($composerName, $version, $expectedVersionConstraint, $previousVersion, $failures === [], $failures, [], CarbonImmutable::now(), $sha, $reference, $host, $realPackage === false ? null : $realPackage);
+        return new ExtensionVerificationReportData($composerName, $version, $expectedVersionConstraint, $previousVersion, $failures === [], $failures, $warnings, CarbonImmutable::now(), $sha, $reference, $host, $realPackage === false ? null : $realPackage, $omitted);
+    }
+
+    public function verifyDependency(string $composerName): ExtensionVerificationReportData
+    {
+        return $this->verify($composerName, dependency: true);
     }
 
     /** @return array<mixed> */

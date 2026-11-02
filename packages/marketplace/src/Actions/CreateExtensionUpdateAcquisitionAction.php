@@ -69,6 +69,7 @@ final class CreateExtensionUpdateAcquisitionAction
                     ],
                 ),
                 releaseChecksum: $listing->releaseChecksum,
+                releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
             );
         }
 
@@ -103,6 +104,7 @@ final class CreateExtensionUpdateAcquisitionAction
             metadata: $authorization->metadata,
             authorizationEligibilityPolicy: $listing->installEligibilityPolicy,
             releaseChecksum: $listing->releaseChecksum,
+            releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
         );
     }
 
