@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Properties;
 
+use Capell\Core\Actions\PublicRead\PageUrlIsPubliclyReadableAction;
 use Capell\Core\Data\Properties\AgentPageQueryData;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Enums\PropertyType;
@@ -12,15 +13,18 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Properties\PropertyValuePrecedenceExpression;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Date;
@@ -33,6 +37,8 @@ final class QueryPagesByPropertiesAction
 {
     use AsFake;
     use AsObject;
+
+    public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
 
     /** @return LengthAwarePaginator<int, Page> */
     public function handle(Site $site, AgentPageQueryData $input): LengthAwarePaginator
@@ -55,14 +61,7 @@ final class QueryPagesByPropertiesAction
                 // Apply URL eligibility before paginate(), because the
                 // controller can only represent URL-addressable pages.
                 $pages->whereHas('pageUrls', function (Builder $urls) use ($site, $input): void {
-                    $urls->where('site_id', $site->id)->where('status', true)
-                        ->where(static fn (Builder $url): Builder => $url->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
-                        ->whereHas('translation', static fn (Builder $translation): Builder => $translation
-                            ->when($input->languageId !== null, static fn (Builder $locale): Builder => $locale->where('language_id', $input->languageId)))
-                        ->whereHas('siteDomain', static fn (Builder $domain): Builder => $domain->where('status', true));
-                    if ($input->languageId !== null) {
-                        $urls->where('language_id', $input->languageId);
-                    }
+                    $this->constrainPublicUrls($urls, $site, $input->languageId);
                 });
             });
 
@@ -103,7 +102,73 @@ final class QueryPagesByPropertiesAction
             }
         }
 
-        return $query->orderBy(TableName::resolve('pages') . '.id')->paginate($input->size, [TableName::resolve('pages') . '.*'], 'page[number]', $input->page);
+        $query->orderBy(TableName::resolve('pages') . '.id');
+
+        if (! $input->publicUrlRequired || ! $this->eligibility->hasContributors()) {
+            return $query->paginate($input->size, [TableName::resolve('pages') . '.*'], 'page[number]', $input->page);
+        }
+
+        return $this->paginatePubliclyReadable($query, $site, $input);
+    }
+
+    /**
+     * Public-read eligibility is decided per served address, so it is applied
+     * to the ordered matches before slicing a page of results. A restricted
+     * page then leaves no gap, count or link behind it.
+     *
+     * @param  Builder<Page>  $query
+     * @return LengthAwarePaginator<int, Page>
+     */
+    private function paginatePubliclyReadable(Builder $query, Site $site, AgentPageQueryData $input): LengthAwarePaginator
+    {
+        /** @var list<int> $orderedIds */
+        $orderedIds = array_values(array_unique(array_map(intval(...), $query->pluck(TableName::resolve('pages') . '.id')->all())));
+        $readable = [];
+
+        foreach (array_chunk($orderedIds, 500) as $chunk) {
+            $urls = PageUrl::query()
+                ->where('pageable_type', (new Page)->getMorphClass())
+                ->whereIn('pageable_id', $chunk)
+                ->with('siteDomain')
+                ->orderBy('id');
+            $this->constrainPublicUrls($urls, $site, $input->languageId);
+
+            foreach ($urls->get() as $url) {
+                $pageId = (int) $url->pageable_id;
+                if (! isset($readable[$pageId]) && PageUrlIsPubliclyReadableAction::run($url)) {
+                    $readable[$pageId] = true;
+                }
+            }
+        }
+
+        $readableIds = array_values(array_filter($orderedIds, static fn (int $id): bool => isset($readable[$id])));
+        $slice = array_slice($readableIds, ($input->page - 1) * $input->size, $input->size);
+        $pages = $slice === [] ? collect() : Page::query()->whereKey($slice)->get()->keyBy(static fn (Page $page): int => (int) $page->getKey());
+
+        return new LengthAwarePaginator(
+            array_values(array_filter(array_map(static fn (int $id): ?Page => $pages->get($id), $slice))),
+            count($readableIds),
+            $input->size,
+            $input->page,
+            ['path' => LengthAwarePaginator::resolveCurrentPath(), 'pageName' => 'page[number]'],
+        );
+    }
+
+    /**
+     * @template TUrl of Model
+     *
+     * @param  Builder<TUrl>  $urls
+     */
+    private function constrainPublicUrls(Builder $urls, Site $site, ?int $languageId): void
+    {
+        $urls->where('site_id', $site->id)->where('status', true)
+            ->where(static fn (Builder $url): Builder => $url->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
+            ->whereHas('translation', static fn (Builder $translation): Builder => $translation
+                ->when($languageId !== null, static fn (Builder $locale): Builder => $locale->where('language_id', $languageId)))
+            ->whereHas('siteDomain', static fn (Builder $domain): Builder => $domain->where('status', true));
+        if ($languageId !== null) {
+            $urls->where('language_id', $languageId);
+        }
     }
 
     /**

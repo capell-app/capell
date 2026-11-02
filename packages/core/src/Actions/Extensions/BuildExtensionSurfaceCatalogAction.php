@@ -35,6 +35,7 @@ use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
+use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
 use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
 use Capell\Core\Contracts\Reporting\Reporter;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
@@ -115,6 +116,7 @@ use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Reporting\LogChannelReporter;
 use Capell\Core\Testing\ExtensionTestHarness;
@@ -195,6 +197,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.database-provisioner', 'contract', DatabaseProvisioner::class, ExtensionSurfaceStability::Experimental, 'Installer database provisioning boundary.'),
             $this->entry('core.contract.database-query-dialect', 'contract', DatabaseQueryDialect::class, ExtensionSurfaceStability::Experimental, 'Portable SQL expression boundary.'),
             $this->entry('core.contract.database-schema-dialect', 'contract', DatabaseSchemaDialect::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capability boundary.'),
+            $this->entry('core.contract.public-page-read-eligibility', 'contract', PublicPageReadEligibility::class, ExtensionSurfaceStability::Experimental, 'Package-owned anonymous public-read eligibility for page addresses in public projections.'),
+            $this->entry('core.registry.public-page-read-eligibility', 'registry', PublicPageReadEligibilityRegistry::class, ExtensionSurfaceStability::Experimental, 'Fail-closed public-read eligibility registry consulted by public page projections.'),
             $this->entry('core.contract.frontend-route-reservation-contributor', 'contract', FrontendRouteReservationContributor::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation contributions.'),
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),
             $this->entry('core.contract.operational-health-check', 'contract', HealthCheck::class, ExtensionSurfaceStability::Experimental, 'Bounded operational health check boundary.'),

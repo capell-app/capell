@@ -4,22 +4,34 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Agent;
 
+use Capell\Core\Actions\PublicRead\PageUrlIsPubliclyReadableAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** List anonymous-safe, URL-addressable pages for a site and language. */
+/**
+ * List anonymous-safe, URL-addressable pages for a site and language.
+ *
+ * Public-read eligibility is applied before pagination, so a restricted page
+ * leaves no gap, count or link behind it.
+ */
 final class BrowsePublicSiteMapAction
 {
     use AsFake;
     use AsObject;
+
+    private const int PER_PAGE = 50;
+
+    public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
 
     /** @return LengthAwarePaginator<int, array{url: string, title: string}> */
     public function handle(Site $site, Language $language, int $page = 1): LengthAwarePaginator
@@ -27,10 +39,10 @@ final class BrowsePublicSiteMapAction
         $morphTypes = ResolvePublicPageableMorphTypesAction::run();
 
         if ($morphTypes === []) {
-            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50, $page);
+            return new Paginator([], 0, self::PER_PAGE, $page);
         }
 
-        return PageUrl::query()
+        $query = PageUrl::query()
             ->where('site_id', $site->getKey())
             ->where('language_id', $language->getKey())
             ->enabled()
@@ -50,12 +62,38 @@ final class BrowsePublicSiteMapAction
                     ->whereHas('blueprint', static fn (BuilderContract $blueprint): BuilderContract => $blueprint->enabled()->accessible())
                     ->publishedDate(),
             )
-            ->with(['translation'])
             ->orderBy('url')
-            ->paginate(50, ['*'], 'page', $page)
-            ->through(static fn (PageUrl $pageUrl): array => [
-                'url' => $pageUrl->url,
-                'title' => (string) $pageUrl->translation?->title,
-            ]);
+            ->orderBy('id');
+
+        if (! $this->eligibility->hasContributors()) {
+            return $query
+                ->with(['translation'])
+                ->paginate(self::PER_PAGE, ['*'], 'page', $page)
+                ->through(static fn (PageUrl $pageUrl): array => self::project($pageUrl));
+        }
+
+        $readable = [];
+        foreach ($query->with(['translation', 'siteDomain'])->lazy(200) as $pageUrl) {
+            if (PageUrlIsPubliclyReadableAction::run($pageUrl)) {
+                $readable[] = self::project($pageUrl);
+            }
+        }
+
+        return new Paginator(
+            array_slice($readable, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
+            count($readable),
+            self::PER_PAGE,
+            $page,
+            ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page'],
+        );
+    }
+
+    /** @return array{url: string, title: string} */
+    private static function project(PageUrl $pageUrl): array
+    {
+        return [
+            'url' => $pageUrl->url,
+            'title' => (string) $pageUrl->translation?->title,
+        ];
     }
 }

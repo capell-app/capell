@@ -523,6 +523,16 @@
             "contractTestId": "core.project-build-manifest-install"
         },
         {
+            "id": "core.contract.public-page-read-eligibility",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\PublicPageReadEligibility",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned anonymous public-read eligibility for page addresses in public projections.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.public-render-data",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionPublicRenderData",
@@ -1311,6 +1321,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Runtime registry for portable project build artifact handlers.",
             "contractTestId": "core.project-build-artifact-handler-registry"
+        },
+        {
+            "id": "core.registry.public-page-read-eligibility",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicPageReadEligibilityRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Fail-closed public-read eligibility registry consulted by public page projections.",
+            "contractTestId": null
         },
         {
             "id": "core.registry.publication-readiness",

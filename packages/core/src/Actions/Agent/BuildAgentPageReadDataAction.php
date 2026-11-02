@@ -6,12 +6,14 @@ namespace Capell\Core\Actions\Agent;
 
 use Capell\Core\Actions\Properties\ProjectAgentSchemaValueAction;
 use Capell\Core\Actions\Properties\ResolveAgentPropertyValuesAction;
+use Capell\Core\Actions\PublicRead\PageUrlIsPubliclyReadableAction;
 use Capell\Core\Data\Agent\AgentPageReadData;
 use Capell\Core\Data\Properties\AgentPropertyBagData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Exceptions\UrlMissingSiteDomainException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,12 +35,15 @@ final class BuildAgentPageReadDataAction
             return null;
         }
 
+        // The projection publishes the first address an anonymous visitor may
+        // read; a page with none is omitted along with its properties.
         $url = $page->pageUrls()->where('site_id', $page->site_id)->where('language_id', $language->id)->enabled()
             ->where(static fn (Builder $query): Builder => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
             ->whereHas('siteDomain', static fn (Builder $domain): Builder => $domain->where('status', true))
             ->whereHas('translation', static fn (Builder $translation): Builder => $translation->where('language_id', $language->id))
-            ->with(['siteDomain', 'translation'])->orderBy('id')->first();
-        if ($url === null) {
+            ->with(['siteDomain', 'translation'])->orderBy('id')->get()
+            ->first(static fn (PageUrl $candidate): bool => PageUrlIsPubliclyReadableAction::run($candidate));
+        if (! $url instanceof PageUrl) {
             return null;
         }
 
