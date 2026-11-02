@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\RelationManagers\ActivityHistoryRelationManager;
+use Capell\Admin\Filament\RelationManagers\EventSourcedHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Layouts\Pages\EditLayout;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
@@ -52,7 +53,7 @@ it('shows activity history for the owning page only', function (): void {
         ->assertSuccessful()
         ->assertCanSeeTableRecords([$pageActivity])
         ->assertCanNotSeeTableRecords([$otherActivity])
-        ->assertSee(__('capell-admin::navigation.activity_trail'))
+        ->assertSee(__('capell-admin::activity.relation_title'))
         ->assertSee(__('capell-admin::activity.resource_history_description'));
 });
 
@@ -84,3 +85,19 @@ it('records layout and site activity for the history relation', function (string
     'layout' => [Layout::class, EditLayout::class],
     'site' => [Site::class, EditSite::class],
 ]);
+
+it('names the two history tabs differently and explains an empty activity tab', function (): void {
+    $page = Page::factory()->createOne(['name' => 'Quiet page']);
+    Activity::query()->delete();
+
+    expect(ActivityHistoryRelationManager::getTitle($page, EditPage::class))
+        ->not->toBe(EventSourcedHistoryRelationManager::getTitle($page, EditPage::class));
+
+    Livewire::test(ActivityHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::activity.relation_empty_heading'))
+        ->assertSee(__('capell-admin::activity.relation_empty_description'));
+});

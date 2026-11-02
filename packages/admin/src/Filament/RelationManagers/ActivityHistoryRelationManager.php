@@ -26,14 +26,16 @@ final class ActivityHistoryRelationManager extends RelationManager
     #[Override]
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('capell-admin::navigation.activity_trail');
+        return __('capell-admin::activity.relation_title');
     }
 
     #[Override]
     public function table(Table $table): Table
     {
         return ActivitiesTable::configure($table)
-            ->heading(__('capell-admin::navigation.activity_trail'))
+            ->heading(__('capell-admin::activity.relation_title'))
+            ->emptyStateHeading(__('capell-admin::activity.relation_empty_heading'))
+            ->emptyStateDescription(__('capell-admin::activity.relation_empty_description'))
             ->description(__('capell-admin::activity.resource_history_description'))
             ->modifyQueryUsing(fn (Builder $query): Builder => SiteAccess::current()->scope($query)
                 ->with('causer')
