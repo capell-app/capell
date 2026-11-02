@@ -62,6 +62,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/Registries/AbstractKeyedRegistry.php',
         'packages/core/src/Support/Registries/TaggedProviderRegistry.php',
         'packages/core/src/Support/Renderables/RenderableRegistry.php',
+        // Two keyed maps (checks and remediations) that the scan joins by weakness id; it is frozen on booted and re-opened only during package installation.
+        'packages/core/src/Support/Security/SecurityWeaknessRegistry.php',
         'packages/core/src/Support/Settings/SettingsSchemaRegistry.php',
         'packages/core/src/Support/Subscriber/SubscriberRegistry.php',
         'packages/core/src/Support/Tailwind/TailwindAssetsRegistry.php',

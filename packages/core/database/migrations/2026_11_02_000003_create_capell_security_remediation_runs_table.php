@@ -24,7 +24,7 @@ return new class extends Migration
             $table->text('message');
             $table->json('before')->nullable();
             $table->json('after')->nullable();
-            $table->timestamp('started_at');
+            $table->dateTime('started_at');
             $table->timestamp('finished_at')->nullable();
             $table->timestamps();
 
