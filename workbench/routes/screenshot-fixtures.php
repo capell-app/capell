@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
+use Workbench\App\Support\LanguageActionScreenshotFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
@@ -50,6 +51,9 @@ Route::get('/screenshot-fixtures/record-states/layouts', static fn (): RedirectR
     ->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/screenshot-fixtures/record-states/page-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pageEditUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
+Route::get('/screenshot-fixtures/record-states/page-languages', static fn (): RedirectResponse => redirect()->to(LanguageActionScreenshotFixture::editUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaListUrl()))

@@ -18,6 +18,7 @@ use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Workbench\App\Support\LanguageActionScreenshotFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
 
 uses(CreatesAdminUser::class)
@@ -27,6 +28,19 @@ beforeEach(function (): void {
     require dirname(__DIR__, 5) . '/workbench/routes/screenshot-fixtures.php';
 
     Page::factory()->createOne();
+});
+
+it('prepares a repeatable multilingual page with a parent missing one language', function (): void {
+    RecordStateScreenshotFixture::initialize();
+    $page = LanguageActionScreenshotFixture::initialize();
+    $again = LanguageActionScreenshotFixture::initialize();
+
+    expect($again->getKey())->toBe($page->getKey())
+        ->and($page->parent)->not->toBeNull()
+        ->and($page->translations()->count())->toBe(2)
+        ->and($page->parent->translations()->count())->toBe(1)
+        ->and($page->site->languages()->count())->toBe(2)
+        ->and(LanguageActionScreenshotFixture::destinationSite()->languages()->count())->toBe(1);
 });
 
 it('initializes idempotent record-state fixtures at actual Filament list and edit URLs', function (): void {
@@ -84,6 +98,8 @@ it('initializes idempotent record-state fixtures at actual Filament list and edi
 
 it('denies guests access to record-state fixture routes', function (): void {
     test()->get('/screenshot-fixtures/record-states/pages')
+        ->assertForbidden();
+    test()->get('/screenshot-fixtures/record-states/page-languages')
         ->assertForbidden();
 });
 
