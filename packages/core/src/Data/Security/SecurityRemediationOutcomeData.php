@@ -20,7 +20,17 @@ final class SecurityRemediationOutcomeData extends Data
         public readonly string $message,
         public readonly array $before = [],
         public readonly array $after = [],
+        public readonly bool $failed = false,
     ) {}
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     */
+    public static function failed(string $message, array $before = [], array $after = []): self
+    {
+        return new self(applied: false, message: $message, before: $before, after: $after, failed: true);
+    }
 
     public static function skipped(string $message): self
     {

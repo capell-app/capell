@@ -9,6 +9,7 @@ use Capell\Core\Support\Patching\EnvFileEditor;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Sleep;
 use RuntimeException;
 use Throwable;
 
@@ -26,6 +27,29 @@ final class EnvironmentRemediation
 
     /** @param array<string, string> $values */
     private function applyLocked(array $values): SecurityRemediationOutcomeData
+    {
+        $handle = @fopen(app()->environmentFilePath(), 'rb');
+        throw_if($handle === false, RuntimeException::class, 'Unable to open the environment file.');
+
+        $deadline = microtime(true) + 5;
+        try {
+            while (! flock($handle, LOCK_EX | LOCK_NB)) {
+                if (microtime(true) >= $deadline) {
+                    return SecurityRemediationOutcomeData::skipped(__('capell-core::security.remediation.env_locked'));
+                }
+
+                Sleep::usleep(100_000);
+            }
+
+            return $this->applyWithFileLock($values);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
+    /** @param array<string, string> $values */
+    private function applyWithFileLock(array $values): SecurityRemediationOutcomeData
     {
         $editor = new EnvFileEditor(app()->environmentFilePath());
         if ($this->ambiguous($editor->content(), array_keys($values))) {
@@ -45,27 +69,37 @@ final class EnvironmentRemediation
         }
 
         if ($before === $values) {
-            return SecurityRemediationOutcomeData::skipped(__('capell-core::security.remediation.already_set'));
+            if (! app()->configurationIsCached()) {
+                return SecurityRemediationOutcomeData::skipped(__('capell-core::security.remediation.already_set'));
+            }
+
+            if (! $this->refreshCache()) {
+                return SecurityRemediationOutcomeData::failed(__('capell-core::security.remediation.cache_refresh_required'), $before, $values);
+            }
+
+            return new SecurityRemediationOutcomeData(true, __('capell-core::security.remediation.cache_refreshed'), $before, $values);
         }
 
         $backup = $editor->backup();
         $editor->save();
         $after = $values;
         $after['backup_directory'] = $backup;
-        try {
-            $refreshRequired = app()->configurationIsCached() && Artisan::call('config:clear') !== 0;
-        } catch (Throwable) {
-            $refreshRequired = true;
-        }
-
-        if ($refreshRequired) {
+        if (app()->configurationIsCached() && ! $this->refreshCache()) {
             $after['config_cache_refresh_required'] = true;
-            $message = __('capell-core::security.remediation.cache_refresh_required');
-        } else {
-            $message = __('capell-core::security.remediation.changed');
+
+            return SecurityRemediationOutcomeData::failed(__('capell-core::security.remediation.cache_refresh_required'), $before, $after);
         }
 
-        return new SecurityRemediationOutcomeData(true, $message, $before, $after);
+        return new SecurityRemediationOutcomeData(true, __('capell-core::security.remediation.changed'), $before, $after);
+    }
+
+    private function refreshCache(): bool
+    {
+        try {
+            return Artisan::call('config:clear') === 0;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** @param list<string> $keys */
@@ -79,15 +113,16 @@ final class EnvironmentRemediation
         $quote = null;
         foreach (explode("\n", $content) as $line) {
             foreach ($keys as $key) {
-                if (str_starts_with($line, $key . '=')) {
-                    if ($quote !== null || ++$counts[$key] > 1) {
+                $pattern = '/^\s*(?:export\s+)?["\']?' . preg_quote($key, '/') . '["\']?\s*=/';
+                if (preg_match($pattern, $line) === 1) {
+                    if (! str_starts_with($line, $key . '=') || $quote !== null || ++$counts[$key] > 1) {
                         return true;
                     }
                 }
             }
 
             if ($quote === null) {
-                if (preg_match('/^[A-Za-z_]\w*\s*=\s*(["\'])/', $line, $match, PREG_OFFSET_CAPTURE) !== 1) {
+                if (preg_match('/^\s*(?:export\s+)?["\']?[A-Za-z_][\w.]*["\']?\s*=\s*(["\'])/', $line, $match, PREG_OFFSET_CAPTURE) !== 1) {
                     continue;
                 }
 

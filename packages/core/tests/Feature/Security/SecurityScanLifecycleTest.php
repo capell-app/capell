@@ -18,6 +18,8 @@ use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Tests\Support\Security\TestRemediation;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
 it('keeps a dismissed finding dismissed and isolates a failing check', function (): void {
@@ -61,8 +63,8 @@ it('normalises analyser findings as advice only', function (): void {
     $action = new RunSecurityWeaknessScanAction($registry, $analyser);
     expect($action->handle(true)->analyserUsed)->toBe('test analyser')
         ->and($action->handle(false)->analyserUsed)->toBeNull();
-    $unknown = SecurityWeaknessFinding::query()->where('fingerprint', 'unknown')->sole();
-    $known = SecurityWeaknessFinding::query()->where('fingerprint', 'known')->sole();
+    $unknown = SecurityWeaknessFinding::query()->where('fingerprint', hash('sha256', 'unknown'))->sole();
+    $known = SecurityWeaknessFinding::query()->where('fingerprint', hash('sha256', 'known'))->sole();
     expect($unknown->source)->toBe(SecurityFindingSource::Analyser)->and($unknown->remediable)->toBeFalse()
         ->and($known->source)->toBe(SecurityFindingSource::Analyser)->and($known->remediable)->toBeFalse();
 });
@@ -96,4 +98,47 @@ it('redacts analyser secrets before storing and dispatching findings', function 
     $finding = SecurityWeaknessFinding::query()->sole();
     expect(json_encode($finding->toArray()))->not->toContain('distinctiveToken123')->not->toContain('distinctiveSecret123');
     Event::assertDispatched(SecurityWeaknessDetected::class, fn ($event): bool => ! str_contains(json_encode($event->finding->toArray()), 'distinctiveToken123'));
+});
+
+it('rejects invalid identifiers and keeps secrets out of stored findings events and command output', function (): void {
+    Event::fake([SecurityWeaknessDetected::class]);
+    BuildSecurityPostureInventoryAction::mock()->shouldReceive('handle')->andReturn(new SecurityPostureInventoryData(null, [], [], [], CarbonImmutable::now()));
+    $analyser = Mockery::mock(SecurityWeaknessAnalyser::class);
+    $analyser->shouldReceive('isAvailable')->andReturnTrue();
+    $analyser->shouldReceive('name')->andReturn('test');
+    $analyser->shouldReceive('analyse')->andReturn([
+        new SecurityWeaknessFindingData('SECRET-ID!', 'safe', SecurityWeaknessSeverity::High, SecurityFindingSource::Analyser, 'Invalid', 'Summary'),
+        new SecurityWeaknessFindingData('test.valid', 'SECRET-FINGERPRINT!', SecurityWeaknessSeverity::High, SecurityFindingSource::Analyser, 'Valid', 'Summary', composerName: 'SECRET-COMPOSER!'),
+    ]);
+    $check = Mockery::mock(SecurityWeaknessCheck::class);
+    $check->shouldReceive('weaknessId')->andReturn('test.check');
+    $check->shouldReceive('detect')->andReturn([
+        new SecurityWeaknessFindingData('SECRET-ID!', 'check', SecurityWeaknessSeverity::High, SecurityFindingSource::Builtin, 'Invalid', 'Summary'),
+        new SecurityWeaknessFindingData('test.check', 'check-fingerprint', SecurityWeaknessSeverity::High, SecurityFindingSource::Builtin, 'Check', 'Summary', composerName: 'SECRET-COMPOSER!'),
+    ]);
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerCheck($check);
+
+    app()->instance(SecurityWeaknessRegistry::class, $registry);
+    app()->instance(SecurityWeaknessAnalyser::class, $analyser);
+
+    $scan = new RunSecurityWeaknessScanAction($registry, $analyser)->handle();
+    expect($scan->failures)->toContain('analyser: invalid finding')->toContain('check: test.check: invalid finding')
+        ->and(SecurityWeaknessFinding::query()->count())->toBe(2)
+        ->and(SecurityWeaknessFinding::query()->where('weakness_id', 'test.valid')->sole()->fingerprint)->toBe(hash('sha256', 'SECRET-FINGERPRINT!'))
+        ->and(SecurityWeaknessFinding::query()->where('weakness_id', 'test.check')->sole()->composer_name)->toBeNull();
+    $outputs = [];
+    foreach ([false, true] as $json) {
+        expect(Artisan::call('capell:security:scan', ['--json' => $json]))->toBe(2);
+        $outputs[] = Artisan::output();
+    }
+
+    $tables = [];
+    foreach (['capell_security_weakness_findings', 'capell_security_remediation_approvals', 'capell_security_remediation_runs'] as $table) {
+        $tables[] = DB::table($table)->get()->toArray();
+    }
+
+    $payload = json_encode([$tables, $outputs, Event::dispatched(SecurityWeaknessDetected::class)->map(fn (array $arguments): array => $arguments[0]->finding->toArray())->all()], JSON_THROW_ON_ERROR);
+    expect($payload)->toContain('test.valid')->toContain('test.check')
+        ->not->toContain('SECRET-ID!')->not->toContain('SECRET-FINGERPRINT!')->not->toContain('SECRET-COMPOSER!');
 });

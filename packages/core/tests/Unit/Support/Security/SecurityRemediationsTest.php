@@ -95,7 +95,7 @@ it('refuses ambiguous environment files without writing or backing up', function
         app()->useStoragePath($storage);
         File::deleteDirectory($directory);
     }
-})->with(["APP_DEBUG=true\nAPP_DEBUG=false\n", "APP_DEBUG=true\r\n", "OTHER=\"first\nAPP_DEBUG=true\nlast\"\n"]);
+})->with(["APP_DEBUG=true\nAPP_DEBUG=false\n", "APP_DEBUG=true\r\n", "OTHER=\"first\nAPP_DEBUG=true\nlast\"\n", "export OTHER=\"first\nAPP_DEBUG=true\nlast\"\n", "\"OTHER\"=\"first\nAPP_DEBUG=true\nlast\"\n", "export APP_DEBUG=true\n", "  APP_DEBUG=true\n", "\"APP_DEBUG\"=true\n", "'APP_DEBUG'=true\n", "APP_DEBUG =true\n"]);
 
 it('refuses a symbolic link before creating a backup', function (): void {
     $directory = sys_get_temp_dir() . '/capell-remediation-' . uniqid();
@@ -122,4 +122,35 @@ it('skips environment changes when the lock cannot be obtained', function (): vo
     $lock->shouldReceive('block')->once()->with(10, Mockery::type('closure'))->andThrow(new LockTimeoutException);
     Cache::shouldReceive('lock')->once()->with('capell:security:env-remediation', 30)->andReturn($lock);
     expect((new EnvironmentRemediation)->apply(['APP_DEBUG' => 'false'])->message)->toBe(__('capell-core::security.remediation.env_locked'));
+});
+
+it('waits for the environment file lock and skips safely on timeout', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-remediation-' . uniqid();
+    File::ensureDirectoryExists($directory);
+    $base = app()->basePath();
+    $storage = app()->storagePath();
+    $path = $directory . '/.env';
+    file_put_contents($path, "APP_DEBUG=true\n");
+    app()->setBasePath($directory);
+    app()->useStoragePath($directory . '/storage');
+
+    $handle = fopen($path, 'rb');
+    throw_if($handle === false, RuntimeException::class, 'Unable to open test environment file.');
+
+    try {
+        flock($handle, LOCK_EX);
+        $result = (new EnvironmentRemediation)->apply(['APP_DEBUG' => 'false']);
+        expect($result->applied)->toBeFalse()
+            ->and($result->message)->toBe(__('capell-core::security.remediation.env_locked'))
+            ->and(file_get_contents($path))->toBe("APP_DEBUG=true\n")
+            ->and(is_dir($directory . '/storage'))->toBeFalse();
+        flock($handle, LOCK_UN);
+        expect((new EnvironmentRemediation)->apply(['APP_DEBUG' => 'false'])->applied)->toBeTrue()
+            ->and(file_get_contents($path))->toBe("APP_DEBUG=false\n");
+    } finally {
+        fclose($handle);
+        app()->setBasePath($base);
+        app()->useStoragePath($storage);
+        File::deleteDirectory($directory);
+    }
 });

@@ -63,10 +63,10 @@ final class EnvFileEditor
         try {
             $permissions = fileperms($this->filePath);
             throw_if($permissions === false || ! chmod($temporary, $permissions & 0777), RuntimeException::class, 'Failed to preserve environment file permissions.');
-            $written = file_put_contents($temporary, $this->content);
-            throw_if($written !== strlen($this->content), RuntimeException::class, 'Failed to write the environment file.');
+            $written = @file_put_contents($temporary, $this->content);
+            throw_if($written !== strlen($this->content), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
             throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
-            throw_unless(rename($temporary, $this->filePath), RuntimeException::class, 'Failed to replace the environment file.');
+            throw_unless(@rename($temporary, $this->filePath), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
         } finally {
             if (file_exists($temporary)) {
                 unlink($temporary);

@@ -19,6 +19,7 @@ return [
         'failed' => 'The change could not be completed. Review the installation settings.',
         'already_set' => 'The settings already have the required values.',
         'changed' => 'The settings were updated.',
+        'cache_refreshed' => 'The configuration cache was cleared.',
         'cache_refresh_required' => 'The settings were updated; clear the configuration cache before they take effect.',
         'debug' => 'Turn off debug mode.',
         'cookie' => 'Require secure and HTTP-only session cookies.',

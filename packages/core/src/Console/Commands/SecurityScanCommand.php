@@ -27,7 +27,7 @@ final class SecurityScanCommand extends Command
             (bool) $this->option('dry-run'),
             $this->option('only'),
             $scan->scannedAt,
-            array_values(array_map(static fn (string $failure): string => substr($failure, 7), array_filter($scan->failures, static fn (string $failure): bool => str_starts_with($failure, 'check: ')))),
+            array_values(array_map(static fn (string $failure): string => explode(': ', substr($failure, 7), 2)[0], array_filter($scan->failures, static fn (string $failure): bool => str_starts_with($failure, 'check: ')))),
         ) : null;
         $findings = ListSecurityWeaknessFindingsAction::run();
         $approvals = SecurityRemediationApproval::query()->active()->pluck('weakness_id')->all();

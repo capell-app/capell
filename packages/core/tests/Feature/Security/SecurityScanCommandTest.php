@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Security\BuildSecurityPostureInventoryAction;
 use Capell\Core\Actions\Security\RunSecurityWeaknessScanAction;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
+use Capell\Core\Data\Security\SecurityPostureInventoryData;
 use Capell\Core\Data\Security\SecurityRemediationOutcomeData;
 use Capell\Core\Data\Security\SecurityScanResultData;
 use Capell\Core\Enums\Security\SecurityFindingSource;
@@ -11,11 +13,18 @@ use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
+use Capell\Core\Support\Security\Remediations\DebugEnabledRemediation;
+use Capell\Core\Support\Security\Remediations\EnvironmentRemediation;
 use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
+use Capell\Core\Tests\Support\Security\FakeConfigClearCommand;
 use Capell\Core\Tests\Support\Security\TestRemediation;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 function fakeCommandScan(bool $includeAnalyser): void
 {
@@ -137,3 +146,49 @@ it('prints sanitised stored findings and remediation messages in both formats', 
     Artisan::call('capell:security:scan', ['--fix-approved' => true, '--json' => $json]);
     expect(Artisan::output())->not->toContain('distinctiveToken123')->not->toContain('distinctiveSecret123');
 })->with([false, true]);
+
+it('reports a failed cache refresh and retries it on the next approved scan', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-cache-remediation-' . uniqid();
+    File::ensureDirectoryExists($directory);
+    file_put_contents($directory . '/.env', "APP_DEBUG=true\n");
+    $base = app()->basePath();
+    $storage = app()->storagePath();
+    app()->setBasePath($directory);
+    app()->useStoragePath($directory . '/storage');
+    // Laravel answers configurationIsCached() from this flag before it looks at the cache file.
+    app()->instance('config_loaded_from_cache', true);
+    try {
+        BuildSecurityPostureInventoryAction::mock()->shouldReceive('handle')->andReturn(
+            new SecurityPostureInventoryData(null, [], ['app.debug' => true], [], CarbonImmutable::now()),
+        );
+        $registry = new SecurityWeaknessRegistry;
+        $registry->registerCheck(new DebugEnabledCheck);
+        $registry->registerRemediation(new DebugEnabledRemediation(new EnvironmentRemediation));
+        app()->instance(SecurityWeaknessRegistry::class, $registry);
+        SecurityRemediationApproval::factory()->create();
+        FakeConfigClearCommand::$exitCodes = [1, 0];
+        FakeConfigClearCommand::$calls = [];
+        Artisan::registerCommand(new FakeConfigClearCommand);
+        $kernel = resolve(Kernel::class);
+        $output = new BufferedOutput;
+        $firstExit = $kernel->call('capell:security:scan', ['--fix-approved' => true, '--no-analyser' => true, '--json' => true], $output);
+        $firstOutput = $output->fetch();
+        expect($firstExit)->toBe(2);
+        $message = __('capell-core::security.remediation.cache_refresh_required');
+        expect($firstOutput)->toContain($message)
+            ->and(SecurityRemediationRun::query()->sole()->outcome->value)->toBe('failed')
+            ->and(SecurityWeaknessFinding::query()->sole()->status->value)->toBe('open')
+            ->and(file_get_contents($directory . '/.env'))->toBe("APP_DEBUG=false\n");
+        $output = new BufferedOutput;
+        expect($kernel->call('capell:security:scan', ['--fix-approved' => true, '--no-analyser' => true, '--json' => true], $output))->toBe(0)
+            ->and(FakeConfigClearCommand::$calls)->toBe([1, 0])
+            ->and(SecurityRemediationRun::query()->latest('id')->firstOrFail()->outcome->value)->toBe('applied')
+            ->and(SecurityWeaknessFinding::query()->sole()->status->value)->toBe('remediated')
+            ->and(file_get_contents($directory . '/.env'))->toBe("APP_DEBUG=false\n");
+    } finally {
+        app()->setBasePath($base);
+        app()->useStoragePath($storage);
+        app()->instance('config_loaded_from_cache', false);
+        File::deleteDirectory($directory);
+    }
+});

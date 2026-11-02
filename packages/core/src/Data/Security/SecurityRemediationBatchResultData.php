@@ -11,6 +11,7 @@ final class SecurityRemediationBatchResultData extends Data
     /**
      * @param  list<int>  $runIds  SecurityRemediationRun ids recorded by this batch (empty on a dry run).
      * @param  array<string, string>  $skipped  weakness id or fingerprint => why nothing was done
+     * @param  array<string, string>  $failureMessages  fingerprint => sanitised failure message
      */
     public function __construct(
         public readonly bool $dryRun,
@@ -19,5 +20,6 @@ final class SecurityRemediationBatchResultData extends Data
         public readonly int $failed,
         public readonly array $runIds = [],
         public readonly array $skipped = [],
+        public readonly array $failureMessages = [],
     ) {}
 }

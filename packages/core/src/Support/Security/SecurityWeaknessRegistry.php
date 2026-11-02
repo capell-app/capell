@@ -31,6 +31,11 @@ final class SecurityWeaknessRegistry
 
     private int $installationDepth = 0;
 
+    public static function isValid(string $weaknessId): bool
+    {
+        return strlen($weaknessId) <= 120 && preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $weaknessId) === 1;
+    }
+
     public function registerCheck(SecurityWeaknessCheck $check): self
     {
         $this->assertOpen();
@@ -115,7 +120,7 @@ final class SecurityWeaknessRegistry
 
     private function assertWeaknessId(string $weaknessId): string
     {
-        if (strlen($weaknessId) > 120 || preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $weaknessId) !== 1) {
+        if (! self::isValid($weaknessId)) {
             throw new InvalidArgumentException(sprintf('Security weakness id "%s" must be lower-case dotted segments, e.g. "app.debug_enabled".', $weaknessId));
         }
 

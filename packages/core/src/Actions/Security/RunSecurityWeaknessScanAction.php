@@ -37,6 +37,13 @@ class RunSecurityWeaknessScanAction
             $checksRun++;
             try {
                 foreach ($check->detect($inventory) as $finding) {
+                    if (! SecurityWeaknessRegistry::isValid($finding->weaknessId)) {
+                        $failures[] = 'check: ' . $id . ': invalid finding';
+
+                        continue;
+                    }
+
+                    $finding = $this->normaliseIdentifiers($finding);
                     $findings[$finding->fingerprint] = $finding;
                 }
             } catch (Throwable) {
@@ -50,6 +57,13 @@ class RunSecurityWeaknessScanAction
                 if ($this->analyser->isAvailable()) {
                     $analyserUsed = $sanitiser->text($this->analyser->name(), 200);
                     foreach ($this->analyser->analyse($inventory) as $finding) {
+                        if (! SecurityWeaknessRegistry::isValid($finding->weaknessId)) {
+                            $failures[] = 'analyser: invalid finding';
+
+                            continue;
+                        }
+
+                        $finding = $this->normaliseIdentifiers($finding);
                         if (isset($findings[$finding->fingerprint])) {
                             continue;
                         }
@@ -62,7 +76,7 @@ class RunSecurityWeaknessScanAction
                             title: $sanitiser->text($finding->title, 200),
                             summary: $sanitiser->text($finding->summary, 2000),
                             evidence: $sanitiser->context($finding->evidence),
-                            composerName: $finding->composerName === null ? null : $sanitiser->text($finding->composerName, 255),
+                            composerName: $finding->composerName,
                             remediable: false,
                             recommendedAction: $finding->recommendedAction === null ? null : $sanitiser->text($finding->recommendedAction, 2000),
                             confidence: $finding->confidence,
@@ -120,5 +134,30 @@ class RunSecurityWeaknessScanAction
         $highest = $active->sortByDesc(fn (SecurityWeaknessFinding $finding): int => $finding->severity->rank())->first()?->severity;
 
         return new SecurityScanResultData($now, $checksRun, $inventory->advisorySourcesRun, $analyserUsed, $new, $reopened, $resolved, $active->count(), $highest, $failures);
+    }
+
+    private function normaliseIdentifiers(SecurityWeaknessFindingData $finding): SecurityWeaknessFindingData
+    {
+        $fingerprint = preg_match('/\A[a-f0-9]{64}\z/', $finding->fingerprint) === 1
+            ? $finding->fingerprint : hash('sha256', $finding->fingerprint);
+        $composerName = $finding->composerName;
+        if ($composerName !== null && (strlen($composerName) > 255 || preg_match('/\A[a-z0-9](?:[_.-]?[a-z0-9]+)*\/[a-z0-9](?:(?:[_.]|-{1,2})?[a-z0-9]+)*\z/', $composerName) !== 1)) {
+            $composerName = null;
+        }
+
+        return new SecurityWeaknessFindingData(
+            weaknessId: $finding->weaknessId,
+            fingerprint: $fingerprint,
+            severity: $finding->severity,
+            source: $finding->source,
+            title: $finding->title,
+            summary: $finding->summary,
+            evidence: $finding->evidence,
+            composerName: $composerName,
+            remediable: $finding->remediable,
+            recommendedAction: $finding->recommendedAction,
+            confidence: $finding->confidence,
+            detectedAt: $finding->detectedAt,
+        );
     }
 }

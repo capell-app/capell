@@ -43,6 +43,7 @@ class ApplyApprovedSecurityRemediationsAction
         $failed = 0;
         $runIds = [];
         $skipped = [];
+        $failureMessages = [];
         foreach ($query->get() as $candidate) {
             $considered++;
             $result = DB::transaction(function () use ($candidate, $actor, $dryRun, $detectedSince, $failedChecks): array {
@@ -98,7 +99,7 @@ class ApplyApprovedSecurityRemediationsAction
                         confidence: $finding->confidence,
                     ));
                     $sanitiser = new SecurityOutputSanitiser;
-                    $run->fill(['outcome' => $outcome->applied ? SecurityRemediationOutcome::Applied : SecurityRemediationOutcome::Skipped,
+                    $run->fill(['outcome' => $outcome->failed ? SecurityRemediationOutcome::Failed : ($outcome->applied ? SecurityRemediationOutcome::Applied : SecurityRemediationOutcome::Skipped),
                         'message' => $sanitiser->text($outcome->message, 1000), 'before' => $sanitiser->context($outcome->before), 'after' => $sanitiser->context($outcome->after)]);
                     if ($outcome->applied) {
                         $finding->update(['status' => SecurityFindingStatus::Remediated, 'remediated_at' => CarbonImmutable::now()]);
@@ -127,11 +128,15 @@ class ApplyApprovedSecurityRemediationsAction
             $runIds[] = $run->id;
             $applied += (int) ($run->outcome === SecurityRemediationOutcome::Applied);
             $failed += (int) ($run->outcome === SecurityRemediationOutcome::Failed);
+            if ($run->outcome === SecurityRemediationOutcome::Failed) {
+                $failureMessages[$candidate->fingerprint] = $run->message;
+            }
+
             if ($run->outcome === SecurityRemediationOutcome::Skipped) {
                 $skipped[$candidate->fingerprint] = $run->message;
             }
         }
 
-        return new SecurityRemediationBatchResultData($dryRun, $considered, $applied, $failed, $runIds, $skipped);
+        return new SecurityRemediationBatchResultData($dryRun, $considered, $applied, $failed, $runIds, $skipped, $failureMessages);
     }
 }
