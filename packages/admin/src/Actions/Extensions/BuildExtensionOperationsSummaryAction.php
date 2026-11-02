@@ -9,6 +9,7 @@ use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
 use Capell\Admin\Support\Extensions\ComposerDriftClassifier;
 use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
+use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
 use Capell\Core\Data\ExtensionRuntimeGateData;
@@ -53,6 +54,7 @@ final class BuildExtensionOperationsSummaryAction
     public static function forgetRequestCache(): void
     {
         resolve(ExtensionOperationsRequestCache::class)->forget(self::REQUEST_CACHE_KEY);
+        resolve(ExtensionNavigationBadgeCounts::class)->forget();
     }
 
     public function handle(): ExtensionOperationsSummaryData

@@ -43,7 +43,7 @@ class BuildPageFrontendResourceDiagnosticsAction
             runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
         );
         $renderData = BuildPublicPageRenderDataAction::run($context);
-        $report = BuildPublicRenderPerformanceReportAction::run($renderData, $context);
+        $report = BuildPublicRenderPerformanceReportAction::run($renderData, $context, null, true);
         $budget = PublicRenderPerformanceBudgetData::forRouteType('content');
         $budgetResult = AssertPublicRenderPerformanceBudgetAction::run($report, $budget);
 
