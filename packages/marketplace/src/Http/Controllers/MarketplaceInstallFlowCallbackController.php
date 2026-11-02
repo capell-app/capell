@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Http\Controllers;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\CompleteMarketplaceInstallFlowAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Jobs\ResumeMarketplaceInstallFlowJob;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
@@ -41,7 +42,7 @@ final class MarketplaceInstallFlowCallbackController
                 ->onQueue((string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'));
         } catch (Throwable $throwable) {
             Log::warning('capell-marketplace: install flow callback failed', [
-                'error' => $throwable->getMessage(),
+                'error' => MarketplaceRemoteFailureException::diagnostic($throwable),
                 'flow_id' => $flowId,
                 'support_reference' => $this->supportReference($flowId),
             ]);

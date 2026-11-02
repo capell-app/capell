@@ -79,6 +79,7 @@ return [
     'lockdown_admin_locked' => 'Lockdown is active. This admin account is not allowed during lockdown.',
     'lockdown_banner' => 'Lockdown is active. The public frontend is serving maintenance responses and normal admin access is blocked.',
     'lockdown_disabled' => 'Lockdown disabled.',
+    'lockdown_multi_node_cache_warning' => 'Node-local static page caches are not switched and stay served until the deployment’s shared static output is refreshed.',
     'lockdown_enabled' => 'Lockdown enabled. Public frontend traffic is now locked down.',
     'invalid_layout_containers' => 'The layout contains an invalid container.',
     'invalid_responsive_colspan' => 'Container :container has an invalid responsive column span.',

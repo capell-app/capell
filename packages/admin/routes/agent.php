@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Http\Agent\AgentAdminToolController;
+use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Admin\Support\AdminPanelEntrypoint;
 use Filament\Http\Middleware\Authenticate;
@@ -15,7 +16,7 @@ if (($adminDomain = AdminPanelEntrypoint::domain()) !== null) {
 }
 
 $adminAgentRoutes
-    ->middleware(['web', Authenticate::class, SetSitePermissionScope::class])
+    ->middleware(['web', Authenticate::class, EnforceLockdownAdminAccess::class, SetSitePermissionScope::class])
     ->name('capell-admin.agent.')
     ->group(function (): void {
         Route::get('tools', [AgentAdminToolController::class, 'definitions'])

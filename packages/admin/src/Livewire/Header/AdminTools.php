@@ -116,7 +116,9 @@ class AdminTools extends Component
 
         $this->successResponse(
             name: 'lockdown_enabled',
-            title: __('capell-admin::message.lockdown_enabled'),
+            title: config('capell.multi_node', false)
+                ? __('capell-admin::message.lockdown_enabled') . ' ' . __('capell-admin::message.lockdown_multi_node_cache_warning')
+                : __('capell-admin::message.lockdown_enabled'),
             type: 'danger',
         );
     }

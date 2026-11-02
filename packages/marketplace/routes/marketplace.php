@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Marketplace\Http\Controllers\MarketplaceAccountConnectionCallbackController;
 use Capell\Marketplace\Http\Controllers\MarketplaceInstallFlowCallbackController;
@@ -35,6 +36,9 @@ Route::prefix(AdminPanelEntrypoint::path())
         DisableBladeIconComponents::class,
         DispatchServingFilamentEvent::class,
         Authenticate::class,
+        // The panel's own authenticated-request stack (lockdown, locale, installer redirect, profiling):
+        // without the full stack the installed panel runtime treats these routes as partially covered.
+        ...CapellAdminPlugin::authMiddleware(),
     ])
     ->group(function (): void {
         Route::get('/marketplace/connection/callback', MarketplaceAccountConnectionCallbackController::class)
