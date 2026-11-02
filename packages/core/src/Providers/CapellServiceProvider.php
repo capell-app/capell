@@ -255,7 +255,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             static fn (): CapellCoreManager => $coreManager,
         );
         $this->app->singleton(TableName::class);
-        $this->app->singleton(MigrationRootRegistry::class);
+        $this->app->singletonIf(MigrationRootRegistry::class);
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerRuntimeRole();

@@ -10,6 +10,7 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Closure;
@@ -50,6 +51,7 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->registerPackageMetadata();
         $this->rememberManifestReceiptContexts();
+        $this->registerMigrationRoot();
 
         $usesInstalledRuntime = new ReflectionMethod($this, 'bootInstalledRuntime')->getDeclaringClass()->getName() !== self::class;
 
@@ -222,6 +224,16 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $this->callAfterResolving(Schedule::class, $callback);
 
         return $this;
+    }
+
+    /** Lets the installer find this package's tables before its migrations run (see FindTableCollisionsAction). */
+    private function registerMigrationRoot(): void
+    {
+        $this->app->singletonIf(MigrationRootRegistry::class);
+        $this->app->make(MigrationRootRegistry::class)->registerScanned(
+            static::$packageName,
+            fn (): string => $this->package->basePath('/../database/migrations'),
+        );
     }
 
     private function resolvePackagePath(string $providerFile): string

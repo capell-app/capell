@@ -218,3 +218,30 @@ it('retains the original config backup if rollback fails', function (bool $throw
         rmdir($directory);
     }
 })->with([false, true]);
+
+it('reads the tables a scanned migration root creates, ignoring tables it only alters or references', function (): void {
+    expect(MigrationRootRegistry::scan(__DIR__ . '/../fixtures/table-naming/scanned-package'))->toBe([
+        '2026_01_01_000001_create_gadgets_tables' => ['gadgets', 'gadget_parts'],
+    ]);
+});
+
+it('reports collisions from a scanned package root without resolving the directory until asked', function (): void {
+    config()->set('capell.database.table_prefix', '');
+    Schema::create('gadgets', fn (Blueprint $table) => $table->id());
+    $registry = resolve(MigrationRootRegistry::class);
+    $resolved = 0;
+    $registry->registerScanned('example/gadgets', function () use (&$resolved): string {
+        $resolved++;
+
+        return __DIR__ . '/../fixtures/table-naming/scanned-package';
+    });
+    expect($resolved)->toBe(0);
+
+    $collisions = collect(FindTableCollisionsAction::run(['example/gadgets']));
+    expect($collisions->pluck('table')->all())->toBe(['gadgets'])
+        ->and($collisions->first()->migration)->toBe('2026_01_01_000001_create_gadgets_tables')
+        ->and($resolved)->toBe(1);
+
+    FindTableCollisionsAction::run(['example/gadgets']);
+    expect($resolved)->toBe(1);
+});
