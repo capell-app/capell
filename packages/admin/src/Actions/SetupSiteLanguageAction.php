@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -91,12 +92,17 @@ class SetupSiteLanguageAction
             return;
         }
 
+        // Another site's address and name are only shown to editors who can open that site.
+        $canSeeOwner = SiteAccess::current()->canSiteId((int) $existing->site_id);
+
         throw ValidationException::withMessages([
-            'path' => __('capell-admin::message.site_language_route_taken', [
-                'language' => $language->name,
-                'url' => $existing->full_url,
-                'site' => $existing->site->name,
-            ]),
+            'path' => $canSeeOwner
+                ? __('capell-admin::message.site_language_route_taken', [
+                    'language' => $language->name,
+                    'url' => $existing->full_url,
+                    'site' => $existing->site->name,
+                ])
+                : __('capell-admin::message.site_language_route_taken_elsewhere', ['language' => $language->name]),
         ]);
     }
 

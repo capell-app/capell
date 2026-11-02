@@ -6,6 +6,7 @@ use Capell\Admin\Actions\SetupSiteLanguageAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Validation\ValidationException;
 
 it('sets up a site language idempotently', function (): void {
@@ -61,3 +62,32 @@ it('rejects a generated language route that another site already claims and leav
     expect($site->translations()->where('language_id', $french->getKey())->exists())->toBeFalse()
         ->and(SiteDomain::query()->where('site_id', $site->getKey())->where('language_id', $french->getKey())->exists())->toBeFalse();
 });
+
+it('names the owning site in a route clash only to an editor who can access it', function (bool $canAccessOwner): void {
+    $english = Language::factory()->createOne(['code' => 'en']);
+    $french = Language::factory()->createOne(['code' => 'fr']);
+    $site = Site::factory()->language($english)->withTranslations($english)->create();
+    $site->siteDomains()->firstOrFail()->update(['domain' => 'mounted.example.test', 'scheme' => 'https', 'path' => '/showcase']);
+    $owner = Site::factory()->language($english)->withTranslations($english)->create(['name' => 'Confidential Owner Site']);
+    $owner->siteDomains()->firstOrFail()->update(['domain' => 'mounted.example.test', 'scheme' => 'https', 'path' => '/showcase/fr']);
+
+    $editor = User::factory()->create();
+    $editor->assignedSiteIds = collect($canAccessOwner ? [(int) $site->getKey(), (int) $owner->getKey()] : [(int) $site->getKey()]);
+    $this->actingAs($editor);
+
+    try {
+        SetupSiteLanguageAction::run($site, $french);
+        $this->fail('The route clash should have been rejected.');
+    } catch (ValidationException $exception) {
+        $message = $exception->errors()['path'][0];
+    }
+
+    if ($canAccessOwner) {
+        expect($message)->toContain('Confidential Owner Site')->toContain('mounted.example.test');
+    } else {
+        expect($message)->not->toContain('Confidential Owner Site')->not->toContain('mounted.example.test');
+    }
+})->with([
+    'editor can access the owning site' => [true],
+    'editor cannot access the owning site' => [false],
+]);
