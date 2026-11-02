@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Data\Install\ArtisanCommandResultData;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
@@ -20,6 +22,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Diagnostics\Checks\SeedDataCheck;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -441,6 +444,9 @@ it('merges installed package doctor checks into the install summary', function (
 
     CapellCore::registerPackage('capell-app/test-package-doctor', path: $packagePath);
     CapellCore::forcePackageInstalled('capell-app/test-package-doctor');
+    VerifyInstalledExtensionAction::shouldRun()->andReturnUsing(
+        static fn (string $composerName): ExtensionVerificationReportData => new ExtensionVerificationReportData($composerName, null, null, null, true, [], [], CarbonImmutable::now()),
+    );
 
     $report = BuildDoctorReportAction::run(installSummary: true);
     $labels = $report->checks->pluck('label')->all();
@@ -522,6 +528,9 @@ it('can skip package doctor checks for installer health gates', function (): voi
 
     CapellCore::registerPackage('capell-app/test-failing-package-doctor', path: $packagePath);
     CapellCore::forcePackageInstalled('capell-app/test-failing-package-doctor');
+    VerifyInstalledExtensionAction::shouldRun()->andReturnUsing(
+        static fn (string $composerName): ExtensionVerificationReportData => new ExtensionVerificationReportData($composerName, null, null, null, true, [], [], CarbonImmutable::now()),
+    );
 
     $report = BuildDoctorReportAction::run(installSummary: true, includePackageDoctors: false);
     $labels = $report->checks->pluck('label')->all();

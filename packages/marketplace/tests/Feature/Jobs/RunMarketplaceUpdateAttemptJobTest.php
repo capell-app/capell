@@ -432,7 +432,7 @@ it('verifies an update against the version observed under the lock before runnin
     $checksum = str_repeat('b', 64);
     $attempt = updateAttempt(['context' => ['update_from_version' => '1.0.0', 'release_checksum' => $checksum]]);
     $issue = new ExtensionVerificationIssueData('checksum_mismatch', 'bad', 'retry');
-    VerifyInstalledExtensionAction::shouldRun()->once()->with(UPDATE_PACKAGE_NAME, '^3.0.0', '2.1.0', 'marketplace-update-package', $checksum)
+    VerifyInstalledExtensionAction::shouldRun()->once()->with(UPDATE_PACKAGE_NAME, '^3.0.0', '2.1.0', 'marketplace-update-package', $checksum, '')
         ->andReturn(new ExtensionVerificationReportData(UPDATE_PACKAGE_NAME, '3.0.0', '^3.0.0', '2.1.0', false, [$issue], [], CarbonImmutable::now()));
     try {
         new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handle($composer);

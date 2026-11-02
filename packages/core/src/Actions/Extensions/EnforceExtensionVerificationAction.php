@@ -9,11 +9,13 @@ use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Exceptions\ExtensionVerificationFailedException;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** @method static void run(string $name, ?ProgressReporter $reporter = null) */
 final class EnforceExtensionVerificationAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $name, ?ProgressReporter $reporter = null): void
