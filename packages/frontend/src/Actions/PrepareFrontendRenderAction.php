@@ -48,7 +48,7 @@ final class PrepareFrontendRenderAction
         );
         $context->setFrontendData(
             'performanceReport',
-            BuildPublicRenderPerformanceReportAction::run($renderContext->publicRenderData, $renderContext),
+            BuildPublicRenderPerformanceReportAction::run($renderContext->publicRenderData, $renderContext, measureCompressedBytes: false),
         );
 
         return new PreparedFrontendRenderData(

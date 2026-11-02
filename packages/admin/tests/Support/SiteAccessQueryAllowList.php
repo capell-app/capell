@@ -163,7 +163,7 @@ final class SiteAccessQueryAllowList
             ],
             // Redirect reconciliation is an aggregate operation; fresh descendant
             // bounds exclude unrelated IDs, and the Admin save authorises its root.
-            'packages/admin/src/Actions/Pages/RecordDescendantUrlRedirectsAction.php' => ['handle|$request->page->newQuery()->whereDescendantOf($request->page->getKey())->get()->filter(fn(\Illuminate\Database\Eloquent\Model $descendant): bool => $descendant instanceof \Capell\Core\Contracts\Pageable)->keyBy(fn(\Illuminate\Database\Eloquent\Model $descendant): int => (int) $descendant->getKey())', 'urlChangedFor|$descendant->pageUrls()->where(\'language_id\', $languageId)->where(fn(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder => $query->whereNull(\'type\')->orWhere(\'type\', \'!=\', ' . UrlTypeEnum::class . "::Redirect))->value('url')"],
+            'packages/admin/src/Actions/Pages/RecordDescendantUrlRedirectsAction.php' => ['handle|$request->page->newQuery()->whereDescendantOf($request->page->getKey())->whereKey(array_keys($acceptedUrls))->with([\'pageUrls\' => fn(Illuminate\Database\Eloquent\Relations\Relation $query): Illuminate\Database\Eloquent\Relations\Relation => $query->whereIn(\'language_id\', $languageIds)->where(fn(Illuminate\Database\Eloquent\Builder $query): Illuminate\Database\Eloquent\Builder => $query->whereNull(\'type\')->orWhere(\'type\', \'!=\', ' . UrlTypeEnum::class . '::Redirect))])->get()->filter(fn(Illuminate\Database\Eloquent\Model $descendant): bool => $descendant instanceof Capell\Core\Contracts\Pageable)->keyBy(fn(Illuminate\Database\Eloquent\Model $descendant): int => (int) $descendant->getKey())'],
             // The invocation's actor/site and page have already been authorised;
             // this pivot read only acquires transaction locks, returning no content.
             'packages/admin/src/Support/Agent/AgentAdminToolInvocationService.php' => [
@@ -195,6 +195,10 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Actions/Extensions/BuildExtensionOperationsSummaryAction.php' => [
                 // Null/global and assigned affected_site_id values are filtered before alerts are read; actor changes invalidate the request cache.
                 'healthAlerts|' . ExtensionHealthAlert::class . '::query()->when($siteIds !== null, fn(Illuminate\Database\Eloquent\Builder $query): Illuminate\Database\Eloquent\Builder => $query->where(fn(Illuminate\Database\Eloquent\Builder $query): Illuminate\Database\Eloquent\Builder => $query->whereNull(\'affected_site_id\')->orWhereIn(\'affected_site_id\', $siteIds)))->where(fn(Illuminate\Database\Eloquent\Builder $query) => $query->whereNull(\'expires_at\')->orWhere(\'expires_at\', \'>\', now()))->get()->groupBy(\'composer_name\')',
+            ],
+            'packages/admin/src/Actions/Extensions/ResolveExtensionNavigationBadgeCountsAction.php' => [
+                // Fingerprints the same site-filtered alert set the summary reads, so the cached badge follows each actor's access.
+                'fingerprint|' . ExtensionHealthAlert::class . '::query()->when($siteIds !== null, fn(Illuminate\Database\Eloquent\Builder $query): Illuminate\Database\Eloquent\Builder => $query->where(fn(Illuminate\Database\Eloquent\Builder $query): Illuminate\Database\Eloquent\Builder => $query->whereNull(\'affected_site_id\')->orWhereIn(\'affected_site_id\', $siteIds)))->where(fn(Illuminate\Database\Eloquent\Builder $query) => $query->whereNull(\'expires_at\')->orWhere(\'expires_at\', \'>\', now()))->toBase()->orderBy(\'id\')->get()->all()',
             ],
             'packages/admin/src/Actions/HeaderNavigation/SearchHeaderNavigationPagesAction.php' => [
                 // The caller starts at SiteAccess::forActor; this nested search predicate stays correlated to its visible pages.

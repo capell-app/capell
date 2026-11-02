@@ -7,7 +7,7 @@ namespace Capell\Admin\Filament\Pages;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
-use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
+use Capell\Admin\Actions\Extensions\ResolveExtensionNavigationBadgeCountsAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
@@ -104,7 +104,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     public static function getNavigationBadge(): ?string
     {
-        $count = BuildExtensionOperationsSummaryAction::run()->unhealthyCount;
+        $count = ResolveExtensionNavigationBadgeCountsAction::run()->unhealthyCount;
 
         if ($count === 0) {
             return null;
@@ -116,7 +116,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     public static function getNavigationBadgeColor(): string|array|null
     {
-        return BuildExtensionOperationsSummaryAction::run()->blockedCount > 0 ? 'danger' : 'warning';
+        return ResolveExtensionNavigationBadgeCountsAction::run()->blockedCount > 0 ? 'danger' : 'warning';
     }
 
     public function mount(): void

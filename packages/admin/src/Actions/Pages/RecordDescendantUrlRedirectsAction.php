@@ -7,11 +7,15 @@ namespace Capell\Admin\Actions\Pages;
 use Capell\Admin\Data\Pages\DescendantUrlRedirectRequestData;
 use Capell\Admin\Data\Pages\PageUrlRedirectResultData;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Contracts\Redirects\BatchRedirectUrlRecorder;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
+use Capell\Core\Data\Redirects\RedirectUrlRecordData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -40,13 +44,6 @@ final class RecordDescendantUrlRedirectsAction
             );
         }
 
-        // Only pages that are still descendants of the edited page may
-        // receive redirects; submitted ids cannot reach arbitrary pages.
-        // Query by key: fresh tree bounds, not the instance's cached ones.
-        $descendants = $request->page->newQuery()->whereDescendantOf($request->page->getKey())->get()
-            ->filter(fn (Model $descendant): bool => $descendant instanceof Pageable)
-            ->keyBy(fn (Model $descendant): int => (int) $descendant->getKey());
-
         $languageIds = [];
         foreach ($acceptedUrls as $urls) {
             foreach (array_keys($urls) as $languageId) {
@@ -54,13 +51,30 @@ final class RecordDescendantUrlRedirectsAction
             }
         }
 
+        $languageIds = array_keys($languageIds);
+
+        // Only pages that are still descendants of the edited page may
+        // receive redirects; submitted ids cannot reach arbitrary pages.
+        // Query by key: fresh tree bounds, not the instance's cached ones.
+        // Load only the submitted pages with their current URLs in those
+        // languages, so a large subtree costs a fixed number of reads.
+        $descendants = $request->page->newQuery()
+            ->whereDescendantOf($request->page->getKey())
+            ->whereKey(array_keys($acceptedUrls))
+            ->with(['pageUrls' => fn (Relation $query): Relation => $query
+                ->whereIn('language_id', $languageIds)
+                ->where(fn (Builder $query): Builder => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))])
+            ->get()
+            ->filter(fn (Model $descendant): bool => $descendant instanceof Pageable)
+            ->keyBy(fn (Model $descendant): int => (int) $descendant->getKey());
+
         $languages = Language::query()
-            ->whereIn('id', array_keys($languageIds))
+            ->whereIn('id', $languageIds)
             ->get()
             ->keyBy(fn (Language $language): int => (int) $language->getKey());
 
         $acceptedCount = 0;
-        $recordedCount = 0;
+        $records = [];
 
         foreach ($acceptedUrls as $pageId => $urls) {
             $descendant = $descendants->get($pageId);
@@ -78,14 +92,25 @@ final class RecordDescendantUrlRedirectsAction
                     continue;
                 }
 
-                if (! $this->urlChangedFor($descendant, $languageId, $oldUrl)) {
+                $currentUrl = $this->currentUrlFor($descendant, $languageId);
+
+                if ($currentUrl === $oldUrl) {
                     continue;
                 }
 
-                $this->redirects->record($descendant, $language, $oldUrl);
-                $recordedCount++;
+                $records[] = new RedirectUrlRecordData($descendant, $language, $oldUrl, $currentUrl);
             }
         }
+
+        if ($this->redirects instanceof BatchRedirectUrlRecorder) {
+            $this->redirects->recordMany($records);
+        } else {
+            foreach ($records as $record) {
+                $this->redirects->record($record->pageable, $record->language, $record->url);
+            }
+        }
+
+        $recordedCount = count($records);
 
         return new PageUrlRedirectResultData(
             acceptedCount: $acceptedCount,
@@ -143,13 +168,11 @@ final class RecordDescendantUrlRedirectsAction
      *
      * @param  Pageable<TDeclaringModel>  $descendant
      */
-    private function urlChangedFor(Pageable $descendant, int $languageId, string $oldUrl): bool
+    private function currentUrlFor(Pageable $descendant, int $languageId): ?string
     {
-        $currentUrl = $descendant->pageUrls()
-            ->where('language_id', $languageId)
-            ->where(fn (Builder $query): Builder => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
-            ->value('url');
+        $pageUrl = $descendant->pageUrls->first(fn (PageUrl $pageUrl): bool => (int) $pageUrl->language_id === $languageId);
+        $url = $pageUrl?->url;
 
-        return ! is_string($currentUrl) || $currentUrl !== $oldUrl;
+        return is_string($url) ? $url : null;
     }
 }

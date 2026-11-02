@@ -6,13 +6,16 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Contracts\Redirects\BatchRedirectUrlRecorder;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
+use Capell\Core\Data\Redirects\RedirectUrlRecordData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\DB;
@@ -136,11 +139,11 @@ class BulkMovePagesAction
         $descendants = SiteAccess::forActor($actor)->scope($page->descendants()->getQuery())->get();
         $pages = $pages->merge($descendants);
 
+        $pages->load('pageUrls.language');
+
         $snapshots = [];
 
         foreach ($pages as $target) {
-            $target->load('pageUrls.language');
-
             foreach ($target->pageUrls as $pageUrl) {
                 if ($pageUrl->type === UrlTypeEnum::Redirect) {
                     continue;
@@ -163,16 +166,25 @@ class BulkMovePagesAction
      */
     private function createRedirects(array $snapshots, User $actor): int
     {
-        $created = 0;
+        if ($snapshots === []) {
+            return 0;
+        }
+
+        // Reload every moved page's URLs together: the move has just rewritten them.
+        /** @var Collection<int, Page> $pageables */
+        $pageables = new Collection(array_values(collect($snapshots)
+            ->map(fn (array $snapshot): Page => $snapshot['pageable'])
+            ->unique(fn (Page $page): int => (int) $page->getKey())
+            ->all()));
+        $pageables->load('pageUrls');
+
+        $records = [];
 
         foreach ($snapshots as $snapshot) {
             /** @var Pageable&Page $pageable */
             $pageable = $snapshot['pageable'];
             $oldUrl = $snapshot['url'];
             $language = $snapshot['language'];
-            $siteId = $snapshot['site_id'];
-
-            $pageable->load('pageUrls');
 
             $currentAlias = $pageable->pageUrls
                 ->first(fn (PageUrl $pageUrl): bool => $pageUrl->type !== UrlTypeEnum::Redirect
@@ -182,23 +194,70 @@ class BulkMovePagesAction
                 continue;
             }
 
-            if ($this->redirectUrlExists($siteId, $language->getKey(), $oldUrl, $actor)) {
+            $records[] = ['site_id' => $snapshot['site_id'], 'record' => new RedirectUrlRecordData($pageable, $language, $oldUrl, $currentAlias?->url)];
+        }
+
+        $existing = $this->existingRedirectUrls($records, $actor);
+        $toRecord = [];
+
+        foreach ($records as ['site_id' => $siteId, 'record' => $record]) {
+            $key = $siteId . ':' . $record->language->getKey() . ':' . $record->url;
+
+            if (isset($existing[$key])) {
                 continue;
             }
 
-            resolve(RedirectUrlRecorder::class)->record($pageable, $language, $oldUrl);
-            $created++;
+            $existing[$key] = true;
+            $toRecord[] = $record;
         }
 
-        return $created;
+        $recorder = resolve(RedirectUrlRecorder::class);
+
+        if ($recorder instanceof BatchRedirectUrlRecorder) {
+            $recorder->recordMany($toRecord);
+        } else {
+            foreach ($toRecord as $record) {
+                $recorder->record($record->pageable, $record->language, $record->url);
+            }
+        }
+
+        return count($toRecord);
     }
 
-    private function redirectUrlExists(int $siteId, int $languageId, string $url, User $actor): bool
+    /**
+     * Finds, with one lookup per site, language and chunk, which old URLs the actor can already see in use.
+     *
+     * @param  list<array{site_id: int, record: RedirectUrlRecordData<Page>}>  $records
+     * @return array<string, true>
+     */
+    private function existingRedirectUrls(array $records, User $actor): array
+    {
+        $groups = [];
+
+        foreach ($records as ['site_id' => $siteId, 'record' => $record]) {
+            $groups[$siteId . ':' . $record->language->getKey()][$record->url] = true;
+        }
+
+        $existing = [];
+
+        foreach ($groups as $group => $urls) {
+            [$siteId, $languageId] = array_map(intval(...), explode(':', (string) $group));
+
+            foreach (array_chunk(array_keys($urls), 500) as $chunk) {
+                foreach ($this->redirectUrlsQuery($siteId, $languageId, $actor)->whereIn('url', $chunk)->pluck('url') as $url) {
+                    $existing[$group . ':' . $url] = true;
+                }
+            }
+        }
+
+        return $existing;
+    }
+
+    /** @return Builder<PageUrl> */
+    private function redirectUrlsQuery(int $siteId, int $languageId, User $actor): Builder
     {
         return SiteAccess::forActor($actor)->query(PageUrl::class)
             ->where('site_id', $siteId)
-            ->where('language_id', $languageId)
-            ->where('url', $url)
-            ->exists();
+            ->where('language_id', $languageId);
     }
 }

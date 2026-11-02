@@ -9,6 +9,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Illuminate\Support\Facades\DB;
 
 uses()->group('page');
 
@@ -144,4 +145,49 @@ it('skips descendant urls that did not change', function (): void {
     expect($result->acceptedCount)->toBeGreaterThan(0)
         ->and($result->recordedCount)->toBe(0)
         ->and(PageUrl::query()->where('type', UrlTypeEnum::Redirect)->exists())->toBeFalse();
+});
+
+/** @return array{recorded: int, reads: int, writes: int, total: int} */
+function recordRedirectsForMovedSubtree(int $descendantCount): array
+{
+    $site = Site::factory()->withTranslations()->create();
+    $parent = Page::factory()->recycle($site)->withTranslations()->create();
+    $children = Page::factory()->count($descendantCount)->recycle($site)->parent($parent)->withTranslations()->create();
+
+    $snapshot = CollectDescendantPageUrlsAction::run($parent);
+
+    foreach ($children as $index => $child) {
+        rewriteCanonicalUrl($child, '/moved/child-' . $index);
+    }
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $result = RecordDescendantUrlRedirectsAction::run(new DescendantUrlRedirectRequestData(
+        page: $parent,
+        submittedUrls: $snapshot,
+        expectedUrls: $snapshot,
+    ));
+    $queries = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    // Reads that look up pages and URLs. Each redirect is still one model insert behind the observer's
+    // collision guard, which belongs to that write and is counted with it.
+    $isCollisionGuard = fn (string $query): bool => str_starts_with($query, 'select exists(select * from "page_urls" where "site_id" = ? and "language_id" = ? and "url" = ?');
+    $reads = $queries->reject($isCollisionGuard)->filter(fn (string $query): bool => str_starts_with(mb_strtolower(ltrim($query)), 'select')
+        && (str_contains($query, '"pages"') || str_contains($query, '"page_urls"') || str_contains($query, '"languages"')))->count();
+    $writes = $queries->filter(fn (string $query): bool => str_starts_with(mb_strtolower(ltrim($query)), 'insert into "page_urls"'))->count();
+
+    return ['recorded' => $result->recordedCount, 'reads' => $reads, 'writes' => $writes, 'total' => $queries->count()];
+}
+
+it('reads a fixed number of times however large the moved subtree is', function (): void {
+    $small = recordRedirectsForMovedSubtree(3);
+    $large = recordRedirectsForMovedSubtree(30);
+
+    expect($small['recorded'])->toBeGreaterThan(0)
+        ->and($large['recorded'])->toBe($small['recorded'] * 10)
+        ->and($large['writes'])->toBe($large['recorded'])
+        ->and($large['reads'])->toBe($small['reads'])
+        ->and($large['reads'])->toBeLessThanOrEqual(5)
+        ->and($large['total'])->toBeLessThanOrEqual(5 + 2 * $large['writes']);
 });
