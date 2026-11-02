@@ -13,6 +13,9 @@ final class ImageUrlPolicy
     /** @var list<string>|null */
     private ?array $allowedDomains = null;
 
+    /** @var list<string>|null */
+    private ?array $ownHosts = null;
+
     private ?bool $allowRelativeUrls = null;
 
     private ?CoreSettings $settings = null;
@@ -48,6 +51,10 @@ final class ImageUrlPolicy
 
         if ($scheme !== 'https' || $host === '') {
             return false;
+        }
+
+        if (in_array($host, $this->ownHosts(), true)) {
+            return true;
         }
 
         foreach ($allowedDomains as $domain) {
@@ -88,6 +95,46 @@ final class ImageUrlPolicy
         } catch (Throwable) {
             return $this->allowedDomains = ['images.unsplash.com'];
         }
+    }
+
+    /**
+     * Hosts the site itself serves from: app.url, asset_url and every
+     * configured filesystem disk's public url. Always allowed; the configured
+     * remote domains stay the opt-in list for third-party hosts.
+     *
+     * @return list<string>
+     */
+    public function ownHosts(): array
+    {
+        if ($this->ownHosts !== null) {
+            return $this->ownHosts;
+        }
+
+        $urls = [config('app.url'), config('app.asset_url')];
+
+        foreach ((array) config('filesystems.disks', []) as $disk) {
+            $urls[] = is_array($disk) ? ($disk['url'] ?? null) : null;
+        }
+
+        $hosts = [];
+
+        foreach ($urls as $url) {
+            if (! is_string($url)) {
+                continue;
+            }
+
+            if (trim($url) === '') {
+                continue;
+            }
+
+            $host = parse_url(trim($url), PHP_URL_HOST);
+
+            if (is_string($host) && $host !== '') {
+                $hosts[] = strtolower($host);
+            }
+        }
+
+        return $this->ownHosts = array_values(array_unique($hosts));
     }
 
     public function allowsRelativeUrls(): bool
