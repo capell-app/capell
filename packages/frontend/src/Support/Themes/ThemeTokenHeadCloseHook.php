@@ -8,7 +8,9 @@ use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Actions\ResolveThemeRuntimeAction;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
+use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
@@ -72,8 +74,12 @@ final class ThemeTokenHeadCloseHook implements RenderHookExtensionInterface
             themeOverrides: $themeOverrides,
         );
 
+        $preloads = $theme instanceof Theme && data_get($theme->meta, 'frontend_runtime.uses_foundation_theme_css') === false
+            ? ''
+            : $this->fontPreloads($runtime->brand);
+
         if ($runtime->tokenCssPath === null) {
-            return '';
+            return $preloads;
         }
 
         if (! array_key_exists($runtime->tokenCssPath, $this->cssByPath)) {
@@ -83,10 +89,29 @@ final class ThemeTokenHeadCloseHook implements RenderHookExtensionInterface
         $css = $this->cssByPath[$runtime->tokenCssPath];
 
         if ($css !== null) {
-            return '<style data-capell-theme-tokens>' . HeadContentSanitizer::css($css) . '</style>';
+            return $preloads . '<style data-capell-theme-tokens>' . HeadContentSanitizer::css($css) . '</style>';
         }
 
-        return '<link rel="stylesheet" href="' . e($this->themeTokenStore->publicUrl($runtime->tokenCssPath)) . '">';
+        return $preloads . '<link rel="stylesheet" href="' . e($this->themeTokenStore->publicUrl($runtime->tokenCssPath)) . '">';
+    }
+
+    /**
+     * Preload the heading and body font files so text paints in its final face
+     * without a swap. The paths are fixed catalogue literals, never setting values.
+     */
+    private function fontPreloads(BrandProfileData $brand): string
+    {
+        $html = '';
+
+        foreach (array_unique([$brand->headingFont, $brand->bodyFont]) as $key) {
+            $path = ThemeFontCatalogue::preloadPath($key);
+
+            if ($path !== null) {
+                $html .= '<link rel="preload" as="font" type="font/woff2" crossorigin href="' . e($path) . '">';
+            }
+        }
+
+        return $html;
     }
 
     private function readCss(string $path): ?string
