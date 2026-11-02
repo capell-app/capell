@@ -6,7 +6,7 @@
         <div class="flex flex-wrap gap-4">
             @foreach (['critical', 'high', 'medium', 'low'] as $severity)
                 <span
-                    >{{ __('capell-admin::security.severities.' . $severity) }}: {{ $counts[$severity] ?? 0 }}</span
+                    >{{ $severityLabels[$severity] }}: {{ $counts[$severity] ?? 0 }}</span
                 >
             @endforeach
         </div>

@@ -203,9 +203,9 @@ it('explains approval scope, reversibility and the current schedule before appro
 
     Livewire::test(SecurityPage::class)->mountTableAction('approve', $finding)
         ->assertMountedActionModalSee(__('capell-admin::security.approval_scope', ['weakness' => 'test.weakness']))
-        ->assertMountedActionModalSee(__($reversible ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'))
-        ->assertMountedActionModalSee(__($enabled ? 'capell-admin::security.approval_schedule_enabled' : 'capell-admin::security.approval_schedule_disabled'))
-        ->assertMountedActionModalDontSee(__($enabled ? 'capell-admin::security.approval_schedule_disabled' : 'capell-admin::security.approval_schedule_enabled'));
+        ->assertMountedActionModalSee($reversible ? __('capell-admin::security.reversible') : __('capell-admin::security.not_reversible'))
+        ->assertMountedActionModalSee($enabled ? __('capell-admin::security.approval_schedule_enabled') : __('capell-admin::security.approval_schedule_disabled'))
+        ->assertMountedActionModalDontSee($enabled ? __('capell-admin::security.approval_schedule_disabled') : __('capell-admin::security.approval_schedule_enabled'));
 })->with([[true, true, true], [true, false, false], [false, true, true], [false, false, false]]);
 
 it('explains fix now scope, reversibility and the current schedule before applying it', function (bool $scheduled, bool $fixScheduled, bool $reversible): void {
@@ -222,9 +222,9 @@ it('explains fix now scope, reversibility and the current schedule before applyi
     Livewire::test(SecurityPage::class)->mountTableAction('fixNow', $finding)
         ->assertMountedActionModalSee(trans_choice('capell-admin::security.fix_now_scope', 2, ['count' => 2, 'weakness' => 'test.weakness']))
         ->assertMountedActionModalSee(__('capell-admin::security.approval_scope', ['weakness' => 'test.weakness']))
-        ->assertMountedActionModalSee(__($reversible ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'))
-        ->assertMountedActionModalSee(__($enabled ? 'capell-admin::security.approval_schedule_enabled' : 'capell-admin::security.approval_schedule_disabled'))
-        ->assertMountedActionModalDontSee(__($enabled ? 'capell-admin::security.approval_schedule_disabled' : 'capell-admin::security.approval_schedule_enabled'));
+        ->assertMountedActionModalSee($reversible ? __('capell-admin::security.reversible') : __('capell-admin::security.not_reversible'))
+        ->assertMountedActionModalSee($enabled ? __('capell-admin::security.approval_schedule_enabled') : __('capell-admin::security.approval_schedule_disabled'))
+        ->assertMountedActionModalDontSee($enabled ? __('capell-admin::security.approval_schedule_disabled') : __('capell-admin::security.approval_schedule_enabled'));
 })->with([[true, true, true], [true, false, false], [false, true, true], [false, false, false]]);
 
 it('requires view permission even with manage permission and redirects unauthenticated visitors', function (): void {

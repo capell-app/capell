@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Support\Security\SecurityLabels;
 use Capell\Core\Actions\Security\ApplyApprovedSecurityRemediationsAction;
 use Capell\Core\Actions\Security\ApproveSecurityRemediationAction;
 use Capell\Core\Actions\Security\DismissSecurityWeaknessFindingAction;
@@ -91,26 +92,26 @@ final class SecurityPage extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table->query(SecurityWeaknessFinding::query()->orderByRaw("case severity when 'critical' then 4 when 'high' then 3 when 'medium' then 2 else 1 end desc")->latest('last_detected_at'))
-            ->emptyStateHeading(fn (): string => (string) __(SecurityWeaknessFinding::query()->exists() ? 'capell-admin::security.no_matching_findings' : 'capell-admin::security.no_findings'))
+            ->emptyStateHeading(fn (): string => SecurityWeaknessFinding::query()->exists() ? (string) __('capell-admin::security.no_matching_findings') : (string) __('capell-admin::security.no_findings'))
             ->columns([
-                TextColumn::make('severity')->label(__('capell-admin::security.severity'))->badge()->formatStateUsing(fn (SecurityWeaknessSeverity $state): string => (string) __('capell-admin::security.severities.' . $state->value)),
+                TextColumn::make('severity')->label(__('capell-admin::security.severity'))->badge()->formatStateUsing(fn (SecurityWeaknessSeverity $state): string => SecurityLabels::severity($state)),
                 TextColumn::make('title')->label(__('capell-admin::security.finding'))->description(fn (SecurityWeaknessFinding $record): string => $record->weakness_id . ($record->source === SecurityFindingSource::Analyser ? ' — ' . __('capell-admin::security.advice_only') : '')),
-                TextColumn::make('source')->label(__('capell-admin::security.source'))->badge()->formatStateUsing(fn (SecurityFindingSource $state): string => (string) __('capell-admin::security.sources.' . $state->value)),
+                TextColumn::make('source')->label(__('capell-admin::security.source'))->badge()->formatStateUsing(fn (SecurityFindingSource $state): string => SecurityLabels::source($state)),
                 TextColumn::make('composer_name')->label(__('capell-admin::security.package'))->placeholder('—'),
                 TextColumn::make('first_detected_at')->label(__('capell-admin::security.first_seen'))->dateTime(),
                 TextColumn::make('last_detected_at')->label(__('capell-admin::security.last_seen'))->dateTime(),
-                TextColumn::make('status')->label(__('capell-admin::security.status'))->badge()->formatStateUsing(fn (SecurityFindingStatus $state): string => (string) __('capell-admin::security.statuses.' . $state->value)),
+                TextColumn::make('status')->label(__('capell-admin::security.status'))->badge()->formatStateUsing(fn (SecurityFindingStatus $state): string => SecurityLabels::status($state)),
                 TextColumn::make('automatic_fix')->label(__('capell-admin::security.automatic_fix'))->state(fn (SecurityWeaknessFinding $record): string => $this->fixState($record)),
             ])
             ->filters([
-                SelectFilter::make('status')->label(__('capell-admin::security.status'))->options(['active' => __('capell-admin::security.active'), ...$this->enumOptions(SecurityFindingStatus::cases(), 'statuses')])->default('active')
+                SelectFilter::make('status')->label(__('capell-admin::security.status'))->options(['active' => __('capell-admin::security.active'), ...SecurityLabels::statusOptions()])->default('active')
                     ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
                         'active' => $query->whereIn('status', [SecurityFindingStatus::Open->value, SecurityFindingStatus::Remediated->value]),
                         null, '' => $query,
                         default => $query->where('status', $data['value']),
                     }),
-                SelectFilter::make('severity')->label(__('capell-admin::security.severity'))->options($this->enumOptions(SecurityWeaknessSeverity::cases(), 'severities')),
-                SelectFilter::make('source')->label(__('capell-admin::security.source'))->options($this->enumOptions(SecurityFindingSource::cases(), 'sources')),
+                SelectFilter::make('severity')->label(__('capell-admin::security.severity'))->options(SecurityLabels::severityOptions()),
+                SelectFilter::make('source')->label(__('capell-admin::security.source'))->options(SecurityLabels::sourceOptions()),
             ])
             ->recordActions([
                 Action::make('evidence')->label(__('capell-admin::security.view_evidence'))->modalSubmitAction(false)->modalCancelActionLabel(__('capell-admin::security.close'))
@@ -177,6 +178,7 @@ final class SecurityPage extends Page implements HasTable
 
         return [
             'counts' => $counts,
+            'severityLabels' => SecurityLabels::severityOptions(),
             'lastSeen' => SecurityWeaknessFinding::query()->max('last_detected_at'),
             'analyserName' => $analyser->name(),
             'analyserAvailable' => $analyser->isAvailable(),
@@ -192,7 +194,7 @@ final class SecurityPage extends Page implements HasTable
             ])->all(),
             'runs' => SecurityRemediationRun::query()->latest('started_at')->latest('id')->unless($this->showAllHistory, fn (Builder $query): Builder => $query->limit(50))->get()->map(fn (SecurityRemediationRun $run): array => [
                 'when' => $run->started_at->toDateTimeString(), 'weakness' => $run->weakness_id,
-                'actor' => $run->actor, 'outcome' => __('capell-admin::security.outcomes.' . $run->outcome->value), 'message' => $run->message,
+                'actor' => $run->actor, 'outcome' => SecurityLabels::outcome($run->outcome), 'message' => $run->message,
                 'before' => $run->before, 'after' => $run->after,
             ])->all(),
         ];
@@ -270,8 +272,8 @@ final class SecurityPage extends Page implements HasTable
         return implode("\n\n", [
             $remediation?->describe() ?? (string) __('capell-admin::security.no_longer_available'),
             (string) __('capell-admin::security.approval_scope', ['weakness' => $finding->weakness_id]),
-            (string) __($remediation?->isReversible() ? 'capell-admin::security.reversible' : 'capell-admin::security.not_reversible'),
-            (string) __($scheduled && $fixScheduled ? 'capell-admin::security.approval_schedule_enabled' : 'capell-admin::security.approval_schedule_disabled'),
+            $remediation?->isReversible() === true ? (string) __('capell-admin::security.reversible') : (string) __('capell-admin::security.not_reversible'),
+            $scheduled && $fixScheduled ? (string) __('capell-admin::security.approval_schedule_enabled') : (string) __('capell-admin::security.approval_schedule_disabled'),
         ]);
     }
 
@@ -299,19 +301,5 @@ final class SecurityPage extends Page implements HasTable
         ];
 
         return implode("\n\n", array_filter($parts, static fn (?string $part): bool => $part !== null && $part !== ''));
-    }
-
-    /**
-     * @param  array<int, BackedEnum>  $cases
-     * @return array<string, string>
-     */
-    private function enumOptions(array $cases, string $group): array
-    {
-        $options = [];
-        foreach ($cases as $case) {
-            $options[(string) $case->value] = (string) __('capell-admin::security.' . $group . '.' . $case->value);
-        }
-
-        return $options;
     }
 }
