@@ -7,7 +7,6 @@ namespace Capell\Admin\Filament\Pages;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
-use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
@@ -20,6 +19,7 @@ use Capell\Admin\Filament\Pages\Extensions\Concerns\PreservesExtensionTablePosit
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionsTable;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\AdminZoneRegistry;
+use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -104,7 +104,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     public static function getNavigationBadge(): ?string
     {
-        $count = BuildExtensionOperationsSummaryAction::run()->unhealthyCount;
+        $count = resolve(ExtensionNavigationBadgeCounts::class)->unhealthy();
 
         if ($count === 0) {
             return null;
@@ -116,7 +116,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     public static function getNavigationBadgeColor(): string|array|null
     {
-        return BuildExtensionOperationsSummaryAction::run()->blockedCount > 0 ? 'danger' : 'warning';
+        return resolve(ExtensionNavigationBadgeCounts::class)->blocked() > 0 ? 'danger' : 'warning';
     }
 
     public function mount(): void

@@ -194,6 +194,7 @@ use Capell\Admin\Support\Diagnostics\RegistryInspector;
 use Capell\Admin\Support\Enums\CoreEnumPresentationContributor;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
+use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
@@ -250,6 +251,8 @@ use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\CapellExtension;
+use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
@@ -688,6 +691,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerSubscribers()
             ->registerModelInterceptors()
             ->registerPageUrlRewritePrompt()
+            ->registerExtensionNavigationBadgeInvalidation()
             ->registerActAsOwnerAuditing()
             ->registerEventSourcingBridges()
             ->registerPolicies()
@@ -1256,6 +1260,19 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(AdminEventRegistry::class);
 
         $this->app->singletonIf(AdminEventRouter::class);
+
+        return $this;
+    }
+
+    private function registerExtensionNavigationBadgeInvalidation(): self
+    {
+        foreach ([CapellExtension::class, ExtensionHealthAlert::class] as $model) {
+            foreach (['saved', 'deleted'] as $event) {
+                $model::registerModelEvent($event, static function (): void {
+                    resolve(ExtensionNavigationBadgeCounts::class)->forget();
+                });
+            }
+        }
 
         return $this;
     }

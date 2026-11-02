@@ -10,6 +10,7 @@ use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderPerformanceReportData;
 use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\FrontendResourceSourceKind;
+use Capell\Frontend\Support\Assets\CompressedAssetSizeResolver;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -19,7 +20,7 @@ final class BuildPublicRenderPerformanceReportAction
     use AsFake;
     use AsObject;
 
-    public function handle(PublicPageRenderData $renderData, ?FrontendRenderContextData $context = null, ?int $lastRenderMilliseconds = null): PublicRenderPerformanceReportData
+    public function handle(PublicPageRenderData $renderData, ?FrontendRenderContextData $context = null, ?int $lastRenderMilliseconds = null, bool $measureCompressedBytes = false): PublicRenderPerformanceReportData
     {
         $plan = $renderData->resourcePlan;
         $runtime = $renderData->runtimeManifest;
@@ -54,10 +55,10 @@ final class BuildPublicRenderPerformanceReportAction
                 'inline' => array_sum(array_map(static fn (ResolvedFrontendResourceData $resource): int => strlen((string) $resource->content), $inline)),
                 'js' => $this->rawBytes($localScripts),
                 'jsRaw' => $this->rawBytes($localScripts),
-                'jsGzip' => $this->gzipBytes($localScripts),
+                'jsGzip' => $measureCompressedBytes ? $this->gzipBytes($localScripts) : 0,
                 'css' => $this->rawBytes($localStyles),
                 'cssRaw' => $this->rawBytes($localStyles),
-                'cssGzip' => $this->gzipBytes($localStyles),
+                'cssGzip' => $measureCompressedBytes ? $this->gzipBytes($localStyles) : 0,
                 'criticalCss' => array_sum(array_map(static fn (ResolvedFrontendResourceData $resource): int => $resource->criticalCssEligible ? strlen((string) $resource->content) : 0, $styles)),
             ],
             surrogateKeys: $renderData->surrogateKeys,
@@ -87,15 +88,11 @@ final class BuildPublicRenderPerformanceReportAction
     /** @param array<int, ResolvedFrontendResourceData> $resources */
     private function gzipBytes(array $resources): int
     {
-        return array_sum(array_map(static function (ResolvedFrontendResourceData $resource): int {
-            if (! is_string($resource->localPath)) {
-                return 0;
-            }
+        $resolver = resolve(CompressedAssetSizeResolver::class);
 
-            $contents = file_get_contents($resource->localPath);
-            $compressed = is_string($contents) ? gzencode($contents, 9) : false;
-
-            return is_string($compressed) ? strlen($compressed) : 0;
-        }, $resources));
+        return array_sum(array_map(
+            static fn (ResolvedFrontendResourceData $resource): int => is_string($resource->localPath) ? $resolver->gzipBytes($resource->localPath) : 0,
+            $resources,
+        ));
     }
 }
