@@ -14,6 +14,7 @@ use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\PrivateSiteSpecSourceStore;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
+use Capell\Frontend\Data\CachedPublicPageRenderData;
 use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
@@ -214,7 +215,7 @@ it('requires acknowledged Core cache invalidation before certifying repair and a
     $renderData = resolve(PublicPageRenderDataCache::class);
     expect(serialize($renderData->remember($context, fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context))))->toContain('CONFIDENTIAL');
     $legacyEntries = array_filter($store->entries(), static fn (mixed $value): bool => $value instanceof Page
-        || $value instanceof PublicPageRenderData || $value === $legacyIds);
+        || $value instanceof CachedPublicPageRenderData || $value === $legacyIds);
     expect($legacyEntries)->toHaveCount(3);
 
     $store->generationFailure = $failure;
