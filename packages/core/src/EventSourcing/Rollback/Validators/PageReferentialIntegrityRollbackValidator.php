@@ -9,6 +9,7 @@ use Capell\Core\EventSourcing\Rollback\RollbackIssueData;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Term;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -47,6 +48,19 @@ final class PageReferentialIntegrityRollbackValidator implements RollbackValidat
                 code: 'missing_parent',
                 message: 'The parent page this revision sat under no longer exists.',
                 path: 'attributes.parent_id',
+            );
+        }
+
+        $termIds = array_values(array_filter(array_map(
+            static fn (mixed $term): mixed => is_array($term) ? ($term['term_id'] ?? null) : null,
+            is_array($targetState['terms'] ?? null) ? $targetState['terms'] : [],
+        ), static fn (mixed $termId): bool => $termId !== null));
+
+        if ($termIds !== [] && Term::query()->whereKey($termIds)->count() < count(array_unique($termIds))) {
+            $issues[] = RollbackIssueData::warning(
+                code: 'missing_terms',
+                message: 'Some taxonomy terms this revision used no longer exist, so the page will not be assigned to them.',
+                path: 'terms',
             );
         }
 

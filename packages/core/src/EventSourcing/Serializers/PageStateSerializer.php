@@ -6,18 +6,23 @@ namespace Capell\Core\EventSourcing\Serializers;
 
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
+use Capell\Core\EventSourcing\Contracts\PageStateContributor;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use LogicException;
 
 /**
  * Captures and restores the full owned state of a Page aggregate: page
- * attributes + per-translation content/title/meta + pageUrls + tree position.
+ * attributes + per-translation content/title/meta + pageUrls + tree position,
+ * plus every section contributed by a tagged {@see PageStateContributor}
+ * (state owned by optional packages, such as page layouts).
  *
  * The translation content path deliberately mirrors the legacy snapshot system
  * (capture getRawOriginal('content'), restore via forceFill) so an event-sourced
@@ -32,6 +37,13 @@ use InvalidArgumentException;
 final class PageStateSerializer implements EventSourcedStateSerializer
 {
     /**
+     * Sections the serializer captures itself; contributors cannot claim them.
+     *
+     * @var list<string>
+     */
+    public const array CORE_SECTIONS = ['attributes', 'translations', 'pageUrls', 'propertyValues', 'terms'];
+
+    /**
      * @return array<string, mixed>
      */
     public function capture(Model $model): array
@@ -42,7 +54,7 @@ final class PageStateSerializer implements EventSourcedStateSerializer
         // relation must never be snapshotted.
         $page->load(['translations', 'pageUrls']);
 
-        return [
+        $state = [
             'attributes' => [
                 'name' => $page->name,
                 'blueprint_id' => $page->blueprint_id,
@@ -109,7 +121,26 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 ])
                 ->values()
                 ->all(),
+            // Taxonomy assignments, in assignment order. Term records are
+            // shared across pages and are not owned by the page.
+            'terms' => DB::table($page->terms()->getTable())
+                ->where($page->terms()->getForeignPivotKeyName(), $page->getKey())
+                ->orderBy('position')
+                ->orderBy($page->terms()->getRelatedPivotKeyName())
+                ->get([$page->terms()->getRelatedPivotKeyName() . ' as term_id', 'position'])
+                ->map(static fn (object $assignment): array => [
+                    'term_id' => (int) $assignment->term_id,
+                    'position' => (int) $assignment->position,
+                ])
+                ->values()
+                ->all(),
         ];
+
+        foreach ($this->contributors() as $key => $contributor) {
+            $state[$key] = $contributor->capture($page);
+        }
+
+        return $state;
     }
 
     /**
@@ -124,7 +155,23 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 $this->restoreAttributes($page, $state['attributes'] ?? []);
                 $this->restoreTranslations($page, $state['translations'] ?? []);
                 $this->restorePageUrls($page, $state['pageUrls'] ?? []);
-                $this->restorePropertyValues($page, $state['propertyValues'] ?? []);
+
+                // Sections added to the snapshot after a revision was recorded
+                // are absent from it; leave that state as it is rather than
+                // wipe it.
+                if (array_key_exists('propertyValues', $state)) {
+                    $this->restorePropertyValues($page, $state['propertyValues'] ?? []);
+                }
+
+                if (array_key_exists('terms', $state)) {
+                    $this->restoreTerms($page, $state['terms'] ?? []);
+                }
+
+                foreach ($this->contributors() as $key => $contributor) {
+                    if (array_key_exists($key, $state) && is_array($state[$key])) {
+                        $contributor->restore($page, $state[$key]);
+                    }
+                }
             });
 
             // The PageSaved bridge can record the initial authoring revision
@@ -308,6 +355,38 @@ final class PageStateSerializer implements EventSourcedStateSerializer
     }
 
     /**
+     * Terms that no longer exist are skipped: the assignment cannot be
+     * restored, and the referential-integrity validator reports the loss.
+     *
+     * @param  list<array<string, mixed>>  $terms
+     */
+    private function restoreTerms(Page $page, array $terms): void
+    {
+        $termIds = array_values(array_filter(
+            array_map(static fn (array $term): mixed => $term['term_id'] ?? null, $terms),
+            static fn (mixed $termId): bool => $termId !== null,
+        ));
+        $existing = Term::query()->whereKey($termIds)->pluck('id')->all();
+        $assignments = [];
+
+        foreach ($terms as $term) {
+            $termId = $term['term_id'] ?? null;
+
+            if ($termId === null) {
+                continue;
+            }
+
+            if (! in_array($termId, $existing, false)) {
+                continue;
+            }
+
+            $assignments[$termId] = ['position' => $term['position'] ?? 0];
+        }
+
+        $page->terms()->sync($assignments);
+    }
+
+    /**
      * Drop only null entries from a key list — not every falsy value. A
      * language_id of 0 or an empty-string url is a real key that must still
      * participate in the whereNotIn reconciliation.
@@ -321,6 +400,34 @@ final class PageStateSerializer implements EventSourcedStateSerializer
             $values,
             static fn (mixed $value): bool => $value !== null,
         ));
+    }
+
+    /**
+     * @return array<string, PageStateContributor>
+     */
+    private function contributors(): array
+    {
+        $contributors = [];
+
+        foreach (app()->tagged(PageStateContributor::TAG) as $contributor) {
+            if (! $contributor instanceof PageStateContributor) {
+                continue;
+            }
+
+            $key = $contributor->key();
+
+            if ($key === '' || in_array($key, self::CORE_SECTIONS, true) || array_key_exists($key, $contributors)) {
+                throw new LogicException(sprintf(
+                    'Page state contributor %s cannot use the snapshot section "%s": it is empty, a core section or already contributed.',
+                    $contributor::class,
+                    $key,
+                ));
+            }
+
+            $contributors[$key] = $contributor;
+        }
+
+        return $contributors;
     }
 
     private function asPage(Model $model): Page

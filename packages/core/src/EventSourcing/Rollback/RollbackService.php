@@ -40,7 +40,7 @@ final class RollbackService
         return new RollbackPreviewData(
             toVersion: $toVersion,
             currentVersion: $this->currentVersion($model->aggregateUuid()),
-            fields: $this->differ->diff($currentState, $targetState),
+            fields: $this->diffStates($currentState, $targetState),
             issues: $this->validate($model, $targetState),
             targetState: $targetState,
         );
@@ -85,6 +85,25 @@ final class RollbackService
         }
 
         return $preview;
+    }
+
+    /**
+     * Diff current state against a rollback target. A section missing from
+     * the target was not captured when the target was recorded (for example
+     * a contributor installed later), and restore leaves it untouched, so it
+     * is not presented as a removal. Likewise a target section no current
+     * contributor captures cannot be restored, so it is not shown as added.
+     *
+     * @param  array<string, mixed>  $currentState
+     * @param  array<string, mixed>  $targetState
+     * @return list<RollbackFieldChangeData>
+     */
+    public function diffStates(array $currentState, array $targetState): array
+    {
+        return $this->differ->diff(
+            array_intersect_key($currentState, $targetState),
+            array_intersect_key($targetState, $currentState),
+        );
     }
 
     /**
