@@ -58,16 +58,23 @@ final class EnvFileEditor
     public function save(): void
     {
         throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
-        $temporary = tempnam(dirname($this->filePath), '.capell-env-');
-        throw_if($temporary === false, RuntimeException::class, 'Failed to create a temporary environment file.');
+        // Exclusive creation of a random sibling keeps a collision from overwriting another writer's file.
+        $temporary = dirname($this->filePath) . '/.capell-env-' . bin2hex(random_bytes(16));
+        $stream = @fopen($temporary, 'x');
+        throw_if($stream === false, RuntimeException::class, 'Failed to create a temporary environment file.');
         try {
             $permissions = fileperms($this->filePath);
             throw_if($permissions === false || ! chmod($temporary, $permissions & 0777), RuntimeException::class, 'Failed to preserve environment file permissions.');
-            $written = @file_put_contents($temporary, $this->content);
-            throw_if($written !== strlen($this->content), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
+            $written = @fwrite($stream, $this->content);
+            throw_if($written !== strlen($this->content) || ! fflush($stream), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
+            fclose($stream);
             throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
             throw_unless(@rename($temporary, $this->filePath), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
         } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+
             if (file_exists($temporary)) {
                 unlink($temporary);
             }

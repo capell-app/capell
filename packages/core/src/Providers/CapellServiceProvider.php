@@ -420,6 +420,22 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return CoreSettings::class;
     }
 
+    /**
+     * @param  iterable<mixed>  $tagged
+     * @return list<object>
+     */
+    private function uniqueByClass(iterable $tagged): array
+    {
+        $unique = [];
+        foreach ($tagged as $instance) {
+            if (is_object($instance)) {
+                $unique[$instance::class] ??= $instance;
+            }
+        }
+
+        return array_values($unique);
+    }
+
     private function registerPublicationTransitions(): self
     {
         $this->app->bind(
@@ -613,13 +629,19 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(OutboundEventRegistry::class);
         $this->app->singleton(BlueprintSubjectRegistry::class);
         $this->app->booted(function (): void {
+            // The container appends tag entries on every provider registration, so a
+            // re-registered provider would otherwise offer each built-in check twice.
             $security = $this->app->make(SecurityWeaknessRegistry::class);
-            foreach ($this->app->tagged(SecurityWeaknessCheck::TAG) as $check) {
-                $security->registerCheck($check);
+            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessCheck::TAG)) as $check) {
+                if ($check instanceof SecurityWeaknessCheck) {
+                    $security->registerCheck($check);
+                }
             }
 
-            foreach ($this->app->tagged(SecurityWeaknessRemediation::TAG) as $remediation) {
-                $security->registerRemediation($remediation);
+            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessRemediation::TAG)) as $remediation) {
+                if ($remediation instanceof SecurityWeaknessRemediation) {
+                    $security->registerRemediation($remediation);
+                }
             }
 
             $security->freeze();
