@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Data\MarketplaceInstallFlowResultData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
+use Capell\Marketplace\Exceptions\MarketplaceInstallFlowException;
 use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstance;
@@ -94,13 +95,13 @@ final class CompleteMarketplaceInstallFlowAction
                 ->lockForUpdate()
                 ->first();
 
-            throw_unless($session instanceof MarketplaceInstallFlowSession, RuntimeException::class, 'Marketplace install flow session was not found.');
-            throw_unless(hash_equals($session->state_hash, hash('sha256', $state)), RuntimeException::class, 'Marketplace install flow state is invalid.');
+            throw_unless($session instanceof MarketplaceInstallFlowSession, MarketplaceInstallFlowException::class, 'Marketplace install flow session was not found.');
+            throw_unless(hash_equals($session->state_hash, hash('sha256', $state)), MarketplaceInstallFlowException::class, 'Marketplace install flow state is invalid.');
 
             if ($session->expires_at instanceof CarbonImmutable && $session->expires_at->isPast()) {
                 MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Expired, 'Marketplace install flow session has expired.');
 
-                throw new RuntimeException('Marketplace install flow session has expired.');
+                throw new MarketplaceInstallFlowException('Marketplace install flow session has expired.');
             }
 
             MarketplaceInstallFlowSessionTransitionAction::run($session, MarketplaceInstallFlowSessionStatus::Authorizing, 'callback_returned');
@@ -129,8 +130,8 @@ final class CompleteMarketplaceInstallFlowAction
         $accountEmail = $this->requiredString($result->account, 'account_email');
         $verifiedAt = $this->optionalDate($result->account['account_email_verified_at'] ?? null);
 
-        throw_unless($verifiedAt instanceof CarbonImmutable, RuntimeException::class, 'Your Capell account email must be verified before installing Marketplace packages.');
-        throw_unless(is_string($signingSecret) && $signingSecret !== '', RuntimeException::class, 'Marketplace install flow did not return signing_secret.');
+        throw_unless($verifiedAt instanceof CarbonImmutable, MarketplaceInstallFlowException::class, 'Your Capell account email must be verified before installing Marketplace packages.');
+        throw_unless(is_string($signingSecret) && $signingSecret !== '', MarketplaceInstallFlowException::class, 'Marketplace install flow did not return signing_secret.');
 
         return MarketplaceInstance::query()->updateOrCreate(
             ['instance_id' => $instanceId],
