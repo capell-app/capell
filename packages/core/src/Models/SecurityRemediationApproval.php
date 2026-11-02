@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Core\Models;
 
 use Capell\Core\Concerns\HasCapellTable;
+use Capell\Core\Database\Factories\SecurityRemediationApprovalFactory;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,6 +28,7 @@ use Override;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
+#[UseFactory(SecurityRemediationApprovalFactory::class)]
 final class SecurityRemediationApproval extends Model
 {
     use HasCapellTable;

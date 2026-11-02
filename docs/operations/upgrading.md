@@ -175,6 +175,8 @@ php artisan capell:upgrade --force --no-clear-cache
 
 ## Update And Security Notices
 
+See [Security weakness scans](security-weaknesses.md) for scheduled posture checks, findings and approved automatic remediation.
+
 Capell shows WordPress-style notices without letting the browser run Composer. The installed site phones home to the marketplace, stores the latest response in `marketplace_update_advisory_snapshots`, and renders that local snapshot in the Upgrades page.
 
 The heartbeat sends:

@@ -25,6 +25,7 @@ final class SecurityPostureInventoryData extends Data
      * @param  list<SecurityInventoryPackageData>  $installedPackages
      * @param  array<string, bool|int|float|string|null>  $environment
      * @param  list<SecurityAdvisoryData>  $advisories
+     * @param  list<string>  $failures
      */
     public function __construct(
         public readonly ?string $capellVersion,
@@ -32,6 +33,8 @@ final class SecurityPostureInventoryData extends Data
         public readonly array $environment,
         public readonly array $advisories,
         public readonly CarbonImmutable $collectedAt,
+        public readonly int $advisorySourcesRun = 0,
+        public readonly array $failures = [],
     ) {}
 
     public function package(string $composerName): ?SecurityInventoryPackageData
