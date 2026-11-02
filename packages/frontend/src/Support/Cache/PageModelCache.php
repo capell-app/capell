@@ -11,6 +11,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Enums\CacheEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -44,7 +45,10 @@ final class PageModelCache
 
         $key = CacheEnum::pageModel($modelClass, $id, $site->id ?? 0, $language->id);
 
-        $loader = function () use ($modelClass, $id, $site, $language, $withEvents): ?Pageable {
+        $fromCache = $useCache;
+
+        $loader = function () use ($modelClass, $id, $site, $language, $withEvents, &$fromCache): ?Pageable {
+            $fromCache = false;
             $callback = function () use ($modelClass, $id, $site, $language): ?Pageable {
                 $query = $modelClass::query()->where('id', $id)->publishedDate();
 
@@ -83,7 +87,15 @@ final class PageModelCache
             if ($model->relationLoaded('parent') && $model->parent?->site_id !== $site->id) {
                 $model->setRelation('parent', null);
             }
+        }
 
+        // A cached model is not retrieved, so declare it (and the relations cached with it)
+        // as a load would, unless the caller loads without model events.
+        if ($fromCache && $withEvents) {
+            resolve(RenderedModelTracker::class)->track($model);
+        }
+
+        if ($site instanceof Site) {
             $this->injectTransientRelations($model, $site, $language);
         } elseif ($model->translation !== null && $model->pageUrl !== null) {
             $model->translation->setRelation('language', $language);

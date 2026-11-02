@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Data\PublicModelWithdrawalData;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -53,10 +54,13 @@ final class InvalidateDueScheduledPublicationCachesAction
                             ->where('visible_until', '<=', $until);
                     });
             })
-            ->chunkById(100, function ($pages) use (&$invalidated): void {
+            ->chunkById(100, function ($pages) use (&$invalidated, $until): void {
                 foreach ($pages as $page) {
                     resolve(CacheInvalidationRegistry::class)->invalidateChangedModel($page);
-                    event(new FrontendSurrogateKeysInvalidated($this->surrogateKeys($page)));
+                    event(new FrontendSurrogateKeysInvalidated(
+                        $this->surrogateKeys($page),
+                        $this->isPublicAt($page, $until) ? null : PublicModelWithdrawalData::forModel($page),
+                    ));
                     $invalidated++;
                 }
             });
@@ -90,6 +94,16 @@ final class InvalidateDueScheduledPublicationCachesAction
         }
 
         return $from->subSeconds(self::CHECKPOINT_OVERLAP_SECONDS);
+    }
+
+    /** A page due in this window that is not public now has expired rather than been published. */
+    private function isPublicAt(Page $page, CarbonImmutable $until): bool
+    {
+        $visibleFrom = $page->visible_from;
+        $visibleUntil = $page->visible_until;
+
+        return ($visibleFrom === null || $visibleFrom->lessThanOrEqualTo($until))
+            && ($visibleUntil === null || $visibleUntil->greaterThan($until));
     }
 
     /**

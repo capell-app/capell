@@ -9,19 +9,24 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
+use Capell\Frontend\Contracts\CapturesRenderedModelIdentities;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
+use Capell\Frontend\Contracts\RenderedModelTracker;
+use Capell\Frontend\Data\CachedPublicPageRenderData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
+use Capell\Frontend\Data\RenderedModelIdentitiesData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Throwable;
 
 final class PublicPageRenderDataCache
 {
@@ -61,20 +66,42 @@ final class PublicPageRenderDataCache
 
         $this->rememberKeyForIdentity($context, $key);
 
-        $renderData = $this->dependencies->remember(
+        $tracker = resolve(RenderedModelTracker::class);
+        $capturing = $tracker instanceof CapturesRenderedModelIdentities ? $tracker : null;
+        $built = false;
+
+        /** @var CachedPublicPageRenderData $entry */
+        $entry = $this->dependencies->remember(
             $metadata->cacheDependencies,
             $key,
-            fn (): mixed => $this->rememberCache($key, $builder),
+            function () use ($key, $builder, $capturing, &$built): CachedPublicPageRenderData {
+                $entry = $this->rememberCache($key, function () use ($builder, $capturing, &$built): CachedPublicPageRenderData {
+                    $built = true;
+
+                    return $this->build($builder, $capturing);
+                });
+
+                if ($entry instanceof CachedPublicPageRenderData && (! $capturing instanceof CapturesRenderedModelIdentities || $entry->modelIdentities instanceof RenderedModelIdentitiesData)) {
+                    return $entry;
+                }
+
+                // An entry that cannot name the models it shows would hide them from the
+                // tracker on every hit, so rebuild it while capturing them.
+                $built = true;
+                $entry = $this->build($builder, $capturing);
+                $this->setToCache($key, $entry);
+
+                return $entry;
+            },
         );
 
-        if ($renderData instanceof PublicPageRenderData) {
-            return $renderData;
+        // A hit retrieves none of the models the render showed: declare them again so
+        // caches that record which pages show a model still see this one.
+        if (! $built && $capturing instanceof CapturesRenderedModelIdentities && $entry->modelIdentities instanceof RenderedModelIdentitiesData) {
+            $capturing->trackIdentities($entry->modelIdentities);
         }
 
-        $renderData = $builder();
-        $this->setToCache($key, $renderData);
-
-        return $renderData;
+        return $entry->renderData;
     }
 
     public function invalidate(string $pageType, int $pageId, int $siteId, int $languageId): void
@@ -115,6 +142,28 @@ final class PublicPageRenderDataCache
                 (int) $context->language->getKey(),
             ),
         );
+    }
+
+    /**
+     * @param  Closure(): PublicPageRenderData  $builder
+     */
+    private function build(Closure $builder, ?CapturesRenderedModelIdentities $capturing): CachedPublicPageRenderData
+    {
+        if (! $capturing instanceof CapturesRenderedModelIdentities) {
+            return new CachedPublicPageRenderData($builder(), null);
+        }
+
+        $capturing->startCapturingIdentities();
+
+        try {
+            $renderData = $builder();
+        } catch (Throwable $throwable) {
+            $capturing->stopCapturingIdentities();
+
+            throw $throwable;
+        }
+
+        return new CachedPublicPageRenderData($renderData, $capturing->stopCapturingIdentities());
     }
 
     private function contentVersion(FrontendRenderContextData $context, ?PublicRenderDataContributionMetadataData $metadata = null): string

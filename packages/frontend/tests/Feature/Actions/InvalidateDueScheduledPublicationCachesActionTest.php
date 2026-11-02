@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\PublicModelWithdrawalData;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -65,6 +66,70 @@ it('invalidates page and fragment caches when scheduled visibility becomes effec
         ->and(readScheduledPublicationFragment($future))->toBe('cached')
         ->and(resolve(FrontendSettings::class)->refresh()->scheduled_publication_invalidation_checkpoint)
         ->toBe(CarbonImmutable::now()->toIso8601String());
+});
+
+it('tells listeners which page left public view when its scheduled expiry passes', function (): void {
+    $language = Language::factory()->createOne(['code' => 'en']);
+    $site = Site::factory()->recycle($language)->withTranslations()->create();
+    $blueprint = Blueprint::factory()->page()->create();
+    $publishing = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($language, [], slug: 'publishing')
+        ->create(['visible_from' => CarbonImmutable::now()->subMinute()]);
+    $expiring = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($language, [], slug: 'expiring')
+        ->create([
+            'visible_from' => CarbonImmutable::now()->subDay(),
+            'visible_until' => CarbonImmutable::now()->subSeconds(30),
+        ]);
+    $briefly = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($language, [], slug: 'briefly')
+        ->create([
+            'visible_from' => CarbonImmutable::now()->subMinute(),
+            'visible_until' => CarbonImmutable::now()->subSeconds(10),
+        ]);
+    $stillPublic = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($language, [], slug: 'still-public')
+        ->create([
+            'visible_from' => CarbonImmutable::now()->subMinute(),
+            'visible_until' => CarbonImmutable::now()->addDay(),
+        ]);
+    /** @var array<int, FrontendSurrogateKeysInvalidated> $events */
+    $events = [];
+    Event::listen(FrontendSurrogateKeysInvalidated::class, static function (FrontendSurrogateKeysInvalidated $event) use (&$events): void {
+        $events[] = $event;
+    });
+
+    expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(4);
+
+    $eventFor = static function (Page $page) use (&$events): FrontendSurrogateKeysInvalidated {
+        $matches = array_values(array_filter(
+            $events,
+            static fn (FrontendSurrogateKeysInvalidated $event): bool => in_array('page-' . $page->id, $event->surrogateKeys, true),
+        ));
+        expect($matches)->toHaveCount(1);
+
+        return $matches[0];
+    };
+
+    foreach ([$publishing, $expiring, $briefly, $stillPublic] as $page) {
+        // Publishing and expiry keep sending the same keys to every listener.
+        expect($eventFor($page)->surrogateKeys)->toBe(['page-' . $page->id, 'site-' . $site->id, 'lang-en']);
+    }
+
+    foreach ([$expiring, $briefly] as $page) {
+        expect($eventFor($page)->withdrawal)->toEqual(new PublicModelWithdrawalData($page->getMorphClass(), $page->id));
+    }
+
+    expect($eventFor($publishing)->withdrawal)->toBeNull()
+        ->and($eventFor($stillPublic)->withdrawal)->toBeNull();
 });
 
 it('resumes from its checkpoint without repeatedly invalidating older transitions', function (): void {
