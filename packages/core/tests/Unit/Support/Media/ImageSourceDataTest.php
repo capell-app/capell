@@ -182,3 +182,30 @@ it('exposes preset options for image source policy fields', function (): void {
         ->toHaveKey('url_media')
         ->toHaveKey('upload_media');
 });
+
+it("always allows the site's own origins without listing them as remote domains", function (string $key, string $value, string $url): void {
+    config([
+        'app.url' => 'https://app.example.org',
+        'app.asset_url' => null,
+        'filesystems.disks' => [],
+        $key => $value,
+    ]);
+
+    $policy = new ImageUrlPolicy;
+
+    expect($policy->allows($url, ['images.unsplash.com'], false))->toBeTrue()
+        ->and($policy->allows('https://elsewhere.example.net/photo.jpg', ['images.unsplash.com'], false))->toBeFalse();
+})->with([
+    'app.url' => ['app.url', 'https://www.mysite.test', 'https://www.mysite.test/storage/photo.jpg'],
+    'asset_url' => ['app.asset_url', 'https://assets.mysite.test', 'https://assets.mysite.test/photo.jpg'],
+    'disk url' => ['filesystems.disks.s3.url', 'https://cdn.mysite.test/media', 'https://cdn.mysite.test/media/photo.jpg'],
+]);
+
+it('does not trust own origins over plain http or by subdomain suffix', function (): void {
+    config(['app.url' => 'https://mysite.test', 'filesystems.disks' => []]);
+
+    $policy = new ImageUrlPolicy;
+
+    expect($policy->allows('http://mysite.test/photo.jpg', [], false))->toBeFalse()
+        ->and($policy->allows('https://evil.mysite.test/photo.jpg', [], false))->toBeFalse();
+});
