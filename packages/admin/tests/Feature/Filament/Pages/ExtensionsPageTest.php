@@ -81,6 +81,13 @@ function grantExtensionsPageAccess(): void
     test()->authenticatedUser()->givePermissionTo('View:ExtensionsPage');
 }
 
+function grantExtensionsPageViewOnlyAccess(): void
+{
+    Permission::create(['name' => 'View:ExtensionsPage', 'guard_name' => 'web']);
+    test()->actingAsUser();
+    test()->authenticatedUser()->givePermissionTo('View:ExtensionsPage');
+}
+
 function grantExtensionsPageManagementAccess(): void
 {
     grantExtensionsPageAccess();
@@ -1615,7 +1622,7 @@ it('opens primary extension settings through a direct settings link', function (
 });
 
 it('opens package settings as a native extension management modal', function (): void {
-    grantExtensionsPageAccess();
+    grantExtensionsPageManagementAccess();
 
     CapellCore::registerPackage(
         name: 'vendor/settings-extension',
@@ -1669,7 +1676,7 @@ it('opens package settings as a native extension management modal', function ():
 });
 
 it('opens package settings through URL query parameters', function (): void {
-    grantExtensionsPageAccess();
+    grantExtensionsPageManagementAccess();
 
     CapellCore::registerPackage(
         name: 'vendor/settings-extension',
@@ -1714,6 +1721,64 @@ it('opens package settings through URL query parameters', function (): void {
         ->assertNotified(__('capell-admin::message.settings_saved'));
 
     expect(AbstractPackageSettingsPageTestSettings::$savedValues['headline'] ?? null)->toBe('Saved through query parameters');
+});
+
+function registerSettingsExtensionForPermissionTests(): void
+{
+    CapellCore::registerPackage(
+        name: 'vendor/settings-extension',
+        path: extensionPackagePath(),
+        version: '1.2.3',
+    );
+    CapellCore::forcePackageInstalled('vendor/settings-extension');
+
+    AbstractPackageSettingsPageTestSettings::$savedValues = [];
+    app()->instance(AbstractPackageSettingsPageTestSettings::class, new AbstractPackageSettingsPageTestSettings([
+        'headline' => 'Existing setting',
+    ]));
+
+    $settingsRegistry = resolve(SettingsSchemaRegistry::class);
+    $settingsRegistry->registerSettingsClass('abstract-page-test', AbstractPackageSettingsPageTestSettings::class);
+    $settingsRegistry->register('abstract-page-test', AbstractPackageSettingsPageTestSchema::class);
+    CapellAdmin::registerExtensionManagementSurface(ExtensionManagementSurfaceData::settings(
+        packageName: 'vendor/settings-extension',
+        label: 'Extension settings',
+        settingsGroup: 'abstract-page-test',
+    ));
+}
+
+it('refuses to save extension settings from the table for a view-only user', function (): void {
+    grantExtensionsPageViewOnlyAccess();
+    registerSettingsExtensionForPermissionTests();
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->mountTableAction('manageExtension', 'vendor/settings-extension')
+        ->fillForm(['headline' => 'Forged setting'])
+        ->callMountedAction()
+        ->assertNotNotified(__('capell-admin::message.settings_saved'));
+
+    expect(AbstractPackageSettingsPageTestSettings::$savedValues)->toBe([]);
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertTableActionHidden('manageExtension', record: 'vendor/settings-extension');
+});
+
+it('refuses to save extension settings from the extensions page for a view-only user', function (): void {
+    grantExtensionsPageViewOnlyAccess();
+    registerSettingsExtensionForPermissionTests();
+
+    Livewire::withQueryParams([
+        'manage' => 'vendor/settings-extension',
+        'surface' => 'abstract-page-test',
+    ])
+        ->test(ExtensionsPage::class)
+        ->assertSuccessful()
+        ->fillForm(['headline' => 'Forged setting'])
+        ->callMountedAction()
+        ->assertNotNotified(__('capell-admin::message.settings_saved'));
+
+    expect(AbstractPackageSettingsPageTestSettings::$savedValues)->toBe([]);
 });
 
 it('does not expose settings management for extensions without a management page', function (): void {
