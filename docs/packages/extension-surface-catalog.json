@@ -253,6 +253,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.record-public-read-eligibility-change",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublicRead\\RecordPublicReadEligibilityChangeAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Advances the public-read eligibility revision when access rules change without a page save.",
+            "contractTestId": null
+        },
+        {
             "id": "core.action.reporting-dispatch",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\Reporting\\DispatchSignalAction",
@@ -420,6 +430,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Portable database schema capability boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.evaluates-public-page-read-candidates-individually",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\EvaluatesPublicPageReadCandidatesIndividually",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Default one-at-a-time batch evaluation for public-read eligibility contributors.",
             "contractTestId": null
         },
         {
@@ -1223,6 +1243,16 @@
             "contractTestId": "core.package-installed-event"
         },
         {
+            "id": "core.event.public-read-eligibility-changed",
+            "kind": "event",
+            "identifier": "Capell\\Core\\Events\\PublicReadEligibilityChanged",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Signals that stored public projections must be withdrawn or regenerated.",
+            "contractTestId": null
+        },
+        {
             "id": "core.facade.capell-core",
             "kind": "facade",
             "identifier": "Capell\\Core\\Facades\\CapellCore",
@@ -1361,6 +1391,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Structured JSON delivery through the configured Laravel log channel.",
             "contractTestId": "core.reporting-dispatch"
+        },
+        {
+            "id": "core.support.public-read-eligibility-revision",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadEligibilityRevision",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Opaque revision that stored public projections include in their identity.",
+            "contractTestId": null
         },
         {
             "id": "core.tag.database-platform",

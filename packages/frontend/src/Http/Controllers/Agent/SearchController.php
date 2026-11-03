@@ -27,14 +27,13 @@ final class SearchController
         $eligibility = resolve(PublicPageReadEligibilityRegistry::class);
         // Search implementations own pagination and should omit restricted pages
         // themselves; this is the boundary's own guarantee for any implementation.
-        $readable = array_values(array_filter(
-            $results->items(),
-            static fn (mixed $result): bool => $result instanceof AgentSearchResultData && $eligibility->allows(new PublicPageReadCandidateData(
-                url: $result->url,
-                siteId: $domain->site_id,
-                languageId: $domain->language_id,
-            )),
-        ));
+        $candidates = array_values(array_filter($results->items(), static fn (mixed $result): bool => $result instanceof AgentSearchResultData));
+        $decisions = $eligibility->allowsMany(array_map(static fn (AgentSearchResultData $result): PublicPageReadCandidateData => new PublicPageReadCandidateData(
+            url: $result->url,
+            siteId: $domain->site_id,
+            languageId: $domain->language_id,
+        ), $candidates));
+        $readable = array_values(array_filter($candidates, static fn (int $position): bool => $decisions[$position], ARRAY_FILTER_USE_KEY));
 
         return response()->json([
             'capellAgentSchema' => 1,

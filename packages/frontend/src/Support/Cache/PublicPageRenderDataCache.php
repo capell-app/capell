@@ -8,6 +8,8 @@ use Capell\Core\Concerns\HasCache;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Contracts\CapturesRenderedModelIdentities;
 use Capell\Frontend\Contracts\FrontendContextReader;
@@ -181,12 +183,28 @@ final class PublicPageRenderDataCache
             $this->themePreviewFingerprint(),
             $this->resourceSelectionFingerprint(),
             ($metadata ?? $this->contributors->metadata($context))->fingerprint,
+            $this->publicReadEligibilityRevision(),
         ];
 
         return hash('xxh128', implode('|', array_map(
             fn (mixed $value): string => (string) ($value ?? '0'),
             $values,
         )));
+    }
+
+    /**
+     * Render data embeds links and references to other pages, which drop out
+     * when a page stops being publicly readable. Restriction rules can change
+     * without any page being saved (an access policy edit, a scheduled
+     * opening), so the eligibility revision is part of the identity.
+     */
+    private function publicReadEligibilityRevision(): ?string
+    {
+        if (! resolve(PublicPageReadEligibilityRegistry::class)->hasContributors()) {
+            return null;
+        }
+
+        return resolve(PublicReadEligibilityRevision::class)->current();
     }
 
     private function resourceSelectionFingerprint(): string

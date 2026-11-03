@@ -36,14 +36,14 @@ it('queries taxonomy-only properties while respecting blueprint visibility overr
     expect(QueryPagesByPropertiesAction::run($page->site, $input)->getCollection()->modelKeys())->toBe([$page->id]);
 
     $definition->update(['agent_visible' => false]);
-    expect(QueryPagesByPropertiesAction::run($page->site, $input)->total())->toBe(0);
+    expect(QueryPagesByPropertiesAction::run($page->site, $input)->items())->toBe([]);
 
     $definition->update(['agent_visible' => true]);
     BlueprintPropertySet::factory()->create([
         'blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id,
         'overrides' => ['score' => ['agent_visible' => false]],
     ]);
-    expect(QueryPagesByPropertiesAction::run($page->site, $input)->total())->toBe(0);
+    expect(QueryPagesByPropertiesAction::run($page->site, $input)->items())->toBe([]);
 });
 
 it('filters typed money within the current site and excludes unpublished pages', function (): void {
@@ -189,7 +189,7 @@ it('keeps URL filtering before pagination and excludes drafts and foreign pages'
         languageId: $language->id,
         publicUrlRequired: true,
     ));
-    expect($result->total())->toBe(1)->and($result->getCollection()->modelKeys())->toBe([$eligible->id]);
+    expect(array_map(static fn (Page $page): int => $page->id, $result->items()))->toBe([$eligible->id]);
 });
 
 it('excludes pages whose only public URL uses a disabled site domain', function (): void {
@@ -219,7 +219,7 @@ it('excludes pages whose only public URL uses a disabled site domain', function 
         publicUrlRequired: true,
     ));
 
-    expect($result->total())->toBe(0);
+    expect($result->items())->toBe([]);
 });
 
 it('matches a non-first inherited value from the winning term for a multiple property', function (): void {
@@ -318,5 +318,5 @@ it('filters anonymous page eligibility before property query pagination', functi
         set: $set->key,
         languageId: $site->language_id,
         publicUrlRequired: true,
-    ))->total())->toBe(0);
+    ))->items())->toBe([]);
 })->with(['private blueprint', 'disabled blueprint', 'redirect', 'missing translation']);

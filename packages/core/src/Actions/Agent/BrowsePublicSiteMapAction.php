@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Agent;
 
-use Capell\Core\Actions\PublicRead\PageUrlIsPubliclyReadableAction;
+use Capell\Core\Actions\PublicRead\PageUrlsArePubliclyReadableAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
@@ -12,9 +12,8 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Pagination\LengthAwarePaginator as Paginator;
+use Illuminate\Pagination\Paginator;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -22,7 +21,8 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * List anonymous-safe, URL-addressable pages for a site and language.
  *
  * Public-read eligibility is applied before pagination, so a restricted page
- * leaves no gap, count or link behind it.
+ * leaves no gap or link behind it. Only next and previous links are offered:
+ * no total is computed, so a request scans only as far as its own page.
  */
 final class BrowsePublicSiteMapAction
 {
@@ -31,15 +31,18 @@ final class BrowsePublicSiteMapAction
 
     private const int PER_PAGE = 50;
 
+    private const int SCAN_CHUNK = 200;
+
     public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
 
-    /** @return LengthAwarePaginator<int, array{url: string, title: string}> */
-    public function handle(Site $site, Language $language, int $page = 1): LengthAwarePaginator
+    /** @return Paginator<int, array{url: string, title: string}> */
+    public function handle(Site $site, Language $language, int $page = 1): Paginator
     {
+        $page = max(1, $page);
         $morphTypes = ResolvePublicPageableMorphTypesAction::run();
 
         if ($morphTypes === []) {
-            return new Paginator([], 0, self::PER_PAGE, $page);
+            return $this->paginator([], $page);
         }
 
         $query = PageUrl::query()
@@ -66,26 +69,41 @@ final class BrowsePublicSiteMapAction
             ->orderBy('id');
 
         if (! $this->eligibility->hasContributors()) {
-            return $query
-                ->with(['translation'])
-                ->paginate(self::PER_PAGE, ['*'], 'page', $page)
-                ->through(static fn (PageUrl $pageUrl): array => self::project($pageUrl));
+            return $this->paginator(
+                array_values($query->with(['translation'])->forPage($page, self::PER_PAGE + 1)->get()->map(static fn (PageUrl $pageUrl): array => self::project($pageUrl))->all()),
+                $page,
+            );
         }
 
+        // Scan in batches only until this page and one more readable entry are
+        // known: enough for the next link, without counting the whole site.
+        $skip = ($page - 1) * self::PER_PAGE;
+        $wanted = self::PER_PAGE + 1;
         $readable = [];
-        foreach ($query->with(['translation', 'siteDomain'])->lazy(200) as $pageUrl) {
-            if (PageUrlIsPubliclyReadableAction::run($pageUrl)) {
-                $readable[] = self::project($pageUrl);
+
+        foreach ($query->with(['translation', 'siteDomain'])->lazy(self::SCAN_CHUNK)->chunk(self::SCAN_CHUNK) as $chunk) {
+            $pageUrls = array_values($chunk->all());
+
+            foreach (PageUrlsArePubliclyReadableAction::run($pageUrls) as $position => $isReadable) {
+                if (! $isReadable) {
+                    continue;
+                }
+
+                if ($skip > 0) {
+                    $skip--;
+
+                    continue;
+                }
+
+                $readable[] = self::project($pageUrls[$position]);
+
+                if (count($readable) === $wanted) {
+                    break 2;
+                }
             }
         }
 
-        return new Paginator(
-            array_slice($readable, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
-            count($readable),
-            self::PER_PAGE,
-            $page,
-            ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page'],
-        );
+        return $this->paginator($readable, $page);
     }
 
     /** @return array{url: string, title: string} */
@@ -95,5 +113,17 @@ final class BrowsePublicSiteMapAction
             'url' => $pageUrl->url,
             'title' => (string) $pageUrl->translation?->title,
         ];
+    }
+
+    /**
+     * @param  list<array{url: string, title: string}>  $items
+     * @return Paginator<int, array{url: string, title: string}>
+     */
+    private function paginator(array $items, int $page): Paginator
+    {
+        return new Paginator($items, self::PER_PAGE, $page, [
+            'path' => Paginator::resolveCurrentPath(),
+            'pageName' => 'page',
+        ]);
     }
 }
