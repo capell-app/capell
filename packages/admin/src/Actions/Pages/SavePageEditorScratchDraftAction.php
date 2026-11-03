@@ -34,6 +34,16 @@ final class SavePageEditorScratchDraftAction
             return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Unauthorized);
         }
 
+        $unchanged = $this->unchangedRevision($input);
+
+        if ($unchanged !== null) {
+            // Livewire syncs the whole form on every change, often with nothing
+            // new. Answering those from one read keeps the page row unlocked and
+            // the draft unwritten, so syncs stop contending with save and the
+            // heartbeat.
+            return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 0, $unchanged);
+        }
+
         return $input->page->getConnection()->transaction(function () use ($input): PageEditorScratchDraftResultData {
             SiteAccess::forActor($input->user)->query($input->page::class)->whereKey($input->page->getKey())->lockForUpdate()->firstOrFail();
 
@@ -69,14 +79,7 @@ final class SavePageEditorScratchDraftAction
             return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 1, $draft->revision);
         }
 
-        $identity = [
-            'user_id' => $input->user->getAuthIdentifier(),
-            'site_id' => $input->page->site_id,
-            'locale' => $input->locale,
-            'record_type' => $input->page->getMorphClass(),
-            'record_id' => $input->page->getKey(),
-            'context' => $input->context,
-        ];
+        $identity = $this->identity($input, $input->user);
         $payload = json_encode($input->payload, JSON_THROW_ON_ERROR);
         $hash = hash('sha256', $payload);
         $revision = (string) Str::uuid();
@@ -109,5 +112,37 @@ final class SavePageEditorScratchDraftAction
             affectedRows: $affected,
             revision: $affected === 1 ? $revision : null,
         );
+    }
+
+    /**
+     * The revision already holding exactly this payload, when the caller's
+     * expected revision is still current and the content has not changed.
+     */
+    private function unchangedRevision(PageEditorScratchDraftInputData $input): ?string
+    {
+        if (! $input->user instanceof Authenticatable || $input->context === 'page-editor' || $input->expectedRevision === null) {
+            return null;
+        }
+
+        $current = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)
+            ->where($this->identity($input, $input->user))
+            ->where('revision', $input->expectedRevision)
+            ->where('content_hash', hash('sha256', json_encode($input->payload, JSON_THROW_ON_ERROR)))
+            ->exists();
+
+        return $current ? $input->expectedRevision : null;
+    }
+
+    /** @return array<string, mixed> */
+    private function identity(PageEditorScratchDraftInputData $input, Authenticatable $user): array
+    {
+        return [
+            'user_id' => $user->getAuthIdentifier(),
+            'site_id' => $input->page->site_id,
+            'locale' => $input->locale,
+            'record_type' => $input->page->getMorphClass(),
+            'record_id' => $input->page->getKey(),
+            'context' => $input->context,
+        ];
     }
 }

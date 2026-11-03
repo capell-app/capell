@@ -6,9 +6,13 @@ use Capell\Admin\Actions\Pages\RecordDescendantUrlRedirectsAction;
 use Capell\Admin\Data\Pages\DescendantUrlRedirectRequestData;
 use Capell\Core\Actions\CollectDescendantPageUrlsAction;
 use Capell\Core\Enums\UrlTypeEnum;
+use Capell\Core\Events\PageUrlChanged;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 uses()->group('page');
 
@@ -144,4 +148,48 @@ it('skips descendant urls that did not change', function (): void {
     expect($result->acceptedCount)->toBeGreaterThan(0)
         ->and($result->recordedCount)->toBe(0)
         ->and(PageUrl::query()->where('type', UrlTypeEnum::Redirect)->exists())->toBeFalse();
+});
+
+it('reads only once per recorded redirect however many descendant urls change', function (): void {
+    // Listeners of the public URL-change event are not this action's cost.
+    Event::fake([PageUrlChanged::class]);
+
+    $measure = function (int $childCount): array {
+        $site = Site::factory()->withTranslations()->create();
+        $parent = Page::factory()->recycle($site)->withTranslations()->create();
+        $children = Page::factory()->count($childCount)->recycle($site)->parent($parent)->withTranslations()->create();
+
+        $snapshot = CollectDescendantPageUrlsAction::run($parent);
+        foreach ($children as $index => $child) {
+            rewriteCanonicalUrl($child, '/moved-' . $childCount . '/child-' . $index);
+        }
+
+        $statements = [];
+        DB::listen(function (QueryExecuted $query) use (&$statements): void {
+            $statements[] = mb_strtolower(ltrim($query->sql));
+        });
+
+        $result = RecordDescendantUrlRedirectsAction::run(new DescendantUrlRedirectRequestData(
+            page: $parent,
+            submittedUrls: $snapshot,
+            expectedUrls: $snapshot,
+        ));
+        $measured = $statements;
+
+        return [
+            'reads' => count(array_filter($measured, static fn (string $sql): bool => str_starts_with($sql, 'select'))),
+            'redirectInserts' => count(array_filter($measured, static fn (string $sql): bool => str_starts_with($sql, 'insert') && str_contains($sql, 'page_urls'))),
+            'recorded' => $result->recordedCount,
+        ];
+    };
+
+    $small = $measure(2);
+    $large = $measure(8);
+    $extraRedirects = $large['recorded'] - $small['recorded'];
+
+    // The only per-redirect read left is PageUrl's own collision guard.
+    expect($small['recorded'])->toBeGreaterThan(0)
+        ->and($large['recorded'])->toBe(4 * $small['recorded'])
+        ->and($large['redirectInserts'])->toBe($large['recorded'])
+        ->and($large['reads'] - $small['reads'])->toBeLessThanOrEqual($extraRedirects);
 });

@@ -27,6 +27,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -347,4 +348,45 @@ it('does not write a scratch draft while another editor owns the page lock', fun
     expect($result->status)->toBe(PageEditorScratchDraftStatus::Locked)
         ->and($result->affectedRows)->toBe(0)
         ->and(EditorScratchDraft::query()->count())->toBe(0);
+});
+
+it('does not lock the page or write a scratch draft when an editor sync repeats the saved content', function (): void {
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+    $sync = fn (array $payload, ?string $expectedRevision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: $payload,
+        context: 'page-editor:sync-test',
+        expectedRevision: $expectedRevision,
+    ));
+
+    $first = $sync(['name' => 'Draft name'], null);
+
+    $statements = [];
+    $transactions = 0;
+    DB::listen(function (QueryExecuted $query) use (&$statements): void {
+        $statements[] = mb_strtolower(ltrim($query->sql));
+    });
+    Event::listen(TransactionBeginning::class, function () use (&$transactions): void {
+        $transactions++;
+    });
+
+    $repeat = $sync(['name' => 'Draft name'], $first->revision);
+    $repeatStatements = $statements;
+    $repeatTransactions = $transactions;
+
+    $changed = $sync(['name' => 'Changed name'], $first->revision);
+
+    expect($first->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and($repeat->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and($repeat->affectedRows)->toBe(0)
+        ->and($repeat->revision)->toBe($first->revision)
+        ->and($repeatTransactions)->toBe(0)
+        ->and(array_filter($repeatStatements, static fn (string $sql): bool => ! str_starts_with($sql, 'select')))->toBe([])
+        ->and($changed->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and($changed->affectedRows)->toBe(1)
+        ->and($changed->revision)->not->toBe($first->revision)
+        ->and(EditorScratchDraft::query()->sole()->payload)->toBe(['name' => 'Changed name']);
 });

@@ -6,7 +6,9 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Contracts\Redirects\BatchRedirectUrlRecorder;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
+use Capell\Core\Data\Redirects\RedirectUrlRecordData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -137,10 +139,10 @@ class BulkMovePagesAction
         $pages = $pages->merge($descendants);
 
         $snapshots = [];
+        // One eager load for the whole subtree instead of one per page.
+        $pages->load('pageUrls.language');
 
         foreach ($pages as $target) {
-            $target->load('pageUrls.language');
-
             foreach ($target->pageUrls as $pageUrl) {
                 if ($pageUrl->type === UrlTypeEnum::Redirect) {
                     continue;
@@ -163,16 +165,27 @@ class BulkMovePagesAction
      */
     private function createRedirects(array $snapshots, User $actor): int
     {
-        $created = 0;
+        if ($snapshots === []) {
+            return 0;
+        }
+
+        // Re-read every moved page's addresses in one query, after the move.
+        /** @var Collection<int, Page> $pageables */
+        $pageables = new Collection(collect($snapshots)
+            ->map(static fn (array $snapshot): Page => $snapshot['pageable'])
+            ->unique(static fn (Page $page): mixed => $page->getKey())
+            ->values()
+            ->all());
+        $pageables->load('pageUrls');
+
+        $taken = $this->visibleTakenUrls($snapshots, $actor);
+        $records = [];
 
         foreach ($snapshots as $snapshot) {
             /** @var Pageable&Page $pageable */
             $pageable = $snapshot['pageable'];
             $oldUrl = $snapshot['url'];
             $language = $snapshot['language'];
-            $siteId = $snapshot['site_id'];
-
-            $pageable->load('pageUrls');
 
             $currentAlias = $pageable->pageUrls
                 ->first(fn (PageUrl $pageUrl): bool => $pageUrl->type !== UrlTypeEnum::Redirect
@@ -182,23 +195,47 @@ class BulkMovePagesAction
                 continue;
             }
 
-            if ($this->redirectUrlExists($siteId, $language->getKey(), $oldUrl, $actor)) {
+            $takenKey = $snapshot['site_id'] . "\0" . $language->getKey() . "\0" . $oldUrl;
+            if (isset($taken[$takenKey])) {
                 continue;
             }
 
-            resolve(RedirectUrlRecorder::class)->record($pageable, $language, $oldUrl);
-            $created++;
+            $taken[$takenKey] = true;
+            $records[] = new RedirectUrlRecordData($pageable, $language, $oldUrl);
         }
 
-        return $created;
+        $recorder = resolve(RedirectUrlRecorder::class);
+        if ($recorder instanceof BatchRedirectUrlRecorder) {
+            $recorder->recordMany($records);
+        } else {
+            foreach ($records as $record) {
+                $recorder->record($record->pageable, $record->language, $record->url);
+            }
+        }
+
+        return count($records);
     }
 
-    private function redirectUrlExists(int $siteId, int $languageId, string $url, User $actor): bool
+    /**
+     * Addresses the actor can see that already exist, read in one query.
+     *
+     * @param  array<int, array{pageable: Pageable&Page, language: Language, url: string, site_id: int}>  $snapshots
+     * @return array<string, true>
+     */
+    private function visibleTakenUrls(array $snapshots, User $actor): array
     {
-        return SiteAccess::forActor($actor)->query(PageUrl::class)
-            ->where('site_id', $siteId)
-            ->where('language_id', $languageId)
-            ->where('url', $url)
-            ->exists();
+        $taken = [];
+
+        SiteAccess::forActor($actor)->query(PageUrl::class)
+            ->whereIn('site_id', array_values(array_unique(array_column($snapshots, 'site_id'))))
+            ->whereIn('language_id', array_values(array_unique(array_map(static fn (array $snapshot): int => (int) $snapshot['language']->getKey(), $snapshots))))
+            ->whereIn('url', array_values(array_unique(array_column($snapshots, 'url'))))
+            ->toBase()
+            ->get(['site_id', 'language_id', 'url'])
+            ->each(function (object $row) use (&$taken): void {
+                $taken[$row->site_id . "\0" . $row->language_id . "\0" . $row->url] = true;
+            });
+
+        return $taken;
     }
 }

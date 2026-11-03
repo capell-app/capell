@@ -7,9 +7,12 @@ namespace Capell\Admin\Actions\Pages;
 use Capell\Admin\Data\Pages\DescendantUrlRedirectRequestData;
 use Capell\Admin\Data\Pages\PageUrlRedirectResultData;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Contracts\Redirects\BatchRedirectUrlRecorder;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
+use Capell\Core\Data\Redirects\RedirectUrlRecordData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -43,7 +46,11 @@ final class RecordDescendantUrlRedirectsAction
         // Only pages that are still descendants of the edited page may
         // receive redirects; submitted ids cannot reach arbitrary pages.
         // Query by key: fresh tree bounds, not the instance's cached ones.
-        $descendants = $request->page->newQuery()->whereDescendantOf($request->page->getKey())->get()
+        // Only the accepted ids are hydrated, never the whole subtree.
+        $descendants = $request->page->newQuery()
+            ->whereDescendantOf($request->page->getKey())
+            ->whereKey(array_keys($acceptedUrls))
+            ->get()
             ->filter(fn (Model $descendant): bool => $descendant instanceof Pageable)
             ->keyBy(fn (Model $descendant): int => (int) $descendant->getKey());
 
@@ -59,8 +66,10 @@ final class RecordDescendantUrlRedirectsAction
             ->get()
             ->keyBy(fn (Language $language): int => (int) $language->getKey());
 
+        $currentUrls = $this->currentUrls($request->page->getMorphClass(), array_keys($descendants->all()), array_keys($languageIds));
         $acceptedCount = 0;
-        $recordedCount = 0;
+        /** @var list<RedirectUrlRecordData> $records */
+        $records = [];
 
         foreach ($acceptedUrls as $pageId => $urls) {
             $descendant = $descendants->get($pageId);
@@ -78,18 +87,27 @@ final class RecordDescendantUrlRedirectsAction
                     continue;
                 }
 
-                if (! $this->urlChangedFor($descendant, $languageId, $oldUrl)) {
+                if (($currentUrls[$pageId][$languageId] ?? null) === $oldUrl) {
                     continue;
                 }
 
-                $this->redirects->record($descendant, $language, $oldUrl);
-                $recordedCount++;
+                $records[] = new RedirectUrlRecordData($descendant, $language, $oldUrl);
+            }
+        }
+
+        if ($this->redirects instanceof BatchRedirectUrlRecorder) {
+            $this->redirects->recordMany($records);
+        } else {
+            foreach ($records as $record) {
+                /** @var Pageable<Model> $pageable */
+                $pageable = $record->pageable;
+                $this->redirects->record($pageable, $record->language, $record->url);
             }
         }
 
         return new PageUrlRedirectResultData(
             acceptedCount: $acceptedCount,
-            recordedCount: $recordedCount,
+            recordedCount: count($records),
         );
     }
 
@@ -139,17 +157,36 @@ final class RecordDescendantUrlRedirectsAction
     }
 
     /**
-     * @template TDeclaringModel of Model
+     * The current (non-redirect) address of each page and language, read in
+     * one query instead of once per descendant and language.
      *
-     * @param  Pageable<TDeclaringModel>  $descendant
+     * @param  list<int>  $pageIds
+     * @param  list<int>  $languageIds
+     * @return array<int, array<int, string>>
      */
-    private function urlChangedFor(Pageable $descendant, int $languageId, string $oldUrl): bool
+    private function currentUrls(string $morphClass, array $pageIds, array $languageIds): array
     {
-        $currentUrl = $descendant->pageUrls()
-            ->where('language_id', $languageId)
-            ->where(fn (Builder $query): Builder => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
-            ->value('url');
+        if ($pageIds === [] || $languageIds === []) {
+            return [];
+        }
 
-        return ! is_string($currentUrl) || $currentUrl !== $oldUrl;
+        $currentUrls = [];
+
+        PageUrl::query()
+            ->where('pageable_type', $morphClass)
+            ->whereIn('pageable_id', $pageIds)
+            ->whereIn('language_id', $languageIds)
+            ->where(fn (Builder $query): Builder => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
+            ->orderBy('id')
+            ->toBase()
+            ->get(['pageable_id', 'language_id', 'url'])
+            ->each(function (object $row) use (&$currentUrls): void {
+                // Match value(): the first matching row wins.
+                if (is_string($row->url)) {
+                    $currentUrls[(int) $row->pageable_id][(int) $row->language_id] ??= $row->url;
+                }
+            });
+
+        return $currentUrls;
     }
 }
