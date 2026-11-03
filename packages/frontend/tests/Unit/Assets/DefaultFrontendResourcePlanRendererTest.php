@@ -15,6 +15,7 @@ use Capell\Frontend\Enums\ReferrerPolicy;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
 use Illuminate\Foundation\Vite;
+use Illuminate\Support\Facades\File;
 
 it('renders head and body resources with security attributes and vite nonce', function (): void {
     resolve(Vite::class)->useCspNonce('test-nonce');
@@ -64,7 +65,7 @@ it('keeps internal handles and composer package ownership out of lazy payloads',
         ->and($json)->not->toContain('capell-app/gallery')->not->toContain('runtime"');
 });
 
-it('defers the stylesheet recovery runtime while keeping critical stylesheets blocking', function (): void {
+it('runs the stylesheet recovery runtime before critical stylesheets, which stay blocking', function (): void {
     resolve(Vite::class)->useCspNonce('recovery-nonce');
     config()->set('capell-frontend.stylesheet_recovery', [
         'enabled' => true,
@@ -83,12 +84,14 @@ it('defers the stylesheet recovery runtime while keeping critical stylesheets bl
     ]);
 
     $rendered = resolve(DefaultFrontendResourcePlanRenderer::class)->render($plan, frontendResourceContext());
-    $runtimePosition = strpos($rendered->headHtml, 'stylesheet-recovery.js');
+    $runtimePosition = strpos($rendered->headHtml, 'data-capell-stylesheet-recovery-runtime');
     $stylesheetPosition = strpos($rendered->headHtml, 'frontend-old.css');
     throw_if($runtimePosition === false || $stylesheetPosition === false, RuntimeException::class, 'Recovery markup is incomplete.');
 
+    // Inlined when the published runtime is readable, otherwise the external
+    // tag; either way it carries the nonce and runs before the stylesheet.
     expect($rendered->headHtml)
-        ->toContain('<script src="/vendor/capell-frontend/stylesheet-recovery.js" nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
+        ->toContain('nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime')
         ->toContain('<link rel="stylesheet" href="https://cdn.example.com/build/assets/frontend-old.css"')
         ->toContain('data-capell-stylesheet-recovery')
         ->toContain('data-capell-stylesheet-fallback="/build/fallback/resources/css/capell/frontend.css"')
@@ -109,3 +112,44 @@ function frontendResourceContext(): FrontendResourceContextData
         runtime: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
     );
 }
+
+it('inlines the published stylesheet recovery runtime before the stylesheet so no request blocks the head', function (): void {
+    $runtimeDirectory = public_path('vendor/capell-frontend-inline-test');
+    File::ensureDirectoryExists($runtimeDirectory);
+    File::put($runtimeDirectory . '/stylesheet-recovery.js', ';(() => { window.recoveryRuntimeLoaded = true })()' . "\n");
+    File::put($runtimeDirectory . '/unsafe-recovery.js', 'document.write("</script><b>broken</b>")');
+    resolve(Vite::class)->useCspNonce('recovery-nonce');
+    config()->set('capell-frontend.stylesheet_recovery', [
+        'enabled' => true,
+        'fallback_url' => '/build/fallback/resources/css/capell/frontend.css',
+        'runtime_url' => '/vendor/capell-frontend-inline-test/stylesheet-recovery.js',
+    ]);
+
+    $plan = ResolveFrontendResourcePlanAction::run([
+        new FrontendResourceContributionData(FrontendResourceData::style(
+            'capell-app/marketing:frontend',
+            'capell-app/marketing',
+            new ExternalResourceSourceData('https://cdn.example.com/build/assets/frontend-old.css'),
+            criticalCssEligible: true,
+        )),
+    ]);
+
+    try {
+        $headHtml = resolve(DefaultFrontendResourcePlanRenderer::class)->render($plan, frontendResourceContext())->headHtml;
+        $runtimePosition = strpos($headHtml, 'window.recoveryRuntimeLoaded');
+        $stylesheetPosition = strpos($headHtml, 'frontend-old.css');
+
+        expect($headHtml)
+            ->toContain('<script nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime>;(() => { window.recoveryRuntimeLoaded = true })()')
+            ->not->toContain('src="/vendor/capell-frontend-inline-test/stylesheet-recovery.js"')
+            ->and($runtimePosition)->toBeInt()->toBeLessThan($stylesheetPosition);
+
+        config()->set('capell-frontend.stylesheet_recovery.runtime_url', '/vendor/capell-frontend-inline-test/unsafe-recovery.js');
+
+        expect(resolve(DefaultFrontendResourcePlanRenderer::class)->render($plan, frontendResourceContext())->headHtml)
+            ->toContain('<script src="/vendor/capell-frontend-inline-test/unsafe-recovery.js" nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
+            ->not->toContain('<b>broken</b>');
+    } finally {
+        File::deleteDirectory($runtimeDirectory);
+    }
+});

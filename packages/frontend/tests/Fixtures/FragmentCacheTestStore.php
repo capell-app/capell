@@ -16,6 +16,9 @@ final class FragmentCacheTestStore extends ArrayStore
 
     public int $putCalls = 0;
 
+    /** @var list<string> */
+    public array $readKeys = [];
+
     public bool $failMapWrites = false;
 
     public bool $failFragmentWrites = false;
@@ -36,6 +39,14 @@ final class FragmentCacheTestStore extends ArrayStore
         throw_if($this->failLocks, LockTimeoutException::class);
 
         return parent::lock($name, $seconds, $owner);
+    }
+
+    #[Override]
+    public function get($key)
+    {
+        $this->readKeys[] = (string) $key;
+
+        return parent::get($key);
     }
 
     #[Override]

@@ -21,6 +21,18 @@ final class FragmentCache
 
     private const string NAMESPACE_KEY = 'fragment:namespace';
 
+    /**
+     * Request-scoped memory (the container binds this class scoped). A page
+     * renders many fragments, and each hit would otherwise re-read the
+     * namespace and unserialise the whole site-wide surrogate map. Another
+     * process rotating the namespace mid-request is seen by the next request,
+     * exactly as if this request had started a moment earlier.
+     */
+    private ?string $namespace = null;
+
+    /** @var array<string, array<array-key, list<string>>> */
+    private array $hitSurrogateMaps = [];
+
     public function __construct(private readonly Repository $cache) {}
 
     /** @param list<string> $surrogateKeys */
@@ -45,7 +57,8 @@ final class FragmentCache
         $missing = new stdClass;
         $result = $this->cache->get($cacheKey, $missing);
         if ($result !== $missing) {
-            $surrogateMap = $this->surrogateMap($this->mapKey($namespace));
+            $mapKey = $this->mapKey($namespace);
+            $surrogateMap = $this->hitSurrogateMaps[$mapKey] ??= $this->surrogateMap($mapKey);
             if ($this->hasSurrogateMembership($surrogateMap, $cacheKey, $surrogateKeys)) {
                 return $result;
             }
@@ -55,13 +68,17 @@ final class FragmentCache
         }
 
         $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
+        unset($this->hitSurrogateMaps[$this->mapKey($namespace)]);
 
         return $result;
     }
 
     public function invalidateBySurrogateKey(string $surrogateKey): void
     {
-        $mapKey = $this->mapKey($this->namespace());
+        // Writers never trust the request memory: another process may have
+        // rotated the namespace since this request first read it.
+        $mapKey = $this->mapKey($this->namespace(fresh: true));
+        unset($this->hitSurrogateMaps[$mapKey]);
         $fragmentKeys = [];
         if (! $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $surrogateKey, &$fragmentKeys): void {
             $surrogateMap = $this->surrogateMap($mapKey);
@@ -102,7 +119,7 @@ final class FragmentCache
 
     public function flush(): void
     {
-        $namespace = $this->namespace();
+        $namespace = $this->namespace(fresh: true);
         // No lock is needed because the new namespace makes late old-namespace writes unreachable.
         $replacement = bin2hex(random_bytes(16));
         throw_unless(
@@ -111,16 +128,22 @@ final class FragmentCache
             RuntimeException::class,
             'Unable to rotate the fragment cache namespace.',
         );
+        $this->namespace = $replacement;
+        $this->hitSurrogateMaps = [];
         $this->cache->forget($this->mapKey($namespace));
     }
 
-    private function namespace(): string
+    private function namespace(bool $fresh = false): string
     {
+        if (! $fresh && $this->namespace !== null) {
+            return $this->namespace;
+        }
+
         $namespace = $this->cache->remember(self::NAMESPACE_KEY, self::METADATA_TTL, static fn (): string => bin2hex(random_bytes(16)));
 
         throw_unless(is_string($namespace), UnexpectedValueException::class, 'The fragment cache namespace must be a string.');
 
-        return $namespace;
+        return $this->namespace = $namespace;
     }
 
     /**

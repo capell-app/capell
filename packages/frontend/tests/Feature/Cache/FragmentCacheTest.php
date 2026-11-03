@@ -407,3 +407,69 @@ it('purges variants recorded by separate cache workers during a real race', func
         CacheOriginContexts::bind(null);
     }
 });
+
+it('reads the namespace and surrogate map once per request and one value per further fragment hit', function (): void {
+    $store = new FragmentCacheTestStore;
+    $repository = new Repository($store);
+    CacheOriginContexts::bind('console');
+
+    $warm = new FragmentCache($repository);
+    foreach (['header', 'body', 'footer'] as $fragment) {
+        $warm->remember($fragment, static fn (): string => $fragment, surrogateKeys: ['page:1']);
+    }
+
+    // A fresh instance stands for the next request.
+    $fragments = new FragmentCache($repository);
+    $store->readKeys = [];
+
+    expect($fragments->remember('header', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('header');
+
+    $firstHitReads = $store->readKeys;
+    $store->readKeys = [];
+
+    expect($fragments->remember('body', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('body')
+        ->and($fragments->remember('footer', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('footer')
+        ->and($firstHitReads)->toHaveCount(3)
+        ->and($store->readKeys)->toHaveCount(2)
+        ->and(array_filter($store->readKeys, static fn (string $key): bool => str_ends_with($key, ':surrogate:map') || $key === 'fragment:namespace'))->toBe([]);
+});
+
+it('stops serving a fragment in the same request once its surrogate is invalidated', function (): void {
+    $repository = new Repository(new FragmentCacheTestStore);
+    CacheOriginContexts::bind('console');
+    $fragments = new FragmentCache($repository);
+
+    expect($fragments->remember('tracked', static fn (): string => 'old', surrogateKeys: ['page:1']))->toBe('old');
+
+    $fragments->invalidateBySurrogateKey('page:1');
+
+    expect($fragments->remember('tracked', static fn (): string => 'new', surrogateKeys: ['page:1']))->toBe('new');
+
+    $fragments->flush();
+
+    expect($fragments->remember('tracked', static fn (): string => 'newest', surrogateKeys: ['page:1']))->toBe('newest');
+});
+
+it('gives each request its own fragment cache memory', function (): void {
+    $first = resolve(FragmentCache::class);
+
+    app()->forgetScopedInstances();
+
+    expect(resolve(FragmentCache::class))->not->toBe($first)
+        ->and(resolve('capell-frontend.fragment-cache'))->toBe(resolve(FragmentCache::class));
+});
+
+it('invalidates against the current namespace when another process rotated it mid-request', function (): void {
+    $repository = new Repository(new FragmentCacheTestStore);
+    CacheOriginContexts::bind('console');
+    $request = new FragmentCache($repository);
+    $request->remember('early', static fn (): string => 'early');
+
+    $otherProcess = new FragmentCache($repository);
+    $otherProcess->flush();
+    $otherProcess->remember('tracked', static fn (): string => 'current', surrogateKeys: ['page:1']);
+
+    $request->invalidateBySurrogateKey('page:1');
+
+    expect(new FragmentCache($repository)->remember('tracked', static fn (): string => 'rebuilt', surrogateKeys: ['page:1']))->toBe('rebuilt');
+});
