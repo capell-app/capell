@@ -11,14 +11,28 @@ use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
+use Composer\Autoload\ClassLoader;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
+use Filament\Pages\BasePage;
 use Filament\Panel;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Routing\Route;
+use Illuminate\Routing\RouteAction;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Laravel\SerializableClosure\SerializableClosure;
+use Livewire\Features\SupportCssModules\SupportCssModules;
+use Livewire\Features\SupportFileUploads\FilePreviewController;
+use Livewire\Features\SupportFileUploads\FileUploadController;
+use Livewire\Features\SupportJsModules\SupportJsModules;
 use Livewire\Livewire;
+use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
+use Livewire\Mechanisms\HandleRequests\HandleRequests;
+use ReflectionClass;
+use ReflectionFunction;
 use ReflectionProperty;
 use RuntimeException;
 use Throwable;
@@ -36,6 +50,24 @@ final class InstalledPanelRuntime
         'auth.password-reset.request',
         'auth.password-reset.reset',
         'auth.register',
+    ];
+
+    /** Code that only serves the admin panels; a route running it is owned by a panel unless declared public. */
+    private const array ADMIN_NAMESPACES = ['Filament\\', 'Livewire\\', 'Capell\\Admin\\'];
+
+    /**
+     * Livewire's own endpoints, which every page uses, signed in or not. The update endpoint serves
+     * public components too: a panel component's update replays its panel's middleware for the route
+     * that rendered it. Uploads and previews are credentialed by their URL signature, and the rest
+     * serve Livewire's static script, maps and component assets.
+     */
+    private const array PUBLIC_ACTIONS = [
+        HandleRequests::class,
+        FileUploadController::class,
+        FilePreviewController::class,
+        FrontendAssets::class,
+        SupportCssModules::class,
+        SupportJsModules::class,
     ];
 
     /** @var WeakMap<Panel, array<int, bool>> */
@@ -72,6 +104,15 @@ final class InstalledPanelRuntime
     /** @var array<string, true> Route names their owners declared public, such as signed preview links. */
     private array $publicRoutes = [];
 
+    /** @var array<string, true> Namespaces of admin-only packages beyond Filament, Livewire and Capell admin. */
+    private array $adminNamespaces = [];
+
+    /** @var WeakMap<Route, array{0: mixed, 1: bool}> Whether a route runs admin code, by the action it was classified from. */
+    private WeakMap $adminCode;
+
+    /** @var list<string>|null Directories holding the admin packages' route files. */
+    private ?array $adminRoots = null;
+
     /** @var array<string, true> */
     private array $freshApplicationRequired = [];
 
@@ -97,6 +138,7 @@ final class InstalledPanelRuntime
         $this->reconciledRoutes = new WeakMap;
         $this->refusedRoutes = new WeakMap;
         $this->inspectedRoutes = new WeakMap;
+        $this->adminCode = new WeakMap;
     }
 
     public function isUnavailable(string $panel): bool
@@ -114,6 +156,35 @@ final class InstalledPanelRuntime
         foreach ($names as $name) {
             $this->publicRoutes[$name] = true;
         }
+    }
+
+    /** Treat routes running code from these namespaces (admin-only Filament plugins) as admin code. */
+    public function declareAdminCode(string ...$namespaces): void
+    {
+        foreach ($namespaces as $namespace) {
+            $this->adminNamespaces[rtrim($namespace, '\\') . '\\'] = true;
+        }
+
+        $this->adminCode = new WeakMap;
+        $this->adminRoots = null;
+    }
+
+    /**
+     * Routes running Filament, Livewire or Capell admin code that no panel owns and that nothing
+     * declared public. They are refused when matched.
+     *
+     * @return list<string>
+     */
+    public function unclassifiedAdminRoutes(): array
+    {
+        $unclassified = [];
+        foreach ($this->router->getRoutes()->getRoutes() as $route) {
+            if ($this->isUnclassified($route)) {
+                $unclassified[] = $route->getName() ?? implode('|', $route->methods()) . ' ' . $route->uri();
+            }
+        }
+
+        return $unclassified;
     }
 
     /** The route could not be held to its panel's security middleware, so it is never served. */
@@ -171,6 +242,10 @@ final class InstalledPanelRuntime
         $owners = $this->owners($route);
         if (count($owners) > 1) {
             $this->refuse(reset($owners), $route, new RuntimeException(__('capell-admin::message.extension_panel_route_ambiguous')));
+        }
+
+        if ($owners === [] && $this->isUnclassified($route)) {
+            $this->refuse(null, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
         }
 
         foreach ($owners as $id => $panel) {
@@ -345,6 +420,15 @@ final class InstalledPanelRuntime
                 $this->reconcileOrRefuse($panel, $instance);
             }
         }
+
+        // Every route running admin code is owned by a panel or declared public; anything else is refused.
+        if ($panel->getId() === $this->defaultPanelId()) {
+            foreach ($routes->getRoutes() as $route) {
+                if ($this->isUnclassified($route)) {
+                    $this->refuse($panel, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
+                }
+            }
+        }
     }
 
     /** Fail closed for this route only: the failure is recorded and the route is refused. */
@@ -394,17 +478,18 @@ final class InstalledPanelRuntime
         Livewire::addPersistentMiddleware(array_values($replayed));
     }
 
-    private function refuse(Panel $panel, Route $route, Throwable $throwable): void
+    private function refuse(?Panel $panel, Route $route, Throwable $throwable): void
     {
         if (isset($this->refusedRoutes[$route])) {
             return;
         }
 
         $this->refusedRoutes[$route] = true;
+        $id = $panel?->getId() ?? $this->defaultPanelId();
         // Keyed by route, so a refused route never masks a later failure of the panel itself.
-        resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $panel->getId() . ':' . ($route->getName() ?? $route->uri()));
+        resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $id . ':' . ($route->getName() ?? $route->uri()));
         Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
-            'panel' => $panel->getId(),
+            'panel' => $id,
             'reason' => $throwable->getMessage(),
         ]);
     }
@@ -648,7 +733,142 @@ final class InstalledPanelRuntime
         }
 
         // Ownership by name or declaration and ownership by path must agree on one panel.
-        return $owners + $byPath;
+        $owners += $byPath;
+        if ($owners !== [] || ! $this->isAdminCode($route) || $this->isDeclaredPublic($route) || $this->namesRegisteredPanel($route)) {
+            return $owners;
+        }
+
+        // Admin code outside every panel (such as Filament's global export download, which keeps no
+        // panel on its record) belongs to the default panel and runs that panel's whole stack.
+        $default = $this->defaultPanelId();
+
+        return isset($this->synchronised[$default]) ? [$default => $this->synchronised[$default]] : [];
+    }
+
+    private function isUnclassified(Route $route): bool
+    {
+        return $this->isAdminCode($route) && ! $this->isDeclaredPublic($route) && ! $this->namesRegisteredPanel($route) && $this->owners($route) === [];
+    }
+
+    /** A route of a Filament panel the Capell runtime does not extend belongs to that panel and its own stack. */
+    private function namesRegisteredPanel(Route $route): bool
+    {
+        return array_any(array_keys(Filament::getPanels()), fn (string $id): bool => $this->associated($route, $id));
+    }
+
+    private function defaultPanelId(): string
+    {
+        try {
+            return Filament::getDefaultPanel()->getId();
+        } catch (Throwable) {
+            return 'admin';
+        }
+    }
+
+    /** Declared public by name, or one of Livewire's own endpoints. */
+    private function isDeclaredPublic(Route $route): bool
+    {
+        if (isset($this->publicRoutes[(string) $route->getName()])) {
+            return true;
+        }
+
+        [$class] = $this->actionCode($route);
+
+        return $class !== null && in_array($class, self::PUBLIC_ACTIONS, true);
+    }
+
+    /** Whether the route runs Filament, Livewire or Capell admin code, or a declared admin-only package. */
+    private function isAdminCode(Route $route): bool
+    {
+        $uses = $route->getAction('uses');
+        $cached = $this->adminCode[$route] ?? null;
+        if ($cached !== null && $cached[0] === $uses) {
+            return $cached[1];
+        }
+
+        $admin = $this->classifyAdminCode($route);
+        $this->adminCode[$route] = [$uses, $admin];
+
+        return $admin;
+    }
+
+    /** The action is shipped in an admin package's source or route files, or is a Filament page. */
+    private function classifyAdminCode(Route $route): bool
+    {
+        [$class, $file] = $this->actionCode($route);
+        if ($class !== null && class_exists($class)) {
+            if (is_subclass_of($class, BasePage::class)) {
+                return true;
+            }
+
+            $file = new ReflectionClass($class)->getFileName();
+            $file = $file === false ? null : (realpath($file) ?: $file);
+        }
+
+        return $file !== null && array_any($this->adminRoots(), static fn (string $root): bool => str_starts_with($file, $root));
+    }
+
+    /**
+     * The controller class an action runs, or the file declaring its closure.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function actionCode(Route $route): array
+    {
+        $action = $route->getAction();
+        $uses = $action['uses'] ?? null;
+        if (is_string($uses) && RouteAction::containsSerializedClosure($action)) {
+            $closure = unserialize($uses);
+            $uses = $closure instanceof SerializableClosure ? $closure->getClosure() : null;
+        }
+
+        if ($uses instanceof Closure) {
+            $file = new ReflectionFunction($uses)->getFileName();
+
+            return [null, $file === false ? null : (realpath($file) ?: $file)];
+        }
+
+        if (is_string($uses) && $uses !== '') {
+            $class = Str::parseCallback($uses)[0];
+
+            return [is_string($class) ? ltrim($class, '\\') : null, null];
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * The source and route directories of the admin packages, found through Composer's PSR-4 map.
+     * Their test suites are not admin code.
+     *
+     * @return list<string>
+     */
+    private function adminRoots(): array
+    {
+        if ($this->adminRoots !== null) {
+            return $this->adminRoots;
+        }
+
+        $namespaces = [...self::ADMIN_NAMESPACES, ...array_keys($this->adminNamespaces)];
+        $roots = [];
+        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
+            foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
+                if (! array_any($namespaces, static fn (string $namespace): bool => str_starts_with($prefix, $namespace))) {
+                    continue;
+                }
+
+                foreach ($directories as $directory) {
+                    $path = realpath($directory);
+                    // A package's route files sit beside its source directory.
+                    if ($path !== false && basename($path) === 'src') {
+                        $roots[] = $path . DIRECTORY_SEPARATOR;
+                        $roots[] = dirname($path) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR;
+                    }
+                }
+            }
+        }
+
+        return $this->adminRoots = array_values(array_unique($roots));
     }
 
     /** The length of the panel path holding the route, or null when the panel's path or domains exclude it. */
