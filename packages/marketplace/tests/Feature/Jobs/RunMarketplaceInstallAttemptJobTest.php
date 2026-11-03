@@ -1658,7 +1658,8 @@ it('quarantines the whole changed set when an added dependency fails and lifts i
             'packages' => 'vendor/tampered-dependency, vendor/verified-top-level',
             'reason' => '',
         ]))
-        ->and($attempt->context['quarantine'] ?? null)->toBe(['failing_package' => 'vendor/tampered-dependency', 'packages' => ['vendor/tampered-dependency', $name]])
+        ->and($attempt->context['quarantine']['failing_package'] ?? null)->toBe('vendor/tampered-dependency')
+        ->and($attempt->context['quarantine']['packages'] ?? null)->toBe(['vendor/tampered-dependency', $name])
         ->and($rollbacks->calls)->toBe(1)
         ->and($rollbacks->quarantinedDuringRollback)->toBe(['vendor/tampered-dependency', $name])
         ->and(ExtensionQuarantine::query()->count())->toBe(0);
