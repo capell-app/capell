@@ -55,6 +55,7 @@ use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
+use Capell\Core\Console\Commands\SecurityScanCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
@@ -72,6 +73,9 @@ use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
+use Capell\Core\Contracts\Security\SecurityWeaknessAnalyser;
+use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
+use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Data\RenderableDefinitionData;
@@ -194,8 +198,20 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
+use Capell\Core\Support\Security\Checks\AutoUpdatesOffForAdvisoryCheck;
+use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
+use Capell\Core\Support\Security\Checks\InsecureCookieCheck;
+use Capell\Core\Support\Security\Checks\InstallerEnabledCheck;
+use Capell\Core\Support\Security\Checks\KeyMissingCheck;
+use Capell\Core\Support\Security\Checks\SecurityAdvisoryCheck;
+use Capell\Core\Support\Security\Checks\UrlNotHttpsCheck;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
+use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
+use Capell\Core\Support\Security\Remediations\AutoUpdatesForAdvisoryRemediation;
+use Capell\Core\Support\Security\Remediations\DebugEnabledRemediation;
+use Capell\Core\Support\Security\Remediations\InsecureCookieRemediation;
+use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
@@ -322,6 +338,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             DeleteMigrationsCommand::class,
             AdoptTableCommand::class,
             DoctorCommand::class,
+            SecurityScanCommand::class,
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
@@ -376,6 +393,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
             ->registerBackupPruneSchedule()
+            ->registerSecurityScanSchedule()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
@@ -400,6 +418,22 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     protected function packageSettingClass(): string
     {
         return CoreSettings::class;
+    }
+
+    /**
+     * @param  iterable<mixed>  $tagged
+     * @return list<object>
+     */
+    private function uniqueByClass(iterable $tagged): array
+    {
+        $unique = [];
+        foreach ($tagged as $instance) {
+            if (is_object($instance)) {
+                $unique[$instance::class] ??= $instance;
+            }
+        }
+
+        return array_values($unique);
     }
 
     private function registerPublicationTransitions(): self
@@ -583,10 +617,34 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(OutboundEventRegistry::class),
             $app->make(BlueprintSubjectRegistry::class),
             $app->make(ExtensionContributionReceiptRegistry::class),
+            $app->make(SecurityWeaknessRegistry::class),
         ));
+        $this->app->singleton(SecurityWeaknessRegistry::class);
+        $this->app->bindIf(SecurityWeaknessAnalyser::class, NullSecurityWeaknessAnalyser::class);
+        $this->app->tag([DebugEnabledCheck::class, UrlNotHttpsCheck::class, KeyMissingCheck::class,
+            InsecureCookieCheck::class, InstallerEnabledCheck::class, SecurityAdvisoryCheck::class,
+            AutoUpdatesOffForAdvisoryCheck::class], SecurityWeaknessCheck::TAG);
+        $this->app->tag([DebugEnabledRemediation::class, InsecureCookieRemediation::class,
+            AutoUpdatesForAdvisoryRemediation::class], SecurityWeaknessRemediation::TAG);
         $this->app->singleton(OutboundEventRegistry::class);
         $this->app->singleton(BlueprintSubjectRegistry::class);
         $this->app->booted(function (): void {
+            // The container appends tag entries on every provider registration, so a
+            // re-registered provider would otherwise offer each built-in check twice.
+            $security = $this->app->make(SecurityWeaknessRegistry::class);
+            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessCheck::TAG)) as $check) {
+                if ($check instanceof SecurityWeaknessCheck) {
+                    $security->registerCheck($check);
+                }
+            }
+
+            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessRemediation::TAG)) as $remediation) {
+                if ($remediation instanceof SecurityWeaknessRemediation) {
+                    $security->registerRemediation($remediation);
+                }
+            }
+
+            $security->freeze();
             $this->app->make(OutboundEventRegistry::class)->freeze();
             $this->app->make(BlueprintSubjectRegistry::class)->freeze();
         });
@@ -835,6 +893,25 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->cron($cron)
                 ->withoutOverlapping()
                 ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    private function registerSecurityScanSchedule(): self
+    {
+        if (config('capell.security.scan.scheduled', true) !== true) {
+            return $this;
+        }
+
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $command = 'capell:security:scan --actor=scheduler';
+            if (config('capell.security.scan.fix_approved', true) === true) {
+                $command .= ' --fix-approved';
+            }
+
+            $schedule->command($command)->dailyAt(config('capell.security.scan.at', '04:10'))
+                ->withoutOverlapping()->onOneServer();
         });
 
         return $this;

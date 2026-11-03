@@ -26,6 +26,7 @@ use Capell\Core\Support\Diagnostics\Checks\PageUrlSiteDomainsCheck;
 use Capell\Core\Support\Diagnostics\Checks\RequiredTablesCheck;
 use Capell\Core\Support\Diagnostics\Checks\RuntimeRoleCheck;
 use Capell\Core\Support\Diagnostics\Checks\RuntimeToolingCheck;
+use Capell\Core\Support\Diagnostics\Checks\SecurityPostureCheck;
 use Capell\Core\Support\Diagnostics\Checks\SeedDataCheck;
 use Capell\Core\Support\Diagnostics\Checks\SharedCacheStoreCheck;
 use Capell\Core\Support\Diagnostics\Checks\StorageDisksWritableCheck;
@@ -54,6 +55,7 @@ final class BuildDoctorReportAction
         InstalledPackagesCheck::class,
         InstalledRuntimeCheck::class,
         ExtensionVerificationCheck::class,
+        SecurityPostureCheck::class,
         FoundationVersionAlignmentCheck::class,
         ViteInputsCheck::class,
         GeneratedTailwindCssCheck::class,

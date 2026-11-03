@@ -14,6 +14,7 @@ use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -50,6 +51,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
         new OutboundEventRegistry,
         new BlueprintSubjectRegistry,
         $receipts,
+        new SecurityWeaknessRegistry,
     );
 
     $receipts->rememberNamespaceContext(

@@ -17,6 +17,7 @@ use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
+use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -46,6 +47,7 @@ final class PackageSurfaceRegistrar
         private readonly OutboundEventRegistry $outboundEvents,
         private readonly BlueprintSubjectRegistry $blueprintSubjects,
         private readonly ExtensionContributionReceiptRegistry $receipts,
+        private readonly SecurityWeaknessRegistry $securityWeaknesses,
     ) {}
 
     /**
@@ -65,7 +67,9 @@ final class PackageSurfaceRegistrar
     public function duringPackageInstallation(callable $callback): mixed
     {
         return $this->outboundEvents->duringPackageInstallation(
-            fn (): mixed => $this->blueprintSubjects->duringPackageInstallation($callback),
+            fn (): mixed => $this->blueprintSubjects->duringPackageInstallation(
+                fn (): mixed => $this->securityWeaknesses->duringPackageInstallation($callback),
+            ),
         );
     }
 

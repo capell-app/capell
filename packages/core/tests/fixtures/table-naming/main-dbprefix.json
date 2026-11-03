@@ -218,6 +218,37 @@
         ],
         "foreign_keys": []
     },
+    "capell_security_remediation_approvals": {
+        "indexes": [
+            "capell_security_remediation_approvals_weakness_id_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_security_remediation_runs": {
+        "indexes": [
+            "capell_security_remediation_runs_weakness_id_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": null,
+                "columns": ["finding_id"],
+                "foreign_schema": "main",
+                "foreign_table": "dbp_capell_security_weakness_findings",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "capell_security_weakness_findings": {
+        "indexes": [
+            "capell_security_weakness_findings_fingerprint_unique",
+            "capell_security_weakness_findings_status_severity_index",
+            "capell_security_weakness_findings_weakness_id_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_upgrade_locks": {
         "indexes": [
             "capell_upgrade_locks_expires_at_index",

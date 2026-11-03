@@ -180,6 +180,8 @@ php artisan capell:upgrade --force --no-clear-cache
 
 ## Update And Security Notices
 
+See [Security weakness scans](security-weaknesses.md) for scheduled posture checks, findings and approved automatic remediation.
+
 Capell shows WordPress-style notices without letting the browser run Composer. The installed site phones home to the marketplace, stores the latest response in `marketplace_update_advisory_snapshots`, and renders that local snapshot in the Upgrades page.
 
 The heartbeat sends:
@@ -433,3 +435,5 @@ Static error entries without a recorded port or mount cannot establish ownership
 and return the generic fallback until regeneration. Run
 `php artisan capell:generate-error-pages` to rebuild both route-scoped manifests on
 deployment, and stop previous workers to prevent further legacy rewrites.
+
+Security scans and approved remediation are described in [Security weakness scans](../operations/security-weaknesses.md). A security scan dry run still records findings.
