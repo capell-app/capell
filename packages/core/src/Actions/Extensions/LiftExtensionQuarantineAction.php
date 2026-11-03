@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Models\ExtensionQuarantine;
+use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -26,6 +27,9 @@ final class LiftExtensionQuarantineAction
             return 0;
         }
 
-        return (int) ExtensionQuarantine::query()->whereIn('composer_name', $packages)->delete();
+        $deleted = (int) ExtensionQuarantine::query()->whereIn('composer_name', $packages)->delete();
+        resolve(ExtensionQuarantineGate::class)->forget();
+
+        return $deleted;
     }
 }

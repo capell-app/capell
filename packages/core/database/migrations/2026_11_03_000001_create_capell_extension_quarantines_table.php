@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('composer_name');
             $table->string('failing_package');
             $table->json('quarantined_set');
+            $table->string('failing_comparison')->nullable();
+            $table->string('expected_digest')->nullable();
+            $table->string('actual_digest')->nullable();
             $table->dateTime('quarantined_at');
             $table->timestamps();
 

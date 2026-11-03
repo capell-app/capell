@@ -24,6 +24,7 @@ final class ExtensionIntegrityVerifier
         $warnings = [];
         $omitted = 0;
         $comparisons = [];
+        $contentHash = null;
         $add = static function (string $code, ?string $reason = null) use (&$failures, &$omitted, $composerName): void {
             if (count($failures) >= 50) {
                 $omitted++;
@@ -148,7 +149,8 @@ final class ExtensionIntegrityVerifier
                 if ($expectedContentHash !== null && $failures === []) {
                     $comparisons[] = 'content_sha256';
                     try {
-                        if ($realPackage === false || ! hash_equals(strtolower($expectedContentHash), HashExtensionContentsAction::run($realPackage))) {
+                        $contentHash = $realPackage === false ? null : HashExtensionContentsAction::run($realPackage);
+                        if ($contentHash === null || ! hash_equals(strtolower($expectedContentHash), $contentHash)) {
                             $add(Issue::CONTENT_HASH_MISMATCH);
                         }
                     } catch (Throwable) {
@@ -158,7 +160,7 @@ final class ExtensionIntegrityVerifier
             }
         }
 
-        return new ExtensionVerificationReportData($composerName, $version, $expectedVersionConstraint, $previousVersion, $failures === [], $failures, $warnings, CarbonImmutable::now(), $sha, $reference, $host, $realPackage === false ? null : $realPackage, $omitted, $comparisons);
+        return new ExtensionVerificationReportData($composerName, $version, $expectedVersionConstraint, $previousVersion, $failures === [], $failures, $warnings, CarbonImmutable::now(), $sha, $reference, $host, $realPackage === false ? null : $realPackage, $omitted, $comparisons, $contentHash);
     }
 
     public function verifyDependency(string $composerName): ExtensionVerificationReportData

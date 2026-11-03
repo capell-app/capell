@@ -129,7 +129,16 @@ it('exempts trusted core from plugin and identity checks but retains other check
     $this->package['type'] = 'composer-plugin';
     ($this->writeTree)();
     $report = $this->verifier->verify('capell-app/core', expectedSlug: 'other', expectedDistSha: 'wrong');
-    expect(array_column($report->failures, 'code'))->toContain('checksum_mismatch')->not->toContain('composer_plugin', 'manifest_identity_mismatch');
+    expect(array_column($report->failures, 'code'))->toContain('checksum_mismatch')->not->toContain('composer_plugin')->not->toContain('manifest_identity_mismatch');
+});
+
+it('compares a supplied content hash when the release version is unknown', function (): void {
+    ($this->writeTree)();
+    $report = $this->verifier->verify('vendor/example', releaseChecksumVersion: null, expectedContentHash: str_repeat('0', 64));
+
+    expect($report->passed)->toBeFalse()
+        ->and($report->comparisons)->toContain('content_sha256')
+        ->and(array_column($report->failures, 'code'))->toContain('content_hash_mismatch');
 });
 
 it('permits Composer plugins when explicitly configured', function (): void {

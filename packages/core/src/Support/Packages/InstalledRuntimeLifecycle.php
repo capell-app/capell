@@ -9,7 +9,6 @@ use Capell\Core\Actions\Packages\FindUnmetPackageRequirementsAction;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\EnsureInstalledRuntimeAvailable;
-use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
@@ -39,9 +38,6 @@ final class InstalledRuntimeLifecycle
     private array $packageRoutes = [];
 
     private bool $refreshing = false;
-
-    /** @var array<string, true> Quarantined package names, loaded once per refresh. */
-    private array $quarantined = [];
 
     private bool $unavailable = false;
 
@@ -222,7 +218,6 @@ final class InstalledRuntimeLifecycle
 
         $this->assertCanActivate($package);
         $this->refreshing = true;
-        $this->quarantined = ExtensionQuarantine::quarantinedNames();
 
         try {
             $this->app->make(PackageSurfaceRegistrar::class)->duringPackageInstallation(function (): void {
@@ -261,7 +256,6 @@ final class InstalledRuntimeLifecycle
             throw $throwable;
         } finally {
             $this->refreshing = false;
-            $this->quarantined = [];
         }
     }
 
@@ -303,7 +297,7 @@ final class InstalledRuntimeLifecycle
             return $completed[$package] = false;
         }
 
-        if (isset($this->quarantined[$package])) {
+        if (! $this->app->make(ExtensionQuarantineGate::class)->allows($package)) {
             return $completed[$package] = false;
         }
 

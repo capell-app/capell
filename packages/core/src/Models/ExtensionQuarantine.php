@@ -9,9 +9,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Override;
-use Throwable;
 
 /**
  * A package held back from enabling and booting because an operation that
@@ -21,6 +21,9 @@ use Throwable;
  * @property string $composer_name
  * @property string $failing_package
  * @property list<string> $quarantined_set
+ * @property string|null $failing_comparison
+ * @property string|null $expected_digest
+ * @property string|null $actual_digest
  * @property CarbonImmutable $quarantined_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -39,8 +42,13 @@ final class ExtensionQuarantine extends Model
         'composer_name',
         'failing_package',
         'quarantined_set',
+        'failing_comparison',
+        'expected_digest',
+        'actual_digest',
         'quarantined_at',
     ];
+
+    private static bool $missingTableLogged = false;
 
     /**
      * Quarantined package names, keyed by name. An application without the
@@ -50,16 +58,17 @@ final class ExtensionQuarantine extends Model
      */
     public static function quarantinedNames(): array
     {
-        try {
-            $instance = new self;
-            if (! Schema::connection($instance->getConnectionName())->hasTable($instance->getTable())) {
-                return [];
+        $instance = new self;
+        if (! Schema::connection($instance->getConnectionName())->hasTable($instance->getTable())) {
+            if (! self::$missingTableLogged) {
+                Log::warning('Extension quarantine table is unavailable before migration.');
+                self::$missingTableLogged = true;
             }
 
-            return array_fill_keys(self::query()->pluck('composer_name')->all(), true);
-        } catch (Throwable) {
             return [];
         }
+
+        return array_fill_keys(self::query()->pluck('composer_name')->all(), true);
     }
 
     public static function isQuarantined(string $composerName): bool

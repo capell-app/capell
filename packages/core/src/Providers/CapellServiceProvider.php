@@ -183,6 +183,7 @@ use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -276,6 +277,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(TableName::class);
         $this->app->singleton(MigrationRootRegistry::class);
         $this->app->singleton(ComponentRegistry::class);
+        $this->app->singleton(ExtensionQuarantineGate::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerRuntimeRole();
         $this->registerSettingsSchemaRegistry();

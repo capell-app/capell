@@ -29,5 +29,6 @@ final class ExtensionVerificationReportData extends Data
         public readonly ?string $installPath = null,
         public readonly int $omittedIssueCount = 0,
         public readonly array $comparisons = [],
+        public readonly ?string $contentHash = null,
     ) {}
 }
