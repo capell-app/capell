@@ -55,6 +55,7 @@ use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
+use Capell\Core\Console\Commands\SecurityRefreshNodeCommand;
 use Capell\Core\Console\Commands\SecurityScanCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
@@ -339,6 +340,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AdoptTableCommand::class,
             DoctorCommand::class,
             SecurityScanCommand::class,
+            SecurityRefreshNodeCommand::class,
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
@@ -900,6 +902,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerSecurityScanSchedule(): self
     {
+        if (config('capell.multi_node', false) === true) {
+            // Every node must run this, so no onOneServer() and no shared overlap mutex.
+            $this->registerSchedule(function (Schedule $schedule): void {
+                $schedule->command('capell:security:refresh-node')->everyFiveMinutes();
+            });
+        }
+
         if (config('capell.security.scan.scheduled', true) !== true) {
             return $this;
         }

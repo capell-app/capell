@@ -37,3 +37,25 @@ it('honours the scheduling configuration', function (bool $scheduled, string $at
     [true, '13:45', true, '45 13 * * *', true],
     [true, '04:10', false, '10 4 * * *', false],
 ]);
+
+it('refreshes every node of a multi-node deployment every five minutes', function (bool $multiNode): void {
+    $schedule = resolve(Schedule::class);
+    $before = count($schedule->events());
+    config(['capell.multi_node' => $multiNode, 'capell.security.scan.scheduled' => false]);
+    $provider = new CapellServiceProvider(app());
+    new ReflectionMethod($provider, 'registerSecurityScanSchedule')->invoke($provider);
+
+    $added = array_slice($schedule->events(), $before);
+    if (! $multiNode) {
+        expect($added)->toBeEmpty();
+
+        return;
+    }
+
+    expect($added)->toHaveCount(1)
+        ->and((string) $added[0]->command)->toContain('capell:security:refresh-node')
+        ->and($added[0]->expression)->toBe('*/5 * * * *')
+        ->and($added[0]->onOneServer)->toBeFalse()
+        ->and($added[0]->withoutOverlapping)->toBeFalse()
+        ->and(array_keys(Artisan::all()))->toContain('capell:security:refresh-node');
+})->with([true, false]);

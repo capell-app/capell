@@ -13,6 +13,7 @@ use Capell\Core\Events\SecurityRemediationApplied;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityNodeRegistry;
 use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Carbon\CarbonImmutable;
@@ -26,13 +27,19 @@ class ApplyApprovedSecurityRemediationsAction
     use AsFake;
     use AsObject;
 
-    public function __construct(private readonly SecurityWeaknessRegistry $registry) {}
+    public function __construct(private readonly SecurityWeaknessRegistry $registry, private readonly SecurityNodeRegistry $nodes = new SecurityNodeRegistry) {}
 
     /**
      * @param  list<string>  $failedChecks  weakness ids whose check failed in the latest scan; their findings are skipped
      */
     public function handle(string $actor, bool $dryRun = false, ?string $onlyWeaknessId = null, ?CarbonImmutable $detectedSince = null, array $failedChecks = []): SecurityRemediationBatchResultData
     {
+        $multiNode = ! $dryRun && $this->nodes->enabled();
+        if ($multiNode) {
+            // Refuses a node-local cache store before any setting changes.
+            $this->nodes->register();
+        }
+
         $query = SecurityWeaknessFinding::query()->where('status', SecurityFindingStatus::Open->value);
         if ($onlyWeaknessId !== null) {
             $query->where('weakness_id', $onlyWeaknessId);
@@ -46,7 +53,7 @@ class ApplyApprovedSecurityRemediationsAction
         $failureMessages = [];
         foreach ($query->get() as $candidate) {
             $considered++;
-            $result = DB::transaction(function () use ($candidate, $actor, $dryRun, $detectedSince, $failedChecks): array {
+            $result = DB::transaction(function () use ($candidate, $actor, $dryRun, $detectedSince, $failedChecks, $multiNode): array {
                 $finding = SecurityWeaknessFinding::query()->lockForUpdate()->find($candidate->id);
                 if ($finding === null || $finding->status !== SecurityFindingStatus::Open) {
                     return ['skip' => 'no longer open'];
@@ -78,6 +85,10 @@ class ApplyApprovedSecurityRemediationsAction
                     return ['skip' => 'dry-run'];
                 }
 
+                if ($multiNode && SecurityRemediationRun::query()->where('finding_id', $finding->id)->where('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value)->exists()) {
+                    return ['skip' => __('capell-core::security.remediation.pending_nodes_skip')];
+                }
+
                 $run = SecurityRemediationRun::query()->create([
                     'finding_id' => $finding->id, 'weakness_id' => $finding->weakness_id,
                     'remediation_class' => $remediation::class, 'actor' => $actor,
@@ -101,7 +112,12 @@ class ApplyApprovedSecurityRemediationsAction
                     $sanitiser = new SecurityOutputSanitiser;
                     $run->fill(['outcome' => $outcome->failed ? SecurityRemediationOutcome::Failed : ($outcome->applied ? SecurityRemediationOutcome::Applied : SecurityRemediationOutcome::Skipped),
                         'message' => $sanitiser->text($outcome->message, 1000), 'before' => $sanitiser->context($outcome->before), 'after' => $sanitiser->context($outcome->after)]);
-                    if ($outcome->applied) {
+                    // Also when already set here: a retry must still reach the other nodes.
+                    if ($multiNode && ! $outcome->failed && $outcome->nodeLocal) {
+                        $this->awaitOtherNodes($run);
+                    }
+
+                    if ($run->outcome === SecurityRemediationOutcome::Applied) {
                         $finding->update(['status' => SecurityFindingStatus::Remediated, 'remediated_at' => CarbonImmutable::now()]);
                     }
                 } catch (Throwable) {
@@ -138,5 +154,30 @@ class ApplyApprovedSecurityRemediationsAction
         }
 
         return new SecurityRemediationBatchResultData($dryRun, $considered, $applied, $failed, $runIds, $skipped, $failureMessages);
+    }
+
+    /**
+     * Snapshots the live fleet; the finding stays open until every other node
+     * has applied the same change and acknowledged it.
+     */
+    private function awaitOtherNodes(SecurityRemediationRun $run): void
+    {
+        $self = $this->nodes->nodeId();
+        $expected = $this->nodes->activeNodes();
+        if (! in_array($self, $expected, true)) {
+            $expected[] = $self;
+            sort($expected);
+        }
+
+        if ($expected === [$self]) {
+            return;
+        }
+
+        $run->fill([
+            'outcome' => SecurityRemediationOutcome::AppliedPendingNodes,
+            'message' => __('capell-core::security.remediation.pending_nodes', ['count' => count($expected) - 1]),
+            'expected_nodes' => $expected,
+            'acknowledged_nodes' => [$self],
+        ]);
     }
 }

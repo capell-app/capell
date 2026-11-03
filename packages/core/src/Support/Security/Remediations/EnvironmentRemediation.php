@@ -70,14 +70,14 @@ final class EnvironmentRemediation
 
         if ($before === $values) {
             if (! app()->configurationIsCached()) {
-                return SecurityRemediationOutcomeData::skipped(__('capell-core::security.remediation.already_set'));
+                return new SecurityRemediationOutcomeData(false, __('capell-core::security.remediation.already_set'), nodeLocal: true);
             }
 
             if (! $this->refreshCache()) {
                 return SecurityRemediationOutcomeData::failed(__('capell-core::security.remediation.cache_refresh_required'), $before, $values);
             }
 
-            return new SecurityRemediationOutcomeData(true, __('capell-core::security.remediation.cache_refreshed'), $before, $values);
+            return new SecurityRemediationOutcomeData(true, __('capell-core::security.remediation.cache_refreshed'), $before, $values, nodeLocal: true);
         }
 
         $backup = $editor->backup();
@@ -90,7 +90,7 @@ final class EnvironmentRemediation
             return SecurityRemediationOutcomeData::failed(__('capell-core::security.remediation.cache_refresh_required'), $before, $after);
         }
 
-        return new SecurityRemediationOutcomeData(true, __('capell-core::security.remediation.changed'), $before, $after);
+        return new SecurityRemediationOutcomeData(true, __('capell-core::security.remediation.changed'), $before, $after, nodeLocal: true);
     }
 
     private function refreshCache(): bool
