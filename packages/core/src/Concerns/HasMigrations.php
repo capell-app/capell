@@ -83,6 +83,7 @@ trait HasMigrations
             '2026_10_24_000001_create_site_domain_claim_locks_table',
             '2026_10_29_000001_repair_admin_workspace_preferences_on_users_table',
             '2026_10_29_000002_repair_ancillary_user_columns',
+            '2026_11_03_000001_create_public_read_eligibility_state_table',
         ];
     }
 

@@ -6,10 +6,10 @@ namespace Capell\Frontend\Support\Cache;
 
 use Capell\Core\Concerns\HasCache;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
-use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
-use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Contracts\CapturesRenderedModelIdentities;
 use Capell\Frontend\Contracts\FrontendContextReader;
@@ -131,6 +131,11 @@ final class PublicPageRenderDataCache
             return null;
         }
 
+        // Rules that cannot be read leave nothing safe to store or reuse.
+        if (! resolve(PublicReadEligibilityState::class)->stamp() instanceof PublicReadStampData) {
+            return null;
+        }
+
         return CacheEnum::publicRenderData(
             pageType: $page::class,
             pageId: (int) $page->getKey(),
@@ -183,7 +188,7 @@ final class PublicPageRenderDataCache
             $this->themePreviewFingerprint(),
             $this->resourceSelectionFingerprint(),
             ($metadata ?? $this->contributors->metadata($context))->fingerprint,
-            $this->publicReadEligibilityRevision(),
+            $this->publicReadEligibilityStamp(),
         ];
 
         return hash('xxh128', implode('|', array_map(
@@ -196,15 +201,12 @@ final class PublicPageRenderDataCache
      * Render data embeds links and references to other pages, which drop out
      * when a page stops being publicly readable. Restriction rules can change
      * without any page being saved (an access policy edit, a scheduled
-     * opening), so the eligibility revision is part of the identity.
+     * opening), so the eligibility stamp (revision and next scheduled
+     * transition) is part of the identity.
      */
-    private function publicReadEligibilityRevision(): ?string
+    private function publicReadEligibilityStamp(): string
     {
-        if (! resolve(PublicPageReadEligibilityRegistry::class)->hasContributors()) {
-            return null;
-        }
-
-        return resolve(PublicReadEligibilityRevision::class)->current();
+        return resolve(PublicReadEligibilityState::class)->stamp()?->key() ?? 'unreadable';
     }
 
     private function resourceSelectionFingerprint(): string

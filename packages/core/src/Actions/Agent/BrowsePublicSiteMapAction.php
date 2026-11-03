@@ -11,6 +11,9 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadCursor;
+use Capell\Core\Support\PublicRead\PublicReadPaginator;
+use Capell\Core\Support\PublicRead\PublicReadScanner;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\Paginator;
@@ -22,7 +25,10 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *
  * Public-read eligibility is applied before pagination, so a restricted page
  * leaves no gap or link behind it. Only next and previous links are offered:
- * no total is computed, so a request scans only as far as its own page.
+ * no total is computed, a request reads at most PublicReadScanner::MAX_SCANNED
+ * addresses, and a next link carries a cursor that continues the read.
+ *
+ * @method static Paginator<int, array{url: string, title: string}> run(Site $site, Language $language, int $page = 1, ?PublicReadCursor $cursor = null)
  */
 final class BrowsePublicSiteMapAction
 {
@@ -31,12 +37,10 @@ final class BrowsePublicSiteMapAction
 
     private const int PER_PAGE = 50;
 
-    private const int SCAN_CHUNK = 200;
-
     public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
 
     /** @return Paginator<int, array{url: string, title: string}> */
-    public function handle(Site $site, Language $language, int $page = 1): Paginator
+    public function handle(Site $site, Language $language, int $page = 1, ?PublicReadCursor $cursor = null): Paginator
     {
         $page = max(1, $page);
         $morphTypes = ResolvePublicPageableMorphTypesAction::run();
@@ -75,35 +79,29 @@ final class BrowsePublicSiteMapAction
             );
         }
 
-        // Scan in batches only until this page and one more readable entry are
-        // known: enough for the next link, without counting the whole site.
-        $skip = ($page - 1) * self::PER_PAGE;
-        $wanted = self::PER_PAGE + 1;
-        $readable = [];
+        // Read in bounded batches only until this page and one more readable
+        // entry are known; a cursor continues where the read stopped.
+        $result = resolve(PublicReadScanner::class)->scan(
+            fetch: static function (int $offset, int $limit) use ($query): array {
+                $pageUrls = array_values($query->clone()->with(['translation', 'siteDomain'])->offset($offset)->limit($limit)->get()->all());
 
-        foreach ($query->with(['translation', 'siteDomain'])->lazy(self::SCAN_CHUNK)->chunk(self::SCAN_CHUNK) as $chunk) {
-            $pageUrls = array_values($chunk->all());
+                return ['items' => $pageUrls, 'more' => count($pageUrls) === $limit];
+            },
+            readable: static fn (array $pageUrls): array => PageUrlsArePubliclyReadableAction::run($pageUrls),
+            size: self::PER_PAGE,
+            page: $page,
+            cursor: $cursor,
+        );
 
-            foreach (PageUrlsArePubliclyReadableAction::run($pageUrls) as $position => $isReadable) {
-                if (! $isReadable) {
-                    continue;
-                }
-
-                if ($skip > 0) {
-                    $skip--;
-
-                    continue;
-                }
-
-                $readable[] = self::project($pageUrls[$position]);
-
-                if (count($readable) === $wanted) {
-                    break 2;
-                }
-            }
-        }
-
-        return $this->paginator($readable, $page);
+        return new PublicReadPaginator(
+            items: array_map(self::project(...), $result->items),
+            perPage: self::PER_PAGE,
+            currentPage: $page,
+            options: ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page'],
+            nextCursor: $result->next,
+            cursorName: 'cursor',
+            fromCursor: $cursor instanceof PublicReadCursor,
+        );
     }
 
     /** @return array{url: string, title: string} */

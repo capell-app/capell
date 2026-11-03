@@ -13,7 +13,7 @@ namespace Capell\Core\Events;
 final readonly class PublicReadEligibilityChanged
 {
     public function __construct(
-        public string $revision,
+        public ?string $revision,
         public string $source,
         public ?int $siteId = null,
     ) {}

@@ -792,6 +792,10 @@
         "indexes": ["primary", "property_sets_key_unique"],
         "foreign_keys": []
     },
+    "public_read_eligibility_state": {
+        "indexes": ["primary"],
+        "foreign_keys": []
+    },
     "redirect_health_snapshots": {
         "indexes": [
             "primary",

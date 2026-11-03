@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *
  * @experimental
  *
- * @method static string run(string $source, ?int $siteId = null)
+ * @method static string|null run(string $source, ?int $siteId = null)
  */
 final class RecordPublicReadEligibilityChangeAction
 {
@@ -24,7 +24,11 @@ final class RecordPublicReadEligibilityChangeAction
 
     public function __construct(private readonly PublicReadEligibilityRevision $revision) {}
 
-    public function handle(string $source, ?int $siteId = null): string
+    /**
+     * Returns the new revision, or null when it could not be stored (every
+     * public read is then denied until it can be).
+     */
+    public function handle(string $source, ?int $siteId = null): ?string
     {
         $revision = $this->revision->advance();
 

@@ -583,6 +583,16 @@
             "contractTestId": "core.reporting-dispatch"
         },
         {
+            "id": "core.contract.schedules-public-read-transitions",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\SchedulesPublicReadTransitions",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Earliest scheduled change to a contributor's public-read decisions, bounding stored projections.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.site-spec-applier",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
@@ -881,6 +891,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build SiteSpec reference.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.public-read-stamp",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\PublicRead\\PublicReadStampData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Public-read rules a stored projection was built under: revision and validity.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.publication-locale-status",
@@ -1400,6 +1420,36 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Opaque revision that stored public projections include in their identity.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-eligibility-state",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadEligibilityState",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Stamps stored public projections and decides whether a stored copy is still current.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-projection-headers",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadProjectionHeaders",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Revalidation headers and eligibility-aware validators for public projections.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-scanner",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadScanner",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Bounded, cursor-continued paging of publicly readable entries.",
             "contractTestId": null
         },
         {

@@ -90,7 +90,7 @@ it('routes first-party table references through the resolver', function (): void
         'marketplace_install_intents', 'marketplace_instances', 'marketplace_update_advisory_snapshots',
         'marketplace_update_notice_dismissals', 'metric_collection_runs', 'metric_daily_rollups', 'metric_events',
         'page_content_snapshots', 'page_property_values', 'page_revisions', 'page_role_restrictions', 'page_term', 'page_urls',
-        'page_workflow_states', 'pages', 'property_definitions', 'property_sets', 'redirect_health_snapshots',
+        'page_workflow_states', 'pages', 'property_definitions', 'property_sets', 'public_read_eligibility_state', 'redirect_health_snapshots',
         'site_domain_claim_locks', 'site_domains', 'sites', 'taxonomies', 'term_property_values', 'terms',
         'themes', 'translations',
     ];

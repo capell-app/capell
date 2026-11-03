@@ -11,6 +11,13 @@ namespace Capell\Core\Data\PublicRead;
  * caller knows its domain. Pageable identity is optional because some
  * projections only hold the published address.
  */
+/**
+ * One address a public projection is about to publish.
+ *
+ * $publishedOn is the absolute base URL of the domain the projection is
+ * published on. A relative $url is resolved against it, and is denied when it
+ * is missing: a relative address is never guessed onto another domain.
+ */
 final readonly class PublicPageReadCandidateData
 {
     public function __construct(
@@ -19,5 +26,6 @@ final readonly class PublicPageReadCandidateData
         public ?int $languageId = null,
         public ?string $pageableType = null,
         public int|string|null $pageableId = null,
+        public ?string $publishedOn = null,
     ) {}
 }

@@ -38,6 +38,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
 use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
 use Capell\Core\Contracts\Reporting\Reporter;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
@@ -72,6 +73,7 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
+use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Data\Publishing\PublicationLocaleStatusContextData;
 use Capell\Core\Data\Publishing\PublicationLocaleStatusData;
 use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
@@ -121,6 +123,9 @@ use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
+use Capell\Core\Support\PublicRead\PublicReadScanner;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Reporting\LogChannelReporter;
 use Capell\Core\Testing\ExtensionTestHarness;
@@ -206,6 +211,11 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.evaluates-public-page-read-candidates-individually', 'contract', EvaluatesPublicPageReadCandidatesIndividually::class, ExtensionSurfaceStability::Experimental, 'Default one-at-a-time batch evaluation for public-read eligibility contributors.'),
             $this->entry('core.action.record-public-read-eligibility-change', 'action', RecordPublicReadEligibilityChangeAction::class, ExtensionSurfaceStability::Experimental, 'Advances the public-read eligibility revision when access rules change without a page save.'),
             $this->entry('core.event.public-read-eligibility-changed', 'event', PublicReadEligibilityChanged::class, ExtensionSurfaceStability::Experimental, 'Signals that stored public projections must be withdrawn or regenerated.'),
+            $this->entry('core.contract.schedules-public-read-transitions', 'contract', SchedulesPublicReadTransitions::class, ExtensionSurfaceStability::Experimental, "Earliest scheduled change to a contributor's public-read decisions, bounding stored projections."),
+            $this->entry('core.dto.public-read-stamp', 'dto', PublicReadStampData::class, ExtensionSurfaceStability::Experimental, 'Public-read rules a stored projection was built under: revision and validity.'),
+            $this->entry('core.support.public-read-eligibility-state', 'support', PublicReadEligibilityState::class, ExtensionSurfaceStability::Experimental, 'Stamps stored public projections and decides whether a stored copy is still current.'),
+            $this->entry('core.support.public-read-projection-headers', 'support', PublicReadProjectionHeaders::class, ExtensionSurfaceStability::Experimental, 'Revalidation headers and eligibility-aware validators for public projections.'),
+            $this->entry('core.support.public-read-scanner', 'support', PublicReadScanner::class, ExtensionSurfaceStability::Experimental, 'Bounded, cursor-continued paging of publicly readable entries.'),
             $this->entry('core.support.public-read-eligibility-revision', 'support', PublicReadEligibilityRevision::class, ExtensionSurfaceStability::Experimental, 'Opaque revision that stored public projections include in their identity.'),
             $this->entry('core.contract.frontend-route-reservation-contributor', 'contract', FrontendRouteReservationContributor::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation contributions.'),
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),

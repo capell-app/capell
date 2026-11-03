@@ -21,6 +21,9 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Properties\PropertyValuePrecedenceExpression;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadCursor;
+use Capell\Core\Support\PublicRead\PublicReadPaginator;
+use Capell\Core\Support\PublicRead\PublicReadScanner;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -37,8 +40,6 @@ final class QueryPagesByPropertiesAction
 {
     use AsFake;
     use AsObject;
-
-    private const int SCAN_CHUNK = 200;
 
     public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
 
@@ -124,43 +125,41 @@ final class QueryPagesByPropertiesAction
 
     /**
      * Public-read eligibility is decided per served address, so matches are
-     * scanned in batches, in order, until this page and one more readable page
-     * are known. A restricted page then leaves no gap or link behind it.
+     * read in bounded batches, in order, until this page and one more readable
+     * page are known. A restricted page leaves no gap or link behind it, and a
+     * cursor continues a read that stopped at the scan limit.
      *
      * @param  Builder<Page>  $query
      * @return Paginator<int, Page>
      */
     private function paginatePubliclyReadable(Builder $query, Site $site, AgentPageQueryData $input): Paginator
     {
-        $page = max(1, $input->page);
-        $skip = ($page - 1) * $input->size;
-        $wanted = $input->size + 1;
-        $readable = [];
+        $query->select(TableName::resolve('pages') . '.*');
+        $result = resolve(PublicReadScanner::class)->scan(
+            fetch: static function (int $offset, int $limit) use ($query): array {
+                $pages = array_values(array_filter($query->clone()->offset($offset)->limit($limit)->get()->all(), static fn (mixed $page): bool => $page instanceof Page));
 
-        foreach ($query->select(TableName::resolve('pages') . '.*')->lazy(self::SCAN_CHUNK)->chunk(self::SCAN_CHUNK) as $chunk) {
-            $pages = array_values(array_filter($chunk->all(), static fn (mixed $page): bool => $page instanceof Page));
-            $readableIds = $this->readablePageIds($pages, $site, $input->languageId);
+                return ['items' => $pages, 'more' => count($pages) === $limit];
+            },
+            readable: function (array $pages) use ($site, $input): array {
+                $readableIds = $this->readablePageIds($pages, $site, $input->languageId);
 
-            foreach ($pages as $candidate) {
-                if (! isset($readableIds[(int) $candidate->getKey()])) {
-                    continue;
-                }
+                return array_map(static fn (Page $page): bool => isset($readableIds[(int) $page->getKey()]), $pages);
+            },
+            size: $input->size,
+            page: $input->page,
+            cursor: $input->cursor,
+        );
 
-                if ($skip > 0) {
-                    $skip--;
-
-                    continue;
-                }
-
-                $readable[] = $candidate;
-
-                if (count($readable) === $wanted) {
-                    break 2;
-                }
-            }
-        }
-
-        return $this->paginator($readable, $input);
+        return new PublicReadPaginator(
+            items: new EloquentCollection($result->items),
+            perPage: $input->size,
+            currentPage: max(1, $input->page),
+            options: ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page[number]'],
+            nextCursor: $result->next,
+            cursorName: 'page[cursor]',
+            fromCursor: $input->cursor instanceof PublicReadCursor,
+        );
     }
 
     /**
