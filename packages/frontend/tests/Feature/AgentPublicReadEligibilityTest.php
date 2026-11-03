@@ -29,6 +29,9 @@ use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
 use Capell\Core\Support\TableName;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
@@ -562,12 +565,111 @@ it('fails closed until a failed revision write succeeds', function (): void {
     expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull();
 
     Schema::rename($table . '_unavailable', $table);
+    // Recovery is retried at most once per interval across processes.
+    $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
     app()->forgetScopedInstances();
     $recovered = resolve(PublicReadEligibilityRevision::class)->current();
 
     expect($recovered)->toBeString()->not->toBe($before)
         ->and(resolve(PublicPageReadEligibilityRegistry::class)->allows($candidate))->toBeTrue()
         ->and(PublicReadProjectionHeaders::cacheControl())->toBe('public, no-cache');
+});
+
+it('never lets an older successful write clear a newer failure', function (): void {
+    restrictAgentReadsTo([]);
+    $older = new PublicReadEligibilityRevision;
+    $newer = new PublicReadEligibilityRevision;
+    $stage = 'armed';
+
+    // While the older advance is about to write, a newer advance fails.
+    DB::beforeExecuting(static function (string $query) use (&$stage, $newer): void {
+        if (! str_starts_with(mb_strtolower(ltrim($query)), 'update') || ! str_contains($query, 'public_read_eligibility_state')) {
+            return;
+        }
+
+        if ($stage === 'armed') {
+            $stage = 'newer';
+            $newer->advance();
+            $stage = 'done';
+
+            return;
+        }
+
+        throw_if($stage === 'newer', RuntimeException::class, 'The newer revision write fails.');
+    });
+
+    expect($older->advance())->toBeNull()
+        ->and($stage)->toBe('done');
+
+    // The newer failure still stands for every process, until a later write succeeds.
+    expect((new PublicReadEligibilityRevision)->isUnknown())->toBeTrue()
+        ->and($older->current())->toBeNull();
+});
+
+it('denies in this process when the revision-unknown state cannot be shared', function (): void {
+    restrictAgentReadsTo([]);
+    $table = TableName::resolve('public_read_eligibility_state');
+    $reported = new ArrayObject;
+    resolve(ExceptionHandler::class)->reportable(static function (Throwable $throwable) use ($reported): void {
+        $reported->append($throwable::class);
+    });
+    Cache::swap(new Repository(new class extends ArrayStore
+    {
+        public function get($key): mixed
+        {
+            throw new RuntimeException('The cache store is unavailable.');
+        }
+
+        public function forever($key, $value): bool
+        {
+            throw new RuntimeException('The cache store is unavailable.');
+        }
+    }));
+
+    Schema::rename($table, $table . '_unavailable');
+    $revision = new PublicReadEligibilityRevision;
+
+    try {
+        $advanced = $revision->advance();
+    } finally {
+        Schema::rename($table . '_unavailable', $table);
+    }
+
+    expect($advanced)->toBeNull()
+        ->and($revision->current())->toBeNull()
+        ->and($revision->isUnknown())->toBeTrue()
+        // A process that cannot read the shared state denies as well.
+        ->and((new PublicReadEligibilityRevision)->isUnknown())->toBeTrue()
+        ->and($reported->count())->toBeGreaterThan(0);
+});
+
+it('retries a failed revision write at most once per interval across requests', function (): void {
+    restrictAgentReadsTo([]);
+    $table = TableName::resolve('public_read_eligibility_state');
+    Schema::rename($table, $table . '_unavailable');
+    $attempts = 0;
+    DB::beforeExecuting(static function (string $query) use (&$attempts): void {
+        $attempts += str_starts_with(mb_strtolower(ltrim($query)), 'update') && str_contains($query, 'public_read_eligibility_state') ? 1 : 0;
+    });
+
+    try {
+        (new PublicReadEligibilityRevision)->advance();
+        $attempts = 0;
+        // Many concurrent requests observe the unknown state.
+        $reads = array_map(static fn (int $request): ?string => (new PublicReadEligibilityRevision)->current(), range(1, 8));
+    } finally {
+        Schema::rename($table . '_unavailable', $table);
+    }
+
+    expect($reads)->each->toBeNull()
+        ->and($attempts)->toBe(1);
+
+    // Still denied until the interval passes, then one retry recovers.
+    expect((new PublicReadEligibilityRevision)->current())->toBeNull();
+
+    $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
+
+    expect((new PublicReadEligibilityRevision)->current())->toBeString();
 });
 
 it('withdraws stored output at a scheduled transition without the scheduler', function (): void {
