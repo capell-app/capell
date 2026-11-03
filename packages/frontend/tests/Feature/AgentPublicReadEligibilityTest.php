@@ -12,6 +12,8 @@ use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Data\Agent\AgentSearchResultData;
 use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Enums\PropertyType;
+use Capell\Core\Events\PublicReadEligibilityChanged;
+use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
@@ -31,7 +33,9 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginator
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 
 /** @param list<string> $restrictedUrls */
@@ -564,4 +568,46 @@ it('fails closed until a failed revision write succeeds', function (): void {
     expect($recovered)->toBeString()->not->toBe($before)
         ->and(resolve(PublicPageReadEligibilityRegistry::class)->allows($candidate))->toBeTrue()
         ->and(PublicReadProjectionHeaders::cacheControl())->toBe('public, no-cache');
+});
+
+it('withdraws stored output at a scheduled transition without the scheduler', function (): void {
+    Queue::fake();
+    Event::fake([PublicReadEligibilityChanged::class]);
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function key(): string
+        {
+            return 'test-scheduled';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+        {
+            $opening = CarbonImmutable::parse('2026-11-03 12:00:00');
+
+            return $now->lessThan($opening) ? $opening : null;
+        }
+    });
+    $this->travelTo(CarbonImmutable::parse('2026-11-03 11:00:00'));
+
+    // Storing anything under the current rules schedules its withdrawal once, for exactly valid_until.
+    resolve(PublicReadEligibilityState::class)->stamp();
+    resolve(PublicReadEligibilityState::class)->stamp();
+
+    Queue::assertPushed(ExpirePublicReadProjectionsJob::class, 1);
+    Queue::assertPushed(ExpirePublicReadProjectionsJob::class, static fn (ExpirePublicReadProjectionsJob $job): bool => $job->transitionAt === CarbonImmutable::parse('2026-11-03 12:00:00')->getTimestamp()
+        && $job->delay instanceof DateTimeInterface
+        && CarbonImmutable::instance($job->delay)->equalTo(CarbonImmutable::parse('2026-11-03 12:00:00')));
+
+    $job = new ExpirePublicReadProjectionsJob(CarbonImmutable::parse('2026-11-03 12:00:00')->getTimestamp());
+    $this->travelTo(CarbonImmutable::parse('2026-11-03 12:00:00'));
+    $job->handle();
+
+    Event::assertDispatched(PublicReadEligibilityChanged::class, static fn (PublicReadEligibilityChanged $event): bool => $event->source === 'public-read.scheduled-transition');
 });

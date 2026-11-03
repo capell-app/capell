@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Capell\Core\Support\PublicRead;
 
 use Capell\Core\Data\PublicRead\PublicReadStampData;
+use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 /**
  * Tells stored public projections which rules they are built under and
@@ -18,11 +21,14 @@ use Carbon\CarbonImmutable;
  *
  * @experimental
  */
-final readonly class PublicReadEligibilityState
+final class PublicReadEligibilityState
 {
+    /** @var array<int, true> */
+    private array $scheduled = [];
+
     public function __construct(
-        private PublicPageReadEligibilityRegistry $registry,
-        private PublicReadEligibilityRevision $revision,
+        private readonly PublicPageReadEligibilityRegistry $registry,
+        private readonly PublicReadEligibilityRevision $revision,
     ) {}
 
     public function isRestricted(): bool
@@ -77,6 +83,38 @@ final readonly class PublicReadEligibilityState
             return null;
         }
 
-        return new PublicReadStampData($revision, $this->registry->nextTransitionAfter(CarbonImmutable::now()));
+        $validUntil = $this->registry->nextTransitionAfter(CarbonImmutable::now());
+
+        if ($validUntil instanceof CarbonImmutable) {
+            $this->scheduleExpiry($validUntil);
+        }
+
+        return new PublicReadStampData($revision, $validUntil);
+    }
+
+    /**
+     * Whatever is stored under this stamp is withdrawn exactly at its
+     * valid_until by a delayed job, once per transition, without waiting for
+     * the scheduler.
+     */
+    private function scheduleExpiry(CarbonImmutable $validUntil): void
+    {
+        $at = $validUntil->getTimestamp();
+
+        if (isset($this->scheduled[$at])) {
+            return;
+        }
+
+        $this->scheduled[$at] = true;
+
+        try {
+            if (! Cache::add('capell:public-read-eligibility:expiry-scheduled:' . $at, true, $validUntil->addMinutes(5))) {
+                return;
+            }
+
+            dispatch(new ExpirePublicReadProjectionsJob($at))->delay($validUntil);
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
     }
 }
