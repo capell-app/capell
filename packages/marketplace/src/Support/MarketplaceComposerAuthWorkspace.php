@@ -26,7 +26,10 @@ final class MarketplaceComposerAuthWorkspace
     /**
      * @param  int|null  $effectiveUserId  The owner a trusted directory must have besides root; defaults to the process's effective user.
      */
-    public function __construct(private readonly ?int $effectiveUserId = null) {}
+    public function __construct(
+        private readonly ?int $effectiveUserId = null,
+        private readonly WorkspacePathInspector $inspector = new NativeWorkspacePathInspector,
+    ) {}
 
     /**
      * A directory is created when its install starts and is never touched again,
@@ -56,12 +59,17 @@ final class MarketplaceComposerAuthWorkspace
 
         $root = $this->root();
         $this->assertTrustedAncestors($root);
-        if (! file_exists($root) && ! is_link($root)) {
-            throw_unless(@mkdir($root, 0700), RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.create_root', ['path' => $root]));
+        if ($this->inspector->stat($root) === false && ! $this->inspector->mkdir($root, 0700) && $this->inspector->stat($root) === false) {
+            $this->fail('create_root', $root);
         }
 
         $this->assertTrustedDirectory($root);
-        throw_unless(@mkdir($path, 0700), RuntimeException::class, 'Unable to create a private Composer home.');
+        throw_unless($this->inspector->mkdir($path, 0700), RuntimeException::class, 'Unable to create a private Composer home.');
+        $created = $this->inspector->stat($path);
+        $uid = $this->effectiveUserId ?? $this->inspector->effectiveUserId();
+        if ($created === false || ($created['mode'] & 0170000) !== 0040000 || (config('capell.marketplace.auth_workspace_trust', 'posix') === 'posix' && $created['uid'] !== $uid) || ($created['mode'] & 0777) !== 0700) {
+            $this->fail('directory', $path);
+        }
 
         if (! @chmod($path, 0700)) {
             $this->removeDirectory($path);
@@ -69,7 +77,7 @@ final class MarketplaceComposerAuthWorkspace
         }
 
         clearstatcache(true, $path);
-        if ((fileperms($path) & 0777) !== 0700) {
+        if (($after = $this->inspector->stat($path)) === false || ($after['mode'] & 0177777) !== ($created['mode'] & 0177777) || $after['uid'] !== $created['uid'] || $after['ino'] !== $created['ino'] || $after['dev'] !== $created['dev']) {
             $this->removeDirectory($path);
             throw new RuntimeException('Unable to secure the Composer home.');
         }
@@ -90,8 +98,9 @@ final class MarketplaceComposerAuthWorkspace
 
         try {
             throw_unless(@chmod($path, 0600), RuntimeException::class, 'Unable to secure Composer authentication file.');
-            clearstatcache(true, $path);
-            throw_unless((fileperms($path) & 0777) === 0600, RuntimeException::class, 'Unable to secure Composer authentication file.');
+            $opened = fstat($file);
+            $entry = $this->inspector->stat($path);
+            throw_unless($opened !== false && $entry !== false && ($entry['mode'] & 0170000) === 0100000 && ($entry['mode'] & 0777) === 0600 && $opened['ino'] === $entry['ino'] && $opened['dev'] === $entry['dev'], RuntimeException::class, 'Unable to secure Composer authentication file.');
             $content = JsonCodec::encode($composerAuth, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
             throw_unless(fwrite($file, $content) === strlen($content), RuntimeException::class, 'Unable to write Composer authentication file.');
         } finally {
@@ -107,28 +116,31 @@ final class MarketplaceComposerAuthWorkspace
     public function stale(): array
     {
         $root = $this->root();
-        if (! file_exists($root) && ! is_link($root)) {
+        $this->assertTrustedAncestors($root);
+        if ($this->inspector->stat($root) === false) {
             return [];
         }
 
-        $this->assertTrustedAncestors($root);
         $this->assertTrustedDirectory($root);
 
         $cutoff = Date::now()->getTimestamp() - self::staleAfterSeconds();
-        $candidates = glob($this->root() . '/' . self::DIRECTORY_PREFIX . '*', GLOB_ONLYDIR);
+        $candidates = $this->inspector->glob($this->root() . '/' . self::DIRECTORY_PREFIX . '*');
 
         if ($candidates === false) {
-            return [];
+            $this->indeterminate();
         }
 
         return array_values(array_filter(
             $candidates,
-            static function (string $path) use ($cutoff): bool {
-                $modifiedAt = @filemtime($path);
+            function (string $path) use ($cutoff): bool {
+                $modifiedAt = $this->inspector->modifiedAt($path);
+                if ($modifiedAt === false) {
+                    $this->indeterminate();
+                }
 
                 // An in-flight install owns a directory younger than the cutoff,
                 // so leaving it alone is the whole point of the age check.
-                return $modifiedAt !== false && $modifiedAt < $cutoff;
+                return $modifiedAt < $cutoff;
             },
         ));
     }
@@ -215,48 +227,128 @@ final class MarketplaceComposerAuthWorkspace
         @rmdir($path);
     }
 
-    /**
-     * The immediate parent must meet the full trusted-directory policy. Higher ancestors may be
-     * shared system directories, so they only need to be unredirectable by another user: a
-     * symlink must belong to root or the effective user, and a world-writable directory must
-     * carry the sticky bit (as /tmp does).
-     */
     private function assertTrustedAncestors(string $root): void
     {
+        $mode = config('capell.marketplace.auth_workspace_trust', 'posix');
+        $uid = $this->effectiveUserId ?? $this->inspector->effectiveUserId();
+        $override = config('capell.marketplace.auth_workspace_path');
+        if ($mode !== 'posix' && $mode !== 'acl' || ($mode === 'posix' && $uid === null) || ($mode === 'acl' && (! is_string($override) || $override === '' || $root !== $override))) {
+            $this->fail('trust_mode', $root);
+        }
+
+        if ($mode === 'acl') {
+            static $logged = false;
+            if (! $logged) {
+                logger()->warning('Composer workspace ACL trust is enabled; the operator must secure the configured path.');
+                $logged = true;
+            }
+        }
+
         $parent = dirname($root);
-        $this->assertTrustedDirectory($parent);
+        $parentStat = $this->inspector->stat($parent);
+        if ($parentStat !== false && ($parentStat['mode'] & 0170000) === 0120000) {
+            $this->fail('symlink', $parent);
+        }
 
-        for ($ancestor = dirname($parent); $ancestor !== dirname($ancestor); $ancestor = dirname($ancestor)) {
-            clearstatcache(true, $ancestor);
-            $stat = @lstat($ancestor);
-            throw_if($stat === false, RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.directory', ['path' => $ancestor]));
-            if (is_link($ancestor)) {
-                throw_unless($this->isTrustedOwner($stat['uid']), RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.owner', ['path' => $ancestor]));
+        $stickyAllowed = is_string($override) && $override !== '' && $uid !== null && $parentStat !== false && $parentStat['uid'] === $uid;
+        $this->walkAncestors($parent, $stickyAllowed, $mode === 'acl');
+    }
 
-                continue;
+    private function walkAncestors(string $path, bool $stickyAllowed, bool $acl): void
+    {
+        $visited = [];
+        while (! isset($visited[$path])) {
+            $visited[$path] = true;
+            $stat = $this->inspector->stat($path);
+            if ($stat === false) {
+                $this->fail('directory', $path);
             }
 
-            throw_unless(is_dir($ancestor), RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.directory', ['path' => $ancestor]));
-            throw_if(($stat['mode'] & 0002) !== 0 && ($stat['mode'] & 01000) === 0, RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.world_writable', ['path' => $ancestor]));
+            if (! $acl && ! $this->isTrustedOwner($stat['uid'])) {
+                $this->fail('owner', $path);
+            }
+
+            $type = $stat['mode'] & 0170000;
+            if ($type === 0120000) {
+                $target = $this->inspector->realpath($path);
+                if ($target === false) {
+                    $this->fail('directory', $path);
+                }
+
+                $this->walkAncestors($target, $stickyAllowed, $acl);
+            } elseif ($type !== 0040000) {
+                $this->fail('directory', $path);
+            } else {
+                if (($stat['mode'] & 0002) !== 0 && (! $stickyAllowed || ($stat['mode'] & 01000) === 0)) {
+                    $this->fail('world_writable', $path);
+                }
+
+                if (($stat['mode'] & 0020) !== 0 && (! $stickyAllowed || ($stat['mode'] & 01002) !== 01002)) {
+                    $this->fail('group_writable', $path);
+                }
+            }
+
+            $next = dirname($path);
+            if ($next === $path) {
+                break;
+            }
+
+            $path = $next;
         }
     }
 
     private function isTrustedOwner(int $owner): bool
     {
-        $effectiveUser = $this->effectiveUserId ?? (function_exists('posix_geteuid') ? posix_geteuid() : null);
+        if (config('capell.marketplace.auth_workspace_trust', 'posix') === 'acl') {
+            return true;
+        }
+
+        $effectiveUser = $this->effectiveUserId ?? $this->inspector->effectiveUserId();
 
         return $effectiveUser !== null && ($owner === 0 || $owner === $effectiveUser);
     }
 
     private function assertTrustedDirectory(string $path): void
     {
-        clearstatcache(true, $path);
-        throw_if(is_link($path), RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.symlink', ['path' => $path]));
-        throw_unless(is_dir($path), RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.directory', ['path' => $path]));
+        $stat = $this->inspector->stat($path);
+        if ($stat !== false && ($stat['mode'] & 0170000) === 0120000) {
+            $this->fail('symlink', $path);
+        }
 
-        $owner = fileowner($path);
-        throw_if($owner === false || ! $this->isTrustedOwner($owner), RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.owner', ['path' => $path]));
-        $permissions = fileperms($path);
-        throw_if($permissions === false || ($permissions & 0002) !== 0, RuntimeException::class, __('capell-marketplace::marketplace.auth_workspace.world_writable', ['path' => $path]));
+        if ($stat === false || ($stat['mode'] & 0170000) !== 0040000) {
+            $this->fail('directory', $path);
+        }
+
+        if (! $this->isTrustedOwner($stat['uid'])) {
+            $this->fail('owner', $path);
+        }
+
+        if (($stat['mode'] & 0002) !== 0) {
+            $this->fail('world_writable', $path);
+        }
+
+        if (($stat['mode'] & 0020) !== 0) {
+            $this->fail('group_writable', $path);
+        }
+    }
+
+    private function fail(string $key, string $path): never
+    {
+        $message = match ($key) {
+            'create_root' => __('capell-marketplace::marketplace.auth_workspace.create_root', ['path' => $path]),
+            'symlink' => __('capell-marketplace::marketplace.auth_workspace.symlink', ['path' => $path]),
+            'owner' => __('capell-marketplace::marketplace.auth_workspace.owner', ['path' => $path]),
+            'world_writable' => __('capell-marketplace::marketplace.auth_workspace.world_writable', ['path' => $path]),
+            'group_writable' => __('capell-marketplace::marketplace.auth_workspace.group_writable', ['path' => $path]),
+            'trust_mode' => __('capell-marketplace::marketplace.auth_workspace.trust_mode'),
+            default => __('capell-marketplace::marketplace.auth_workspace.directory', ['path' => $path]),
+        };
+        throw new WorkspaceException((string) $message, (string) __('capell-marketplace::marketplace.auth_workspace.untrusted'));
+    }
+
+    private function indeterminate(): never
+    {
+        $message = (string) __('capell-marketplace::marketplace.auth_workspace.indeterminate');
+        throw new WorkspaceException($message, $message, WorkspaceFailure::Indeterminate);
     }
 }

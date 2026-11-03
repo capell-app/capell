@@ -35,6 +35,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Capell\Core\Support\Security\LockdownStore;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Tests\Support\StylesheetRuntime;
@@ -56,6 +57,7 @@ use Illuminate\Queue\QueueManager;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
@@ -311,6 +313,34 @@ it('captures the provider-built panel baseline after the provider registers its 
         ->not->toContain(EnforceLockdownAdminAccess::class)
         ->not->toContain(AddAdminSecurityHeaders::class)
         ->not->toContain(EncryptCookies::class);
+});
+
+it('executes provider-owned lockdown through a real authenticated callback while only the extender middleware forms the delta', function (): void {
+    config()->set('capell.lockdown.file', storage_path('framework/testing/panel-baseline-lockdown.json'));
+    File::delete(config('capell.lockdown.file'));
+    app()->instance(InstalledPanelRuntime::class, new InstalledPanelRuntime(resolve(Router::class)));
+    $panel = new AdminPanelProvider(app())->panel(Panel::make());
+    $route = Route::get('/admin/provider-baseline-callback', static fn (): string => 'callback-ran')
+        ->middleware($panel->getMiddleware())
+        ->middleware($panel->getAuthMiddleware())
+        ->name('filament.admin.provider-baseline-callback');
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAsAdmin();
+    $this->get('/admin/provider-baseline-callback')->assertOk()->assertSee('callback-ran');
+
+    resolve(LockdownStore::class)->activateFor($this->createUserWithRole('super_admin'));
+    $this->get('/admin/provider-baseline-callback')->assertStatus(423)->assertDontSee('callback-ran');
+
+    $before = $route->gatherMiddleware();
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    $route->computedMiddleware = null;
+    $delta = array_values(array_diff($route->gatherMiddleware(), $before));
+
+    expect($before)->toContain(EnforceLockdownAdminAccess::class)
+        ->and($delta)->toBe([LateSecurityMiddleware::class]);
+    File::delete(config('capell.lockdown.file'));
 });
 
 it('applies a late security extender to an existing panel and its existing authenticated routes', function (bool $compiled): void {

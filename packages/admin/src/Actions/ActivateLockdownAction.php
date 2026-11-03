@@ -27,7 +27,8 @@ final class ActivateLockdownAction
     public function handle(Authenticatable $user, ?string $guard = null): array
     {
         // Resolve the identity scope before touching the static cache so a misconfigured guard changes nothing.
-        throw_if($this->lockdownStore->userProviderForGuard($guard) === null, RuntimeException::class, 'Unable to identify the lockdown user provider.');
+        $provider = $this->lockdownStore->userProviderForGuard($guard);
+        throw_if($provider === null || ! $this->lockdownStore->matchesProvider($user, $provider), RuntimeException::class, __('capell-admin::message.lockdown_invalid_provider'));
 
         return $this->lockdownStore->activateFor(
             user: $user,

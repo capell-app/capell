@@ -270,7 +270,9 @@ CAPELL_SETUP_ADMIN_PASSWORD=password123
 
 ## Marketplace Config
 
-Set `capell.marketplace.auth_workspace_path` (or `CAPELL_MARKETPLACE_AUTH_WORKSPACE_PATH`) to an existing private directory when the default `storage/framework/composer` is unsuitable. Its parent and the directory itself must be real directories owned by the worker's effective user or root, and must not be world-writable. Higher ancestors may be shared system directories, but a symlink among them must belong to root or the worker's user, and a world-writable one must carry the sticky bit (as `/tmp` does). The operations doctor reports an untrusted workspace as a critical check. The PHP POSIX extension is required to identify the worker’s effective user.
+Set `capell.marketplace.auth_workspace_path` (or `CAPELL_MARKETPLACE_AUTH_WORKSPACE_PATH`) to a suitable workspace when the default `storage/framework/composer` cannot be used. The parent must exist. In the default `posix` trust mode, PHP POSIX support is required and every directory in both the original and resolved symlink ancestor chains must be owned by root or the worker and must not be group- or world-writable. A sticky world-writable ancestor is allowed only with an explicit override whose immediate parent belongs to the worker. The workspace itself cannot be a symlink. The doctor checks the parent even before the workspace exists and reports an indeterminate scan if directory metadata cannot be read.
+
+On Windows, an operator may explicitly set `capell.marketplace.auth_workspace_trust` (or `CAPELL_MARKETPLACE_AUTH_WORKSPACE_TRUST`) to `acl` and configure `auth_workspace_path`. This skips POSIX owner checks and logs a warning; the operator must secure the override and its ancestors using Windows ACLs. The default `posix` mode refuses operation without POSIX support.
 
 Source: `packages/marketplace/config/capell-marketplace.php`
 

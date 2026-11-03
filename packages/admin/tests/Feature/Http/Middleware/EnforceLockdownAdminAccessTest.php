@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Auth\GenericUser;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -124,4 +125,33 @@ it('allows an admin provider user from a legacy bare-id lockdown file', function
     );
 
     expect($response->getContent())->toBe('ok');
+    $guard = Auth::getDefaultDriver();
+    config()->set('auth.guards.lockdown-member', ['driver' => 'session', 'provider' => 'lockdown-members']);
+    config()->set('auth.providers.lockdown-members', ['driver' => 'eloquent', 'model' => $user::class]);
+    Auth::shouldUse('lockdown-member');
+    $request = Request::create('/admin');
+    $request->setUserResolver(static fn () => $user);
+    try {
+        expect(fn (): mixed => resolve(EnforceLockdownAdminAccess::class)->handle($request, fn (): Response => response('ok')))
+            ->toThrow(HttpException::class, __('capell-admin::message.lockdown_admin_locked'));
+    } finally {
+        Auth::shouldUse($guard);
+    }
+});
+
+it('denies a guard returning a user outside its provider model', function (): void {
+    $user = test()->createUserWithRole('super_admin');
+    $guard = Auth::getDefaultDriver();
+    resolve(LockdownStore::class)->activateFor($user, guard: $guard);
+    config()->set('auth.guards.lockdown-wrong-model', ['driver' => 'session', 'provider' => 'lockdown-wrong-model']);
+    config()->set('auth.providers.lockdown-wrong-model', ['driver' => 'eloquent', 'model' => GenericUser::class]);
+    Auth::shouldUse('lockdown-wrong-model');
+    $request = Request::create('/admin');
+    $request->setUserResolver(static fn () => $user);
+    try {
+        expect(fn (): mixed => resolve(EnforceLockdownAdminAccess::class)->handle($request, fn (): Response => response('ok')))
+            ->toThrow(HttpException::class, __('capell-admin::message.lockdown_admin_locked'));
+    } finally {
+        Auth::shouldUse($guard);
+    }
 });

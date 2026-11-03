@@ -161,6 +161,18 @@ final class LockdownStore implements Resettable
         return is_string($provider) && $provider !== '' ? $provider : null;
     }
 
+    public function matchesProvider(Authenticatable $user, string $provider): bool
+    {
+        $model = config('auth.providers.' . $provider . '.model');
+
+        // Providers without a model class (such as the database driver) are scoped by provider name alone.
+        if ($model === null || $model === '') {
+            return config('auth.providers.' . $provider) !== null;
+        }
+
+        return is_string($model) && $user instanceof $model;
+    }
+
     /** @return array<string, mixed> */
     private function readLocal(): array
     {
@@ -209,18 +221,6 @@ final class LockdownStore implements Resettable
                 $this->stringList(config('capell.lockdown.break_glass_user_ids', [])),
             ),
         ]));
-    }
-
-    private function matchesProvider(Authenticatable $user, string $provider): bool
-    {
-        $model = config('auth.providers.' . $provider . '.model');
-
-        // Providers without a model class (such as the database driver) are scoped by provider name alone.
-        if ($model === null || $model === '') {
-            return config('auth.providers.' . $provider) !== null;
-        }
-
-        return is_string($model) && $user instanceof $model;
     }
 
     /**
