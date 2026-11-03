@@ -11,12 +11,14 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Core\Support\PublicRead\PublicArtefactPublicationLock;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Illuminate\Cache\ArrayLock;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -207,4 +209,42 @@ it('never lets a permit write once its publication has returned', function (): v
     } finally {
         File::deleteDirectory($root);
     }
+});
+
+it('keeps a failure that lands while a successful write is clearing the unknown state', function (): void {
+    $seam = publicationSeamStore();
+    publicationRestrictReads();
+    $first = new PublicReadEligibilityRevision;
+    $race = new stdClass;
+    $race->failing = true;
+    $race->stage = 'armed';
+    $race->holding = false;
+
+    DB::beforeExecuting(static function (string $query) use ($race): void {
+        throw_if(str_starts_with(mb_strtolower(ltrim($query)), 'update') && str_contains($query, 'public_read_eligibility_state') && $race->failing === true, RuntimeException::class, 'The revision write fails.');
+    });
+
+    expect($first->advance())->toBeNull();
+
+    // A later advance succeeds; while it holds the revision lock to clear the
+    // unknown state, another process's write fails without taking the lock.
+    $race->failing = false;
+    $seam->beforeAcquire = static function (string $name) use ($race): void {
+        $race->holding = str_contains($name, 'revision-unknown-lock');
+    };
+    $seam->onGet = static function (string $key) use ($race): void {
+        if ($race->stage !== 'armed' || $race->holding !== true) {
+            return;
+        }
+
+        $race->stage = 'failing';
+        $race->failing = true;
+        (new PublicReadEligibilityRevision)->advance();
+        $race->failing = false;
+        $race->stage = 'done';
+    };
+
+    expect((new PublicReadEligibilityRevision)->advance())->toBeNull()
+        ->and($race->stage)->toBe('done')
+        ->and((new PublicReadEligibilityRevision)->isUnknown())->toBeTrue();
 });

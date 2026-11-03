@@ -23,18 +23,27 @@ use Throwable;
  * callers treat that as "nothing stored may be served".
  *
  * When advancing fails, the rules have changed but the stored token still
- * names the old ones. The revision is then unknown: a marker in the shared
- * cache makes every process read null (deny, store nothing, no-store) until a
- * later advance succeeds. While unknown, one request at a time (at most once
- * every RETRY_INTERVAL_SECONDS across all processes) retries the advance.
+ * names the old ones. The revision is then unknown until a later advance
+ * succeeds, and every process reads null (deny, store nothing, no-store).
+ * While unknown, one request at a time (at most once every
+ * RETRY_INTERVAL_SECONDS across all processes) retries the advance.
  *
- * The marker requires a cache store shared by every process and server (the
- * same requirement as cache locks). Each failure writes a new generation token
- * under a cache lock; a successful advance clears the marker only when it
- * still holds the generation that advance observed before its own write, so a
- * newer failure is never cleared by an older success. Whenever the marker
- * cannot be written, read or compared, this process denies on its own and the
- * failure is reported: the revision never fails open.
+ * The unknown state is two numbers in the shared cache:
+ *
+ * - a failure counter, which every failed advance raises with an atomic
+ *   Cache::increment, with or without the lock, and which never goes down;
+ * - a cleared mark, the highest failure generation a successful advance has
+ *   covered.
+ *
+ * The revision is unknown while the counter is above the cleared mark. A
+ * successful advance moves the mark, under the lock, only up to the counter
+ * value it observed before its own write, so a failure that happened after
+ * that observation (a newer one) is never cleared by it, and a generation is
+ * never reused. Both keys require a cache store shared by every process and
+ * server (the same requirement as cache locks) that does not evict keys
+ * stored without an expiry. Whenever they cannot be written, read or
+ * compared, this process denies on its own and the failure is reported: the
+ * revision never fails open.
  *
  * @experimental
  */
@@ -44,7 +53,9 @@ final class PublicReadEligibilityRevision
 
     private const string TABLE = 'public_read_eligibility_state';
 
-    private const string UNKNOWN_KEY = 'capell:public-read-eligibility:revision-unknown';
+    private const string FAILURES_KEY = 'capell:public-read-eligibility:revision-failures';
+
+    private const string CLEARED_KEY = 'capell:public-read-eligibility:revision-failures-cleared';
 
     private const string LOCK_KEY = 'capell:public-read-eligibility:revision-unknown-lock';
 
@@ -91,7 +102,7 @@ final class PublicReadEligibilityRevision
     {
         $revision = (string) Str::ulid();
         // The failure generation this advance may clear, read before its write.
-        $observed = $this->marker();
+        $observed = $this->failures();
 
         try {
             $updated = DB::table(TableName::resolve(self::TABLE))
@@ -115,7 +126,7 @@ final class PublicReadEligibilityRevision
         }
 
         if (! $this->clearUnknown($observed)) {
-            // A newer failure (or an unreadable marker) still stands.
+            // A newer failure (or unreadable failure state) still stands.
             $this->unknownInProcess = true;
             $this->revision = null;
             $this->loaded = true;
@@ -133,13 +144,23 @@ final class PublicReadEligibilityRevision
         }
 
         try {
-            return Cache::get(self::UNKNOWN_KEY) !== null;
+            $state = Cache::many([self::FAILURES_KEY, self::CLEARED_KEY]);
+            $failures = $state[self::FAILURES_KEY] ?? null;
+
+            // A value that is not a count cannot be trusted: deny.
+            return ($failures !== null && ! is_numeric($failures))
+                || self::count($failures) > self::count($state[self::CLEARED_KEY] ?? null);
         } catch (Throwable $throwable) {
             // Whether another process marked the rules unknown cannot be read: deny.
             report($throwable);
 
             return true;
         }
+    }
+
+    private static function count(mixed $value): int
+    {
+        return is_int($value) || (is_string($value) && ctype_digit($value)) ? (int) $value : 0;
     }
 
     /**
@@ -169,42 +190,41 @@ final class PublicReadEligibilityRevision
     }
 
     /**
-     * The current failure generation, false when none is set, or null when
-     * the marker cannot be read (then nothing may be cleared).
+     * The failure generation reached so far (0 when there has been none), or
+     * null when it cannot be read (then nothing may be cleared).
      */
-    private function marker(): string|false|null
+    private function failures(): ?int
     {
         try {
-            $marker = Cache::get(self::UNKNOWN_KEY);
+            return self::count(Cache::get(self::FAILURES_KEY));
         } catch (Throwable $throwable) {
             report($throwable);
 
             return null;
         }
-
-        if ($marker === null) {
-            return false;
-        }
-
-        return is_string($marker) ? $marker : null;
     }
 
     private function markUnknown(): void
     {
         $this->unknownInProcess = true;
-        $generation = (string) Str::ulid();
 
         try {
             $this->warnUnlessShared();
-            $written = $this->locked(static function () use ($generation): bool {
-                Cache::forever(self::UNKNOWN_KEY, $generation);
+            $generation = Cache::increment(self::FAILURES_KEY);
 
-                return true;
-            });
+            if ($generation === false) {
+                // Stores that cannot increment a missing key: create it atomically first.
+                Cache::add(self::FAILURES_KEY, 0, now()->addYears(10));
+                $generation = Cache::increment(self::FAILURES_KEY);
+            }
 
-            if (! $written) {
-                // Without the lock the marker is still written: a newer failure must stand.
-                Cache::forever(self::UNKNOWN_KEY, $generation);
+            throw_unless(is_int($generation) && $generation > 0, RuntimeException::class, 'The public-read eligibility failure counter could not be raised.');
+
+            $cleared = self::count(Cache::get(self::CLEARED_KEY));
+
+            if ($generation <= $cleared) {
+                // The counter was lost while the mark survived: lift it above the mark.
+                Cache::increment(self::FAILURES_KEY, $cleared - $generation + 1);
             }
         } catch (Throwable $throwable) {
             // This process still denies; other processes cannot learn of it.
@@ -213,31 +233,27 @@ final class PublicReadEligibilityRevision
     }
 
     /**
-     * Removes the marker only if it still holds $observed (compare and
-     * delete under the lock). Returns whether the revision is now known.
+     * Marks every failure up to $observed (read before the successful write)
+     * as covered, under the lock and never downwards. Returns whether the
+     * revision is now known: false while a later failure stands, or when the
+     * state cannot be read or the lock had.
      */
-    private function clearUnknown(string|false|null $observed): bool
+    private function clearUnknown(?int $observed): bool
     {
         if ($observed === null) {
             return false;
         }
 
-        if ($observed === false) {
-            $current = $this->marker();
-            $this->unknownInProcess = $current !== false;
-
-            return $current === false;
-        }
-
         try {
-            $cleared = $this->locked(static function () use ($observed): bool {
-                if (Cache::get(self::UNKNOWN_KEY) !== $observed) {
-                    return false;
+            $known = $this->locked(static function () use ($observed): bool {
+                $cleared = self::count(Cache::get(self::CLEARED_KEY));
+
+                if ($observed > $cleared) {
+                    Cache::forever(self::CLEARED_KEY, $observed);
+                    $cleared = $observed;
                 }
 
-                Cache::forget(self::UNKNOWN_KEY);
-
-                return true;
+                return self::count(Cache::get(self::FAILURES_KEY)) <= $cleared;
             });
         } catch (Throwable $throwable) {
             report($throwable);
@@ -245,9 +261,9 @@ final class PublicReadEligibilityRevision
             return false;
         }
 
-        $this->unknownInProcess = ! $cleared;
+        $this->unknownInProcess = ! $known;
 
-        return $cleared;
+        return $known;
     }
 
     /**
