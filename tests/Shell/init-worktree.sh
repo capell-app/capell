@@ -20,6 +20,10 @@ cat > composer.json <<'JSON'
 {"name":"fixture/worktree","autoload":{"psr-4":{"Capell\\Core\\":"packages/core/src/"}},"config":{"optimize-autoloader":true}}
 JSON
 composer dump-autoload --no-interaction --no-scripts --no-plugins >/dev/null
+# Composer plugins write top-level metadata such as Pest's plugin cache beside the packages.
+printf '["Pest\\\\Plugins\\\\Parallel"]\n' > vendor/pest-plugins.json
+# Hidden metadata beside the packages belongs to the dependency set as well.
+printf 'hidden-metadata\n' > vendor/.hidden-metadata
 primary_hash=$(shasum -a 256 vendor/composer/autoload_psr4.php)
 cat > tests/fixtures/new-source/NewSource.php <<'PHP'
 <?php
@@ -42,6 +46,9 @@ git worktree add -q "$fixture/worktree" -b fixture-worktree
 cd "$fixture/worktree"
 bash "$script" --host-only
 php -r '$loader=require "vendor/autoload.php"; $actual=(new ReflectionClass("Fixture\\NewSource\\NewSource"))->getFileName(); $expected=getcwd()."/tests/fixtures/new-source/NewSource.php"; if (realpath($actual)!==realpath($expected)) { throw new RuntimeException("New source resolved outside worktree"); } echo "PASS new manifest source resolves inside worktree", PHP_EOL;'
+cmp vendor/pest-plugins.json "$fixture/primary/vendor/pest-plugins.json"
+cmp vendor/.hidden-metadata "$fixture/primary/vendor/.hidden-metadata"
+echo 'PASS top-level vendor metadata provisioned'
 cd "$fixture/primary"
 test "$primary_hash" = "$(shasum -a 256 vendor/composer/autoload_psr4.php)"
 echo 'PASS primary autoload metadata unchanged'

@@ -18,7 +18,7 @@ class RevokeSecurityRemediationApprovalAction
 
     public function handle(string $weaknessId, Authenticatable $user): ?SecurityRemediationApproval
     {
-        $approval = SecurityRemediationApproval::query()->active()->where('weakness_id', $weaknessId)->first();
+        $approval = SecurityRemediationApproval::query()->whereNull('revoked_at')->where('weakness_id', $weaknessId)->first();
 
         if ($approval === null) {
             return null;

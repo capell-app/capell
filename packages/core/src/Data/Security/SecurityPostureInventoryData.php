@@ -35,6 +35,7 @@ final class SecurityPostureInventoryData extends Data
         public readonly CarbonImmutable $collectedAt,
         public readonly int $advisorySourcesRun = 0,
         public readonly array $failures = [],
+        public readonly ?string $scanId = null,
     ) {}
 
     public function package(string $composerName): ?SecurityInventoryPackageData

@@ -24,6 +24,9 @@ use Override;
  *
  * @property int $id
  * @property string $weakness_id
+ * @property string|null $first_detected_scan_id
+ * @property string|null $last_detected_scan_id
+ * @property string|null $evidence_hash
  * @property string $fingerprint
  * @property SecurityFindingSource $source
  * @property SecurityWeaknessSeverity $severity
@@ -61,6 +64,9 @@ final class SecurityWeaknessFinding extends Model
     protected $fillable = [
         'weakness_id',
         'fingerprint',
+        'first_detected_scan_id',
+        'last_detected_scan_id',
+        'evidence_hash',
         'source',
         'severity',
         'status',

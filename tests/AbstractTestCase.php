@@ -175,7 +175,7 @@ abstract class AbstractTestCase extends TestCase
     abstract protected function getPackageServiceName(): string;
 
     /**
-     * Boot the application from a per-process copy of the Testbench skeleton.
+     * Boot from a per-process skeleton so separate worktrees cannot share mutable state.
      *
      * Overridden here (rather than by setting $_ENV['TESTBENCH_APP_BASE_PATH']) because Testbench
      * re-seeds that env var from testbench.yaml's `laravel: '@testbench'` before every test class.

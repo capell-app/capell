@@ -12,8 +12,10 @@ use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
+use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
 use Capell\Core\Support\Security\Remediations\DebugEnabledRemediation;
 use Capell\Core\Support\Security\Remediations\EnvironmentRemediation;
 use Capell\Core\Support\Security\SecurityOutputSanitiser;
@@ -24,12 +26,16 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Output\BufferedOutput;
 
-function fakeCommandScan(bool $includeAnalyser): void
+function fakeCommandScan(bool $includeAnalyser, string $source = 'system:console'): void
 {
-    RunSecurityWeaknessScanAction::mock()->shouldReceive('handle')->once()->with($includeAnalyser)
-        ->andReturn(new SecurityScanResultData(CarbonImmutable::now()->subMinute(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High));
+    $scanId = (string) Str::ulid();
+    SecurityScanRun::query()->create(['id' => $scanId, 'started_at' => now()->subMinute(), 'finished_at' => now(), 'findings_count' => 1, 'source' => $source]);
+    SecurityWeaknessFinding::query()->update(['last_detected_scan_id' => $scanId]);
+    RunSecurityWeaknessScanAction::mock()->shouldReceive('handle')->once()->with($includeAnalyser, $source)
+        ->andReturn(new SecurityScanResultData(CarbonImmutable::now()->subMinute(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High, [], $scanId));
 }
 
 it('lists active findings in a table and fails for open critical findings', function (): void {
@@ -99,7 +105,7 @@ it('uses the scheduler actor and skips analyser advice in scheduled fixes', func
     $builtin = SecurityWeaknessFinding::factory()->create();
     $advice = SecurityWeaknessFinding::factory()->create(['source' => SecurityFindingSource::Analyser]);
     SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
-    fakeCommandScan(true);
+    fakeCommandScan(true, 'system:scheduler');
     expect(Artisan::call('capell:security:scan', ['--fix-approved' => true, '--actor' => 'scheduler']))->toBe(0)
         ->and($builtin->fresh()->status->value)->toBe('remediated')->and($advice->fresh()->status->value)->toBe('open')
         ->and(SecurityRemediationRun::query()->sole()->actor)->toBe('system:scheduler');
@@ -165,6 +171,7 @@ it('reports a failed cache refresh and retries it on the next approved scan', fu
         $registry->registerCheck(new DebugEnabledCheck);
         $registry->registerRemediation(new DebugEnabledRemediation(new EnvironmentRemediation));
         app()->instance(SecurityWeaknessRegistry::class, $registry);
+        new RunSecurityWeaknessScanAction($registry, new NullSecurityWeaknessAnalyser)->handle(false);
         SecurityRemediationApproval::factory()->create();
         FakeConfigClearCommand::$exitCodes = [1, 0];
         FakeConfigClearCommand::$calls = [];
