@@ -15,7 +15,8 @@ import re
 import sys
 from pathlib import Path
 
-CAP_KEY = re.compile(r'^\s*maximumNumberOfProcesses\s*:')
+# Any other spelling (inline mapping, quoted key, parameter) is refused, never guessed.
+INLINE_INCLUDES = re.compile(r'^\s*includes\s*:\s*\S')
 CAP_LINE = re.compile(r'^\s*maximumNumberOfProcesses\s*:\s*(\d+)\s*$')
 
 
@@ -28,7 +29,9 @@ def own_cap(config: Path, text: str) -> int | None:
     found = None
     for number, line in enumerate(text.splitlines(), 1):
         line = strip_comment(line)
-        if not CAP_KEY.match(line):
+        if 'maximumNumberOfProcesses' not in line:
+            if INLINE_INCLUDES.match(line):
+                raise ValueError(f'{config}:{number}: inline includes are not supported here; list them one per line')
             continue
         match = CAP_LINE.match(line)
         if match is None:

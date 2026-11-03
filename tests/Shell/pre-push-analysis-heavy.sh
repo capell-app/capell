@@ -75,6 +75,14 @@ parser="$root/tests/Shell/lib/phpstan-worker-weight.py"
 if python3 "$parser" "$cases/unreadable.neon" > /dev/null 2>&1; then
     fail 'an unreadable cap line did not fail closed'
 fi
+printf 'includes:\n    - common.neon\nparameters:\n    parallel: {maximumNumberOfProcesses: 8}\n' > "$cases/inline.neon"
+printf "includes:\n    - common.neon\nparameters:\n    parallel:\n        'maximumNumberOfProcesses': 8\n" > "$cases/quoted.neon"
+printf 'includes: [common.neon]\n' > "$cases/inline-includes.neon"
+for unsupported in inline quoted inline-includes; do
+    if python3 "$parser" "$cases/$unsupported.neon" > /dev/null 2>&1; then
+        fail "unsupported cap or include syntax ($unsupported.neon) did not fail closed"
+    fi
+done
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
     "run -w $weight core-pre-push-analysis -- "*) ;;
