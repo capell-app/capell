@@ -17,6 +17,7 @@ use Filament\Panel;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use ReflectionProperty;
 use RuntimeException;
@@ -42,6 +43,14 @@ final class InstalledPanelRuntime
 
     /** @var WeakMap<Route, list<mixed>> */
     private WeakMap $reconciledRoutes;
+
+    /**
+     * Routes refused because their coverage could not be established. Only the route is
+     * withheld; the panel stays available for every other route.
+     *
+     * @var WeakMap<Route, true>
+     */
+    private WeakMap $refusedRoutes;
 
     /** @var array<string, Panel> Panels whose routes have been reconciled after boot, by id. */
     private array $synchronised = [];
@@ -72,12 +81,19 @@ final class InstalledPanelRuntime
         $this->routeMiddleware = new WeakMap;
         $this->contributed = new WeakMap;
         $this->reconciledRoutes = new WeakMap;
+        $this->refusedRoutes = new WeakMap;
         $this->inspectedRoutes = new WeakMap;
     }
 
     public function isUnavailable(string $panel): bool
     {
         return isset($this->unavailable[$panel]);
+    }
+
+    /** The route could not be held to its panel's security middleware, so it is never served. */
+    public function isRouteRefused(?Route $route): bool
+    {
+        return $route instanceof Route && isset($this->refusedRoutes[$route]);
     }
 
     /** The panel is withheld from this process only because its topology grew after boot. */
@@ -117,6 +133,8 @@ final class InstalledPanelRuntime
     /**
      * Reconcile a route as the router matches it, covering routes registered after the last
      * panel synchronisation (for example by a provider registered later in the process).
+     * A route that cannot be covered is refused here, before its middleware runs, so no
+     * middleware exclusion can serve it.
      */
     public function reconcileMatchedRoute(Route $route): void
     {
@@ -130,23 +148,16 @@ final class InstalledPanelRuntime
             }
 
             $availability = EnsureInstalledPanelAvailable::class . ':' . $id;
-            if (! in_array($availability, $route->gatherMiddleware(), true)) {
+            if (! in_array($availability, $route->middleware(), true)) {
                 $route->middleware($availability);
                 $route->computedMiddleware = null;
             }
 
-            if ($this->isUnavailable($id)) {
-                continue;
-            }
-
-            try {
-                $this->reconcileRoute($panel, $route);
-            } catch (Throwable $throwable) {
-                // Fail closed: the availability middleware now denies this route.
-                $this->unavailable[$id] = true;
-                resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $id);
-            }
+            abort_if($this->isUnavailable($id), 503, __('capell-core::runtime-refresh.application_unavailable'));
+            $this->reconcileOrRefuse($panel, $route);
         }
+
+        abort_if($this->isRouteRefused($route), 503, __('capell-core::runtime-refresh.application_unavailable'));
     }
 
     private function protectRoutes(Panel $panel, string $id): void
@@ -294,9 +305,28 @@ final class InstalledPanelRuntime
 
             foreach ($instances as $instance) {
                 if ($this->associated($instance, $panel->getId())) {
-                    $this->reconcileRoute($panel, $instance);
+                    $this->reconcileOrRefuse($panel, $instance);
                 }
             }
+        }
+    }
+
+    /** Fail closed for this route only: the failure is recorded and the route is refused. */
+    private function reconcileOrRefuse(Panel $panel, Route $route): void
+    {
+        if (isset($this->refusedRoutes[$route])) {
+            return;
+        }
+
+        try {
+            $this->reconcileRoute($panel, $route);
+        } catch (Throwable $throwable) {
+            $this->refusedRoutes[$route] = true;
+            resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $panel->getId());
+            Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
+                'panel' => $panel->getId(),
+                'reason' => $throwable->getMessage(),
+            ]);
         }
     }
 
@@ -316,6 +346,12 @@ final class InstalledPanelRuntime
         $signature = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host];
         if (($this->reconciledRoutes[$instance] ?? null) === $signature) {
             return;
+        }
+
+        // The availability guard is what denies a withheld panel; excluding it removes that denial.
+        $instance->computedMiddleware = null;
+        if (! in_array(EnsureInstalledPanelAvailable::class . ':' . $panel->getId(), $this->router->gatherRouteMiddleware($instance), true)) {
+            throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
         // Without package contributions the host panel's own route table is authoritative.

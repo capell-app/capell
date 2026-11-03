@@ -91,13 +91,16 @@ it('retains duplicate extender registrations while applying each tag entry once'
     expect($extender->calls)->toBe(2);
 });
 
-it('refuses ambiguous late authentication middleware on existing panel routes', function (): void {
+it('refuses only the existing route that late authentication middleware cannot identify', function (): void {
     $panel = Panel::make()->id('runtime-empty');
-    Route::get('runtime-empty/probe', static fn (): string => 'probe')->name('filament.runtime-empty.probe');
+    $route = Route::get('runtime-empty/probe', static fn (): string => 'probe')->name('filament.runtime-empty.probe');
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
 
-    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))
-        ->toThrow(RuntimeException::class, 'authenticated panel routes');
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+
+    expect(resolve(InstalledPanelRuntime::class)->isRouteRefused($route))->toBeTrue()
+        ->and(resolve(InstalledPanelRuntime::class)->isUnavailable('runtime-empty'))->toBeFalse();
+    $this->get('/runtime-empty/probe')->assertStatus(503);
 });
 
 it('denies requests and refuses retry after an extender partially fails', function (): void {
@@ -335,7 +338,7 @@ it('closes existing routes after ambiguous security refresh', function (): void 
     $panel = Panel::make()->id('runtime-ambiguous');
     Route::get('/runtime-ambiguous/probe', static fn (): string => 'open')->name('filament.runtime-ambiguous.probe');
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
-    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    resolve(InstalledPanelRuntime::class)->extend($panel);
     $this->get('/runtime-ambiguous/probe')->assertStatus(503);
 });
 
@@ -416,9 +419,14 @@ it('denies excluded panel authentication instead of classifying the route as pub
     $panel = Panel::make()->id('coverage')->path('runtime-coverage')->authMiddleware([RuntimeAllowMiddleware::class]);
     $route = Route::get('/runtime-coverage/probe', static fn (): string => 'open');
     $route->middleware([RuntimeAllowMiddleware::class])->withoutMiddleware([RuntimeAllowMiddleware::class])->name('filament.coverage.probe');
+    $covered = Route::get('/runtime-coverage/covered', static fn (): string => 'covered')
+        ->middleware([RuntimeAllowMiddleware::class])->name('filament.coverage.covered');
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
-    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    resolve(InstalledPanelRuntime::class)->extend($panel);
     $this->get('/runtime-coverage/probe')->assertStatus(503);
+    expect(resolve(InstalledPanelRuntime::class)->isRouteRefused($route))->toBeTrue()
+        ->and(resolve(InstalledPanelRuntime::class)->isRouteRefused($covered))->toBeFalse()
+        ->and(resolve(InstalledPanelRuntime::class)->isUnavailable('coverage'))->toBeFalse();
 });
 
 it('denies Livewire updates after a partial runtime failure even if its route was not synchronised', function (string $failure): void {

@@ -12,6 +12,7 @@ return [
     'extension_panel_authentication_excluded' => 'Excluded panel authentication or tenancy requires a fresh application.',
     'extension_panel_coverage_incomplete' => 'Incomplete panel middleware coverage requires a fresh application.',
     'extension_panel_security_excluded' => 'Excluded panel security middleware requires a fresh application.',
+    'extension_panel_route_refused' => "The admin route :route is unavailable because it could not be held to the panel's security middleware.",
 
     'extension_activation_pending' => 'The extension is installed, but activation needs a cache refresh and a fresh application. Reload retained workers before continuing.',
     'force_delete_dependencies_info' => 'Other records still use this item. Remove those records, including any in the trash, before permanently deleting it.',
