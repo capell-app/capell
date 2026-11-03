@@ -27,7 +27,7 @@ final class ActivateLockdownAction
     {
         return $this->lockdownStore->activateFor(
             user: $user,
-            staticCacheState: $this->staticCacheSwitcher->activate(),
+            staticCacheState: config('capell.multi_node', false) ? ['skipped' => 'multi_node'] : $this->staticCacheSwitcher->activate(),
         );
     }
 }

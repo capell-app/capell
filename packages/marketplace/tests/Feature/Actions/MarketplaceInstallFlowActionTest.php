@@ -316,7 +316,7 @@ it('rejects install flow approval redirects with a mismatched scheme or port', f
     'unexpected port' => ['https://marketplace.test:8443/marketplace/install-flows/mif_123'],
 ]);
 
-it('stores a concise failure reason when the remote marketplace returns a long error', function (): void {
+it('stores a bounded failure code instead of the remote error text when the remote marketplace fails', function (): void {
     $remoteFailure = str_repeat('Remote marketplace schema is missing contract_version. ', 20);
 
     Http::fake([
@@ -341,9 +341,9 @@ it('stores a concise failure reason when the remote marketplace returns a long e
     $session = MarketplaceInstallFlowSession::query()->sole();
 
     expect($session->status)->toBe(MarketplaceInstallFlowSessionStatus::Failed)
-        ->and($session->failure_reason)->toEndWith('...')
-        ->and(mb_strlen((string) $session->failure_reason))->toBeLessThanOrEqual(243)
-        ->and($session->last_error)->toContain('Remote marketplace schema is missing contract_version');
+        ->and($session->failure_reason)->toBe('remote_failure:500')
+        ->and($session->last_error)->toBe('remote_failure:500')
+        ->and(json_encode($session->transition_log))->not->toContain('Remote marketplace schema');
 });
 
 it('completes a returned install flow and stores verified account credentials', function (): void {

@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\Notification;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Role;
 
 uses(CreatesAdminUser::class);
@@ -107,6 +110,36 @@ it('reports marketplace heartbeat failures from the connection form model', func
             ->title((string) __('capell-marketplace::marketplace.install.heartbeat_failed'))
             ->body((string) __('capell-marketplace::marketplace.install.heartbeat_failed_body', [
                 'reason' => 'The marketplace URL is not configured. Set CAPELL_MARKETPLACE_URL to the Capell marketplace API URL.',
+            ]))
+            ->danger()
+            ->persistent(),
+    );
+});
+
+it('keeps heartbeat transport credentials out of the result logs and notification', function (): void {
+    config([
+        'app.url' => 'https://site.test',
+        'capell-marketplace.marketplace.base_url' => 'https://example.test/api',
+        'capell-marketplace.marketplace.webhook_url' => 'https://site.test/webhook',
+        'capell-marketplace.marketplace.troubleshooting_url' => null,
+        'capell-marketplace.instance.id' => 'instance-heartbeat',
+    ]);
+    Http::fake(fn () => throw new ConnectionException('Failed https://user:p4ss@example.test/x?token=abc'));
+    Log::shouldReceive('warning')->twice()->withArgs(function (string $message, array $context): bool {
+        $encoded = json_encode([$message, $context], JSON_THROW_ON_ERROR);
+
+        return str_contains($encoded, 'example.test') && ! str_contains($encoded, 'p4ss') && ! str_contains($encoded, 'token=abc')
+            && ($context['exception'] ?? null) === ConnectionException::class;
+    });
+    $result = RunMarketplaceHeartbeatAction::run();
+    expect($result->successful)->toBeFalse()->and($result->failureMessage)->toContain('example.test')
+        ->not->toContain('p4ss', 'token=abc');
+    resolve(MarketplaceConnectionFormModel::class)->runHeartbeat();
+    Notification::assertNotified(
+        Notification::make('marketplace-error')
+            ->title((string) __('capell-marketplace::marketplace.install.heartbeat_failed'))
+            ->body((string) __('capell-marketplace::marketplace.install.heartbeat_failed_body', [
+                'reason' => 'Capell could not connect to the Marketplace at example.test.',
             ]))
             ->danger()
             ->persistent(),

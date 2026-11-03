@@ -12,6 +12,8 @@ use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
+use Capell\Marketplace\Exceptions\MarketplaceInstallFlowException;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Services\MarketplaceClient;
@@ -40,7 +42,7 @@ final class ResumeMarketplaceInstallFlowAction
             $reservedSession = $this->reserveSessionForQueueing($session);
             $attempts = $this->queueInstallAttempts($reservedSession, $actor);
         } catch (Throwable $throwable) {
-            MarketplaceInstallFlowSessionTransitionAction::run($session->refresh(), MarketplaceInstallFlowSessionStatus::Failed, $throwable->getMessage());
+            MarketplaceInstallFlowSessionTransitionAction::run($session->refresh(), MarketplaceInstallFlowSessionStatus::Failed, MarketplaceRemoteFailureException::diagnostic($throwable));
 
             throw $throwable;
         }
@@ -62,7 +64,7 @@ final class ResumeMarketplaceInstallFlowAction
                 ->lockForUpdate()
                 ->first();
 
-            throw_unless($lockedSession instanceof MarketplaceInstallFlowSession, RuntimeException::class, 'Marketplace install flow session is not ready to resume.');
+            throw_unless($lockedSession instanceof MarketplaceInstallFlowSession, MarketplaceInstallFlowException::class, 'Marketplace install flow session is not ready to resume.');
 
             $this->assertV2EntitlementsPresent($lockedSession);
 
@@ -96,7 +98,7 @@ final class ResumeMarketplaceInstallFlowAction
 
             throw_unless(
                 isset($entitlements[$composerName]) && is_numeric($entitlements[$composerName]),
-                RuntimeException::class,
+                MarketplaceInstallFlowException::class,
                 sprintf('Marketplace install flow is missing entitlement for [%s].', $composerName),
             );
         }

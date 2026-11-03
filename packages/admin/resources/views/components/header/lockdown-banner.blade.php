@@ -16,5 +16,8 @@
         aria-live="polite"
     >
         {{ __('capell-admin::message.lockdown_banner') }}
+        @if (config('capell.multi_node', false))
+            {{ __('capell-admin::message.lockdown_multi_node_cache_warning') }}
+        @endif
     </div>
 </div>

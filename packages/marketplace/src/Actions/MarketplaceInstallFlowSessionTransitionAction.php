@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -32,6 +33,9 @@ final class MarketplaceInstallFlowSessionTransitionAction
     ];
 
     /**
+     * Failure reasons come from {@see MarketplaceRemoteFailureException::diagnostic()},
+     * so remote response text never reaches the session record.
+     *
      * @param  array<string, mixed>  $metadata
      */
     public function handle(

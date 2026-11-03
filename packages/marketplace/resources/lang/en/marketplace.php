@@ -11,6 +11,10 @@ return [
         'recheck' => 'Recheck cached catalogue (refresh requests are limited)',
     ],
     'errors' => [
+        'heartbeat_connection' => 'Capell could not connect to the Marketplace at :host.',
+        'heartbeat_instance_mismatch' => 'The Marketplace response did not confirm the connected instance.',
+        'remote_failure' => 'Marketplace could not complete the request. Check the connection and try again.',
+        'purchase_required' => 'This extension must be purchased before it can be installed. Open the checkout link to continue.',
         'invalid_composer_coordinates' => 'Marketplace returned invalid Composer package coordinates.',
         'unsafe_update_constraint' => 'Marketplace returned an update constraint that permits the current version or a downgrade.',
         'reviewed_selection_changed' => 'Marketplace extension does not match the reviewed selection. Review the selection again before installing.',

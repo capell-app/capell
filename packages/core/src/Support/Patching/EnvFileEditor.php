@@ -58,6 +58,8 @@ final class EnvFileEditor
     public function save(): void
     {
         throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
+        // Replacing by rename would bypass a read-only file, so keep refusing a target the process cannot write.
+        throw_unless(is_writable($this->filePath), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
         // Exclusive creation of a random sibling keeps a collision from overwriting another writer's file.
         $temporary = dirname($this->filePath) . '/.capell-env-' . bin2hex(random_bytes(16));
         $stream = @fopen($temporary, 'x');

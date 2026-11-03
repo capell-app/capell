@@ -253,12 +253,14 @@ it('builds a redacted diagnostic bundle with status, timeline, and output', func
 
 it('redacts composer auth credentials embedded in diagnostic strings', function (): void {
     $redacted = RedactMarketplaceDiagnosticContextAction::run([
-        'output' => 'Bearer abc+/= password=hunter2 {"github-oauth":{"github.com":"ghp_secret_token"},"http-basic":{"repo.example.com":"basic_secret"}}',
+        'output' => 'postgres://user:uri_secret@host/db?token=query_secret&key=key_secret Authorization: Bearer abc+/= password=hunter2 {"github-oauth":{"github.com":"ghp_secret_token"},"http-basic":{"repo.example.com":"basic_secret"}}',
     ]);
 
     expect($redacted['output'])
         ->toContain('Bearer [redacted]')
         ->toContain('password=[redacted]')
+        ->not->toContain('uri_secret', 'query_secret', 'key_secret')
+        ->toContain('postgres://[redacted]@host/db')
         ->not->toContain('abc+/=')
         ->not->toContain('hunter2')
         ->not->toContain('ghp_secret_token')
@@ -455,3 +457,10 @@ function marketplaceDebugAttempt(array $overrides = []): MarketplaceInstallAttem
         ...$overrides,
     ]);
 }
+
+it('redacts encoded keys, escaped JSON values and nested composer credential maps', function (): void {
+    $input = 'Authorization=Basic c2VjcmV0 Authorization: Bearer abc {"password":"first\"remaining_secret"} {"http-basic":{"repo.example.com":{"username":"alice","password":"hunter2"}}} %70assword=secret';
+    $result = RedactMarketplaceDiagnosticContextAction::run(['output' => $input]);
+    expect($result['output'])->toContain('Basic [redacted]', 'Bearer [redacted]', '%70assword=[redacted]', '"username":"[redacted]"')
+        ->not->toContain('c2VjcmV0', 'abc', 'first', 'remaining_secret', 'alice', 'hunter2', '%70assword=secret');
+});
