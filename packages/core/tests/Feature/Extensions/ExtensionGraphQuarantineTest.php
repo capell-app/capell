@@ -13,6 +13,7 @@ use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Exceptions\ExtensionVerificationFailedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ExtensionQuarantine;
+use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Diagnostics\Checks\ExtensionVerificationCheck;
 use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
@@ -167,6 +168,30 @@ it('reads the quarantined set once per boot cycle and again after a quarantine w
 
     LiftExtensionQuarantineAction::run(['vendor/held']);
     expect($gate->allows('vendor/held'))->toBeTrue()->and($lookups)->toBe(2);
+});
+
+it('flushes the cached quarantined set between Octane operations', function (): void {
+    $gate = resolve(ExtensionQuarantineGate::class);
+    expect($gate->allows('vendor/late'))->toBeTrue();
+
+    // A write that bypasses the quarantine actions never calls forget(), so the
+    // cached set is stale until the operation boundary flushes it.
+    ExtensionQuarantine::query()->create([
+        'composer_name' => 'vendor/late',
+        'failing_package' => 'vendor/late',
+        'quarantined_set' => ['vendor/late'],
+        'quarantined_at' => CarbonImmutable::now(),
+    ]);
+    expect($gate->allows('vendor/late'))->toBeTrue();
+
+    $tagged = array_filter(iterator_to_array(app()->tagged(Resettable::TAG), false), static fn (object $resettable): bool => $resettable instanceof ExtensionQuarantineGate);
+    expect($tagged)->toHaveCount(1);
+
+    foreach ($tagged as $resettable) {
+        $resettable->flushOctaneState();
+    }
+
+    expect($gate->allows('vendor/late'))->toBeFalse();
 });
 
 it('refuses release while the recorded content-hash comparison still fails and releases once the bytes are restored', function (): void {

@@ -278,6 +278,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(MigrationRootRegistry::class);
         $this->app->singleton(ComponentRegistry::class);
         $this->app->singleton(ExtensionQuarantineGate::class);
+        $this->app->tag([ExtensionQuarantineGate::class], Resettable::TAG);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerRuntimeRole();
         $this->registerSettingsSchemaRegistry();
