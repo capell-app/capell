@@ -717,6 +717,8 @@ it('schedules transition cleanup only on a real queue and never leaves its marke
 });
 
 it('withdraws stored output at a scheduled transition without the scheduler', function (): void {
+    // Cleanup is queued only on a real (asynchronous) queue.
+    config()->set('queue.default', 'database');
     Queue::fake();
     Event::fake([PublicReadEligibilityChanged::class]);
     resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility, SchedulesPublicReadTransitions
