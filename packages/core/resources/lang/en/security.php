@@ -3,13 +3,20 @@
 declare(strict_types=1);
 
 return [
-    'command' => ['runs' => 'Changes applied: :applied; failed: :failed.'],
+    'registry' => ['owner_conflict' => 'Security weakness :id belongs to :owner and cannot be replaced by :replacement.'],
+    'command' => ['scan_id' => 'Scan ID: :id', 'runs' => 'Changes applied: :applied; failed: :failed.'],
     'doctor' => [
         'label' => 'Security posture',
+        'never_scanned' => 'No security scan has completed successfully. Run php artisan capell:security:scan.',
+        'failed_scan' => 'The security scan finished with failures at :time. Run the scan again.',
         'message' => 'Open security findings: :critical critical, :high high.',
         'action' => 'Run php artisan capell:security:scan and review the findings.',
     ],
     'remediation' => [
+        'no_fix' => 'No automatic fix is registered for security weakness :id.',
+        'approval_requires_finding' => 'Scan first and approve one open finding with this weakness ID.',
+        'approval_required' => 'This finding needs its own approval.',
+        'evidence_changed' => 'The evidence changed since approval; review and approve the finding again.',
         'advice_only' => 'Analyser findings are advice only.',
         'not_confirmed' => 'Not confirmed by the latest scan.',
         'fix_changed' => 'The fix changed since it was approved; approve it again.',
