@@ -22,12 +22,14 @@ use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
 use Capell\Core\Support\TableName;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
@@ -466,7 +468,7 @@ it('removes exported static pages when public-read eligibility changes', functio
     $root = sys_get_temp_dir() . '/capell-static-eligibility-' . bin2hex(random_bytes(4));
     config(['capell-frontend.static_artifacts_path' => $root]);
     $store = resolve(StaticPageArtifactStore::class);
-    $store->putOwnedHtml('directory/index.html', 'Links to a members-only page', $domain->site_id);
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'directory/index.html', 'Links to a members-only page', $domain->site_id));
 
     try {
         expect(is_file($root . '/directory/index.html'))->toBeTrue();

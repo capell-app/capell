@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Actions\PublicRead\PublishPublicArtefactAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\SiteAccessContextData;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -14,6 +15,8 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
@@ -52,8 +55,9 @@ class GenerateStaticPageArtifactsAction
     {
         $artifacts = [];
         $failures = [];
+        $withheld = [];
 
-        $matchedUrls = $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts, &$failures): void {
+        $matchedUrls = $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts, &$failures, &$withheld): void {
             $siteDomain = $this->siteDomainFor($pageUrl);
 
             if (! $siteDomain instanceof SiteDomain) {
@@ -61,6 +65,8 @@ class GenerateStaticPageArtifactsAction
             }
 
             $this->clearRenderData();
+            // The rules this page is rendered under; checked again when it is written.
+            $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp();
 
             try {
                 $response = $this->render($pageUrl, $siteDomain);
@@ -94,14 +100,35 @@ class GenerateStaticPageArtifactsAction
             }
 
             $file = $this->pathResolver->pathForPageUrl($pageUrl, $siteDomain);
+            $written = false;
             resolve(PublicRenderDataCacheDependencyRegistry::class)->writeStaticArtifact(
                 $renderData->extensionCacheDependencies,
                 $file,
                 $renderData->extensionSurrogateKeys,
-                function () use ($file, $response, $pageUrl): void {
-                    $this->store->putOwnedHtml($file, (string) $response->getContent(), $pageUrl->site_id);
+                function () use ($file, $response, $pageUrl, $builtUnder, &$written): void {
+                    // A page behind time-bounded or since-changed rules is not
+                    // exported: it is served only by Laravel, which checks it.
+                    $written = PublishPublicArtefactAction::run(
+                        $pageUrl->site_id,
+                        $builtUnder,
+                        [$pageUrl],
+                        function (PublicArtefactPermit $permit) use ($file, $response, $pageUrl): bool {
+                            $this->store->putOwnedHtml($permit, $file, (string) $response->getContent(), $pageUrl->site_id);
+
+                            return true;
+                        },
+                        function (PublicArtefactPermit $permit) use ($file): void {
+                            $this->store->forgetHtml($file);
+                        },
+                    );
                 },
             );
+
+            if (! $written) {
+                $withheld[] = $pageUrl->url;
+
+                return;
+            }
 
             $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $response, $file)->toArray();
         });
@@ -119,6 +146,8 @@ class GenerateStaticPageArtifactsAction
         $manifest = [
             'generated_at' => Date::now()->toIso8601String(),
             'artifacts' => $artifacts,
+            // Pages served only by Laravel under the current public-read rules.
+            'withheld' => $withheld,
         ];
 
         $this->store->writeManifest($manifest);

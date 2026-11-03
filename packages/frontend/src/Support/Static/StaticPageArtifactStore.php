@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Static;
 
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Closure;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
@@ -26,17 +27,23 @@ final class StaticPageArtifactStore
         return $this->root() . '/manifest.json';
     }
 
-    public function putHtml(string $file, string $contents): void
+    /**
+     * Static exports are served without Laravel, so every write needs the
+     * permit PublishPublicArtefactAction issues under the publication lock.
+     */
+    public function putHtml(PublicArtefactPermit $permit, string $file, string $contents): void
     {
+        $permit->assertActive();
         $path = $this->pathWithinRoot($file);
 
         $this->writeAtomically($path, $contents);
     }
 
     /** Ownership is private and cumulative; the public manifest is only a receipt. */
-    public function putOwnedHtml(string $file, string $contents, int $siteId): void
+    public function putOwnedHtml(PublicArtefactPermit $permit, string $file, string $contents, int $siteId): void
     {
-        $this->withOwnershipLock(function (array $ownership) use ($file, $contents, $siteId): void {
+        $permit->assertActive();
+        $this->withOwnershipLock(function (array $ownership) use ($permit, $file, $contents, $siteId): void {
             // Persist before publishing bytes, retaining former owners in case
             // replacement fails and leaves their previous content on disk.
             $this->pathWithinRoot($file);
@@ -44,7 +51,7 @@ final class StaticPageArtifactStore
             $relative = ltrim($file, '/');
             $ownership[$relative] = array_values(array_unique([...($ownership[$relative] ?? []), $siteId]));
             $this->writeOwnership($ownership);
-            $this->putHtml($file, $contents);
+            $this->putHtml($permit, $file, $contents);
         });
     }
 

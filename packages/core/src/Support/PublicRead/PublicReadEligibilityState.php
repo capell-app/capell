@@ -45,6 +45,10 @@ final class PublicReadEligibilityState
      */
     public function stamp(): ?PublicReadStampData
     {
+        if (! $this->isRestricted()) {
+            return new PublicReadStampData(null, null);
+        }
+
         return $this->stampFor($this->revision->current());
     }
 
@@ -54,6 +58,10 @@ final class PublicReadEligibilityState
      */
     public function freshStamp(): ?PublicReadStampData
     {
+        if (! $this->isRestricted()) {
+            return new PublicReadStampData(null, null);
+        }
+
         return $this->stampFor($this->revision->fresh());
     }
 
@@ -78,10 +86,6 @@ final class PublicReadEligibilityState
 
     private function stampFor(?string $revision): ?PublicReadStampData
     {
-        if (! $this->isRestricted()) {
-            return new PublicReadStampData(null, null);
-        }
-
         if ($revision === null) {
             return null;
         }

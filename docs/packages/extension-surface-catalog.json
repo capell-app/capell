@@ -253,6 +253,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.publish-public-artefact",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublicRead\\PublishPublicArtefactAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Only path for writing copies served without Laravel; checks eligibility at write time.",
+            "contractTestId": null
+        },
+        {
             "id": "core.action.record-public-read-eligibility-change",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\PublicRead\\RecordPublicReadEligibilityChangeAction",
@@ -1411,6 +1421,26 @@
             "introducedVersion": "1.0.0",
             "summary": "Structured JSON delivery through the configured Laravel log channel.",
             "contractTestId": "core.reporting-dispatch"
+        },
+        {
+            "id": "core.support.public-artefact-permit",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicArtefactPermit",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Proof a write runs inside the publication action; artefact stores require it.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-artefact-publication-lock",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicArtefactPublicationLock",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Per-site lock shared by out-of-band artefact writes and their withdrawal.",
+            "contractTestId": null
         },
         {
             "id": "core.support.public-read-eligibility-revision",
