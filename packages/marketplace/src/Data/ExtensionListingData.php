@@ -86,6 +86,7 @@ final class ExtensionListingData extends Data
         public readonly array $trial = [],
         public readonly ?string $releaseChecksum = null,
         public readonly ?string $releaseChecksumVersion = null,
+        public readonly ?string $releaseContentSha256 = null,
     ) {}
 
     /**
@@ -161,6 +162,7 @@ final class ExtensionListingData extends Data
             trial: self::arrayValue($item['trial'] ?? data_get($item, 'commercial.trial', [])),
             releaseChecksum: self::nonEmptyString($item['release_checksum'] ?? $item['releaseChecksum'] ?? null),
             releaseChecksumVersion: self::nonEmptyString($item['release_checksum_version'] ?? $item['releaseChecksumVersion'] ?? $item['latest_version'] ?? null),
+            releaseContentSha256: self::contentSha256($item['release_content_sha256'] ?? $item['releaseContentSha256'] ?? null),
         );
     }
 
@@ -253,6 +255,17 @@ final class ExtensionListingData extends Data
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private static function contentSha256(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return is_string($value) && preg_match('/\A[a-f0-9]{64}\z/i', $value) === 1
+            ? strtolower($value)
+            : 'invalid';
     }
 
     private static function nonEmptyString(mixed $value): ?string
@@ -441,6 +454,7 @@ final class ExtensionListingData extends Data
             'performance', 'performance_budget', 'contribution_summary', 'contributions_summary',
             'install_eligibility', 'eligibility', 'blocked_reason', 'next_action', 'surfaces', 'dependencies',
             'catalogue_role', 'maturity', 'maturity_label', 'trial',
+            'release_content_sha256', 'releaseContentSha256',
             'metadata',
         ];
 

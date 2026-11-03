@@ -26,5 +26,6 @@ final class ExtensionAcquisitionData extends Data
         public ?MarketplaceInstallEligibilityData $authorizationEligibilityPolicy = null,
         public ?string $releaseChecksum = null,
         public ?string $releaseChecksumVersion = null,
+        public ?string $releaseContentSha256 = null,
     ) {}
 }

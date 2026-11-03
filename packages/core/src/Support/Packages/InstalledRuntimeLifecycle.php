@@ -297,6 +297,10 @@ final class InstalledRuntimeLifecycle
             return $completed[$package] = false;
         }
 
+        if (! $this->app->make(ExtensionQuarantineGate::class)->allows($package)) {
+            return $completed[$package] = false;
+        }
+
         if (in_array($package, $ancestors, true)) {
             throw new RuntimeException('Circular installed-runtime dependency: ' . implode(' -> ', [...$ancestors, $package]));
         }
