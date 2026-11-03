@@ -44,6 +44,9 @@ final class SecurityRemediationRun extends Model
     /** @use HasFactory<Factory<self>> */
     use HasFactory;
 
+    /** Width of the outcome column; every SecurityRemediationOutcome value must fit. */
+    public const int OUTCOME_LENGTH = 32;
+
     public const string ACTOR_SCHEDULER = 'system:scheduler';
 
     protected $table = 'capell_security_remediation_runs';

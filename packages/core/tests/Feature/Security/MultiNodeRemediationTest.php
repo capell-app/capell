@@ -101,6 +101,15 @@ afterEach(function (): void {
     CarbonImmutable::setTestNow();
 });
 
+it('keeps every remediation outcome within the declared outcome column length', function (): void {
+    foreach (SecurityRemediationOutcome::cases() as $outcome) {
+        expect(strlen($outcome->value))->toBeLessThanOrEqual(SecurityRemediationRun::OUTCOME_LENGTH, $outcome->value);
+    }
+
+    $run = SecurityRemediationRun::factory()->create(['outcome' => SecurityRemediationOutcome::AppliedPendingNodes]);
+    expect($run->fresh()?->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes);
+});
+
 it('keeps single-node remediation unchanged and writes nothing to the node registry', function (): void {
     config(['capell.multi_node' => false]);
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
