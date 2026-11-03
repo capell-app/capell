@@ -62,9 +62,15 @@ it('rejects unknown and non-pageable content lock types', function (string $type
 })->with(['unknown', RetainedDraftSubclassPage::class, 'site']);
 
 it('authorizes the resolved record before refreshing its lock', function (): void {
-    test()->actingAsUser();
+    // A panel user passes panel admission, so the refusal comes from the record's own update policy.
+    Role::findOrCreate('panel_user', 'web');
+    test()->actingAsRole('panel_user');
     $page = Page::factory()->createOne();
+    expect(test()->authenticatedUser()->can('update', $page))->toBeFalse();
+
     post(route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $page, 'type' => $page->getMorphClass()]))->assertForbidden();
+    post(route('capell-admin.api.pages.content-lock.release', ['page' => $page, 'type' => $page->getMorphClass()]))->assertForbidden();
+
     expect(ContentLock::query()->count())->toBe(0);
 });
 
