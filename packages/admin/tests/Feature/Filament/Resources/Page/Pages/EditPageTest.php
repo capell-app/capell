@@ -1761,7 +1761,7 @@ it('content structure conversion action is only added to the main page content e
     expect(collect($contentEditor->getHintActions())->map->getName()->all())
         ->toContain('convertContentToBlocks')
         ->and(collect($heroEditor->getHintActions())->map->getName()->all())
-        ->not->toContain('convertContentToBlocks', 'convertContentToHtml');
+        ->not->toContain('convertContentToBlocks')->not->toContain('convertContentToHtml');
 });
 
 it('default content block uses a simplified content-only schema', function (): void {
@@ -1790,9 +1790,10 @@ it('default content block uses a simplified content-only schema', function (): v
         ->values()
         ->all();
 
-    expect($componentNames)
-        ->toContain('content')
-        ->not->toContain('media', 'mediaAlign', 'mediaOrdering', '__capell');
+    // The content block keeps only its own fields; presentation-settings
+    // wrappers (internal __capell* keys) are added to other blocks only.
+    expect($componentNames)->toBe(['content', 'media', 'mediaAlign', 'mediaOrdering'])
+        ->and(array_filter($componentNames, fn (string $name): bool => str_starts_with($name, '__capell')))->toBe([]);
 });
 
 it('can convert content blocks back to html from the content editor hint action', function (): void {

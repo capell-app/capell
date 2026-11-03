@@ -229,7 +229,7 @@ it('does not expose secondary resources to an actor without resource permissions
     Filament::setServingStatus();
     $keys = collect(Filament::getNavigation())->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
         ->map(fn (NavigationItem $item): ?string => $item->getUrl())->all();
-    expect($keys)->not->toContain(MediaResource::getUrl(), LayoutResource::getUrl(), ThemeResource::getUrl());
+    expect($keys)->not->toContain(MediaResource::getUrl())->not->toContain(LayoutResource::getUrl())->not->toContain(ThemeResource::getUrl());
 });
 
 it('keeps a permitted package child reachable when its parent uses a different group', function (): void {

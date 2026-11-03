@@ -7,6 +7,7 @@ use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;
 use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
 use Capell\Frontend\Support\Fragments\PublicFragmentUrlResolverRegistry;
 use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Assert;
 
 it('exposes only the owner-aware public fragment protocol', function (): void {
     $legacyContract = implode('', ['Deferred', 'Fragment', 'Reference', 'Builder']);
@@ -28,8 +29,7 @@ it('exposes only the owner-aware public fragment protocol', function (): void {
 
     foreach ($paths as $path) {
         foreach (File::allFiles($path) as $file) {
-            expect(File::get($file->getPathname()))
-                ->not->toContain($legacyContract, $file->getPathname());
+            Assert::assertStringNotContainsString($legacyContract, File::get($file->getPathname()), $file->getPathname());
         }
     }
 });

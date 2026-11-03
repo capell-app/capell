@@ -22,6 +22,6 @@ it('round trips an opaque owner-bound public fragment reference through the real
     $token = $codec->encode($reference);
     $decoded = $codec->decode($token);
 
-    expect($token)->not->toContain('4815', 'layout-builder', 'release-contract-v1')
+    expect($token)->not->toContain('4815')->not->toContain('layout-builder')->not->toContain('release-contract-v1')
         ->and($decoded->toArray())->toBe($reference->toArray());
 });

@@ -93,7 +93,7 @@ it('preserves legacy anonymous component attribute output for unhydrated layouts
             expect($html)->toContain($expected);
         }
 
-        expect($html)->not->toContain('public-render-data', 'publicRenderData', 'signed_url', 'scope-secret');
+        expect($html)->not->toContain('public-render-data')->not->toContain('publicRenderData')->not->toContain('signed_url')->not->toContain('scope-secret');
     } finally {
         File::deleteDirectory($path);
     }
@@ -155,7 +155,7 @@ it('restores render data across recursive blade renders and exceptions', functio
         } else {
             $response = $render();
             throw_unless($response instanceof Response, RuntimeException::class);
-            expect($response->getContent())->toContain('Outer context')->not->toContain('Inner context', 'scope-secret');
+            expect($response->getContent())->toContain('Outer context')->not->toContain('Inner context')->not->toContain('scope-secret');
         }
 
         expect(PublicRenderDataScope::current())->toBeNull();
@@ -671,7 +671,7 @@ BLADE);
         if ($hydration === 'repeated') {
             expect(substr_count($content, '<p>Second occurrence</p>'))->toBe(1)
                 ->and(substr_count($content, '<p>Other container occurrence</p>'))->toBe(1)
-                ->and($content)->not->toContain('Wrong repeated fallback', 'Wrong other-container fallback');
+                ->and($content)->not->toContain('Wrong repeated fallback')->not->toContain('Wrong other-container fallback');
         }
 
         if ($usesShortcut) {
