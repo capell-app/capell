@@ -30,6 +30,28 @@ it('prepares and reuses a process skeleton and removes it on shutdown', function
     }
 });
 
+it('boots from a base path without symlink components so release-root guards accept it', function (): void {
+    $root = sys_get_temp_dir() . '/capell-skeleton-test-' . bin2hex(random_bytes(8)) . '/nested';
+    $checkout = dirname(__DIR__, 3);
+    $code = <<<'CODE'
+        require $argv[1] . '/vendor/autoload.php';
+        $base = \Capell\Tests\Support\IsolatedTestbenchSkeleton::basePath();
+        echo json_encode([$base, realpath($base)]);
+        CODE;
+    $process = new Process([PHP_BINARY, '-r', $code, $checkout], $checkout, ['CAPELL_TESTBENCH_SKELETON_ROOT' => $root]);
+    try {
+        $process->run();
+        expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());
+        [$base, $resolved] = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
+        $temp = realpath(sys_get_temp_dir());
+        expect($resolved)->toBeString()
+            ->and($base)->toBe($resolved)
+            ->and(is_string($temp) && str_starts_with((string) $base, rtrim($temp, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR))->toBeTrue();
+    } finally {
+        (new Filesystem)->deleteDirectory(dirname($root));
+    }
+});
+
 it('copies vendor and public storage when links cannot be created', function (): void {
     $root = sys_get_temp_dir() . '/capell-skeleton-copy-' . bin2hex(random_bytes(8));
     $filesystem = new Filesystem;
