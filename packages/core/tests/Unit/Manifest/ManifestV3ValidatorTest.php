@@ -943,6 +943,105 @@ it('rejects unknown traceability fields and malformed contribution identity fiel
     ]]]],
 ]);
 
+it('names the declared manifest version and the field when the version is unsupported', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = array_replace(manifestV3Fixture('valid-premium-package'), ['manifest-version' => 2]);
+
+    try {
+        $validator->validate($manifest, composerJson: manifestV3ComposerJson());
+    } catch (InvalidManifestException $invalidManifestException) {
+        expect($invalidManifestException->getMessage())->toBe('Capell manifest declares manifest-version 2, but Capell reads manifest-version 3 only.')
+            ->and($invalidManifestException->field)->toBe('manifest-version');
+
+        return;
+    }
+
+    test()->fail('A manifest-version 2 manifest must be rejected.');
+});
+
+it('lists the real surfaces when a surface is unknown', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = array_replace(manifestV3Fixture('valid-premium-package'), ['surfaces' => ['frontend', 'backoffice']]);
+
+    try {
+        $validator->validate($manifest, composerJson: manifestV3ComposerJson());
+    } catch (InvalidManifestException $invalidManifestException) {
+        expect($invalidManifestException->getMessage())->toBe("Capell manifest has invalid surface: 'backoffice'. Must be one of: content, admin, frontend, workflow, delivery, operations, integrations, marketplace, console, shared")
+            ->and($invalidManifestException->field)->toBe('surfaces');
+
+        return;
+    }
+
+    test()->fail('An unknown surface must be rejected.');
+});
+
+it('names the unknown and missing provider buckets', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $providers = $manifest['providers'];
+    unset($providers['frontend']);
+    $providers['web'] = [];
+    $manifest['providers'] = $providers;
+
+    try {
+        $validator->validate($manifest, composerJson: manifestV3ComposerJson());
+    } catch (InvalidManifestException $invalidManifestException) {
+        expect($invalidManifestException->getMessage())->toBe("Capell manifest has invalid providers: unknown bucket 'web'; missing bucket 'frontend'. Required buckets: metadata, install, runtime, admin, frontend. Allowed buckets: metadata, install, runtime, auth, admin, frontend")
+            ->and($invalidManifestException->field)->toBe('providers');
+
+        return;
+    }
+
+    test()->fail('Unknown and missing provider buckets must be rejected.');
+});
+
+it('reports structural problems keyed by field without loading classes', function (): void {
+    $validator = new ManifestValidator;
+    $valid = manifestV3Fixture('valid-premium-package');
+
+    expect($validator->structureProblems($valid, composerJson: manifestV3ComposerJson()))->toBe([]);
+
+    $withoutPerformance = $valid;
+    unset($withoutPerformance['performance']);
+
+    expect($validator->structureProblems($withoutPerformance, composerJson: manifestV3ComposerJson()))
+        ->toBe(['performance' => 'Capell manifest is missing required field: performance']);
+
+    $spoofed = manifestV3Fixture('invalid-commercial-spoof');
+    $problems = $validator->structureProblems($spoofed, composerJson: manifestV3ComposerJson());
+
+    expect(array_keys($problems))->toBe(['commercial.effectiveLicense'])
+        ->and($problems['commercial.effectiveLicense'])->toContain('author proposal metadata only');
+});
+
+it('requires the performance budgets the schema declares', function (string $budget, mixed $value): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+
+    if ($value === null) {
+        unset($manifest['performance'][$budget]);
+    } else {
+        $manifest['performance'][$budget] = $value;
+    }
+
+    expect($validator->structureProblems($manifest, composerJson: manifestV3ComposerJson()))
+        ->toBe(['performance.' . $budget => 'Capell manifest has invalid field performance.' . $budget . ': must be an integer budget of zero or more']);
+})->with([
+    'frontendRenderBudgetMs missing' => ['frontendRenderBudgetMs', null],
+    'adminQueryBudget missing' => ['adminQueryBudget', null],
+    'frontendRenderBudgetMs negative' => ['frontendRenderBudgetMs', -1],
+    'adminQueryBudget string' => ['adminQueryBudget', '20'],
+]);
+
+it('judges structure without composer data but still refuses platform namespace spoofing', function (): void {
+    $validator = new ManifestValidator;
+
+    expect($validator->structureProblems(manifestV3Fixture('valid-premium-package')))->toBe([])
+        ->and(array_keys($validator->structureProblems(manifestV3Fixture('invalid-namespace-spoof'))))->toBe(['class'])
+        ->and($validator->structureProblems(manifestV3Fixture('valid-premium-package'), composerJson: ['autoload' => ['psr-4' => ['Other\\Vendor\\' => 'src/']]]))
+        ->toHaveKey('class');
+});
+
 it('accepts optional outcome copy and FAQ entries in the marketplace section', function (): void {
     $validator = new ManifestValidator;
     $manifest = manifestV3Fixture('valid-premium-package');
