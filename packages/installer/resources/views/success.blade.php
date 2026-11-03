@@ -112,11 +112,32 @@
                             <h3>
                                 {{ __('capell-installer::installer.launchpad_checklist_title') }}
                             </h3>
-                            <p>{{ __('capell-installer::installer.launchpad_message') }}</p>
+                            <p>
+                                @if ($existingAccount)
+                                    {{ __('capell-installer::installer.launchpad_message_existing_account') }}
+                                @else
+                                    {{ __('capell-installer::installer.launchpad_message') }}
+                                @endif
+                            </p>
 
                             <ul>
+                                @forelse ($handoffTips as $tip)
+                                    <li data-handoff-tip="{{ $tip['key'] }}">
+                                        <strong>{{ $tip['label'] }}:</strong>
+                                        {{ $tip['detail'] }}
+                                    </li>
+                                @empty
+                                    <li>
+                                        {{ __('capell-installer::installer.launchpad_check_pages') }}
+                                    </li>
+                                @endforelse
                                 <li>
-                                    {{ __('capell-installer::installer.launchpad_check_pages') }}
+                                    <a
+                                        href="{{ $firstPageGuideUrl }}"
+                                        rel="noopener noreferrer"
+                                        target="_blank"
+                                        >{{ __('capell-installer::installer.launchpad_first_page_guide') }}</a
+                                    >
                                 </li>
                                 <li>
                                     {{ __('capell-installer::installer.launchpad_check_site_settings') }}
