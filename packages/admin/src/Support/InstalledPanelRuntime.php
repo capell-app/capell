@@ -54,7 +54,10 @@ final class InstalledPanelRuntime
         'auth.register',
     ];
 
-    /** Code that only serves the admin panels; a route running it is owned by a panel unless declared public. */
+    /**
+     * Packages that only serve the admin panels, by namespace. A route whose action is shipped in their
+     * source or route files is owned by a panel unless declared public.
+     */
     private const array ADMIN_NAMESPACES = ['Filament\\', 'Livewire\\', 'Capell\\Admin\\'];
 
     /**
@@ -106,13 +109,13 @@ final class InstalledPanelRuntime
     /** @var array<string, true> Route names their owners declared public, such as signed preview links. */
     private array $publicRoutes = [];
 
-    /** @var array<string, true> Namespaces of admin-only packages beyond Filament, Livewire and Capell admin. */
+    /** @var array<string, true> Namespaces of admin-only packages declared beyond Filament, Livewire and Capell admin. */
     private array $adminNamespaces = [];
 
     /** @var WeakMap<Route, array{0: mixed, 1: bool}> Whether a route runs admin code, by the action it was classified from. */
     private WeakMap $adminCode;
 
-    /** @var list<string>|null Directories holding the admin packages' route files. */
+    /** @var list<string>|null The admin packages' source and route directories. */
     private ?array $adminRoots = null;
 
     /** @var array<string, true> */
@@ -160,7 +163,7 @@ final class InstalledPanelRuntime
         }
     }
 
-    /** Treat routes running code from these namespaces (admin-only Filament plugins) as admin code. */
+    /** Treat routes running code shipped by the packages of these namespaces (admin-only Filament plugins) as admin code. */
     public function declareAdminCode(string ...$namespaces): void
     {
         foreach ($namespaces as $namespace) {
