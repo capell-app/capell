@@ -18,6 +18,7 @@ use Filament\Http\Middleware\SetUpPanel;
 use Filament\Pages\BasePage;
 use Filament\Panel;
 use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\RouteAction;
 use Illuminate\Routing\Router;
@@ -35,6 +36,7 @@ use ReflectionClass;
 use ReflectionFunction;
 use ReflectionProperty;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 use WeakMap;
 
@@ -260,6 +262,27 @@ final class InstalledPanelRuntime
         }
 
         abort_if($this->isRouteRefused($route), 503, __('capell-core::runtime-refresh.application_unavailable'));
+    }
+
+    /**
+     * Reconcile the route that rendered a Livewire component before its update replays that route's
+     * persistent middleware, so the replay runs the route as it stands now and a refused route is
+     * refused, whatever middleware the route excludes.
+     */
+    public function reconcileLivewireReplay(Request $request, string $path, string $method): void
+    {
+        $server = clone $request->server;
+        $server->set('REQUEST_URI', str_replace('/' . ltrim($request->path(), '/'), '/' . ltrim($path, '/'), (string) $server->get('REQUEST_URI')));
+        $server->set('REQUEST_METHOD', $method);
+
+        try {
+            $route = $this->router->getRoutes()->match($request->duplicate(server: $server->all()));
+        } catch (HttpExceptionInterface) {
+            // Livewire replays no middleware for a path that matches no route.
+            return;
+        }
+
+        $this->reconcileMatchedRoute($route);
     }
 
     private function protectRoutes(Panel $panel, string $id): void

@@ -310,9 +310,13 @@ use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+
+use function Livewire\before;
+
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
+use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use Override;
 use ReflectionClass;
 use RuntimeException;
@@ -635,6 +639,19 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        // A Livewire update replays the persistent middleware of the route that rendered the
+        // component; that route is reconciled first, as it stands now. Registered at boot, once
+        // Livewire's event bus exists.
+        before('snapshot-verified', static function (array $snapshot): void {
+            $path = $snapshot['memo']['path'] ?? null;
+            $method = $snapshot['memo']['method'] ?? null;
+            if (! is_string($path) || ! is_string($method) || ! resolve(HandleRequests::class)->isLivewireRoute()) {
+                return;
+            }
+
+            resolve(InstalledPanelRuntime::class)->reconcileLivewireReplay(request(), $path, $method);
+        });
+
         BaseFileUpload::configureUsing(
             static function (BaseFileUpload $upload): void {
                 if (! $upload instanceof SpatieMediaLibraryFileUpload) {
