@@ -405,6 +405,22 @@
                         }
                     }
                 },
+                "manual": {
+                    "description": "Route facts the generator cannot derive from route files, declared by hand. Each entry is a route identity (METHOD /uri (name)) that must exist, and must not duplicate a derived fact.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "signedRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "tokenizedRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        }
+                    }
+                },
                 "adminSurface": {
                     "type": "object",
                     "additionalProperties": false,

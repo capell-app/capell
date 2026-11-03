@@ -9,7 +9,7 @@ use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 
 final readonly class SecuritySectionValidator implements ManifestSectionValidator
 {
-    private const array FIELDS = ['riskTier', 'publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface'];
+    private const array FIELDS = ['riskTier', 'publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface', 'manual'];
 
     public function __construct(private ManifestValidationRules $rules) {}
 
@@ -35,7 +35,7 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
             throw InvalidManifestException::invalidField('security.riskTier', 'must be a non-empty string');
         }
 
-        foreach (['publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface'] as $field) {
+        foreach (['publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface', 'manual'] as $field) {
             if (array_key_exists($field, $security) && ! is_array($security[$field])) {
                 throw InvalidManifestException::invalidField('security.' . $field, 'must be an object');
             }
@@ -46,6 +46,7 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
         $this->validatePublicOutput($security);
         $this->validateExternalHttpClients($security);
         $this->validateAdminSurface($security);
+        $this->validateManual($security);
     }
 
     /** @param array<string, mixed> $security */
@@ -119,5 +120,26 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
         }
 
         $this->rules->stringList($security['adminSurface'], 'permissions', required: false);
+    }
+
+    /** @param array<string, mixed> $security */
+    private function validateManual(array $security): void
+    {
+        if (! is_array($security['manual'] ?? null)) {
+            return;
+        }
+
+        foreach (array_keys($security['manual']) as $field) {
+            if (! in_array($field, ['description', 'signedRoutes', 'tokenizedRoutes'], true)) {
+                throw InvalidManifestException::invalidField('security.manual.' . $field, 'is not a manual declaration field');
+            }
+        }
+
+        if (array_key_exists('description', $security['manual']) && ! is_string($security['manual']['description'])) {
+            throw InvalidManifestException::invalidField('security.manual.description', 'must be a string');
+        }
+
+        $this->rules->stringList($security['manual'], 'signedRoutes', required: false);
+        $this->rules->stringList($security['manual'], 'tokenizedRoutes', required: false);
     }
 }

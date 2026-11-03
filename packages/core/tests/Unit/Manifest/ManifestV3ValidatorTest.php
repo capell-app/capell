@@ -328,6 +328,47 @@ it('accepts manually listed external HTTP clients beside the detected ones', fun
         ->not->toThrow(InvalidManifestException::class);
 });
 
+it('declares hand-declared signed and tokenized routes in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.security.properties.manual.additionalProperties'))->toBeFalse()
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.signedRoutes.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.tokenizedRoutes.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.description.type'))->toBe('string');
+});
+
+it('accepts hand-declared signed and tokenized routes', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'manual' => [
+            'description' => 'Portal links carry a bearer token in the uri.',
+            'signedRoutes' => ['GET /portal/{token} (capell-example.portal)'],
+            'tokenizedRoutes' => ['POST /hook (capell-example.hook)'],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects a malformed hand-declared route declaration', function (mixed $manual, string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = ['manual' => $manual];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $field);
+})->with([
+    'not an object' => ['GET /x', 'security.manual'],
+    'unknown field' => [['webhookRoutes' => []], 'security.manual.webhookRoutes'],
+    'signed routes not a list' => [['signedRoutes' => 'GET /x'], 'signedRoutes'],
+    'tokenized route not a string' => [['tokenizedRoutes' => ['GET /x', 3]], 'tokenizedRoutes'],
+    'description not a string' => [['description' => ['x']], 'security.manual.description'],
+]);
+
 it('validates screenshot paths in the published schema without depending on its regex spelling', function (string $path, bool $safe): void {
     $schema = json_decode(
         (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
