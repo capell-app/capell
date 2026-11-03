@@ -157,7 +157,9 @@ for vendor_dir in "$PRIMARY_ROOT"/vendor/*/; do
     mkdir -p "vendor/$vendor_name"
     for package_dir in "$vendor_dir"*/; do
         [ -d "$package_dir" ] || continue
-        ln -s "$package_dir" "vendor/$vendor_name/$(basename "$package_dir")"
+        package_name=$(basename "$package_dir")
+        [ "$vendor_name/$package_name" != "orchestra/testbench-core" ] || continue
+        ln -s "$package_dir" "vendor/$vendor_name/$package_name"
         linked=$((linked + 1))
     done
 done

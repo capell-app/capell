@@ -83,3 +83,7 @@ generated Boost guideline dumps or static skill inventories into this file.
   and `composer prepare`) fails when that link or `vendor/composer/autoload_real.php`
   resolves outside the checkout. Repair with `composer install`, or
   `bash scripts/init-worktree.sh --host-only --force` in a host-only worktree.
+
+### `CAPELL_TESTBENCH_SKELETON_ROOT` safety constraints
+
+The per-worktree testbench skeleton lives under the system temporary directory by default. When you point `CAPELL_TESTBENCH_SKELETON_ROOT` elsewhere, the stale-skeleton sweep only ever removes directories whose name starts with `capell-testbench-` and that carry a `.capell-skeleton` marker written by this checkout; anything else in that root is left untouched. Use a directory you own, never a shared location such as a project folder, and do not place other data under the `capell-testbench-` prefix there. When `symlink()` is unavailable the helper copies the vendor tree into the skeleton, which costs disk space per process; prefer a filesystem with symlink support.

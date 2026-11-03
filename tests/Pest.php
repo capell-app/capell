@@ -29,7 +29,7 @@ use Spatie\LaravelData\DataCollection;
 use Symfony\Component\Process\Process;
 
 // Check before any test boots a skeleton or reloads its Composer autoloader.
-$vendorCheck = new Process([PHP_BINARY, dirname(__DIR__) . '/scripts/check-vendor-integrity.php']);
+$vendorCheck = new Process([PHP_BINARY, dirname(__DIR__) . '/scripts/check-vendor-integrity.php', '--checkout', dirname(__DIR__)]);
 $vendorCheck->run();
 
 if (! $vendorCheck->isSuccessful()) {

@@ -100,7 +100,8 @@ it('rejects a skeleton vendor link into another checkout', function (): void {
 
         expect($exitCode)->toBe(2)
             ->and($output)->toContain('vendor/orchestra/testbench-core/laravel/vendor resolves to ' . realpath($other . '/vendor'))
-            ->and($output)->toContain('composer install');
+            ->and($output)->toContain('bash scripts/init-worktree.sh --force')
+            ->and($output)->toContain('ln -sfn ' . escapeshellarg((string) realpath($root)) . '/vendor vendor/orchestra/testbench-core/laravel/vendor');
     } finally {
         deleteVendorIntegrityFixture($root);
         deleteVendorIntegrityFixture($other);
@@ -135,6 +136,39 @@ it('asks for composer install when vendor is missing', function (): void {
         expect($exitCode)->toBe(2)
             ->and($output)->toContain("Run 'composer install'");
     } finally {
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
+it('refuses a preflight root different from the executing checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $checkout = dirname(__DIR__, 2);
+    try {
+        $process = new Process([PHP_BINARY, $checkout . '/scripts/check-vendor-integrity.php', '--checkout', $checkout], $checkout, ['CAPELL_VENDOR_INTEGRITY_ROOT' => $root]);
+        $process->run();
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getErrorOutput())->toContain((string) realpath($root))
+            ->and($process->getErrorOutput())->toContain((string) realpath($checkout));
+    } finally {
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
+it('rejects an inaccessible parent of the optional skeleton link', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        test()->markTestSkipped('Root bypasses directory permission checks.');
+    }
+
+    $root = vendorIntegrityFixture();
+    $parent = $root . '/vendor/orchestra/testbench-core/laravel';
+    try {
+        chmod($parent, 0000);
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain($parent)
+            ->and($output)->toContain('read and traverse permissions');
+    } finally {
+        chmod($parent, 0755);
         deleteVendorIntegrityFixture($root);
     }
 });
