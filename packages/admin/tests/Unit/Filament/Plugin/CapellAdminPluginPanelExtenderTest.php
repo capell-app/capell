@@ -275,7 +275,7 @@ it('emits the layer-order stylesheet before a registered extension stylesheet', 
     expect($preludePosition)->toBeLessThan($extensionPosition);
 });
 
-it('propagates only late extender middleware to an existing authenticated route', function (): void {
+it('holds an existing authenticated route to the host stack and the late extender middleware', function (): void {
     $panel = Filament::getPanel('admin');
     $route = Route::get('/admin/runtime-delta-probe', static fn (): string => 'ok')
         ->middleware([Authenticate::class])
@@ -284,10 +284,11 @@ it('propagates only late extender middleware to an existing authenticated route'
 
     resolve(InstalledPanelRuntime::class)->extend($panel);
 
+    // Every panel route carries the host's own authentication stack and the package contribution.
     expect($panel->getAuthMiddleware())->toContain(EnforceLockdownAdminAccess::class)
         ->and($route->gatherMiddleware())->toContain(LateSecurityMiddleware::class)
-        ->not->toContain(EnforceLockdownAdminAccess::class)
-        ->not->toContain(SetSitePermissionScope::class);
+        ->toContain(EnforceLockdownAdminAccess::class)
+        ->toContain(SetSitePermissionScope::class);
 });
 
 it('captures the provider-built panel baseline after the provider registers its own middleware', function (): void {
@@ -299,23 +300,23 @@ it('captures the provider-built panel baseline after the provider registers its 
 
     resolve(InstalledPanelRuntime::class)->extend($panel);
 
-    // Provider-owned middleware belongs to the baseline, so a later extend adds nothing to an authenticated route.
+    // Provider-owned middleware is the host stack every panel route carries, never a package contribution.
     expect($route->gatherMiddleware())->toContain(Authenticate::class)
-        ->not->toContain(SetSitePermissionScope::class)
-        ->not->toContain(EnforceLockdownAdminAccess::class)
-        ->not->toContain(AddAdminSecurityHeaders::class)
-        ->not->toContain(EncryptCookies::class)
+        ->toContain(SetSitePermissionScope::class)
+        ->toContain(EnforceLockdownAdminAccess::class)
+        ->toContain(AddAdminSecurityHeaders::class)
+        ->toContain(EncryptCookies::class)
         ->not->toContain(LateSecurityMiddleware::class);
 
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
     resolve(InstalledPanelRuntime::class)->extend($panel);
     $route->computedMiddleware = null;
 
-    expect($route->gatherMiddleware())->toContain(LateSecurityMiddleware::class)
-        ->not->toContain(SetSitePermissionScope::class)
-        ->not->toContain(EnforceLockdownAdminAccess::class)
-        ->not->toContain(AddAdminSecurityHeaders::class)
-        ->not->toContain(EncryptCookies::class);
+    // Only the extender's addition is new; the host stack is not duplicated.
+    $pipeline = $route->gatherMiddleware();
+    expect($pipeline)->toContain(LateSecurityMiddleware::class)
+        ->and(array_count_values(array_filter($pipeline, is_string(...)))[SetSitePermissionScope::class] ?? 0)->toBe(1)
+        ->and(array_count_values(array_filter($pipeline, is_string(...)))[EncryptCookies::class] ?? 0)->toBe(1);
 });
 
 it('executes provider-owned lockdown through a real authenticated callback while only the extender middleware forms the delta', function (): void {
