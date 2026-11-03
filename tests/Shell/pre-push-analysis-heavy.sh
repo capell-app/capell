@@ -83,6 +83,16 @@ for unsupported in inline quoted inline-includes; do
         fail "unsupported cap or include syntax ($unsupported.neon) did not fail closed"
     fi
 done
+printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 8\n' > "$cases/eight.neon"
+printf "includes:\n    - common.neon\n    - 'eight.neon'\n" > "$cases/quoted-include.neon"
+[ "$(python3 "$parser" "$cases/quoted-include.neon")" = 3 ] || fail 'a quoted include raising the cap to 8 did not give weight 3'
+printf 'includes:\n    - common.neon\n    - missing.neon\n' > "$cases/missing-include.neon"
+printf 'includes:\n    - common.neon\n    - "unbalanced.neon\n' > "$cases/bad-include.neon"
+for unsupported in missing-include bad-include; do
+    if python3 "$parser" "$cases/$unsupported.neon" > /dev/null 2>&1; then
+        fail "an unreadable or missing include ($unsupported.neon) did not fail closed"
+    fi
+done
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
     "run -w $weight core-pre-push-analysis -- "*) ;;

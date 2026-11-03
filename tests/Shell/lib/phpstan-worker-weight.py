@@ -40,18 +40,37 @@ def own_cap(config: Path, text: str) -> int | None:
     return found
 
 
+INCLUDE_ENTRY = re.compile(r'^[ \t]+-[ \t]*(["\']?)([^\s"\']+)\1[ \t]*$')
+
+
+def include_entries(config: Path, text: str) -> list:
+    """The `includes` list, one plain or quoted path per line. Any other line fails closed."""
+    block = re.search(r'^includes:\s*\n((?:[ \t]+-[^\n]*\n|[ \t]*#[^\n]*\n|[ \t]*\n)+)', text, re.MULTILINE)
+    entries = []
+    for line in (block.group(1) if block else '').splitlines():
+        line = re.sub(r'(^|\s)#.*$', '', line)
+        if not line.strip():
+            continue
+        match = INCLUDE_ENTRY.match(line)
+        if match is None:
+            raise ValueError(f'{config}: cannot read the include {line.strip()!r}')
+        entries.append(match.group(2))
+    return entries
+
+
 def cap(config: Path, seen: set[Path]) -> int | None:
     config = config.resolve()
-    if config in seen or not config.is_file():
+    if config in seen:
         return None
+    if not config.is_file():
+        raise ValueError(f'{config}: the configuration or one of its local includes does not exist')
     seen.add(config)
     text = config.read_text()
     own = own_cap(config, text)
     if own is not None:
         return own
     found = None
-    block = re.search(r'^includes:\s*\n((?:[ \t]+-[^\n]*\n|[ \t]*#[^\n]*\n|[ \t]*\n)+)', text, re.MULTILINE)
-    for entry in re.findall(r'^[ \t]+-[ \t]*(\S+)', block.group(1) if block else '', re.MULTILINE):
+    for entry in include_entries(config, text):
         if '%' in entry or entry.startswith('vendor/') or '/vendor/' in entry:
             continue  # Third-party extensions never set the worker cap.
         value = cap(config.parent / entry, seen)
