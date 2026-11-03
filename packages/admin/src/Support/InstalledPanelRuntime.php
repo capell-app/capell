@@ -14,6 +14,7 @@ use Closure;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
 use Filament\Panel;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
@@ -459,18 +460,148 @@ final class InstalledPanelRuntime
             ...($public ? [] : [...$host['auth'], ...$contributed['auth']]),
             ...($tenanted ? [...$host['tenant'], ...$contributed['tenant']] : []),
         ];
-        $missing = array_values(array_filter(array_slice($required, $public ? 0 : count($host['middleware'])), $isMissing));
-        if ($stack !== [] || $missing !== []) {
-            $instance->action['middleware'] = [...$stack, ...$instance->middleware(), ...$missing];
+        $missingPanel = array_values(array_filter($contributed['middleware'], $isMissing));
+        $missingSecurity = array_values(array_filter([
+            ...($public ? [] : [...$host['auth'], ...$contributed['auth']]),
+            ...($tenanted ? [...$host['tenant'], ...$contributed['tenant']] : []),
+        ], $isMissing));
+        $security = $this->router->resolveMiddleware([...$host['auth'], ...$contributed['auth'], ...$host['tenant'], ...$contributed['tenant']]);
+        $panelStack = [...$this->router->resolveMiddleware([...$host['middleware'], ...$contributed['middleware']]), $availability, SetUpPanel::class, IdentifyTenant::class];
+        if ($stack !== [] || $missingPanel !== [] || $missingSecurity !== []) {
+            $instance->action['middleware'] = $this->placeInPanelOrder([...$stack, ...$instance->middleware()], $missingPanel, $missingSecurity, $panelStack, $security);
             $instance->computedMiddleware = null;
         }
 
-        // Verify the pipeline that will actually run, after exclusions.
-        if (array_diff($this->router->resolveMiddleware($required), $this->router->gatherRouteMiddleware($instance)) !== []) {
+        // Verify the pipeline that will actually run, after exclusions and priority sorting.
+        $pipeline = $this->router->gatherRouteMiddleware($instance);
+        if (array_diff($this->router->resolveMiddleware($required), $pipeline) !== []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
+        $this->assertPanelOrder($pipeline, $host, $contributed, $public, $tenanted, [...$panelStack, ...$security]);
+
         $this->reconciledRoutes[$instance] = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $public, $routerState];
+    }
+
+    /**
+     * Insert missing middleware where the panel would run it: package panel middleware after the
+     * route's leading panel stack, and authentication and tenancy after the route's own
+     * authentication, so a route middleware never answers before package security has run.
+     *
+     * @param  array<mixed>  $entries
+     * @param  array<string>  $panelMiddleware
+     * @param  array<string>  $securityMiddleware
+     * @param  array<mixed>  $panelStack
+     * @param  array<mixed>  $security
+     * @return list<mixed>
+     */
+    private function placeInPanelOrder(array $entries, array $panelMiddleware, array $securityMiddleware, array $panelStack, array $security): array
+    {
+        $entries = array_values($entries);
+        $known = [...array_values($panelStack), ...array_values($security)];
+        $prefix = 0;
+        while ($prefix < count($entries) && $this->isPanelEntry($entries[$prefix], $known)) {
+            $prefix++;
+        }
+
+        $firstSecurity = null;
+        $afterSecurity = null;
+        foreach ($entries as $index => $entry) {
+            if (! is_string($entry)) {
+                continue;
+            }
+
+            $resolved = $this->router->resolveMiddleware([$entry]);
+            if (array_intersect($resolved, $security) !== [] || array_filter($resolved, $this->isAuthenticator(...)) !== []) {
+                $firstSecurity ??= $index;
+                $afterSecurity = $index + 1;
+            }
+        }
+
+        $securityAt = $afterSecurity ?? $prefix;
+        $panelAt = min($prefix, $firstSecurity ?? $prefix);
+        array_splice($entries, $securityAt, 0, $securityMiddleware);
+        array_splice($entries, $panelAt, 0, $panelMiddleware);
+
+        return $entries;
+    }
+
+    /**
+     * Package middleware must run before any of the route's own middleware, which could answer the
+     * request first, and package authentication must run after the panel has authenticated.
+     *
+     * @param  array<mixed>  $pipeline
+     * @param  array{middleware: list<string>, auth: list<string>, tenant: list<string>}  $host
+     * @param  array{middleware: list<string>, auth: list<string>, tenant: list<string>}  $contributed
+     * @param  array<mixed>  $known
+     */
+    private function assertPanelOrder(array $pipeline, array $host, array $contributed, bool $public, bool $tenanted, array $known): void
+    {
+        $pipeline = array_values($pipeline);
+        $foreign = count($pipeline);
+        foreach ($pipeline as $index => $middleware) {
+            if (! $this->isPanelEntry($middleware, $known)) {
+                $foreign = $index;
+
+                break;
+            }
+        }
+
+        $packageSecurity = $this->router->resolveMiddleware([...($public ? [] : $contributed['auth']), ...($tenanted ? $contributed['tenant'] : [])]);
+        foreach ([...$this->router->resolveMiddleware($contributed['middleware']), ...$packageSecurity] as $middleware) {
+            if (array_search($middleware, $pipeline, true) > $foreign) {
+                throw new RuntimeException(__('capell-admin::message.extension_panel_security_order'));
+            }
+        }
+
+        $hostAuth = $this->router->resolveMiddleware($host['auth']);
+        $authenticators = array_values(array_filter($hostAuth, $this->isAuthenticator(...)));
+        $authenticated = -1;
+        foreach ($authenticators !== [] ? $authenticators : $hostAuth as $middleware) {
+            $authenticated = max($authenticated, (int) array_search($middleware, $pipeline, true));
+        }
+
+        foreach ($packageSecurity as $middleware) {
+            if (array_search($middleware, $pipeline, true) < $authenticated) {
+                throw new RuntimeException(__('capell-admin::message.extension_panel_security_order'));
+            }
+        }
+    }
+
+    /**
+     * Whether a middleware entry belongs to the panel's own request stack or security, or is
+     * framework infrastructure the router orders by priority, rather than the route's own middleware.
+     *
+     * @param  array<mixed>  $known
+     */
+    private function isPanelEntry(mixed $entry, array $known): bool
+    {
+        if (! is_string($entry)) {
+            return false;
+        }
+
+        $knownClasses = array_map(static fn (mixed $middleware): string => explode(':', (string) $middleware, 2)[0], array_filter($known, is_string(...)));
+        foreach ($this->router->resolveMiddleware([$entry]) as $middleware) {
+            if (! is_string($middleware)) {
+                return false;
+            }
+
+            $class = explode(':', $middleware, 2)[0];
+            if (in_array($class, $knownClasses, true)) {
+                continue;
+            }
+
+            if (! array_any($this->router->middlewarePriority, static fn (string $priority): bool => is_a($class, $priority, true))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isAuthenticator(mixed $middleware): bool
+    {
+        return is_string($middleware) && is_a(explode(':', $middleware, 2)[0], Authenticate::class, true);
     }
 
     /**
