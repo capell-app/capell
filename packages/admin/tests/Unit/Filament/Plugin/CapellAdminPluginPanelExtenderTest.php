@@ -6,7 +6,11 @@ use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Contracts\Extenders\DeclaresFullPageOnlyMiddleware;
 use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
+use Capell\Admin\Http\Middleware\AddAdminSecurityHeaders;
+use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
+use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LatePanelRuntimeProvider;
@@ -35,6 +39,7 @@ use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Tests\Support\StylesheetRuntime;
 use Filament\Facades\Filament;
+use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
 use Filament\Panel;
@@ -44,6 +49,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\View\View;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Configuration\ApplicationBuilder;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider;
 use Illuminate\Queue\QueueManager;
@@ -262,6 +268,49 @@ it('emits the layer-order stylesheet before a registered extension stylesheet', 
     assert(is_int($extensionPosition));
 
     expect($preludePosition)->toBeLessThan($extensionPosition);
+});
+
+it('propagates only late extender middleware to an existing authenticated route', function (): void {
+    $panel = Filament::getPanel('admin');
+    $route = Route::get('/admin/runtime-delta-probe', static fn (): string => 'ok')
+        ->middleware([Authenticate::class])
+        ->name('filament.admin.runtime-delta-probe');
+    app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+
+    expect($panel->getAuthMiddleware())->toContain(EnforceLockdownAdminAccess::class)
+        ->and($route->gatherMiddleware())->toContain(LateSecurityMiddleware::class)
+        ->not->toContain(EnforceLockdownAdminAccess::class)
+        ->not->toContain(SetSitePermissionScope::class);
+});
+
+it('captures the provider-built panel baseline after the provider registers its own middleware', function (): void {
+    app()->instance(InstalledPanelRuntime::class, new InstalledPanelRuntime(resolve(Router::class)));
+    $panel = new AdminPanelProvider(app())->panel(Panel::make());
+    $route = Route::get('/admin/provider-baseline-probe', static fn (): string => 'ok')
+        ->middleware([Authenticate::class])
+        ->name('filament.admin.provider-baseline-probe');
+
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+
+    // Provider-owned middleware belongs to the baseline, so a later extend adds nothing to an authenticated route.
+    expect($route->gatherMiddleware())->toContain(Authenticate::class)
+        ->not->toContain(SetSitePermissionScope::class)
+        ->not->toContain(EnforceLockdownAdminAccess::class)
+        ->not->toContain(AddAdminSecurityHeaders::class)
+        ->not->toContain(EncryptCookies::class)
+        ->not->toContain(LateSecurityMiddleware::class);
+
+    app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    $route->computedMiddleware = null;
+
+    expect($route->gatherMiddleware())->toContain(LateSecurityMiddleware::class)
+        ->not->toContain(SetSitePermissionScope::class)
+        ->not->toContain(EnforceLockdownAdminAccess::class)
+        ->not->toContain(AddAdminSecurityHeaders::class)
+        ->not->toContain(EncryptCookies::class);
 });
 
 it('applies a late security extender to an existing panel and its existing authenticated routes', function (bool $compiled): void {

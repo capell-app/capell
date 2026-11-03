@@ -9,6 +9,7 @@ use Capell\Core\Support\Security\LockdownStore;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 
 final class ActivateLockdownAction
 {
@@ -23,11 +24,15 @@ final class ActivateLockdownAction
     /**
      * @return array<string, mixed>
      */
-    public function handle(Authenticatable $user): array
+    public function handle(Authenticatable $user, ?string $guard = null): array
     {
+        // Resolve the identity scope before touching the static cache so a misconfigured guard changes nothing.
+        throw_if($this->lockdownStore->userProviderForGuard($guard) === null, RuntimeException::class, 'Unable to identify the lockdown user provider.');
+
         return $this->lockdownStore->activateFor(
             user: $user,
             staticCacheState: config('capell.multi_node', false) ? ['skipped' => 'multi_node'] : $this->staticCacheSwitcher->activate(),
+            guard: $guard,
         );
     }
 }

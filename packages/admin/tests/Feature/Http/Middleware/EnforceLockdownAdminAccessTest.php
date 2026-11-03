@@ -91,3 +91,37 @@ it('blocks a non-allowed admin through the real admin route stack during lockdow
         ->get('/admin')
         ->assertStatus(423);
 });
+
+it('denies the same id authenticated through another provider', function (): void {
+    $user = test()->createUserWithRole('super_admin');
+    $adminGuard = Auth::getDefaultDriver();
+    config()->set('auth.guards.lockdown-member', ['driver' => 'session', 'provider' => 'lockdown-members']);
+    config()->set('auth.providers.lockdown-members', ['driver' => 'eloquent', 'model' => $user::class]);
+
+    resolve(LockdownStore::class)->activateFor($user, guard: $adminGuard);
+    Auth::shouldUse('lockdown-member');
+    $request = Request::create('/admin');
+    $request->setUserResolver(static fn () => $user);
+
+    try {
+        expect(fn (): mixed => resolve(EnforceLockdownAdminAccess::class)->handle($request, fn (): Response => response('ok')))
+            ->toThrow(HttpException::class, __('capell-admin::message.lockdown_admin_locked'));
+    } finally {
+        Auth::shouldUse($adminGuard);
+    }
+});
+
+it('allows an admin provider user from a legacy bare-id lockdown file', function (): void {
+    $user = test()->createUserWithRole('super_admin');
+    File::ensureDirectoryExists(dirname((string) config('capell.lockdown.file')));
+    File::put(config('capell.lockdown.file'), json_encode(['active' => true, 'allowed_user_ids' => [(string) $user->getAuthIdentifier()]], JSON_THROW_ON_ERROR));
+    resolve(LockdownStore::class)->flushOctaneState();
+    Auth::login($user);
+
+    $response = resolve(EnforceLockdownAdminAccess::class)->handle(
+        Request::create('/admin'),
+        fn (): Response => response('ok'),
+    );
+
+    expect($response->getContent())->toBe('ok');
+});

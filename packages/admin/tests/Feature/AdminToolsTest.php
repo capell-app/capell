@@ -6,10 +6,14 @@ use Capell\Admin\Actions\ActivateLockdownAction;
 use Capell\Admin\Actions\DeactivateLockdownAction;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
+use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
+use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -142,4 +146,20 @@ it('skips static cache switching for multi-node lockdown activation and deactiva
     Livewire::test(AdminTools::class)->call('enableLockdown')
         ->assertNotified(__('capell-admin::message.lockdown_enabled') . ' ' . __('capell-admin::message.lockdown_multi_node_cache_warning'));
     DeactivateLockdownAction::run();
+});
+
+it('refuses lockdown activation for a guard without a user provider before switching the static cache', function (): void {
+    test()->actingAsAdmin();
+    $files = Mockery::mock(Filesystem::class);
+    $files->shouldNotReceive('exists', 'move', 'makeDirectory', 'put');
+
+    app()->instance(LockdownStaticCacheSwitcher::class, new LockdownStaticCacheSwitcher(
+        $files,
+        resolve(MultiNodeTopologyGuard::class),
+        resolve(ReleaseRootWriteGuard::class),
+    ));
+
+    expect(fn (): array => resolve(ActivateLockdownAction::class)->handle(test()->authenticatedUser(), 'lockdown-missing'))
+        ->toThrow(RuntimeException::class, 'Unable to identify the lockdown user provider.')
+        ->and(resolve(LockdownStore::class)->active())->toBeFalse();
 });

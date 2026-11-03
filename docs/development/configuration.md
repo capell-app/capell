@@ -270,6 +270,8 @@ CAPELL_SETUP_ADMIN_PASSWORD=password123
 
 ## Marketplace Config
 
+Set `capell.marketplace.auth_workspace_path` (or `CAPELL_MARKETPLACE_AUTH_WORKSPACE_PATH`) to an existing private directory when the default `storage/framework/composer` is unsuitable. Its parent and the directory itself must be real directories owned by the worker's effective user or root, and must not be world-writable. Higher ancestors may be shared system directories, but a symlink among them must belong to root or the worker's user, and a world-writable one must carry the sticky bit (as `/tmp` does). The operations doctor reports an untrusted workspace as a critical check. The PHP POSIX extension is required to identify the worker’s effective user.
+
 Source: `packages/marketplace/config/capell-marketplace.php`
 
 | Variable                                                   | Default                                                    | Used for                                                                                     |
