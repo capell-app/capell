@@ -24,7 +24,12 @@ it('keeps class markers aligned with the extension surface catalogue', function 
         };
         $opposite = array_diff(['@api', '@internal', '@experimental'], [$marker]);
 
-        expect($comment)->toContain($marker)->toContainNone(array_values($opposite));
+        expect($comment)->toContain($marker);
+
+        foreach ($opposite as $oppositeMarker) {
+            expect($comment)->not->toContain($oppositeMarker);
+        }
+
         $checked[$name] = true;
     }
 

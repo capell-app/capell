@@ -47,10 +47,7 @@ it('builds a minimal plan when no optional toggles are enabled', function (): vo
         InstallPlan::STEP_CLEAR_CACHES,
         InstallPlan::STEP_RUN_DOCTOR_SUMMARY,
         InstallPlan::STEP_MARK_CORE_INSTALLED,
-    )->and($stepKeys)->toContainNone([
-        InstallPlan::STEP_GENERATE_SITEMAP,
-        InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
-    ]);
+    )->and($stepKeys)->not->toContain(InstallPlan::STEP_GENERATE_SITEMAP)->not->toContain(InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING);
 });
 
 it('includes sitemap and extra package steps when toggled', function (): void {

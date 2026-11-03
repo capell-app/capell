@@ -1761,7 +1761,7 @@ it('content structure conversion action is only added to the main page content e
     expect(collect($contentEditor->getHintActions())->map->getName()->all())
         ->toContain('convertContentToBlocks')
         ->and(collect($heroEditor->getHintActions())->map->getName()->all())
-        ->toContainNone(['convertContentToBlocks', 'convertContentToHtml']);
+        ->not->toContain('convertContentToBlocks')->not->toContain('convertContentToHtml');
 });
 
 it('default content block uses a simplified content-only schema', function (): void {

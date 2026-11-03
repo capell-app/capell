@@ -114,7 +114,7 @@ it('redacts backend credentials before writing retained failure evidence', funct
         ]);
         expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
             ->and(file_get_contents($fixture->files->root . '/evidence/backend-redacted.log'))->toContain('[redacted]')
-            ->toContainNone(['owner@example.test', 'private-value', 'secret-bearer']);
+            ->not->toContain('owner@example.test')->not->toContain('private-value')->not->toContain('secret-bearer');
     } finally {
         $fixture->close();
     }

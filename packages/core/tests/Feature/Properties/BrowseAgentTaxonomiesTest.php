@@ -43,7 +43,7 @@ it('projects semantic term values and a same-taxonomy parent without internal id
     $items = BrowseAgentTaxonomiesAction::run($site, 'brands')->items();
     expect($items[1]['parent'])->toBe('parent')
         ->and((array) $items[1]['properties'])->toBe(['name' => 'Public name'])
-        ->and(json_encode($items, JSON_THROW_ON_ERROR))->toContainNone(['Hidden value', 'internal-', 'taxonomy_id', 'property_definition_id']);
+        ->and(json_encode($items, JSON_THROW_ON_ERROR))->not->toContain('Hidden value')->not->toContain('internal-')->not->toContain('taxonomy_id')->not->toContain('property_definition_id');
 });
 
 it('retains unmapped visible term values in the Capell namespace', function (): void {
@@ -96,5 +96,5 @@ it('projects a same-site term reference and omits a foreign reference', function
     $items = BrowseAgentTaxonomiesAction::run($site, 'brands')->items();
     expect((array) $items[0]['properties'])->toHaveKey('brand')
         ->and(json_encode($items[0]['properties'], JSON_THROW_ON_ERROR))->toContain('Public brand')
-        ->toContainNone(['Foreign private brand', 'referenced_term_id', 'term_id']);
+        ->not->toContain('Foreign private brand')->not->toContain('referenced_term_id')->not->toContain('term_id');
 });

@@ -43,7 +43,7 @@ it('publishes declared tool contracts without package ownership metadata', funct
     expect($manifest['tools'])->toHaveCount(1)
         ->and($manifest['tools'][0]['binding'])->toBe(['type' => 'form', 'target' => 'contact-form'])
         ->and($manifest['tools'][0]['effect'])->toBe('write')
-        ->and(json_encode($manifest, JSON_THROW_ON_ERROR))->toContainNone(['ownerPackage', 'internal/vendor-package']);
+        ->and(json_encode($manifest, JSON_THROW_ON_ERROR))->not->toContain('ownerPackage')->not->toContain('internal/vendor-package');
 });
 
 it('rejects declarations that replace a built-in tool with different behaviour', function (): void {

@@ -110,7 +110,7 @@ foreach ($files as $file) {
     }
 
     foreach (weakContainmentLines($source) as $line) {
-        fwrite(STDERR, "{$file}:{$line}: Use ->toContainNone([A, B]) or separate ->not->toContain(...) assertions.\n");
+        fwrite(STDERR, "{$file}:{$line}: Use separate ->not->toContain(...) assertions.\n");
         $failed = true;
     }
 }

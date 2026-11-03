@@ -114,7 +114,7 @@ it('fails rejected visits without delivering a request or exposing URL credentia
         VisitUrlAction::run($url);
         test()->fail('A rejected visit must fail its caller.');
     } catch (UrlVisitFailedException $urlVisitFailedException) {
-        expect($urlVisitFailedException->getMessage())->toContainNone(['secret', 'password', 'token=']);
+        expect($urlVisitFailedException->getMessage())->not->toContain('secret')->not->toContain('password')->not->toContain('token=');
     }
 
     Http::assertNothingSent();

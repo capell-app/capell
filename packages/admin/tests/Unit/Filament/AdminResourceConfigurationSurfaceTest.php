@@ -150,12 +150,7 @@ it('does not eager load page table relations for hidden optional columns', funct
 
     throw_unless($query instanceof Builder, RuntimeException::class, 'Expected an Eloquent query builder.');
 
-    expect(array_keys($query->getEagerLoads()))->toContainNone([
-        'parent',
-        'translations.language',
-        'creator',
-        'editor',
-    ]);
+    expect(array_keys($query->getEagerLoads()))->not->toContain('parent')->not->toContain('translations.language')->not->toContain('creator')->not->toContain('editor');
 });
 
 it('builds secondary admin resource table surfaces with the expected bulk and row actions', function (): void {

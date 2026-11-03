@@ -84,7 +84,7 @@ it('renders record names as plain text in validation notifications', function (s
     $html = $notification->toHtml();
 
     expect($notification->getTitle())->toContain(e($name))->not->toContain($name);
-    expect($html)->toContain('&lt;b&gt;', '&lt;/b&gt;')->toContainNone([$name, '<b>', '<B>']);
+    expect($html)->toContain('&lt;b&gt;', '&lt;/b&gt;')->not->toContain($name)->not->toContain('<b>')->not->toContain('<B>');
     if ($kind === 'page') {
         expect($notification->getBody())->toContain(e($name))->not->toContain($name);
     }
@@ -105,7 +105,7 @@ it('escapes names in both theme creation notifications', function (bool $availab
     $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();
 
     expect($notification->getTitle())->toContain(e($name))->not->toContain($name);
-    expect($notification->toHtml())->toContain('&lt;b&gt;', '&lt;/b&gt;')->toContainNone([$name, '<b>', '<B>']);
+    expect($notification->toHtml())->toContain('&lt;b&gt;', '&lt;/b&gt;')->not->toContain($name)->not->toContain('<b>')->not->toContain('<B>');
 })->with([true, false]);
 
 it('escapes language names in parent coverage warnings', function (string $kind): void {
@@ -159,5 +159,5 @@ it('escapes language names in parent coverage warnings', function (string $kind)
     $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();
 
     expect($notification->getTitle())->toContain(e($name))->not->toContain($name);
-    expect($notification->toHtml())->toContain('&lt;b&gt;', '&lt;/b&gt;')->toContainNone([$name, '<b>', '<B>']);
+    expect($notification->toHtml())->toContain('&lt;b&gt;', '&lt;/b&gt;')->not->toContain($name)->not->toContain('<b>')->not->toContain('<B>');
 })->with(['create', 'edit', 'repeater']);

@@ -34,7 +34,7 @@ it('formats created and updated timestamps with userstamp context when available
 
     expect($createdAt)->toContain('x-tooltip.raw', 'Creator Admin')
         ->and($updatedAt)->toContain('x-tooltip.raw', 'Editor Admin')
-        ->and($updatedWithoutEditor)->toContainNone(['x-tooltip.raw', 'Editor Admin'])
+        ->and($updatedWithoutEditor)->not->toContain('x-tooltip.raw')->not->toContain('Editor Admin')
         ->and(formattedDateColumnState('created_at', $blankSite))->toBe('')
         ->and(formattedDateColumnState('updated_at', $blankSite))->toBe('');
 

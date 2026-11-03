@@ -304,7 +304,7 @@ it('renders escaped public content from the full scaffold render data', function
     $html = Blade::render((string) file_get_contents($extensionDirectory . '/resources/views/widget.blade.php'), ['widget' => $widget]);
 
     expect($html)->toContain('Public heading', 'Public body', '&lt;script&gt;', '&lt;img')
-        ->toContainNone(['<script>', '<img', 'data-model-id', 'data-field-path', 'data-capell-edit', 'wire:', 'signed-editor']);
+        ->not->toContain('<script>')->not->toContain('<img')->not->toContain('data-model-id')->not->toContain('data-field-path')->not->toContain('data-capell-edit')->not->toContain('wire:')->not->toContain('signed-editor');
     // New packages must ship a guard against publishing unsafe cached output.
     expect((string) file_get_contents($extensionDirectory . '/tests/Feature/ManifestTest.php'))
         ->toContain('assertNoUnsafePublicCache');

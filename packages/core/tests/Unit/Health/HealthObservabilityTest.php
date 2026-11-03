@@ -68,14 +68,14 @@ it('sanitizes check output and exception detail', function (): void {
 
     expect($result->status)->toBe(HealthStatus::Error)
         ->and($result->summary)->toBe('Check raised RuntimeException.')
-        ->and($result->summary)->toContainNone(['Bearer', 'sk-live', 'hunter2', 'customer-4471']);
+        ->and($result->summary)->not->toContain('Bearer')->not->toContain('sk-live')->not->toContain('hunter2')->not->toContain('customer-4471');
 });
 
 it('redacts sensitive patterns in contributor summaries', function (): void {
     $summary = new HealthSummarySanitizer()->sanitize('Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature api_key=sk-live-123 mysql://admin:hunter2@db.internal/capell user@example.com /private/customer/file.txt');
 
     expect($summary)->toContain('Bearer [redacted]', 'api_key=[redacted]', 'mysql:/[path]', '[email]')
-        ->and($summary)->toContainNone(['eyJhbGci', 'sk-live', 'hunter2', 'admin', 'db.internal', 'user@example.com', '/private/customer']);
+        ->and($summary)->not->toContain('eyJhbGci')->not->toContain('sk-live')->not->toContain('hunter2')->not->toContain('admin')->not->toContain('db.internal')->not->toContain('user@example.com')->not->toContain('/private/customer');
 });
 
 it('rejects sensitive or structured machine metrics', function (): void {
@@ -182,7 +182,7 @@ it('fails closed when the health subprocess exposes sensitive exception detail',
     expect($results)->toHaveCount(2)
         ->and($results[0]->status)->toBe(HealthStatus::Error)
         ->and($results[0]->summary)->toBe('Check execution failed (RuntimeException).')
-        ->and($results[0]->summary)->toContainNone(['Bearer', 'secret-token', 'sk-live', 'customer-4471'])
+        ->and($results[0]->summary)->not->toContain('Bearer')->not->toContain('secret-token')->not->toContain('sk-live')->not->toContain('customer-4471')
         ->and($results[1]->status)->toBe(HealthStatus::Healthy);
 });
 

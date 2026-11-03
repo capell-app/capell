@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
-use PHPUnit\Framework\ExpectationFailedException;
 use Symfony\Component\Process\Process;
 
 it('reports multi-argument negative containment assertions and ignores safe PHP', function (): void {
@@ -34,9 +33,9 @@ PHP_FIXTURE);
 
         expect($process->getExitCode())->toBe(1)
             ->and(explode("\n", trim($process->getErrorOutput())))->toBe([
-                $root . '/cases.php:2: Use ->toContainNone([A, B]) or separate ->not->toContain(...) assertions.',
-                $root . '/cases.php:4: Use ->toContainNone([A, B]) or separate ->not->toContain(...) assertions.',
-                $root . '/cases.php:11: Use ->toContainNone([A, B]) or separate ->not->toContain(...) assertions.',
+                $root . '/cases.php:2: Use separate ->not->toContain(...) assertions.',
+                $root . '/cases.php:4: Use separate ->not->toContain(...) assertions.',
+                $root . '/cases.php:11: Use separate ->not->toContain(...) assertions.',
             ]);
 
         file_put_contents($root . '/cases.php', <<<'PHP_FIXTURE'
@@ -52,12 +51,4 @@ PHP_FIXTURE);
     } finally {
         File::deleteDirectory($root);
     }
-});
-
-it('reports the first needle present in a containment expectation', function (): void {
-    expect('alpha beta')->toContainNone(['missing', 'gamma']);
-    expect(fn () => expect('alpha beta')->toContainNone(['missing', 'beta', 'alpha']))
-        ->toThrow(ExpectationFailedException::class, "Unexpected needle found: 'beta'");
-    expect(fn () => expect(['alpha'])->toContainNone(['alpha', 'beta']))
-        ->toThrow(ExpectationFailedException::class, "Unexpected needle found: 'alpha'");
 });

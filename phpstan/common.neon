@@ -58,7 +58,6 @@ parameters:
         - stubs/nestedset-querybuilder.stub
         - stubs/nestedset-traits.stub
         - stubs/event-sourcing-fake.stub
-        - stubs/pest-expectation.stub
         - stubs/optional-packages.stub
     scanFiles:
         - stubs/optional-packages.stub

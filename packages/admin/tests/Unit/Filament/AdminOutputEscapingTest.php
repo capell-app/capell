@@ -115,7 +115,7 @@ it('escapes blueprint and page edit modal headings', function (string $kind): vo
     $html = (string) $action->evaluate($heading, ['context' => 'edit', 'component' => $component, 'state' => 1]);
     $expectedName = $kind === 'page' ? Str::title($name) : $name;
 
-    expect($html)->toContain(e($expectedName))->toContainNone(['<b>', '<B>']);
+    expect($html)->toContain(e($expectedName))->not->toContain('<b>')->not->toContain('<B>');
 })->with(['blueprint', 'page']);
 
 it('escapes editor names in record headings', function (string $kind): void {

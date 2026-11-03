@@ -43,11 +43,9 @@ it('only tags singleton frontend state for octane resets', function (): void {
 
     expect($resettableServices)
         ->toContain(ThemeViewRegistrar::class)
-        ->toContainNone([
-            CacheInvalidationDependencyRegistry::class,
-            CacheInvalidationRegistry::class,
-            FragmentCacheDirective::class,
-        ]);
+        ->not->toContain(CacheInvalidationDependencyRegistry::class)
+        ->not->toContain(CacheInvalidationRegistry::class)
+        ->not->toContain(FragmentCacheDirective::class);
 });
 
 it('registers frontend css for generated tailwind assets', function (): void {

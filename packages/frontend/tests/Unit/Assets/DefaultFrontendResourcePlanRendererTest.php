@@ -61,7 +61,7 @@ it('keeps internal handles and composer package ownership out of lazy payloads',
     $json = json_encode($rendered->lazyRuntimePayload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
     expect($json)->toContain('widget_opaque', 'https://cdn.example.com/runtime.js')
-        ->and($json)->toContainNone(['capell-app/gallery', 'runtime"']);
+        ->and($json)->not->toContain('capell-app/gallery')->not->toContain('runtime"');
 });
 
 it('defers the stylesheet recovery runtime while keeping critical stylesheets blocking', function (): void {

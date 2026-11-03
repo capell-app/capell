@@ -233,7 +233,7 @@ it('keeps echoed exchange credentials out of failure records and logs', function
     $this->get('/admin/marketplace/install-flow/callback?flow_id=mif_secret&code=code&state=private_state')->assertRedirect();
     $session->refresh();
     expect($session->last_error)->toBe('remote_failure:422')
-        ->and(json_encode($session->transition_log))->toContainNone(['private_state', 'private_verifier']);
+        ->and(json_encode($session->transition_log))->not->toContain('private_state')->not->toContain('private_verifier');
     $log->shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
         $encoded = json_encode($context, JSON_THROW_ON_ERROR);
 

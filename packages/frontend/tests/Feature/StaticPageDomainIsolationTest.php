@@ -195,7 +195,7 @@ it('denies legacy maintenance generically on conversion failure and detects old 
             },
         );
         expect($response->getStatusCode())->toBe(503)
-            ->and($response->getContent())->toContainNone(['WRONG OWNER', 'application'])
+            ->and($response->getContent())->not->toContain('WRONG OWNER')->not->toContain('application')
             ->and($called)->toBeFalse();
     }
 });

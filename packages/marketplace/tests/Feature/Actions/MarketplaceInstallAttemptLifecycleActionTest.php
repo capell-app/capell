@@ -657,5 +657,5 @@ it('redacts composer output in the attempt, event and diagnostic bundle', functi
         ->and($attempt->output_excerpt)->not->toContain('uri_secret')
         ->and($attempt->error_excerpt)->not->toContain('error_secret')
         ->and($attempt->events->last()->output_excerpt)->not->toContain('uri_secret')
-        ->and($bundle)->toContainNone(['uri_secret', 'error_secret']);
+        ->and($bundle)->not->toContain('uri_secret')->not->toContain('error_secret');
 });

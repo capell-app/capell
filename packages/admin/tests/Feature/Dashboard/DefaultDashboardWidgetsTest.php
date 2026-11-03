@@ -280,9 +280,9 @@ it('composes performance summaries and additional dashboard panels', function ()
     throw_unless($additional instanceof Section, LogicException::class);
     expect($additional->getHeading())->toBe(__('capell-admin::dashboard.region_additional'))
         ->and(defaultDashboardRegionWidgets($additional))->toContain(ListPagesFilamentWidget::class)
-        ->toContainNone([AnalyticsOverviewFilamentWidget::class, AnalyticsTrendFilamentWidget::class, AnalyticsInsightsFilamentWidget::class]);
+        ->not->toContain(AnalyticsOverviewFilamentWidget::class)->not->toContain(AnalyticsTrendFilamentWidget::class)->not->toContain(AnalyticsInsightsFilamentWidget::class);
     expect((new DashboardToolsPage)->getWidgets())->toContain(ListPagesFilamentWidget::class)
-        ->toContainNone([CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class]);
+        ->not->toContain(CapellAccountFilamentWidget::class)->not->toContain(CapellInfoFilamentWidget::class);
 });
 
 it('retains enabled marketing contributions in the specialist tools view', function (bool $enabled): void {

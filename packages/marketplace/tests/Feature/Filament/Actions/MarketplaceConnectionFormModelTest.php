@@ -133,7 +133,7 @@ it('keeps heartbeat transport credentials out of the result logs and notificatio
     });
     $result = RunMarketplaceHeartbeatAction::run();
     expect($result->successful)->toBeFalse()->and($result->failureMessage)->toContain('example.test')
-        ->toContainNone(['p4ss', 'token=abc']);
+        ->not->toContain('p4ss')->not->toContain('token=abc');
     resolve(MarketplaceConnectionFormModel::class)->runHeartbeat();
     Notification::assertNotified(
         Notification::make('marketplace-error')
