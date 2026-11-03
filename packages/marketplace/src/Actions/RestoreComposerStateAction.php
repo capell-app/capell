@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
+use Capell\Core\Actions\Extensions\HashExtensionContentsAction;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
 use Capell\Marketplace\Support\MarketplaceComposerEnvironment;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 /**
  * Put composer.json, composer.lock and vendor/ back to the snapshot.
@@ -30,13 +32,29 @@ final class RestoreComposerStateAction
     use AsObject;
 
     /**
-     * @return bool Whether vendor/ actually had to be rebuilt. False means the
-     *              manifests were never changed, so there was nothing to undo.
+     * @param  array<string, string|null>  $expectedContentHashes  Pre-operation content hash per changed package;
+     *                                                             null means the package was not installed before.
+     * @return bool Without expected hashes: whether vendor/ actually had to be
+     *              rebuilt (false means the manifests were never changed). With
+     *              them: whether every listed package now holds exactly the
+     *              bytes it held before the operation.
      */
     public function handle(
         ComposerStateSnapshot $snapshot,
         int $timeoutSeconds = ComposerStateSnapshot::DEFAULT_TIMEOUT_SECONDS,
+        array $expectedContentHashes = [],
     ): bool {
+        if ($expectedContentHashes !== []) {
+            $this->restore($snapshot, $timeoutSeconds);
+
+            return $this->restoredBytesMatch($expectedContentHashes);
+        }
+
+        return $this->restore($snapshot, $timeoutSeconds);
+    }
+
+    private function restore(ComposerStateSnapshot $snapshot, int $timeoutSeconds): bool
+    {
         // A failure before Composer ever wrote anything — a lifecycle action
         // that threw on a package that was already downloaded, say — leaves the
         // manifests untouched. Rebuilding vendor/ then would spend minutes and a
@@ -59,6 +77,42 @@ final class RestoreComposerStateAction
             timeoutSeconds: max(1, $timeoutSeconds),
             environment: $environment->variables($composerHome),
         );
+
+        return true;
+    }
+
+    /** @param array<string, string|null> $expectedContentHashes */
+    private function restoredBytesMatch(array $expectedContentHashes): bool
+    {
+        $vendorPath = base_path('vendor');
+        $installed = CapturePreOperationPackageStateAction::installedPackages($vendorPath);
+        if ($installed === null) {
+            return false;
+        }
+
+        foreach ($expectedContentHashes as $name => $expectedHash) {
+            $package = $installed[$name] ?? null;
+            if ($expectedHash === null) {
+                if ($package !== null) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $path = $package === null ? null : CapturePreOperationPackageStateAction::installPath($vendorPath, $package);
+            if ($path === null) {
+                return false;
+            }
+
+            try {
+                if (! hash_equals($expectedHash, HashExtensionContentsAction::run($path))) {
+                    return false;
+                }
+            } catch (Throwable) {
+                return false;
+            }
+        }
 
         return true;
     }

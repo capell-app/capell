@@ -3,7 +3,20 @@
 declare(strict_types=1);
 
 return [
+    'quarantine' => [
+        'unavailable' => 'Quarantine state unavailable. Restore access to the quarantine store before enabling extensions.',
+        'doctor' => ':package is quarantined after :failing failed verification; quarantined with it: :set',
+        'not_quarantined' => ':package is not quarantined.',
+        'released' => ':package passed verification and has been released from quarantine.',
+        'release_refused' => ':package stays quarantined because it does not verify: :reason',
+    ],
     'verification' => [
+        'quarantined' => ['message' => ':package is quarantined because a package changed with it failed verification.', 'next_action' => 'Resolve the failing package, then run php artisan capell:extensions:release-quarantine :package.'],
+        'content_hash_mismatch' => ['message' => 'Installed contents for :package do not match the release content hash.', 'next_action' => 'Obtain the intended release from a trusted source before retrying.'],
+        'release_digest_not_compared' => ['message' => 'The release for :package supplied no content hash or checksum to compare, so its installed contents could not be checked.', 'next_action' => 'Install a release that publishes a content hash, or ask the publisher to add one.'],
+        'quarantine_evidence_still_fails' => ['message' => 'The installed contents of :package still do not match the digest recorded when it was quarantined.', 'next_action' => 'Reinstall :package from a trusted release, then release the quarantine again.'],
+        'content_hash_unreadable' => ['message' => 'Installed contents for :package could not be verified.', 'next_action' => 'Check the package files and retry with a trusted release.'],
+        'hash_failed' => 'Unable to hash the extension directory. Check that it is readable and contains no symbolic links.',
         'manifest_invalid_safe' => 'The manifest for :package is invalid, so the extension cannot be verified.',
         'skipped' => 'Verification is not required for the trusted package :package.',
         'passed' => 'Verification passed for :package.',
