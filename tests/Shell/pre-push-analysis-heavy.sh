@@ -58,6 +58,23 @@ run_hook() { # <PATH> [VAR=value...]
 # uses, so the two cannot drift apart again (a full gate for four workers serialised pushes).
 config="$(python3 -c 'import json, re, sys; script = json.load(open(sys.argv[1]))["scripts"]["analyze:diff"]; print(re.search(r"--configuration=(\S+)", script).group(1))' "$root/composer.json")"
 weight="$(python3 "$root/tests/Shell/lib/phpstan-worker-weight.py" "$root/$config")"
+
+# The cap parser: a commented override wins over an inherited cap, and an unreadable cap
+# line fails closed instead of falling back to a lower inherited cap.
+cases="$scratch/neon"
+mkdir -p "$cases"
+printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/common.neon"
+printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 8 # raised\n' > "$cases/commented.neon"
+printf 'includes:\n    - common.neon # shared\n' > "$cases/inherited.neon"
+printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %%env.WORKERS%%\n' > "$cases/unreadable.neon"
+printf 'parameters:\n    level: 9\n' > "$cases/uncapped.neon"
+parser="$root/tests/Shell/lib/phpstan-worker-weight.py"
+[ "$(python3 "$parser" "$cases/commented.neon")" = 3 ] || fail 'a commented override of 8 workers did not give weight 3'
+[ "$(python3 "$parser" "$cases/inherited.neon")" = 2 ] || fail 'an inherited cap of 4 did not give weight 2'
+[ "$(python3 "$parser" "$cases/uncapped.neon")" = 3 ] || fail 'an uncapped configuration did not give weight 3'
+if python3 "$parser" "$cases/unreadable.neon" > /dev/null 2>&1; then
+    fail 'an unreadable cap line did not fail closed'
+fi
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
     "run -w $weight core-pre-push-analysis -- "*) ;;
