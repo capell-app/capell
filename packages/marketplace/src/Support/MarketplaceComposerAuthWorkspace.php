@@ -250,7 +250,11 @@ final class MarketplaceComposerAuthWorkspace
             $this->fail('symlink', $parent);
         }
 
-        $stickyAllowed = is_string($override) && $override !== '' && $uid !== null && $parentStat !== false && $parentStat['uid'] === $uid;
+        // A sticky world-writable ancestor such as /tmp cannot rename or remove entries it does
+        // not own, so it is safe once the workspace's own parent belongs to the worker; every
+        // ancestor is still owner-checked and a world-writable directory without the sticky bit
+        // is still refused.
+        $stickyAllowed = $uid !== null && $parentStat !== false && $parentStat['uid'] === $uid;
         $this->walkAncestors($parent, $stickyAllowed, $mode === 'acl');
     }
 

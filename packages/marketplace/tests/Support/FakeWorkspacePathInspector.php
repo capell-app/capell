@@ -16,6 +16,10 @@ final class FakeWorkspacePathInspector implements WorkspacePathInspector
 
     public ?string $groupWritable = null;
 
+    public ?string $stickyWorldWritable = null;
+
+    public ?string $worldWritable = null;
+
     public ?string $racedRoot = null;
 
     public ?int $uid;
@@ -46,6 +50,15 @@ final class FakeWorkspacePathInspector implements WorkspacePathInspector
 
         if ($stat !== false && $path === $this->groupWritable) {
             $stat['mode'] |= 0020;
+        }
+
+        if ($stat !== false && $path === $this->stickyWorldWritable) {
+            $stat['mode'] |= 01002;
+            $stat['uid'] = 0;
+        }
+
+        if ($stat !== false && $path === $this->worldWritable) {
+            $stat['mode'] = ($stat['mode'] | 0002) & ~01000;
         }
 
         return $stat;

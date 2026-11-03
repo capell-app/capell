@@ -27,6 +27,29 @@ it('rejects foreign and group writable higher ancestors before creating the root
     }
 });
 
+it('accepts a root-owned sticky ancestor for the default workspace but still refuses a plain world-writable one', function (): void {
+    config()->set('capell.marketplace.auth_workspace_path');
+    $inspector = new FakeWorkspacePathInspector;
+    $workspace = new MarketplaceComposerAuthWorkspace(inspector: $inspector);
+    $ancestor = dirname(base_path());
+    $root = $workspace->root();
+    $created = [];
+    try {
+        $inspector->stickyWorldWritable = $ancestor;
+        $created[] = $workspace->create();
+        expect($created[0])->toStartWith($root . DIRECTORY_SEPARATOR)
+            ->and(is_dir($created[0]))->toBeTrue();
+
+        $inspector->stickyWorldWritable = null;
+        $inspector->worldWritable = $ancestor;
+        expect(fn (): string => $workspace->create())->toThrow(WorkspaceException::class, $ancestor);
+    } finally {
+        foreach ($created as $directory) {
+            $workspace->removeDirectory($directory);
+        }
+    }
+});
+
 it('revalidates a competing first creation and rejects an untrusted one', function (): void {
     $parent = sys_get_temp_dir() . '/workspace-race-' . bin2hex(random_bytes(8));
     mkdir($parent, 0700);
