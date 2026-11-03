@@ -37,12 +37,16 @@ use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\ArrayLock;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as IlluminateResponse;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -712,6 +716,50 @@ it('exports a page whose public-read rules are unchanged and open-ended', functi
     expect($manifest['artifacts'])->toHaveCount(1)
         ->and($manifest['withheld'])->toBe([])
         ->and(File::get(resolve(StaticPageArtifactStore::class)->root() . '/https.example.test/static-open/index.html'))->toBe('<html>Static</html>');
+});
+
+it('exports while no leased cache lock can be taken, fenced by the store lock a withdrawal holds', function (): void {
+    [, $site, $renderData] = staticPageArtifactsRenderData('/static-fenced');
+    staticExportReadEligibility();
+    $store = resolve(StaticPageArtifactStore::class);
+    $withdrawalCouldStart = null;
+    app()->instance(Kernel::class, staticExportKernel($renderData));
+    // No cache lock is ever available: an export must not depend on a lease.
+    Cache::extend('no-locks', fn (): Repository => Cache::repository(new class extends ArrayStore
+    {
+        public function lock($name, $seconds = 0, $owner = null): ArrayLock
+        {
+            return new class($this, $name, $seconds, $owner) extends ArrayLock
+            {
+                public function acquire(): bool
+                {
+                    return false;
+                }
+            };
+        }
+    }));
+    config(['cache.stores.no-locks' => ['driver' => 'no-locks'], 'cache.default' => 'no-locks']);
+    Cache::forgetDriver('no-locks');
+    File::partialMock()->shouldReceive('move')->andReturnUsing(static function (string $from, string $to) use ($store, &$withdrawalCouldStart): bool {
+        $moved = rename($from, $to);
+
+        // The moment the exported page lands.
+        if (str_ends_with($to, '/static-fenced/index.html')) {
+            $probe = fopen($store->ownershipPath() . '.lock', 'c+');
+            $withdrawalCouldStart = flock($probe, LOCK_EX | LOCK_NB);
+            flock($probe, LOCK_UN);
+            fclose($probe);
+        }
+
+        return $moved;
+    });
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/static-fenced']);
+
+    expect($manifest['withheld'])->toBe([])
+        ->and($manifest['artifacts'])->toHaveCount(1)
+        // While the bytes land, a withdrawal of this store would have to wait.
+        ->and($withdrawalCouldStart)->toBeFalse();
 });
 
 function staticPageArtifactsRenderData(string $url, string $domain = 'example.test'): array

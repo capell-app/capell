@@ -259,7 +259,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Only path for writing copies served without Laravel; checks eligibility at write time.",
+            "summary": "Only path for writing copies served without Laravel; checks eligibility under the store lock.",
             "contractTestId": null
         },
         {
@@ -551,6 +551,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Consumer-owned exact package acquisition and installed-release evidence boundary.",
             "contractTestId": "core.project-build-manifest-install"
+        },
+        {
+            "id": "core.contract.public-artefact-fence",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\PublicArtefactFence",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "An out-of-band artefact store's lease-free lock, shared by its writes and withdrawals.",
+            "contractTestId": null
         },
         {
             "id": "core.contract.public-page-read-eligibility",
@@ -1430,16 +1440,6 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Proof a write runs inside the publication action; artefact stores require it.",
-            "contractTestId": null
-        },
-        {
-            "id": "core.support.public-artefact-publication-lock",
-            "kind": "support",
-            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicArtefactPublicationLock",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Per-site lock shared by out-of-band artefact writes and their withdrawal.",
             "contractTestId": null
         },
         {

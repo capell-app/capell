@@ -38,6 +38,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
 use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\PublicArtefactFence;
 use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
 use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
@@ -123,7 +124,6 @@ use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Support\PublicRead\PublicArtefactPermit;
-use Capell\Core\Support\PublicRead\PublicArtefactPublicationLock;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
@@ -213,9 +213,9 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.registry.public-page-read-eligibility', 'registry', PublicPageReadEligibilityRegistry::class, ExtensionSurfaceStability::Experimental, 'Fail-closed public-read eligibility registry consulted by public page projections.'),
             $this->entry('core.contract.evaluates-public-page-read-candidates-individually', 'contract', EvaluatesPublicPageReadCandidatesIndividually::class, ExtensionSurfaceStability::Experimental, 'Default one-at-a-time batch evaluation for public-read eligibility contributors.'),
             $this->entry('core.action.record-public-read-eligibility-change', 'action', RecordPublicReadEligibilityChangeAction::class, ExtensionSurfaceStability::Experimental, 'Advances the public-read eligibility revision when access rules change without a page save.'),
-            $this->entry('core.action.publish-public-artefact', 'action', PublishPublicArtefactAction::class, ExtensionSurfaceStability::Experimental, 'Only path for writing copies served without Laravel; checks eligibility at write time.'),
+            $this->entry('core.action.publish-public-artefact', 'action', PublishPublicArtefactAction::class, ExtensionSurfaceStability::Experimental, 'Only path for writing copies served without Laravel; checks eligibility under the store lock.'),
             $this->entry('core.support.public-artefact-permit', 'support', PublicArtefactPermit::class, ExtensionSurfaceStability::Experimental, 'Proof a write runs inside the publication action; artefact stores require it.'),
-            $this->entry('core.support.public-artefact-publication-lock', 'support', PublicArtefactPublicationLock::class, ExtensionSurfaceStability::Experimental, 'Per-site lock shared by out-of-band artefact writes and their withdrawal.'),
+            $this->entry('core.contract.public-artefact-fence', 'contract', PublicArtefactFence::class, ExtensionSurfaceStability::Experimental, "An out-of-band artefact store's lease-free lock, shared by its writes and withdrawals."),
             $this->entry('core.event.public-read-eligibility-changed', 'event', PublicReadEligibilityChanged::class, ExtensionSurfaceStability::Experimental, 'Signals that stored public projections must be withdrawn or regenerated.'),
             $this->entry('core.contract.schedules-public-read-transitions', 'contract', SchedulesPublicReadTransitions::class, ExtensionSurfaceStability::Experimental, "Earliest scheduled change to a contributor's public-read decisions, bounding stored projections."),
             $this->entry('core.dto.public-read-stamp', 'dto', PublicReadStampData::class, ExtensionSurfaceStability::Experimental, 'Public-read rules a stored projection was built under: revision and validity.'),

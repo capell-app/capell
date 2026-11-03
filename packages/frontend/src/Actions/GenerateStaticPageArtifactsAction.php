@@ -109,6 +109,7 @@ class GenerateStaticPageArtifactsAction
                     // A page behind time-bounded or since-changed rules is not
                     // exported: it is served only by Laravel, which checks it.
                     $written = PublishPublicArtefactAction::run(
+                        $this->store,
                         $pageUrl->site_id,
                         $builtUnder,
                         [$pageUrl],
@@ -116,9 +117,6 @@ class GenerateStaticPageArtifactsAction
                             $this->store->putOwnedHtml($permit, $file, (string) $response->getContent(), $pageUrl->site_id);
 
                             return true;
-                        },
-                        function (PublicArtefactPermit $permit) use ($file): void {
-                            $this->store->forgetHtml($file);
                         },
                     );
                 },

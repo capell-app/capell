@@ -5,11 +5,11 @@ declare(strict_types=1);
 use Capell\Core\Actions\PublicRead\PublishPublicArtefactAction;
 use Capell\Core\Actions\PublicRead\RecordPublicReadEligibilityChangeAction;
 use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\PublicArtefactFence;
 use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
 use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\PublicRead\PublicArtefactPermit;
-use Capell\Core\Support\PublicRead\PublicArtefactPublicationLock;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
@@ -108,73 +108,62 @@ function publicationExportRoot(): string
     return $root;
 }
 
-it('takes the same lock to write a site artefact as to withdraw that site', function (): void {
-    $seam = publicationSeamStore();
-    publicationRestrictReads();
-    $domain = SiteDomain::factory()->default()->create();
+/** A fence that runs a step of another process just before the store lock is taken. */
+function publicationFenceWithStepBefore(PublicArtefactFence $store, Closure $step): PublicArtefactFence
+{
+    return new readonly class($store, $step) implements PublicArtefactFence
+    {
+        public function __construct(private PublicArtefactFence $store, private Closure $step) {}
 
-    PublishPublicArtefactAction::run($domain->site_id, resolve(PublicReadEligibilityState::class)->stamp(), [], static fn (PublicArtefactPermit $permit): bool => true);
-    $writer = $seam->acquired;
-    $seam->acquired = [];
-    RecordPublicReadEligibilityChangeAction::run('test', $domain->site_id);
+        public function exclusive(Closure $callback): mixed
+        {
+            ($this->step)();
 
-    $publication = static fn (array $names): array => array_values(array_filter($names, static fn (string $name): bool => str_starts_with($name, PublicArtefactPublicationLock::KEY_PREFIX)));
+            return $this->store->exclusive($callback);
+        }
 
-    expect($publication($writer))->toBe(PublicArtefactPublicationLock::keys([$domain->site_id]))
-        ->and($publication($seam->acquired))->toBe(PublicArtefactPublicationLock::keys([$domain->site_id]));
-});
-
-it('refuses a write whose rules were withdrawn while it waited for the lock', function (): void {
-    $seam = publicationSeamStore();
-    publicationRestrictReads();
-    $domain = SiteDomain::factory()->default()->create();
-    $builtUnder = resolve(PublicReadEligibilityState::class)->stamp();
-    $key = PublicArtefactPublicationLock::keys([$domain->site_id])[0];
-    $stage = 'armed';
-    $wrote = false;
-
-    // Just before the writer takes its lock, a rule change and its withdrawal run to completion.
-    $seam->beforeAcquire = static function (string $name) use (&$stage, $key, $domain): void {
-        if ($name === $key && $stage === 'armed') {
-            $stage = 'changing';
-            RecordPublicReadEligibilityChangeAction::run('test', $domain->site_id);
-            $stage = 'changed';
+        public function fenceIdentity(): string
+        {
+            return $this->store->fenceIdentity();
         }
     };
+}
 
-    $written = PublishPublicArtefactAction::run($domain->site_id, $builtUnder, [], static function (PublicArtefactPermit $permit) use (&$wrote): bool {
-        $wrote = true;
+function publicationLockIsFree(StaticPageArtifactStore $store): bool
+{
+    $probe = fopen($store->ownershipPath() . '.lock', 'c+');
+    $free = flock($probe, LOCK_EX | LOCK_NB);
 
-        return true;
-    });
+    if ($free) {
+        flock($probe, LOCK_UN);
+    }
 
-    expect($stage)->toBe('changed')
-        ->and($written)->toBeFalse()
-        ->and($wrote)->toBeFalse();
-});
+    fclose($probe);
 
-it('makes a withdrawal wait while a write holds the lock, then purges what it wrote', function (): void {
-    publicationSeamStore();
+    return $free;
+}
+
+it('holds the store lock a withdrawal takes while it checks and writes, and lets withdrawals run between writes', function (): void {
     publicationRestrictReads();
     $domain = SiteDomain::factory()->default()->create();
     $root = publicationExportRoot();
     $store = resolve(StaticPageArtifactStore::class);
-    $key = PublicArtefactPublicationLock::keys([$domain->site_id])[0];
-    $withdrawalCouldStart = null;
+    $freeWhileWriting = null;
 
     try {
-        $written = PublishPublicArtefactAction::run($domain->site_id, resolve(PublicReadEligibilityState::class)->stamp(), [], function (PublicArtefactPermit $permit) use ($store, $domain, $key, &$withdrawalCouldStart): bool {
+        $written = PublishPublicArtefactAction::run($store, $domain->site_id, resolve(PublicReadEligibilityState::class)->stamp(), [], static function (PublicArtefactPermit $permit) use ($store, $domain, &$freeWhileWriting): bool {
             $store->putOwnedHtml($permit, 'race/index.html', 'Built under the old rules', $domain->site_id);
-            // A withdrawal starting now cannot take the lock until this write returns.
-            $withdrawalCouldStart = Cache::lock($key, 1)->get();
+            $freeWhileWriting = publicationLockIsFree($store);
 
             return true;
         });
 
         expect($written)->toBeTrue()
-            ->and($withdrawalCouldStart)->toBeFalse()
+            ->and($freeWhileWriting)->toBeFalse()
+            ->and(publicationLockIsFree($store))->toBeTrue()
             ->and(is_file($root . '/race/index.html'))->toBeTrue();
 
+        // The withdrawal takes the same lock and removes what was written.
         RecordPublicReadEligibilityChangeAction::run('test', $domain->site_id);
 
         expect(is_file($root . '/race/index.html'))->toBeFalse();
@@ -183,7 +172,38 @@ it('makes a withdrawal wait while a write holds the lock, then purges what it wr
     }
 });
 
-it('never lets a permit write once its publication has returned', function (): void {
+it('refuses a write whose rules were withdrawn while it waited for the store lock', function (): void {
+    publicationRestrictReads();
+    $domain = SiteDomain::factory()->default()->create();
+    $root = publicationExportRoot();
+    $store = resolve(StaticPageArtifactStore::class);
+    $builtUnder = resolve(PublicReadEligibilityState::class)->stamp();
+    $stage = 'armed';
+    $wrote = false;
+
+    try {
+        // Just before the writer takes the store lock, a rule change and its withdrawal run to completion.
+        $fence = publicationFenceWithStepBefore($store, static function () use (&$stage, $domain): void {
+            $stage = 'changing';
+            RecordPublicReadEligibilityChangeAction::run('test', $domain->site_id);
+            $stage = 'changed';
+        });
+
+        $written = PublishPublicArtefactAction::run($fence, $domain->site_id, $builtUnder, [], static function (PublicArtefactPermit $permit) use (&$wrote): bool {
+            $wrote = true;
+
+            return true;
+        });
+
+        expect($stage)->toBe('changed')
+            ->and($written)->toBeFalse()
+            ->and($wrote)->toBeFalse();
+    } finally {
+        File::deleteDirectory($root);
+    }
+});
+
+it('never lets a permit write once its publication has returned, or write a store whose lock it does not hold', function (): void {
     $domain = SiteDomain::factory()->default()->create();
     $root = publicationExportRoot();
     $store = resolve(StaticPageArtifactStore::class);
@@ -191,9 +211,21 @@ it('never lets a permit write once its publication has returned', function (): v
     {
         public ?PublicArtefactPermit $permit = null;
     };
+    $otherStore = new readonly class implements PublicArtefactFence
+    {
+        public function exclusive(Closure $callback): mixed
+        {
+            return $callback();
+        }
+
+        public function fenceIdentity(): string
+        {
+            return 'another-store';
+        }
+    };
 
     try {
-        PublishPublicArtefactAction::run($domain->site_id, resolve(PublicReadEligibilityState::class)->stamp(), [], static function (PublicArtefactPermit $permit) use ($kept): bool {
+        PublishPublicArtefactAction::run($store, $domain->site_id, resolve(PublicReadEligibilityState::class)->stamp(), [], static function (PublicArtefactPermit $permit) use ($kept): bool {
             $kept->permit = $permit;
 
             return true;
@@ -202,9 +234,15 @@ it('never lets a permit write once its publication has returned', function (): v
 
         expect(fn () => $store->putOwnedHtml($permit, 'late/index.html', 'Written outside the lock', $domain->site_id))
             ->toThrow(RuntimeException::class, 'PublishPublicArtefactAction')
+            ->and(fn (): bool => PublishPublicArtefactAction::run($otherStore, $domain->site_id, resolve(PublicReadEligibilityState::class)->stamp(), [], static function (PublicArtefactPermit $permit) use ($store, $domain): bool {
+                $store->putOwnedHtml($permit, 'elsewhere/index.html', 'Written under another lock', $domain->site_id);
+
+                return true;
+            }))->toThrow(RuntimeException::class, 'under the lock of the store being written')
             ->and(is_file($root . '/late/index.html'))->toBeFalse()
+            ->and(is_file($root . '/elsewhere/index.html'))->toBeFalse()
             // Nothing but the publication action can issue one.
-            ->and(fn (): PublicArtefactPermit => new ReflectionClass(PublicArtefactPermit::class)->newInstance(static fn (): bool => true))
+            ->and(fn (): PublicArtefactPermit => new ReflectionClass(PublicArtefactPermit::class)->newInstance(static fn (): bool => true, $store->fenceIdentity()))
             ->toThrow(ReflectionException::class);
     } finally {
         File::deleteDirectory($root);

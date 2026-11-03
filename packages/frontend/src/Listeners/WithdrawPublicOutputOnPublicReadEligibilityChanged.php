@@ -6,11 +6,9 @@ namespace Capell\Frontend\Listeners;
 
 use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Models\Site;
-use Capell\Core\Support\PublicRead\PublicArtefactPublicationLock;
 use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
 use Capell\Frontend\Support\Cache\FragmentCache;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
-use Illuminate\Contracts\Cache\LockTimeoutException;
 
 /**
  * Rendered output can link to, list or describe a page whose public-read
@@ -28,21 +26,15 @@ final class WithdrawPublicOutputOnPublicReadEligibilityChanged
             ? [$event->siteId]
             : array_values(array_map(intval(...), Site::query()->pluck('id')->all()));
         $store = resolve(StaticPageArtifactStore::class);
-        $purge = static function () use ($store, $siteIds): void {
+
+        // Under the store's lock, the lock every export write is checked and
+        // written under: an export that passed its check before the change
+        // finishes first and is removed here.
+        $store->exclusive(static function () use ($store, $siteIds): void {
             foreach ($siteIds as $siteId) {
                 $store->purgeSite($siteId);
             }
-        };
-
-        // Under the publication lock, so an export that passed its write-time
-        // check before the change finishes first and is purged here.
-        try {
-            resolve(PublicArtefactPublicationLock::class)->hold($siteIds, PublicArtefactPublicationLock::LOCK_SECONDS, static fn () => $purge());
-        } catch (LockTimeoutException $lockTimeoutException) {
-            // Purging is always safe: never leave a copy because a writer stalled.
-            report($lockTimeoutException);
-            $purge();
-        }
+        });
 
         if ($siteIds !== []) {
             InvalidateFrontendSurrogateKeysAction::run(array_map(static fn (int $siteId): string => 'site-' . $siteId, $siteIds), awaitCdn: true);

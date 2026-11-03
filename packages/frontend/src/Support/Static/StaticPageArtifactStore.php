@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Static;
 
+use Capell\Core\Contracts\PublicRead\PublicArtefactFence;
 use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Closure;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
+use Override;
 use RuntimeException;
 use Symfony\Component\Finder\Finder;
 
-final class StaticPageArtifactStore
+final class StaticPageArtifactStore implements PublicArtefactFence
 {
+    /** @var array<string, true> Ownership lock files this process holds. */
+    private static array $heldLocks = [];
+
     public function root(): string
     {
         $configuredPath = config('capell-frontend.static_artifacts_path');
@@ -28,12 +33,28 @@ final class StaticPageArtifactStore
     }
 
     /**
+     * The ownership lock: held by every export write (through
+     * PublishPublicArtefactAction) and every purge, with no lease.
+     */
+    #[Override]
+    public function exclusive(Closure $callback): mixed
+    {
+        return $this->withOwnershipLock(static fn (array $ownership): mixed => $callback());
+    }
+
+    #[Override]
+    public function fenceIdentity(): string
+    {
+        return 'static:' . $this->ownershipPath();
+    }
+
+    /**
      * Static exports are served without Laravel, so every write needs the
-     * permit PublishPublicArtefactAction issues under the publication lock.
+     * permit PublishPublicArtefactAction issues under this store's lock.
      */
     public function putHtml(PublicArtefactPermit $permit, string $file, string $contents): void
     {
-        $permit->assertActive();
+        $permit->assertActiveFor($this);
         $path = $this->pathWithinRoot($file);
 
         $this->writeAtomically($path, $contents);
@@ -42,7 +63,7 @@ final class StaticPageArtifactStore
     /** Ownership is private and cumulative; the public manifest is only a receipt. */
     public function putOwnedHtml(PublicArtefactPermit $permit, string $file, string $contents, int $siteId): void
     {
-        $permit->assertActive();
+        $permit->assertActiveFor($this);
         $this->withOwnershipLock(function (array $ownership) use ($permit, $file, $contents, $siteId): void {
             // Persist before publishing bytes, retaining former owners in case
             // replacement fails and leaves their previous content on disk.
@@ -137,30 +158,57 @@ final class StaticPageArtifactStore
         return is_array($decoded) ? $decoded : ['generated_at' => null, 'artifacts' => []];
     }
 
-    /** @param Closure(array<string, list<int>>): void $callback */
-    private function withOwnershipLock(Closure $callback): void
+    /**
+     * Runs $callback with the current ownership under the ownership lock,
+     * re-entering it when this process already holds it.
+     *
+     * @template T
+     *
+     * @param  Closure(array<string, list<int>>): T  $callback
+     * @return T
+     */
+    private function withOwnershipLock(Closure $callback): mixed
     {
         $path = $this->ownershipPath();
+
+        if (isset(self::$heldLocks[$path])) {
+            return $callback($this->readOwnership($path));
+        }
+
         $lock = fopen($path . '.lock', 'c+');
         throw_if($lock === false, RuntimeException::class, 'Static artifact ownership cannot be locked.');
+        $acquired = false;
 
         try {
             throw_unless(chmod($path . '.lock', 0600) && flock($lock, LOCK_EX), RuntimeException::class, 'Static artifact ownership cannot be locked.');
-            $ownership = [];
-            if (File::exists($path)) {
-                $decoded = json_decode(File::get($path), true, 512, JSON_THROW_ON_ERROR);
-                throw_unless(is_array($decoded) && ($decoded['version'] ?? null) === 1 && is_array($decoded['files'] ?? null), RuntimeException::class, 'Static artifact ownership is invalid.');
-                foreach ($decoded['files'] as $file => $owners) {
-                    throw_unless(is_string($file) && is_array($owners) && $owners !== [] && array_is_list($owners) && array_all($owners, fn (mixed $owner): bool => is_int($owner) && $owner > 0), RuntimeException::class, 'Static artifact ownership is invalid.');
-                    $ownership[$file] = $owners;
-                }
+            $acquired = true;
+            self::$heldLocks[$path] = true;
+
+            return $callback($this->readOwnership($path));
+        } finally {
+            if ($acquired) {
+                unset(self::$heldLocks[$path]);
             }
 
-            $callback($ownership);
-        } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    /** @return array<string, list<int>> */
+    private function readOwnership(string $path): array
+    {
+        $ownership = [];
+        if (File::exists($path)) {
+            $decoded = json_decode(File::get($path), true, 512, JSON_THROW_ON_ERROR);
+            throw_unless(is_array($decoded) && ($decoded['version'] ?? null) === 1 && is_array($decoded['files'] ?? null), RuntimeException::class, 'Static artifact ownership is invalid.');
+            foreach ($decoded['files'] as $file => $owners) {
+                throw_unless(is_string($file) && is_array($owners) && $owners !== [] && array_is_list($owners) && array_all($owners, fn (mixed $owner): bool => is_int($owner) && $owner > 0), RuntimeException::class, 'Static artifact ownership is invalid.');
+                $ownership[$file] = $owners;
+            }
+        }
+
+        return $ownership;
     }
 
     /** @param array<string, list<int>> $ownership */
