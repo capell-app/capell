@@ -59,39 +59,9 @@ run_hook() { # <PATH> [VAR=value...]
 config="$(python3 -c 'import json, re, sys; script = json.load(open(sys.argv[1]))["scripts"]["analyze:diff"]; print(re.search(r"--configuration=(\S+)", script).group(1))' "$root/composer.json")"
 weight="$(python3 "$root/tests/Shell/lib/phpstan-worker-weight.py" "$root/$config")"
 
-# The worker-cap reader: a commented override wins over an inherited cap, quoted and
-# unterminated includes are read, and every layout it does not model fails closed.
-cases="$scratch/neon"
-mkdir -p "$cases"
-parser="$root/tests/Shell/lib/phpstan-worker-weight.py"
-printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/common.neon"
-printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 8\n' > "$cases/eight.neon"
-printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 8 # raised\n' > "$cases/commented.neon"
-printf 'includes:\n    - common.neon # shared\n' > "$cases/inherited.neon"
-printf 'parameters:\n    level: 9\n' > "$cases/uncapped.neon"
-printf "includes:\n    - common.neon\n    - 'eight.neon'\n" > "$cases/quoted-include.neon"
-printf 'includes:\n    - common.neon\n    - eight.neon' > "$cases/no-final-newline.neon"
-printf 'includes:\n    - eight.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/lowered.neon"
-printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %%env.WORKERS%%\n' > "$cases/unreadable.neon"
-printf 'includes:\n    - common.neon\nparameters:\n    parallel: {maximumNumberOfProcesses: 8}\n' > "$cases/inline.neon"
-printf "includes:\n    - common.neon\nparameters:\n    parallel:\n        'maximumNumberOfProcesses': 8\n" > "$cases/quoted.neon"
-printf 'includes: [common.neon]\n' > "$cases/inline-includes.neon"
-printf "'includes':\n    - eight.neon\n" > "$cases/quoted-header.neon"
-printf 'includes:\n    - common.neon\n    - missing.neon\n' > "$cases/missing-include.neon"
-printf 'includes:\n    - common.neon\n    - "unbalanced.neon\n' > "$cases/bad-include.neon"
-printf 'includes:\n    - missing.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/own-cap-missing-include.neon"
-printf 'includes:\n    - %%currentWorkingDirectory%%/eight.neon\n' > "$cases/parameterised-include.neon"
-printf 'includes:\n    - lowered.neon\n    - eight.neon\n' > "$cases/diamond.neon"
-for expectation in commented:3 inherited:2 uncapped:3 quoted-include:3 no-final-newline:3; do
-    name="${expectation%%:*}"
-    [ "$(python3 "$parser" "$cases/$name.neon")" = "${expectation##*:}" ] || fail "$name.neon did not give weight ${expectation##*:}"
-done
-for name in unreadable inline quoted inline-includes quoted-header missing-include bad-include \
-    own-cap-missing-include parameterised-include diamond; do
-    if python3 "$parser" "$cases/$name.neon" > /dev/null 2>&1; then
-        fail "$name.neon did not fail closed"
-    fi
-done
+# The worker-cap reader's own cases: overrides, inherited caps, and every layout it refuses.
+python3 -B "$root/tests/Shell/lib/phpstan-worker-weight.py" > "$scratch/reader" 2>&1 \
+    || { cat "$scratch/reader" >&2; fail 'the worker-cap reader failed its own cases'; }
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
     "run -w $weight core-pre-push-analysis -- "*) ;;

@@ -1,34 +1,42 @@
 #!/usr/bin/env python3
-"""Print the heavy weight a PHPStan configuration's worker cap calls for.
+"""The heavy weight a PHPStan configuration's worker cap calls for.
 
-Usage: phpstan-worker-weight.py <config.neon>
+Usage:
+  phpstan-worker-weight.py <config.neon>   print the weight for that configuration
+  phpstan-worker-weight.py                 run this reader's own regression cases
 
 Follows `includes` (an including file's parameters override the included ones) to the
-effective `parallel.maximumNumberOfProcesses`. The heavy rule: up to 2 workers is weight 1,
-up to 4 is weight 2, more or no cap (PHPStan then uses every core) is a full gate, weight 3.
+effective `parameters.parallel.maximumNumberOfProcesses`. The heavy rule: up to 2 workers is
+weight 1, up to 4 is weight 2, more or no cap (PHPStan then uses every core) is a full gate,
+weight 3.
 
 This is deliberately not a NEON parser. It accepts one strict layout and raises on anything
 else, so an unfamiliar spelling fails the check loudly instead of passing as a lower weight:
 
-- the cap is `maximumNumberOfProcesses: <digits>` on its own line (a trailing # comment is fine);
-- `includes:` is a plain header at the start of a line, followed by one path per line, plain or
-  quoted;
-- an include path is local (relative to the including file), or third-party under vendor/ or
-  %rootDir%, which never sets the worker cap;
-- every local include exists, and no file is reached twice in the include graph (PHPStan would
-  merge it again, which this check does not model).
+- keys are plain words; a quoted or escaped key raises;
+- the cap is `maximumNumberOfProcesses: <digits>` directly under `parameters:` > `parallel:`
+  (a trailing # comment is fine); the key anywhere else, or in any other form, raises;
+- `includes:` is a plain top-level header followed by one plain or quoted path per line;
+- an include resolves to a local .neon file, which must exist, or to a file under a vendor/
+  directory or %rootDir% (third-party extensions, which never set the cap); a local PHP include
+  that mentions the cap or `parallel` raises, as does any other local file type;
+- no file is reached twice in the include graph (PHPStan would merge it again, which this
+  reader does not model).
 """
 import re
 import sys
+import tempfile
 from pathlib import Path
 
-CAP_LINE = re.compile(r'^\s*maximumNumberOfProcesses\s*:\s*(\d+)\s*$')
-INCLUDES_HEADER = re.compile(r'^includes:\s*$')
+CAP_KEY = 'maximumNumberOfProcesses'
+PLAIN_KEY = re.compile(r'^(\s*)([A-Za-z_][\w-]*)\s*:(.*)$')
+QUOTED_KEY = re.compile(r'''^\s*(?:-\s*)?(["'])(?:\\.|(?!\1).)*\1\s*:''')
+CAP_VALUE = re.compile(r'^\s*(\d+)\s*$')
 INCLUDE_ENTRY = re.compile(r'^[ \t]+-[ \t]*(["\']?)([^\s"\']+)\1[ \t]*$')
 
 
 def strip_comment(line: str) -> str:
-    """Drop a NEON comment: a # at the start or after whitespace (values here hold no quotes)."""
+    """Drop a NEON comment: a # at the start or after whitespace."""
     return re.sub(r'(^|\s)#.*$', '', line)
 
 
@@ -37,11 +45,16 @@ def read_config(config: Path) -> tuple[int | None, list[str]]:
     cap = None
     includes: list[str] = []
     in_includes = False
+    path: list[tuple[int, str]] = []  # (indent, key) of the enclosing plain keys
     for number, raw in enumerate(config.read_text().splitlines(), 1):
         line = strip_comment(raw).rstrip()
         if not line.strip():
             continue
         where = f'{config}:{number}'
+        if '\\' in line and CAP_KEY.lower() in line.lower().replace('\\', ''):
+            raise ValueError(f'{where}: an escaped spelling of {CAP_KEY} is not supported')
+        if QUOTED_KEY.match(line):
+            raise ValueError(f'{where}: write keys unquoted')
         if in_includes and line[:1] in (' ', '\t'):
             match = INCLUDE_ENTRY.match(line)
             if match is None:
@@ -49,35 +62,56 @@ def read_config(config: Path) -> tuple[int | None, list[str]]:
             includes.append(match.group(2))
             continue
         in_includes = False
-        if 'includes' in line:
-            if not INCLUDES_HEADER.match(line):
-                raise ValueError(f'{where}: write includes as a plain "includes:" header, one path per line')
-            in_includes = True
-            continue
-        if 'maximumNumberOfProcesses' in line:
-            match = CAP_LINE.match(line)
-            if match is None:
-                raise ValueError(f'{where}: cannot read maximumNumberOfProcesses from {line.strip()!r}')
-            cap = int(match.group(1))  # The last occurrence wins, as in NEON.
+        key = PLAIN_KEY.match(line)
+        if key is not None:
+            indent = len(key.group(1).expandtabs())
+            while path and path[-1][0] >= indent:
+                path.pop()
+            name, value = key.group(2), key.group(3)
+            if name == 'includes':
+                if indent != 0 or value.strip():
+                    raise ValueError(f'{where}: write includes as a plain top-level "includes:" header, one path per line')
+                in_includes = True
+                continue
+            if name == CAP_KEY:
+                if [key for _, key in path] != ['parameters', 'parallel']:
+                    raise ValueError(f'{where}: {CAP_KEY} is only read directly under parameters: > parallel:')
+                match = CAP_VALUE.match(value)
+                if match is None:
+                    raise ValueError(f'{where}: cannot read {CAP_KEY} from {line.strip()!r}')
+                cap = int(match.group(1))  # The last occurrence wins, as in NEON.
+                continue
+            path.append((indent, name))
+        if CAP_KEY.lower() in line.lower() or 'includes' in line:
+            raise ValueError(f'{where}: cannot read {line.strip()!r}')
     return cap, includes
 
 
-def third_party(entry: str) -> bool:
-    return entry.startswith(('vendor/', '%rootDir%')) or '/vendor/' in entry
+def is_third_party(entry: str, resolved: Path) -> bool:
+    return entry.startswith('%rootDir%') or 'vendor' in resolved.parts
 
 
 def local_includes(config: Path, entries: list[str]) -> list[Path]:
     paths = []
     for entry in entries:
-        if third_party(entry):
-            continue  # Third-party extensions never set the worker cap.
+        if entry.startswith('%rootDir%'):
+            continue  # PHPStan's own bundled configuration never sets the cap.
         if '%' in entry:
             raise ValueError(f'{config}: cannot resolve the parameterised include {entry!r}')
-        path = (config.parent / entry).resolve()
-        if not path.is_file():
+        resolved = (config.parent / entry).resolve()
+        if is_third_party(entry, resolved):
+            continue  # Third-party extensions never set the worker cap.
+        if not resolved.is_file():
             raise ValueError(f'{config}: the include {entry!r} does not exist')
-        if path.suffix == '.neon':
-            paths.append(path)  # An included PHP bootstrap file cannot set the cap.
+        suffix = resolved.suffix.lower()
+        if suffix == '.neon':
+            paths.append(resolved)
+        elif suffix == '.php':
+            text = resolved.read_text().lower()
+            if CAP_KEY.lower() in text or 'parallel' in text:
+                raise ValueError(f'{config}: the PHP include {entry!r} may set the worker cap, which this reader cannot read')
+        else:
+            raise ValueError(f'{config}: cannot read the include {entry!r}')
     return paths
 
 
@@ -103,5 +137,74 @@ def weight_for(workers: int | None) -> int:
     return 3 if workers is None or workers > 4 else 2 if workers > 2 else 1
 
 
+def weight_of(config: Path) -> int:
+    return weight_for(resolve(config, set()))
+
+
+CAP4 = 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n'
+CAP8 = 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 8\n'
+CASE_FILES = {
+    'common.neon': CAP4,
+    'eight.neon': CAP8,
+    'commented.neon': 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 8 # raised\n',
+    'inherited.neon': 'includes:\n    - common.neon # shared\n',
+    'uncapped.neon': 'parameters:\n    level: 9\n',
+    'quoted-include.neon': "includes:\n    - common.neon\n    - 'eight.neon'\n",
+    'no-final-newline.neon': 'includes:\n    - common.neon\n    - eight.neon',
+    'lowered.neon': 'includes:\n    - eight.neon\n' + CAP4,
+    'vendor/ext.neon': 'parameters:\n    level: 9\n',
+    'with-vendor.neon': 'includes:\n    - vendor/ext.neon\n    - common.neon\n',
+    'bootstrap.php': '<?php return [];\n',
+    'with-php.neon': 'includes:\n    - common.neon\n    - bootstrap.php\n',
+    'high.php': "<?php return ['parameters' => ['parallel' => ['maximumNumberOfProcesses' => 8]]];\n",
+    'high.NEON': CAP8,
+    'unreadable.neon': 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %env.WORKERS%\n',
+    'inline.neon': 'includes:\n    - common.neon\nparameters:\n    parallel: {maximumNumberOfProcesses: 8}\n',
+    'quoted.neon': "includes:\n    - common.neon\nparameters:\n    parallel:\n        'maximumNumberOfProcesses': 8\n",
+    'escaped.neon': 'includes:\n    - common.neon\nparameters:\n    parallel:\n        "maximumNumberOf\\u0050rocesses": 8\n',
+    'nested-elsewhere.neon': 'includes:\n    - eight.neon\nparameters:\n    custom:\n        maximumNumberOfProcesses: 4\n',
+    'inline-includes.neon': 'includes: [common.neon]\n',
+    'quoted-header.neon': "'includes':\n    - eight.neon\n",
+    'missing-include.neon': 'includes:\n    - common.neon\n    - missing.neon\n',
+    'bad-include.neon': 'includes:\n    - common.neon\n    - "unbalanced.neon\n',
+    'own-cap-missing-include.neon': 'includes:\n    - missing.neon\n' + CAP4,
+    'parameterised-include.neon': 'includes:\n    - %currentWorkingDirectory%/eight.neon\n',
+    'diamond.neon': 'includes:\n    - lowered.neon\n    - eight.neon\n',
+    'php-cap.neon': 'includes:\n    - common.neon\n    - high.php\n',
+    'upper-extension.neon': 'includes:\n    - common.neon\n    - high.NEON\n',
+    'vendor-traversal.neon': 'includes:\n    - common.neon\n    - vendor/../eight.neon\n',
+}
+EXPECTED_WEIGHTS = {
+    'commented': 3, 'inherited': 2, 'uncapped': 3, 'quoted-include': 3, 'no-final-newline': 3,
+    'with-vendor': 2, 'with-php': 2, 'vendor-traversal': 3, 'upper-extension': 3,
+}
+MUST_RAISE = (
+    'unreadable', 'inline', 'quoted', 'escaped', 'nested-elsewhere', 'inline-includes', 'quoted-header',
+    'missing-include', 'bad-include', 'own-cap-missing-include', 'parameterised-include', 'diamond',
+    'php-cap',
+)
+
+
+def self_test() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        for name, text in CASE_FILES.items():
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            (root / name).write_text(text)
+        for name, weight in EXPECTED_WEIGHTS.items():
+            actual = weight_of(root / f'{name}.neon')
+            assert actual == weight, f'{name}.neon gave weight {actual}, not {weight}'
+        for name in MUST_RAISE:
+            try:
+                weight_of(root / f'{name}.neon')
+            except ValueError:
+                continue
+            raise AssertionError(f'{name}.neon did not fail closed')
+    print(f'PASS: the PHPStan worker-cap reader: {len(EXPECTED_WEIGHTS)} weights, {len(MUST_RAISE)} refusals')
+
+
 if __name__ == '__main__':
-    print(weight_for(resolve(Path(sys.argv[1]), set())))
+    if len(sys.argv) == 1:
+        self_test()
+    else:
+        print(weight_of(Path(sys.argv[1])))
