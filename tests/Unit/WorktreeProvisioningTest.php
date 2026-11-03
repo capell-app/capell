@@ -19,5 +19,6 @@ it('provisions new source mappings without mutating the primary autoloader', fun
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())
         ->and($process->getOutput())->toContain('PASS new manifest source resolves inside worktree')
+        ->and($process->getOutput())->toContain('PASS top-level vendor metadata provisioned')
         ->and($process->getOutput())->toContain('PASS primary autoload metadata unchanged');
 });
