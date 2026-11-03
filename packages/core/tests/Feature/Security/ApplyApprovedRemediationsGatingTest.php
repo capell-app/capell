@@ -3,18 +3,27 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Security\ApplyApprovedSecurityRemediationsAction;
+use Capell\Core\Actions\Security\ApproveSecurityRemediationAction;
+use Capell\Core\Actions\Security\BuildSecurityPostureInventoryAction;
+use Capell\Core\Actions\Security\RunSecurityWeaknessScanAction;
+use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
+use Capell\Core\Data\Security\SecurityPostureInventoryData;
 use Capell\Core\Data\Security\SecurityRemediationOutcomeData;
+use Capell\Core\Data\Security\SecurityWeaknessFindingData;
 use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Enums\Security\SecurityRemediationOutcome;
+use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Events\SecurityRemediationApplied;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Tests\Support\Security\TestRemediation;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Event;
 
 it('gates built-in findings by registry and active approval and applies each once', function (): void {
@@ -113,4 +122,49 @@ it('redacts remediation output before recording and dispatching it', function ()
     $run = SecurityRemediationRun::query()->sole();
     expect(json_encode($run->toArray()))->not->toContain('distinctiveToken123')->not->toContain('distinctiveSecret123');
     Event::assertDispatched(SecurityRemediationApplied::class, fn ($event): bool => ! str_contains(json_encode($event->run->toArray()), 'distinctiveToken123'));
+});
+
+it('supersedes approval when the same finding has changed evidence and accepts reapproval', function (): void {
+    $evidence = ['value' => 'first'];
+    $check = Mockery::mock(SecurityWeaknessCheck::class);
+    $check->shouldReceive('weaknessId')->andReturn('app.debug_enabled');
+    $check->shouldReceive('detect')->andReturnUsing(function () use (&$evidence): array {
+        return [new SecurityWeaknessFindingData('app.debug_enabled', 'same-fingerprint', SecurityWeaknessSeverity::High, SecurityFindingSource::Builtin, 'Title', 'Summary', $evidence, remediable: true)];
+    });
+    BuildSecurityPostureInventoryAction::mock()->shouldReceive('handle')->andReturn(new SecurityPostureInventoryData(null, [], [], [], CarbonImmutable::now()));
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerCheck($check)->registerRemediation(new TestRemediation);
+    $scanner = new RunSecurityWeaknessScanAction($registry, new NullSecurityWeaknessAnalyser);
+    $scanner->handle(false);
+
+    $user = Mockery::mock(Authenticatable::class);
+    $user->shouldReceive('getAuthIdentifier')->andReturn(1);
+    $approve = new ApproveSecurityRemediationAction($registry);
+    $approval = $approve->handle('app.debug_enabled', $user);
+    $apply = new ApplyApprovedSecurityRemediationsAction($registry);
+    $scanner->handle(false);
+    expect($apply->handle('test', true)->skipped[SecurityWeaknessFinding::query()->sole()->fingerprint])->toBe('dry-run');
+    expect($apply->handle('test')->applied)->toBe(1);
+
+    $scanner->handle(false);
+    $evidence = ['value' => 'second'];
+    $scanner->handle(false);
+    expect($apply->handle('test')->applied)->toBe(0)
+        ->and($approval->refresh()->superseded_at)->not->toBeNull()
+        ->and(SecurityRemediationRun::query()->count())->toBe(1);
+    $approve->handle('app.debug_enabled', $user);
+    expect($apply->handle('test')->applied)->toBe(1)
+        ->and($approval->refresh()->superseded_at)->toBeNull();
+});
+
+it('retains legacy approvals but never applies them without renewed consent', function (): void {
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerRemediation(new TestRemediation);
+
+    $finding = SecurityWeaknessFinding::factory()->create();
+    $approval = SecurityRemediationApproval::factory()->create(['remediation_class' => TestRemediation::class]);
+    $approval->update(['approved_for_scan_id' => null, 'approved_fingerprint' => null, 'evidence_hash' => null]);
+    expect(new ApplyApprovedSecurityRemediationsAction($registry)->handle('test')->applied)->toBe(0)
+        ->and($approval->fresh())->not->toBeNull()
+        ->and($finding->fresh()->status)->toBe(SecurityFindingStatus::Open);
 });

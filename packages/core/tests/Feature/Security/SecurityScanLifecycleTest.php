@@ -12,9 +12,11 @@ use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Events\SecurityWeaknessDetected;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Diagnostics\Checks\SecurityPostureCheck;
 use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
+use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Tests\Support\Security\TestRemediation;
 use Carbon\CarbonImmutable;
@@ -141,4 +143,20 @@ it('rejects invalid identifiers and keeps secrets out of stored findings events 
     $payload = json_encode([$tables, $outputs, Event::dispatched(SecurityWeaknessDetected::class)->map(fn (array $arguments): array => $arguments[0]->finding->toArray())->all()], JSON_THROW_ON_ERROR);
     expect($payload)->toContain('test.valid')->toContain('test.check')
         ->not->toContain('SECRET-ID!')->not->toContain('SECRET-FINGERPRINT!')->not->toContain('SECRET-COMPOSER!');
+});
+
+it('records a distinct scan identity on each run and on detected findings', function (): void {
+    $inventory = new SecurityPostureInventoryData(null, [], ['app.debug' => true], [], CarbonImmutable::now());
+    BuildSecurityPostureInventoryAction::mock()->shouldReceive('handle')->andReturn($inventory);
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerCheck(new DebugEnabledCheck);
+
+    $action = new RunSecurityWeaknessScanAction($registry, new NullSecurityWeaknessAnalyser);
+    $first = $action->handle(false);
+    $second = $action->handle(false);
+    $finding = SecurityWeaknessFinding::query()->sole();
+    expect($first->scanId)->not->toBeNull()->not->toBe($second->scanId)
+        ->and($finding->first_detected_scan_id)->toBe($first->scanId)
+        ->and($finding->last_detected_scan_id)->toBe($second->scanId)
+        ->and(SecurityScanRun::query()->whereNotNull('finished_at')->count())->toBe(2);
 });

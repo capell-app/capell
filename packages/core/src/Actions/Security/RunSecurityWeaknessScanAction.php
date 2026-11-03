@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Security;
 
 use Capell\Core\Contracts\Security\SecurityWeaknessAnalyser;
+use Capell\Core\Data\Security\SecurityPostureInventoryData;
 use Capell\Core\Data\Security\SecurityScanResultData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
 use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Events\SecurityWeaknessDetected;
+use Capell\Core\Models\SecurityRemediationApproval;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -25,10 +30,13 @@ class RunSecurityWeaknessScanAction
 
     public function __construct(private readonly SecurityWeaknessRegistry $registry, private readonly SecurityWeaknessAnalyser $analyser) {}
 
-    public function handle(bool $includeAnalyser = true): SecurityScanResultData
+    public function handle(bool $includeAnalyser = true, string $source = 'system:console'): SecurityScanResultData
     {
         $now = CarbonImmutable::now();
-        $inventory = BuildSecurityPostureInventoryAction::run();
+        $scanId = (string) Str::ulid();
+        SecurityScanRun::query()->create(['id' => $scanId, 'started_at' => $now, 'source' => $source]);
+        $collected = BuildSecurityPostureInventoryAction::run();
+        $inventory = new SecurityPostureInventoryData($collected->capellVersion, $collected->installedPackages, $collected->environment, $collected->advisories, $collected->collectedAt, $collected->advisorySourcesRun, $collected->failures, $scanId);
         $sanitiser = new SecurityOutputSanitiser;
         $failures = $inventory->failures;
         $findings = [];
@@ -92,31 +100,40 @@ class RunSecurityWeaknessScanAction
         $new = 0;
         $reopened = 0;
         foreach ($findings as $data) {
-            $finding = SecurityWeaknessFinding::query()->firstOrNew(['fingerprint' => $data->fingerprint]);
-            $isNew = ! $finding->exists;
-            $wasResolved = ! $isNew && in_array($finding->status, [SecurityFindingStatus::Resolved, SecurityFindingStatus::Remediated], true);
-            $finding->fill([
-                'weakness_id' => $data->weaknessId, 'source' => $data->source, 'severity' => $data->severity,
-                'title' => $sanitiser->text($data->title, 200), 'summary' => $sanitiser->text($data->summary, 2000), 'evidence' => $sanitiser->context($data->evidence),
-                'composer_name' => $data->composerName, 'remediable' => $data->remediable,
-                'recommended_action' => $data->recommendedAction === null ? null : $sanitiser->text($data->recommendedAction, 2000), 'confidence' => $data->confidence,
-                'last_detected_at' => $now,
-            ]);
-            if ($isNew) {
-                $finding->first_detected_at = $now;
-                $finding->status = SecurityFindingStatus::Open;
-                $new++;
-            } elseif ($wasResolved) {
-                $finding->status = SecurityFindingStatus::Open;
-                $finding->resolved_at = null;
-                $finding->remediated_at = null;
-                $reopened++;
-            }
+            DB::transaction(function () use ($data, $sanitiser, $now, $scanId, &$new, &$reopened): void {
+                $finding = SecurityWeaknessFinding::query()->lockForUpdate()->firstOrNew(['fingerprint' => $data->fingerprint]);
+                $isNew = ! $finding->exists;
+                $wasResolved = ! $isNew && in_array($finding->status, [SecurityFindingStatus::Resolved, SecurityFindingStatus::Remediated], true);
+                $finding->fill([
+                    'weakness_id' => $data->weaknessId, 'source' => $data->source, 'severity' => $data->severity,
+                    'title' => $sanitiser->text($data->title, 200), 'summary' => $sanitiser->text($data->summary, 2000), 'evidence' => $sanitiser->context($data->evidence),
+                    'composer_name' => $data->composerName, 'remediable' => $data->remediable,
+                    'recommended_action' => $data->recommendedAction === null ? null : $sanitiser->text($data->recommendedAction, 2000), 'confidence' => $data->confidence,
+                    'last_detected_at' => $now, 'last_detected_scan_id' => $scanId,
+                    'evidence_hash' => hash('sha256', json_encode($data->evidence, JSON_THROW_ON_ERROR)),
+                ]);
+                if ($isNew) {
+                    $finding->first_detected_at = $now;
+                    $finding->first_detected_scan_id = $scanId;
+                    $finding->status = SecurityFindingStatus::Open;
+                    $new++;
+                } elseif ($wasResolved) {
+                    $finding->status = SecurityFindingStatus::Open;
+                    $finding->resolved_at = null;
+                    $finding->remediated_at = null;
+                    $reopened++;
+                }
 
-            $finding->save();
-            if ($isNew || $wasResolved) {
-                event(new SecurityWeaknessDetected($finding));
-            }
+                $finding->save();
+                $approval = SecurityRemediationApproval::query()->where('weakness_id', $finding->weakness_id)->lockForUpdate()->first();
+                if ($approval !== null && $approval->isActive() && $approval->approved_fingerprint === $finding->fingerprint && is_string($approval->evidence_hash) && is_string($finding->evidence_hash) && ! hash_equals($approval->evidence_hash, $finding->evidence_hash)) {
+                    $approval->update(['superseded_at' => $now]);
+                }
+
+                if ($isNew || $wasResolved) {
+                    event(new SecurityWeaknessDetected($finding));
+                }
+            });
         }
 
         // A failed or omitted detector cannot establish that its old findings disappeared.
@@ -133,7 +150,9 @@ class RunSecurityWeaknessScanAction
         $active = SecurityWeaknessFinding::query()->active()->get();
         $highest = $active->sortByDesc(fn (SecurityWeaknessFinding $finding): int => $finding->severity->rank())->first()?->severity;
 
-        return new SecurityScanResultData($now, $checksRun, $inventory->advisorySourcesRun, $analyserUsed, $new, $reopened, $resolved, $active->count(), $highest, $failures);
+        SecurityScanRun::query()->whereKey($scanId)->update(['finished_at' => CarbonImmutable::now(), 'findings_count' => $failures === [] ? count($findings) : null]);
+
+        return new SecurityScanResultData($now, $checksRun, $inventory->advisorySourcesRun, $analyserUsed, $new, $reopened, $resolved, $active->count(), $highest, $failures, $scanId);
     }
 
     private function normaliseIdentifiers(SecurityWeaknessFindingData $finding): SecurityWeaknessFindingData

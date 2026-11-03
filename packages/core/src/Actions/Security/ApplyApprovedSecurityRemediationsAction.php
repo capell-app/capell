@@ -31,7 +31,7 @@ class ApplyApprovedSecurityRemediationsAction
     /**
      * @param  list<string>  $failedChecks  weakness ids whose check failed in the latest scan; their findings are skipped
      */
-    public function handle(string $actor, bool $dryRun = false, ?string $onlyWeaknessId = null, ?CarbonImmutable $detectedSince = null, array $failedChecks = []): SecurityRemediationBatchResultData
+    public function handle(string $actor, bool $dryRun = false, ?string $onlyWeaknessId = null, ?CarbonImmutable $detectedSince = null, array $failedChecks = [], ?string $scanId = null): SecurityRemediationBatchResultData
     {
         $query = SecurityWeaknessFinding::query()->where('status', SecurityFindingStatus::Open->value);
         if ($onlyWeaknessId !== null) {
@@ -46,7 +46,7 @@ class ApplyApprovedSecurityRemediationsAction
         $failureMessages = [];
         foreach ($query->get() as $candidate) {
             $considered++;
-            $result = DB::transaction(function () use ($candidate, $actor, $dryRun, $detectedSince, $failedChecks): array {
+            $result = DB::transaction(function () use ($candidate, $actor, $dryRun, $detectedSince, $failedChecks, $scanId): array {
                 $finding = SecurityWeaknessFinding::query()->lockForUpdate()->find($candidate->id);
                 if ($finding === null || $finding->status !== SecurityFindingStatus::Open) {
                     return ['skip' => 'no longer open'];
@@ -56,7 +56,7 @@ class ApplyApprovedSecurityRemediationsAction
                     return ['skip' => __('capell-core::security.remediation.advice_only')];
                 }
 
-                if (in_array($finding->weakness_id, $failedChecks, true) || ($detectedSince instanceof CarbonImmutable && $finding->last_detected_at->lt($detectedSince))) {
+                if (($scanId !== null && $finding->last_detected_scan_id !== $scanId) || in_array($finding->weakness_id, $failedChecks, true) || ($detectedSince instanceof CarbonImmutable && $finding->last_detected_at->lt($detectedSince))) {
                     return ['skip' => __('capell-core::security.remediation.not_confirmed')];
                 }
 
@@ -68,6 +68,16 @@ class ApplyApprovedSecurityRemediationsAction
 
                 if ($approval === null || ! $approval->isActive()) {
                     return ['skip' => 'approval required'];
+                }
+
+                if ($approval->approved_fingerprint !== $finding->fingerprint) {
+                    return ['skip' => __('capell-core::security.remediation.approval_required')];
+                }
+
+                if (! is_string($approval->evidence_hash) || ! is_string($finding->evidence_hash) || ! hash_equals($approval->evidence_hash, $finding->evidence_hash)) {
+                    $approval->update(['superseded_at' => CarbonImmutable::now()]);
+
+                    return ['skip' => __('capell-core::security.remediation.evidence_changed')];
                 }
 
                 if ($approval->remediation_class !== $remediation::class) {
