@@ -93,6 +93,12 @@ for unsupported in missing-include bad-include; do
         fail "an unreadable or missing include ($unsupported.neon) did not fail closed"
     fi
 done
+printf 'includes:\n    - common.neon\n    - eight.neon' > "$cases/no-final-newline.neon"
+[ "$(python3 "$parser" "$cases/no-final-newline.neon")" = 3 ] || fail 'a final include without a newline was not read'
+printf 'includes:\n    - missing.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/own-cap-missing-include.neon"
+if python3 "$parser" "$cases/own-cap-missing-include.neon" > /dev/null 2>&1; then
+    fail 'a missing include was accepted because the configuration sets its own cap'
+fi
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
     "run -w $weight core-pre-push-analysis -- "*) ;;

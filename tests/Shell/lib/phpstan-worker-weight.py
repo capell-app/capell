@@ -45,7 +45,8 @@ INCLUDE_ENTRY = re.compile(r'^[ \t]+-[ \t]*(["\']?)([^\s"\']+)\1[ \t]*$')
 
 def include_entries(config: Path, text: str) -> list:
     """The `includes` list, one plain or quoted path per line. Any other line fails closed."""
-    block = re.search(r'^includes:\s*\n((?:[ \t]+-[^\n]*\n|[ \t]*#[^\n]*\n|[ \t]*\n)+)', text, re.MULTILINE)
+    # The trailing newline keeps a final include without one inside the block.
+    block = re.search(r'^includes:\s*\n((?:[ \t]+-[^\n]*\n|[ \t]*#[^\n]*\n|[ \t]*\n)+)', text + '\n', re.MULTILINE)
     entries = []
     for line in (block.group(1) if block else '').splitlines():
         line = re.sub(r'(^|\s)#.*$', '', line)
@@ -67,8 +68,6 @@ def cap(config: Path, seen: set[Path]) -> int | None:
     seen.add(config)
     text = config.read_text()
     own = own_cap(config, text)
-    if own is not None:
-        return own
     found = None
     for entry in include_entries(config, text):
         if '%' in entry or entry.startswith('vendor/') or '/vendor/' in entry:
@@ -76,7 +75,8 @@ def cap(config: Path, seen: set[Path]) -> int | None:
         value = cap(config.parent / entry, seen)
         if value is not None:
             found = value  # Later includes override earlier ones.
-    return found
+    # The config's own cap overrides its includes; they are still read so a missing one fails.
+    return own if own is not None else found
 
 
 if __name__ == '__main__':
