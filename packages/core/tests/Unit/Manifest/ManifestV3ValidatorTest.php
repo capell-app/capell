@@ -942,3 +942,32 @@ it('rejects unknown traceability fields and malformed contribution identity fiel
         'class' => '',
     ]]]],
 ]);
+
+it('accepts optional outcome copy and FAQ entries in the marketplace section', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['marketplace']['problem'] = 'Editors retype the same notice on every page.';
+    $manifest['marketplace']['outcome'] = 'One notice, edited once, shown wherever it applies.';
+    $manifest['marketplace']['faq'] = [
+        ['question' => 'Does it work with every theme?', 'answer' => 'Yes, it renders through the theme notice slot.'],
+    ];
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects outcome copy that would render blank or malformed', function (array $marketplace, string $field): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['marketplace'] = array_replace($manifest['marketplace'], $marketplace);
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'Capell manifest has invalid field ' . $field . ':');
+})->with([
+    'short problem' => [['problem' => 'Too short'], 'marketplace.problem'],
+    'non-string outcome' => [['outcome' => ['not', 'text']], 'marketplace.outcome'],
+    'faq not a list' => [['faq' => ['question' => 'x']], 'marketplace.faq'],
+    'faq entry not an object' => [['faq' => ['just a string']], 'marketplace.faq.0'],
+    'faq entry without answer' => [['faq' => [['question' => 'Does it work with every theme?']]], 'marketplace.faq.0.answer'],
+    'faq entry with stray key' => [['faq' => [['question' => 'Does it work with every theme?', 'answer' => 'Yes, through the theme notice slot.', 'link' => 'x']]], 'marketplace.faq.0.link'],
+]);
