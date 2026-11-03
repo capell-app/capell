@@ -21,6 +21,7 @@ use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -48,6 +49,7 @@ final class PackageSurfaceRegistrar
         private readonly BlueprintSubjectRegistry $blueprintSubjects,
         private readonly ExtensionContributionReceiptRegistry $receipts,
         private readonly SecurityWeaknessRegistry $securityWeaknesses,
+        private readonly Container $app,
     ) {}
 
     /**
@@ -57,7 +59,9 @@ final class PackageSurfaceRegistrar
      * database that flip happens mid-install, long after `booted` froze the
      * registries, so the install lifecycle re-boots the package inside this
      * window. Re-registering an identical surface is a no-op here; a
-     * conflicting one still throws.
+     * conflicting one still throws. Security checks and remediations a late
+     * package tagged are adopted once the lifecycle returns, because the boot-time
+     * collection in CapellServiceProvider has already run by then.
      *
      * @template TReturn
      *
@@ -68,7 +72,12 @@ final class PackageSurfaceRegistrar
     {
         return $this->outboundEvents->duringPackageInstallation(
             fn (): mixed => $this->blueprintSubjects->duringPackageInstallation(
-                fn (): mixed => $this->securityWeaknesses->duringPackageInstallation($callback),
+                fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
+                    $result = $callback();
+                    $this->securityWeaknesses->adoptTagged($this->app);
+
+                    return $result;
+                }),
             ),
         );
     }
