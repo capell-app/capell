@@ -108,7 +108,7 @@ it('renders an allowlisted route-name fallback without authoring output', functi
     try {
         $response = RenderFallbackPublicViewAction::run($request);
         expect($response)->toBeInstanceOf(Response::class)
-            ->and($response->getContent())->toContain('Public report')->not->toContain('data-capell-edit', 'wire:id');
+            ->and($response->getContent())->toContain('Public report')->toContainNone(['data-capell-edit', 'wire:id']);
     } finally {
         File::delete($viewPath);
     }

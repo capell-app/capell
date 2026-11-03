@@ -63,11 +63,11 @@ it('moves widget presentation settings into a builder item action', function ():
         ->all();
 
     expect($builder->getExtraItemActions())->toHaveKey('settings')
-        ->and($headings)->not->toContain(
+        ->and($headings)->toContainNone([
             __('capell-admin::form.interactions'),
             __('capell-admin::form.presentation_delivery'),
             __('capell-admin::form.frontend_resources'),
-        );
+        ]);
 });
 
 it('allows block templates to be customised for registered blocks', function (): void {

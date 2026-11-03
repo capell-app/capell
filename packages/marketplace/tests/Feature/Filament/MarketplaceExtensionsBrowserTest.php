@@ -1220,7 +1220,7 @@ it('fills the first marketplace browser page after local hidden extensions are r
 
     expect($records)->toHaveCount(9)
         ->and(collect($records)->pluck('name')->all())->toContain('Visible One', 'Visible Page Two 5')
-        ->and(collect($records)->pluck('composer_name')->all())->not->toContain('capell-app/installer', 'capell-app/marketplace', 'capell-app/plugins');
+        ->and(collect($records)->pluck('composer_name')->all())->toContainNone(['capell-app/installer', 'capell-app/marketplace', 'capell-app/plugins']);
 
     Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
         && ($request->data()['page'] ?? null) === '2');

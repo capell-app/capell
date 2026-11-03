@@ -32,7 +32,7 @@ it('exports a reusable profile without credentials and keeps configured profiles
             ->and($profile?->buildAssets)->toBeTrue()
             ->and($profile?->seedDatabase)->toBeFalse()
             ->and(resolve(InstallProfileRepository::class)->find('existing')?->packages)->toBe(['vendor/existing']);
-        expect(file_get_contents($path))->not->toContain('secret', 'private@example.test', 'token=', 'password', 'userId');
+        expect(file_get_contents($path))->toContainNone(['secret', 'private@example.test', 'token=', 'password', 'userId']);
         expect(fn (): mixed => SaveInstallProfileAction::run(wizardInput(), 'owned-wizard-test'))->toThrow(RuntimeException::class, 'already exists');
     } finally {
         if ($before === null) {
@@ -81,7 +81,7 @@ it('reports a read only next command without leaking URL credentials or suggesti
     ReportInstallFailureAction::run(wizardInput(), [], InstallPlan::STEP_RUN_MIGRATIONS_PRE, $reporter);
     $messages = implode("\n", array_column($reporter->lines, 1));
     expect($messages)->toContain('0 steps completed:', '--plan --no-interaction', 'do not repeat --fresh')
-        ->not->toContain('secret', 'token=');
+        ->toContainNone(['secret', 'token=']);
 });
 
 it('updates APP_URL with the site port and path and preserves other environment settings', function (): void {
@@ -93,7 +93,7 @@ it('updates APP_URL with the site port and path and preserves other environment 
     try {
         UpdateInstallAppUrlAction::run(wizardInput()->siteUrl, $path);
         expect(file_get_contents($path))->toContain('APP_URL=https://example.test:8443/blog', 'OTHER_SETTING=preserved')
-            ->not->toContain('secret', 'token=')
+            ->toContainNone(['secret', 'token='])
             ->and(config('app.url'))->toBe('https://example.test:8443/blog');
     } finally {
         unlink($path);

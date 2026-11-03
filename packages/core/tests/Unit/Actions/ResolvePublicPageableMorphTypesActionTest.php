@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 it('returns aliases and model classes only for pageable morphs', function (): void {
     expect(ResolvePublicPageableMorphTypesAction::run())
         ->toContain('page', Page::class)
-        ->not->toContain('user', User::class);
+        ->toContainNone(['user', User::class]);
 });
 
 it('detects models whose package table is unavailable', function (): void {
@@ -23,7 +23,7 @@ it('detects models whose package table is unavailable', function (): void {
     Relation::morphMap(['unavailable' => $prototype::class]);
 
     expect(ResolvePublicPageableMorphTypesAction::run())
-        ->not->toContain('unavailable', $prototype::class)
+        ->toContainNone(['unavailable', $prototype::class])
         ->toContain('page', Page::class);
 });
 

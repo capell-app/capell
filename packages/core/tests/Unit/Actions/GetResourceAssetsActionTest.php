@@ -27,11 +27,11 @@ it('discovers visible css and javascript resources while ignoring hidden and mis
         expect(GetResourceAssetsAction::run())->toContain(
             'resources/css/capell-test-assets/public.css',
             'resources/js/capell-test-assets/public.js',
-        )->not->toContain(
+        )->toContainNone([
             'resources/css/capell-test-assets/.hidden.css',
             'resources/css/capell-test-assets/ignored.js',
             'resources/js/capell-test-assets/ignored.css',
-        );
+        ]);
     } finally {
         File::deleteDirectory($cssDirectory);
         File::deleteDirectory($jsDirectory);

@@ -120,7 +120,7 @@ it('keeps publishedDate excluding drafts, schedules and expired pages', function
     $publishedIds = Page::query()->publishedDate()->pluck('id');
 
     expect($publishedIds->all())->toBe([$publishedPage->id])
-        ->and($publishedIds)->not->toContain($scheduledPage->id, $draftPage->id, $expiredPage->id);
+        ->and($publishedIds)->toContainNone([$scheduledPage->id, $draftPage->id, $expiredPage->id]);
 });
 
 it('treats an expiry exactly at now as expired in both enum and scope', function (): void {

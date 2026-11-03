@@ -107,7 +107,7 @@ it('renders executable Alpine attributes for the translation tabs', function ():
     throw_unless($element instanceof DOMElement, RuntimeException::class, 'Translation tabs were not rendered.');
 
     expect($element->getAttribute('x-data'))->toContain('data.activeTab')->not->toContain('@js(')
-        ->and($element->getAttribute('x-init'))->toContain('$watch(')->not->toContain('&#039;', '&gt;')
+        ->and($element->getAttribute('x-init'))->toContain('$watch(')->toContainNone(['&#039;', '&gt;'])
         ->and($element->getAttribute('x-on:refresh-tabs.window'))->toContain('data.translations')->not->toContain('@js(');
 });
 
@@ -156,7 +156,7 @@ it('applies page resource defaults and extension widgets for the admin surface',
 
     expect(PageResource::getPolicy())->toBe(PagePolicy::class)
         ->and(PageResource::getWidgets())->toContain(ListPageAlertsWidget::class, TestDashboardFilamentWidgetForRegistrar::class)
-        ->not->toContain(stdClass::class, 'Missing\\Widget')
+        ->toContainNone([stdClass::class, 'Missing\\Widget'])
         ->and($data)->toMatchArray([
             'site_id' => $site->getKey(),
             'layout_id' => $layout->getKey(),
@@ -218,7 +218,7 @@ it('constrains page blueprints and builds global search details with breadcrumbs
         ->and($withoutSystemQuery->pluck('id')->all())->not->toContain($systemBlueprint->getKey())
         ->and($withoutSystemQuery->pluck('id')->all())->toContain($defaultBlueprint->getKey(), $marketingBlueprint->getKey(), $ungroupedBlueprint->getKey())
         ->and($systemOnlyQuery->pluck('id')->all())->toContain($systemBlueprint->getKey())
-        ->and($systemOnlyQuery->pluck('id')->all())->not->toContain($defaultBlueprint->getKey(), $marketingBlueprint->getKey(), $ungroupedBlueprint->getKey())
+        ->and($systemOnlyQuery->pluck('id')->all())->toContainNone([$defaultBlueprint->getKey(), $marketingBlueprint->getKey(), $ungroupedBlueprint->getKey()])
         ->and($details[0] ?? null)->toBe('Translated search title')
         ->and($details[1] ?? null)->toContain('Regional Site', 'Parent section')
         ->and(implode(' ', $details))->toContain(__('capell-admin::table.page_availability_no_active_url'));

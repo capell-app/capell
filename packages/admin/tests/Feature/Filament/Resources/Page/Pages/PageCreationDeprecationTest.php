@@ -152,7 +152,7 @@ it('explains future dates truthfully on create and scheduling on edit', function
         expect(strip_tags($html))->toContain('Publishing');
     } elseif ($operation === 'createOption') {
         expect(strip_tags($html))->toContain('To schedule a future date, open the page after saving.')
-            ->not->toContain('Save as draft', 'Save and Publish', 'Publishing');
+            ->toContainNone(['Save as draft', 'Save and Publish', 'Publishing']);
     } else {
         expect(strip_tags($html))->toContain('Save as draft', 'Save and Publish', 'To schedule a future date, save as draft first, then use Schedule.')
             ->not->toContain('Publishing');
@@ -184,5 +184,5 @@ it('keeps embedded creation guidance independent of full editor actions', functi
     assert($publishSection instanceof Section);
 
     expect(strip_tags($publishSection->toHtml()))->toContain('Choose the layout and when this page becomes visible.')
-        ->not->toContain('Save as draft', 'Save and Publish');
+        ->toContainNone(['Save as draft', 'Save and Publish']);
 })->with(['createOption', 'replicate']);

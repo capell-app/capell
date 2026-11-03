@@ -134,7 +134,7 @@ it('reads and formats only active global site admin series', function (): void {
         ->and($series[1]->latestValue)->toBe(__('capell-admin::metrics.no_value'))
         ->and($series[2]->latestValue)->toBe('12.5%')
         ->and(collect($series)->pluck('label')->all())
-        ->not->toContain('Operations only', 'Site scoped', 'Inactive');
+        ->toContainNone(['Operations only', 'Site scoped', 'Inactive']);
 });
 
 it('renders a stable metrics evidence wrapper for an authorized admin', function (): void {

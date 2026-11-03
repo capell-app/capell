@@ -25,7 +25,7 @@ it('uses the application vendor directory for verification', function (): void {
         app()->setBasePath($root);
         $report = VerifyInstalledExtensionAction::run('vendor/action-fixture', '^4');
         expect($report->installedVersion)->toBe('4.0.0')->and($report->passed)->toBeFalse()
-            ->and(array_column($report->failures, 'code'))->toContain('manifest_missing')->not->toContain('not_installed', 'version_outside_constraint');
+            ->and(array_column($report->failures, 'code'))->toContain('manifest_missing')->toContainNone(['not_installed', 'version_outside_constraint']);
     } finally {
         app()->setBasePath($original);
         new Filesystem()->deleteDirectory($root);

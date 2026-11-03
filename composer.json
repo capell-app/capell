@@ -31,6 +31,7 @@
         "check:package-dependencies": "@php scripts/check-package-dependencies.php",
         "check:support-contract": "@php scripts/check-support-contract.php",
         "check:queue-contract": "@php scripts/check-queue-contract.php",
+        "check:test-weak-assertions": "@php scripts/check-test-weak-assertions.php",
         "check:lang-keys": "@php scripts/check-language-key-drift.php",
         "docs:check": [
             "@check:docs-spelling",

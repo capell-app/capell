@@ -24,7 +24,7 @@ it('renders prepared layout data without database queries or authoring output', 
     try {
         $html = Blade::render('<x-capell::layout>Public slot</x-capell::layout>');
         expect($html)->toContain('Public body', 'Public slot')
-            ->not->toContain('data-model-id', 'data-field-path', 'signed-editor');
+            ->toContainNone(['data-model-id', 'data-field-path', 'signed-editor']);
         expect($connection->getQueryLog())->toBe([]);
     } finally {
         $connection->disableQueryLog();

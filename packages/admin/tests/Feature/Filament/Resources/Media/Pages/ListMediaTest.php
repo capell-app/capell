@@ -577,7 +577,7 @@ describe('recoverable upload batches', function (): void {
                 ->persistent());
 
         $notifications = json_encode(session('filament.notifications', []), JSON_THROW_ON_ERROR);
-        expect($notifications)->not->toContain('secret-path', 'secret-token', 'RuntimeException');
+        expect($notifications)->toContainNone(['secret-path', 'secret-token', 'RuntimeException']);
     });
 
     it('retries only failed and unattempted files and retains the original successful media', function (): void {

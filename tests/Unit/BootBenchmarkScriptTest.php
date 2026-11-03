@@ -69,20 +69,20 @@ it('calculates percentiles, IQR, trimmed mean and outliers deterministically', f
 it('keeps screenshot fixtures out of production profiles', function (): void {
     expect(BootProfiles::providers('full'))->toContain(ScreenshotWorkbenchServiceProvider::class)
         ->and(BootProfiles::providers('production'))->not->toContain(ScreenshotWorkbenchServiceProvider::class)
-        ->and(BootProfiles::providers('public'))->not->toContain(
+        ->and(BootProfiles::providers('public'))->toContainNone([
             AdminServiceProvider::class,
             MarketplaceServiceProvider::class,
-        );
+        ]);
 });
 
 it('maps immutable runtime role profiles without removing Frontend from authoring', function (): void {
     expect(BootProfiles::providers('combined'))->toBe(BootProfiles::providers('production'))
         ->and(BootProfiles::providers('authoring'))->toBe(BootProfiles::providers('combined'))
         ->and(BootProfiles::providers('authoring'))->toContain(FrontendServiceProvider::class)
-        ->and(BootProfiles::providers('public'))->not->toContain(
+        ->and(BootProfiles::providers('public'))->toContainNone([
             AdminServiceProvider::class,
             MarketplaceServiceProvider::class,
-        );
+        ]);
 });
 
 it('selects the generated runtime-role config cache before normalisation reads it', function (): void {

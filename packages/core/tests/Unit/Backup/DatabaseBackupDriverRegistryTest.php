@@ -159,7 +159,7 @@ it('serializes backup metadata without credentials absolute paths or content', f
         'newest_snapshot_at' => '2026-07-10T17:00:00+00:00',
         'checks' => [['name' => 'freshness', 'passed' => true, 'message' => 'Latest snapshot is fresh.']],
     ])->and(json_encode($manifest->toArray(), JSON_THROW_ON_ERROR))
-        ->not->toContain('password', '/Users/', 'secret', 'contents');
+        ->toContainNone(['password', '/Users/', 'secret', 'contents']);
 });
 
 /**

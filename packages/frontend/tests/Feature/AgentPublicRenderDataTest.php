@@ -104,7 +104,7 @@ it('hydrates a public semantic graph through the contributor registry without le
     $encoded = json_encode($contribution->value, JSON_THROW_ON_ERROR);
 
     expect($encoded)->toContain('wordCount', '1200')
-        ->not->toContain('property_definition_id', 'blueprint_id', 'test.article', 'site_id', 'page_id')
+        ->toContainNone(['property_definition_id', 'blueprint_id', 'test.article', 'site_id', 'page_id'])
         ->and(DB::getQueryLog())->toBe([]);
     DB::disableQueryLog();
 });
@@ -174,7 +174,7 @@ it('renders the anonymous page with semantic islands and no authoring bridge', f
     $hook = resolve(RenderHookRegistry::class)
         ->renderAll(RenderHookLocation::BodyEnd);
     expect($hook)->toContain('data-capell-agent-schema', 'data-capell-agent-tools', 'Curated public description')
-        ->not->toContain('private-internal-set-name', 'confirmationToken')
+        ->toContainNone(['private-internal-set-name', 'confirmationToken'])
         ->and(DB::getQueryLog())->toBe([]);
     DB::disableQueryLog();
 });

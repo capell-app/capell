@@ -52,7 +52,7 @@ it('accepts by-design local limitations when a deploy publisher owns the Compose
 
     expect($result['passed'])->toBeTrue()
         ->and($checks->firstWhere('name', 'environment_process_execution')['passed'])->toBeTrue()
-        ->and($checks->pluck('name'))->not->toContain('php_cli', 'composer_binary', 'composer_json', 'composer_lock');
+        ->and($checks->pluck('name'))->toContainNone(['php_cli', 'composer_binary', 'composer_json', 'composer_lock']);
 });
 
 it('resolves a translation for every preflight message rather than emitting a raw key', function (): void {

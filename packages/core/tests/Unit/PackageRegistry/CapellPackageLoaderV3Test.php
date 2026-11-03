@@ -33,7 +33,7 @@ it('does not register runtime capabilities for disabled non-core manifest v3 pac
 
     expect(packageV3Loader($registry)->collectProviders())
         ->toContain(AuthServiceProvider::class, CacheServiceProvider::class)
-        ->not->toContain(FilesystemServiceProvider::class, HashServiceProvider::class);
+        ->toContainNone([FilesystemServiceProvider::class, HashServiceProvider::class]);
 });
 
 it('registers runtime admin frontend and auth capabilities for enabled manifest v3 packages', function (): void {

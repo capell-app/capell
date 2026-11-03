@@ -259,8 +259,8 @@ it('redacts composer auth credentials embedded in diagnostic strings', function 
     expect($redacted['output'])
         ->toContain('Bearer [redacted]')
         ->toContain('password=[redacted]')
-        ->not->toContain('uri_secret', 'query_secret', 'key_secret')
-        ->toContain('postgres://[redacted]@host/db')
+        ->toContainNone(['uri_secret', 'query_secret', 'key_secret'])
+        ->toContain('postgres://[redacted]@host/db?token=[redacted]&key=[redacted]')
         ->not->toContain('abc+/=')
         ->not->toContain('hunter2')
         ->not->toContain('ghp_secret_token')
@@ -462,5 +462,5 @@ it('redacts encoded keys, escaped JSON values and nested composer credential map
     $input = 'Authorization=Basic c2VjcmV0 Authorization: Bearer abc {"password":"first\"remaining_secret"} {"http-basic":{"repo.example.com":{"username":"alice","password":"hunter2"}}} %70assword=secret';
     $result = RedactMarketplaceDiagnosticContextAction::run(['output' => $input]);
     expect($result['output'])->toContain('Basic [redacted]', 'Bearer [redacted]', '%70assword=[redacted]', '"username":"[redacted]"')
-        ->not->toContain('c2VjcmV0', 'abc', 'first', 'remaining_secret', 'alice', 'hunter2', '%70assword=secret');
+        ->toContainNone(['c2VjcmV0', 'abc', 'first', 'remaining_secret', 'alice', 'hunter2', '%70assword=secret']);
 });

@@ -59,7 +59,7 @@ it('stops admin lifecycle commands at the first failed required stage', function
 
     expect($exitCode)->toBe(Command::FAILURE)
         ->and($text)->toContain($failedStage, '7')
-        ->not->toContain('installed successfully', 'upgraded successfully', 'Admin setup complete.');
+        ->toContainNone(['installed successfully', 'upgraded successfully', 'Admin setup complete.']);
 
     expect($calls)->toBe($expectedCalls);
 })->with(function (): iterable {

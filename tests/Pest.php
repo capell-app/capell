@@ -27,6 +27,18 @@ use function Pest\Laravel\artisan;
 use PHPUnit\Framework\Assert;
 use Spatie\LaravelData\DataCollection;
 
+// PHPStan cannot see expect()->extend() macros; phpstan/stubs/pest-expectation.stub declares toContainNone() on Pest\Expectation. Keep both in step.
+/** @param  array<int, mixed>  $needles */
+expect()->extend('toContainNone', function (array $needles): void {
+    foreach ($needles as $needle) {
+        $found = is_string($this->value)
+            ? is_string($needle) && str_contains($this->value, $needle)
+            : in_array($needle, (array) $this->value, true);
+
+        Assert::assertFalse($found, 'Unexpected needle found: ' . var_export($needle, true));
+    }
+});
+
 pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
 pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests');
 pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests');
