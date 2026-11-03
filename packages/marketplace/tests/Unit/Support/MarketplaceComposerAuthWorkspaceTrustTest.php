@@ -3,90 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
-use Capell\Marketplace\Support\NativeWorkspacePathInspector;
 use Capell\Marketplace\Support\WorkspaceException;
 use Capell\Marketplace\Support\WorkspaceFailure;
-use Capell\Marketplace\Support\WorkspacePathInspector;
-
-final class FakeWorkspacePathInspector implements WorkspacePathInspector
-{
-    public NativeWorkspacePathInspector $native;
-
-    public ?string $foreign = null;
-
-    public ?string $groupWritable = null;
-
-    public ?string $racedRoot = null;
-
-    public ?int $uid;
-
-    public bool $scanFails = false;
-
-    public bool $metadataFails = false;
-
-    public bool $simulateAclModes = false;
-
-    public function __construct()
-    {
-        $this->native = new NativeWorkspacePathInspector;
-        $this->uid = $this->native->effectiveUserId();
-    }
-
-    #[Override]
-    public function stat(string $path): array|false
-    {
-        $stat = $this->native->stat($path);
-        if ($stat !== false && $this->simulateAclModes && ($stat['mode'] & 01000) !== 0) {
-            $stat['mode'] &= ~0022;
-        }
-
-        if ($stat !== false && $path === $this->foreign) {
-            $stat['uid'] = ($this->uid ?? 1) + 10000;
-        }
-
-        if ($stat !== false && $path === $this->groupWritable) {
-            $stat['mode'] |= 0020;
-        }
-
-        return $stat;
-    }
-
-    #[Override]
-    public function realpath(string $path): string|false
-    {
-        return $this->native->realpath($path);
-    }
-
-    #[Override]
-    public function effectiveUserId(): ?int
-    {
-        return $this->uid;
-    }
-
-    #[Override]
-    public function mkdir(string $path, int $mode): bool
-    {
-        if ($path === $this->racedRoot) {
-            $this->native->mkdir($path, $mode);
-
-            return false;
-        }
-
-        return $this->native->mkdir($path, $mode);
-    }
-
-    #[Override]
-    public function glob(string $pattern): array|false
-    {
-        return $this->scanFails ? false : $this->native->glob($pattern);
-    }
-
-    #[Override]
-    public function modifiedAt(string $path): int|false
-    {
-        return $this->metadataFails ? false : $this->native->modifiedAt($path);
-    }
-}
+use Capell\Marketplace\Tests\Support\FakeWorkspacePathInspector;
 
 it('rejects foreign and group writable higher ancestors before creating the root', function (): void {
     $parent = sys_get_temp_dir() . '/workspace-trust-' . bin2hex(random_bytes(8));
