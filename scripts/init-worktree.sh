@@ -143,6 +143,15 @@ cp -R "$PRIMARY_ROOT/vendor/composer" vendor/composer
 cp "$PRIMARY_ROOT/vendor/autoload.php" vendor/autoload.php
 cp -R "$PRIMARY_ROOT/vendor/bin" vendor/bin
 
+# Top-level metadata files beside the package directories (such as Pest's
+# pest-plugins.json plugin cache) belong to the dependency set too. Without
+# them Pest loads no plugins, so --parallel and the Laravel helpers vanish.
+for vendor_file in "$PRIMARY_ROOT"/vendor/*; do
+    [ -f "$vendor_file" ] || continue
+    case "$(basename "$vendor_file")" in autoload.php) continue ;; esac
+    cp "$vendor_file" "vendor/$(basename "$vendor_file")"
+done
+
 linked=0
 for vendor_dir in "$PRIMARY_ROOT"/vendor/*/; do
     vendor_name=$(basename "$vendor_dir")
