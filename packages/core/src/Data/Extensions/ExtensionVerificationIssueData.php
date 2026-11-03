@@ -90,9 +90,17 @@ final class ExtensionVerificationIssueData extends Data
                 'message' => (string) __('capell-core::extensions.verification.checksum_mismatch.message', $replace),
                 'next_action' => (string) __('capell-core::extensions.verification.checksum_mismatch.next_action', $replace),
             ],
-            self::CONTENT_HASH_MISMATCH, self::CONTENT_HASH_UNREADABLE, self::QUARANTINED => [
-                'message' => (string) __('capell-core::extensions.verification.' . $code . '.message', $replace),
-                'next_action' => (string) __('capell-core::extensions.verification.' . $code . '.next_action', $replace),
+            self::CONTENT_HASH_MISMATCH => [
+                'message' => (string) __('capell-core::extensions.verification.content_hash_mismatch.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.content_hash_mismatch.next_action', $replace),
+            ],
+            self::CONTENT_HASH_UNREADABLE => [
+                'message' => (string) __('capell-core::extensions.verification.content_hash_unreadable.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.content_hash_unreadable.next_action', $replace),
+            ],
+            self::QUARANTINED => [
+                'message' => (string) __('capell-core::extensions.verification.quarantined.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.quarantined.next_action', $replace),
             ],
             self::CHECKSUM_MISSING => [
                 'message' => (string) __('capell-core::extensions.verification.checksum_missing.message', $replace),

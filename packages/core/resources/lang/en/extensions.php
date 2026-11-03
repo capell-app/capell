@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 return [
     'quarantine' => [
-        'refused' => ':package is quarantined because :failing failed verification during the operation that changed it. Run php artisan capell:extensions:release-quarantine :package once it verifies.',
         'doctor' => ':package is quarantined after :failing failed verification; quarantined with it: :set',
         'not_quarantined' => ':package is not quarantined.',
         'released' => ':package passed verification and has been released from quarantine.',
