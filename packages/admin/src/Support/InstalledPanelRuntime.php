@@ -14,7 +14,6 @@ use Closure;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
 use Filament\Panel;
-use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +26,16 @@ use WeakMap;
 /** Tracks application wiring per panel, independently of transient plugin instances. */
 final class InstalledPanelRuntime
 {
+    /** Filament panel routes that serve visitors who have not signed in yet. */
+    private const array PUBLIC_PANEL_ROUTES = [
+        'auth.login',
+        'auth.password-reset.request',
+        'auth.password-reset.reset',
+        'auth.register',
+        'auth.email-verification.prompt',
+        'auth.email-verification.verify',
+    ];
+
     /** @var WeakMap<Panel, array<int, bool>> */
     private WeakMap $applied;
 
@@ -58,6 +67,9 @@ final class InstalledPanelRuntime
     /** @var array<string, true> */
     private array $unavailable = [];
 
+    /** @var array<string, true> Route names their owners declared public, such as signed preview links. */
+    private array $publicRoutes = [];
+
     /** @var array<string, true> */
     private array $freshApplicationRequired = [];
 
@@ -88,6 +100,18 @@ final class InstalledPanelRuntime
     public function isUnavailable(string $panel): bool
     {
         return isset($this->unavailable[$panel]);
+    }
+
+    /**
+     * Declare named routes under a panel path that are deliberately reachable without signing in,
+     * such as signed preview links or assets the sign-in page loads. Every other route a panel
+     * owns is held to the panel's authentication stack.
+     */
+    public function allowPublicRoute(string ...$names): void
+    {
+        foreach ($names as $name) {
+            $this->publicRoutes[$name] = true;
+        }
     }
 
     /** The route could not be held to its panel's security middleware, so it is never served. */
@@ -360,10 +384,11 @@ final class InstalledPanelRuntime
         $contributed = $this->contributed[$panel] ?? ['middleware' => [], 'auth' => [], 'tenant' => []];
         $current = $this->middlewareOf($panel, true);
         $host = [
+            'middleware' => array_values(array_diff($current['middleware'], $contributed['middleware'])),
             'auth' => array_values(array_diff($current['auth'], $contributed['auth'])),
             'tenant' => array_values(array_diff($current['tenant'], $contributed['tenant'])),
         ];
-        $signature = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host];
+        $signature = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $this->isPublicPanelRoute($instance, $panel->getId())];
         if (($this->reconciledRoutes[$instance] ?? null) === $signature) {
             return;
         }
@@ -379,55 +404,38 @@ final class InstalledPanelRuntime
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
-        // Without package contributions the host panel's own route table is authoritative.
-        if ($contributed === ['middleware' => [], 'auth' => [], 'tenant' => []]) {
-            $this->reconciledRoutes[$instance] = $signature;
-
-            return;
-        }
-
-        $instance->computedMiddleware = null;
-        $resolved = $this->router->gatherRouteMiddleware($instance);
-        // Exclusions must not hide the route's declared panel association.
-        $declared = $this->router->resolveMiddleware($instance->gatherMiddleware());
-
-        if ($contributed['auth'] !== [] && $host['auth'] === []) {
+        $public = $this->isPublicPanelRoute($instance, $panel->getId());
+        if (! $public && $contributed['auth'] !== [] && $host['auth'] === []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_ambiguous'));
         }
 
-        $auth = $this->router->resolveMiddleware($host['auth']);
-        $tenant = $this->router->resolveMiddleware($host['tenant']);
-        $authentication = array_values(array_filter($auth, static fn (string $middleware): bool => is_a(explode(':', $middleware, 2)[0], Authenticate::class, true)));
-        $authentication = $authentication !== [] ? $authentication : $auth;
-        if (array_intersect($authentication, $declared) !== array_intersect($authentication, $resolved)
-            || array_intersect($tenant, $declared) !== array_intersect($tenant, $resolved)) {
-            throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_excluded'));
-        }
-
-        $authenticated = $authentication !== [] && array_diff($authentication, $resolved) === [];
-        $tenanted = in_array(IdentifyTenant::class, $resolved, true);
-        // Partial authentication/tenancy or exclusions of package security
-        // middleware are ambiguous: do not silently publish weaker routes.
-        if (($contributed['auth'] !== [] && array_intersect($auth, $resolved) !== [] && ! $authenticated)
-            || ($contributed['tenant'] !== [] && array_intersect($tenant, $resolved) !== [] && ! $tenanted)) {
-            throw new RuntimeException(__('capell-admin::message.extension_panel_coverage_incomplete'));
-        }
-
-        $required = [...$contributed['middleware'], ...($authenticated ? $contributed['auth'] : []), ...($tenanted ? $contributed['tenant'] : [])];
-        $missing = array_values(array_filter(
-            $required,
-            fn (string $middleware): bool => array_diff($this->router->resolveMiddleware([$middleware]), $resolved) !== [],
-        ));
-        if ($missing !== []) {
-            $instance->middleware($missing);
+        // Exclusions must not hide the route's declared tenancy.
+        $declared = $this->router->resolveMiddleware($instance->gatherMiddleware());
+        $tenanted = in_array(IdentifyTenant::class, $declared, true);
+        // Every route the panel owns runs like the panel's own routes: the host panel's request
+        // stack (which sets up the panel and its session), its authentication and the package
+        // contributions. Only Filament's own public authentication routes, and routes the owner
+        // declared public, skip the panel stack and authentication.
+        $isMissing = fn (string $middleware): bool => array_diff($this->router->resolveMiddleware([$middleware]), $declared) !== [];
+        $stack = $public ? [] : array_values(array_filter($host['middleware'], $isMissing));
+        $required = [
+            ...($public ? [] : $host['middleware']),
+            ...$contributed['middleware'],
+            ...($public ? [] : [...$host['auth'], ...$contributed['auth']]),
+            ...($tenanted ? [...$host['tenant'], ...$contributed['tenant']] : []),
+        ];
+        $missing = array_values(array_filter(array_slice($required, $public ? 0 : count($host['middleware'])), $isMissing));
+        if ($stack !== [] || $missing !== []) {
+            $instance->action['middleware'] = [...$stack, ...$instance->middleware(), ...$missing];
             $instance->computedMiddleware = null;
         }
 
+        // Verify the pipeline that will actually run, after exclusions.
         if (array_diff($this->router->resolveMiddleware($required), $this->router->gatherRouteMiddleware($instance)) !== []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
-        $this->reconciledRoutes[$instance] = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host];
+        $this->reconciledRoutes[$instance] = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $public];
     }
 
     /**
@@ -486,6 +494,22 @@ final class InstalledPanelRuntime
         }
 
         return strlen($path);
+    }
+
+    /** Filament's own sign-in, password-reset, registration and email-verification routes, and declared public routes. */
+    private function isPublicPanelRoute(Route $route, string $id): bool
+    {
+        $name = (string) $route->getName();
+        if (isset($this->publicRoutes[$name])) {
+            return true;
+        }
+
+        if (! str_starts_with($name, 'filament.' . $id . '.')) {
+            return false;
+        }
+
+        // Panels on several domains insert the domain between the panel id and the route.
+        return array_any(self::PUBLIC_PANEL_ROUTES, static fn (string $suffix): bool => str_ends_with($name, '.' . $suffix));
     }
 
     private function associated(Route $route, string $id): bool

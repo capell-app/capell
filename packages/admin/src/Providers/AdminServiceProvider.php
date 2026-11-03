@@ -418,6 +418,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
+        // Signed preview links are reached without signing in to the panel.
+        $this->callAfterResolving(InstalledPanelRuntime::class, static function (InstalledPanelRuntime $runtime): void {
+            $runtime->allowPublicRoute('capell.admin.theme-preview', 'capell.admin.preview-page');
+        });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             $name = (string) $event->route->getName();
             if (str_starts_with($name, 'filament.')) {

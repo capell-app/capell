@@ -9,8 +9,6 @@ return [
     'extension_panel_refresh_deferred' => 'Panel :panel remains unavailable; new surfaces are deferred until a fresh application.',
     'extension_panel_middleware_removal' => 'Panel middleware removal requires a fresh application.',
     'extension_panel_authentication_ambiguous' => 'Cannot identify authenticated panel routes; a fresh application is required.',
-    'extension_panel_authentication_excluded' => 'Excluded panel authentication or tenancy requires a fresh application.',
-    'extension_panel_coverage_incomplete' => 'Incomplete panel middleware coverage requires a fresh application.',
     'extension_panel_security_excluded' => 'Excluded panel security middleware requires a fresh application.',
     'extension_panel_route_ambiguous' => "More than one admin panel claims this route, so it cannot be held to a single panel's security middleware.",
     'extension_panel_route_refused' => "The admin route :route is unavailable because it could not be held to the panel's security middleware.",

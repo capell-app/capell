@@ -382,6 +382,13 @@ it('protects grouped unnamed and tenant routes during late security refresh', fu
         expect($route->middleware())->toContain(RuntimeTenantMiddleware::class);
     }
 
+    if ($shape === 'unnamed-excluded-setup') {
+        // A route that excludes the panel's own setup cannot run the panel stack, so it is refused.
+        $this->get('/runtime-coverage')->assertStatus(503);
+
+        return;
+    }
+
     $this->get('/runtime-coverage')->assertForbidden();
 })->with(['group', 'unnamed', 'unnamed-excluded-setup', 'tenant']);
 
@@ -546,7 +553,8 @@ it('round three confines failures to admin while unrelated entry points run', fu
         || $inherited->make(InstalledPanelRuntime::class)->isUnavailable('admin'))->toBeTrue();
     $this->refreshApplication();
     Route::get('/admin/runtime-recovered', static fn (): string => 'recovered')->name('filament.admin.recovered');
-    $this->get('/admin/runtime-recovered')->assertOk();
+    // A fresh application serves the panel again instead of refusing it; its routes still require sign-in.
+    $this->get('/admin/runtime-recovered')->assertRedirect('/admin/login');
 })->with(['hook', 'panel']);
 
 it('round three permits inherited panel synchronisation after deactivation', function (string $operation): void {
