@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\PublicRead;
 
+use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,6 +20,19 @@ use Symfony\Component\HttpFoundation\Response;
 final class PublicReadProjectionHeaders
 {
     public const string CACHE_CONTROL = 'public, no-cache';
+
+    public const string UNKNOWN_RULES_CACHE_CONTROL = 'no-store, private';
+
+    /**
+     * Revalidate on every request; while the public-read rules cannot be read,
+     * keep no copy at all.
+     */
+    public static function cacheControl(): string
+    {
+        return resolve(PublicReadEligibilityState::class)->stamp() instanceof PublicReadStampData
+            ? self::CACHE_CONTROL
+            : self::UNKNOWN_RULES_CACHE_CONTROL;
+    }
 
     public static function etag(string $content): string
     {
@@ -38,7 +52,7 @@ final class PublicReadProjectionHeaders
      */
     public static function apply(Response $response, Request $request, string $content): Response
     {
-        $response->headers->set('Cache-Control', self::CACHE_CONTROL);
+        $response->headers->set('Cache-Control', self::cacheControl());
         $response->headers->remove('Expires');
         $response->setEtag(trim(self::etag($content), '"'));
         $response->isNotModified($request);

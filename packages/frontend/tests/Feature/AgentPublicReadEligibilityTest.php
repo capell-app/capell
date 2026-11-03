@@ -23,6 +23,7 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
 use Capell\Core\Support\TableName;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Carbon\CarbonImmutable;
@@ -530,4 +531,37 @@ it('restarts at the first page when a navigation cursor does not open', function
     app()->forgetScopedInstances();
 
     $this->getJson($next)->assertOk()->assertJsonPath('data', $first->json('data'));
+});
+
+it('fails closed until a failed revision write succeeds', function (): void {
+    restrictAgentReadsTo([]);
+    $table = TableName::resolve('public_read_eligibility_state');
+    $candidate = new PublicPageReadCandidateData('https://agent.test/page');
+    $before = resolve(PublicReadEligibilityRevision::class)->current();
+
+    // The rules change but the new revision cannot be stored.
+    Schema::rename($table, $table . '_unavailable');
+    RecordPublicReadEligibilityChangeAction::run('test');
+    Schema::rename($table . '_unavailable', $table);
+
+    // The old revision is readable again, yet it no longer describes the rules: nothing is trusted.
+    expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull()
+        ->and(resolve(PublicPageReadEligibilityRegistry::class)->allows($candidate))->toBeFalse()
+        ->and(resolve(PublicReadEligibilityState::class)->stamp())->toBeNull()
+        ->and(PublicReadProjectionHeaders::cacheControl())->toBe('no-store, private')
+        ->and(resolve(PublicReadEligibilityState::class)->isCurrent($before, null))->toBeFalse();
+
+    // Another process, after the cache-backed marker: still unknown until a write succeeds.
+    app()->forgetScopedInstances();
+    Schema::rename($table, $table . '_unavailable');
+
+    expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull();
+
+    Schema::rename($table . '_unavailable', $table);
+    app()->forgetScopedInstances();
+    $recovered = resolve(PublicReadEligibilityRevision::class)->current();
+
+    expect($recovered)->toBeString()->not->toBe($before)
+        ->and(resolve(PublicPageReadEligibilityRegistry::class)->allows($candidate))->toBeTrue()
+        ->and(PublicReadProjectionHeaders::cacheControl())->toBe('public, no-cache');
 });
