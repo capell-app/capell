@@ -20,15 +20,14 @@ use Filament\Panel;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
-use Illuminate\Routing\RouteAction;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Laravel\SerializableClosure\SerializableClosure;
 use Livewire\Features\SupportCssModules\SupportCssModules;
 use Livewire\Features\SupportFileUploads\FilePreviewController;
 use Livewire\Features\SupportFileUploads\FileUploadController;
 use Livewire\Features\SupportJsModules\SupportJsModules;
+use Livewire\Features\SupportTesting\InitialRender;
 use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
@@ -73,6 +72,8 @@ final class InstalledPanelRuntime
         FrontendAssets::class,
         SupportCssModules::class,
         SupportJsModules::class,
+        // The component-testing endpoint, which Livewire::test() registers.
+        InitialRender::class,
     ];
 
     /** @var WeakMap<Panel, array<int, bool>> */
@@ -115,7 +116,7 @@ final class InstalledPanelRuntime
     /** @var WeakMap<Route, array{0: mixed, 1: bool}> Whether a route runs admin code, by the action it was classified from. */
     private WeakMap $adminCode;
 
-    /** @var list<string>|null The admin packages' source and route directories. */
+    /** @var array<string, string|null>|null The admin packages' source and route directories, with the namespace each source directory holds. */
     private ?array $adminRoots = null;
 
     /** @var array<string, true> */
@@ -822,7 +823,7 @@ final class InstalledPanelRuntime
     private function classifyAdminCode(Route $route): bool
     {
         [$class, $file] = $this->actionCode($route);
-        if ($class !== null && class_exists($class)) {
+        if ($file === null && $class !== null && class_exists($class)) {
             if (is_subclass_of($class, BasePage::class)) {
                 return true;
             }
@@ -831,27 +832,34 @@ final class InstalledPanelRuntime
             $file = $file === false ? null : (realpath($file) ?: $file);
         }
 
-        return $file !== null && array_any($this->adminRoots(), static fn (string $root): bool => str_starts_with($file, $root));
+        return $file !== null && array_any(array_keys($this->adminRoots()), static fn (string $root): bool => str_starts_with($file, $root));
     }
 
     /**
-     * The controller class an action runs, or the file declaring its closure.
+     * The controller class an action runs, or the file declaring its closure together with the admin
+     * package class that file holds, if any.
      *
      * @return array{0: string|null, 1: string|null}
      */
     private function actionCode(Route $route): array
     {
-        $action = $route->getAction();
-        $uses = $action['uses'] ?? null;
-        if (is_string($uses) && RouteAction::containsSerializedClosure($action)) {
-            $closure = unserialize($uses);
-            $uses = $closure instanceof SerializableClosure ? $closure->getClosure() : null;
-        }
-
+        $uses = $route->getAction('uses');
+        // A closure from the route cache stays serialised until the route runs; it is classified
+        // by the route's name, panel declaration and path alone.
         if ($uses instanceof Closure) {
             $file = new ReflectionFunction($uses)->getFileName();
+            if ($file === false) {
+                return [null, null];
+            }
 
-            return [null, $file === false ? null : (realpath($file) ?: $file)];
+            $file = realpath($file) ?: $file;
+            foreach ($this->adminRoots() as $root => $prefix) {
+                if ($prefix !== null && str_starts_with($file, $root) && str_ends_with($file, '.php')) {
+                    return [$prefix . str_replace(DIRECTORY_SEPARATOR, '\\', substr($file, strlen($root), -4)), $file];
+                }
+            }
+
+            return [null, $file];
         }
 
         if (is_string($uses) && $uses !== '') {
@@ -864,10 +872,10 @@ final class InstalledPanelRuntime
     }
 
     /**
-     * The source and route directories of the admin packages, found through Composer's PSR-4 map.
-     * Their test suites are not admin code.
+     * The source and route directories of the admin packages, found through Composer's PSR-4 map,
+     * each with the namespace its source directory holds. Their test suites are not admin code.
      *
-     * @return list<string>
+     * @return array<string, string|null>
      */
     private function adminRoots(): array
     {
@@ -887,14 +895,14 @@ final class InstalledPanelRuntime
                     $path = realpath($directory);
                     // A package's route files sit beside its source directory.
                     if ($path !== false && basename($path) === 'src') {
-                        $roots[] = $path . DIRECTORY_SEPARATOR;
-                        $roots[] = dirname($path) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR;
+                        $roots[$path . DIRECTORY_SEPARATOR] = $prefix;
+                        $roots[dirname($path) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR] ??= null;
                     }
                 }
             }
         }
 
-        return $this->adminRoots = array_values(array_unique($roots));
+        return $this->adminRoots = $roots;
     }
 
     /** The length of the panel path holding the route, or null when the panel's path or domains exclude it. */

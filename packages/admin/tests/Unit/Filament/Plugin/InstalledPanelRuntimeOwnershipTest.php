@@ -7,11 +7,13 @@ namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Filament\Actions\Exports\Models\Export;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 
 /**
@@ -74,6 +76,27 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->assertInstanceOf(RoutingRoute::class, $script);
 
         $this->get('/' . $script->uri())->assertOk();
+    }
+
+    /** Livewire's component script and style endpoints serve every visitor, as public components use them. */
+    public function test_livewire_component_assets_are_public(): void
+    {
+        foreach (['/css/{component}.css', '/css/{component}.global.css', '/js/{component}.js'] as $suffix) {
+            $route = collect(Route::getRoutes()->getRoutes())
+                ->first(static fn (RoutingRoute $route): bool => str_ends_with('/' . $route->uri(), $suffix));
+            $this->assertInstanceOf(RoutingRoute::class, $route, $suffix);
+
+            // Livewire itself answers for an unknown component, rather than the panel sending the visitor to sign in.
+            $this->get('/' . str_replace('{component}', 'runtime-missing-component', $route->uri()))->assertNotFound();
+        }
+    }
+
+    /** A component under test updates through Livewire's own testing endpoint, which no panel owns. */
+    public function test_the_livewire_testing_endpoint_is_public(): void
+    {
+        Livewire::component('runtime.public-counter', RuntimeCounterComponent::class);
+
+        Livewire::test('runtime.public-counter')->call('increment')->assertSee('count: 1');
     }
 
     /** Livewire's upload and preview endpoints are public because their URL signature is the credential. */
