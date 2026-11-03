@@ -147,6 +147,7 @@ return [
     'return_to_content' => 'Back to content editing',
     'reset_responsive_override' => 'Reset responsive override',
     'reset_filters' => 'Reset filters',
+    'clear_search_and_filters' => 'Clear search and filters',
     'replicate_page' => 'Replicate page',
     'reset_role_permissions' => 'Reset permissions',
     'resubmit_for_review' => 'Resubmit for review',
