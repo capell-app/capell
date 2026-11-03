@@ -16,10 +16,20 @@ final class LegacyEnableRuntimeFixture extends AbstractPackageServiceProvider
 
     public int $calls = 0;
 
+    public int $bootCalls = 0;
+
     #[Override]
     public function configurePackage(Package $package): void
     {
         $package->name(self::$name);
+    }
+
+    #[Override]
+    protected function bootPackage(): self
+    {
+        $this->bootCalls++;
+
+        return $this;
     }
 
     #[Override]

@@ -110,7 +110,7 @@ class AdminTools extends Component
         $user = Filament::auth()->user();
         throw_if(! $user instanceof Authenticatable, AuthenticationException::class);
 
-        ActivateLockdownAction::run($user);
+        ActivateLockdownAction::run($user, Filament::getCurrentOrDefaultPanel()?->getAuthGuard());
         $this->refreshLockdownState();
         $this->dispatch('capell-lockdown-state-changed', active: true);
 
@@ -201,7 +201,7 @@ class AdminTools extends Component
 
         throw_if($user === null, AuthenticationException::class);
 
-        throw_unless(resolve(LockdownStore::class)->canAccessAdmin($user), AuthorizationException::class);
+        throw_unless(resolve(LockdownStore::class)->canAccessAdmin($user, Filament::getCurrentOrDefaultPanel()?->getAuthGuard(), Filament::getCurrentOrDefaultPanel()?->getAuthGuard()), AuthorizationException::class);
 
         if ($this->isGlobalAdmin($user)) {
             return;

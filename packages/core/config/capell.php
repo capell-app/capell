@@ -292,6 +292,10 @@ return [
     ],
     // Marketplace public web URL for package/theme image paths when marketplace config is not installed.
     'marketplace_web_url' => env('CAPELL_MARKETPLACE_WEB_URL', 'https://capell.app'),
+    'marketplace' => [
+        'auth_workspace_path' => env('CAPELL_MARKETPLACE_AUTH_WORKSPACE_PATH'),
+        'auth_workspace_trust' => env('CAPELL_MARKETPLACE_AUTH_WORKSPACE_TRUST', 'posix'),
+    ],
     // Cached plugin packages list
     'plugins' => [],
 

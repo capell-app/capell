@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Http\Middleware;
 
 use Capell\Admin\Actions\Pages\ResolveContentLockRecordAction;
+use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -35,8 +36,16 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SetSitePermissionScope
 {
+    public function __construct(private readonly AdminInstallState $installState) {}
+
     public function handle(Request $request, Closure $next): Response
     {
+        // Filament runs persistent middleware before the installer redirect, and an
+        // uninstalled site has no site or permission tables to scope against.
+        if (! $this->installState->installed()) {
+            return $next($request);
+        }
+
         $user = $request->user();
 
         $this->syncSessionSite($request, $user);
