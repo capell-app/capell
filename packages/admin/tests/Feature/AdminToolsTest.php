@@ -160,7 +160,7 @@ it('refuses lockdown activation for a guard without a user provider before switc
         resolve(ReleaseRootWriteGuard::class),
     ));
 
-    expect(fn (): array => resolve(ActivateLockdownAction::class)->handle(test()->authenticatedUser(), 'lockdown-missing'))
+    expect(fn (): array => ActivateLockdownAction::run(test()->authenticatedUser(), 'lockdown-missing'))
         ->toThrow(RuntimeException::class, __('capell-admin::message.lockdown_invalid_provider'))
         ->and(resolve(LockdownStore::class)->active())->toBeFalse();
 });
@@ -175,7 +175,7 @@ it('refuses activation when the guard provider model does not match the authenti
 
     app()->instance(LockdownStaticCacheSwitcher::class, new LockdownStaticCacheSwitcher($files, resolve(MultiNodeTopologyGuard::class), resolve(ReleaseRootWriteGuard::class)));
 
-    expect(fn (): array => resolve(ActivateLockdownAction::class)->handle(test()->authenticatedUser(), 'lockdown-mismatch'))
+    expect(fn (): array => ActivateLockdownAction::run(test()->authenticatedUser(), 'lockdown-mismatch'))
         ->toThrow(RuntimeException::class, __('capell-admin::message.lockdown_invalid_provider'))
         ->and(resolve(LockdownStore::class)->active())->toBeFalse();
 });
@@ -185,6 +185,6 @@ it('activates lockdown for a modelless database driver provider', function (): v
     config()->set('auth.guards.lockdown-database', ['driver' => 'session', 'provider' => 'lockdown-database']);
     config()->set('auth.providers.lockdown-database', ['driver' => 'database', 'table' => 'users']);
 
-    expect(resolve(ActivateLockdownAction::class)->handle(test()->authenticatedUser(), 'lockdown-database'))->toBeArray()
+    expect(ActivateLockdownAction::run(test()->authenticatedUser(), 'lockdown-database'))->toBeArray()
         ->and(resolve(LockdownStore::class)->active())->toBeTrue();
 });
