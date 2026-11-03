@@ -73,7 +73,18 @@ class BuildSecurityPostureInventoryAction
             'capell.multi_node' => config('capell.multi_node') === true,
         ];
 
+        // A package's runtime boot may tag its contributor again after an
+        // install-time refresh; one contribution per class keeps that
+        // re-tagging from reading as a duplicate-key failure.
+        $seenContributors = [];
+
         foreach (app()->tagged(SecurityInventoryContributor::TAG) as $contributor) {
+            if (isset($seenContributors[$contributor::class])) {
+                continue;
+            }
+
+            $seenContributors[$contributor::class] = true;
+
             try {
                 $environment = $this->mergeContributedFlags($environment, $contributor, $failures);
             } catch (Throwable) {

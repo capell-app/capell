@@ -39,6 +39,28 @@ it('merges flags from tagged inventory contributors under their own prefix', fun
         ->and($inventory->failures)->toBe([]);
 });
 
+it('merges a contributor tagged more than once only once, as a runtime refresh re-tags it', function (): void {
+    app()->instance('test.security.contributor.retagged', new class implements SecurityInventoryContributor
+    {
+        public function prefix(): string
+        {
+            return 'retagged';
+        }
+
+        public function flags(): array
+        {
+            return ['enabled' => true];
+        }
+    });
+    app()->tag(['test.security.contributor.retagged'], SecurityInventoryContributor::TAG);
+    app()->tag(['test.security.contributor.retagged'], SecurityInventoryContributor::TAG);
+
+    $inventory = BuildSecurityPostureInventoryAction::run();
+
+    expect($inventory->environment['retagged.enabled'])->toBeTrue()
+        ->and($inventory->failures)->toBe([]);
+});
+
 it('drops a contributor that reuses a Core prefix, supplies non-scalar flags or throws, and records each as a failure', function (): void {
     $corePrefix = new class implements SecurityInventoryContributor
     {
