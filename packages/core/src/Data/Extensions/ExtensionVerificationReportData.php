@@ -12,6 +12,7 @@ final class ExtensionVerificationReportData extends Data
     /**
      * @param  list<ExtensionVerificationIssueData>  $failures
      * @param  list<ExtensionVerificationIssueData>  $warnings
+     * @param  list<string>  $comparisons
      */
     public function __construct(
         public readonly string $composerName,
@@ -27,5 +28,6 @@ final class ExtensionVerificationReportData extends Data
         public readonly ?string $distHost = null,
         public readonly ?string $installPath = null,
         public readonly int $omittedIssueCount = 0,
+        public readonly array $comparisons = [],
     ) {}
 }

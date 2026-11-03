@@ -11,6 +11,7 @@ use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Override;
 
@@ -20,6 +21,16 @@ final class ExtensionVerificationCheck implements DoctorCheck
     public function check(bool $installSummary = false): DoctorCheckResultData
     {
         $issues = [];
+        if (ExtensionQuarantine::quarantinedNames() !== []) {
+            foreach (ExtensionQuarantine::query()->orderBy('composer_name')->get() as $quarantine) {
+                $issues[] = (string) __('capell-core::extensions.quarantine.doctor', [
+                    'package' => $quarantine->composer_name,
+                    'failing' => $quarantine->failing_package,
+                    'set' => implode(', ', $quarantine->quarantined_set),
+                ]);
+            }
+        }
+
         foreach (CapellCore::getPackages(withoutCore: false) as $package) {
             if (! $package instanceof PackageData) {
                 continue;

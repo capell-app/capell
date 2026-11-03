@@ -581,6 +581,7 @@ return [
         'timeline_verification_completed' => 'Install verification completed.',
         'timeline_verification_failed' => 'Install verification failed.',
         'verification_failed' => 'Install verification failed. :message :action',
+        'verification_quarantined' => ':package failed verification, so every package this operation changed is quarantined and will not be enabled: :packages. :reason',
         'verification_rollback_failed' => 'Automatic recovery failed. Ask the person who manages your server to restore the application.',
         'verification_next_action' => 'Ask the person who manages your server to review the package before trying again.',
         'timeline_composer_completed' => 'Composer completed.',

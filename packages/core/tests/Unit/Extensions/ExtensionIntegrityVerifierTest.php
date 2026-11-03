@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Extensions\HashExtensionContentsAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Support\Extensions\ExtensionIntegrityVerifier;
 use Capell\Core\Support\Manifest\ManifestValidator;
@@ -185,4 +186,17 @@ it('uses safe manifest text when diagnostics are not supplied', function (): voi
     expect($description['message'])->toContain('vendor/example')->not->toContain(':reason')
         ->and($description['next_action'])->not->toBeEmpty()
         ->and($unknown)->toBe(['message' => '', 'next_action' => '']);
+});
+
+it('compares installed content when a release hash is supplied', function (): void {
+    ($this->writeTree)();
+    $hash = HashExtensionContentsAction::run($this->packageDir);
+    $matching = $this->verifier->verify('vendor/example', expectedDistSha: 'abc123', expectedContentHash: $hash);
+    expect($matching->passed)->toBeTrue()->and($matching->comparisons)->toBe(['dist_checksum', 'content_sha256']);
+    expect($this->verifier->verify('vendor/example')->passed)->toBeTrue();
+    file_put_contents($this->packageDir . '/src/Provider.php', '<?phq');
+    $changed = $this->verifier->verify('vendor/example', expectedContentHash: $hash);
+    expect($changed->passed)->toBeFalse()->and(array_column($changed->failures, 'code'))->toContain('content_hash_mismatch');
+    $cheapFailure = $this->verifier->verify('vendor/example', expectedDistSha: 'wrong', expectedContentHash: $hash);
+    expect($cheapFailure->comparisons)->toBe(['dist_checksum']);
 });

@@ -3,7 +3,18 @@
 declare(strict_types=1);
 
 return [
+    'quarantine' => [
+        'refused' => ':package is quarantined because :failing failed verification during the operation that changed it. Run php artisan capell:extensions:release-quarantine :package once it verifies.',
+        'doctor' => ':package is quarantined after :failing failed verification; quarantined with it: :set',
+        'not_quarantined' => ':package is not quarantined.',
+        'released' => ':package passed verification and has been released from quarantine.',
+        'release_refused' => ':package stays quarantined because it does not verify: :reason',
+    ],
     'verification' => [
+        'quarantined' => ['message' => ':package is quarantined because a package changed with it failed verification.', 'next_action' => 'Resolve the failing package, then run php artisan capell:extensions:release-quarantine :package.'],
+        'content_hash_mismatch' => ['message' => 'Installed contents for :package do not match the release content hash.', 'next_action' => 'Obtain the intended release from a trusted source before retrying.'],
+        'content_hash_unreadable' => ['message' => 'Installed contents for :package could not be verified.', 'next_action' => 'Check the package files and retry with a trusted release.'],
+        'hash_failed' => 'Unable to hash the extension directory. Check that it is readable and contains no symbolic links.',
         'manifest_invalid_safe' => 'The manifest for :package is invalid, so the extension cannot be verified.',
         'skipped' => 'Verification is not required for the trusted package :package.',
         'passed' => 'Verification passed for :package.',

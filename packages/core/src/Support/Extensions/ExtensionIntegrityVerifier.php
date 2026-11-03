@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Extensions;
 
+use Capell\Core\Actions\Extensions\HashExtensionContentsAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData as Issue;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Support\Manifest\ManifestValidator;
@@ -17,11 +18,12 @@ final class ExtensionIntegrityVerifier
 {
     public function __construct(private readonly string $vendorDir, private readonly ManifestValidator $validator) {}
 
-    public function verify(string $composerName, ?string $expectedVersionConstraint = null, ?string $previousVersion = null, ?string $expectedSlug = null, ?string $expectedDistSha = null, ?string $releaseChecksumVersion = null, bool $dependency = false): ExtensionVerificationReportData
+    public function verify(string $composerName, ?string $expectedVersionConstraint = null, ?string $previousVersion = null, ?string $expectedSlug = null, ?string $expectedDistSha = null, ?string $releaseChecksumVersion = null, bool $dependency = false, ?string $expectedContentHash = null): ExtensionVerificationReportData
     {
         $failures = [];
         $warnings = [];
         $omitted = 0;
+        $comparisons = [];
         $add = static function (string $code, ?string $reason = null) use (&$failures, &$omitted, $composerName): void {
             if (count($failures) >= 50) {
                 $omitted++;
@@ -126,23 +128,37 @@ final class ExtensionIntegrityVerifier
                 }
             }
 
-            if ($expectedDistSha !== null && $releaseChecksumVersion !== null && $version !== $releaseChecksumVersion) {
+            if (($expectedDistSha !== null || $expectedContentHash !== null) && $releaseChecksumVersion !== null && $version !== $releaseChecksumVersion) {
                 if (count($failures) >= 50) {
                     $omitted++;
                 } else {
                     $description = Issue::describe(Issue::CHECKSUM_NOT_FOR_INSTALLED_RELEASE, $composerName);
                     $warnings[] = new Issue(Issue::CHECKSUM_NOT_FOR_INSTALLED_RELEASE, $description['message'], $description['next_action']);
                 }
-            } elseif ($expectedDistSha !== null) {
-                if ($sha === null) {
-                    $add(Issue::CHECKSUM_MISSING);
-                } elseif (! hash_equals($expectedDistSha, $sha)) {
-                    $add(Issue::CHECKSUM_MISMATCH);
+            } else {
+                if ($expectedDistSha !== null) {
+                    $comparisons[] = 'dist_checksum';
+                    if ($sha === null) {
+                        $add(Issue::CHECKSUM_MISSING);
+                    } elseif (! hash_equals($expectedDistSha, $sha)) {
+                        $add(Issue::CHECKSUM_MISMATCH);
+                    }
+                }
+
+                if ($expectedContentHash !== null && $failures === []) {
+                    $comparisons[] = 'content_sha256';
+                    try {
+                        if ($realPackage === false || ! hash_equals(strtolower($expectedContentHash), HashExtensionContentsAction::run($realPackage))) {
+                            $add(Issue::CONTENT_HASH_MISMATCH);
+                        }
+                    } catch (Throwable) {
+                        $add(Issue::CONTENT_HASH_UNREADABLE);
+                    }
                 }
             }
         }
 
-        return new ExtensionVerificationReportData($composerName, $version, $expectedVersionConstraint, $previousVersion, $failures === [], $failures, $warnings, CarbonImmutable::now(), $sha, $reference, $host, $realPackage === false ? null : $realPackage, $omitted);
+        return new ExtensionVerificationReportData($composerName, $version, $expectedVersionConstraint, $previousVersion, $failures === [], $failures, $warnings, CarbonImmutable::now(), $sha, $reference, $host, $realPackage === false ? null : $realPackage, $omitted, $comparisons);
     }
 
     public function verifyDependency(string $composerName): ExtensionVerificationReportData

@@ -7,6 +7,7 @@ use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
@@ -1423,9 +1424,13 @@ it('rolls back a failed verification before discovery or health checks and store
     new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
 
     $attempt->refresh();
-    $message = __('capell-marketplace::marketplace.operations.verification_failed', [
-        'message' => __('capell::extensions.verification.checksum_mismatch.message', ['package' => $attempt->composer_name]),
-        'action' => __('capell::extensions.verification.checksum_mismatch.next_action', ['package' => $attempt->composer_name]),
+    $message = __('capell-marketplace::marketplace.operations.verification_quarantined', [
+        'package' => $attempt->composer_name,
+        'packages' => $attempt->composer_name,
+        'reason' => __('capell-marketplace::marketplace.operations.verification_failed', [
+            'message' => __('capell::extensions.verification.checksum_mismatch.message', ['package' => $attempt->composer_name]),
+            'action' => __('capell::extensions.verification.checksum_mismatch.next_action', ['package' => $attempt->composer_name]),
+        ]),
     ]);
     expect($runner->ran())->toBeTrue()
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
@@ -1613,6 +1618,70 @@ it('rejects a newly added Composer plugin dependency and restores the snapshot',
             ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
             ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore);
     });
+});
+
+it('quarantines the whole changed set when an added dependency fails and lifts it after a completed rollback', function (): void {
+    Notification::fake();
+    $name = 'vendor/verified-top-level';
+    $dependency = ['name' => 'vendor/tampered-dependency', 'version' => '1.0.0', 'type' => 'composer-plugin', 'install-path' => '../vendor/tampered-dependency'];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'verified-top-level']);
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+    // Observe the quarantine while the rollback runs: it must cover the whole set until the rollback completes.
+    $rollbacks = new class
+    {
+        public int $calls = 0;
+
+        /** @var list<string>|null */
+        public ?array $quarantinedDuringRollback = null;
+
+        public function handle(ComposerStateSnapshot $snapshot, int $timeoutSeconds = ComposerStateSnapshot::DEFAULT_TIMEOUT_SECONDS): bool
+        {
+            $this->calls++;
+            $this->quarantinedDuringRollback = array_keys(ExtensionQuarantine::quarantinedNames());
+
+            return true;
+        }
+    };
+    app()->instance(RestoreComposerStateAction::class, $rollbacks);
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt, $dependency): void {
+        File::ensureDirectoryExists($root . '/vendor/vendor/tampered-dependency');
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$dependency], [$dependency]));
+    });
+
+    $attempt->refresh();
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+        ->and($attempt->failure_reason)->toContain(__('capell-marketplace::marketplace.operations.verification_quarantined', [
+            'package' => 'vendor/tampered-dependency',
+            'packages' => 'vendor/tampered-dependency, vendor/verified-top-level',
+            'reason' => '',
+        ]))
+        ->and($attempt->context['quarantine'] ?? null)->toBe(['failing_package' => 'vendor/tampered-dependency', 'packages' => ['vendor/tampered-dependency', $name]])
+        ->and($rollbacks->calls)->toBe(1)
+        ->and($rollbacks->quarantinedDuringRollback)->toBe(['vendor/tampered-dependency', $name])
+        ->and(ExtensionQuarantine::query()->count())->toBe(0);
+});
+
+it('keeps the whole changed set quarantined when the rollback fails', function (): void {
+    Notification::fake();
+    recordMarketplaceRollbacks(new RuntimeException('restore failed'));
+    $name = 'vendor/verified-top-level';
+    $dependency = ['name' => 'vendor/tampered-dependency', 'version' => '1.0.0', 'type' => 'composer-plugin', 'install-path' => '../vendor/tampered-dependency'];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'verified-top-level']);
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt, $dependency): void {
+        File::ensureDirectoryExists($root . '/vendor/vendor/tampered-dependency');
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$dependency], [$dependency]));
+    });
+
+    $attempt->refresh();
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeFalse()
+        ->and($attempt->failure_reason)->toContain('vendor/tampered-dependency')
+        ->and(ExtensionQuarantine::query()->orderBy('composer_name')->pluck('composer_name')->all())->toBe(['vendor/tampered-dependency', $name])
+        ->and(ExtensionQuarantine::query()->where('composer_name', $name)->value('failing_package'))->toBe('vendor/tampered-dependency');
 });
 
 it('does not reverify an unchanged dependency', function (): void {

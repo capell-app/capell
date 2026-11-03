@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Jobs;
 
 use Capell\Core\Actions\BuildPackageCacheAction;
+use Capell\Core\Actions\Extensions\LiftExtensionQuarantineAction;
+use Capell\Core\Actions\Extensions\QuarantineExtensionsAction;
 use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
@@ -146,6 +148,14 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
      * construction time says nothing about when a worker picked it up.
      */
     protected ?int $startedAtNanoseconds = null;
+
+    /**
+     * Packages quarantined by this run's verification stage, so a completed
+     * rollback can lift the quarantine and a failed one leaves it in place.
+     *
+     * @var list<string>
+     */
+    private array $quarantinedSet = [];
 
     public function __construct(
         protected readonly int $installAttemptId,
@@ -857,8 +867,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
 
         try {
             if ($this->requiresVerification()) {
-                $this->verifyInstalledPackage($attempt, $previousVersion);
-                $this->verifyChangedDependencies($attempt, $snapshot);
+                $this->verifyOperationGraph($attempt, $previousVersion, $snapshot);
             }
 
             $attempt->refresh();
@@ -886,6 +895,12 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                 $this->rollBackComposerState($attempt, $snapshot, $throwable, $failureStage),
                 $failureStage,
             );
+
+            // The quarantined code is gone only when the rollback completed.
+            // Otherwise it stays on disk and must stay quarantined.
+            if ($rollback['rolled_back'] && $this->quarantinedSet !== []) {
+                LiftExtensionQuarantineAction::run($this->quarantinedSet);
+            }
 
             TransitionMarketplaceInstallAttemptAction::run(
                 $attempt,
@@ -915,6 +930,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         try {
             $checksum = $attempt->context['release_checksum'] ?? null;
             $checksumVersion = $attempt->context['release_checksum_version'] ?? null;
+            $contentHash = $attempt->context['release_content_sha256'] ?? null;
             $report = VerifyInstalledExtensionAction::run(
                 $attempt->composer_name,
                 $attempt->version_constraint ?: null,
@@ -922,6 +938,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                 $attempt->extension_slug ?: null,
                 is_string($checksum) && $checksum !== '' ? $checksum : null,
                 is_string($checksumVersion) && $checksumVersion !== '' ? $checksumVersion : '',
+                ...(is_string($contentHash) && $contentHash !== '' ? [$contentHash] : []),
             );
             $this->recordVerificationReport($attempt, $report);
         } catch (MarketplaceVerificationFailedException $exception) {
@@ -957,6 +974,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
             'warnings' => $issues($report->warnings),
             'checked_at' => $report->checkedAt->toIso8601String(),
             'omitted_issue_count' => $report->omittedIssueCount,
+            'comparisons' => $report->comparisons,
             'dist_sha' => is_string($report->distSha) && preg_match('/\A[a-f0-9]{40}(?:[a-f0-9]{24})?\z/i', $report->distSha) === 1 ? $report->distSha : null,
         ];
         $attempt->forceFill(['context' => [...($attempt->context ?? []), 'verification_report' => $safeReport]])->save();
@@ -977,42 +995,92 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         }
     }
 
-    private function verifyChangedDependencies(MarketplaceInstallAttempt $attempt, ComposerStateSnapshot $snapshot): void
+    /**
+     * Verify the extension and every package the operation added or changed.
+     *
+     * One failure quarantines the whole changed set: a tampered dependency must
+     * not stay loaded beside the verified extension that pulled it in.
+     */
+    private function verifyOperationGraph(MarketplaceInstallAttempt $attempt, ?string $previousVersion, ComposerStateSnapshot $snapshot): void
     {
+        $failingPackage = null;
+        $firstFailure = null;
+        $changed = [];
+
         try {
-            $before = $this->lockVersions($snapshot->lockContents);
-            $contents = is_file($snapshot->lockPath) ? file_get_contents($snapshot->lockPath) : false;
-            throw_if($contents === false && $snapshot->lockContents !== null, RuntimeException::class, 'Composer lock file is missing after acquisition.');
+            $this->verifyInstalledPackage($attempt, $previousVersion);
+        } catch (MarketplaceVerificationFailedException $marketplaceVerificationFailedException) {
+            $failingPackage = $attempt->composer_name;
+            $firstFailure = $marketplaceVerificationFailedException;
+        }
 
-            $after = $this->lockVersions($contents === false ? null : $contents);
+        try {
+            $changed = $this->changedDependencies($attempt, $snapshot);
             $verifier = new ExtensionIntegrityVerifier(base_path('vendor'), resolve(ManifestValidator::class));
-            foreach ($after as $name => $version) {
-                if ($name === $attempt->composer_name) {
-                    continue;
-                }
-
-                if (TrustedCorePackages::contains($name)) {
-                    continue;
-                }
-
-                if (($before[$name] ?? null) === $version) {
-                    continue;
-                }
-
+            foreach ($changed as $name) {
                 $report = $verifier->verifyDependency($name);
-                if (! $report->passed) {
+                if ($report->passed) {
+                    continue;
+                }
+
+                try {
                     $this->recordVerificationReport($attempt, $report);
+                } catch (MarketplaceVerificationFailedException $exception) {
+                    $failingPackage ??= $name;
+                    $firstFailure ??= $exception;
                 }
             }
-        } catch (MarketplaceVerificationFailedException $exception) {
-            throw $exception;
         } catch (Throwable $throwable) {
             report($throwable);
-            throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
+            $failingPackage ??= $attempt->composer_name;
+            $firstFailure ??= new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_failed', [
                 'message' => '',
                 'action' => __('capell-marketplace::marketplace.operations.verification_next_action'),
-            ]), $throwable->getCode(), $throwable);
+            ]), (int) $throwable->getCode(), $throwable);
         }
+
+        if ($failingPackage === null || ! $firstFailure instanceof MarketplaceVerificationFailedException) {
+            return;
+        }
+
+        $set = array_values(array_unique([$attempt->composer_name, ...$changed]));
+        sort($set);
+        QuarantineExtensionsAction::run($set, $failingPackage);
+        $this->quarantinedSet = $set;
+        $attempt->forceFill(['context' => [...($attempt->context ?? []), 'quarantine' => ['failing_package' => $failingPackage, 'packages' => $set]]])->save();
+
+        throw new MarketplaceVerificationFailedException((string) __('capell-marketplace::marketplace.operations.verification_quarantined', [
+            'package' => $failingPackage,
+            'packages' => implode(', ', $set),
+            'reason' => $firstFailure->getMessage(),
+        ]), 0, $firstFailure);
+    }
+
+    /** @return list<string> */
+    private function changedDependencies(MarketplaceInstallAttempt $attempt, ComposerStateSnapshot $snapshot): array
+    {
+        $before = $this->lockVersions($snapshot->lockContents);
+        $contents = is_file($snapshot->lockPath) ? file_get_contents($snapshot->lockPath) : false;
+        throw_if($contents === false && $snapshot->lockContents !== null, RuntimeException::class, 'Composer lock file is missing after acquisition.');
+
+        $changed = [];
+        foreach ($this->lockVersions($contents === false ? null : $contents) as $name => $version) {
+            if ($name === $attempt->composer_name) {
+                continue;
+            }
+
+            if (TrustedCorePackages::contains($name)) {
+                continue;
+            }
+
+            if (($before[$name] ?? null) === $version) {
+                continue;
+            }
+
+            $changed[] = $name;
+        }
+
+        return $changed;
     }
 
     /** @return array<string, string> */

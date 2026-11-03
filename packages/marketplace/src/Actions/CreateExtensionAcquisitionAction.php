@@ -76,6 +76,7 @@ final class CreateExtensionAcquisitionAction
                 ),
                 releaseChecksum: $listing->releaseChecksum,
                 releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
+                releaseContentSha256: $listing->releaseContentSha256,
             );
         }
 
@@ -115,6 +116,7 @@ final class CreateExtensionAcquisitionAction
             authorizationEligibilityPolicy: $authorization->installEligibilityPolicy,
             releaseChecksum: $listing->releaseChecksum,
             releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
+            releaseContentSha256: $listing->releaseContentSha256,
         );
 
         if ($this->authorizationPolicy->blocksInstall($authorization->installEligibilityPolicy)) {

@@ -28,6 +28,12 @@ final class ExtensionVerificationIssueData extends Data
 
     public const string CHECKSUM_MISMATCH = 'checksum_mismatch';
 
+    public const string CONTENT_HASH_MISMATCH = 'content_hash_mismatch';
+
+    public const string CONTENT_HASH_UNREADABLE = 'content_hash_unreadable';
+
+    public const string QUARANTINED = 'quarantined';
+
     public const string CHECKSUM_MISSING = 'checksum_missing';
 
     public const string CHECKSUM_NOT_FOR_INSTALLED_RELEASE = 'checksum_not_for_installed_release';
@@ -83,6 +89,10 @@ final class ExtensionVerificationIssueData extends Data
             self::CHECKSUM_MISMATCH => [
                 'message' => (string) __('capell-core::extensions.verification.checksum_mismatch.message', $replace),
                 'next_action' => (string) __('capell-core::extensions.verification.checksum_mismatch.next_action', $replace),
+            ],
+            self::CONTENT_HASH_MISMATCH, self::CONTENT_HASH_UNREADABLE, self::QUARANTINED => [
+                'message' => (string) __('capell-core::extensions.verification.' . $code . '.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.' . $code . '.next_action', $replace),
             ],
             self::CHECKSUM_MISSING => [
                 'message' => (string) __('capell-core::extensions.verification.checksum_missing.message', $replace),

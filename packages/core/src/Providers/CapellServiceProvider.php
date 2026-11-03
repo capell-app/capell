@@ -24,6 +24,7 @@ use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
+use Capell\Core\Console\Commands\HashExtensionContentsCommand;
 use Capell\Core\Console\Commands\HealthCheckCommand;
 use Capell\Core\Console\Commands\HealthCommand;
 use Capell\Core\Console\Commands\HealthProbeCommand;
@@ -50,6 +51,7 @@ use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
+use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
@@ -339,6 +341,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AdoptTableCommand::class,
             DoctorCommand::class,
             SecurityScanCommand::class,
+            HashExtensionContentsCommand::class,
+            ReleaseExtensionQuarantineCommand::class,
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
