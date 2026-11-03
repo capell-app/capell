@@ -312,6 +312,11 @@ it('produces a pass-through response byte-identical to detection being off', fun
     $guarded = visitorLanguageRun(visitorLanguageRequest($url, $headers));
 
     // The HTML cache keys on host + path alone. A pass-through that differs by
-    // even one header would be cached and replayed to every other visitor.
-    expect((string) $guarded)->toBe((string) $off);
+    // even one header would be cached and replayed to every other visitor. The
+    // Date header is the one field the clock owns, so it is pinned before the
+    // byte comparison; everything else must match exactly.
+    $withoutClock = static fn (Response $response): string => preg_replace('/^Date:\s.*$/mi', 'Date: <clock>', (string) $response) ?? '';
+
+    expect($withoutClock($guarded))->toBe($withoutClock($off))
+        ->and($guarded->headers->has('Date'))->toBeTrue();
 });
