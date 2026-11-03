@@ -30,7 +30,7 @@ final class SecurityAdvisoryCheck implements SecurityWeaknessCheck
                 source: SecurityFindingSource::Advisory,
                 title: __('capell-core::security.extension.security_advisory.title'),
                 summary: __('capell-core::security.extension.security_advisory.summary'),
-                evidence: ['advisory' => $advisory->identifier, 'affected_versions' => $advisory->affectedVersions, 'fixed_version' => $advisory->fixedVersion],
+                evidence: ['package' => $advisory->composerName, 'installed_version' => $inventory->package($advisory->composerName)?->version, 'advisory' => $advisory->identifier, 'affected_versions' => $advisory->affectedVersions, 'fixed_version' => $advisory->fixedVersion],
                 composerName: $advisory->composerName,
                 recommendedAction: __('capell-core::security.extension.security_advisory.action'),
             );

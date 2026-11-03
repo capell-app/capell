@@ -18,7 +18,7 @@ it('reports internal Capell class use without reporting stable or unrelated clas
 
     expect($ruleMessages)->not->toBeEmpty()
         ->and(implode(' ', array_column($ruleMessages, 'message')))->toContain('DoctorCheck', 'RenderHookRegistry')
-        ->not->toContain('ExtensionContribution', 'DateTimeImmutable');
+        ->not->toContain('ExtensionContribution')->not->toContain('DateTimeImmutable');
 });
 
 it('reports internal Capell method, property and constant use without reporting stable members', function (): void {
@@ -35,5 +35,5 @@ it('reports internal Capell method, property and constant use without reporting 
 
     expect($reported)->toHaveCount(5)
         ->and($text)->toContain('::hiddenMethod', '::hiddenProperty', '::hiddenStaticMethod', '::hiddenStatic', '::HIDDEN_CONSTANT')
-        ->not->toContain('openMethod', 'openProperty', 'OPEN_CONSTANT');
+        ->not->toContain('openMethod')->not->toContain('openProperty')->not->toContain('OPEN_CONSTANT');
 });

@@ -24,6 +24,7 @@ use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
+use Capell\Core\Console\Commands\HashExtensionContentsCommand;
 use Capell\Core\Console\Commands\HealthCheckCommand;
 use Capell\Core\Console\Commands\HealthCommand;
 use Capell\Core\Console\Commands\HealthProbeCommand;
@@ -50,6 +51,7 @@ use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
+use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
@@ -181,6 +183,7 @@ use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -274,6 +277,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(TableName::class);
         $this->app->singleton(MigrationRootRegistry::class);
         $this->app->singleton(ComponentRegistry::class);
+        $this->app->singleton(ExtensionQuarantineGate::class);
+        $this->app->tag([ExtensionQuarantineGate::class], Resettable::TAG);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerRuntimeRole();
         $this->registerSettingsSchemaRegistry();
@@ -339,6 +344,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AdoptTableCommand::class,
             DoctorCommand::class,
             SecurityScanCommand::class,
+            HashExtensionContentsCommand::class,
+            ReleaseExtensionQuarantineCommand::class,
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,

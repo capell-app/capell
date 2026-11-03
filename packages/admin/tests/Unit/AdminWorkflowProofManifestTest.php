@@ -17,7 +17,7 @@ it('requires populated page history and reversible recovery proof', function ():
             ->and($entry['url'])->toBe('/screenshot-fixtures/page-history')
             ->and($root . '/../../' . $entry['output'])->toBeFile()
             ->and(filesize($root . '/../../' . $entry['output']))->toBeGreaterThan(10_000)
-            ->and(strtolower((string) $entry['notes']))->not->toContain('optional', 'empty state', 'fixture');
+            ->and(strtolower((string) $entry['notes']))->not->toContain('optional')->not->toContain('empty state')->not->toContain('fixture');
     }
 
     $historyTabInteraction = [
@@ -52,7 +52,7 @@ it('requires populated page history and reversible recovery proof', function ():
     // regardless of surrounding context.
     expect($encoded)
         ->not->toMatch('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i')
-        ->not->toContain('http://localhost', 'https://localhost', '__' . '(', '{{', 'translation missing');
+        ->not->toContain('http://localhost')->not->toContain('https://localhost')->not->toContain('__' . '(')->not->toContain('{{')->not->toContain('translation missing');
 });
 
 it('requires the theme customize capture to open the installed Foundation theme editor', function (): void {

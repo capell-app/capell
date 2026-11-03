@@ -77,10 +77,8 @@ it('removes a package', function (): void {
             base_path('bootstrap/cache/capell-package-manifests.php'),
             base_path('bootstrap/cache/capell-theme-chain.php'),
         )
-        ->and($deletedPaths)->not->toContain(
-            base_path('bootstrap/cache/packages.php'),
-            base_path('bootstrap/cache/services.php'),
-        );
+        ->and($deletedPaths)->not->toContain(base_path('bootstrap/cache/packages.php'))
+        ->not->toContain(base_path('bootstrap/cache/services.php'));
 });
 
 it('keeps the current Laravel provider manifests until Composer has removed the package', function (): void {

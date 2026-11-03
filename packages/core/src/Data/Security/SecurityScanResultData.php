@@ -24,5 +24,6 @@ final class SecurityScanResultData extends Data
         public readonly int $activeFindings,
         public readonly ?SecurityWeaknessSeverity $highestActiveSeverity,
         public readonly array $failures = [],
+        public readonly ?string $scanId = null,
     ) {}
 }

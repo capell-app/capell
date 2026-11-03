@@ -77,6 +77,7 @@ return [
     'increase_container_width' => 'Increase :container container width',
     'disable_lockdown_confirmation' => 'Disable Lockdown now? This reopens the public frontend and restores normal admin access for all admins.',
     'enable_lockdown_confirmation' => 'Enable Lockdown now? Public frontend traffic will receive maintenance pages. You and configured break-glass users will keep admin access; other admins will be blocked.',
+    'lockdown_invalid_provider' => 'Unable to identify the lockdown user provider or match the user to its configured model.',
     'lockdown_admin_locked' => 'Lockdown is active. This admin account is not allowed during lockdown.',
     'lockdown_banner' => 'Lockdown is active. The public frontend is serving maintenance responses and normal admin access is blocked.',
     'lockdown_disabled' => 'Lockdown disabled.',

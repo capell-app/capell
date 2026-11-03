@@ -9,6 +9,7 @@ use Capell\Core\Data\Security\SecurityPostureInventoryData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
 use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
+use Capell\Core\Support\Security\SecurityEvidence;
 use Override;
 
 final class UrlNotHttpsCheck implements SecurityWeaknessCheck
@@ -33,6 +34,7 @@ final class UrlNotHttpsCheck implements SecurityWeaknessCheck
             source: SecurityFindingSource::Builtin,
             title: __('capell-core::security.app.url_not_https.title'),
             summary: __('capell-core::security.app.url_not_https.summary'),
+            evidence: SecurityEvidence::environment($inventory, ['app.env', 'app.url_scheme']),
             remediable: false,
             recommendedAction: __('capell-core::security.app.url_not_https.action'),
         )];

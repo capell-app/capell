@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Extensions\HashExtensionContentsAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Support\Extensions\ExtensionIntegrityVerifier;
 use Capell\Core\Support\Manifest\ManifestValidator;
@@ -128,7 +129,16 @@ it('exempts trusted core from plugin and identity checks but retains other check
     $this->package['type'] = 'composer-plugin';
     ($this->writeTree)();
     $report = $this->verifier->verify('capell-app/core', expectedSlug: 'other', expectedDistSha: 'wrong');
-    expect(array_column($report->failures, 'code'))->toContain('checksum_mismatch')->not->toContain('composer_plugin', 'manifest_identity_mismatch');
+    expect(array_column($report->failures, 'code'))->toContain('checksum_mismatch')->not->toContain('composer_plugin')->not->toContain('manifest_identity_mismatch');
+});
+
+it('compares a supplied content hash when the release version is unknown', function (): void {
+    ($this->writeTree)();
+    $report = $this->verifier->verify('vendor/example', releaseChecksumVersion: null, expectedContentHash: str_repeat('0', 64));
+
+    expect($report->passed)->toBeFalse()
+        ->and($report->comparisons)->toContain('content_sha256')
+        ->and(array_column($report->failures, 'code'))->toContain('content_hash_mismatch');
 });
 
 it('permits Composer plugins when explicitly configured', function (): void {
@@ -185,4 +195,17 @@ it('uses safe manifest text when diagnostics are not supplied', function (): voi
     expect($description['message'])->toContain('vendor/example')->not->toContain(':reason')
         ->and($description['next_action'])->not->toBeEmpty()
         ->and($unknown)->toBe(['message' => '', 'next_action' => '']);
+});
+
+it('compares installed content when a release hash is supplied', function (): void {
+    ($this->writeTree)();
+    $hash = HashExtensionContentsAction::run($this->packageDir);
+    $matching = $this->verifier->verify('vendor/example', expectedDistSha: 'abc123', expectedContentHash: $hash);
+    expect($matching->passed)->toBeTrue()->and($matching->comparisons)->toBe(['dist_checksum', 'content_sha256']);
+    expect($this->verifier->verify('vendor/example')->passed)->toBeTrue();
+    file_put_contents($this->packageDir . '/src/Provider.php', '<?phq');
+    $changed = $this->verifier->verify('vendor/example', expectedContentHash: $hash);
+    expect($changed->passed)->toBeFalse()->and(array_column($changed->failures, 'code'))->toContain('content_hash_mismatch');
+    $cheapFailure = $this->verifier->verify('vendor/example', expectedDistSha: 'wrong', expectedContentHash: $hash);
+    expect($cheapFailure->comparisons)->toBe(['dist_checksum']);
 });

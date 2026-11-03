@@ -176,6 +176,13 @@
         ],
         "foreign_keys": []
     },
+    "capell_extension_quarantines": {
+        "indexes": [
+            "capell_extension_quarantines_composer_name_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_extensions": {
         "indexes": [
             "capell_extensions_auto_update_policy_index",
@@ -239,6 +246,10 @@
                 "foreign_columns": ["id"]
             }
         ]
+    },
+    "capell_security_scan_runs": {
+        "indexes": ["sqlite_autoindex_capell_security_scan_runs_1"],
+        "foreign_keys": []
     },
     "capell_security_weakness_findings": {
         "indexes": [

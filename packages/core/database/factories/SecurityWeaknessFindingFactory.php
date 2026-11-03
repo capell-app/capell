@@ -9,6 +9,7 @@ use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 use Override;
 
 /** @extends Factory<SecurityWeaknessFinding> */
@@ -25,6 +26,8 @@ final class SecurityWeaknessFindingFactory extends Factory
             'status' => SecurityFindingStatus::Open, 'title' => 'Debug mode is enabled',
             'summary' => 'Debug mode may expose information.', 'remediable' => true,
             'first_detected_at' => now(), 'last_detected_at' => now(),
+            'first_detected_scan_id' => (string) Str::ulid(), 'last_detected_scan_id' => (string) Str::ulid(),
+            'evidence_hash' => hash('sha256', '[]'),
         ];
     }
 }

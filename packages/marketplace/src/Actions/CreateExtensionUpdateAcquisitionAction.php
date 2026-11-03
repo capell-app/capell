@@ -70,6 +70,7 @@ final class CreateExtensionUpdateAcquisitionAction
                 ),
                 releaseChecksum: $listing->releaseChecksum,
                 releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
+                releaseContentSha256: $listing->releaseContentSha256,
             );
         }
 
@@ -105,6 +106,7 @@ final class CreateExtensionUpdateAcquisitionAction
             authorizationEligibilityPolicy: $listing->installEligibilityPolicy,
             releaseChecksum: $listing->releaseChecksum,
             releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
+            releaseContentSha256: $listing->releaseContentSha256,
         );
     }
 

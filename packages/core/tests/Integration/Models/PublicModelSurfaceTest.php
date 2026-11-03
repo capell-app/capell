@@ -92,7 +92,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
         ->and(Page::getFirstPageByTypeForSite('article', $site, $english, fn ($query) => $query->whereKey($child->getKey()))?->is($child))->toBeTrue()
         ->and(Page::getDefaultType('default'))->toBeInstanceOf(Blueprint::class)
         ->and(Page::query()->publishedLatest()->pluck('id')->all())->toContain($child->getKey(), $parent->getKey())
-        ->and(Page::query()->publishedDate()->pluck('id')->all())->not->toContain($pending->getKey(), $expired->getKey())
+        ->and(Page::query()->publishedDate()->pluck('id')->all())->not->toContain($pending->getKey())->not->toContain($expired->getKey())
         ->and(Page::query()->pending()->pluck('id')->all())->toContain($pending->getKey())
         ->and(Page::query()->expired()->pluck('id')->all())->toContain($expired->getKey())
         ->and($child->getParentUrl($english))->toBe('/parent')

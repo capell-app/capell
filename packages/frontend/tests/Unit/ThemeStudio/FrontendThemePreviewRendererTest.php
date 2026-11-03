@@ -174,5 +174,5 @@ it('prepares a draft blade preview using the supplied theme domain and hydrated 
         ->and($state->renderPayload()->renderAudience)->toBe(FrontendRenderAudience::Preview)
         ->and($state->getFrontendData('stale'))->toBeNull()
         ->and(resolve(FrontendState::class))->toEqual($before)
-        ->and($response->getContent())->not->toContain('data-capell-edit', 'signed-editor', 'authoring');
+        ->and($response->getContent())->not->toContain('data-capell-edit')->not->toContain('signed-editor')->not->toContain('authoring');
 });

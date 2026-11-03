@@ -18,7 +18,7 @@ CAPELL_LOCKDOWN_EMAILS=owner@example.com,ops@example.com
 ```
 
 These values feed the `capell.lockdown.break_glass_user_ids` and
-`capell.lockdown.break_glass_emails` config keys (in `config/capell.php`).
+`capell.lockdown.break_glass_emails` config keys (in `config/capell.php`). Bare configured IDs belong to the admin guard's user provider; an ID can also be qualified as `provider:id`. Lockdown stores IDs with their provider and checks the provider's configured model class. Existing bare IDs in a lockdown file are interpreted as admin-provider IDs when read, without rewriting the file. Break-glass email addresses apply to that admin provider only. A provider without a model class (for example the `database` driver) is matched by provider name alone; a guard with no user provider cannot activate lockdown and is refused before the static cache changes.
 
 ## Using Lockdown
 
