@@ -27,14 +27,15 @@ use WeakMap;
 /** Tracks application wiring per panel, independently of transient plugin instances. */
 final class InstalledPanelRuntime
 {
-    /** Filament panel routes that serve visitors who have not signed in yet. */
+    /**
+     * Filament panel routes that serve visitors who cannot have signed in yet. Email verification
+     * serves signed-in users, so it keeps the panel's authentication and package security.
+     */
     private const array PUBLIC_PANEL_ROUTES = [
         'auth.login',
         'auth.password-reset.request',
         'auth.password-reset.reset',
         'auth.register',
-        'auth.email-verification.prompt',
-        'auth.email-verification.verify',
     ];
 
     /** @var WeakMap<Panel, array<int, bool>> */
@@ -662,7 +663,7 @@ final class InstalledPanelRuntime
         return strlen($path);
     }
 
-    /** Filament's own sign-in, password-reset, registration and email-verification routes, and declared public routes. */
+    /** Filament's own sign-in, password-reset and registration routes, and declared public routes. */
     private function isPublicPanelRoute(Route $route, string $id): bool
     {
         $name = (string) $route->getName();
