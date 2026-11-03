@@ -7,6 +7,7 @@ namespace Capell\Core\Support\PublicRead;
 use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -23,6 +24,8 @@ use Throwable;
  */
 final class PublicReadEligibilityState
 {
+    public const string EXPIRY_SCHEDULED_PREFIX = 'capell:public-read-eligibility:expiry-scheduled:';
+
     /** @var array<int, true> */
     private array $scheduled = [];
 
@@ -93,9 +96,14 @@ final class PublicReadEligibilityState
     }
 
     /**
-     * Whatever is stored under this stamp is withdrawn exactly at its
-     * valid_until by a delayed job, once per transition, without waiting for
-     * the scheduler.
+     * Cleanup only, never the safety mechanism: copies served through
+     * Laravel check the stamp on every request, and nothing whose stamp has a
+     * valid_until may be served without Laravel. This job withdraws edge
+     * copies and triggers regeneration at the transition, without waiting for
+     * the scheduler. A synchronous queue would run it at once, before the
+     * transition, so it is left to the scheduler there. When the dispatch
+     * fails, its once-per-transition marker is removed so a later request
+     * schedules it again.
      */
     private function scheduleExpiry(CarbonImmutable $validUntil): void
     {
@@ -107,14 +115,40 @@ final class PublicReadEligibilityState
 
         $this->scheduled[$at] = true;
 
+        if ($this->queueRunsJobsImmediately()) {
+            return;
+        }
+
+        $marker = self::EXPIRY_SCHEDULED_PREFIX . $at;
+
         try {
-            if (! Cache::add('capell:public-read-eligibility:expiry-scheduled:' . $at, true, $validUntil->addMinutes(5))) {
+            if (! Cache::add($marker, true, $validUntil->addMinutes(5))) {
                 return;
             }
-
-            dispatch(new ExpirePublicReadProjectionsJob($at))->delay($validUntil);
         } catch (Throwable $throwable) {
             report($throwable);
+
+            return;
         }
+
+        try {
+            resolve(Dispatcher::class)->dispatch(new ExpirePublicReadProjectionsJob($at)->delay($validUntil));
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            try {
+                Cache::forget($marker);
+            } catch (Throwable $forgetFailure) {
+                report($forgetFailure);
+            }
+        }
+    }
+
+    private function queueRunsJobsImmediately(): bool
+    {
+        $connection = config('queue.default');
+        $driver = is_string($connection) ? config('queue.connections.' . $connection . '.driver') : null;
+
+        return $driver === 'sync' || $driver === 'null';
     }
 }

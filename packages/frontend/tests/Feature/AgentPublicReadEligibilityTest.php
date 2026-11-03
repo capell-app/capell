@@ -34,6 +34,7 @@ use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -670,6 +671,49 @@ it('retries a failed revision write at most once per interval across requests', 
     $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
 
     expect((new PublicReadEligibilityRevision)->current())->toBeString();
+});
+
+it('schedules transition cleanup only on a real queue and never leaves its marker after a failed dispatch', function (): void {
+    $transition = CarbonImmutable::now()->addMinutes(10);
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($transition) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private CarbonImmutable $transition) {}
+
+        public function key(): string
+        {
+            return 'test-scheduled-cleanup';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+        {
+            return $now->lessThan($this->transition) ? $this->transition : null;
+        }
+    });
+    $marker = PublicReadEligibilityState::EXPIRY_SCHEDULED_PREFIX . $transition->getTimestamp();
+    Event::fake([PublicReadEligibilityChanged::class]);
+
+    // A synchronous queue would run the cleanup at once, before the transition.
+    config()->set('queue.default', 'sync');
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityState::class)->stamp()?->validUntilTimestamp())->toBe($transition->getTimestamp())
+        ->and(Cache::has($marker))->toBeFalse();
+    Event::assertNotDispatched(PublicReadEligibilityChanged::class);
+
+    // A dispatch that fails leaves no marker, so a later request schedules it again.
+    config()->set('queue.default', 'database');
+    Bus::shouldReceive('dispatch')->andThrow(new RuntimeException('The queue is unavailable.'));
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityState::class)->stamp())->not->toBeNull()
+        ->and(Cache::has($marker))->toBeFalse();
 });
 
 it('withdraws stored output at a scheduled transition without the scheduler', function (): void {
