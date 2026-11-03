@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Enums\PackageTypeEnum;
@@ -426,4 +427,13 @@ it('reports uninstall progress against its own stage sequence', function (): voi
 
     expect($attempt->progress_total)->toBe(5)
         ->and($attempt->progress_current)->toBe(5);
+});
+
+it('does not verify a package during uninstall', function (): void {
+    VerifyInstalledExtensionAction::shouldRun()->never();
+    $attempt = uninstallAttempt();
+    registerRemovablePackage();
+    idleComposerRunner();
+    runUninstallJob($attempt);
+    expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
 });

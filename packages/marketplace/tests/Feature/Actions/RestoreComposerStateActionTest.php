@@ -72,7 +72,7 @@ it('restores the manifests and rebuilds vendor when the operation did change the
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts', '--no-plugins'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);

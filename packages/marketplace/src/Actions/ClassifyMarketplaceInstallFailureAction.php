@@ -32,7 +32,9 @@ final class ClassifyMarketplaceInstallFailureAction
         ])));
 
         $resolvedStage = $stage ?? $this->stageFromText($haystack);
-        $type = $this->typeFromText($haystack, $composerResult, $deploymentStatus);
+        $type = $resolvedStage === MarketplaceInstallFailureStage::Verification
+            ? MarketplaceInstallFailureType::Unknown
+            : $this->typeFromText($haystack, $composerResult, $deploymentStatus);
 
         return [
             'failure_type' => $type,
@@ -42,6 +44,10 @@ final class ClassifyMarketplaceInstallFailureAction
 
     private function stageFromText(string $haystack): MarketplaceInstallFailureStage
     {
+        if (str_contains($haystack, 'verification failed')) {
+            return MarketplaceInstallFailureStage::Verification;
+        }
+
         if (str_contains($haystack, 'deployment')) {
             return MarketplaceInstallFailureStage::DeploymentHandoff;
         }

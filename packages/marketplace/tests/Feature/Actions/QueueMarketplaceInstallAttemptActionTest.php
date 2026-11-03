@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\CreateExtensionAcquisitionAction;
 use Capell\Marketplace\Actions\QueueMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
@@ -280,3 +281,23 @@ function queueMarketplaceAttemptArguments(string $slug): array
         'source' => MarketplaceInstallSource::Programmatic,
     ];
 }
+
+it('carries a catalogue checksum through acquisition into the queued attempt', function (): void {
+    Queue::fake();
+    config()->set('queue.connections.database.retry_after', 900);
+    $checksum = str_repeat('a', 64);
+    $listing = ExtensionListingData::fromApiResponse([
+        'slug' => 'checksum-test', 'name' => 'Checksum Test', 'composer_name' => 'capell-app/checksum-test',
+        'kind' => 'tool', 'latest_version' => '1.0.0', 'release_checksum' => $checksum,
+    ]);
+    $acquisition = CreateExtensionAcquisitionAction::run($listing);
+    $arguments = queueMarketplaceAttemptArguments('checksum-test');
+    $arguments['listing'] = $listing;
+    $arguments['acquisition'] = $acquisition;
+    $arguments['afterResponse'] = false;
+    $attempt = QueueMarketplaceInstallAttemptAction::run(...$arguments);
+    expect($listing->releaseChecksum)->toBe($checksum)
+        ->and($acquisition->releaseChecksum)->toBe($checksum)
+        ->and($attempt->context['release_checksum'])->toBe($checksum)
+        ->and(ExtensionListingData::fromApiResponse(['slug' => 'old'])->releaseChecksum)->toBeNull();
+});

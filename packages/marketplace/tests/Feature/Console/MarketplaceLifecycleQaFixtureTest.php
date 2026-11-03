@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\Upgrade\PublishPendingMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunSettingsMigrationsAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Data\MigrationPublishResult;
 use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Facades\CapellCore;
@@ -30,9 +32,17 @@ use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Tests\Support\MarketplaceLifecycleQaFixture;
 use Capell\Marketplace\Tests\Support\MarketplaceLifecycleQaFixtureServiceProvider;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+
+beforeEach(function (): void {
+    // The QA fixture is registered in-process, never by Composer, so its verification is faked here.
+    VerifyInstalledExtensionAction::shouldRun()->andReturnUsing(
+        static fn (string $composerName): ExtensionVerificationReportData => new ExtensionVerificationReportData($composerName, null, null, null, true, [], [], CarbonImmutable::now()),
+    );
+});
 
 it('runs a fixture package through the queued install update and uninstall lifecycle', function (): void {
     LifecycleRecorderAction::reset();

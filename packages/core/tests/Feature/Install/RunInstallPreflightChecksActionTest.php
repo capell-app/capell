@@ -208,7 +208,7 @@ it('freshly resolves the combined selected packages before installation', functi
 
     expect($factory->commands())->toHaveCount(2);
     foreach ($factory->commands() as $command) {
-        expect($command)->toContain('require', '--dry-run', '--no-scripts', 'capell-app/admin:*', 'capell-app/frontend:*');
+        expect($command)->toContain('require', '--dry-run', '--no-scripts', '--no-plugins', 'capell-app/admin:*', 'capell-app/frontend:*');
     }
 
     $reporter = new RecordingInstallProgressReporter;

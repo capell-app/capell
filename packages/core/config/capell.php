@@ -7,6 +7,14 @@ use Capell\Core\Models\Media;
 return [
     'version' => env('CAPELL_VERSION'),
 
+    'extensions' => [
+        'verification' => [
+            // Leniency applies to local install and enable paths only; Marketplace is always strict.
+            'strict' => (bool) env('CAPELL_EXTENSION_VERIFICATION_STRICT', true),
+            'allow_composer_plugins' => (bool) env('CAPELL_EXTENSION_ALLOW_COMPOSER_PLUGINS', false),
+        ],
+    ],
+
     'database' => [
         // Prefix Capell-owned tables unless an explicit table alias is set.
         'table_prefix' => '',

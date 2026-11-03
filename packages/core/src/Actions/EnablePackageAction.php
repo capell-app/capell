@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Extensions\EnforceExtensionVerificationAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Data\PackageData;
@@ -23,6 +24,14 @@ class EnablePackageAction
     public function handle(PackageData $package, ?string $actor = null): void
     {
         resolve(InstalledRuntimeLifecycle::class)->assertCanActivate($package->name);
+
+        if ($package->getKind() === 'bundle') {
+            foreach ($package->getRequirements() as $memberName) {
+                EnforceExtensionVerificationAction::run($memberName);
+            }
+        }
+
+        EnforceExtensionVerificationAction::run($package->name);
 
         if ($package->getKind() === 'bundle') {
             foreach ($package->getRequirements() as $memberName) {

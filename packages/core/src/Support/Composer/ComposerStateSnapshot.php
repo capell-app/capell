@@ -146,7 +146,7 @@ final class ComposerStateSnapshot
         ?array $environment = null,
     ): void {
         $process = $processFactory->make(
-            [...new RuntimeBinaryResolver()->composer(), 'install', '--no-interaction', '--no-scripts'],
+            [...new RuntimeBinaryResolver()->composer(), 'install', '--no-interaction', '--no-scripts', '--no-plugins'],
             $this->applicationPath,
         );
         $process->setEnv($environment ?? ComposerProcessEnvironment::forInstall($_SERVER));

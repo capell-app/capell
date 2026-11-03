@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 return [
+    'extension_verification' => [
+        'label' => 'Extension verification',
+        'passed' => 'Installed extensions passed verification.',
+        'failed' => 'Some installed extensions need attention: :issues',
+    ],
     'cache' => [
         'enabled' => [
             'label' => 'Core cache enabled',

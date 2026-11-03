@@ -363,7 +363,7 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
 {
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
 
-    $removal = [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
+    $removal = [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress'];
 
     FakeProcessFactory::bind()
         ->expect(static fn (array $argv, ?string $cwd): bool => $argv === $removal && is_string($cwd))

@@ -17,9 +17,35 @@ final class AssertMarketplaceUpdateConstraintAction
 
     public function __construct(private readonly MarketplaceInstalledPackageVersionResolver $installedVersions) {}
 
+    public static function assertStrictConstraint(string $constraint): void
+    {
+        if (! config('capell.extensions.verification.strict', true)) {
+            return;
+        }
+
+        $unsafe = trim($constraint) === ''
+            || preg_match('/\*|@dev|\bdev-|\-dev\b|\b(?:x|X)\b|\s+as\s+/i', $constraint) === 1;
+
+        foreach (preg_split('/\s*\|\|?\s*/', $constraint) ?: [] as $alternative) {
+            // Require a bounded numeric constraint in every alternative. This
+            // deliberately rejects unfamiliar branch syntax rather than guessing.
+            if (preg_match('/(?:\^|~|<=?|(?<![\w.])=?)(?:v?\d)/i', $alternative) !== 1
+                || (preg_match('/(?:\^|~|<=?)\s*v?\d|^\s*v?\d+(?:\.\d+)*(?:-[0-9A-Za-z.]+)?\s*$|\s+-\s+v?\d/i', $alternative) !== 1)) {
+                $unsafe = true;
+            }
+        }
+
+        if ($unsafe) {
+            throw ValidationException::withMessages([
+                'version_constraint' => __('capell-marketplace::marketplace.errors.strict_update_constraint'),
+            ]);
+        }
+    }
+
     /** Call while holding the release's Composer operation lock. */
     public function handle(string $composerName, string $versionConstraint): void
     {
+        self::assertStrictConstraint($versionConstraint);
         $currentVersion = $this->installedVersions->prettyVersion($composerName);
 
         if ($currentVersion === null || $currentVersion === '') {

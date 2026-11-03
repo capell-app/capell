@@ -539,7 +539,7 @@ it('records successful composer drift repair metadata and clears extension cache
     $extension = CapellExtension::query()->where('composer_name', 'vendor/repairable-extension')->firstOrFail();
 
     expect($requiredPackages)->toBe([
-        [...capellComposerArgv(), 'require', 'vendor/repairable-extension'],
+        [...capellComposerArgv(), 'require', 'vendor/repairable-extension', '--no-plugins'],
     ])
         ->and($results[0]['status'] ?? null)->toBe('success')
         ->and($extension->metadata[ComposerDriftMetadata::LAST_DETECTED_REASON] ?? null)->toBe('composer_unavailable')
@@ -733,7 +733,7 @@ it('repairs an explicit composer drift package from the command when the config 
         ->assertSuccessful();
 
     expect($requiredPackages)->toBe([
-        [...capellComposerArgv(), 'require', 'vendor/explicit-repair-extension'],
+        [...capellComposerArgv(), 'require', 'vendor/explicit-repair-extension', '--no-plugins'],
     ]);
 });
 
