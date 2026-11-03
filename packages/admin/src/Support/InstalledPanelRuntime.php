@@ -259,6 +259,13 @@ final class InstalledPanelRuntime
             }
         }
 
-        $this->routeMiddleware[$panel] = $current;
+        // Before the application boots, the host panel provider is still configuring this panel
+        // (Filament authentication is commonly declared after the plugin registers) and the
+        // panel's routes are built later from the finished panel. A baseline recorded now would
+        // misread the provider's own middleware as late additions at the boot synchronisation,
+        // so only a booted application records what its routes already carry.
+        if (app()->isBooted()) {
+            $this->routeMiddleware[$panel] = $current;
+        }
     }
 }
