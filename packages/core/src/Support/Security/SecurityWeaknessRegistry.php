@@ -27,6 +27,12 @@ final class SecurityWeaknessRegistry
     /** @var array<string, SecurityWeaknessRemediation> keyed by weakness id */
     private array $remediations = [];
 
+    /** @var array<string, string> */
+    private array $checkOwners = [];
+
+    /** @var array<string, string> */
+    private array $remediationOwners = [];
+
     private bool $frozen = false;
 
     private int $installationDepth = 0;
@@ -36,29 +42,33 @@ final class SecurityWeaknessRegistry
         return strlen($weaknessId) <= 120 && preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $weaknessId) === 1;
     }
 
-    public function registerCheck(SecurityWeaknessCheck $check): self
+    public function registerCheck(SecurityWeaknessCheck $check, ?string $owner = null): self
     {
         $this->assertOpen();
         $id = $this->assertWeaknessId($check->weaknessId());
 
-        if (isset($this->checks[$id])) {
-            throw new InvalidArgumentException(sprintf('Security weakness check "%s" is already registered.', $id));
+        $owner ??= $check::class;
+        if (isset($this->checkOwners[$id]) && $this->checkOwners[$id] !== $owner) {
+            throw new InvalidArgumentException(__('capell-core::security.registry.owner_conflict', ['id' => $id, 'owner' => $this->checkOwners[$id], 'replacement' => $owner]));
         }
 
+        $this->checkOwners[$id] = $owner;
         $this->checks[$id] = $check;
 
         return $this;
     }
 
-    public function registerRemediation(SecurityWeaknessRemediation $remediation): self
+    public function registerRemediation(SecurityWeaknessRemediation $remediation, ?string $owner = null): self
     {
         $this->assertOpen();
         $id = $this->assertWeaknessId($remediation->weaknessId());
 
-        if (isset($this->remediations[$id])) {
-            throw new InvalidArgumentException(sprintf('Security weakness remediation "%s" is already registered.', $id));
+        $owner ??= $remediation::class;
+        if (isset($this->remediationOwners[$id]) && $this->remediationOwners[$id] !== $owner) {
+            throw new InvalidArgumentException(__('capell-core::security.registry.owner_conflict', ['id' => $id, 'owner' => $this->remediationOwners[$id], 'replacement' => $owner]));
         }
 
+        $this->remediationOwners[$id] = $owner;
         $this->remediations[$id] = $remediation;
 
         return $this;

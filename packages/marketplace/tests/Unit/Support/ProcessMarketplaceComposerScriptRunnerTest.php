@@ -185,7 +185,7 @@ SH);
                 expect($result?->exitCode)->toBe(3)
                     ->and($result?->output)->not->toContain('ghp_hook_secret')
                     ->and($result?->output)->toContain('[redacted]')
-                    ->and($result?->errorOutput)->not->toContain('hunter2', 'uri_secret', 'query_secret')
+                    ->and($result?->errorOutput)->not->toContain('hunter2')->not->toContain('uri_secret')->not->toContain('query_secret')
                     ->and($result?->errorOutput)->toContain('[redacted]');
             },
         );

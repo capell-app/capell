@@ -82,7 +82,7 @@ final class RedactMarketplaceDiagnosticContextAction
         ], $value) ?? self::REDACTED;
 
         return preg_replace_callback(
-            '/([a-z0-9_%.-]+)(\s*[=:]\s*)(?!bearer\s|basic\s|digest\s|token\s)([^\s,"\'&]+)/i',
+            '/([a-z0-9_%.-]+)(\s*[=:]\s*)(?!\/\/)(?!bearer\s|basic\s|digest\s|token\s)([^\s,"\'&]+)/i',
             fn (array $matches): string => $this->shouldRedactKey(rawurldecode($matches[1]))
                 ? $matches[1] . $matches[2] . self::REDACTED
                 : $matches[0],

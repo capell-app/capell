@@ -11,6 +11,7 @@ use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Enums\Security\SecurityRemediationOutcome;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityRemediationRun;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\SecurityNodeRegistry;
 use Illuminate\Support\Facades\Schema;
@@ -25,11 +26,20 @@ final class SecurityPostureCheck implements DoctorCheck
         $table = (new SecurityWeaknessFinding)->getTable();
         $counts = Schema::hasTable($table) ? SecurityWeaknessFinding::query()->where('status', SecurityFindingStatus::Open->value)
             ->selectRaw('severity, count(*) as aggregate')->groupBy('severity')->pluck('aggregate', 'severity')->all() : [];
+        $scanTable = (new SecurityScanRun)->getTable();
+        $hasScan = Schema::hasTable($scanTable) && SecurityScanRun::query()->whereNotNull('finished_at')->whereNotNull('findings_count')->exists();
+        $latest = Schema::hasTable($scanTable) ? SecurityScanRun::query()->whereNotNull('finished_at')->latest('started_at')->orderByDesc('id')->first() : null;
+        $warning = $hasScan ? null : (string) __('capell-core::security.doctor.never_scanned');
+        if ($latest !== null && $latest->findings_count === null) {
+            $failedScan = (string) __('capell-core::security.doctor.failed_scan', ['time' => (string) $latest->finished_at]);
+            $warning = trim(($warning ?? '') . ' ' . $failedScan);
+        }
+
         $critical = (int) ($counts[SecurityWeaknessSeverity::Critical->value] ?? 0);
         $high = (int) ($counts[SecurityWeaknessSeverity::High->value] ?? 0);
 
-        $message = __('capell-core::security.doctor.message', ['critical' => $critical, 'high' => $high]);
-        $evidence = ['critical' => $critical, 'high' => $high];
+        $message = (string) __('capell-core::security.doctor.message', ['critical' => $critical, 'high' => $high]);
+        $evidence = array_filter(['critical' => $critical, 'high' => $high, 'never_scanned' => $hasScan ? null : true, 'warning_count' => $warning !== null ? 1 : null], static fn (int|true|null $value): bool => $value !== null);
         $collisions = [];
         $registryUnknown = false;
         if (resolve(SecurityNodeRegistry::class)->enabled()) {
@@ -42,27 +52,32 @@ final class SecurityPostureCheck implements DoctorCheck
         }
 
         foreach ($collisions as $node) {
-            $message .= ' ' . __('capell-core::security.doctor.node_collision', ['node' => $node]);
+            $collision = (string) __('capell-core::security.doctor.node_collision', ['node' => $node]);
+            $message .= ' ' . $collision;
         }
 
         $pendingNodes = $this->pendingNodes($registryUnknown);
         foreach ($pendingNodes['unknown'] ?? [] as $runId) {
-            $message .= ' ' . __('capell-core::security.doctor.unknown_fleet', ['run' => $runId]);
+            $unknownFleet = (string) __('capell-core::security.doctor.unknown_fleet', ['run' => $runId]);
+            $message .= ' ' . $unknownFleet;
         }
 
         if ($pendingNodes !== null) {
-            $message .= ' ' . __('capell-core::security.doctor.pending_nodes', ['count' => $pendingNodes['runs'], 'nodes' => implode(', ', $pendingNodes['nodes'])]);
+            $pending = (string) __('capell-core::security.doctor.pending_nodes', ['count' => $pendingNodes['runs'], 'nodes' => implode(', ', $pendingNodes['nodes'])]);
+            $message .= ' ' . $pending;
             $evidence['pending_remediations'] = $pendingNodes['runs'];
             $evidence['pending_nodes'] = $pendingNodes['nodes'];
         }
 
+        $fleetIssue = $pendingNodes !== null || $collisions !== [];
+
         return new DoctorCheckResultData(
             label: __('capell-core::security.doctor.label'),
-            passed: $critical === 0 && $high === 0 && $pendingNodes === null && $collisions === [],
-            message: $message,
+            passed: $critical === 0 && $high === 0 && ! $fleetIssue,
+            message: trim($message . ' ' . ($warning ?? '')),
             remediation: __('capell-core::security.doctor.action'),
             id: 'core.security.posture',
-            severity: $critical > 0 ? DoctorCheckSeverity::Critical : ($high > 0 || $pendingNodes !== null || $collisions !== [] ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info),
+            severity: $critical > 0 ? DoctorCheckSeverity::Critical : ($high > 0 || $warning !== null || $fleetIssue ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info),
             evidence: $evidence,
         );
     }

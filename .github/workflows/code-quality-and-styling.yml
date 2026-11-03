@@ -149,6 +149,9 @@ jobs:
       - name: Check queue contract
         run: composer run check:queue-contract
 
+      - name: Check test assertions
+        run: composer run check:test-weak-assertions
+
       - name: Check language key drift
         run: composer run check:lang-keys
 

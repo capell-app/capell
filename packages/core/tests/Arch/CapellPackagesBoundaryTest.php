@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use PHPUnit\Framework\Assert;
 
 /**
  * @return list<string>
@@ -145,7 +146,8 @@ it('does not reference the sibling package monorepo outside documentation', func
         $repositoryRoot . '/packages/marketplace/database',
         $repositoryRoot . '/packages/marketplace/resources',
         $repositoryRoot . '/packages/marketplace/src',
-        $repositoryRoot . '/scripts',
+        // scripts/ is deliberately absent: release, golden-path and screenshot
+        // tooling locates the companion monorepo on purpose.
         $repositoryRoot . '/composer.json',
         $repositoryRoot . '/docker-compose.yml',
     ];
@@ -157,12 +159,22 @@ it('does not reference the sibling package monorepo outside documentation', func
         'CAPELL_PACKAGES_REPO',
     ];
 
+    // The public golden-path workflow provisions the companion monorepo on
+    // purpose so the editor can be exercised against real companion packages;
+    // every other non-documentation file must stay free of these references.
+    $crossRepositoryWorkflows = [
+        $repositoryRoot . '/.github/workflows/editor-public-golden-path.yml',
+    ];
+
     foreach (nonDocumentationTextFiles($pathsToInspect) as $filePath) {
+        if (in_array($filePath, $crossRepositoryWorkflows, true)) {
+            continue;
+        }
+
         $contents = (string) file_get_contents($filePath);
 
         foreach ($forbiddenFragments as $forbiddenFragment) {
-            expect($contents)
-                ->not->toContain($forbiddenFragment, sprintf('%s references %s', $filePath, $forbiddenFragment));
+            Assert::assertStringNotContainsString($forbiddenFragment, $contents, sprintf('%s references %s', $filePath, $forbiddenFragment));
         }
     }
 });

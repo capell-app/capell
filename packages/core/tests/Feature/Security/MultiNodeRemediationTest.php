@@ -14,6 +14,7 @@ use Capell\Core\Enums\Security\SecurityRemediationOutcome;
 use Capell\Core\Events\SecurityRemediationApplied;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Diagnostics\Checks\SecurityPostureCheck;
 use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
@@ -39,6 +40,15 @@ use Symfony\Component\Console\Output\BufferedOutput;
  * Every "node" in these tests reads the same in-memory store, standing in for
  * Redis; the production guard still refuses the array driver itself.
  */
+function multiNodeScanId(): string
+{
+    $id = SecurityWeaknessFinding::query()->firstOrFail()->last_detected_scan_id;
+    SecurityWeaknessFinding::query()->update(['last_detected_scan_id' => $id]);
+    SecurityScanRun::query()->firstOrCreate(['id' => $id], ['started_at' => now(), 'finished_at' => now(), 'findings_count' => 1, 'source' => 'system:console']);
+
+    return (string) $id;
+}
+
 function useSharedNodeCache(): void
 {
     $shared = new ArrayStore;
@@ -98,7 +108,7 @@ it('keeps single-node remediation unchanged and writes nothing to the node regis
     SecurityRemediationApproval::factory()->create();
     $cache = Cache::spy();
 
-    $batch = new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    $batch = new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
 
     $run = SecurityRemediationRun::query()->sole();
     expect($batch->applied)->toBe(1)
@@ -117,7 +127,7 @@ it('refuses a node-local cache store before changing any setting', function (str
     SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
 
-    expect(fn (): mixed => new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester'))
+    expect(fn (): mixed => new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId()))
         ->toThrow(RuntimeException::class, 'Multi-node remediation requires a shared cache store.')
         ->and(file_get_contents(app()->environmentFilePath()))->toBe("APP_DEBUG=true\n")
         ->and(SecurityRemediationRun::query()->count())->toBe(0);
@@ -136,7 +146,7 @@ it('keeps the outcome pending until another node applies its own environment fil
     SecurityRemediationApproval::factory()->create();
     $registry = debugRemediationRegistry();
 
-    $batch = new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester');
+    $batch = new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester', multiNodeScanId());
 
     $run = SecurityRemediationRun::query()->sole();
     expect($batch->applied)->toBe(0)
@@ -150,7 +160,7 @@ it('keeps the outcome pending until another node applies its own environment fil
     Event::assertNotDispatched(SecurityRemediationApplied::class);
 
     // A second approved run must not repeat the change while it is pending elsewhere.
-    $second = new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester');
+    $second = new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester', multiNodeScanId());
     expect($second->skipped)->toBe([$finding->fingerprint => __('capell-core::security.remediation.pending_nodes_skip')])
         ->and(SecurityRemediationRun::query()->count())->toBe(1);
 
@@ -192,7 +202,7 @@ it('does not acknowledge while the configuration cache cannot be cleared', funct
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
 
     asNode('node-b');
     FakeConfigClearCommand::$exitCodes = [1];
@@ -218,7 +228,7 @@ it('re-opens the finding naming the nodes that did not refresh once the grace pe
     $finding = SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
     $registry = debugRemediationRegistry();
-    new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester', multiNodeScanId());
     $run = SecurityRemediationRun::query()->sole();
 
     // Node A's own scan no longer sees the weakness, but must not resolve it yet.
@@ -256,7 +266,7 @@ it('re-opens the finding naming the nodes that did not refresh once the grace pe
     // Node A's later scans keep it open; the next approved run pushes the change to the fleet again.
     expect($scan->handle(false)->resolvedFindings)->toBe(0)
         ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open);
-    new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction($registry)->handle('tester', multiNodeScanId());
     $retry = SecurityRemediationRun::query()->latest('id')->firstOrFail();
     expect($retry->id)->not->toBe($run->id)
         ->and($retry->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
@@ -283,7 +293,7 @@ it('applies immediately when this node is the only live node', function (): void
     $finding = SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
 
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
 
     expect(SecurityRemediationRun::query()->sole()->outcome)->toBe(SecurityRemediationOutcome::Applied)
         ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Remediated)
@@ -307,7 +317,7 @@ it('does not acknowledge an ambiguous environment and reports the reason', funct
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     $finding = SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
 
     asNode('node-b');
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\nAPP_DEBUG=true\n");
@@ -332,7 +342,7 @@ it('refuses a node refresh after the approval is revoked', function (): void {
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     $finding = SecurityWeaknessFinding::factory()->create();
     $approval = SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
     $approval->update(['revoked_at' => CarbonImmutable::now()]);
 
     asNode('node-b');
@@ -378,7 +388,7 @@ it('adds a newly registered node to a pending run', function (): void {
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
     asNode('node-c');
     $nodes->register();
 
@@ -396,7 +406,7 @@ it('keeps pending runs open when registry membership is missing or malformed', f
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     $finding = SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
     $run = SecurityRemediationRun::query()->sole();
     $store = Cache::store();
     match ($damage) {
@@ -424,7 +434,7 @@ it('warns about a live node identity collision and cannot settle the run', funct
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     $finding = SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
     $entry = Cache::store()->get('capell:security:nodes:node-b');
     $entry['hostname'] = 'another-host';
     Cache::store()->forever('capell:security:nodes:node-b', $entry);
@@ -448,7 +458,7 @@ it('records a lock timeout without acknowledging the node', function (): void {
     $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
     $finding = SecurityWeaknessFinding::factory()->create();
     SecurityRemediationApproval::factory()->create();
-    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester', multiNodeScanId());
     asNode('node-b');
     $lock = Mockery::mock(Lock::class);
     $lock->shouldReceive('block')->once()->andThrow(new LockTimeoutException);

@@ -28,6 +28,16 @@ if (! is_string($realRoot)) {
     exit(2);
 }
 
+// Pest supplies its executing checkout explicitly; standalone fixture checks do not.
+if (isset($argv[1]) && $argv[1] === '--checkout') {
+    $checkout = $argv[2] ?? '';
+    $realCheckout = realpath($checkout);
+    if (! is_string($realCheckout) || normalisePath($realRoot) !== normalisePath($realCheckout)) {
+        fwrite(STDERR, sprintf("Vendor integrity root [%s] does not match executing checkout [%s].\n", $realRoot, is_string($realCheckout) ? $realCheckout : $checkout));
+        exit(2);
+    }
+}
+
 if (! is_dir($realRoot . '/vendor')) {
     fwrite(STDERR, "vendor/ is missing. Run 'composer install' before this command.\n");
 
@@ -43,6 +53,8 @@ $mutatedPaths = [
     'vendor',
     'vendor/composer',
     'vendor/orchestra/testbench-core',
+    'vendor/composer/autoload_real.php',
+    'vendor/orchestra/testbench-core/laravel/vendor',
 ];
 
 $failures = [];
@@ -50,7 +62,27 @@ $failures = [];
 foreach ($mutatedPaths as $relativePath) {
     $absolutePath = $realRoot . '/' . $relativePath;
 
+    $parent = $realRoot;
+    $parts = explode('/', $relativePath);
+    array_pop($parts);
+    foreach ($parts as $part) {
+        $parent .= '/' . $part;
+        if (! file_exists($parent) && ! is_link($parent)) {
+            break;
+        }
+
+        if (is_dir($parent) && (! is_readable($parent) || ! is_executable($parent))) {
+            $failures[] = sprintf('%s is inaccessible: parent %s requires read and traverse permissions.', $relativePath, $parent);
+
+            continue 2;
+        }
+    }
+
     if (! file_exists($absolutePath) && ! is_link($absolutePath)) {
+        if ($relativePath === 'vendor/composer/autoload_real.php') {
+            $failures[] = sprintf('%s is missing.', $relativePath);
+        }
+
         continue;
     }
 
@@ -62,7 +94,7 @@ foreach ($mutatedPaths as $relativePath) {
         continue;
     }
 
-    if (normalisePath($resolvedPath) === normalisePath($absolutePath)) {
+    if (str_starts_with(normalisePath($resolvedPath) . DIRECTORY_SEPARATOR, normalisePath($realRoot) . DIRECTORY_SEPARATOR)) {
         continue;
     }
 
@@ -76,20 +108,12 @@ if ($failures !== []) {
         fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));
     }
 
-    fwrite(STDERR, <<<'MESSAGE'
-
-        This checkout has a hybrid vendor/ from scripts/init-worktree.sh. Commands
-        that purge or regenerate the testbench skeleton would write through those
-        symlinks into the primary checkout and can destroy work in progress there.
-
-        In a worktree, run targeted suites instead:
-
-            php -d memory_limit=2G vendor/bin/pest <paths>
-
-        For a full 'composer test' run, do a real 'composer install' in this
-        worktree first, or run it from the primary checkout.
-
-        MESSAGE);
+    fwrite(STDERR, sprintf(
+        "\nRepair a host-only hybrid worktree: bash scripts/init-worktree.sh --force --host-only\n" .
+        "For an owned primary checkout with a foreign skeleton vendor link, run from the checkout root:\n" .
+        "ln -sfn %s/vendor vendor/orchestra/testbench-core/laravel/vendor\n",
+        escapeshellarg($realRoot),
+    ));
 
     exit(2);
 }
