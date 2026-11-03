@@ -61,7 +61,7 @@ it('creates a project-local theme package scaffold', function (): void {
         'heading' => 'Launch heading', 'eyebrow' => 'Public eyebrow', 'body' => '<script>private-content</script>',
     ]);
     expect($hero)->toContain('Launch heading', 'Public eyebrow', '&lt;script&gt;private-content&lt;/script&gt;')
-        ->not->toContain('<script>', 'data-capell-edit', 'wire:', 'signed');
+        ->not->toContain('<script>')->not->toContain('data-capell-edit')->not->toContain('wire:')->not->toContain('signed');
     $page = Blade::render((string) file_get_contents($themeDirectory . '/resources/views/page.blade.php'), [
         'content' => 'Hydrated page content',
     ]);
