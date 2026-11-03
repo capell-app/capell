@@ -66,7 +66,7 @@ it('drops a contributor that reuses a Core prefix, supplies non-scalar flags or 
         public function flags(): array
         {
             // Deliberately violates the contract so the merge rejects it.
-            return ['targets' => ['https://example.test']]; // @phpstan-ignore return.type
+            return ['targets' => ['https://example.test']]; // @phpstan-ignore return.type (this contributor deliberately breaks the scalar-only contract to prove the merge rejects it)
         }
     };
     $throwing = new class implements SecurityInventoryContributor
