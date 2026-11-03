@@ -20,6 +20,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 use Throwable;
 
 class ApplyApprovedSecurityRemediationsAction
@@ -164,6 +165,18 @@ class ApplyApprovedSecurityRemediationsAction
     {
         $self = $this->nodes->nodeId();
         $expected = $this->nodes->activeNodes();
+        $previous = SecurityRemediationRun::query()->where('finding_id', $run->finding_id)
+            ->where('id', '!=', $run->id)->whereNotNull('expected_nodes')->latest('id')->first();
+        if ($previous !== null) {
+            $previousExpected = SecurityNodeRegistry::parseNodeList($previous->expected_nodes);
+            $previousAcknowledged = SecurityNodeRegistry::parseNodeList($previous->acknowledged_nodes, true);
+            throw_if($previousExpected === null || $previousAcknowledged === null || array_diff($previousAcknowledged, $previousExpected) !== [], RuntimeException::class, 'The previous fleet membership is unknown.');
+
+            $expected = array_values(array_unique([...$expected, ...array_diff($previousExpected, $previousAcknowledged)]));
+            sort($expected);
+        }
+
+        $expected = array_values(array_diff($expected, $this->nodes->retiredNodes()));
         if (! in_array($self, $expected, true)) {
             $expected[] = $self;
             sort($expected);

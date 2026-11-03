@@ -14,6 +14,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 /**
  * Settles remediation runs waiting on other nodes: completes them once every
@@ -39,47 +40,49 @@ class EvaluatePendingSecurityRemediationsAction
             return 0;
         }
 
-        $active = $this->nodes->activeNodes();
+        try {
+            $active = $this->nodes->activeNodes();
+            $retired = $this->nodes->retiredNodes();
+        } catch (Throwable) {
+            return 0;
+        }
+
         $grace = max(0, (int) config('capell.security.node_refresh_grace_minutes', 60));
         $settled = 0;
         foreach ($runIds as $runId) {
-            $completed = DB::transaction(function () use ($runId, $active, $grace): ?SecurityRemediationRun {
+            $completed = DB::transaction(function () use ($runId, $active, $retired, $grace): ?SecurityRemediationRun {
                 $run = SecurityRemediationRun::query()->lockForUpdate()->whereKey($runId)->first();
                 if ($run === null || $run->outcome !== SecurityRemediationOutcome::AppliedPendingNodes) {
                     return null;
                 }
 
-                $expected = $run->expected_nodes ?? [];
-                $acknowledged = $run->acknowledged_nodes ?? [];
-                $after = $run->after ?? [];
-                $previouslyUnreachable = is_array($after['unreachable_nodes'] ?? null) ? array_values(array_filter($after['unreachable_nodes'], is_string(...))) : [];
+                $expected = SecurityNodeRegistry::parseNodeList($run->expected_nodes);
+                $acknowledged = SecurityNodeRegistry::parseNodeList($run->acknowledged_nodes, true);
+                if ($expected === null || $acknowledged === null || array_diff($acknowledged, $expected) !== []) {
+                    return null;
+                }
+
+                $expected = array_values(array_diff(array_unique([...$expected, ...$active]), $retired));
+                $acknowledged = array_values(array_diff($acknowledged, $retired));
+                $run->acknowledged_nodes = $acknowledged;
+                sort($expected);
+                $run->expected_nodes = $expected;
+                $run->save();
+
                 $waiting = array_values(array_diff($expected, $acknowledged));
-                $unreachable = array_values(array_unique([...$previouslyUnreachable, ...array_diff($waiting, $active)]));
-                $waiting = array_values(array_diff($waiting, $unreachable));
                 $expired = $run->started_at->addMinutes($grace)->lte(CarbonImmutable::now());
-
                 if ($waiting !== [] && ! $expired) {
-                    if ($unreachable !== $previouslyUnreachable) {
-                        $after['unreachable_nodes'] = $unreachable;
-                        $run->after = $after;
-                        $run->expected_nodes = array_values(array_diff($expected, $unreachable));
-                        $run->save();
-                    }
-
                     return null;
                 }
 
                 $finding = $run->finding;
-                if ($waiting === [] && $unreachable === []) {
+                if ($waiting === []) {
                     $run->outcome = SecurityRemediationOutcome::Applied;
                     $run->message = __('capell-core::security.remediation.changed');
                     $finding?->update(['status' => SecurityFindingStatus::Remediated, 'remediated_at' => CarbonImmutable::now()]);
                 } else {
-                    $missing = [...$waiting, ...$unreachable];
+                    $missing = $waiting;
                     sort($missing);
-                    $after['unreachable_nodes'] = $unreachable;
-                    $run->after = $after;
-                    $run->expected_nodes = array_values(array_diff($expected, $unreachable));
                     $run->outcome = SecurityRemediationOutcome::Failed;
                     $run->message = new SecurityOutputSanitiser()->text(__('capell-core::security.remediation.nodes_not_refreshed', ['nodes' => implode(', ', $missing)]), 1000);
                     $finding?->update(['status' => SecurityFindingStatus::Open, 'remediated_at' => null, 'resolved_at' => null]);

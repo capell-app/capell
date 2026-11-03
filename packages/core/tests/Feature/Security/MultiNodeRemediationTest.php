@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Security\ApplyApprovedSecurityRemediationsAction;
 use Capell\Core\Actions\Security\BuildSecurityPostureInventoryAction;
+use Capell\Core\Actions\Security\EvaluatePendingSecurityRemediationsAction;
 use Capell\Core\Actions\Security\RunSecurityWeaknessScanAction;
 use Capell\Core\Contracts\Security\SecurityWeaknessAnalyser;
 use Capell\Core\Data\Security\SecurityPostureInventoryData;
@@ -25,6 +26,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -175,7 +178,7 @@ it('keeps the outcome pending until another node applies its own environment fil
     Event::assertDispatchedTimes(SecurityRemediationApplied::class, 1);
 
     // Running it again is harmless.
-    expect(resolve(Kernel::class)->call('capell:security:refresh-node'))->toBe(0)
+    expect(resolve(Kernel::class)->call('capell:security:refresh-node'))->toBe(2)
         ->and(FakeConfigClearCommand::$calls)->toBe([0])
         ->and($run->refresh()->acknowledged_nodes)->toBe(['node-a', 'node-b']);
 });
@@ -237,8 +240,7 @@ it('re-opens the finding naming the nodes that did not refresh once the grace pe
     asNode('node-a');
     $scan->handle(false);
     expect($run->refresh()->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
-        ->and($run->expected_nodes)->toBe(['node-a', 'node-b'])
-        ->and($run->after)->toMatchArray(['unreachable_nodes' => ['node-c']]);
+        ->and($run->expected_nodes)->toBe(['node-a', 'node-b', 'node-c']);
 
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-03 11:01:00'));
     asNode('node-b');
@@ -258,11 +260,19 @@ it('re-opens the finding naming the nodes that did not refresh once the grace pe
     $retry = SecurityRemediationRun::query()->latest('id')->firstOrFail();
     expect($retry->id)->not->toBe($run->id)
         ->and($retry->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
-        ->and($retry->expected_nodes)->toBe(['node-a', 'node-b']);
+        ->and($retry->expected_nodes)->toBe(['node-a', 'node-b', 'node-c']);
 
     asNode('node-b');
     resolve(Kernel::class)->call('capell:security:refresh-node');
-    expect($retry->refresh()->outcome)->toBe(SecurityRemediationOutcome::Applied)
+    expect($retry->refresh()->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
+        ->and($retry->expected_nodes)->toContain('node-c')
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open);
+    expect(new SecurityPostureCheck()->check()->message)->toContain('node-c');
+    $output = new BufferedOutput;
+    expect(resolve(Kernel::class)->call('capell:security:refresh-node', ['--retire' => 'node-c'], $output))->toBe(0)
+        ->and($output->fetch())->toContain(__('capell-core::security.command.retired', ['node' => 'node-c']))
+        ->and($retry->refresh()->outcome)->toBe(SecurityRemediationOutcome::Applied)
+        ->and($retry->expected_nodes)->toBe(['node-a', 'node-b'])
         ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Remediated);
 });
 
@@ -286,4 +296,173 @@ it('explains that a single-node installation has nothing to refresh', function (
 
     expect(resolve(Kernel::class)->call('capell:security:refresh-node', [], $output))->toBe(0)
         ->and($output->fetch())->toContain(__('capell-core::security.command.refresh_single_node'));
+});
+
+it('does not acknowledge an ambiguous environment and reports the reason', function (): void {
+    useSharedNodeCache();
+    $nodes = new SecurityNodeRegistry;
+    asNode('node-b');
+    $nodes->register();
+    asNode('node-a');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
+    $finding = SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create();
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+
+    asNode('node-b');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\nAPP_DEBUG=true\n");
+    $output = new BufferedOutput;
+    $exit = resolve(Kernel::class)->call('capell:security:refresh-node', [], $output);
+    $run = SecurityRemediationRun::query()->sole();
+
+    expect($exit)->toBe(2)
+        ->and($output->fetch())->toContain(__('capell-core::security.remediation.env_ambiguous'))
+        ->and($run->acknowledged_nodes)->toBe(['node-a'])
+        ->and($run->node_outcomes)->toHaveKey('node-b')
+        ->and($run->node_outcomes['node-b'] ?? null)->toBe(__('capell-core::security.remediation.env_ambiguous'))
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open);
+});
+
+it('refuses a node refresh after the approval is revoked', function (): void {
+    useSharedNodeCache();
+    $nodes = new SecurityNodeRegistry;
+    asNode('node-b');
+    $nodes->register();
+    asNode('node-a');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
+    $finding = SecurityWeaknessFinding::factory()->create();
+    $approval = SecurityRemediationApproval::factory()->create();
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    $approval->update(['revoked_at' => CarbonImmutable::now()]);
+
+    asNode('node-b');
+    $nodeB = nodeEnvironment("APP_DEBUG=true\n");
+    $this->directories[] = $nodeB;
+    $output = new BufferedOutput;
+    $exit = resolve(Kernel::class)->call('capell:security:refresh-node', [], $output);
+    $run = SecurityRemediationRun::query()->sole();
+
+    expect($exit)->toBe(2)
+        ->and($output->fetch())->toContain(__('capell-core::security.remediation.approval_revoked'))
+        ->and(file_get_contents($nodeB . '/.env'))->toBe("APP_DEBUG=true\n")
+        ->and($run->outcome)->toBe(SecurityRemediationOutcome::Failed)
+        ->and($run->acknowledged_nodes)->toBe(['node-a'])
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open);
+});
+
+it('keeps malformed pending membership open and warns in doctor', function (mixed $expected, mixed $acknowledged): void {
+    useSharedNodeCache();
+    asNode('node-a');
+    $finding = SecurityWeaknessFinding::factory()->create();
+    new SecurityNodeRegistry()->register();
+    $run = SecurityRemediationRun::factory()->create([
+        'finding_id' => $finding->id,
+        'outcome' => SecurityRemediationOutcome::AppliedPendingNodes,
+        'expected_nodes' => $expected,
+        'acknowledged_nodes' => $acknowledged,
+    ]);
+
+    EvaluatePendingSecurityRemediationsAction::run();
+
+    expect($run->refresh()->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open)
+        ->and(new SecurityPostureCheck()->check()->message)->toContain(__('capell-core::security.doctor.unknown_fleet', ['run' => $run->id]));
+})->with([[null, []], [['node-a'], null], [['node-a', 5], []], [['node-a'], ['node-b']]]);
+
+it('adds a newly registered node to a pending run', function (): void {
+    useSharedNodeCache();
+    $nodes = new SecurityNodeRegistry;
+    asNode('node-b');
+    $nodes->register();
+    asNode('node-a');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
+    SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create();
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    asNode('node-c');
+    $nodes->register();
+
+    EvaluatePendingSecurityRemediationsAction::run();
+
+    expect(SecurityRemediationRun::query()->sole()->expected_nodes)->toBe(['node-a', 'node-b', 'node-c']);
+});
+
+it('keeps pending runs open when registry membership is missing or malformed', function (string $damage): void {
+    useSharedNodeCache();
+    $nodes = new SecurityNodeRegistry;
+    asNode('node-b');
+    $nodes->register();
+    asNode('node-a');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
+    $finding = SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create();
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    $run = SecurityRemediationRun::query()->sole();
+    $store = Cache::store();
+    match ($damage) {
+        'sentinel' => $store->forget('capell:security:nodes:index:created_at'),
+        'missing index' => $store->forget('capell:security:nodes'),
+        'malformed index' => $store->forever('capell:security:nodes', ['node-a', 42]),
+        'missing entry' => $store->forget('capell:security:nodes:node-b'),
+        'malformed entry' => $store->forever('capell:security:nodes:node-b', ['node_id' => 'node-b']),
+        default => throw new InvalidArgumentException('Unknown registry damage: ' . $damage),
+    };
+
+    EvaluatePendingSecurityRemediationsAction::run();
+
+    expect($run->refresh()->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open)
+        ->and(new SecurityPostureCheck()->check()->message)->toContain(__('capell-core::security.doctor.unknown_fleet', ['run' => $run->id]));
+})->with(['sentinel', 'missing index', 'malformed index', 'missing entry', 'malformed entry']);
+
+it('warns about a live node identity collision and cannot settle the run', function (): void {
+    useSharedNodeCache();
+    $nodes = new SecurityNodeRegistry;
+    asNode('node-b');
+    $nodes->register();
+    asNode('node-a');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
+    $finding = SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create();
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    $entry = Cache::store()->get('capell:security:nodes:node-b');
+    $entry['hostname'] = 'another-host';
+    Cache::store()->forever('capell:security:nodes:node-b', $entry);
+    asNode('node-b');
+    $nodes->register();
+    EvaluatePendingSecurityRemediationsAction::run();
+    $run = SecurityRemediationRun::query()->sole();
+
+    expect(Cache::store()->get('capell:security:nodes:node-b')['collision'])->toBeTrue()
+        ->and(new SecurityPostureCheck()->check()->message)->toContain(__('capell-core::security.doctor.node_collision', ['node' => 'node-b']))
+        ->and($run->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open);
+});
+
+it('records a lock timeout without acknowledging the node', function (): void {
+    useSharedNodeCache();
+    $nodes = new SecurityNodeRegistry;
+    asNode('node-b');
+    $nodes->register();
+    asNode('node-a');
+    $this->directories[] = nodeEnvironment("APP_DEBUG=true\n");
+    $finding = SecurityWeaknessFinding::factory()->create();
+    SecurityRemediationApproval::factory()->create();
+    new ApplyApprovedSecurityRemediationsAction(debugRemediationRegistry())->handle('tester');
+    asNode('node-b');
+    $lock = Mockery::mock(Lock::class);
+    $lock->shouldReceive('block')->once()->andThrow(new LockTimeoutException);
+    $manager = Mockery::mock(resolve(CacheManager::class))->makePartial();
+    Cache::swap($manager);
+    $manager->shouldReceive('lock')->once()->with('capell:security:env-remediation', 30)->andReturn($lock);
+    $output = new BufferedOutput;
+    $exit = resolve(Kernel::class)->call('capell:security:refresh-node', [], $output);
+    $run = SecurityRemediationRun::query()->sole();
+
+    expect($exit)->toBe(2)
+        ->and($output->fetch())->toContain(__('capell-core::security.remediation.env_locked'))
+        ->and($run->acknowledged_nodes)->toBe(['node-a'])
+        ->and($run->node_outcomes)->toHaveKey('node-b')
+        ->and($run->node_outcomes['node-b'] ?? null)->toBe(__('capell-core::security.remediation.env_locked'))
+        ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open);
 });

@@ -153,13 +153,12 @@ class RunSecurityWeaknessScanAction
      */
     private function findingsAwaitingNodes(): array
     {
-        $candidates = SecurityRemediationRun::query()->whereNotNull('expected_nodes')->whereNotNull('finding_id')->distinct()->pluck('finding_id');
+        $candidates = SecurityRemediationRun::query()->whereNotNull('finding_id')->where(fn ($query) => $query->whereNotNull('expected_nodes')->orWhere('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value))->distinct()->pluck('finding_id');
 
         return array_values(SecurityRemediationRun::query()->whereIn('finding_id', $candidates)
-            ->orderBy('id')->get(['id', 'finding_id', 'outcome', 'expected_nodes'])
+            ->where(fn ($query) => $query->whereNotNull('expected_nodes')->orWhere('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value))->orderBy('id')->get(['id', 'finding_id', 'outcome', 'expected_nodes'])
             ->keyBy('finding_id')
-            ->filter(fn (SecurityRemediationRun $run): bool => $run->expected_nodes !== null
-                && in_array($run->outcome, [SecurityRemediationOutcome::AppliedPendingNodes, SecurityRemediationOutcome::Failed], true))
+            ->filter(fn (SecurityRemediationRun $run): bool => in_array($run->outcome, [SecurityRemediationOutcome::AppliedPendingNodes, SecurityRemediationOutcome::Failed], true))
             ->map(fn (SecurityRemediationRun $run): int => (int) $run->finding_id)
             ->all());
     }

@@ -12,8 +12,10 @@ use Capell\Core\Enums\Security\SecurityRemediationOutcome;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityNodeRegistry;
 use Illuminate\Support\Facades\Schema;
 use Override;
+use Throwable;
 
 final class SecurityPostureCheck implements DoctorCheck
 {
@@ -28,7 +30,26 @@ final class SecurityPostureCheck implements DoctorCheck
 
         $message = __('capell-core::security.doctor.message', ['critical' => $critical, 'high' => $high]);
         $evidence = ['critical' => $critical, 'high' => $high];
-        $pendingNodes = $this->pendingNodes();
+        $collisions = [];
+        $registryUnknown = false;
+        if (resolve(SecurityNodeRegistry::class)->enabled()) {
+            try {
+                $collisions = resolve(SecurityNodeRegistry::class)->collisions();
+                resolve(SecurityNodeRegistry::class)->activeNodes();
+            } catch (Throwable) {
+                $registryUnknown = true;
+            }
+        }
+
+        foreach ($collisions as $node) {
+            $message .= ' ' . __('capell-core::security.doctor.node_collision', ['node' => $node]);
+        }
+
+        $pendingNodes = $this->pendingNodes($registryUnknown);
+        foreach ($pendingNodes['unknown'] ?? [] as $runId) {
+            $message .= ' ' . __('capell-core::security.doctor.unknown_fleet', ['run' => $runId]);
+        }
+
         if ($pendingNodes !== null) {
             $message .= ' ' . __('capell-core::security.doctor.pending_nodes', ['count' => $pendingNodes['runs'], 'nodes' => implode(', ', $pendingNodes['nodes'])]);
             $evidence['pending_remediations'] = $pendingNodes['runs'];
@@ -37,30 +58,46 @@ final class SecurityPostureCheck implements DoctorCheck
 
         return new DoctorCheckResultData(
             label: __('capell-core::security.doctor.label'),
-            passed: $critical === 0 && $high === 0 && $pendingNodes === null,
+            passed: $critical === 0 && $high === 0 && $pendingNodes === null && $collisions === [],
             message: $message,
             remediation: __('capell-core::security.doctor.action'),
             id: 'core.security.posture',
-            severity: $critical > 0 ? DoctorCheckSeverity::Critical : ($high > 0 || $pendingNodes !== null ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info),
+            severity: $critical > 0 ? DoctorCheckSeverity::Critical : ($high > 0 || $pendingNodes !== null || $collisions !== [] ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info),
             evidence: $evidence,
         );
     }
 
-    /** @return array{runs: int, nodes: list<string>}|null */
-    private function pendingNodes(): ?array
+    /** @return array{runs: int, nodes: list<string>, unknown: list<int>}|null */
+    private function pendingNodes(bool $registryUnknown): ?array
     {
         if (! Schema::hasTable((new SecurityRemediationRun)->getTable())) {
             return null;
         }
 
-        $runs = SecurityRemediationRun::query()->where('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value)->get(['expected_nodes', 'acknowledged_nodes']);
+        $runs = SecurityRemediationRun::query()->where('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value)->get(['id', 'expected_nodes', 'acknowledged_nodes']);
         if ($runs->isEmpty()) {
             return null;
         }
 
-        $nodes = array_values(array_unique($runs->flatMap(fn (SecurityRemediationRun $run): array => array_values(array_diff($run->expected_nodes ?? [], $run->acknowledged_nodes ?? [])))->all()));
+        $waitingByRun = [];
+        foreach ($runs as $run) {
+            $expected = SecurityNodeRegistry::parseNodeList($run->expected_nodes);
+            $acknowledged = SecurityNodeRegistry::parseNodeList($run->acknowledged_nodes, true);
+            if ($expected !== null && $acknowledged !== null && array_diff($acknowledged, $expected) === []) {
+                $waitingByRun[$run->id] = array_values(array_diff($expected, $acknowledged));
+            }
+        }
+
+        $unknown = [];
+        foreach ($runs as $run) {
+            if ($registryUnknown || ! isset($waitingByRun[$run->id])) {
+                $unknown[] = $run->id;
+            }
+        }
+
+        $nodes = array_values(array_unique(array_merge([], ...array_values($waitingByRun))));
         sort($nodes);
 
-        return ['runs' => $runs->count(), 'nodes' => $nodes];
+        return ['runs' => $runs->count(), 'nodes' => $nodes, 'unknown' => $unknown];
     }
 }

@@ -29,6 +29,7 @@ use Override;
  * @property array<string, mixed>|null $before
  * @property array<string, mixed>|null $after
  * @property list<string>|null $expected_nodes
+ * @property array<string, string>|null $node_outcomes
  * @property list<string>|null $acknowledged_nodes
  * @property CarbonImmutable $started_at
  * @property CarbonImmutable|null $finished_at
@@ -59,6 +60,7 @@ final class SecurityRemediationRun extends Model
         'after',
         'expected_nodes',
         'acknowledged_nodes',
+        'node_outcomes',
         'started_at',
         'finished_at',
     ];
@@ -85,6 +87,7 @@ final class SecurityRemediationRun extends Model
             'after' => 'array',
             'expected_nodes' => 'array',
             'acknowledged_nodes' => 'array',
+            'node_outcomes' => 'array',
             'started_at' => 'immutable_datetime',
             'finished_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',

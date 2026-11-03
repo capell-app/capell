@@ -14,13 +14,14 @@ return new class extends Migration
         Schema::table(TableName::resolve('capell_security_remediation_runs'), function (Blueprint $table): void {
             $table->json('expected_nodes')->nullable();
             $table->json('acknowledged_nodes')->nullable();
+            $table->json('node_outcomes')->nullable();
         });
     }
 
     public function down(): void
     {
         Schema::table(TableName::resolve('capell_security_remediation_runs'), function (Blueprint $table): void {
-            $table->dropColumn(['expected_nodes', 'acknowledged_nodes']);
+            $table->dropColumn(['expected_nodes', 'acknowledged_nodes', 'node_outcomes']);
         });
     }
 };

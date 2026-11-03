@@ -23,6 +23,7 @@ final class SecurityRemediationOutcomeData extends Data
         public readonly array $after = [],
         public readonly bool $failed = false,
         public readonly bool $nodeLocal = false,
+        public readonly bool $alreadyCompliant = false,
     ) {}
 
     /**

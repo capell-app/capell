@@ -70,7 +70,7 @@ final class EnvironmentRemediation
 
         if ($before === $values) {
             if (! app()->configurationIsCached()) {
-                return new SecurityRemediationOutcomeData(false, __('capell-core::security.remediation.already_set'), nodeLocal: true);
+                return new SecurityRemediationOutcomeData(false, __('capell-core::security.remediation.already_set'), nodeLocal: true, alreadyCompliant: true);
             }
 
             if (! $this->refreshCache()) {

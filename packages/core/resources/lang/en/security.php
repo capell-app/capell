@@ -5,16 +5,23 @@ declare(strict_types=1);
 return [
     'command' => [
         'runs' => 'Changes applied: :applied; failed: :failed.',
+        'retired' => 'Node :node was retired from the security fleet.',
+        'registry_unknown' => 'The security node registry is unavailable or invalid; review the fleet before continuing.',
         'refresh_single_node' => 'This installation is not multi-node; there is nothing to refresh.',
+        'refresh_description' => 'Apply approved security changes on this node and report it to the rest of the fleet.',
+        'refresh_no_acknowledgement' => 'No pending changes were acknowledged on this node.',
         'refresh_node' => 'Node :node refreshed :acknowledged pending change(s); :completed change(s) finished.',
     ],
     'doctor' => [
         'label' => 'Security posture',
         'message' => 'Open security findings: :critical critical, :high high.',
         'action' => 'Run php artisan capell:security:scan and review the findings.',
+        'node_collision' => 'Multiple hosts have registered security node :node; give each host a unique node ID.',
+        'unknown_fleet' => 'The node membership for remediation run :run is unknown; review it before settling the change.',
         'pending_nodes' => ':count approved change(s) are waiting for these nodes to apply them: :nodes. Check that the scheduler runs on every node.',
     ],
     'remediation' => [
+        'approval_revoked' => 'Approval for this change was withdrawn or no longer matches the fix.',
         'advice_only' => 'Analyser findings are advice only.',
         'not_confirmed' => 'Not confirmed by the latest scan.',
         'fix_changed' => 'The fix changed since it was approved; approve it again.',
