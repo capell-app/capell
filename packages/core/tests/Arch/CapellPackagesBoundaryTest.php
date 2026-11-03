@@ -146,7 +146,8 @@ it('does not reference the sibling package monorepo outside documentation', func
         $repositoryRoot . '/packages/marketplace/database',
         $repositoryRoot . '/packages/marketplace/resources',
         $repositoryRoot . '/packages/marketplace/src',
-        $repositoryRoot . '/scripts',
+        // scripts/ is deliberately absent: release, golden-path and screenshot
+        // tooling locates the companion monorepo on purpose.
         $repositoryRoot . '/composer.json',
         $repositoryRoot . '/docker-compose.yml',
     ];
