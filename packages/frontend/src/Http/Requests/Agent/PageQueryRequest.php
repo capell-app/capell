@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Http\Requests\Agent;
 
 use Capell\Core\Data\Properties\AgentPageQueryData;
-use Capell\Core\Support\PublicRead\PublicReadCursor;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\ValidationException;
 
 final class PageQueryRequest extends FormRequest
 {
@@ -25,7 +23,7 @@ final class PageQueryRequest extends FormRequest
             'filter.*' => ['array', 'max:8'],
             'sort' => ['sometimes', 'string', 'max:100', 'regex:/^-?[a-zA-Z0-9_-]+$/'],
             'page' => ['sometimes', 'array:size,number,cursor'],
-            'page.cursor' => ['sometimes', 'string', 'max:200', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'page.cursor' => ['sometimes', 'string', 'max:2048'],
             'page.size' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'page.number' => ['sometimes', 'integer', 'min:1', 'max:1000'],
         ];
@@ -45,16 +43,12 @@ final class PageQueryRequest extends FormRequest
         );
     }
 
-    private function cursor(): ?PublicReadCursor
+    /**
+     * The sealed cursor, opened (and, when it does not open, ignored) by the
+     * query for its own context.
+     */
+    private function cursor(): ?string
     {
-        if (! $this->has('page.cursor')) {
-            return null;
-        }
-
-        $cursor = PublicReadCursor::decode($this->string('page.cursor')->toString());
-
-        throw_unless($cursor instanceof PublicReadCursor, ValidationException::withMessages(['page.cursor' => __('validation.regex', ['attribute' => 'page.cursor'])]));
-
-        return $cursor;
+        return $this->has('page.cursor') ? $this->string('page.cursor')->toString() : null;
     }
 }

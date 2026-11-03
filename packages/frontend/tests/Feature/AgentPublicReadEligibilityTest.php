@@ -503,3 +503,31 @@ it('pages unrestricted agent navigation and page reads with no gap or repeat at 
     expect($titles)->toHaveCount(120)
         ->and(array_unique($titles))->toHaveCount(120);
 });
+
+it('restarts at the first page when a navigation cursor does not open', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    foreach (range(1, 60) as $index) {
+        Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create();
+    }
+
+    restrictAgentReadsTo([]);
+
+    $first = $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk();
+    $next = (string) $first->json('links.next');
+    parse_str((string) parse_url($next, PHP_URL_QUERY), $query);
+    $token = is_string($query['cursor'] ?? null) ? $query['cursor'] : '';
+
+    expect($token)->not->toBe('')
+        ->and($this->getJson($next)->assertOk()->json('data'))->not->toBe($first->json('data'));
+
+    foreach ([substr($token, 0, -3) . 'xyz', base64_encode('{"o":50,"s":0}')] as $forged) {
+        $this->getJson($domain->full_url . '/agent/v1/navigation?cursor=' . rawurlencode($forged))->assertOk()
+            ->assertJsonPath('data', $first->json('data'));
+    }
+
+    // Rules change: a cursor issued under the old ones starts again too.
+    RecordPublicReadEligibilityChangeAction::run('test');
+    app()->forgetScopedInstances();
+
+    $this->getJson($next)->assertOk()->assertJsonPath('data', $first->json('data'));
+});

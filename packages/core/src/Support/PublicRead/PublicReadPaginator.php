@@ -11,8 +11,8 @@ use Override;
 
 /**
  * A page of publicly readable results from a bounded scan. It offers only
- * next and previous links: the next link carries the scan's opaque cursor,
- * and a page reached through a cursor has no previous link.
+ * next and previous links: the next link carries the scan's sealed cursor
+ * token, and a page reached through a cursor has no previous link.
  *
  * @template TKey of array-key
  * @template TValue
@@ -32,25 +32,25 @@ final class PublicReadPaginator extends Paginator
         int $perPage,
         int $currentPage,
         array $options,
-        private readonly ?PublicReadCursor $nextCursor,
+        private readonly ?string $nextToken,
         private readonly string $cursorName,
         private readonly bool $fromCursor,
     ) {
         parent::__construct($items, $perPage, $currentPage, $options);
 
-        $this->hasMore = $nextCursor instanceof PublicReadCursor;
+        $this->hasMore = $nextToken !== null;
     }
 
     #[Override]
     public function nextPageUrl(): ?string
     {
-        if (! $this->nextCursor instanceof PublicReadCursor) {
+        if ($this->nextToken === null) {
             return null;
         }
 
         $query = $this->query;
         self::forget($query, $this->pageName);
-        parse_str($this->cursorName . '=' . rawurlencode($this->nextCursor->encode()), $cursor);
+        parse_str($this->cursorName . '=' . rawurlencode($this->nextToken), $cursor);
         $query = array_replace_recursive($query, $cursor);
 
         $path = (string) $this->path();

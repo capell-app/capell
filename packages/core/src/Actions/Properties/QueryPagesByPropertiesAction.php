@@ -134,31 +134,58 @@ final class QueryPagesByPropertiesAction
      */
     private function paginatePubliclyReadable(Builder $query, Site $site, AgentPageQueryData $input): Paginator
     {
-        $query->select(TableName::resolve('pages') . '.*');
+        $pages = TableName::resolve('pages');
+        $query->select($pages . '.*');
+        $context = PublicReadCursor::context('agent.pages', [
+            (int) $site->getKey(), $input->set, $input->filters, $input->sort, $input->size, $input->languageId,
+        ]);
+        $cursor = PublicReadCursor::open($input->cursor, $context);
+        $page = $cursor instanceof PublicReadCursor || $input->cursor === null ? max(1, $input->page) : 1;
+        // Unsorted reads continue after the last page id read. A property sort
+        // orders by a resolved value expression, so its reads continue from a
+        // sealed source position instead.
+        $keyset = $input->sort === null;
         $result = resolve(PublicReadScanner::class)->scan(
-            fetch: static function (int $offset, int $limit) use ($query): array {
-                $pages = array_values(array_filter($query->clone()->offset($offset)->limit($limit)->get()->all(), static fn (mixed $page): bool => $page instanceof Page));
+            fetch: static function (?array $after, int $limit) use ($query, $pages, $keyset): array {
+                $batch = $query->clone();
 
-                return ['items' => $pages, 'more' => count($pages) === $limit];
+                if ($keyset) {
+                    if ($after !== null) {
+                        $batch->where($pages . '.id', '>', (int) ($after['i'] ?? 0));
+                    }
+                } else {
+                    $batch->offset(min((int) ($after['o'] ?? 0), PublicReadScanner::MAX_POSITION));
+                }
+
+                $items = array_values(array_filter($batch->limit($limit)->get()->all(), static fn (mixed $page): bool => $page instanceof Page));
+                $start = (int) ($after['o'] ?? 0);
+                $positions = array_map(
+                    static fn (Page $page, int $index): array => $keyset ? ['i' => (int) $page->getKey()] : ['o' => $start + $index + 1],
+                    $items,
+                    array_keys($items),
+                );
+                $more = count($items) === $limit && ($keyset || $start + count($items) < PublicReadScanner::MAX_POSITION);
+
+                return ['items' => $items, 'positions' => $positions, 'after' => $positions === [] ? $after : $positions[array_key_last($positions)], 'more' => $more];
             },
-            readable: function (array $pages) use ($site, $input): array {
-                $readableIds = $this->readablePageIds($pages, $site, $input->languageId);
+            readable: function (array $items) use ($site, $input): array {
+                $readableIds = $this->readablePageIds($items, $site, $input->languageId);
 
-                return array_map(static fn (Page $page): bool => isset($readableIds[(int) $page->getKey()]), $pages);
+                return array_map(static fn (Page $page): bool => isset($readableIds[(int) $page->getKey()]), $items);
             },
             size: $input->size,
-            page: $input->page,
-            cursor: $input->cursor,
+            page: $page,
+            cursor: $cursor,
         );
 
         return new PublicReadPaginator(
             items: new EloquentCollection($result->items),
             perPage: $input->size,
-            currentPage: max(1, $input->page),
+            currentPage: $page,
             options: ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page[number]'],
-            nextCursor: $result->next,
+            nextToken: $result->next?->seal($context),
             cursorName: 'page[cursor]',
-            fromCursor: $input->cursor instanceof PublicReadCursor,
+            fromCursor: $cursor instanceof PublicReadCursor,
         );
     }
 

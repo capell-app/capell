@@ -26,40 +26,56 @@ final class SearchController
         $input = $request->validate([
             'q' => ['required', 'string', 'min:1', 'max:200'],
             'page' => ['sometimes', 'integer', 'min:1', 'max:1000'],
-            'cursor' => ['sometimes', 'string', 'max:200'],
+            'cursor' => ['sometimes', 'string', 'max:2048'],
         ]);
         abort_unless(app()->bound(AgentPageSearch::class), 503);
-        $cursor = PublicReadCursor::decode(is_string($input['cursor'] ?? null) ? $input['cursor'] : null);
-        abort_if(isset($input['cursor']) && ! $cursor instanceof PublicReadCursor, 422);
 
         $search = resolve(AgentPageSearch::class);
         $query = (string) $input['q'];
-        $page = (int) ($input['page'] ?? 1);
         /** @var array<int, LengthAwarePaginator<int, AgentSearchResultData>> $providerPages */
         $providerPages = [];
         $providerPage = static function (int $number) use (&$providerPages, $search, $query, $domain): LengthAwarePaginator {
             return $providerPages[$number] ??= $search->search($query, $domain->site_id, $domain->language_id, $number);
         };
         $perPage = max(1, $providerPage(1)->perPage());
+        $context = PublicReadCursor::context('agent.search', [$query, (int) $domain->getKey(), $domain->language_id, $perPage]);
+        $token = is_string($input['cursor'] ?? null) ? $input['cursor'] : null;
+        $cursor = PublicReadCursor::open($token, $context);
+        // A cursor that does not open (expired, tampered, foreign or from
+        // older rules) restarts at the first page.
+        $page = $cursor instanceof PublicReadCursor || $token === null ? (int) ($input['page'] ?? 1) : 1;
+        $maxProviderPage = intdiv(PublicReadScanner::MAX_POSITION, $perPage);
 
         // The provider's own pages and totals describe unfiltered results, so
         // this boundary pages through them itself and builds its own links
         // from the readable results only.
         $result = resolve(PublicReadScanner::class)->scan(
-            fetch: static function (int $offset, int $limit) use ($providerPage, $perPage): array {
-                // Positions are provider page and index within what that page
-                // returned, so a short provider page never shifts a cursor.
-                $number = intdiv($offset, $perPage) + 1;
-                $results = $providerPage($number);
-                $items = array_values(array_filter($results->items(), static fn (mixed $result): bool => $result instanceof AgentSearchResultData));
-                $start = $offset % $perPage;
-                $slice = array_slice($items, $start, $limit);
+            fetch: static function (?array $after, int $limit) use ($providerPage, $perPage, $maxProviderPage): array {
+                // A position is a provider page and an index within what that
+                // page returned, so a short provider page never shifts it.
+                $number = max(1, (int) ($after['p'] ?? 1));
+                $start = max(0, (int) ($after['i'] ?? 0));
 
-                if ($start + count($slice) < count($items)) {
-                    return ['items' => $slice, 'more' => true];
+                if ($number > $maxProviderPage) {
+                    return ['items' => [], 'positions' => [], 'after' => $after, 'more' => false];
                 }
 
-                return ['items' => $slice, 'more' => $results->hasMorePages(), 'next' => $number * $perPage, 'scanned' => max(1, $perPage - $start)];
+                $results = $providerPage($number);
+                $items = array_values(array_filter($results->items(), static fn (mixed $result): bool => $result instanceof AgentSearchResultData));
+                $slice = array_slice($items, $start, $limit);
+                $positions = array_map(static fn (int $index): array => ['p' => $number, 'i' => $start + $index + 1], array_keys($slice));
+
+                if ($start + count($slice) < count($items)) {
+                    return ['items' => $slice, 'positions' => $positions, 'after' => $positions[count($positions) - 1] ?? $after, 'more' => true];
+                }
+
+                return [
+                    'items' => $slice,
+                    'positions' => $positions,
+                    'after' => ['p' => $number + 1, 'i' => 0],
+                    'more' => $results->hasMorePages() && $number < $maxProviderPage,
+                    'scanned' => max(1, $perPage - $start),
+                ];
             },
             readable: static fn (array $results): array => resolve(PublicPageReadEligibilityRegistry::class)->allowsMany(array_map(
                 static fn (AgentSearchResultData $result): PublicPageReadCandidateData => new PublicPageReadCandidateData(
@@ -79,7 +95,7 @@ final class SearchController
             perPage: $perPage,
             currentPage: $page,
             options: ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page'],
-            nextCursor: $result->next,
+            nextToken: $result->next?->seal($context),
             cursorName: 'cursor',
             fromCursor: $cursor instanceof PublicReadCursor,
         )->appends(['q' => $query]);

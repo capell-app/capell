@@ -28,7 +28,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * no total is computed, a request reads at most PublicReadScanner::MAX_SCANNED
  * addresses, and a next link carries a cursor that continues the read.
  *
- * @method static Paginator<int, array{url: string, title: string}> run(Site $site, Language $language, int $page = 1, ?PublicReadCursor $cursor = null)
+ * @method static Paginator<int, array{url: string, title: string}> run(Site $site, Language $language, int $page = 1, ?string $cursorToken = null)
  */
 final class BrowsePublicSiteMapAction
 {
@@ -39,8 +39,11 @@ final class BrowsePublicSiteMapAction
 
     public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
 
-    /** @return Paginator<int, array{url: string, title: string}> */
-    public function handle(Site $site, Language $language, int $page = 1, ?PublicReadCursor $cursor = null): Paginator
+    /**
+     * @param  string|null  $cursorToken  a sealed cursor from a previous next link; one that does not open for this read starts again at the first page
+     * @return Paginator<int, array{url: string, title: string}>
+     */
+    public function handle(Site $site, Language $language, int $page = 1, ?string $cursorToken = null): Paginator
     {
         $page = max(1, $page);
         $morphTypes = ResolvePublicPageableMorphTypesAction::run();
@@ -80,12 +83,28 @@ final class BrowsePublicSiteMapAction
         }
 
         // Read in bounded batches only until this page and one more readable
-        // entry are known; a cursor continues where the read stopped.
+        // entry are known. A cursor continues after the last address read, by
+        // its (url, id) order, so a change between requests never shifts it.
+        $context = PublicReadCursor::context('agent.navigation', [(int) $site->getKey(), (int) $language->getKey()]);
+        $cursor = PublicReadCursor::open($cursorToken, $context);
+        $page = $cursor instanceof PublicReadCursor ? $page : ($cursorToken === null ? $page : 1);
+        $table = (new PageUrl)->getTable();
         $result = resolve(PublicReadScanner::class)->scan(
-            fetch: static function (int $offset, int $limit) use ($query): array {
-                $pageUrls = array_values($query->clone()->with(['translation', 'siteDomain'])->offset($offset)->limit($limit)->get()->all());
+            fetch: static function (?array $after, int $limit) use ($query, $table): array {
+                $batch = $query->clone()->with(['translation', 'siteDomain']);
 
-                return ['items' => $pageUrls, 'more' => count($pageUrls) === $limit];
+                if ($after !== null) {
+                    $url = (string) ($after['u'] ?? '');
+                    $id = (int) ($after['i'] ?? 0);
+                    $batch->where(static fn (Builder $keyset): Builder => $keyset
+                        ->where($table . '.url', '>', $url)
+                        ->orWhere(static fn (Builder $same): Builder => $same->where($table . '.url', '=', $url)->where($table . '.id', '>', $id)));
+                }
+
+                $pageUrls = array_values($batch->limit($limit)->get()->all());
+                $positions = array_map(static fn (PageUrl $pageUrl): array => ['u' => (string) $pageUrl->url, 'i' => (int) $pageUrl->getKey()], $pageUrls);
+
+                return ['items' => $pageUrls, 'positions' => $positions, 'after' => $positions === [] ? $after : $positions[array_key_last($positions)], 'more' => count($pageUrls) === $limit];
             },
             readable: static fn (array $pageUrls): array => PageUrlsArePubliclyReadableAction::run($pageUrls),
             size: self::PER_PAGE,
@@ -98,7 +117,7 @@ final class BrowsePublicSiteMapAction
             perPage: self::PER_PAGE,
             currentPage: $page,
             options: ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page'],
-            nextCursor: $result->next,
+            nextToken: $result->next?->seal($context),
             cursorName: 'cursor',
             fromCursor: $cursor instanceof PublicReadCursor,
         );

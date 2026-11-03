@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Properties;
 
-use Capell\Core\Support\PublicRead\PublicReadCursor;
 use Spatie\LaravelData\Data;
 
 final class AgentPageQueryData extends Data
@@ -18,6 +17,7 @@ final class AgentPageQueryData extends Data
         public int $page = 1,
         public ?int $languageId = null,
         public bool $publicUrlRequired = false,
-        public ?PublicReadCursor $cursor = null,
+        /** A sealed cursor token from a previous next link. */
+        public ?string $cursor = null,
     ) {}
 }
