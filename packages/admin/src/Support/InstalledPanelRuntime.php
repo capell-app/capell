@@ -142,11 +142,12 @@ final class InstalledPanelRuntime
             return;
         }
 
-        foreach ($this->synchronised as $id => $panel) {
-            if (! $this->associated($route, $id)) {
-                continue;
-            }
+        $owners = $this->owners($route);
+        if (count($owners) > 1) {
+            $this->refuse(reset($owners), $route, new RuntimeException(__('capell-admin::message.extension_panel_route_ambiguous')));
+        }
 
+        foreach ($owners as $id => $panel) {
             $availability = EnsureInstalledPanelAvailable::class . ':' . $id;
             if (! in_array($availability, $route->middleware(), true)) {
                 $route->middleware($availability);
@@ -304,9 +305,18 @@ final class InstalledPanelRuntime
             }
 
             foreach ($instances as $instance) {
-                if ($this->associated($instance, $panel->getId())) {
-                    $this->reconcileOrRefuse($panel, $instance);
+                $owners = $this->owners($instance);
+                if (! isset($owners[$panel->getId()])) {
+                    continue;
                 }
+
+                if (count($owners) > 1) {
+                    $this->refuse($panel, $instance, new RuntimeException(__('capell-admin::message.extension_panel_route_ambiguous')));
+
+                    continue;
+                }
+
+                $this->reconcileOrRefuse($panel, $instance);
             }
         }
     }
@@ -321,13 +331,23 @@ final class InstalledPanelRuntime
         try {
             $this->reconcileRoute($panel, $route);
         } catch (Throwable $throwable) {
-            $this->refusedRoutes[$route] = true;
-            resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $panel->getId());
-            Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
-                'panel' => $panel->getId(),
-                'reason' => $throwable->getMessage(),
-            ]);
+            $this->refuse($panel, $route, $throwable);
         }
+    }
+
+    private function refuse(Panel $panel, Route $route, Throwable $throwable): void
+    {
+        if (isset($this->refusedRoutes[$route])) {
+            return;
+        }
+
+        $this->refusedRoutes[$route] = true;
+        // Keyed by route, so a refused route never masks a later failure of the panel itself.
+        resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $panel->getId() . ':' . ($route->getName() ?? $route->uri()));
+        Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
+            'panel' => $panel->getId(),
+            'reason' => $throwable->getMessage(),
+        ]);
     }
 
     /**
@@ -349,8 +369,13 @@ final class InstalledPanelRuntime
         }
 
         // The availability guard is what denies a withheld panel; excluding it removes that denial.
+        $availability = EnsureInstalledPanelAvailable::class . ':' . $panel->getId();
+        if (! in_array($availability, $instance->middleware(), true)) {
+            $instance->middleware($availability);
+        }
+
         $instance->computedMiddleware = null;
-        if (! in_array(EnsureInstalledPanelAvailable::class . ':' . $panel->getId(), $this->router->gatherRouteMiddleware($instance), true)) {
+        if (! in_array($availability, $this->router->gatherRouteMiddleware($instance), true)) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
@@ -403,6 +428,64 @@ final class InstalledPanelRuntime
         }
 
         $this->reconciledRoutes[$instance] = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host];
+    }
+
+    /**
+     * The synchronised panels a route belongs to: those it names or declares, and the panel
+     * whose path (on one of its domains) holds it. More than one owner is ambiguous.
+     *
+     * @return array<string, Panel>
+     */
+    private function owners(Route $route): array
+    {
+        $owners = [];
+        $byPath = [];
+        $longest = -1;
+        foreach ($this->synchronised as $id => $panel) {
+            if ($this->associated($route, $id)) {
+                $owners[$id] = $panel;
+
+                continue;
+            }
+
+            $length = $this->pathOwnership($route, $panel);
+            if ($length === null) {
+                continue;
+            }
+
+            if ($length < $longest) {
+                continue;
+            }
+
+            $byPath = $length > $longest ? [$id => $panel] : [...$byPath, $id => $panel];
+            $longest = $length;
+        }
+
+        // Ownership by name or declaration and ownership by path must agree on one panel.
+        return $owners + $byPath;
+    }
+
+    /** The length of the panel path holding the route, or null when the panel's path or domains exclude it. */
+    private function pathOwnership(Route $route, Panel $panel): ?int
+    {
+        $path = trim($panel->getPath(), '/');
+        // A panel served from the site root would claim every route; it owns only what it names.
+        if ($path === '') {
+            return null;
+        }
+
+        $uri = trim($route->uri(), '/');
+        if ($uri !== $path && ! str_starts_with($uri, $path . '/')) {
+            return null;
+        }
+
+        $domains = $panel->getDomains();
+        $domain = $route->getDomain();
+        if ($domains !== [] && $domain !== null && ! in_array($domain, $domains, true)) {
+            return null;
+        }
+
+        return strlen($path);
     }
 
     private function associated(Route $route, string $id): bool
