@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The pre-push PHPStan run must go through the host heavy queue at weight 3, run
-# directly with a warning when no queue exists, and not be wrapped a second time
-# inside an existing reservation. A fake composer stands in for PHPStan.
+# The pre-push PHPStan run must go through the host heavy queue at the weight its
+# configuration's worker cap calls for, run directly with a warning when no queue
+# exists, and not be wrapped a second time inside an existing reservation. A fake composer stands in for PHPStan.
 # HOOK_UNDER_TEST overrides the hook path (to prove the test fails without the fix).
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -54,11 +54,20 @@ run_hook() { # <PATH> [VAR=value...]
         || { cat "$scratch/out" >&2; fail 'the hook exited non-zero'; }
 }
 
+# The hook's weight must match the worker cap of the configuration `composer analyze:diff`
+# uses, so the two cannot drift apart again (a full gate for four workers serialised pushes).
+config="$(python3 -c 'import json, re, sys; script = json.load(open(sys.argv[1]))["scripts"]["analyze:diff"]; print(re.search(r"--configuration=(\S+)", script).group(1))' "$root/composer.json")"
+weight="$(python3 "$root/tests/Shell/lib/phpstan-worker-weight.py" "$root/$config")"
+
+# The worker-cap reader's own cases: overrides, inherited caps, and every layout it refuses.
+python3 -B "$root/tests/Shell/lib/phpstan-worker-weight.py" > "$scratch/reader" 2>&1 \
+    || { cat "$scratch/reader" >&2; fail 'the worker-cap reader failed its own cases'; }
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
-    'run -w 3 core-pre-push-analysis -- '*) ;;
-    *) fail "heavy received '$(cat "$scratch/rec/heavy" 2> /dev/null)', not weight 3 with label core-pre-push-analysis" ;;
+    "run -w $weight core-pre-push-analysis -- "*) ;;
+    *) fail "heavy received '$(cat "$scratch/rec/heavy" 2> /dev/null)', not weight $weight (the worker cap of $config) with label core-pre-push-analysis" ;;
 esac
+grep -q -- "--weight $weight core-pre-push-analysis" "$hook" || fail "the heavy-slot.sh fallback does not use weight $weight"
 grep -q 'analyze:diff' "$scratch/rec/composer" || fail 'the analysis did not run under heavy'
 
 run_hook "$bin:/usr/bin:/bin" HEAVY_SLOT_OWNER='{"root":"/tmp/x"}'
@@ -72,4 +81,4 @@ run_hook "$scratch/nobin:/usr/bin:/bin"
 grep -q 'analyze:diff' "$scratch/rec/composer" || fail 'the analysis did not run without heavy'
 grep -q 'running PHPStan unguarded' "$scratch/out" || fail 'no warning when no heavy queue exists'
 
-echo 'PROOF: the pre-push analysis runs through the heavy queue at weight 3'
+echo "PROOF: the pre-push analysis runs through the heavy queue at weight $weight, matching the worker cap of $config"

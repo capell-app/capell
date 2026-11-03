@@ -179,7 +179,40 @@ final class IsolatedTestbenchSkeleton
         $root = getenv('CAPELL_TESTBENCH_SKELETON_ROOT');
         $root = is_string($root) && $root !== '' ? rtrim($root, DIRECTORY_SEPARATOR) : sys_get_temp_dir() . '/capell-testbench-skeletons-' . hash('sha256', (string) realpath(dirname(__DIR__, 2)));
 
-        return $root . DIRECTORY_SEPARATOR . self::Prefix . $token;
+        return self::withoutSymlinkComponents($root) . DIRECTORY_SEPARATOR . self::Prefix . $token;
+    }
+
+    /**
+     * Resolve the existing part of a path through realpath() and reattach the rest.
+     *
+     * The skeleton becomes the application base path, and ReleaseRootWriteGuard refuses a
+     * release root that traverses a symlink (an atomic current-release link). macOS keeps
+     * sys_get_temp_dir() under /var, itself a symlink to /private/var, so an unresolved root
+     * made every release-root write in the suite refuse on developer machines.
+     */
+    private static function withoutSymlinkComponents(string $path): string
+    {
+        $missing = [];
+        $existing = $path;
+
+        while (! is_dir($existing)) {
+            $parent = dirname($existing);
+
+            if ($parent === $existing) {
+                return $path;
+            }
+
+            array_unshift($missing, basename($existing));
+            $existing = $parent;
+        }
+
+        $resolved = realpath($existing);
+
+        if ($resolved === false) {
+            return $path;
+        }
+
+        return rtrim($resolved, DIRECTORY_SEPARATOR) . ($missing === [] ? '' : DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $missing));
     }
 
     /**
