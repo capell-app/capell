@@ -14,7 +14,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 function runSiteScopeMiddleware(Request $request): void
 {
-    (new SetSitePermissionScope)->handle($request, fn (): Response => new Response('ok'));
+    resolve(SetSitePermissionScope::class)->handle($request, fn (): Response => new Response('ok'));
 }
 
 function currentTeamId(): int|string|null
@@ -69,7 +69,7 @@ it('uses the site_id of a route-bound record (record takes precedence over query
         return $route;
     });
 
-    (new SetSitePermissionScope)->handle($request, function () use ($recordSite): Response {
+    resolve(SetSitePermissionScope::class)->handle($request, function () use ($recordSite): Response {
         expect(currentTeamId())->toBe($recordSite->id);
 
         return new Response('ok');
@@ -84,7 +84,7 @@ it('clears stale scope during an unresolved request and restores it on exit', fu
     $session = new Store('scope-test', new ArraySessionHandler(120));
     $request->setLaravelSession($session);
 
-    (new SetSitePermissionScope)->handle($request, function (): Response {
+    resolve(SetSitePermissionScope::class)->handle($request, function (): Response {
         expect(currentTeamId())->toBeNull();
 
         return new Response('ok');

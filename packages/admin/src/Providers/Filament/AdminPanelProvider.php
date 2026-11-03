@@ -70,9 +70,6 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css', 'build/filament')
             ->navigationItems(CapellAdmin::getNavigationItems())
             ->navigationGroups(CapellAdmin::getNavigationGroups())
-            ->plugin(CapellAdminPlugin::make()
-                ->discoverConfigurators(in: app_path('Filament/Configurators'), for: 'App\\Filament\\Configurators'))
-            ->plugin(FilamentPeekPlugin::make())
             ->bootUsing(function (): void {
                 $this->app->make(AdminRuntimeActivator::class)->activate();
             })
@@ -97,6 +94,9 @@ class AdminPanelProvider extends PanelProvider
             ], isPersistent: true)
             ->authMiddleware([
                 ProfileAdminRequest::class,
-            ]);
+            ])
+            ->plugin(CapellAdminPlugin::make()
+                ->discoverConfigurators(in: app_path('Filament/Configurators'), for: 'App\\Filament\\Configurators'))
+            ->plugin(FilamentPeekPlugin::make());
     }
 }

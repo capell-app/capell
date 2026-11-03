@@ -13,6 +13,8 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceComposerAuthWorkspace;
 use Capell\Marketplace\Support\MarketplaceQueueTimeoutChain;
+use Capell\Marketplace\Support\WorkspaceException;
+use Capell\Marketplace\Support\WorkspaceFailure;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -115,7 +117,22 @@ final class BuildMarketplaceOperationsDoctorReportAction
      */
     private function authWorkspaceCheck(): DoctorCheckResultData
     {
-        $stale = new MarketplaceComposerAuthWorkspace()->stale();
+        try {
+            $stale = resolve(MarketplaceComposerAuthWorkspace::class)->stale();
+        } catch (WorkspaceException $workspaceException) {
+            logger()->warning($workspaceException->getMessage());
+
+            // An untrusted workspace blocks every authenticated install, so report it rather than failing the whole report.
+            return new DoctorCheckResultData(
+                label: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_label'),
+                passed: false,
+                message: $workspaceException->publicMessage(),
+                remediation: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_untrusted_remediation'),
+                id: 'marketplace.operations.composer-auth-files',
+                severity: DoctorCheckSeverity::Critical,
+                evidence: ['status' => $workspaceException->failure->value, 'trusted' => $workspaceException->failure !== WorkspaceFailure::Untrusted],
+            );
+        }
 
         return new DoctorCheckResultData(
             label: (string) __('capell-marketplace::marketplace.operations.doctor_auth_files_label'),
