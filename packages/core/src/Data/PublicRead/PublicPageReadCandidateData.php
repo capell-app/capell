@@ -10,9 +10,6 @@ namespace Capell\Core\Data\PublicRead;
  * The URL is the address the projection would publish, absolute whenever the
  * caller knows its domain. Pageable identity is optional because some
  * projections only hold the published address.
- */
-/**
- * One address a public projection is about to publish.
  *
  * $publishedOn is the absolute base URL of the domain the projection is
  * published on. A relative $url is resolved against it, and is denied when it
