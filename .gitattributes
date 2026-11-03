@@ -93,6 +93,7 @@
 /docs/operations/php-fpm-sizing.md export-ignore
 /docs/operations/reporting.md export-ignore
 /docs/operations/runtime-roles.md export-ignore
+/docs/operations/security-weaknesses.md export-ignore
 /docs/operations/site-health.md export-ignore
 /docs/operations/troubleshooting.md export-ignore
 /docs/operations/upgrading.md export-ignore

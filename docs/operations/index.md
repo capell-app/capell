@@ -12,6 +12,7 @@ The operations surface brings the pre-deployment checks together: Site Health re
 | Back up or restore data                              | [Backups and restore](backups.md)                        |
 | Block public traffic during an incident              | [Lockdown](lockdown.md)                                  |
 | Upgrade packages and plan rollback                   | [Upgrades](upgrading.md)                                 |
+| Review security weaknesses                          | [Security weakness scans](security-weaknesses.md)          |
 | Diagnose an installed site                           | [Troubleshooting](troubleshooting.md)                    |
 | Debug Marketplace connection or installs             | [Debugging Marketplace](debugging-marketplace.md)        |
 | Prepare a host for Marketplace operations            | [Marketplace hosting](marketplace-hosting.md)            |

@@ -129,3 +129,23 @@ it('fails clearly when env backups cannot be copied', function (): void {
         }
     }
 });
+
+it('preserves original bytes and removes the temporary file when replacement fails', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-env-rename-' . uniqid();
+    mkdir($directory);
+    $path = $directory . '/.env';
+    $original = "APP_NAME=Capell\n";
+    file_put_contents($path, $original);
+    try {
+        $editor = new EnvFileEditor($path);
+        rename($path, $directory . '/original');
+        mkdir($path);
+        expect(function () use ($editor): void {
+            $editor->set('APP_NAME', 'Changed')->save();
+        })->toThrow(RuntimeException::class, 'Failed to write environment file at path: ' . $path);
+        expect(file_get_contents($directory . '/original'))->toBe($original)
+            ->and(glob($directory . '/.capell-env-*'))->toBe([]);
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});

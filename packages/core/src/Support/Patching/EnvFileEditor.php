@@ -15,6 +15,7 @@ final class EnvFileEditor
 
     public function __construct(string $filePath)
     {
+        throw_if(is_link($filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
         throw_unless(file_exists($filePath), RuntimeException::class, 'File does not exist at path: ' . $filePath);
 
         $this->filePath = $filePath;
@@ -56,13 +57,30 @@ final class EnvFileEditor
 
     public function save(): void
     {
-        $bytesWritten = @file_put_contents($this->filePath, $this->content);
+        throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
+        // Replacing by rename would bypass a read-only file, so keep refusing a target the process cannot write.
+        throw_unless(is_writable($this->filePath), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
+        // Exclusive creation of a random sibling keeps a collision from overwriting another writer's file.
+        $temporary = dirname($this->filePath) . '/.capell-env-' . bin2hex(random_bytes(16));
+        $stream = @fopen($temporary, 'x');
+        throw_if($stream === false, RuntimeException::class, 'Failed to create a temporary environment file.');
+        try {
+            $permissions = fileperms($this->filePath);
+            throw_if($permissions === false || ! chmod($temporary, $permissions & 0777), RuntimeException::class, 'Failed to preserve environment file permissions.');
+            $written = @fwrite($stream, $this->content);
+            throw_if($written !== strlen($this->content) || ! fflush($stream), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
+            fclose($stream);
+            throw_if(is_link($this->filePath), UnsafeEnvironmentFileException::class, 'The environment file must not be a symbolic link.');
+            throw_unless(@rename($temporary, $this->filePath), RuntimeException::class, 'Failed to write environment file at path: ' . $this->filePath);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
 
-        throw_if(
-            $bytesWritten === false || $bytesWritten !== strlen($this->content),
-            RuntimeException::class,
-            'Failed to write environment file at path: ' . $this->filePath,
-        );
+            if (file_exists($temporary)) {
+                unlink($temporary);
+            }
+        }
     }
 
     public function backup(): string

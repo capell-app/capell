@@ -27,6 +27,15 @@ return [
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
     'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
 
+    'security' => [
+        'scan' => [
+            'scheduled' => env('CAPELL_SECURITY_SCAN_SCHEDULED', true),
+            'at' => env('CAPELL_SECURITY_SCAN_AT', '04:10'),
+            'fix_approved' => env('CAPELL_SECURITY_FIX_APPROVED', true),
+        ],
+        'analyser' => ['enabled' => env('CAPELL_SECURITY_ANALYSER_ENABLED', true)],
+    ],
+
     'auth' => [
         // Consumers must also require the local application environment.
         'skip_two_factor_when_local' => env('CAPELL_SKIP_TWO_FACTOR_WHEN_LOCAL', true),

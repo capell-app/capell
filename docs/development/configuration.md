@@ -64,6 +64,10 @@ for the same guard; it returns `true` when the table is already Capell's, meanin
 | `CAPELL_CACHE_LOCK_SECONDS`                  | `30`                                      | Lifetime in seconds of the lock Capell holds while filling a cache entry, preventing stampedes                                                                      |
 | `CAPELL_CACHE_LOCK_WAIT_SECONDS`             | `10`                                      | How long a request waits for another process to finish filling the same cache entry before failing                                                                  |
 | `CAPELL_MULTI_NODE`                          | `false`                                   | Declare a multi-node deployment so Doctor requires a shared cache store                                                                                             |
+| `CAPELL_SECURITY_SCAN_SCHEDULED` | `true` | Schedule the daily security scan |
+| `CAPELL_SECURITY_SCAN_AT` | `04:10` | Daily scan time in the scheduler timezone |
+| `CAPELL_SECURITY_FIX_APPROVED` | `true` | Apply approved remediations during scheduled scans |
+| `CAPELL_SECURITY_ANALYSER_ENABLED` | `true` | Allow the configured security analyser to provide advice |
 | `CAPELL_RELEASE_ROOT_MODE`                   | `mutable`                                 | `mutable` permits guarded release-root writes; `immutable` and `atomic` require Composer and migration publication during the release build                         |
 | `CAPELL_SERVER_SIDE_TOOLING`                 | `false`                                   | Declare that this server installs extensions and builds assets itself, so Doctor requires Composer, Node, and `proc_open`                                           |
 | `CAPELL_PHP_BINARY`                          | _(null)_                                  | CLI PHP binary used for every Capell subprocess; falls back to `CAPELL_SETUP_PHP_BINARY`, then `PHP_BINARY`, then the executable search path                        |
@@ -453,3 +457,5 @@ The installer checks registered roots for the selected packages before migration
 Package migrations and models must use `TableName::resolve()` for those names;
 registering a literal migration alone does not make that migration honour aliases.
 External dependencies retain their own table-name configuration.
+
+Security scans and approved remediation are described in [Security weakness scans](../operations/security-weaknesses.md). A security scan dry run still records findings.
