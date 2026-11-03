@@ -65,13 +65,33 @@ Console commands may remain as thin CLI adapters for developers, but they should
 
 ## Install In An App
 
-Require published packages normally:
+Require published packages normally, then let Capell run the package's declared
+install lifecycle. Composer only makes the package discoverable; until
+`capell:extension-install` has run, the manifest is read but the package stays
+disabled and its install Action has not run:
 
 ```bash
 composer require vendor/example
 php artisan optimize:clear
 php artisan capell:package-cache:clear
+php artisan capell:extension-install vendor/example --dry-run
+php artisan capell:extension-install vendor/example
 ```
+
+The dry run prints the install plan (lifecycle Actions, migrations and the
+install parameters the package declares) without running anything, so review it
+before the real run. Pass declared parameters with `--url`, `--sites`,
+`--languages`, `--user`, `--assets` or a repeatable `--param=name=value`; omit the
+package name to choose from the extensions that are not yet installed, or add
+`--include-installed` to re-run the workflow for one that is. Clear both caches
+again whenever `capell.json` changes, or a warm app keeps using the previous
+manifest.
+
+Installation does not publish assets, select a site's theme or prove that
+anything renders. For the asset publish and frontend build steps and for
+checking the public output, follow
+[Load the package in a development app](../../packages/core/docs/extension-development.md#3-load-the-package-in-a-development-app)
+and [Prove it renders](../../packages/core/docs/extension-development.md#5-prove-it-renders).
 
 For local development, point the app at the package directory you are actively
 working on. A consuming app can keep local extensions inside its own
