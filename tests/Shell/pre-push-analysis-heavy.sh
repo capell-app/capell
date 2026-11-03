@@ -59,46 +59,39 @@ run_hook() { # <PATH> [VAR=value...]
 config="$(python3 -c 'import json, re, sys; script = json.load(open(sys.argv[1]))["scripts"]["analyze:diff"]; print(re.search(r"--configuration=(\S+)", script).group(1))' "$root/composer.json")"
 weight="$(python3 "$root/tests/Shell/lib/phpstan-worker-weight.py" "$root/$config")"
 
-# The cap parser: a commented override wins over an inherited cap, and an unreadable cap
-# line fails closed instead of falling back to a lower inherited cap.
+# The worker-cap reader: a commented override wins over an inherited cap, quoted and
+# unterminated includes are read, and every layout it does not model fails closed.
 cases="$scratch/neon"
 mkdir -p "$cases"
+parser="$root/tests/Shell/lib/phpstan-worker-weight.py"
 printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/common.neon"
+printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 8\n' > "$cases/eight.neon"
 printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 8 # raised\n' > "$cases/commented.neon"
 printf 'includes:\n    - common.neon # shared\n' > "$cases/inherited.neon"
-printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %%env.WORKERS%%\n' > "$cases/unreadable.neon"
 printf 'parameters:\n    level: 9\n' > "$cases/uncapped.neon"
-parser="$root/tests/Shell/lib/phpstan-worker-weight.py"
-[ "$(python3 "$parser" "$cases/commented.neon")" = 3 ] || fail 'a commented override of 8 workers did not give weight 3'
-[ "$(python3 "$parser" "$cases/inherited.neon")" = 2 ] || fail 'an inherited cap of 4 did not give weight 2'
-[ "$(python3 "$parser" "$cases/uncapped.neon")" = 3 ] || fail 'an uncapped configuration did not give weight 3'
-if python3 "$parser" "$cases/unreadable.neon" > /dev/null 2>&1; then
-    fail 'an unreadable cap line did not fail closed'
-fi
+printf "includes:\n    - common.neon\n    - 'eight.neon'\n" > "$cases/quoted-include.neon"
+printf 'includes:\n    - common.neon\n    - eight.neon' > "$cases/no-final-newline.neon"
+printf 'includes:\n    - eight.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/lowered.neon"
+printf 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %%env.WORKERS%%\n' > "$cases/unreadable.neon"
 printf 'includes:\n    - common.neon\nparameters:\n    parallel: {maximumNumberOfProcesses: 8}\n' > "$cases/inline.neon"
 printf "includes:\n    - common.neon\nparameters:\n    parallel:\n        'maximumNumberOfProcesses': 8\n" > "$cases/quoted.neon"
 printf 'includes: [common.neon]\n' > "$cases/inline-includes.neon"
-for unsupported in inline quoted inline-includes; do
-    if python3 "$parser" "$cases/$unsupported.neon" > /dev/null 2>&1; then
-        fail "unsupported cap or include syntax ($unsupported.neon) did not fail closed"
-    fi
-done
-printf 'parameters:\n    parallel:\n        maximumNumberOfProcesses: 8\n' > "$cases/eight.neon"
-printf "includes:\n    - common.neon\n    - 'eight.neon'\n" > "$cases/quoted-include.neon"
-[ "$(python3 "$parser" "$cases/quoted-include.neon")" = 3 ] || fail 'a quoted include raising the cap to 8 did not give weight 3'
+printf "'includes':\n    - eight.neon\n" > "$cases/quoted-header.neon"
 printf 'includes:\n    - common.neon\n    - missing.neon\n' > "$cases/missing-include.neon"
 printf 'includes:\n    - common.neon\n    - "unbalanced.neon\n' > "$cases/bad-include.neon"
-for unsupported in missing-include bad-include; do
-    if python3 "$parser" "$cases/$unsupported.neon" > /dev/null 2>&1; then
-        fail "an unreadable or missing include ($unsupported.neon) did not fail closed"
+printf 'includes:\n    - missing.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/own-cap-missing-include.neon"
+printf 'includes:\n    - %%currentWorkingDirectory%%/eight.neon\n' > "$cases/parameterised-include.neon"
+printf 'includes:\n    - lowered.neon\n    - eight.neon\n' > "$cases/diamond.neon"
+for expectation in commented:3 inherited:2 uncapped:3 quoted-include:3 no-final-newline:3; do
+    name="${expectation%%:*}"
+    [ "$(python3 "$parser" "$cases/$name.neon")" = "${expectation##*:}" ] || fail "$name.neon did not give weight ${expectation##*:}"
+done
+for name in unreadable inline quoted inline-includes quoted-header missing-include bad-include \
+    own-cap-missing-include parameterised-include diamond; do
+    if python3 "$parser" "$cases/$name.neon" > /dev/null 2>&1; then
+        fail "$name.neon did not fail closed"
     fi
 done
-printf 'includes:\n    - common.neon\n    - eight.neon' > "$cases/no-final-newline.neon"
-[ "$(python3 "$parser" "$cases/no-final-newline.neon")" = 3 ] || fail 'a final include without a newline was not read'
-printf 'includes:\n    - missing.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 4\n' > "$cases/own-cap-missing-include.neon"
-if python3 "$parser" "$cases/own-cap-missing-include.neon" > /dev/null 2>&1; then
-    fail 'a missing include was accepted because the configuration sets its own cap'
-fi
 run_hook "$bin:/usr/bin:/bin"
 case "$(cat "$scratch/rec/heavy" 2> /dev/null)" in
     "run -w $weight core-pre-push-analysis -- "*) ;;
