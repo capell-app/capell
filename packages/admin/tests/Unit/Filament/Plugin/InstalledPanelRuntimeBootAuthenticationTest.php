@@ -9,13 +9,11 @@ use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\BootAuthenticationMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\BootAuthenticationRuntimeProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LatePanelRuntimeProvider;
-use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\StandaloneCallbackRouteProvider;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
-use Illuminate\Routing\Route;
-use Illuminate\Routing\Router;
 use Override;
 
 /**
@@ -24,7 +22,7 @@ use Override;
  */
 final class InstalledPanelRuntimeBootAuthenticationTest extends AdminTestCase
 {
-    public function test_panel_stays_available_when_a_package_adds_authentication_while_the_panel_boots(): void
+    public function test_host_authentication_declared_after_the_plugin_is_not_a_package_addition(): void
     {
         $panel = Filament::getPanel('admin');
 
@@ -33,30 +31,26 @@ final class InstalledPanelRuntimeBootAuthenticationTest extends AdminTestCase
         $this->assertFalse(resolve(InstalledPanelRuntime::class)->isUnavailable('admin'));
 
         $this->actingAsAdmin();
-        $this->get('/admin/runtime-boot-authentication/callback')->assertOk()->assertSee('callback reached');
+        $this->get(StandaloneCallbackRouteProvider::URI)->assertOk()->assertSee(StandaloneCallbackRouteProvider::BODY);
     }
 
-    public function test_security_middleware_installed_after_boot_still_reaches_standalone_panel_routes(): void
+    public function test_security_middleware_installed_after_boot_reaches_standalone_panel_routes(): void
     {
-        $panel = Filament::getPanel('admin');
-        Filament::setCurrentPanel($panel);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
         $this->actingAsAdmin();
-        $this->get('/admin/runtime-boot-authentication/callback')->assertOk();
+        $this->get(StandaloneCallbackRouteProvider::URI)->assertOk();
 
         CapellCore::registerPackage('test/panel-runtime');
         CapellCore::forcePackageInstalled('test/panel-runtime', false);
         app()->register(LatePanelRuntimeProvider::class);
         InstallPackageAction::run(CapellCore::getPackage('test/panel-runtime'));
 
-        $route = resolve(Router::class)->getRoutes()->getByName(BootAuthenticationRuntimeProvider::ROUTE_NAME);
-        $this->assertInstanceOf(Route::class, $route);
-        $this->assertContains(LateSecurityMiddleware::class, resolve(Router::class)->gatherRouteMiddleware($route));
-        $this->get('/admin/runtime-boot-authentication/callback')->assertRedirect('/admin/change-password');
+        $this->get(StandaloneCallbackRouteProvider::URI)->assertRedirect('/admin/change-password');
     }
 
     #[Override]
     protected function getPackageProviders(mixed $app): array
     {
-        return [...parent::getPackageProviders($app), BootAuthenticationRuntimeProvider::class];
+        return [...parent::getPackageProviders($app), BootAuthenticationRuntimeProvider::class, StandaloneCallbackRouteProvider::class];
     }
 }

@@ -425,6 +425,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 $event->route->middleware(EnsureInstalledPanelAvailable::class . ':' . $panel);
                 $event->route->computedMiddleware = null;
             }
+
+            // Routes registered after the panel synchronised are held to package security too.
+            resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route);
         });
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
         $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (InstalledRuntimeRefreshed $event): void {
