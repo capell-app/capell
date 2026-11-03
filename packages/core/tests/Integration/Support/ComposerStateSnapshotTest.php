@@ -96,7 +96,7 @@ it('rebuilds the installed packages with a scriptless composer install', functio
     $snapshot->restoreInstalledPackages($factory, 90);
 
     // Recovery must not execute third-party scripts under the web or queue user.
-    expect($factory->commands()[0])->toContain('install', '--no-scripts')
+    expect($factory->commands()[0])->toContain('install', '--no-scripts', '--no-plugins')
         ->and($factory->processes[0]->getWorkingDirectory())->toBe($this->snapshotDirectory)
         ->and($factory->processes[0]->getTimeout())->toBe(90.0)
         ->and($factory->processes[0]->isSuccessful())->toBeTrue();

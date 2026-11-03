@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Core\Support\Security\LockdownStore;
 use Capell\Marketplace\Actions\CompleteMarketplaceInstallFlowAction;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
@@ -11,6 +12,7 @@ use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -214,3 +216,45 @@ it('rejects malformed flow identifiers before completing the flow', function (mi
 
     expect($spy->called)->toBeFalse();
 })->with(['<b>"x\'</b>', "mif_va\nlid", '', str_repeat('a', 256), [['mif_array']]]);
+
+it('keeps echoed exchange credentials out of failure records and logs', function (): void {
+    $session = MarketplaceInstallFlowSession::query()->create([
+        'remote_flow_id' => 'mif_secret', 'contract_version' => 2,
+        'status' => MarketplaceInstallFlowSessionStatus::Redirected,
+        'selected_extensions' => [], 'state_hash' => hash('sha256', 'private_state'),
+        'code_verifier_hash' => hash('sha256', 'private_verifier'),
+        'code_verifier_encrypted' => 'private_verifier',
+        'approval_url' => 'https://marketplace.test/approve',
+        'return_url' => 'http://capell-ruby.test/admin/marketplace/install-flow/callback',
+        'expires_at' => now()->addMinutes(10), 'redirected_at' => now(),
+    ]);
+    Http::fake(['*' => Http::response(['message' => 'private_state private_verifier'], 422)]);
+    $log = Log::spy();
+    $this->get('/admin/marketplace/install-flow/callback?flow_id=mif_secret&code=code&state=private_state')->assertRedirect();
+    $session->refresh();
+    expect($session->last_error)->toBe('remote_failure:422')
+        ->and(json_encode($session->transition_log))->not->toContain('private_state')->not->toContain('private_verifier');
+    $log->shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
+        $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+        return ! str_contains($encoded, 'private_state') && ! str_contains($encoded, 'private_verifier');
+    })->once();
+    $log->shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+        $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+        return ! str_contains($encoded, 'private_state') && ! str_contains($encoded, 'private_verifier');
+    })->atLeast()->once();
+});
+
+it('blocks marketplace callbacks for users excluded from lockdown', function (): void {
+    $allowed = auth()->user();
+    $store = resolve(LockdownStore::class);
+    $store->activateFor($allowed);
+    try {
+        test()->actingAsAdmin();
+        $this->get('/admin/marketplace/install-flow/callback')->assertStatus(423);
+        $this->get('/admin/marketplace/connection/callback')->assertStatus(423);
+    } finally {
+        $store->deactivate();
+    }
+});

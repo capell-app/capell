@@ -81,7 +81,7 @@ SH);
                 // Composer is handed the event name, not a list of commands
                 // Capell reconstructed: the application owns that list.
                 expect($result?->successful())->toBeTrue()
-                    ->and($result?->output)->toContain('run-script')
+                    ->and($result?->output)->toContain("run-script\n--no-interaction\n--no-plugins\npost-autoload-dump")
                     ->and($result?->output)->toContain('post-autoload-dump');
             },
         );
@@ -159,7 +159,7 @@ it('redacts credentials a replayed application hook prints', function (): void {
     file_put_contents($composerPath, <<<'SH'
 #!/bin/sh
 echo "GITHUB_TOKEN=ghp_hook_secret"
-echo "hook failed, password=hunter2" >&2
+echo "hook failed, password=hunter2 postgres://user:uri_secret@host/db?token=query_secret" >&2
 exit 3
 SH);
     chmod($composerPath, 0755);
@@ -185,7 +185,7 @@ SH);
                 expect($result?->exitCode)->toBe(3)
                     ->and($result?->output)->not->toContain('ghp_hook_secret')
                     ->and($result?->output)->toContain('[redacted]')
-                    ->and($result?->errorOutput)->not->toContain('hunter2')
+                    ->and($result?->errorOutput)->not->toContain('hunter2')->not->toContain('uri_secret')->not->toContain('query_secret')
                     ->and($result?->errorOutput)->toContain('[redacted]');
             },
         );

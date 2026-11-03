@@ -141,7 +141,7 @@ final class RunInstallPreflightChecksAction
             resolve(InstallPackageArguments::class)->resolve(array_values($packages)),
         );
         $options = [
-            '--dry-run', '--no-audit', '--no-interaction', '--no-progress', '--no-scripts', '--with-all-dependencies',
+            '--dry-run', '--no-audit', '--no-interaction', '--no-progress', '--no-scripts', '--no-plugins', '--with-all-dependencies',
         ];
         if ($dev) {
             $options[] = '--dev';

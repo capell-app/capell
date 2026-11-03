@@ -713,7 +713,7 @@ it('filters extension cards by installed status while showing all by default', f
 
     expect(collect($page->getExtensionsData(filters: ['installedStatus' => 'uninstalled']))->pluck('packageName')->all())
         ->toContain('vendor/uninstalled-extension')
-        ->not->toContain('vendor/enabled-extension', 'vendor/disabled-extension');
+        ->not->toContain('vendor/enabled-extension')->not->toContain('vendor/disabled-extension');
 
     $page->extensionTablePinnedPackageName = 'vendor/uninstalled-extension';
     $page->extensionTablePinnedIndex = 0;

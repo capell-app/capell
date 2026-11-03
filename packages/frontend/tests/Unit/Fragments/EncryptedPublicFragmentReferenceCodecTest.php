@@ -51,7 +51,7 @@ it('round trips a typed public fragment reference', function (): void {
     $codec = resolve(PublicFragmentReferenceCodec::class);
     $token = $codec->encode($reference);
 
-    expect($token)->not->toContain('layout-builder', 'current-content', 'widgetKey')
+    expect($token)->not->toContain('layout-builder')->not->toContain('current-content')->not->toContain('widgetKey')
         ->and($codec->decode($token))->toEqual($reference);
 });
 

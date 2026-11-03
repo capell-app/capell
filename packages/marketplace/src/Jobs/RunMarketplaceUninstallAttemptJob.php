@@ -63,12 +63,19 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
             MarketplaceInstallFailureStage::Queue => 0,
             MarketplaceInstallFailureStage::Lifecycle => 1,
             MarketplaceInstallFailureStage::Composer => 2,
+            MarketplaceInstallFailureStage::Verification,
             MarketplaceInstallFailureStage::PackageDiscovery,
             MarketplaceInstallFailureStage::Migration => 3,
             MarketplaceInstallFailureStage::HealthCheck => 4,
             MarketplaceInstallFailureStage::Notification,
             MarketplaceInstallFailureStage::DeploymentHandoff => 5,
         };
+    }
+
+    #[Override]
+    protected function requiresVerification(): bool
+    {
+        return false;
     }
 
     #[Override]

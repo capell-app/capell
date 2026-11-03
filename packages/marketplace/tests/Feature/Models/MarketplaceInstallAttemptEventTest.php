@@ -25,7 +25,7 @@ it('records append-only ordered attempt timeline events with redacted context', 
         level: MarketplaceInstallAttemptEventLevel::Error,
         message: 'Composer failed',
         stage: MarketplaceInstallFailureStage::Composer,
-        outputExcerpt: 'token=abc123 {"token":"json-secret"} Bearer abc+/=',
+        outputExcerpt: 'postgres://user:uri_secret@host/db token=abc123 {"token":"json-secret"} Bearer abc+/=',
     );
 
     $events = $attempt->refresh()->events;
@@ -40,7 +40,7 @@ it('records append-only ordered attempt timeline events with redacted context', 
             'license_key' => '[redacted]',
             'safe' => 'kept',
         ])
-        ->and($lastEvent->output_excerpt)->toBe('token=[redacted] {"token":"[redacted]"} Bearer [redacted]');
+        ->and($lastEvent->output_excerpt)->toBe('postgres://[redacted]@host/db token=[redacted] {"token":"[redacted]"} Bearer [redacted]');
 
     $firstEvent->forceFill(['message' => 'Mutated']);
 

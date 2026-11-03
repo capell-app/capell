@@ -101,7 +101,7 @@ it('keeps existing installed requirements and unrelated packages out of newly di
     $refreshed = InstallPlan::refreshPackageSteps($input, $initialPlan, [InstallPlan::packageRequireStepKey('vendor/theme')]);
     $keys = array_column($refreshed, 'key');
     expect($keys)->toContain(InstallPlan::packageInstallStepKey('vendor/layout-builder'), InstallPlan::packageInstallStepKey('vendor/navigation'))
-        ->and($keys)->not->toContain(InstallPlan::packageInstallStepKey('vendor/block-library'), InstallPlan::packageInstallStepKey('vendor/unrelated'))
+        ->and($keys)->not->toContain(InstallPlan::packageInstallStepKey('vendor/block-library'))->not->toContain(InstallPlan::packageInstallStepKey('vendor/unrelated'))
         ->and($refreshed[0])->toBe($initialPlan[0]);
 });
 

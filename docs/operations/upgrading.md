@@ -80,6 +80,11 @@ authorisation for the current installation; retrying the same unsafe constraint
 does not bypass the check. These changes require no schema or stored payload
 migration.
 
+### Install verification
+
+Marketplace acquisition runs Composer without plugins or scripts, then checks the requested package and new or version-changed dependencies before lifecycle work, migrations and provider activation. This does not isolate Composer's own execution or prevent other processes observing the changed vendor tree before verification.
+A failed check stops the operation and restores Composer state. See [install verification](../packages/extension-lifecycle.md#install-verification) for policy and recovery guidance.
+
 ## Admin view escaping fixes
 
 If your application overrides Capell Admin Blade views under
@@ -174,6 +179,8 @@ php artisan capell:upgrade --force --no-clear-cache
 ```
 
 ## Update And Security Notices
+
+See [Security weakness scans](security-weaknesses.md) for scheduled posture checks, findings and approved automatic remediation.
 
 Capell shows WordPress-style notices without letting the browser run Composer. The installed site phones home to the marketplace, stores the latest response in `marketplace_update_advisory_snapshots`, and renders that local snapshot in the Upgrades page.
 
@@ -428,3 +435,5 @@ Static error entries without a recorded port or mount cannot establish ownership
 and return the generic fallback until regeneration. Run
 `php artisan capell:generate-error-pages` to rebuild both route-scoped manifests on
 deployment, and stop previous workers to prevent further legacy rewrites.
+
+Security scans and approved remediation are described in [Security weakness scans](../operations/security-weaknesses.md). A security scan dry run still records findings.

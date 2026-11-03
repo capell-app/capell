@@ -163,7 +163,7 @@ final class QueueMarketplaceInstallAttemptAction
             requestedOptions: $requestedOptions,
             eligibility: $eligibility->toArray(),
             context: MarketplaceActivationContext::encryptedInto(
-                MarketplaceComposerAuthContext::encryptedInto($context, $acquisition->composerAuth),
+                MarketplaceComposerAuthContext::encryptedInto([...$context, 'release_checksum' => $acquisition->releaseChecksum, 'release_checksum_version' => $acquisition->releaseChecksumVersion], $acquisition->composerAuth),
                 $acquisition->signedActivation,
             ),
             deployment: $deploymentMetadata,

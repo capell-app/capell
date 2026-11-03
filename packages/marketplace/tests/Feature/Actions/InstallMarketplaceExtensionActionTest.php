@@ -142,7 +142,7 @@ it('records purchase-required authorization responses as blocked attempts', func
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
-        ->and($attempt->failure_reason)->toBe('Purchase this extension before installing.');
+        ->and($attempt->failure_reason)->toBe((string) __('capell-marketplace::marketplace.errors.purchase_required'));
 
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/paid-suite/install-authorization');
 });
@@ -176,7 +176,7 @@ it('records authorization failures in the marketplace install ledger', function 
     expect($attempt->extension_slug)->toBe('broken-suite')
         ->and($attempt->composer_name)->toBe('capell-app/broken-suite')
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::AuthorizationFailed)
-        ->and($attempt->failure_reason)->toBe('Marketplace authorization failed.');
+        ->and($attempt->failure_reason)->toBe((string) __('capell-marketplace::marketplace.errors.remote_failure'));
 });
 
 it('returns a translated licence validation error to modal callers without exposing server text', function (): void {

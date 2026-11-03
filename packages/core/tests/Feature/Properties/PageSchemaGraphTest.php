@@ -33,7 +33,7 @@ it('projects product money into an offer and preserves repeated semantic values 
         ->and($node['offers']['priceSpecification']['priceCurrency'])->toBe('GBP')
         ->and($node['weight']['unitCode'])->toBe('KGM')
         ->and($node['image'])->toBe(['https://example.test/one.jpg', 'https://example.test/two.jpg'])
-        ->and($graph->toJsonLdScript())->not->toContain('commerce.product', 'private.blueprint', 'Do not expose this', 'property_definition_id');
+        ->and($graph->toJsonLdScript())->not->toContain('commerce.product')->not->toContain('private.blueprint')->not->toContain('Do not expose this')->not->toContain('property_definition_id');
 });
 
 it('escapes author content so JSON LD cannot terminate its script element', function (): void {

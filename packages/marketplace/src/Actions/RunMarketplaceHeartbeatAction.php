@@ -129,17 +129,16 @@ class RunMarketplaceHeartbeatAction
                 return new PhoneHomeResultData(successful: true);
             }
 
-            $failureMessage = 'The marketplace response did not confirm the connected instance ID.'
-                . ' Heartbeat URL: ' . $heartbeatUrl . '.';
-        } catch (ConnectionException $connectionException) {
-            Log::warning('capell-marketplace: phone home connection failed', ['error' => $connectionException->getMessage()]);
-            $failureMessage = 'Capell could not connect to the marketplace API. Heartbeat URL: '
-                . $heartbeatUrl
-                . '. Error: '
-                . $connectionException->getMessage();
-        } catch (RuntimeException $runtimeException) {
-            Log::warning('capell-marketplace: phone home failed', ['error' => $runtimeException->getMessage()]);
-            $failureMessage = $runtimeException->getMessage();
+            $failureMessage = __('capell-marketplace::marketplace.errors.heartbeat_instance_mismatch');
+        } catch (ConnectionException|RuntimeException $exception) {
+            $host = parse_url($heartbeatUrl, PHP_URL_HOST);
+            $failureMessage = __('capell-marketplace::marketplace.errors.heartbeat_connection', [
+                'host' => is_string($host) && $host !== '' ? $host : 'Marketplace',
+            ]);
+            Log::warning('capell-marketplace: phone home failed', [
+                'exception' => $exception::class,
+                'error' => RedactMarketplaceDiagnosticContextAction::run(['error' => $failureMessage])['error'],
+            ]);
         }
 
         return new PhoneHomeResultData(successful: false, failureMessage: $failureMessage);

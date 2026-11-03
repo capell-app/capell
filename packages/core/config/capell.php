@@ -7,6 +7,14 @@ use Capell\Core\Models\Media;
 return [
     'version' => env('CAPELL_VERSION'),
 
+    'extensions' => [
+        'verification' => [
+            // Leniency applies to local install and enable paths only; Marketplace is always strict.
+            'strict' => (bool) env('CAPELL_EXTENSION_VERIFICATION_STRICT', true),
+            'allow_composer_plugins' => (bool) env('CAPELL_EXTENSION_ALLOW_COMPOSER_PLUGINS', false),
+        ],
+    ],
+
     'database' => [
         // Prefix Capell-owned tables unless an explicit table alias is set.
         'table_prefix' => '',
@@ -26,6 +34,15 @@ return [
     'cache_lock_seconds' => (int) env('CAPELL_CACHE_LOCK_SECONDS', 30),
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
     'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
+
+    'security' => [
+        'scan' => [
+            'scheduled' => env('CAPELL_SECURITY_SCAN_SCHEDULED', true),
+            'at' => env('CAPELL_SECURITY_SCAN_AT', '04:10'),
+            'fix_approved' => env('CAPELL_SECURITY_FIX_APPROVED', true),
+        ],
+        'analyser' => ['enabled' => env('CAPELL_SECURITY_ANALYSER_ENABLED', true)],
+    ],
 
     'auth' => [
         // Consumers must also require the local application environment.

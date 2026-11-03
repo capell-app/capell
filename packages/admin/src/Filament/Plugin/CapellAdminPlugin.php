@@ -78,6 +78,26 @@ class CapellAdminPlugin implements Plugin
         return filament(resolve(static::class)->getId());
     }
 
+    /**
+     * The authenticated-request middleware Capell adds to the admin panel.
+     *
+     * Standalone routes that live under the panel path, such as the Marketplace
+     * callbacks, must carry the same stack: the installed panel runtime only
+     * treats a panel-associated route as fully covered (and only propagates
+     * later security middleware to it) when every one of these is present.
+     *
+     * @return list<class-string>
+     */
+    public static function authMiddleware(): array
+    {
+        return [
+            RedirectToInstallerWhenCapellIsNotInstalled::class,
+            EnforceLockdownAdminAccess::class,
+            SetAdminLocale::class,
+            ProfileAdminRequest::class,
+        ];
+    }
+
     #[Override]
     public function getId(): string
     {
@@ -137,12 +157,7 @@ class CapellAdminPlugin implements Plugin
         /** @var view-string $hiddenNavigationInitialStateView */
         $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
-        $panel->authMiddleware([
-            RedirectToInstallerWhenCapellIsNotInstalled::class,
-            EnforceLockdownAdminAccess::class,
-            SetAdminLocale::class,
-            ProfileAdminRequest::class,
-        ]);
+        $panel->authMiddleware(self::authMiddleware());
 
         $panel->renderHook(
             name: PanelsRenderHook::STYLES_BEFORE,

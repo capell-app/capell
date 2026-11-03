@@ -38,7 +38,7 @@ final class ProcessMarketplaceComposerScriptRunner implements MarketplaceCompose
         $this->authWorkspace->ensureDirectory($this->environment->cacheDirectory());
 
         $process = new Process(
-            [...$this->binaryResolver->composer(), 'run-script', '--no-interaction', $event],
+            [...$this->binaryResolver->composer(), 'run-script', '--no-interaction', '--no-plugins', $event],
             base_path(),
             $this->environment->variables($composerHome),
         );

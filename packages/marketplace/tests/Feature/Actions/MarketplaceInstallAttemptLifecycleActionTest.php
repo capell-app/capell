@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Marketplace\Actions\BuildMarketplaceInstallDiagnosticBundleAction;
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\CreateMarketplaceInstallAttemptAction;
@@ -639,3 +640,22 @@ function lifecyclePolicyEvidence(): MarketplaceInstallPolicyEvidenceData
         consentAllowed: true,
     );
 }
+
+it('redacts composer output in the attempt, event and diagnostic bundle', function (): void {
+    $attempt = lifecycleAttempt(MarketplaceInstallIntentStatus::Running);
+    $result = new MarketplaceComposerResultData(1, 'postgres://user:uri_secret@host/db', 'password=error_secret')->redacted();
+    $attempt = TransitionMarketplaceInstallAttemptAction::run($attempt, new MarketplaceInstallAttemptTransitionData(
+        toStatus: MarketplaceInstallIntentStatus::Failed,
+        failureReason: 'Composer failed',
+        failureStage: MarketplaceInstallFailureStage::Composer,
+        outputExcerpt: $result->output,
+        errorExcerpt: $result->errorOutput,
+        timelineOutputExcerpt: $result->output,
+    ));
+    $bundle = BuildMarketplaceInstallDiagnosticBundleAction::run($attempt);
+    expect($result->output)->not->toContain('uri_secret')
+        ->and($attempt->output_excerpt)->not->toContain('uri_secret')
+        ->and($attempt->error_excerpt)->not->toContain('error_secret')
+        ->and($attempt->events->last()->output_excerpt)->not->toContain('uri_secret')
+        ->and($bundle)->not->toContain('uri_secret')->not->toContain('error_secret');
+});

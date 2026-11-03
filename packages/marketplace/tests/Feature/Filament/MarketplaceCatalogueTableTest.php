@@ -2419,7 +2419,7 @@ it('records failed authorization attempts in the marketplace install ledger', fu
     expect($intent->extension_slug)->toBe('broken-suite')
         ->and($intent->composer_name)->toBe('capell-app/broken-suite')
         ->and($intent->status)->toBe(MarketplaceInstallIntentStatus::AuthorizationFailed)
-        ->and($intent->failure_reason)->toBe('Marketplace authorization failed.');
+        ->and($intent->failure_reason)->toBe((string) __('capell-marketplace::marketplace.errors.remote_failure'));
 });
 
 it('blocks installs when authorization response returns blocking eligibility', function (): void {

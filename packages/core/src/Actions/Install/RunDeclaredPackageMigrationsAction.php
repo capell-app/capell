@@ -9,7 +9,7 @@ use Capell\Core\Data\PackageData;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-final class RunDeclaredPackageMigrationsAction
+class RunDeclaredPackageMigrationsAction
 {
     use AsFake;
     use AsObject;
