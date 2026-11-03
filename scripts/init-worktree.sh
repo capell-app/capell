@@ -15,8 +15,13 @@
 #   vendor/autoload.php  real copy
 #   vendor/bin/          real copy
 #   vendor/<pkg>/<name>  symlink    -> shared, read-only, third-party code
-#   REAL_PACKAGES        real copy  -> tools whose bin scripts walk __DIR__ up
+#   REAL_PACKAGES        real copy  -> Testbench and tools that need local state
+#                                      or whose bin scripts walk __DIR__ up
 #                                      to find autoload.php
+#
+# Testbench must be copied: its skeleton creates a vendor link and mutable files.
+# Sharing that package lets another worktree redirect the primary skeleton.
+# Test processes use disposable, isolated skeleton copies as well.
 #
 # It then verifies the result and refuses to leave a poisoned vendor/ behind.
 #
@@ -127,6 +132,7 @@ fi
 # upward. If these are symlinks, they find the PRIMARY autoloader and you get
 # "Cannot redeclare class ComposerAutoloaderInit..." or a silent wrong-tree run.
 REAL_PACKAGES=(
+    orchestra/testbench-core
     pestphp/pest
     phpunit/phpunit
     laravel/pint
@@ -161,7 +167,9 @@ for vendor_dir in "$PRIMARY_ROOT"/vendor/*/; do
     mkdir -p "vendor/$vendor_name"
     for package_dir in "$vendor_dir"*/; do
         [ -d "$package_dir" ] || continue
-        ln -s "$package_dir" "vendor/$vendor_name/$(basename "$package_dir")"
+        package_name=$(basename "$package_dir")
+        [ "$vendor_name/$package_name" != "orchestra/testbench-core" ] || continue
+        ln -s "$package_dir" "vendor/$vendor_name/$package_name"
         linked=$((linked + 1))
     done
 done
@@ -174,6 +182,12 @@ for package in "${REAL_PACKAGES[@]}"; do
         copied=$((copied + 1))
     fi
 done
+
+# A copied skeleton may contain a link created by an earlier worktree. Remove
+# only the copied link; Testbench will create a local one when it needs it.
+if [ -L vendor/orchestra/testbench-core/laravel/vendor ]; then
+    rm vendor/orchestra/testbench-core/laravel/vendor
+fi
 
 echo "Linked $linked packages, copied $copied tool packages ($(du -sh vendor | cut -f1))."
 
