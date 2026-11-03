@@ -31,5 +31,12 @@ final class SecurityScanRun extends Model
 
     protected $keyType = 'string';
 
-    protected $guarded = [];
+    /** @var list<string> */
+    protected $fillable = [
+        'id',
+        'started_at',
+        'finished_at',
+        'findings_count',
+        'source',
+    ];
 }
