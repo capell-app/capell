@@ -353,10 +353,43 @@ final class InstalledPanelRuntime
         }
 
         try {
+            $this->absorbGrowth($panel);
             $this->reconcileRoute($panel, $route);
         } catch (Throwable $throwable) {
             $this->refuse($panel, $route, $throwable);
         }
+    }
+
+    /**
+     * Middleware added to the panel since its last synchronisation came from runtime wiring, not
+     * the host panel provider, so it is held to the same coverage as an extender contribution.
+     */
+    private function absorbGrowth(Panel $panel): void
+    {
+        $snapshot = $this->routeMiddleware[$panel] ?? null;
+        if ($snapshot === null || ! $snapshot['booted']) {
+            return;
+        }
+
+        $current = $this->middlewareOf($panel, true);
+        foreach (['middleware', 'auth', 'tenant'] as $bucket) {
+            if (array_diff($snapshot[$bucket], $current[$bucket]) !== []) {
+                throw new RuntimeException(__('capell-admin::message.extension_panel_middleware_removal'));
+            }
+        }
+
+        $growth = $this->difference($current, $snapshot);
+        if ($growth === ['middleware' => [], 'auth' => [], 'tenant' => []]) {
+            return;
+        }
+
+        $this->contributed[$panel] = $this->merge($this->contributed[$panel] ?? ['middleware' => [], 'auth' => [], 'tenant' => []], $growth);
+        $this->routeMiddleware[$panel] = [...$current, 'booted' => true];
+        $replayed = array_diff(
+            array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], $this->router->resolveMiddleware([...$growth['middleware'], ...$growth['auth'], ...$growth['tenant']])),
+            $this->fullPageOnly[$panel] ?? [],
+        );
+        Livewire::addPersistentMiddleware(array_values($replayed));
     }
 
     private function refuse(Panel $panel, Route $route, Throwable $throwable): void
