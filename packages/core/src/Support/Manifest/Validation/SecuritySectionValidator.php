@@ -104,6 +104,7 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
         }
 
         $this->rules->stringList($security['externalHttpClients'], 'clients', required: false);
+        $this->rules->stringList($security['externalHttpClients'], 'manualClients', required: false);
     }
 
     /** @param array<string, mixed> $security */

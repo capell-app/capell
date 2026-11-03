@@ -399,6 +399,9 @@
                         },
                         "clients": {
                             "$ref": "#/$defs/stringList"
+                        },
+                        "manualClients": {
+                            "$ref": "#/$defs/stringList"
                         }
                     }
                 },

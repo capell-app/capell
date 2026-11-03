@@ -301,6 +301,33 @@ it('declares package security metadata in the manifest v3 json schema', function
         ->and(data_get($schema, 'properties.security.properties.publicSurface.properties.routeNames.$ref'))->toBe('#/$defs/stringList');
 });
 
+it('declares manually listed external HTTP clients in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.security.properties.externalHttpClients.additionalProperties'))->toBeFalse()
+        ->and(data_get($schema, 'properties.security.properties.externalHttpClients.properties.manualClients.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.externalHttpClients.properties.clients.$ref'))->toBe('#/$defs/stringList');
+});
+
+it('accepts manually listed external HTTP clients beside the detected ones', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'externalHttpClients' => [
+            'requiresTimeouts' => true,
+            'requiresSecretRedaction' => true,
+            'clients' => ['Vendor\\Sdk\\Client'],
+            'manualClients' => ['Vendor\\Sdk\\Client'],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
 it('validates screenshot paths in the published schema without depending on its regex spelling', function (string $path, bool $safe): void {
     $schema = json_decode(
         (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
@@ -361,6 +388,18 @@ it('rejects malformed package security contract metadata', function (Closure $mu
             $manifest['security']['publicSurface']['routeNames'] = ['capell-example.webhook', false];
         },
         'routeNames',
+    ],
+    'malformed manual HTTP clients' => [
+        function (array &$manifest): void {
+            $manifest['security']['externalHttpClients']['manualClients'] = 'Vendor\\Sdk\\Client';
+        },
+        'manualClients',
+    ],
+    'manual HTTP client that is not a string' => [
+        function (array &$manifest): void {
+            $manifest['security']['externalHttpClients']['manualClients'] = ['Vendor\\Sdk\\Client', 3];
+        },
+        'manualClients',
     ],
     'malformed public output boolean' => [
         function (array &$manifest): void {
