@@ -34,6 +34,8 @@ return [
     'cache_lock_seconds' => (int) env('CAPELL_CACHE_LOCK_SECONDS', 30),
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
     'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
+    // Null falls back to the host name at runtime, so a cached configuration built elsewhere stays correct.
+    'node_id' => env('CAPELL_NODE_ID'),
 
     'security' => [
         'scan' => [
@@ -42,6 +44,8 @@ return [
             'fix_approved' => env('CAPELL_SECURITY_FIX_APPROVED', true),
         ],
         'analyser' => ['enabled' => env('CAPELL_SECURITY_ANALYSER_ENABLED', true)],
+        'node_ttl_minutes' => (int) env('CAPELL_SECURITY_NODE_TTL_MINUTES', 30),
+        'node_refresh_grace_minutes' => (int) env('CAPELL_SECURITY_NODE_REFRESH_GRACE_MINUTES', 60),
     ],
 
     'auth' => [

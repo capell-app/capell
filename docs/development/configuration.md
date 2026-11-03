@@ -70,6 +70,9 @@ for the same guard; it returns `true` when the table is already Capell's, meanin
 | `CAPELL_SECURITY_SCAN_AT` | `04:10` | Daily scan time in the scheduler timezone |
 | `CAPELL_SECURITY_FIX_APPROVED` | `true` | Apply approved remediations during scheduled scans |
 | `CAPELL_SECURITY_ANALYSER_ENABLED` | `true` | Allow the configured security analyser to provide advice |
+| `CAPELL_NODE_ID` | _(host name)_ | Stable, unique identity of this node in a multi-node deployment; used to track which nodes applied an approved security change |
+| `CAPELL_SECURITY_NODE_TTL_MINUTES` | `30` | How long a node counts as live after it last reported to the shared cache store |
+| `CAPELL_SECURITY_NODE_REFRESH_GRACE_MINUTES` | `60` | How long an approved environment change waits for every node before its finding is re-opened, naming the nodes that did not refresh |
 | `CAPELL_RELEASE_ROOT_MODE`                   | `mutable`                                 | `mutable` permits guarded release-root writes; `immutable` and `atomic` require Composer and migration publication during the release build                         |
 | `CAPELL_SERVER_SIDE_TOOLING`                 | `false`                                   | Declare that this server installs extensions and builds assets itself, so Doctor requires Composer, Node, and `proc_open`                                           |
 | `CAPELL_PHP_BINARY`                          | _(null)_                                  | CLI PHP binary used for every Capell subprocess; falls back to `CAPELL_SETUP_PHP_BINARY`, then `PHP_BINARY`, then the executable search path                        |
