@@ -184,3 +184,20 @@ it('blocks standalone admin routes in lockdown and permits the break-glass user'
         $store->deactivate();
     }
 });
+
+it('limits how often one user can invoke admin agent tools', function (): void {
+    config()->set('capell-admin.agent.tool_invocations_per_minute', 2);
+    test()->actingAsAdmin();
+
+    $invoke = fn (): int => $this->postJson(route('capell-admin.agent.tools.invoke'), ['tool' => 'missing.tool', 'payload' => []])->baseResponse->getStatusCode();
+
+    expect([$invoke(), $invoke()])->not->toContain(429);
+
+    $this->postJson(route('capell-admin.agent.tools.invoke'), ['tool' => 'missing.tool', 'payload' => []])
+        ->assertStatus(429)
+        ->assertHeader('Retry-After');
+
+    test()->actingAsAdmin();
+
+    expect($invoke())->not->toBe(429);
+});

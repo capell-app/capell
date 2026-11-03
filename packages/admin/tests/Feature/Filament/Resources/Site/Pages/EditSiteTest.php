@@ -16,6 +16,8 @@ use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertDatabaseHas;
@@ -349,4 +351,22 @@ it('can translate translations', function (): void {
     expect($site->refresh())
         ->translations->get(0)->title->toBe('Test Title')
         ->translations->get(1)->title->toBe('FAKE_TRANSLATION');
+});
+
+it('keeps each site favicon when two sites upload files with the same name', function (): void {
+    Storage::fake('public');
+    $sites = Site::factory()->count(2)->hasSiteDomains()->create();
+
+    foreach ($sites as $site) {
+        Livewire::test(EditSite::class, ['record' => $site->getRouteKey()])
+            ->fillForm(['meta.favicon' => UploadedFile::fake()->image('favicon.png', 32, 32)])
+            ->call('save')
+            ->assertHasNoFormErrors();
+    }
+
+    $stored = $sites->map(fn (Site $site): mixed => data_get($site->refresh()->meta, 'favicon'))->all();
+
+    expect($stored[0])->toBeString()->not->toBe($stored[1])
+        ->and(Storage::disk('public')->exists((string) $stored[0]))->toBeTrue()
+        ->and(Storage::disk('public')->exists((string) $stored[1]))->toBeTrue();
 });

@@ -51,12 +51,8 @@ class CardsFilamentWidget implements FilamentWidget
 
     private static function imageUpload(): Field
     {
-        $field = MediaLibraryFileUpload::make('image');
-
-        if (method_exists($field, 'preserveFilenames')) {
-            $field->preserveFilenames();
-        }
-
-        return $field;
+        // Stored names stay generated: an uploaded file's own name could
+        // overwrite another site's image in a shared directory.
+        return MediaLibraryFileUpload::make('image');
     }
 }
