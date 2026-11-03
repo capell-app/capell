@@ -12,6 +12,7 @@ use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityWeaknessSeverity;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
 use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
@@ -25,12 +26,16 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 function fakeCommandScan(bool $includeAnalyser, string $source = 'system:console'): void
 {
+    $scanId = (string) Str::ulid();
+    SecurityScanRun::query()->create(['id' => $scanId, 'started_at' => now()->subMinute(), 'finished_at' => now(), 'findings_count' => 1, 'source' => $source]);
+    SecurityWeaknessFinding::query()->update(['last_detected_scan_id' => $scanId]);
     RunSecurityWeaknessScanAction::mock()->shouldReceive('handle')->once()->with($includeAnalyser, $source)
-        ->andReturn(new SecurityScanResultData(CarbonImmutable::now()->subMinute(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High));
+        ->andReturn(new SecurityScanResultData(CarbonImmutable::now()->subMinute(), 1, 0, null, 0, 0, 0, 1, SecurityWeaknessSeverity::High, [], $scanId));
 }
 
 it('lists active findings in a table and fails for open critical findings', function (): void {

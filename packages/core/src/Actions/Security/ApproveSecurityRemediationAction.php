@@ -9,6 +9,7 @@ use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityFindingStatus;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityEvidence;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -48,7 +49,7 @@ class ApproveSecurityRemediationAction
 
         $findings = $query->get();
         $finding = $findings->first();
-        if ($findings->count() !== 1 || ! $finding instanceof SecurityWeaknessFinding || $finding->last_detected_scan_id === null || $finding->evidence_hash === null) {
+        if ($findings->count() !== 1 || ! $finding instanceof SecurityWeaknessFinding || $finding->last_detected_scan_id === null || $finding->evidence_hash === null || ! SecurityEvidence::complete($finding->evidence ?? []) || ! hash_equals($finding->evidence_hash, SecurityEvidence::hash($finding->evidence ?? []))) {
             throw new InvalidArgumentException(__('capell-core::security.remediation.approval_requires_finding'));
         }
 
@@ -57,7 +58,7 @@ class ApproveSecurityRemediationAction
             'remediation_class' => $remediation::class,
             'approved_for_scan_id' => $finding->last_detected_scan_id,
             'approved_fingerprint' => $finding->fingerprint,
-            'evidence_hash' => $finding->evidence_hash,
+            'evidence_hash' => SecurityEvidence::hash($finding->evidence ?? []),
             'superseded_at' => null,
             'approved_by' => self::userId($user),
             'approved_at' => CarbonImmutable::now(),

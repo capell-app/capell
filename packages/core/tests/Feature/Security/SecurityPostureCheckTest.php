@@ -25,8 +25,8 @@ it('reports critical and high open findings with the appropriate urgency', funct
     $high->update(['status' => SecurityFindingStatus::Resolved]);
     $critical->update(['status' => SecurityFindingStatus::Dismissed]);
     expect($check->check()->passed)->toBeTrue()
-        ->and($check->check()->severity)->toBe(DoctorCheckSeverity::Info)
-        ->and($check->check()->evidence)->not->toHaveKey('never_scanned');
+        ->and($check->check()->severity)->toBe(DoctorCheckSeverity::Warning)
+        ->and($check->check()->evidence['never_scanned'])->toBeTrue();
 });
 
 it('passes when a completed scan has no findings', function (): void {
@@ -37,4 +37,26 @@ it('passes when a completed scan has no findings', function (): void {
     $result = (new SecurityPostureCheck)->check();
     expect($result->passed)->toBeTrue()
         ->and($result->severity)->toBe(DoctorCheckSeverity::Info);
+});
+
+it('warns about migration-shaped findings while retaining their severity and counts', function (): void {
+    SecurityWeaknessFinding::factory()->create(['severity' => SecurityWeaknessSeverity::Critical]);
+    $result = (new SecurityPostureCheck)->check();
+    expect($result->severity)->toBe(DoctorCheckSeverity::Critical)
+        ->and($result->passed)->toBeFalse()
+        ->and($result->evidence['critical'])->toBe(1)
+        ->and($result->evidence['never_scanned'])->toBeTrue()
+        ->and($result->message)->toContain(__('capell-core::security.doctor.never_scanned'));
+});
+
+it('warns when the latest completed scan failed after a successful scan', function (): void {
+    SecurityScanRun::query()->create(['id' => (string) Str::ulid(), 'started_at' => now()->subHour(), 'finished_at' => now()->subHour(), 'findings_count' => 0, 'source' => 'test']);
+    $time = now()->subMinute()->format('Y-m-d H:i:s');
+    SecurityScanRun::query()->create(['id' => (string) Str::ulid(), 'started_at' => $time, 'finished_at' => $time, 'findings_count' => null, 'source' => 'test']);
+    SecurityWeaknessFinding::factory()->create(['severity' => SecurityWeaknessSeverity::High]);
+    $result = (new SecurityPostureCheck)->check();
+    expect($result->severity)->toBe(DoctorCheckSeverity::Warning)
+        ->and($result->passed)->toBeFalse()
+        ->and($result->evidence['high'])->toBe(1)
+        ->and($result->message)->toContain($time);
 });

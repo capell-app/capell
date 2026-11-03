@@ -8,6 +8,7 @@ return [
     'doctor' => [
         'label' => 'Security posture',
         'never_scanned' => 'No security scan has completed successfully. Run php artisan capell:security:scan.',
+        'failed_scan' => 'The security scan finished with failures at :time. Run the scan again.',
         'message' => 'Open security findings: :critical critical, :high high.',
         'action' => 'Run php artisan capell:security:scan and review the findings.',
     ],

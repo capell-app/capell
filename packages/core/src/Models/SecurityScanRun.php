@@ -9,6 +9,13 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property string $id
+ * @property string|null $started_at
+ * @property string|null $finished_at
+ * @property int|null $findings_count
+ * @property string $source
+ */
 final class SecurityScanRun extends Model
 {
     use HasCapellTable;

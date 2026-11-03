@@ -14,6 +14,7 @@ use Capell\Core\Events\SecurityWeaknessDetected;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityEvidence;
 use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Carbon\CarbonImmutable;
@@ -45,7 +46,7 @@ class RunSecurityWeaknessScanAction
             $checksRun++;
             try {
                 foreach ($check->detect($inventory) as $finding) {
-                    if (! SecurityWeaknessRegistry::isValid($finding->weaknessId)) {
+                    if (! SecurityWeaknessRegistry::isValid($finding->weaknessId) || $finding->weaknessId !== $id) {
                         $failures[] = 'check: ' . $id . ': invalid finding';
 
                         continue;
@@ -110,7 +111,7 @@ class RunSecurityWeaknessScanAction
                     'composer_name' => $data->composerName, 'remediable' => $data->remediable,
                     'recommended_action' => $data->recommendedAction === null ? null : $sanitiser->text($data->recommendedAction, 2000), 'confidence' => $data->confidence,
                     'last_detected_at' => $now, 'last_detected_scan_id' => $scanId,
-                    'evidence_hash' => hash('sha256', json_encode($data->evidence, JSON_THROW_ON_ERROR)),
+                    'evidence_hash' => SecurityEvidence::hash($sanitiser->context($data->evidence)),
                 ]);
                 if ($isNew) {
                     $finding->first_detected_at = $now;

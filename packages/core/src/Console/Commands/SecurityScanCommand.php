@@ -24,11 +24,11 @@ final class SecurityScanCommand extends Command
         $scan = RunSecurityWeaknessScanAction::run(! $this->option('no-analyser'), $this->option('actor') === 'scheduler' ? SecurityRemediationRun::ACTOR_SCHEDULER : 'system:console');
         $batch = $this->option('fix-approved') ? ApplyApprovedSecurityRemediationsAction::run(
             $this->option('actor') === 'scheduler' ? SecurityRemediationRun::ACTOR_SCHEDULER : 'system:console',
+            $scan->scanId ?? '',
             (bool) $this->option('dry-run'),
             $this->option('only'),
             $scan->scannedAt,
             array_values(array_map(static fn (string $failure): string => explode(': ', substr($failure, 7), 2)[0], array_filter($scan->failures, static fn (string $failure): bool => str_starts_with($failure, 'check: ')))),
-            $scan->scanId,
         ) : null;
         $findings = ListSecurityWeaknessFindingsAction::run();
         $approvals = SecurityRemediationApproval::query()->active()->get()->keyBy('approved_fingerprint');

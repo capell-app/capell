@@ -160,3 +160,17 @@ it('records a distinct scan identity on each run and on detected findings', func
         ->and($finding->last_detected_scan_id)->toBe($second->scanId)
         ->and(SecurityScanRun::query()->whereNotNull('finished_at')->count())->toBe(2);
 });
+
+it('rejects a finding attributed to a different detector and records the failure', function (): void {
+    BuildSecurityPostureInventoryAction::mock()->shouldReceive('handle')->andReturn(new SecurityPostureInventoryData(null, [], [], [], CarbonImmutable::now()));
+    $check = Mockery::mock(SecurityWeaknessCheck::class);
+    $check->shouldReceive('weaknessId')->andReturn('test.registered');
+    $check->shouldReceive('detect')->andReturn([new SecurityWeaknessFindingData('test.foreign', 'foreign', SecurityWeaknessSeverity::High, SecurityFindingSource::Builtin, 'Title', 'Summary')]);
+    $registry = new SecurityWeaknessRegistry;
+    $registry->registerCheck($check);
+
+    $scan = new RunSecurityWeaknessScanAction($registry, new NullSecurityWeaknessAnalyser)->handle(false);
+    expect($scan->failures)->toContain('check: test.registered: invalid finding')
+        ->and(SecurityWeaknessFinding::query()->count())->toBe(0)
+        ->and(SecurityScanRun::query()->findOrFail($scan->scanId)->findings_count)->toBeNull();
+});
