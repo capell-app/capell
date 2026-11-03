@@ -73,3 +73,13 @@ analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
 
 Use available Boost capabilities and reusable skills as live tooling. Do not copy
 generated Boost guideline dumps or static skill inventories into this file.
+
+- A shared `vendor/orchestra/testbench-core` lets Testbench's `CreateVendorSymlink`
+  write `laravel/vendor` through the share, so one worktree can point the primary
+  skeleton's vendor link at its own `vendor/`. Multi-file Pest runs then load
+  classes from the other worktree (for example `UnhandledMatchError` from a stale
+  `match`). `scripts/init-worktree.sh` now copies `testbench-core` and removes the
+  copied link; `php scripts/check-vendor-integrity.php` (run by `tests/Pest.php`
+  and `composer prepare`) fails when that link or `vendor/composer/autoload_real.php`
+  resolves outside the checkout. Repair with `composer install`, or
+  `bash scripts/init-worktree.sh --host-only --force` in a host-only worktree.

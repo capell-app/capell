@@ -88,6 +88,42 @@ it('reports a broken symlink instead of treating it as owned', function (): void
     }
 });
 
+it('rejects a skeleton vendor link into another checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $other = vendorIntegrityFixture();
+
+    try {
+        $link = $root . '/vendor/orchestra/testbench-core/laravel/vendor';
+        unlink($link);
+        symlink($other . '/vendor', $link);
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain('vendor/orchestra/testbench-core/laravel/vendor resolves to ' . realpath($other . '/vendor'))
+            ->and($output)->toContain('composer install');
+    } finally {
+        deleteVendorIntegrityFixture($root);
+        deleteVendorIntegrityFixture($other);
+    }
+});
+
+it('rejects an autoload file resolving outside the checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $other = vendorIntegrityFixture();
+
+    try {
+        unlink($root . '/vendor/composer/autoload_real.php');
+        symlink($other . '/vendor/composer/autoload_real.php', $root . '/vendor/composer/autoload_real.php');
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain(realpath($other . '/vendor/composer/autoload_real.php'));
+    } finally {
+        deleteVendorIntegrityFixture($root);
+        deleteVendorIntegrityFixture($other);
+    }
+});
+
 it('asks for composer install when vendor is missing', function (): void {
     $root = vendorIntegrityFixture();
 
@@ -110,6 +146,10 @@ function vendorIntegrityFixture(): string
     foreach (['/vendor/composer', '/vendor/orchestra/testbench-core'] as $directory) {
         mkdir($root . $directory, 0777, true);
     }
+
+    file_put_contents($root . '/vendor/composer/autoload_real.php', '<?php');
+    mkdir($root . '/vendor/orchestra/testbench-core/laravel', 0777, true);
+    symlink($root . '/vendor', $root . '/vendor/orchestra/testbench-core/laravel/vendor');
 
     return $root;
 }

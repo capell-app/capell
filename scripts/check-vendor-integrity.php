@@ -43,6 +43,8 @@ $mutatedPaths = [
     'vendor',
     'vendor/composer',
     'vendor/orchestra/testbench-core',
+    'vendor/composer/autoload_real.php',
+    'vendor/orchestra/testbench-core/laravel/vendor',
 ];
 
 $failures = [];
@@ -51,6 +53,10 @@ foreach ($mutatedPaths as $relativePath) {
     $absolutePath = $realRoot . '/' . $relativePath;
 
     if (! file_exists($absolutePath) && ! is_link($absolutePath)) {
+        if ($relativePath === 'vendor/composer/autoload_real.php') {
+            $failures[] = sprintf('%s is missing.', $relativePath);
+        }
+
         continue;
     }
 
@@ -62,7 +68,7 @@ foreach ($mutatedPaths as $relativePath) {
         continue;
     }
 
-    if (normalisePath($resolvedPath) === normalisePath($absolutePath)) {
+    if (str_starts_with(normalisePath($resolvedPath) . DIRECTORY_SEPARATOR, normalisePath($realRoot) . DIRECTORY_SEPARATOR)) {
         continue;
     }
 
@@ -78,16 +84,8 @@ if ($failures !== []) {
 
     fwrite(STDERR, <<<'MESSAGE'
 
-        This checkout has a hybrid vendor/ from scripts/init-worktree.sh. Commands
-        that purge or regenerate the testbench skeleton would write through those
-        symlinks into the primary checkout and can destroy work in progress there.
-
-        In a worktree, run targeted suites instead:
-
-            php -d memory_limit=2G vendor/bin/pest <paths>
-
-        For a full 'composer test' run, do a real 'composer install' in this
-        worktree first, or run it from the primary checkout.
+        Repair this checkout with a real 'composer install'. For a host-only
+        worktree, rebuild its vendor with 'bash scripts/init-worktree.sh --host-only --force'.
 
         MESSAGE);
 

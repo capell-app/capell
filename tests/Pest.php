@@ -26,6 +26,15 @@ use function Pest\Laravel\artisan;
 
 use PHPUnit\Framework\Assert;
 use Spatie\LaravelData\DataCollection;
+use Symfony\Component\Process\Process;
+
+// Check before any test boots a skeleton or reloads its Composer autoloader.
+$vendorCheck = new Process([PHP_BINARY, dirname(__DIR__) . '/scripts/check-vendor-integrity.php']);
+$vendorCheck->run();
+
+if (! $vendorCheck->isSuccessful()) {
+    throw new RuntimeException($vendorCheck->getErrorOutput() . $vendorCheck->getOutput());
+}
 
 pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
 pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests');

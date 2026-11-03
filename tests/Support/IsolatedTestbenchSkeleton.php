@@ -19,11 +19,10 @@ use RuntimeException;
  * prompts InstallCommand and SetupCommand ask). When shards or Paratest workers run at the same
  * time they see each other's files, and the interactive-prompt expectations fail at random.
  *
- * Each process boots from var/testbench-skeletons/<token>, outside Pest's test discovery tree.
+ * Each process boots from a disposable directory outside the repository.
  * Everything is copied — crucially app/ and bootstrap/cache/ — except storage/, which is recreated
  * as an empty directory tree because the shared one accumulates gigabytes of test artefacts. The
- * copy contains no symlinks: TailwindAssetsGenerator (and friends) resolve realpath() and reject
- * paths that escape the project.
+ * Skeleton symlinks are omitted; vendor and public/storage are linked to their owned targets.
  */
 final class IsolatedTestbenchSkeleton
 {
@@ -57,8 +56,7 @@ final class IsolatedTestbenchSkeleton
     /**
      * Resolve the base path this process should boot the Laravel application from.
      *
-     * Returns the shared skeleton when the process is not part of a parallel run — a single
-     * process cannot race itself.
+     * Serial and parallel processes both need isolation from other worktrees and runs.
      */
     public static function basePath(): string
     {
@@ -72,9 +70,8 @@ final class IsolatedTestbenchSkeleton
 
         $token = self::token();
 
-        if ($token === null) {
-            return self::$preparedPath = $sourcePath;
-        }
+        // Every process needs its own skeleton, including ordinary serial runs.
+        $token = ($token ?? 'serial') . '-' . bin2hex(random_bytes(8));
 
         // The directory name keeps the word "testbench": application code guards such as
         // ClearCachesAction::shouldSkipOptimizeClearForTestbench() recognise a Testbench skeleton
@@ -175,7 +172,7 @@ final class IsolatedTestbenchSkeleton
     private static function pathForToken(string $token): string
     {
         $root = getenv('CAPELL_TESTBENCH_SKELETON_ROOT');
-        $root = is_string($root) && $root !== '' ? rtrim($root, DIRECTORY_SEPARATOR) : dirname(__DIR__, 2) . '/var/testbench-skeletons';
+        $root = is_string($root) && $root !== '' ? rtrim($root, DIRECTORY_SEPARATOR) : sys_get_temp_dir() . '/capell-testbench-skeletons-' . hash('sha256', (string) realpath(dirname(__DIR__, 2)));
 
         return $root . DIRECTORY_SEPARATOR . $token;
     }
@@ -229,6 +226,10 @@ final class IsolatedTestbenchSkeleton
                 continue;
             }
 
+            if ($entry === 'vendor') {
+                continue;
+            }
+
             self::copy($sourcePath . '/' . $entry, $targetPath . '/' . $entry);
         }
 
@@ -238,8 +239,11 @@ final class IsolatedTestbenchSkeleton
             throw_if(! is_dir($path) && ! mkdir($path, 0o777, true) && ! is_dir($path), RuntimeException::class, sprintf('Unable to create the directory [%s].', $path));
         }
 
+        // Testbench and Composer actions must resolve the current checkout's loader.
+        throw_if(! symlink(dirname(__DIR__, 2) . '/vendor', $targetPath . '/vendor'), RuntimeException::class, sprintf('Unable to link the checkout vendor at [%s].', $targetPath));
+
         // Re-point the storage link at this copy's storage rather than the shared skeleton's.
-        if (is_dir($targetPath . '/public')) {
+        if (is_dir($targetPath . '/public') && ! file_exists($targetPath . '/public/storage') && ! is_link($targetPath . '/public/storage')) {
             symlink($targetPath . '/storage/app/public', $targetPath . '/public/storage');
         }
     }

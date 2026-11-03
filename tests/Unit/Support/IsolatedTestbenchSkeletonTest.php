@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Capell\Tests\Support\IsolatedTestbenchSkeleton;
 
-it('keeps generated skeletons outside test discovery in the repository runtime directory', function (): void {
+it('keeps generated skeletons outside the repository', function (): void {
     $pathForToken = new ReflectionMethod(IsolatedTestbenchSkeleton::class, 'pathForToken');
     $repositoryPath = dirname(__DIR__, 3);
 
@@ -12,7 +12,7 @@ it('keeps generated skeletons outside test discovery in the repository runtime d
     try {
         putenv('CAPELL_TESTBENCH_SKELETON_ROOT');
         expect($pathForToken->invoke(null, '11_run-unique'))
-            ->toBe($repositoryPath . '/var/testbench-skeletons/11_run-unique');
+            ->toBe(sys_get_temp_dir() . '/capell-testbench-skeletons-' . hash('sha256', (string) realpath($repositoryPath)) . '/11_run-unique');
     } finally {
         putenv($previous === false ? 'CAPELL_TESTBENCH_SKELETON_ROOT' : 'CAPELL_TESTBENCH_SKELETON_ROOT=' . $previous);
     }
