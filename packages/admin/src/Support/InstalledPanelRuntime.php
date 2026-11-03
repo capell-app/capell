@@ -528,8 +528,9 @@ final class InstalledPanelRuntime
     }
 
     /**
-     * Package middleware must run before any of the route's own middleware, which could answer the
-     * request first, and package authentication must run after the panel has authenticated.
+     * The host panel's authentication and package middleware must run before any of the route's own
+     * middleware, which could answer the request first, and package authentication must run after the
+     * panel has authenticated.
      *
      * @param  array<mixed>  $pipeline
      * @param  array{middleware: list<string>, auth: list<string>, tenant: list<string>}  $host
@@ -556,6 +557,16 @@ final class InstalledPanelRuntime
         }
 
         $hostAuth = $this->router->resolveMiddleware($host['auth']);
+        // The panel authenticates before any of the route's own middleware could answer the request.
+        if (! $public) {
+            foreach ($hostAuth as $middleware) {
+                $position = array_search($middleware, $pipeline, true);
+                if ($position !== false && $position > $foreign) {
+                    throw new RuntimeException(__('capell-admin::message.extension_panel_security_order'));
+                }
+            }
+        }
+
         $authenticators = array_values(array_filter($hostAuth, $this->isAuthenticator(...)));
         $authenticated = -1;
         foreach ($authenticators !== [] ? $authenticators : $hostAuth as $middleware) {
