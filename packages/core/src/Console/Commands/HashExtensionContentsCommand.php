@@ -18,8 +18,10 @@ final class HashExtensionContentsCommand extends Command
     {
         try {
             $this->line(HashExtensionContentsAction::run((string) $this->argument('path')));
-        } catch (Throwable) {
-            $this->error((string) __('capell-core::extensions.verification.hash_failed'));
+        } catch (Throwable $throwable) {
+            // Operator CLI: the reason stays useful here and never reaches public output.
+            $failure = (string) __('capell-core::extensions.verification.hash_failed');
+            $this->error($failure . ' ' . $throwable->getMessage());
 
             return self::FAILURE;
         }

@@ -42,11 +42,13 @@ final class HashExtensionContentsAction
 
             throw_if(! $entry->isFile() && ! $entry->isDir(), RuntimeException::class, 'Extension contents contain an unsupported entry.');
 
-            $entries[$name . ($entry->isDir() ? '/' : '')] = $entry->getPathname();
+            // A list, not a keyed array: PHP turns a file name such as "123" into
+            // an integer key, which would break the string comparison below.
+            $entries[] = [$name . ($entry->isDir() ? '/' : ''), $entry->getPathname()];
         }
 
-        ksort($entries, SORT_STRING);
-        foreach ($entries as $name => $path) {
+        usort($entries, static fn (array $left, array $right): int => strcmp($left[0], $right[0]));
+        foreach ($entries as [$name, $path]) {
             if (str_ends_with($name, '/')) {
                 $this->hashDirectory($context, $path, $prefix . $name);
 
