@@ -115,7 +115,7 @@ final class QueryPagesByPropertiesAction
 
         if (! $input->publicUrlRequired || ! $this->eligibility->hasContributors()) {
             return $this->paginator(
-                array_values($query->select(TableName::resolve('pages') . '.*')->forPage(max(1, $input->page), $input->size + 1)->get()->all()),
+                array_values($query->select(TableName::resolve('pages') . '.*')->offset((max(1, $input->page) - 1) * $input->size)->limit($input->size + 1)->get()->all()),
                 $input,
             );
         }

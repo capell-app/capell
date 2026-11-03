@@ -469,3 +469,37 @@ it('removes exported static pages when public-read eligibility changes', functio
         File::deleteDirectory($root);
     }
 })->with(['for its site' => true, 'for every site' => null]);
+
+it('pages unrestricted agent navigation and page reads with no gap or repeat at page boundaries', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    [, $public, $set] = agentPropertyPages($domain);
+    $colour = PropertyDefinition::query()->where('property_set_id', $set->id)->where('key', 'colour')->firstOrFail();
+    foreach (range(1, 118) as $index) {
+        $page = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create(['blueprint_id' => $public->blueprint_id]);
+        PagePropertyValue::factory()->create([
+            'page_id' => $page->id, 'site_id' => $domain->site_id, 'property_definition_id' => $colour->id, 'value_text' => sprintf('Colour %03d', $index),
+        ]);
+    }
+
+    $navigation = [];
+    foreach (range(1, 3) as $number) {
+        $navigation = [...$navigation, ...BrowsePublicSiteMapAction::run($domain->site, $domain->language, $number)->items()];
+    }
+
+    $urls = array_column($navigation, 'url');
+    $expected = PageUrl::query()->where('site_id', $domain->site_id)->count();
+
+    expect($urls)->toHaveCount(min($expected, 150))
+        ->and(array_unique($urls))->toHaveCount(count($urls));
+
+    $titles = [];
+    foreach (range(1, 3) as $number) {
+        $response = $this->getJson($domain->full_url . '/agent/v1/pages?set=' . $set->key . '&page[size]=50&page[number]=' . $number)->assertOk();
+        foreach ((array) $response->json('data') as $entry) {
+            $titles[] = is_array($entry) ? json_encode($entry) : '';
+        }
+    }
+
+    expect($titles)->toHaveCount(120)
+        ->and(array_unique($titles))->toHaveCount(120);
+});

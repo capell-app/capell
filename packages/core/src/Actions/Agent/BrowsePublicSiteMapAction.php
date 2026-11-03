@@ -74,7 +74,7 @@ final class BrowsePublicSiteMapAction
 
         if (! $this->eligibility->hasContributors()) {
             return $this->paginator(
-                array_values($query->with(['translation'])->forPage($page, self::PER_PAGE + 1)->get()->map(static fn (PageUrl $pageUrl): array => self::project($pageUrl))->all()),
+                array_values($query->with(['translation'])->offset(($page - 1) * self::PER_PAGE)->limit(self::PER_PAGE + 1)->get()->map(static fn (PageUrl $pageUrl): array => self::project($pageUrl))->all()),
                 $page,
             );
         }
