@@ -418,9 +418,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
-        // Signed preview links are reached without signing in to the panel.
         $this->callAfterResolving(InstalledPanelRuntime::class, static function (InstalledPanelRuntime $runtime): void {
-            $runtime->allowPublicRoute('capell.admin.theme-preview', 'capell.admin.preview-page');
+            // The admin-only Filament plugins the panels install; their routes are admin code too.
+            $runtime->declareAdminCode('Guava\\IconPicker', 'Pboivin\\FilamentPeek', 'STS\\FilamentImpersonate');
+            // Signed preview links and the token-keyed internal preview are credentialed by their URL.
+            $runtime->allowPublicRoute('capell.admin.theme-preview', 'capell.admin.preview-page', 'filament-peek.preview');
+            // Leaving an impersonation serves the impersonated user, who need not have panel access.
+            $runtime->allowPublicRoute('filament-impersonate.leave');
         });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             $name = (string) $event->route->getName();
