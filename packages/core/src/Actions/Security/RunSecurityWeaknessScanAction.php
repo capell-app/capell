@@ -10,11 +10,14 @@ use Capell\Core\Data\Security\SecurityScanResultData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
 use Capell\Core\Enums\Security\SecurityFindingSource;
 use Capell\Core\Enums\Security\SecurityFindingStatus;
+use Capell\Core\Enums\Security\SecurityRemediationOutcome;
 use Capell\Core\Events\SecurityWeaknessDetected;
 use Capell\Core\Models\SecurityRemediationApproval;
+use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\SecurityEvidence;
+use Capell\Core\Support\Security\SecurityNodeRegistry;
 use Capell\Core\Support\Security\SecurityOutputSanitiser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Carbon\CarbonImmutable;
@@ -29,7 +32,7 @@ class RunSecurityWeaknessScanAction
     use AsFake;
     use AsObject;
 
-    public function __construct(private readonly SecurityWeaknessRegistry $registry, private readonly SecurityWeaknessAnalyser $analyser) {}
+    public function __construct(private readonly SecurityWeaknessRegistry $registry, private readonly SecurityWeaknessAnalyser $analyser, private readonly SecurityNodeRegistry $nodes = new SecurityNodeRegistry) {}
 
     public function handle(bool $includeAnalyser = true, string $source = 'system:console'): SecurityScanResultData
     {
@@ -141,6 +144,12 @@ class RunSecurityWeaknessScanAction
         $resolved = 0;
         if ($failures === []) {
             $query = SecurityWeaknessFinding::query()->active()->whereNotIn('fingerprint', array_keys($findings));
+            if ($this->nodes->enabled()) {
+                // This node may be fixed while others still carry the weakness.
+                EvaluatePendingSecurityRemediationsAction::run();
+                $query->whereNotIn('id', $this->findingsAwaitingNodes());
+            }
+
             if (! $includeAnalyser || $analyserUsed === null) {
                 $query->where('source', '!=', SecurityFindingSource::Analyser->value);
             }
@@ -154,6 +163,24 @@ class RunSecurityWeaknessScanAction
         SecurityScanRun::query()->whereKey($scanId)->update(['finished_at' => CarbonImmutable::now(), 'findings_count' => $failures === [] ? count($findings) : null]);
 
         return new SecurityScanResultData($now, $checksRun, $inventory->advisorySourcesRun, $analyserUsed, $new, $reopened, $resolved, $active->count(), $highest, $failures, $scanId);
+    }
+
+    /**
+     * Findings whose latest fleet-wide run is still pending, or ended without
+     * every node applying it: only another approved run or an operator settles them.
+     *
+     * @return list<int>
+     */
+    private function findingsAwaitingNodes(): array
+    {
+        $candidates = SecurityRemediationRun::query()->whereNotNull('finding_id')->where(fn ($query) => $query->whereNotNull('expected_nodes')->orWhere('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value))->distinct()->pluck('finding_id');
+
+        return array_values(SecurityRemediationRun::query()->whereIn('finding_id', $candidates)
+            ->where(fn ($query) => $query->whereNotNull('expected_nodes')->orWhere('outcome', SecurityRemediationOutcome::AppliedPendingNodes->value))->orderBy('id')->get(['id', 'finding_id', 'outcome', 'expected_nodes'])
+            ->keyBy('finding_id')
+            ->filter(fn (SecurityRemediationRun $run): bool => in_array($run->outcome, [SecurityRemediationOutcome::AppliedPendingNodes, SecurityRemediationOutcome::Failed], true))
+            ->map(fn (SecurityRemediationRun $run): int => (int) $run->finding_id)
+            ->all());
     }
 
     private function normaliseIdentifiers(SecurityWeaknessFindingData $finding): SecurityWeaknessFindingData

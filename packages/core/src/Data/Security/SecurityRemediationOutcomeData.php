@@ -14,6 +14,7 @@ final class SecurityRemediationOutcomeData extends Data
     /**
      * @param  array<string, mixed>  $before
      * @param  array<string, mixed>  $after
+     * @param  bool  $nodeLocal  whether the change lives on this node only (for example its .env) and must be repeated on every node
      */
     public function __construct(
         public readonly bool $applied,
@@ -21,6 +22,8 @@ final class SecurityRemediationOutcomeData extends Data
         public readonly array $before = [],
         public readonly array $after = [],
         public readonly bool $failed = false,
+        public readonly bool $nodeLocal = false,
+        public readonly bool $alreadyCompliant = false,
     ) {}
 
     /**
