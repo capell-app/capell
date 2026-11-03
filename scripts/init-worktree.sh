@@ -146,7 +146,8 @@ cp -R "$PRIMARY_ROOT/vendor/bin" vendor/bin
 # Top-level metadata files beside the package directories (such as Pest's
 # pest-plugins.json plugin cache) belong to the dependency set too. Without
 # them Pest loads no plugins, so --parallel and the Laravel helpers vanish.
-for vendor_file in "$PRIMARY_ROOT"/vendor/*; do
+# Hidden files count too; unmatched patterns stay literal and fail the -f test.
+for vendor_file in "$PRIMARY_ROOT"/vendor/* "$PRIMARY_ROOT"/vendor/.[!.]* "$PRIMARY_ROOT"/vendor/..?*; do
     [ -f "$vendor_file" ] || continue
     case "$(basename "$vendor_file")" in autoload.php) continue ;; esac
     cp "$vendor_file" "vendor/$(basename "$vendor_file")"
