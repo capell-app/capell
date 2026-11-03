@@ -241,9 +241,7 @@
         ]
     },
     "capell_security_scan_runs": {
-        "indexes": [
-            "sqlite_autoindex_dbp_capell_security_scan_runs_1"
-        ],
+        "indexes": ["sqlite_autoindex_dbp_capell_security_scan_runs_1"],
         "foreign_keys": []
     },
     "capell_security_weakness_findings": {
