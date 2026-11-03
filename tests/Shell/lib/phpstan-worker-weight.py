@@ -17,11 +17,16 @@ else, so an unfamiliar spelling fails the check loudly instead of passing as a l
 - the cap is `maximumNumberOfProcesses: <digits>` directly under `parameters:` > `parallel:`
   (a trailing # comment is fine); the key anywhere else, or in any other form, raises;
 - `includes:` is a plain top-level header followed by one plain or quoted path per line;
-- an include resolves to a local .neon file, which must exist, or to a file under a vendor/
-  directory or %rootDir% (third-party extensions, which never set the cap); a local PHP include
-  that mentions the cap or `parallel` raises, as does any other local file type;
+- an include resolves to a local .neon file, which must exist; a third-party .neon file under a
+  vendor/ directory, which must exist and, with its own includes, must not name the cap; or
+  PHPStan's bundled %rootDir% or phar:// configuration; a local PHP include that names includes,
+  parallel or the cap raises (one setting other parameters, such as bootstrapFiles, is read
+  past), as does any other file type;
 - no file is reached twice in the include graph (PHPStan would merge it again, which this
   reader does not model).
+
+The threat is accidental drift between cooperating developers, not deliberately disguised
+configuration: a PHP include that assembles the cap key from fragments would get past it.
 """
 import re
 import sys
@@ -87,20 +92,39 @@ def read_config(config: Path) -> tuple[int | None, list[str]]:
     return cap, includes
 
 
-def is_third_party(entry: str, resolved: Path) -> bool:
-    return entry.startswith('%rootDir%') or 'vendor' in resolved.parts
+def is_third_party(resolved: Path) -> bool:
+    return 'vendor' in resolved.parts
+
+
+def check_third_party(config: Path, seen: set[Path]) -> None:
+    """A vendor configuration and its includes must exist and must not name the worker cap."""
+    config = config.resolve()
+    if config in seen:
+        return
+    if not config.is_file():
+        raise ValueError(f'{config}: the third-party include does not exist; install dependencies first')
+    seen.add(config)
+    if config.suffix.lower() != '.neon':
+        return  # Extension bootstrap code, not configuration.
+    text = config.read_text()
+    if CAP_KEY.lower() in text.lower():
+        raise ValueError(f'{config}: a third-party include names {CAP_KEY}, which this reader does not follow')
+    for entry in re.findall(r'^[ \t]+-[ \t]*["\']?([^\s"\']+\.neon)["\']?[ \t]*$', text, re.MULTILINE | re.IGNORECASE):
+        if not entry.startswith(('%', 'phar:')):  # PHPStan's own bundled configuration.
+            check_third_party(config.parent / entry, seen)
 
 
 def local_includes(config: Path, entries: list[str]) -> list[Path]:
     paths = []
     for entry in entries:
-        if entry.startswith('%rootDir%'):
+        if entry.startswith(('%rootDir%', 'phar:')):
             continue  # PHPStan's own bundled configuration never sets the cap.
         if '%' in entry:
             raise ValueError(f'{config}: cannot resolve the parameterised include {entry!r}')
         resolved = (config.parent / entry).resolve()
-        if is_third_party(entry, resolved):
-            continue  # Third-party extensions never set the worker cap.
+        if is_third_party(resolved):
+            check_third_party(resolved, set())
+            continue
         if not resolved.is_file():
             raise ValueError(f'{config}: the include {entry!r} does not exist')
         suffix = resolved.suffix.lower()
@@ -108,8 +132,8 @@ def local_includes(config: Path, entries: list[str]) -> list[Path]:
             paths.append(resolved)
         elif suffix == '.php':
             text = resolved.read_text().lower()
-            if CAP_KEY.lower() in text or 'parallel' in text:
-                raise ValueError(f'{config}: the PHP include {entry!r} may set the worker cap, which this reader cannot read')
+            if any(word in text for word in (CAP_KEY.lower(), 'parallel', 'includes')):
+                raise ValueError(f'{config}: the PHP include {entry!r} may change the configuration, which this reader cannot read')
         else:
             raise ValueError(f'{config}: cannot read the include {entry!r}')
     return paths
@@ -158,6 +182,10 @@ CASE_FILES = {
     'with-php.neon': 'includes:\n    - common.neon\n    - bootstrap.php\n',
     'high.php': "<?php return ['parameters' => ['parallel' => ['maximumNumberOfProcesses' => 8]]];\n",
     'high.NEON': CAP8,
+    'vendor/high-ext.neon': 'includes:\n    - nested.neon\n',
+    'vendor/nested.neon': CAP8,
+    'php-includes.php': "<?php return ['includes' => ['eight.neon']];\n",
+    'php-bootstrap.php': "<?php return ['parameters' => ['bootstrapFiles' => [__FILE__]]];\n",
     'unreadable.neon': 'includes:\n    - common.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: %env.WORKERS%\n',
     'inline.neon': 'includes:\n    - common.neon\nparameters:\n    parallel: {maximumNumberOfProcesses: 8}\n',
     'quoted.neon': "includes:\n    - common.neon\nparameters:\n    parallel:\n        'maximumNumberOfProcesses': 8\n",
@@ -173,15 +201,20 @@ CASE_FILES = {
     'php-cap.neon': 'includes:\n    - common.neon\n    - high.php\n',
     'upper-extension.neon': 'includes:\n    - common.neon\n    - high.NEON\n',
     'vendor-traversal.neon': 'includes:\n    - common.neon\n    - vendor/../eight.neon\n',
+    'vendor-cap.neon': 'includes:\n    - common.neon\n    - vendor/high-ext.neon\n',
+    'php-includes.neon': 'includes:\n    - common.neon\n    - php-includes.php\n',
+    'missing-vendor.neon': 'includes:\n    - common.neon\n    - vendor/absent.neon\n',
+    'with-php-bootstrap.neon': 'includes:\n    - common.neon\n    - php-bootstrap.php\n',
 }
 EXPECTED_WEIGHTS = {
     'commented': 3, 'inherited': 2, 'uncapped': 3, 'quoted-include': 3, 'no-final-newline': 3,
     'with-vendor': 2, 'with-php': 2, 'vendor-traversal': 3, 'upper-extension': 3,
+    'with-php-bootstrap': 2,
 }
 MUST_RAISE = (
     'unreadable', 'inline', 'quoted', 'escaped', 'nested-elsewhere', 'inline-includes', 'quoted-header',
     'missing-include', 'bad-include', 'own-cap-missing-include', 'parameterised-include', 'diamond',
-    'php-cap',
+    'php-cap', 'vendor-cap', 'php-includes', 'missing-vendor',
 )
 
 
