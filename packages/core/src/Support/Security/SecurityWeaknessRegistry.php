@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Security;
 
 use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
+use Illuminate\Contracts\Container\Container;
 use InvalidArgumentException;
 use LogicException;
 
@@ -74,6 +75,30 @@ final class SecurityWeaknessRegistry
         return $this;
     }
 
+    /**
+     * Register every check and remediation tagged in the container, once per class.
+     *
+     * The container appends tag entries on every provider registration, so a
+     * re-registered provider offers each built-in check twice, and a package that
+     * boots after `booted` (installation, runtime refresh) adds its tags after the
+     * boot-time collection ran. A class already registered under its own name is
+     * left as it is; a different owner for the same id still throws.
+     */
+    public function adoptTagged(Container $container): void
+    {
+        foreach ($this->uniqueByClass($container->tagged(SecurityWeaknessCheck::TAG)) as $check) {
+            if ($check instanceof SecurityWeaknessCheck && ($this->checkOwners[$check->weaknessId()] ?? null) !== $check::class) {
+                $this->registerCheck($check);
+            }
+        }
+
+        foreach ($this->uniqueByClass($container->tagged(SecurityWeaknessRemediation::TAG)) as $remediation) {
+            if ($remediation instanceof SecurityWeaknessRemediation && ($this->remediationOwners[$remediation->weaknessId()] ?? null) !== $remediation::class) {
+                $this->registerRemediation($remediation);
+            }
+        }
+    }
+
     /** @return array<string, SecurityWeaknessCheck> */
     public function checks(): array
     {
@@ -126,6 +151,22 @@ final class SecurityWeaknessRegistry
         } finally {
             $this->installationDepth--;
         }
+    }
+
+    /**
+     * @param  iterable<mixed>  $tagged
+     * @return list<object>
+     */
+    private function uniqueByClass(iterable $tagged): array
+    {
+        $unique = [];
+        foreach ($tagged as $instance) {
+            if (is_object($instance)) {
+                $unique[$instance::class] ??= $instance;
+            }
+        }
+
+        return array_values($unique);
     }
 
     private function assertWeaknessId(string $weaknessId): string

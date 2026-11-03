@@ -87,3 +87,5 @@ generated Boost guideline dumps or static skill inventories into this file.
 ### `CAPELL_TESTBENCH_SKELETON_ROOT` safety constraints
 
 The per-worktree testbench skeleton lives under the system temporary directory by default. When you point `CAPELL_TESTBENCH_SKELETON_ROOT` elsewhere, the stale-skeleton sweep only ever removes directories whose name starts with `capell-testbench-` and that carry a `.capell-skeleton` marker written by this checkout; anything else in that root is left untouched. Use a directory you own, never a shared location such as a project folder, and do not place other data under the `capell-testbench-` prefix there. When `symlink()` is unavailable the helper copies the vendor tree into the skeleton, which costs disk space per process; prefer a filesystem with symlink support.
+
+- The per-process Testbench skeleton root is resolved through `realpath()` before use. On macOS `sys_get_temp_dir()` sits under `/var`, a symlink to `/private/var`, and an unresolved root makes `ReleaseRootWriteGuard` refuse every release-root write (lockdown page-cache switching included) on developer machines while Linux CI stays green.
