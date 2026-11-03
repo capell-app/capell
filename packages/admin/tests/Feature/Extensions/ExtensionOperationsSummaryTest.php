@@ -16,6 +16,8 @@ use Capell\Admin\Data\Extensions\ExtensionDependencyBlockData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionRuntimeCompatibilityData;
 use Capell\Admin\Data\Extensions\ExtensionUpdateReadinessData;
+use Capell\Admin\Enums\Extensions\ExtensionAttentionReason;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
 use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryAccessiblePage;
 use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryInaccessiblePage;
@@ -984,3 +986,94 @@ function registerOperationsSummaryManifest(string $packageName, array $overrides
 
     CapellCore::registerManifestPackage($manifest);
 }
+
+it('counts only extensions an operator must fix as needing attention, and says why', function (): void {
+    test()->actingAsAdmin();
+
+    $installedExtension = function (string $packageName, array $attributes = []): void {
+        CapellExtension::query()->create([
+            'composer_name' => $packageName,
+            'name' => str($packageName)->afterLast('/')->headline()->toString(),
+            'version' => '1.0.0',
+            'status' => ExtensionStatusEnum::Enabled,
+            'installed_at' => now(),
+            ...$attributes,
+        ]);
+    };
+
+    registerOperationsSummaryManifest('vendor/update-only', ['version' => '1.0.0']);
+    $installedExtension('vendor/update-only', ['metadata' => ['latest_version' => '1.1.0']]);
+
+    registerOperationsSummaryManifest('vendor/info-only', ['version' => '1.0.0']);
+    $installedExtension('vendor/info-only');
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'alert_info_only',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/info-only',
+        'severity' => ExtensionHealthAlertSeverity::Info,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'New release notes',
+        'message' => 'Release notes are available.',
+        'required_action' => 'none',
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'signature' => 'test-signature',
+    ]);
+
+    registerOperationsSummaryManifest('vendor/premium-unconnected', [
+        'version' => '1.0.0',
+        'product' => ['group' => 'Commerce', 'tier' => 'premium', 'bundle' => 'commerce'],
+    ]);
+    $installedExtension('vendor/premium-unconnected');
+
+    registerOperationsSummaryManifest('vendor/not-installed-tables', [
+        'version' => '1.0.0',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['not_installed_tables']],
+    ]);
+
+    registerOperationsSummaryManifest('vendor/missing-tables', [
+        'version' => '1.0.0',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['missing_installed_tables']],
+    ]);
+    $installedExtension('vendor/missing-tables');
+
+    registerOperationsSummaryManifest('vendor/warned', ['version' => '1.0.0']);
+    $installedExtension('vendor/warned');
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'alert_warned',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/warned',
+        'severity' => ExtensionHealthAlertSeverity::Warning,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Advisory',
+        'message' => 'Upgrade soon.',
+        'required_action' => 'upgrade',
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'signature' => 'test-signature',
+    ]);
+
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $package = fn (string $name): ExtensionOperationPackageData => $summary->package($name) ?? throw new RuntimeException($name);
+
+    expect($package('vendor/update-only')->needsAttention)->toBeFalse()
+        ->and($package('vendor/update-only')->updateAvailable)->toBeTrue()
+        ->and($package('vendor/info-only')->needsAttention)->toBeFalse()
+        ->and($package('vendor/info-only')->healthState)->toBe('info')
+        ->and($package('vendor/premium-unconnected')->premiumMissingMarketplaceAccount)->toBeTrue()
+        ->and($package('vendor/premium-unconnected')->needsAttention)->toBeFalse()
+        ->and($package('vendor/not-installed-tables')->installed)->toBeFalse()
+        ->and($package('vendor/not-installed-tables')->needsAttention)->toBeFalse()
+        ->and($package('vendor/not-installed-tables')->healthState)->toBe('ok')
+        ->and($package('vendor/missing-tables')->needsAttention)->toBeTrue()
+        ->and($package('vendor/missing-tables')->attentionReasons)->toBe([ExtensionAttentionReason::MissingTables])
+        ->and($package('vendor/warned')->needsAttention)->toBeTrue()
+        ->and($package('vendor/warned')->attentionReasons)->toBe([ExtensionAttentionReason::WarningAlert])
+        ->and($package('vendor/warned')->toRecord()['attentionReasons'])->toBe([__('capell-admin::generic.extension_attention_reason_warning_alert')])
+        ->and($summary->needsAttentionCount)->toBe(2)
+        ->and($summary->unhealthyCount)->toBe(2)
+        ->and($summary->updatesCount)->toBe(1)
+        ->and(ExtensionsPage::getNavigationBadge())->toBe('2');
+});

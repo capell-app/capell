@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Extensions;
 use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
+use Capell\Admin\Enums\Extensions\ExtensionAttentionReason;
 use Capell\Admin\Support\Extensions\ComposerDriftClassifier;
 use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
 use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
@@ -113,7 +114,7 @@ final class BuildExtensionOperationsSummaryAction
             needsAttentionCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->needsAttention)->count(),
             blockedCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->blocked)->count(),
             updatesCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->updateAvailable)->count(),
-            unhealthyCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->healthState !== 'ok')->count(),
+            unhealthyCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed && in_array($package->healthState, ['critical', 'warning'], true))->count(),
             installedCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed)->count(),
             uninstalledCount: $packages->reject(fn (ExtensionOperationPackageData $package): bool => $package->installed)->count(),
             availableCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->available)->count(),
@@ -166,13 +167,15 @@ final class BuildExtensionOperationsSummaryAction
             $healthAlerts[] = $providerRecoveryAlert;
         }
 
-        $healthState = $this->healthState($alerts, $missingRequiredTables, $runtimeAllowed);
+        $installed = $extension instanceof CapellExtension || ($package?->isInstalled() === true);
+        // A package that is not installed has not run its migrations yet, so its
+        // absent tables are expected rather than a fault.
+        $healthState = $this->healthState($alerts, $installed ? $missingRequiredTables : [], $runtimeAllowed);
 
         if ($providerRecoveryAlert instanceof ExtensionHealthAlertData) {
             $healthState = 'critical';
         }
 
-        $installed = $extension instanceof CapellExtension || ($package?->isInstalled() === true);
         $available = $package instanceof PackageData && CapellCore::isPackageAvailable($package->name);
         $composerDriftAlert = $this->composerDriftAlert($manifest->name, $extension);
 
@@ -186,7 +189,14 @@ final class BuildExtensionOperationsSummaryAction
             && ! $marketplaceAccountConnected
             && $extension?->marketplace_runtime_status !== 'active';
         $blocked = ! $runtimeAllowed;
-        $needsAttention = $blocked || $updateAvailable || $missingRequiredTables !== [] || $premiumMissingMarketplaceAccount || $healthState !== 'ok' || $composerDriftAlert instanceof ExtensionHealthAlertData;
+        $attentionReasons = $this->attentionReasons(
+            installed: $installed,
+            blocked: $blocked,
+            missingRequiredTables: $missingRequiredTables,
+            alerts: $alerts,
+            providerQuarantined: $providerRecoveryAlert instanceof ExtensionHealthAlertData,
+            composerDrifted: $composerDriftAlert instanceof ExtensionHealthAlertData,
+        );
         $riskScore = BuildExtensionRiskScoreAction::run(
             runtimeAllowed: $runtimeAllowed,
             alerts: $healthAlerts,
@@ -223,12 +233,13 @@ final class BuildExtensionOperationsSummaryAction
             managementEntries: $managementEntries,
             premiumMissingMarketplaceAccount: $premiumMissingMarketplaceAccount,
             blocked: $blocked,
-            needsAttention: $needsAttention,
+            needsAttention: $attentionReasons !== [],
             riskScore: $riskScore,
             productGroup: $this->normaliseProductGroup($manifest->productGroup),
             providerRecoveryEvents: $extension instanceof CapellExtension
                 ? ($extension->provider_recovery_events ?? [])
                 : [],
+            attentionReasons: $attentionReasons,
         );
     }
 
@@ -276,6 +287,7 @@ final class BuildExtensionOperationsSummaryAction
             ),
             productGroup: $this->normaliseProductGroup($this->metadataString($extension, 'product_group')),
             providerRecoveryEvents: $extension->provider_recovery_events ?? [],
+            attentionReasons: [ExtensionAttentionReason::ComposerDrift],
         );
     }
 
@@ -528,6 +540,40 @@ final class BuildExtensionOperationsSummaryAction
             ->reject(fn (string $table): bool => $this->tableExists($table))
             ->values()
             ->all());
+    }
+
+    /**
+     * Only faults an operator must fix count. Available updates, informational
+     * alerts and an unconnected Marketplace account have their own indicators.
+     *
+     * @param  Collection<int, ExtensionHealthAlert>  $alerts
+     * @param  list<string>  $missingRequiredTables
+     * @return list<ExtensionAttentionReason>
+     */
+    private function attentionReasons(
+        bool $installed,
+        bool $blocked,
+        array $missingRequiredTables,
+        Collection $alerts,
+        bool $providerQuarantined,
+        bool $composerDrifted,
+    ): array {
+        if (! $installed) {
+            return [];
+        }
+
+        return array_values(array_filter([
+            $blocked ? ExtensionAttentionReason::Blocked : null,
+            $providerQuarantined ? ExtensionAttentionReason::ProviderQuarantined : null,
+            $composerDrifted ? ExtensionAttentionReason::ComposerDrift : null,
+            $missingRequiredTables !== [] ? ExtensionAttentionReason::MissingTables : null,
+            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical)
+                ? ExtensionAttentionReason::CriticalAlert
+                : null,
+            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning)
+                ? ExtensionAttentionReason::WarningAlert
+                : null,
+        ]));
     }
 
     /**

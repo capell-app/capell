@@ -31,6 +31,7 @@
         $catalogueRole = $record['catalogue_role'] ?? 'extension';
         $maturity = $record['maturity'] ?? 'labs';
         $healthState = 'ok';
+        $attentionReasons = [];
         $blocked = ($record['marketplace_install_state'] ?? null) === 'blocked' || ($record['marketplace_install_state'] ?? null) === 'incompatible';
         $showBlockedTag = false;
         $updateAvailable = ($record['has_update_available'] ?? false) === true;
@@ -90,6 +91,10 @@
         $catalogueRole = $record['catalogueRole'] ?? 'extension';
         $maturity = $record['maturity'] ?? 'labs';
         $healthState = $record['healthState'] ?? 'ok';
+        $attentionReasons = array_values(array_filter(
+            is_array($record['attentionReasons'] ?? null) ? $record['attentionReasons'] : [],
+            fn (mixed $reason): bool => is_string($reason) && $reason !== '',
+        ));
         $blocked = ($record['blocked'] ?? false) === true;
         $showBlockedTag = $blocked;
         $updateAvailable = ($record['updateAvailable'] ?? false) === true;
@@ -375,7 +380,8 @@
                 {{ $maturityLabel }}
             </x-filament::badge>
 
-            @if ($showBlockedTag || $updateAvailable || $healthState !== 'ok' || $installInProgress)
+            @php($showHealthTag = in_array($healthState, ['critical', 'warning'], true))
+            @if ($showBlockedTag || $updateAvailable || $showHealthTag || $installInProgress)
                 @if ($installInProgress)
                     <span
                         class="bg-info-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
@@ -400,7 +406,7 @@
                     </span>
                 @endif
 
-                @if ($healthState !== 'ok')
+                @if ($showHealthTag)
                     <span
                         class="bg-danger-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
                     >
@@ -468,6 +474,20 @@
 
     <div class="flex flex-1 flex-col gap-2.5 p-2">
         <p class="line-clamp-2 text-sm leading-5 text-gray-600 dark:text-gray-300">{{ $description }}</p>
+
+        @if ($attentionReasons !== [])
+            <div
+                class="border-warning-200 bg-warning-50 text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200 rounded-md border px-3 py-2 text-sm"
+                data-extension-attention
+            >
+                <p class="font-semibold">{{ __('capell-admin::generic.extension_operations_tab_needs_attention') }}</p>
+                <ul class="mt-1 list-disc space-y-0.5 ps-4">
+                    @foreach ($attentionReasons as $attentionReason)
+                        <li>{{ $attentionReason }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div
             class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300"

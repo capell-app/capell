@@ -54,6 +54,8 @@ final class ExtensionManagementEntryData extends Data
         public readonly bool $needsAttention = false,
         public readonly int $riskScore = 0,
         public readonly string $productGroup = 'Other',
+        /** @var list<string> */
+        public readonly array $attentionReasons = [],
     ) {}
 
     /**
@@ -94,6 +96,7 @@ final class ExtensionManagementEntryData extends Data
      *     premiumMissingMarketplaceAccount: bool,
      *     blocked: bool,
      *     needsAttention: bool,
+     *     attentionReasons: list<string>,
      *     riskScore: int,
      *     productGroup: string
      * }
@@ -140,6 +143,7 @@ final class ExtensionManagementEntryData extends Data
             'premiumMissingMarketplaceAccount' => $this->premiumMissingMarketplaceAccount,
             'blocked' => $this->blocked,
             'needsAttention' => $this->needsAttention,
+            'attentionReasons' => $this->attentionReasons,
             'riskScore' => $this->riskScore,
             'productGroup' => $this->productGroup,
         ];
