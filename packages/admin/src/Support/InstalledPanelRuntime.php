@@ -421,7 +421,9 @@ final class InstalledPanelRuntime
             'auth' => array_values(array_diff($current['auth'], $contributed['auth'])),
             'tenant' => array_values(array_diff($current['tenant'], $contributed['tenant'])),
         ];
-        $signature = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $this->isPublicPanelRoute($instance, $panel->getId())];
+        // What the declared names resolve to is part of the coverage: aliases, groups and priority.
+        $routerState = [$this->router->getMiddleware(), $this->router->getMiddlewareGroups(), $this->router->middlewarePriority];
+        $signature = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $this->isPublicPanelRoute($instance, $panel->getId()), $routerState];
         if (($this->reconciledRoutes[$instance] ?? null) === $signature) {
             return;
         }
@@ -468,7 +470,7 @@ final class InstalledPanelRuntime
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
-        $this->reconciledRoutes[$instance] = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $public];
+        $this->reconciledRoutes[$instance] = [$panel->getId(), $instance->getName(), $instance->getAction('middleware'), $instance->excludedMiddleware(), $contributed, $host, $public, $routerState];
     }
 
     /**

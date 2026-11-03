@@ -67,6 +67,19 @@ final class InstalledPanelRuntimeRouteCoverageTest extends AdminTestCase
         $this->get('/admin/runtime-repeat')->assertOk();
     }
 
+    public function test_redefining_a_middleware_group_reconciles_the_route_again(): void
+    {
+        $panel = Filament::getPanel('admin');
+        Route::middlewareGroup('runtime-panel-stack', [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+        Route::get('/admin/runtime-grouped', static fn (): string => 'panel route served')->middleware('runtime-panel-stack');
+        $this->get('/admin/runtime-grouped')->assertRedirect('/admin/login');
+
+        // The route's declared middleware is unchanged, but what it resolves to no longer authenticates.
+        Route::middlewareGroup('runtime-panel-stack', ['web']);
+
+        $this->get('/admin/runtime-grouped')->assertRedirect('/admin/login')->assertDontSee('panel route served');
+    }
+
     #[Override]
     protected function getPackageProviders(mixed $app): array
     {
