@@ -54,6 +54,10 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         $usesInstalledRuntime = new ReflectionMethod($this, 'bootInstalledRuntime')->getDeclaringClass()->getName() !== self::class;
 
         $this->booted(function () use ($usesInstalledRuntime): void {
+            if (! $this->app->make(ExtensionQuarantineGate::class)->allows($this->receiptOwnerPackage())) {
+                return;
+            }
+
             $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
             $contexts = $receipts->providerContexts(static::class);
             if ($contexts === []) {

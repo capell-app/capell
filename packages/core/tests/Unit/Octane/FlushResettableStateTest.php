@@ -14,6 +14,7 @@ use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Tests\Support\Octane\SingletonLifetime;
 use Capell\Core\Tests\Support\Octane\SingletonLifetimeInventory;
@@ -253,6 +254,7 @@ it('runs two operations without leaking classified Capell state', function (): v
             CapellCacheManager::class,
             ComponentRegistry::class,
             LockdownStore::class,
+            ExtensionQuarantineGate::class,
             ThemeViewRegistrar::class,
             FrontendLocaleScope::class,
         ]);

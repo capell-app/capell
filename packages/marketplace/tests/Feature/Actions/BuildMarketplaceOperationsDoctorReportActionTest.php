@@ -8,6 +8,9 @@ use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\NativeWorkspacePathInspector;
+use Capell\Marketplace\Support\WorkspaceFailure;
+use Capell\Marketplace\Support\WorkspacePathInspector;
 
 it('reports stuck and unresolved failed operations without exposing package diagnostics', function (): void {
     config()->set('queue.connections.database.retry_after', 900);
@@ -104,4 +107,61 @@ it('fails the report when the host is blocked', function (): void {
 
     expect($report->status)->toBe('failed')
         ->and($report->checks->firstWhere('id', 'marketplace.operations.environment-readiness')?->passed)->toBeFalse();
+});
+
+it('reports an indeterminate critical result when the workspace scan fails', function (): void {
+    $parent = sys_get_temp_dir() . '/doctor-scan-' . bin2hex(random_bytes(8));
+    mkdir($parent . '/homes', 0700, true);
+    config()->set('capell.marketplace.auth_workspace_path', $parent . '/homes');
+    app()->bind(WorkspacePathInspector::class, fn (): WorkspacePathInspector => new class implements WorkspacePathInspector
+    {
+        #[Override]
+        public function stat(string $path): array|false
+        {
+            return new NativeWorkspacePathInspector()->stat($path);
+        }
+
+        #[Override]
+        public function realpath(string $path): string|false
+        {
+            return realpath($path);
+        }
+
+        #[Override]
+        public function effectiveUserId(): ?int
+        {
+            return new NativeWorkspacePathInspector()->effectiveUserId();
+        }
+
+        #[Override]
+        public function mkdir(string $path, int $mode): bool
+        {
+            return mkdir($path, $mode);
+        }
+
+        #[Override]
+        public function modifiedAt(string $path): int|false
+        {
+            return filemtime($path);
+        }
+
+        #[Override]
+        public function glob(string $pattern): array|false
+        {
+            return false;
+        }
+    });
+
+    try {
+        $check = BuildMarketplaceOperationsDoctorReportAction::run()->checks->firstWhere('id', 'marketplace.operations.composer-auth-files');
+    } finally {
+        rmdir($parent . '/homes');
+        rmdir($parent);
+    }
+
+    expect($check?->passed)->toBeFalse()
+        ->and($check?->severity)->toBe(DoctorCheckSeverity::Critical)
+        ->and($check?->message)->toBe(__('capell-marketplace::marketplace.auth_workspace.indeterminate'))
+        ->and($check?->evidence['status'])->toBe(WorkspaceFailure::Indeterminate->value)
+        ->and($check?->evidence['trusted'])->toBeTrue();
 });

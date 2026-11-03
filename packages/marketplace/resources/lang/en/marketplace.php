@@ -3,6 +3,17 @@
 declare(strict_types=1);
 
 return [
+    'auth_workspace' => [
+        'create_root' => 'Could not create the Composer authentication workspace directory: :path.',
+        'symlink' => 'The Composer authentication workspace directory must not be a symlink: :path.',
+        'directory' => 'The Composer authentication workspace path must be a directory: :path.',
+        'group_writable' => 'The Composer authentication workspace directory must not be group-writable: :path.',
+        'trust_mode' => 'Composer workspace trust requires POSIX support; configure capell.marketplace.auth_workspace_trust as posix or configure an override path and use acl on Windows.',
+        'untrusted' => 'The Composer authentication workspace is not trusted. Check the server logs for details.',
+        'indeterminate' => 'Composer authentication directories could not be inspected. Check the workspace and try again.',
+        'owner' => 'The Composer authentication workspace directory must be owned by the effective user or root: :path.',
+        'world_writable' => 'The Composer authentication workspace directory must not be world-writable: :path.',
+    ],
     'catalogue_freshness' => [
         'failed' => 'The latest catalogue refresh failed. Retaining the last received results. Installation still uses separate current authorisation and readiness checks.',
         'retained' => 'Showing an older cached catalogue while a background refresh is requested. If refresh fails, these results remain available. Installation uses separate current authorisation and readiness checks.',
@@ -450,6 +461,7 @@ return [
         'doctor_auth_files_healthy' => 'No abandoned Composer authentication directories are left in storage.',
         'doctor_auth_files_label' => 'Marketplace Composer authentication files',
         'doctor_auth_files_remediation' => 'These are swept automatically when the next install runs. Delete them by hand if no install is expected.',
+        'doctor_auth_files_untrusted_remediation' => "Point capell.marketplace.auth_workspace_path at a directory owned by the queue worker's user that is not world-writable, or fix the ownership and permissions shown, then run the next install.",
         'doctor_auth_files_unhealthy' => 'Abandoned Composer authentication directories are left in storage: :count.',
         'doctor_queue_healthy' => 'The operation queue retry window is compatible with the Marketplace installer job.',
         'doctor_queue_label' => 'Marketplace operation queue',
@@ -581,6 +593,9 @@ return [
         'timeline_verification_completed' => 'Install verification completed.',
         'timeline_verification_failed' => 'Install verification failed.',
         'verification_failed' => 'Install verification failed. :message :action',
+        'verification_quarantined' => ':package failed verification, so every package this operation changed is quarantined and will not be enabled: :packages. :reason',
+        'graph_discovery_failed' => 'The packages this operation changed could not be worked out from composer.lock, so every package whose installation changed is quarantined. Check composer.lock, then try again.',
+        'rollback_bytes_unverified' => 'The restored package files do not match the files installed before this operation, so the quarantine stays in place. Reinstall the affected packages from a trusted source.',
         'verification_rollback_failed' => 'Automatic recovery failed. Ask the person who manages your server to restore the application.',
         'verification_next_action' => 'Ask the person who manages your server to review the package before trying again.',
         'timeline_composer_completed' => 'Composer completed.',

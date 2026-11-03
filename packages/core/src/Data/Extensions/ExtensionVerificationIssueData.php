@@ -28,9 +28,19 @@ final class ExtensionVerificationIssueData extends Data
 
     public const string CHECKSUM_MISMATCH = 'checksum_mismatch';
 
+    public const string CONTENT_HASH_MISMATCH = 'content_hash_mismatch';
+
+    public const string CONTENT_HASH_UNREADABLE = 'content_hash_unreadable';
+
+    public const string QUARANTINED = 'quarantined';
+
     public const string CHECKSUM_MISSING = 'checksum_missing';
 
     public const string CHECKSUM_NOT_FOR_INSTALLED_RELEASE = 'checksum_not_for_installed_release';
+
+    public const string RELEASE_DIGEST_NOT_COMPARED = 'release_digest_not_compared';
+
+    public const string QUARANTINE_EVIDENCE_STILL_FAILS = 'quarantine_evidence_still_fails';
 
     public function __construct(
         public readonly string $code,
@@ -84,6 +94,18 @@ final class ExtensionVerificationIssueData extends Data
                 'message' => (string) __('capell-core::extensions.verification.checksum_mismatch.message', $replace),
                 'next_action' => (string) __('capell-core::extensions.verification.checksum_mismatch.next_action', $replace),
             ],
+            self::CONTENT_HASH_MISMATCH => [
+                'message' => (string) __('capell-core::extensions.verification.content_hash_mismatch.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.content_hash_mismatch.next_action', $replace),
+            ],
+            self::CONTENT_HASH_UNREADABLE => [
+                'message' => (string) __('capell-core::extensions.verification.content_hash_unreadable.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.content_hash_unreadable.next_action', $replace),
+            ],
+            self::QUARANTINED => [
+                'message' => (string) __('capell-core::extensions.verification.quarantined.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.quarantined.next_action', $replace),
+            ],
             self::CHECKSUM_MISSING => [
                 'message' => (string) __('capell-core::extensions.verification.checksum_missing.message', $replace),
                 'next_action' => (string) __('capell-core::extensions.verification.checksum_missing.next_action', $replace),
@@ -91,6 +113,14 @@ final class ExtensionVerificationIssueData extends Data
             self::CHECKSUM_NOT_FOR_INSTALLED_RELEASE => [
                 'message' => (string) __('capell-core::extensions.verification.checksum_not_for_installed_release.message', $replace),
                 'next_action' => (string) __('capell-core::extensions.verification.checksum_not_for_installed_release.next_action', $replace),
+            ],
+            self::RELEASE_DIGEST_NOT_COMPARED => [
+                'message' => (string) __('capell-core::extensions.verification.release_digest_not_compared.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.release_digest_not_compared.next_action', $replace),
+            ],
+            self::QUARANTINE_EVIDENCE_STILL_FAILS => [
+                'message' => (string) __('capell-core::extensions.verification.quarantine_evidence_still_fails.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.quarantine_evidence_still_fails.next_action', $replace),
             ],
             default => ['message' => '', 'next_action' => ''],
         };

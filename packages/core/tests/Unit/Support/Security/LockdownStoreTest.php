@@ -93,7 +93,7 @@ it('refuses node-local cache stores for multi-node lockdown', function (string $
 
 function lockdownStoreTestUser(int $id, string $email): Authenticatable
 {
-    return new readonly class($id, $email) implements Authenticatable
+    $user = new readonly class($id, $email) implements Authenticatable
     {
         public function __construct(
             private int $id,
@@ -132,6 +132,12 @@ function lockdownStoreTestUser(int $id, string $email): Authenticatable
             return 'remember_token';
         }
     };
+
+    $guard = config('auth.defaults.guard');
+    $provider = config('auth.guards.' . $guard . '.provider');
+    config()->set('auth.providers.' . $provider . '.model', $user::class);
+
+    return $user;
 }
 
 function lockdownStoreTestFile(): string
@@ -183,4 +189,43 @@ it('throws when the shared inactive marker cannot be written', function (): void
     config(['capell.multi_node' => true, 'cache.default' => 'shared-test', 'cache.stores.shared-test.driver' => 'redis']);
     Cache::shouldReceive('store')->with('shared-test')->andReturn($cache);
     expect(fn () => new LockdownStore(new Filesystem)->deactivate())->toThrow(RuntimeException::class, 'Unable to persist lockdown state');
+});
+
+it('scopes allowed ids to their guard provider and reads legacy ids as admin-provider ids', function (): void {
+    $user = lockdownStoreTestUser(42, 'admin@example.com');
+    $adminGuard = (string) config('auth.defaults.guard');
+    $provider = (string) config('auth.guards.' . $adminGuard . '.provider');
+    config()->set('auth.guards.lockdown-member.provider', 'lockdown-members');
+    config()->set('auth.providers.lockdown-members.model', $user::class);
+
+    $store = new LockdownStore(new Filesystem);
+    $payload = $store->activateFor($user, guard: $adminGuard);
+    expect($payload['allowed_user_ids'])->toContain($provider . ':42')
+        ->and($store->canAccessAdmin($user, $adminGuard, $adminGuard))->toBeTrue()
+        ->and($store->canAccessAdmin($user, 'lockdown-member', $adminGuard))->toBeFalse();
+    config()->set('auth.providers.' . $provider . '.model', stdClass::class);
+    expect($store->canAccessAdmin($user, $adminGuard, $adminGuard))->toBeFalse();
+    config()->set('auth.providers.' . $provider . '.model', $user::class);
+
+    File::put(lockdownStoreTestFile(), json_encode(['active' => true, 'allowed_user_ids' => ['42']], JSON_THROW_ON_ERROR));
+    $store->flushOctaneState();
+    expect($store->canAccessAdmin($user, $adminGuard, $adminGuard))->toBeTrue()
+        ->and($store->canAccessAdmin($user, 'lockdown-member', $adminGuard))->toBeFalse();
+});
+
+it('scopes model-less providers by provider name and refuses guards without a provider', function (): void {
+    $user = lockdownStoreTestUser(7, 'db@example.com');
+    config()->set('auth.guards.lockdown-db', ['driver' => 'session', 'provider' => 'lockdown-db-users']);
+    config()->set('auth.providers.lockdown-db-users', ['driver' => 'database', 'table' => 'users']);
+
+    $store = new LockdownStore(new Filesystem);
+
+    $payload = $store->activateFor($user, guard: 'lockdown-db');
+
+    expect($payload['allowed_user_ids'])->toContain('lockdown-db-users:7')
+        ->and($store->canAccessAdmin($user, 'lockdown-db', 'lockdown-db'))->toBeTrue()
+        ->and($store->userProviderForGuard('lockdown-missing'))->toBeNull()
+        ->and($store->canAccessAdmin($user, 'lockdown-missing', 'lockdown-db'))->toBeFalse()
+        ->and(fn (): array => $store->activateFor($user, guard: 'lockdown-missing'))
+        ->toThrow(RuntimeException::class, 'Unable to identify the lockdown user provider.');
 });
