@@ -17,8 +17,6 @@ final class BuildInstallHandoffAction
     use AsFake;
     use AsObject;
 
-    private const string FIRST_PAGE_DOCS_URL = 'https://docs.capell.app/getting-started/create-your-first-page/';
-
     private const string INSTALL_DOCS_URL = 'https://docs.capell.app/getting-started/install/';
 
     public function __construct(private readonly InstallHandoffTips $tips) {}
@@ -92,7 +90,7 @@ final class BuildInstallHandoffAction
                 ]
                 : ($completed ? [
                     'label' => 'Create and verify your first editable public page',
-                    'url' => self::FIRST_PAGE_DOCS_URL,
+                    'url' => InstallHandoffTips::FIRST_PAGE_GUIDE_URL,
                 ]
                 : [
                     'label' => 'Review installation and resolve incomplete checks',
