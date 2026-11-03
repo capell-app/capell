@@ -421,9 +421,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             $name = (string) $event->route->getName();
             if (str_starts_with($name, 'filament.')) {
-                $panel = explode('.', $name)[1];
-                $event->route->middleware(EnsureInstalledPanelAvailable::class . ':' . $panel);
-                $event->route->computedMiddleware = null;
+                // A long-lived worker matches the same route object on every request.
+                $availability = EnsureInstalledPanelAvailable::class . ':' . explode('.', $name)[1];
+                if (! in_array($availability, $event->route->middleware(), true)) {
+                    $event->route->middleware($availability);
+                    $event->route->computedMiddleware = null;
+                }
             }
 
             // Routes registered after the panel synchronised are held to package security too.
