@@ -10,6 +10,7 @@ use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Tests\Fixtures\Models\User;
+use Closure;
 use Filament\Actions\Exports\Models\Export;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Route as RoutingRoute;
@@ -72,12 +73,22 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->actingAsAdmin()->get('/runtime-admin-code/AB.svg')->assertOk();
     }
 
-    /** Admin code registered without Core's admin route helper is reported, so it cannot ship unowned. */
-    public function test_admin_code_registered_without_the_admin_route_helper_is_reported(): void
+    /** Admin code registered without Core's admin route helper outside every panel path is refused, and reported. */
+    public function test_an_unmarked_admin_controller_outside_the_panel_path_is_refused(): void
     {
         Route::get('/runtime-unmarked-admin/{initials}.svg', AdminAvatarController::class)->middleware('web')->name('runtime.unmarked-admin');
 
         $this->assertSame(['runtime.unmarked-admin'], resolve(InstalledPanelRuntime::class)->unclassifiedAdminRoutes());
+        $this->get('/runtime-unmarked-admin/AB.svg')->assertStatus(503);
+        $this->actingAsAdmin()->get('/runtime-unmarked-admin/AB.svg')->assertStatus(503);
+    }
+
+    /** A closure over admin code registered without the helper is refused too. */
+    public function test_an_unmarked_admin_closure_outside_the_panel_path_is_refused(): void
+    {
+        Route::get('/runtime-unmarked-closure/{initials}.svg', Closure::fromCallable(resolve(AdminAvatarController::class)))->middleware('web');
+
+        $this->get('/runtime-unmarked-closure/AB.svg')->assertStatus(503);
     }
 
     /** Livewire's script is served to every visitor, signed in or not, because public pages load it too. */

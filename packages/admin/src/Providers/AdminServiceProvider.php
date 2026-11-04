@@ -457,6 +457,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // Once every package has registered its routes, and before `route:cache` stores them.
         $this->app->booted(static function (Application $app): void {
             TransferDownloadEnum::takeOverGlobalRoutes($app->make(Router::class));
+            // Admin code registered without Core's admin route helper keeps that fact through the cache, and is refused.
+            $app->make(InstalledPanelRuntime::class)->recordDetectedAdminCode();
         });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             $name = (string) $event->route->getName();

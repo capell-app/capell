@@ -18,6 +18,12 @@ final class AdminRouteProvenance
     /** The route action attribute that records the provenance. */
     public const string ACTION = 'capell_admin';
 
+    /**
+     * The route action attribute recording that a route registered without a provenance runs admin
+     * code, captured while its action can still be inspected, before `route:cache` stores it.
+     */
+    public const string DETECTED = 'capell_admin_code';
+
     /** Admin code outside every panel path: owned by the default Capell panel and held to its whole stack. */
     public const string ADMIN = 'admin';
 

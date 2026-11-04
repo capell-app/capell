@@ -9,7 +9,7 @@ use Capell\Admin\Enums\TransferDownloadEnum;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Filament's global export download, served through the panel the export was started in. */
+/** Filament's export download: the global route sends the visitor to the originating panel, whose copy serves only its own exports. */
 final class DownloadExportInOriginatingPanelController
 {
     public function __invoke(Request $request, string $export): Response

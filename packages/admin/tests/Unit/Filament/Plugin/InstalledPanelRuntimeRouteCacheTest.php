@@ -6,7 +6,9 @@ namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Support\AdminRouteProvenance;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
+use Closure;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
@@ -57,6 +59,17 @@ final class InstalledPanelRuntimeRouteCacheTest extends AdminTestCase
         $this->get(route('guava-icon-picker.index'))->assertRedirect('/admin/login');
     }
 
+    /** Admin code registered without the helper is recorded as admin code before `route:cache` stores it, so it stays refused. */
+    public function test_cached_unmarked_admin_routes_stay_refused(): void
+    {
+        Route::get('/runtime-unmarked-admin/{initials}.svg', AdminAvatarController::class)->middleware('web');
+        Route::get('/runtime-unmarked-closure/{initials}.svg', Closure::fromCallable(resolve(AdminAvatarController::class)))->middleware('web');
+        $this->cacheRoutes();
+
+        $this->get('/runtime-unmarked-admin/AB.svg')->assertStatus(503);
+        $this->get('/runtime-unmarked-closure/AB.svg')->assertStatus(503);
+    }
+
     /** Filament's global export download keeps sending visitors to the originating panel once cached. */
     public function test_a_cached_global_export_download_is_sent_to_the_originating_panel(): void
     {
@@ -69,6 +82,8 @@ final class InstalledPanelRuntimeRouteCacheTest extends AdminTestCase
     /** Write and load the route cache exactly as `route:cache` does. */
     private function cacheRoutes(): void
     {
+        // What the application's boot records once every route is registered, before `route:cache` runs.
+        resolve(InstalledPanelRuntime::class)->recordDetectedAdminCode();
         $routes = Route::getRoutes();
         $this->assertInstanceOf(RouteCollection::class, $routes);
         foreach ($routes->getRoutes() as $route) {

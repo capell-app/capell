@@ -9,7 +9,7 @@ use Capell\Admin\Enums\TransferDownloadEnum;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Filament's global import failed-rows download, served through the panel the import was started in. */
+/** Filament's import failed-rows download: the global route sends the visitor to the originating panel, whose copy serves only its own imports. */
 final class DownloadImportFailuresInOriginatingPanelController
 {
     public function __invoke(Request $request, string $import): Response

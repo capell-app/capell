@@ -31,14 +31,16 @@ final class TransferOrigins
             return;
         }
 
+        $host = request()->getHost();
         $now = now();
         $this->table()->upsert([[
             'transfer_type' => $download->value,
             'transfer_key' => (string) $transfer->getKey(),
             'panel' => $panel->getId(),
+            'domain' => in_array($host, $panel->getDomains(), true) ? $host : null,
             'created_at' => $now,
             'updated_at' => $now,
-        ]], ['transfer_type', 'transfer_key'], ['panel', 'updated_at']);
+        ]], ['transfer_type', 'transfer_key'], ['panel', 'domain', 'updated_at']);
     }
 
     public function forget(Model $transfer): void
@@ -49,16 +51,19 @@ final class TransferOrigins
         }
     }
 
-    /** The id of the panel the record was started in, if one was recorded. */
-    public function panelFor(TransferDownloadEnum $download, string $key): ?string
+    /** Where the record was started, if that was recorded. */
+    public function originFor(TransferDownloadEnum $download, string $key): ?TransferOrigin
     {
         if (! $this->isAvailable()) {
             return null;
         }
 
-        $panel = $this->table()->where('transfer_type', $download->value)->where('transfer_key', $key)->value('panel');
+        $row = $this->table()->where('transfer_type', $download->value)->where('transfer_key', $key)->first(['panel', 'domain']);
+        if ($row === null || ! is_string($row->panel)) {
+            return null;
+        }
 
-        return is_string($panel) ? $panel : null;
+        return new TransferOrigin($row->panel, is_string($row->domain) ? $row->domain : null);
     }
 
     private function isAvailable(): bool

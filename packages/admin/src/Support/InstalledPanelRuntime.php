@@ -21,6 +21,7 @@ use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\RouteAction;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -121,6 +122,9 @@ final class InstalledPanelRuntime
     /** @var array<string, true> Namespaces of admin-only packages declared beyond Filament, Livewire and Capell admin. */
     private array $adminNamespaces = [];
 
+    /** @var WeakMap<Route, array{0: mixed, 1: bool}> Whether a route runs admin code, by the action it was classified from. */
+    private WeakMap $adminCode;
+
     /**
      * The rendering route carried by the snapshots of the Livewire update being handled.
      *
@@ -164,6 +168,7 @@ final class InstalledPanelRuntime
         $this->refusedRoutes = new WeakMap;
         $this->inspectedRoutes = new WeakMap;
         $this->renderings = new WeakMap;
+        $this->adminCode = new WeakMap;
     }
 
     public function isUnavailable(string $panel): bool
@@ -202,14 +207,33 @@ final class InstalledPanelRuntime
             $this->adminNamespaces[rtrim($namespace, '\\') . '\\'] = true;
         }
 
+        $this->adminCode = new WeakMap;
         $this->adminRoots = null;
     }
 
     /**
+     * Record on every registered route that runs Filament, Livewire or Capell admin code without a
+     * declared provenance that it is admin code, while its action can still be inspected. Called once
+     * every route is registered, before `route:cache` stores them, so a cached route keeps the fact
+     * and a cached closure is never unserialised to recover it.
+     */
+    public function recordDetectedAdminCode(): void
+    {
+        $routes = $this->router->getRoutes();
+        if (! $routes instanceof RouteCollection) {
+            return;
+        }
+
+        foreach ($routes->getRoutes() as $route) {
+            if ($this->provenance($route) === null && ! $this->isPublicAction($route) && $this->runsAdminCode($route)) {
+                $route->action[AdminRouteProvenance::DETECTED] = true;
+            }
+        }
+    }
+
+    /**
      * Routes running Filament, Livewire or Capell admin code that no panel owns and that carry no
-     * recorded provenance. Ownership is never inferred from a route's code, so such a route is served
-     * as a public host route; this report is how a missing declaration is caught before release. It
-     * inspects live actions only: a cached closure is never unserialised to read its code.
+     * declared provenance: registered outside Core's admin route helper. They are refused when matched.
      *
      * @return list<string>
      */
@@ -282,6 +306,10 @@ final class InstalledPanelRuntime
             $this->refuse(reset($owners), $route, new RuntimeException(__('capell-admin::message.extension_panel_route_ambiguous')));
         }
 
+        if ($owners === [] && $this->isUnclassified($route)) {
+            $this->refuse(null, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
+        }
+
         foreach ($owners as $id => $panel) {
             $availability = EnsureInstalledPanelAvailable::class . ':' . $id;
             if (! in_array($availability, $route->middleware(), true)) {
@@ -319,18 +347,14 @@ final class InstalledPanelRuntime
         // different route answering the same path now, such as a public catch-all once an admin route
         // is removed, is not that route; nor is the same route after a panel stopped owning it. A panel
         // that owns the route since the render only adds its stack to the replay.
+        // A snapshot rendered before rendering routes were recorded cannot prove which route, or which
+        // panels, rendered it, so it is rejected as expired and the page is reloaded.
         $current = $this->rendering($route);
-        if ($renderedBy === null) {
-            // Components rendered before rendering routes were recorded, such as public pages in an HTML
-            // cache, keep working on a public host route; a panel's snapshot must name its route.
-            abort_unless($current['security'] === [] && ! $this->isUnderPanelPath($path), 419);
-        } else {
-            abort_unless(is_array($renderedBy) && is_string($renderedBy['route'] ?? null) && is_array($renderedBy['security'] ?? null), 419);
-            abort_unless(hash_equals($current['route'], $renderedBy['route']), 419);
-            abort_unless(array_diff($renderedBy['security'], $current['security']) === [], 419);
-        }
+        abort_unless(is_array($renderedBy) && is_string($renderedBy['route'] ?? null) && is_array($renderedBy['security'] ?? null), 419);
+        abort_unless(hash_equals($current['route'], $renderedBy['route']), 419);
+        abort_unless(array_diff($renderedBy['security'], $current['security']) === [], 419);
 
-        $this->replayedRoute = $renderedBy === null ? null : $current;
+        $this->replayedRoute = $current;
         $this->reconcileMatchedRoute($route);
     }
 
@@ -398,17 +422,6 @@ final class InstalledPanelRuntime
             ]), $key),
             'security' => $owners,
         ];
-    }
-
-    private function isUnderPanelPath(string $path): bool
-    {
-        $path = trim($path, '/');
-
-        return array_any($this->synchronised, static function (Panel $panel) use ($path): bool {
-            $prefix = trim($panel->getPath(), '/');
-
-            return $prefix !== '' && ($path === $prefix || str_starts_with($path, $prefix . '/'));
-        });
     }
 
     private function protectRoutes(Panel $panel, string $id): void
@@ -570,6 +583,14 @@ final class InstalledPanelRuntime
             }
         }
 
+        // Admin code registered outside Core's admin route helper, which no panel owns, is refused.
+        if ($panel === $this->fallbackPanel()) {
+            foreach ($routes->getRoutes() as $route) {
+                if ($this->isUnclassified($route)) {
+                    $this->refuse($panel, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
+                }
+            }
+        }
     }
 
     /** Fail closed for this route only: the failure is recorded and the route is refused. */
@@ -916,10 +937,35 @@ final class InstalledPanelRuntime
     {
         return $this->synchronised !== []
             && $this->provenance($route) === null
+            && ! $this->isPublicAction($route)
             && $this->isAdminCode($route)
-            && ! in_array($this->actionCode($route)[0], self::PUBLIC_ACTIONS, true)
             && ! $this->namesRegisteredPanel($route)
             && $this->owners($route) === [];
+    }
+
+    /** One of Livewire's own endpoints, which serve every visitor. */
+    private function isPublicAction(Route $route): bool
+    {
+        return in_array($this->actionCode($route)[0], self::PUBLIC_ACTIONS, true);
+    }
+
+    /** Recorded as admin code before the route was cached, or running admin code now. */
+    private function isAdminCode(Route $route): bool
+    {
+        if ($route->getAction(AdminRouteProvenance::DETECTED) === true) {
+            return true;
+        }
+
+        $uses = $route->getAction('uses');
+        $cached = $this->adminCode[$route] ?? null;
+        if ($cached !== null && $cached[0] === $uses) {
+            return $cached[1];
+        }
+
+        $admin = $this->runsAdminCode($route);
+        $this->adminCode[$route] = [$uses, $admin];
+
+        return $admin;
     }
 
     /** The provenance declared for the route by name, or recorded in its action when it was registered. */
@@ -934,8 +980,8 @@ final class InstalledPanelRuntime
         return array_any(array_keys(Filament::getPanels()), fn (string $id): bool => $this->associated($route, $id));
     }
 
-    /** The action is shipped in an admin package's source or route files, or is a Filament page. */
-    private function isAdminCode(Route $route): bool
+    /** The live action is shipped in an admin package's source or route files, or is a Filament page. */
+    private function runsAdminCode(Route $route): bool
     {
         [$class, $file] = $this->actionCode($route);
         if ($file === null && $class !== null && class_exists($class)) {

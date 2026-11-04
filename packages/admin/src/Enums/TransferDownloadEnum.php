@@ -34,11 +34,11 @@ enum TransferDownloadEnum: string
         };
     }
 
-    /** Register each download inside a panel's authenticated routes. */
+    /** Register each download inside a panel's authenticated routes; each serves only the records its panel started. */
     public static function registerPanelRoutes(): void
     {
         foreach (self::cases() as $download) {
-            RouteFacade::get($download->panelUri(), $download->filamentController())->name($download->panelRouteName());
+            RouteFacade::get($download->panelUri(), $download->originController())->name($download->panelRouteName());
         }
     }
 

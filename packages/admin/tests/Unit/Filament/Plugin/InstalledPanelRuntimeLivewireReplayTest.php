@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
@@ -85,25 +86,43 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         $this->replay($payload)->assertStatus(419);
     }
 
-    /** A public page cached before rendering routes were recorded keeps its components working. */
-    public function test_a_public_snapshot_without_its_rendering_route_still_replays(): void
+    /**
+     * A snapshot without its signed rendering route cannot prove which route rendered it, so it is
+     * rejected even where a public route answers its path now.
+     */
+    public function test_a_snapshot_without_its_rendering_route_is_rejected_on_a_public_route(): void
     {
         $payload = $this->withoutRouteIdentity($this->render('/runtime-public-replay', ['web']));
 
-        $this->replay($payload)->assertOk()->assertSee('count: 1');
+        $this->replay($payload)->assertStatus(419);
+    }
+
+    /** An admin route outside every panel path, once removed, cannot replay an unsigned snapshot through a public catch-all. */
+    public function test_an_unsigned_snapshot_of_a_removed_admin_route_outside_the_panel_path_is_rejected(): void
+    {
+        $payload = $this->withoutRouteIdentity($this->render('/runtime-outside-admin', ['web'], adminCode: true));
+        $this->replayRoutesWithout('/runtime-outside-admin');
+        Route::get('{path}', static fn (): string => 'public page')->where('path', '.*')->middleware('web');
+        Livewire::flushState();
+
+        $this->replay($payload)->assertStatus(419);
     }
 
     /**
      * @param  list<string>|null  $middleware
      * @return array<string, mixed>
      */
-    private function render(string $uri = self::URI, ?array $middleware = null): array
+    private function render(string $uri = self::URI, ?array $middleware = null, bool $adminCode = false): array
     {
         $this->actingAsAdmin();
         Livewire::component('runtime.replay-counter', RuntimeCounterComponent::class);
         $panel = Filament::getPanel('admin');
-        Route::get($uri, static fn (): string => Livewire::mount('runtime.replay-counter'))
-            ->middleware($middleware ?? [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+        $register = static function () use ($uri, $middleware, $panel): void {
+            Route::get($uri, static fn (): string => Livewire::mount('runtime.replay-counter'))
+                ->middleware($middleware ?? [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+        };
+        // Admin code outside every panel path is registered through Core's admin route helper.
+        $adminCode ? AdminRouteProvenance::group($register) : $register();
 
         $html = $this->get($uri)->assertOk()->getContent();
         throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
@@ -115,9 +134,14 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
 
     private function withoutRenderingRoute(): void
     {
+        $this->replayRoutesWithout(self::URI);
+    }
+
+    private function replayRoutesWithout(string $uri): void
+    {
         $routes = new RouteCollection;
         foreach (Route::getRoutes()->getRoutes() as $route) {
-            if ('/' . $route->uri() !== self::URI) {
+            if ('/' . $route->uri() !== $uri) {
                 $routes->add($route);
             }
         }
