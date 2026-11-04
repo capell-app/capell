@@ -53,6 +53,7 @@ use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
+use Capell\Core\Console\Commands\RetryOwedPublicReadWithdrawalsCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
@@ -90,6 +91,7 @@ use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
+use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
@@ -99,6 +101,7 @@ use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
+use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
@@ -197,6 +200,7 @@ use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
@@ -340,6 +344,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AuditSiteDomainOriginsCommand::class,
             CacheComponentsCommand::class,
             BackupHealthCommand::class,
+            RetryOwedPublicReadWithdrawalsCommand::class,
             CloudBootstrapCommand::class,
             ClearComponentsCacheCommand::class,
             CoreFakerCommand::class,
@@ -404,6 +409,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
+            ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
             ->registerLinkableContentProviders()
@@ -662,6 +668,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
         $this->app->singleton(PublicPageReadEligibilityRegistry::class);
+        $this->app->singleton(PublicReadWithdrawalSteps::class);
         $this->app->scoped(PublicReadEligibilityRevision::class);
         $this->app->scoped(PublicReadEligibilityState::class);
         $this->app->scoped(
@@ -859,6 +866,18 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $schedule->command('capell:editor-scratch-drafts:prune')
                 ->dailyAt('01:00')
                 ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    private function registerPublicReadWithdrawalRetrySchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('capell:public-read:retry-withdrawals')
+                ->everyMinute()
                 ->withoutOverlapping()
                 ->onOneServer();
         });
@@ -1095,6 +1114,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
         Event::listen(PageUrlsRewritten::class, [CreateRedirectsForChangedPageUrls::class, 'handleUrlRewrite']);
         Event::listen(PageSaved::class, [SyncPromotedPropertyFieldsOnPageSaved::class, 'handle']);
+        Event::listen(PublicReadEligibilityChanged::class, [WithdrawPublicReadProjectionsOnEligibilityChanged::class, 'handle']);
 
         return $this;
     }

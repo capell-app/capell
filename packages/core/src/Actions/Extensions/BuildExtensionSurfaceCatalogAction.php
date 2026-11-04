@@ -129,6 +129,7 @@ use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
 use Capell\Core\Support\PublicRead\PublicReadScanner;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Reporting\LogChannelReporter;
 use Capell\Core\Testing\ExtensionTestHarness;
@@ -214,6 +215,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.evaluates-public-page-read-candidates-individually', 'contract', EvaluatesPublicPageReadCandidatesIndividually::class, ExtensionSurfaceStability::Experimental, 'Default one-at-a-time batch evaluation for public-read eligibility contributors.'),
             $this->entry('core.action.record-public-read-eligibility-change', 'action', RecordPublicReadEligibilityChangeAction::class, ExtensionSurfaceStability::Experimental, 'Advances the public-read eligibility revision when access rules change without a page save.'),
             $this->entry('core.action.publish-public-artefact', 'action', PublishPublicArtefactAction::class, ExtensionSurfaceStability::Experimental, 'Only path for writing copies served without Laravel; checks eligibility under the store lock.'),
+            $this->entry('core.support.public-read-withdrawal-steps', 'support', PublicReadWithdrawalSteps::class, ExtensionSurfaceStability::Experimental, 'Register an idempotent step that withdraws stored public output; failed steps stay owed and are retried.'),
             $this->entry('core.support.public-artefact-permit', 'support', PublicArtefactPermit::class, ExtensionSurfaceStability::Experimental, 'Proof a write runs inside the publication action; artefact stores require it.'),
             $this->entry('core.contract.public-artefact-fence', 'contract', PublicArtefactFence::class, ExtensionSurfaceStability::Experimental, "An out-of-band artefact store's lease-free lock, shared by its writes and withdrawals."),
             $this->entry('core.event.public-read-eligibility-changed', 'event', PublicReadEligibilityChanged::class, ExtensionSurfaceStability::Experimental, 'Signals that stored public projections must be withdrawn or regenerated.'),

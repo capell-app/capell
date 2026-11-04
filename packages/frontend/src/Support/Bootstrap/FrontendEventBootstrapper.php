@@ -8,7 +8,6 @@ use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlChanged;
-use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
@@ -25,14 +24,15 @@ use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Listeners\PurgeCdnCacheOnPageChangeListener;
 use Capell\Frontend\Listeners\RemediatePrivateSiteSpecOutput;
-use Capell\Frontend\Listeners\WithdrawPublicOutputOnPublicReadEligibilityChanged;
 use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
 use Capell\Frontend\Support\Agent\AgentPropertyCacheObserver;
 use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
+use Capell\Frontend\Support\PublicRead\FrontendPublicReadWithdrawalSteps;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
@@ -57,7 +57,13 @@ final class FrontendEventBootstrapper
         Event::listen(FrontendContextResolved::class, [OnFrontendContextResolved::class, 'handle']);
         Event::listen(PageSaved::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSaved']);
         Event::listen(SiteSpecPrivacyRepairing::class, [RemediatePrivateSiteSpecOutput::class, 'handle']);
-        Event::listen(PublicReadEligibilityChanged::class, [WithdrawPublicOutputOnPublicReadEligibilityChanged::class, 'handle']);
+        // Each output this package keeps is withdrawn by a durable Core step.
+        app()->afterResolving(PublicReadWithdrawalSteps::class, FrontendPublicReadWithdrawalSteps::register(...));
+
+        if (app()->resolved(PublicReadWithdrawalSteps::class)) {
+            FrontendPublicReadWithdrawalSteps::register(resolve(PublicReadWithdrawalSteps::class));
+        }
+
         Event::listen(PageDeleted::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleDeleted']);
         Event::listen(PageUrlChanged::class, [PurgeCdnCacheOnPageChangeListener::class, 'handlePageUrlChanged']);
         Event::listen(FrontendSurrogateKeysInvalidated::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSurrogateKeys']);

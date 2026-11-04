@@ -87,6 +87,7 @@ trait HasMigrations
             '2026_11_02_000002_create_capell_security_remediation_approvals_table',
             '2026_11_02_000003_create_capell_security_remediation_runs_table',
             '2026_11_03_000001_create_public_read_eligibility_state_table',
+            '2026_11_03_000004_create_public_read_owed_withdrawals_table',
             '2026_11_03_000001_harden_security_scan_lifecycle',
             '2026_11_03_000001_add_node_columns_to_capell_security_remediation_runs_table',
             '2026_11_03_000001_create_capell_extension_quarantines_table',

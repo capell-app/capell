@@ -1483,6 +1483,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.support.public-read-withdrawal-steps",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadWithdrawalSteps",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Register an idempotent step that withdraws stored public output; failed steps stay owed and are retried.",
+            "contractTestId": null
+        },
+        {
             "id": "core.tag.database-platform",
             "kind": "tagged-service",
             "identifier": "capell.database.platform",
