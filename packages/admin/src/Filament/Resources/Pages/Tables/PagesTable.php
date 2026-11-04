@@ -170,8 +170,9 @@ class PagesTable implements TableConfigurator
                 ForceDeleteBulkAction::make()
                     ->after(self::afterBulkDelete(...)),
             ])
-            ->emptyStateHeading(__('capell-admin::generic.no_pages_found'))
-            ->emptyStateDescription(__('capell-admin::generic.no_pages_description'))
+            ->emptyStateHeading(self::getEmptyStateHeading(...))
+            ->emptyStateDescription(self::getEmptyStateDescription(...))
+            ->emptyStateActions([self::clearSearchAndFiltersAction()])
             ->emptyStateIcon('heroicon-o-document-text')
             ->recordUrl(self::getJourneyRecordUrl(...));
     }
@@ -336,6 +337,80 @@ class PagesTable implements TableConfigurator
             DateColumn::make('created_at'),
             DateColumn::make('deleted_at'),
         ];
+    }
+
+    /**
+     * An empty result behind a search term or a non-default filter is not an empty site, so
+     * the heading, description and clear action say which situation the editor is in.
+     */
+    protected static function getEmptyStateHeading(HasTable $livewire): string
+    {
+        return self::isTableNarrowed($livewire)
+            ? __('capell-admin::generic.no_pages_found')
+            : __('capell-admin::generic.no_pages_yet');
+    }
+
+    protected static function getEmptyStateDescription(HasTable $livewire): string
+    {
+        return self::isTableNarrowed($livewire)
+            ? __('capell-admin::generic.no_pages_found_description')
+            : __('capell-admin::generic.no_pages_description');
+    }
+
+    protected static function clearSearchAndFiltersAction(): Action
+    {
+        return Action::make('clear_search_and_filters')
+            ->label(__('capell-admin::button.clear_search_and_filters'))
+            ->color('gray')
+            ->visible(static fn (HasTable $livewire): bool => self::isTableNarrowed($livewire))
+            ->action(static function (HasTable $livewire): void {
+                $livewire->resetTableSearch();
+
+                if ($livewire instanceof ListRecords) {
+                    $livewire->resetTableColumnSearches();
+                    $livewire->resetTableFiltersForm();
+
+                    return;
+                }
+
+                $livewire->getTableFiltersForm()->fill();
+            });
+    }
+
+    /**
+     * A filter sitting at its default, such as the current site, does not narrow the table:
+     * resetting it would change nothing, so only searches and changed filters count.
+     */
+    protected static function isTableNarrowed(HasTable $livewire): bool
+    {
+        if ($livewire->hasTableSearch()) {
+            return true;
+        }
+
+        if ($livewire->getTableColumnSearchIndicators() !== []) {
+            return true;
+        }
+
+        return array_any($livewire->getTable()->getFilters(), fn (BaseFilter $filter): bool => $filter->getIndicators() !== [] && ! self::isFilterAtDefault($filter));
+    }
+
+    protected static function isFilterAtDefault(BaseFilter $filter): bool
+    {
+        $default = $filter->getDefaultState();
+
+        if ($default === null) {
+            return false;
+        }
+
+        $state = $filter->getState();
+
+        if (is_array($default)) {
+            return $state === $default;
+        }
+
+        $value = $state['value'] ?? null;
+
+        return is_scalar($value) && (string) $value === (string) $default;
     }
 
     protected static function recordClasses(PageModel $record): ?string
