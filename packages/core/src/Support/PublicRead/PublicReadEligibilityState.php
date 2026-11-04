@@ -43,26 +43,26 @@ final class PublicReadEligibilityState
      * The stamp to store with a projection built now, or null when the rules
      * cannot be read and nothing should be stored or served.
      */
-    public function stamp(): ?PublicReadStampData
+    public function stamp(?int $siteId = null): ?PublicReadStampData
     {
         if (! $this->isRestricted()) {
             return new PublicReadStampData(null, null);
         }
 
-        return $this->stampFor($this->revision->current());
+        return $this->stampFor($this->revision->current(), $siteId);
     }
 
     /**
      * Like stamp(), but reads the revision again instead of this request's
      * copy. Use it to fence a long-running generation.
      */
-    public function freshStamp(): ?PublicReadStampData
+    public function freshStamp(?int $siteId = null): ?PublicReadStampData
     {
         if (! $this->isRestricted()) {
             return new PublicReadStampData(null, null);
         }
 
-        return $this->stampFor($this->revision->fresh());
+        return $this->stampFor($this->revision->fresh(), $siteId);
     }
 
     /**
@@ -84,15 +84,24 @@ final class PublicReadEligibilityState
         return $validUntil === null || CarbonImmutable::now()->getTimestamp() < $validUntil;
     }
 
-    private function stampFor(?string $revision): ?PublicReadStampData
+    /**
+     * With a site, valid_until is the next transition that can affect that
+     * site's pages, so a schedule on one site never bounds copies of another.
+     * With null it is the next transition on any site.
+     */
+    private function stampFor(?string $revision, ?int $siteId): ?PublicReadStampData
     {
         if ($revision === null) {
             return null;
         }
 
-        $validUntil = $this->registry->nextTransitionAfter(CarbonImmutable::now());
+        $now = CarbonImmutable::now();
+        $validUntil = $this->registry->nextTransitionAfter($now, $siteId);
 
-        if ($validUntil instanceof CarbonImmutable) {
+        // A schedule that cannot be read answers "now": everything built now
+        // is already expired (deny), and there is no future moment to clean
+        // up at, so nothing is queued for it.
+        if ($validUntil instanceof CarbonImmutable && $validUntil->greaterThan($now)) {
             $this->scheduleExpiry($validUntil);
         }
 

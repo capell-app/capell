@@ -18,7 +18,9 @@ interface SchedulesPublicReadTransitions
 {
     /**
      * The earliest moment after $now at which a decision may change, or null
-     * when none is scheduled.
+     * when none is scheduled. With a site, only transitions that can affect
+     * that site's pages count (its own rules and those for every site); with
+     * null, a transition on any site does.
      */
-    public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable;
+    public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable;
 }

@@ -107,7 +107,7 @@ final class PublicPageReadEligibilityRegistry extends AbstractKeyedRegistry
      * decisions may change. A contributor that fails answers $now, so nothing
      * built from its rules is stored.
      */
-    public function nextTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+    public function nextTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
     {
         $next = null;
 
@@ -117,7 +117,7 @@ final class PublicPageReadEligibilityRegistry extends AbstractKeyedRegistry
             }
 
             try {
-                $transition = $eligibility->nextPublicReadTransitionAfter($now);
+                $transition = $eligibility->nextPublicReadTransitionAfter($now, $siteId);
             } catch (Throwable $throwable) {
                 report($throwable);
 

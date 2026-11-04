@@ -672,7 +672,7 @@ function staticExportReadEligibility(?CarbonImmutable $transition = null): void
             return true;
         }
 
-        public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
         {
             return $this->transition instanceof CarbonImmutable && $now->lessThan($this->transition) ? $this->transition : null;
         }
@@ -760,6 +760,43 @@ it('exports while no leased cache lock can be taken, fenced by the store lock a 
         ->and($manifest['artifacts'])->toHaveCount(1)
         // While the bytes land, a withdrawal of this store would have to wait.
         ->and($withdrawalCouldStart)->toBeFalse();
+});
+
+it('bounds static exports only by schedules that can affect their own site', function (): void {
+    [, $embargoed, $embargoedRender] = staticPageArtifactsRenderData('/embargoed', 'embargoed.example.test');
+    [, $open, $openRender] = staticPageArtifactsRenderData('/open', 'open.example.test');
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($embargoed->id) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private int $embargoedSite) {}
+
+        public function key(): string
+        {
+            return 'static-export-site-embargo';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            // An embargo that lifts in an hour, on one site only.
+            return $siteId === null || $siteId === $this->embargoedSite ? $now->addHour() : null;
+        }
+    });
+
+    app()->instance(Kernel::class, staticExportKernel($openRender));
+    $openManifest = GenerateStaticPageArtifactsAction::run(siteId: $open->id, urls: ['/open']);
+    app()->instance(Kernel::class, staticExportKernel($embargoedRender));
+    $embargoedManifest = GenerateStaticPageArtifactsAction::run(siteId: $embargoed->id, urls: ['/embargoed']);
+
+    expect($openManifest['withheld'])->toBe([])
+        ->and($openManifest['artifacts'])->toHaveCount(1)
+        ->and($embargoedManifest['withheld'])->toBe(['/embargoed'])
+        ->and($embargoedManifest['artifacts'])->toBe([]);
 });
 
 function staticPageArtifactsRenderData(string $url, string $domain = 'example.test'): array

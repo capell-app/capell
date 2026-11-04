@@ -55,19 +55,19 @@ final class PublishPublicArtefactAction
      */
     public function handle(PublicArtefactFence $store, ?int $siteId, ?PublicReadStampData $builtUnder, array $pageUrls, Closure $write): bool
     {
-        return $store->exclusive(fn (): bool => $this->allowed($builtUnder, $pageUrls) && $this->withPermit($store, $write));
+        return $store->exclusive(fn (): bool => $this->allowed($siteId, $builtUnder, $pageUrls) && $this->withPermit($store, $write));
     }
 
     /**
      * @param  list<PageUrl>  $pageUrls
      */
-    private function allowed(?PublicReadStampData $builtUnder, array $pageUrls): bool
+    private function allowed(?int $siteId, ?PublicReadStampData $builtUnder, array $pageUrls): bool
     {
         if (! $builtUnder instanceof PublicReadStampData || $builtUnder->validUntil instanceof CarbonImmutable) {
             return false;
         }
 
-        $fresh = $this->state->freshStamp();
+        $fresh = $this->state->freshStamp($siteId);
 
         if (! $fresh instanceof PublicReadStampData || $fresh->validUntil instanceof CarbonImmutable || $fresh->revision !== $builtUnder->revision) {
             return false;

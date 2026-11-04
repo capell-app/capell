@@ -66,7 +66,7 @@ class GenerateStaticPageArtifactsAction
 
             $this->clearRenderData();
             // The rules this page is rendered under; checked again when it is written.
-            $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp();
+            $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp($pageUrl->site_id);
 
             try {
                 $response = $this->render($pageUrl, $siteDomain);

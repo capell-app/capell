@@ -406,7 +406,7 @@ it('treats a stored projection as stale once a scheduled transition is reached',
             return true;
         }
 
-        public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
         {
             $opening = CarbonImmutable::parse('2026-11-03 12:00:00');
 
@@ -652,7 +652,8 @@ it('retries a failed revision write at most once per interval across requests', 
     Schema::rename($table, $table . '_unavailable');
     $attempts = 0;
     DB::beforeExecuting(static function (string $query) use (&$attempts): void {
-        $attempts += str_starts_with(mb_strtolower(ltrim($query)), 'update') && str_contains($query, 'public_read_eligibility_state') ? 1 : 0;
+        // Revision writes only: a failed write also records an unknown token.
+        $attempts += str_starts_with(mb_strtolower(ltrim($query)), 'update') && str_contains($query, 'public_read_eligibility_state') && ! str_contains($query, 'unknown_token') ? 1 : 0;
     });
 
     try {
@@ -693,7 +694,7 @@ it('schedules transition cleanup only on a real queue and never leaves its marke
             return true;
         }
 
-        public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
         {
             return $now->lessThan($this->transition) ? $this->transition : null;
         }
@@ -737,7 +738,7 @@ it('withdraws stored output at a scheduled transition without the scheduler', fu
             return true;
         }
 
-        public function nextPublicReadTransitionAfter(CarbonImmutable $now): ?CarbonImmutable
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
         {
             $opening = CarbonImmutable::parse('2026-11-03 12:00:00');
 
@@ -760,4 +761,40 @@ it('withdraws stored output at a scheduled transition without the scheduler', fu
     $job->handle();
 
     Event::assertDispatched(PublicReadEligibilityChanged::class, static fn (PublicReadEligibilityChanged $event): bool => $event->source === 'public-read.scheduled-transition');
+});
+
+it('schedules no cleanup for a contributor whose schedule cannot be read, however often its rules are read', function (): void {
+    config()->set('queue.default', 'database');
+    Queue::fake();
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function key(): string
+        {
+            return 'test-unreadable-schedule';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            throw new RuntimeException('The schedule cannot be read.');
+        }
+    });
+
+    for ($request = 1; $request <= 3; $request++) {
+        $this->travel(1)->seconds();
+        app()->forgetScopedInstances();
+        $stamp = resolve(PublicReadEligibilityState::class)->stamp();
+
+        // Still denied: whatever is built now expires at once.
+        expect($stamp?->validUntil?->lessThanOrEqualTo(CarbonImmutable::now()))->toBeTrue()
+            ->and(resolve(PublicReadEligibilityState::class)->isCurrent($stamp?->revision, $stamp?->validUntilTimestamp()))->toBeFalse();
+    }
+
+    Queue::assertNotPushed(ExpirePublicReadProjectionsJob::class);
 });
