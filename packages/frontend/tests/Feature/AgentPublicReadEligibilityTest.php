@@ -36,6 +36,7 @@ use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -797,4 +798,37 @@ it('schedules no cleanup for a contributor whose schedule cannot be read, howeve
     }
 
     Queue::assertNotPushed(ExpirePublicReadProjectionsJob::class);
+});
+
+it('stays unknown after a failed revision write even when the cache is cleared, until a write succeeds', function (): void {
+    restrictAgentReadsTo([]);
+    $race = new stdClass;
+    $race->failing = true;
+
+    // Only the revision write fails; the database can still record that it did.
+    DB::beforeExecuting(static function (string $query) use ($race): void {
+        $sql = mb_strtolower(ltrim($query));
+
+        throw_if($race->failing && str_starts_with($sql, 'update') && str_contains($sql, 'public_read_eligibility_state') && ! str_contains($sql, 'unknown_token'), RuntimeException::class, 'The revision write fails.');
+    });
+
+    expect(RecordPublicReadEligibilityChangeAction::run('test'))->toBeNull();
+
+    // The cache is cleared while the revision still cannot be written: the
+    // retry a read triggers fails too, and nothing is trusted.
+    Artisan::call('cache:clear');
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityRevision::class)->isUnknown())->toBeTrue()
+        ->and(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull()
+        ->and(resolve(PublicReadEligibilityState::class)->stamp())->toBeNull();
+
+    $race->failing = false;
+
+    // The next successful write, once the retry interval has passed, makes the revision known again.
+    $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeString()
+        ->and(resolve(PublicReadEligibilityRevision::class)->isUnknown())->toBeFalse();
 });

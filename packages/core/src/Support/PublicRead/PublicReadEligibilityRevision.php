@@ -45,6 +45,12 @@ use Throwable;
  * compared, this process denies on its own and the failure is reported: the
  * revision never fails open.
  *
+ * A failed advance also writes a fresh unknown token to the database row when
+ * it can, so a cache clear (which loses both numbers) does not make the old
+ * revision trusted again: the revision is unknown while that token is set. A
+ * successful advance clears only the token it read before its own write, so
+ * a failure recorded after that read still stands.
+ *
  * @experimental
  */
 final class PublicReadEligibilityRevision
@@ -77,7 +83,13 @@ final class PublicReadEligibilityRevision
     {
         if (! $this->loaded) {
             $this->loaded = true;
-            $this->revision = $this->isUnknown() ? $this->retry() : $this->read();
+            if ($this->cacheSaysUnknown()) {
+                $this->revision = $this->retry();
+            } else {
+                // An unreadable row denies; a row a failed advance marked unknown is retried.
+                $row = $this->readRow();
+                $this->revision = $row === null ? null : ($row['unknown'] ? $this->retry() : $row['revision']);
+            }
         }
 
         return $this->revision;
@@ -101,8 +113,9 @@ final class PublicReadEligibilityRevision
     public function advance(): ?string
     {
         $revision = (string) Str::ulid();
-        // The failure generation this advance may clear, read before its write.
+        // The failure generation and token this advance may clear, read before its write.
         $observed = $this->failures();
+        $token = $this->unknownToken();
 
         try {
             $updated = DB::table(TableName::resolve(self::TABLE))
@@ -125,7 +138,7 @@ final class PublicReadEligibilityRevision
             return null;
         }
 
-        if (! $this->clearUnknown($observed)) {
+        if (! $this->clearUnknown($observed) || ! $this->clearUnknownToken($token)) {
             // A newer failure (or unreadable failure state) still stands.
             $this->unknownInProcess = true;
             $this->revision = null;
@@ -138,6 +151,22 @@ final class PublicReadEligibilityRevision
     }
 
     public function isUnknown(): bool
+    {
+        if ($this->cacheSaysUnknown()) {
+            return true;
+        }
+
+        $row = $this->readRow();
+
+        return $row === null || $row['unknown'];
+    }
+
+    private static function count(mixed $value): int
+    {
+        return is_int($value) || (is_string($value) && ctype_digit($value)) ? (int) $value : 0;
+    }
+
+    private function cacheSaysUnknown(): bool
     {
         if ($this->unknownInProcess) {
             return true;
@@ -156,11 +185,6 @@ final class PublicReadEligibilityRevision
 
             return true;
         }
-    }
-
-    private static function count(mixed $value): int
-    {
-        return is_int($value) || (is_string($value) && ctype_digit($value)) ? (int) $value : 0;
     }
 
     /**
@@ -227,9 +251,58 @@ final class PublicReadEligibilityRevision
                 Cache::increment(self::FAILURES_KEY, $cleared - $generation + 1);
             }
         } catch (Throwable $throwable) {
-            // This process still denies; other processes cannot learn of it.
+            // This process still denies; other processes learn of it from the database token.
             report($throwable);
         }
+
+        try {
+            DB::table(TableName::resolve(self::TABLE))->where('id', 1)->update(['unknown_token' => (string) Str::ulid()]);
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
+    /**
+     * The unknown token stored before this advance's write: null when none,
+     * false when it cannot be read (then it may not be cleared).
+     */
+    private function unknownToken(): string|false|null
+    {
+        try {
+            $token = DB::table(TableName::resolve(self::TABLE))->where('id', 1)->value('unknown_token');
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return false;
+        }
+
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /**
+     * Clears the token read before this advance's write, and only that one.
+     * Returns whether no token is left standing.
+     */
+    private function clearUnknownToken(string|false|null $token): bool
+    {
+        if ($token === false) {
+            return false;
+        }
+
+        try {
+            if ($token !== null) {
+                DB::table(TableName::resolve(self::TABLE))->where('id', 1)->where('unknown_token', $token)->update(['unknown_token' => null]);
+            }
+
+            $known = $this->unknownToken() === null;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $known = false;
+        }
+
+        $this->unknownInProcess = ! $known;
+
+        return $known;
     }
 
     /**
@@ -293,16 +366,28 @@ final class PublicReadEligibilityRevision
         report_if(in_array($store, ['array', 'null'], true) && ! app()->runningUnitTests(), new RuntimeException('Public-read eligibility needs a cache store shared by every process; the "' . $store . '" store keeps the revision-unknown state in this process only.'));
     }
 
-    private function read(): ?string
+    /**
+     * The stored revision and whether a failed advance left it unknown, in
+     * one read, or null when the row cannot be read.
+     *
+     * @return array{revision: string|null, unknown: bool}|null
+     */
+    private function readRow(): ?array
     {
         try {
-            $revision = DB::table(TableName::resolve(self::TABLE))->where('id', 1)->value('revision');
+            $row = DB::table(TableName::resolve(self::TABLE))->where('id', 1)->first(['revision', 'unknown_token']);
         } catch (Throwable $throwable) {
             report($throwable);
 
             return null;
         }
 
-        return is_string($revision) && $revision !== '' ? $revision : null;
+        $revision = $row->revision ?? null;
+        $token = $row->unknown_token ?? null;
+
+        return [
+            'revision' => is_string($revision) && $revision !== '' ? $revision : null,
+            'unknown' => is_string($token) && $token !== '',
+        ];
     }
 }
