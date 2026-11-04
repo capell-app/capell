@@ -10,6 +10,7 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
 use Filament\Facades\Filament;
 use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
@@ -44,6 +45,25 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         Livewire::flushState();
 
         $this->replay($payload)->assertStatus(503);
+    }
+
+    /** A snapshot whose rendering route no longer exists cannot have its middleware replayed, so it is rejected. */
+    public function test_a_replay_whose_rendering_route_no_longer_matches_is_rejected(): void
+    {
+        $payload = $this->render();
+        $this->replay($payload)->assertOk();
+
+        $routes = new RouteCollection;
+        foreach (Route::getRoutes()->getRoutes() as $route) {
+            if ('/' . $route->uri() !== self::URI) {
+                $routes->add($route);
+            }
+        }
+
+        Route::setRoutes($routes);
+        Livewire::flushState();
+
+        $this->replay($payload)->assertStatus(419);
     }
 
     /** @return array<string, mixed> */

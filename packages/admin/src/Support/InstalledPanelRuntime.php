@@ -282,8 +282,9 @@ final class InstalledPanelRuntime
         try {
             $route = $this->router->getRoutes()->match($request->duplicate(server: $server->all()));
         } catch (HttpExceptionInterface) {
-            // Livewire replays no middleware for a path that matches no route.
-            return;
+            // Livewire would replay no middleware at all for a route that no longer matches, so the
+            // stale snapshot is rejected as expired.
+            abort(419);
         }
 
         $this->reconcileMatchedRoute($route);
