@@ -42,8 +42,9 @@ final class InstalledPanelRuntimeForeignDefaultPanelTest extends AdminTestCase
         $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
         $url = route('filament.exports.download', ['export' => $export]);
 
-        $this->get($url)->assertRedirect('/admin/login');
-        $this->actingAs($user)->get($url)->assertForbidden();
+        $download = (string) $this->get($url)->assertRedirectContains('/admin/')->headers->get('Location');
+        $this->get($download)->assertRedirect('/admin/login');
+        $this->actingAs($user)->get($download)->assertForbidden();
     }
 
     /** @return list<class-string> */

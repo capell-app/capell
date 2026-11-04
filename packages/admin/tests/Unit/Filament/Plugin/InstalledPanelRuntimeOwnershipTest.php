@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Controllers\AdminAvatarController;
+use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
@@ -15,6 +16,7 @@ use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 
@@ -31,46 +33,51 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->assertSame([], $unclassified, 'Admin code routes neither owned by a panel nor declared public: ' . implode(', ', $unclassified));
     }
 
-    /** Filament's global export download belongs to the default admin panel, so it runs that panel's authentication. */
+    /**
+     * Filament's global export download is served by the panel the export was started in; one started
+     * outside every panel belongs to the default admin panel and runs that panel's authentication.
+     */
     public function test_the_global_export_download_runs_the_default_panel_authentication(): void
     {
         [$user, $url] = $this->ownExport();
 
-        $this->get($url)->assertRedirect('/admin/login');
+        $download = $this->get($url)->assertRedirectContains('/admin/')->headers->get('Location');
+        $this->get((string) $download)->assertRedirect('/admin/login');
         // The export is the user's own, so only the panel's admission refuses it.
-        $this->actingAs($user)->get($url)->assertForbidden();
+        $this->actingAs($user)->get((string) $download)->assertForbidden();
     }
 
-    /** A closure from the route cache that carries no class cannot be classified, so it fails closed to the panel. */
-    public function test_an_unclassifiable_cached_closure_runs_the_default_panel_authentication(): void
-    {
-        require_once dirname(__DIR__, 3) . '/Fixtures/Filament/Plugin/scopeless-closure.php';
-        $route = Route::get('/runtime-cached-closure', capell_runtime_scopeless_closure())->middleware('web');
-        $this->cache($route);
-
-        $this->get('/runtime-cached-closure')->assertRedirect('/admin/login');
-        $this->actingAsAdmin()->get('/runtime-cached-closure')->assertOk()->assertSee('cached closure served');
-    }
-
-    /** A cached closure keeps the class that declared it, so Livewire's cached component assets stay public. */
+    /** A cached Livewire closure is a public host route, so Livewire's cached component assets stay public. */
     public function test_a_cached_livewire_closure_stays_public(): void
     {
         $route = collect(Route::getRoutes()->getRoutes())
             ->first(static fn (RoutingRoute $route): bool => str_ends_with('/' . $route->uri(), '/css/{component}.css'));
         $this->assertInstanceOf(RoutingRoute::class, $route);
-        $this->cache($route);
+        $route->prepareForSerialization();
+        $route->setRouter(resolve(Router::class))->setContainer(app());
+        $this->assertIsString($route->getAction('uses'));
 
         $this->get('/' . str_replace('{component}', 'runtime-missing-component', $route->uri()))->assertNotFound();
     }
 
-    /** Capell admin code registered outside the panel path still runs the panel's authentication. */
+    /** Capell admin code registered outside the panel path through Core's admin route helper runs the panel's authentication. */
     public function test_admin_code_outside_the_panel_path_runs_the_default_panel_authentication(): void
     {
-        Route::get('/runtime-admin-code/{initials}.svg', AdminAvatarController::class)->middleware('web');
+        AdminRouteProvenance::group(static function (): void {
+            Route::get('/runtime-admin-code/{initials}.svg', AdminAvatarController::class)->middleware('web');
+        });
 
         $this->get('/runtime-admin-code/AB.svg')->assertRedirect('/admin/login');
         $this->actingAsUser()->get('/runtime-admin-code/AB.svg')->assertForbidden();
         $this->actingAsAdmin()->get('/runtime-admin-code/AB.svg')->assertOk();
+    }
+
+    /** Admin code registered without Core's admin route helper is reported, so it cannot ship unowned. */
+    public function test_admin_code_registered_without_the_admin_route_helper_is_reported(): void
+    {
+        Route::get('/runtime-unmarked-admin/{initials}.svg', AdminAvatarController::class)->middleware('web')->name('runtime.unmarked-admin');
+
+        $this->assertSame(['runtime.unmarked-admin'], resolve(InstalledPanelRuntime::class)->unclassifiedAdminRoutes());
     }
 
     /** Livewire's script is served to every visitor, signed in or not, because public pages load it too. */
@@ -141,14 +148,6 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->get(route('guava-icon-picker.index'))->assertRedirect('/admin/login');
     }
 
-    /** Serialise the route's action exactly as `route:cache` stores it. */
-    private function cache(RoutingRoute $route): void
-    {
-        $route->prepareForSerialization();
-        $route->setRouter(resolve(Router::class))->setContainer(app());
-        $this->assertIsString($route->getAction('uses'));
-    }
-
     /** @return array{0: User, 1: string} */
     private function ownExport(): array
     {
@@ -172,6 +171,6 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $export = new Export;
         $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
 
-        return [$user, route('filament.exports.download', ['export' => $export])];
+        return [$user, URL::signedRoute('filament.exports.download', ['authGuard' => 'web', 'export' => $export, 'format' => 'csv'], absolute: false)];
     }
 }

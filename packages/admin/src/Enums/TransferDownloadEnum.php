@@ -1,0 +1,137 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Enums;
+
+use Capell\Admin\Http\Controllers\Transfers\DownloadExportInOriginatingPanelController;
+use Capell\Admin\Http\Controllers\Transfers\DownloadImportFailuresInOriginatingPanelController;
+use Filament\Actions\Exports\Http\Controllers\DownloadExport;
+use Filament\Actions\Exports\Models\Export;
+use Filament\Actions\Imports\Http\Controllers\DownloadImportFailureCsv;
+use Filament\Actions\Imports\Models\Import;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Route as RouteFacade;
+
+/**
+ * Filament's global download routes for the records its export and import actions create. Each
+ * record is downloaded through the panel it was started in: the global route only sends the
+ * visitor on to that panel's own copy of the route, which runs the panel's whole stack.
+ */
+enum TransferDownloadEnum: string
+{
+    case Export = 'export';
+    case ImportFailures = 'import';
+
+    public static function forModel(Model $model): ?self
+    {
+        return match (true) {
+            $model instanceof Export => self::Export,
+            $model instanceof Import => self::ImportFailures,
+            default => null,
+        };
+    }
+
+    /** Register each download inside a panel's authenticated routes. */
+    public static function registerPanelRoutes(): void
+    {
+        foreach (self::cases() as $download) {
+            RouteFacade::get($download->panelUri(), $download->filamentController())->name($download->panelRouteName());
+        }
+    }
+
+    /**
+     * Point Filament's global download routes at the controllers that send each visitor on to the
+     * originating panel. Done once routes are registered, so `route:cache` stores the new actions.
+     */
+    public static function takeOverGlobalRoutes(Router $router): void
+    {
+        $routes = $router->getRoutes();
+        // A cached route table already stores the new actions: `route:cache` boots the application first.
+        if (! $routes instanceof RouteCollection) {
+            return;
+        }
+
+        $changed = false;
+        // Names given after a route was added reach the name lookup only once it is refreshed.
+        foreach ($routes->getRoutes() as $route) {
+            $download = self::tryFromGlobalRouteName((string) $route->getName());
+            if ($download instanceof self && $route->getControllerClass() !== $download->originController()) {
+                $route->uses($download->originController());
+                $changed = true;
+            }
+        }
+
+        if ($changed) {
+            $routes->refreshActionLookups();
+        }
+    }
+
+    public static function tryFromGlobalRouteName(string $name): ?self
+    {
+        return array_find(self::cases(), static fn (self $download): bool => $download->globalRouteName() === $name);
+    }
+
+    public function globalRouteName(): string
+    {
+        return match ($this) {
+            self::Export => 'filament.exports.download',
+            self::ImportFailures => 'filament.imports.failed-rows.download',
+        };
+    }
+
+    /** The route name inside a panel, before the panel's own prefix. */
+    public function panelRouteName(): string
+    {
+        return match ($this) {
+            self::Export => 'capell.exports.download',
+            self::ImportFailures => 'capell.imports.failed-rows.download',
+        };
+    }
+
+    /** The route parameter carrying the record's key. */
+    public function parameter(): string
+    {
+        return match ($this) {
+            self::Export => 'export',
+            self::ImportFailures => 'import',
+        };
+    }
+
+    /** @return class-string */
+    public function filamentController(): string
+    {
+        return match ($this) {
+            self::Export => DownloadExport::class,
+            self::ImportFailures => DownloadImportFailureCsv::class,
+        };
+    }
+
+    /** @return class-string<Model> */
+    public function model(): string
+    {
+        return match ($this) {
+            self::Export => Export::class,
+            self::ImportFailures => Import::class,
+        };
+    }
+
+    /** @return class-string */
+    private function originController(): string
+    {
+        return match ($this) {
+            self::Export => DownloadExportInOriginatingPanelController::class,
+            self::ImportFailures => DownloadImportFailuresInOriginatingPanelController::class,
+        };
+    }
+
+    private function panelUri(): string
+    {
+        return match ($this) {
+            self::Export => 'capell/exports/{export}/download',
+            self::ImportFailures => 'capell/imports/{import}/failed-rows/download',
+        };
+    }
+}

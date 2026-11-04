@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
@@ -14,6 +15,7 @@ use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
+use Livewire\Mechanisms\HandleComponents\Checksum;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use RuntimeException;
 
@@ -53,6 +55,66 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         $payload = $this->render();
         $this->replay($payload)->assertOk();
 
+        $this->withoutRenderingRoute();
+        Livewire::flushState();
+
+        $this->replay($payload)->assertStatus(419);
+    }
+
+    /**
+     * Once the rendering admin route is gone, a public catch-all answering the same path is a different
+     * route, so the snapshot is not replayed through it without the panel's middleware.
+     */
+    public function test_a_replay_is_rejected_when_a_different_route_now_answers_its_path(): void
+    {
+        $payload = $this->render();
+        $this->replay($payload)->assertOk();
+
+        $this->withoutRenderingRoute();
+        Route::get('{path}', static fn (): string => 'public page')->where('path', '.*')->middleware('web');
+        Livewire::flushState();
+
+        $this->replay($payload)->assertStatus(419);
+    }
+
+    /** A panel snapshot that does not carry its rendering route cannot be tied to it, so it is rejected. */
+    public function test_a_panel_snapshot_without_its_rendering_route_is_rejected(): void
+    {
+        $payload = $this->withoutRouteIdentity($this->render());
+
+        $this->replay($payload)->assertStatus(419);
+    }
+
+    /** A public page cached before rendering routes were recorded keeps its components working. */
+    public function test_a_public_snapshot_without_its_rendering_route_still_replays(): void
+    {
+        $payload = $this->withoutRouteIdentity($this->render('/runtime-public-replay', ['web']));
+
+        $this->replay($payload)->assertOk()->assertSee('count: 1');
+    }
+
+    /**
+     * @param  list<string>|null  $middleware
+     * @return array<string, mixed>
+     */
+    private function render(string $uri = self::URI, ?array $middleware = null): array
+    {
+        $this->actingAsAdmin();
+        Livewire::component('runtime.replay-counter', RuntimeCounterComponent::class);
+        $panel = Filament::getPanel('admin');
+        Route::get($uri, static fn (): string => Livewire::mount('runtime.replay-counter'))
+            ->middleware($middleware ?? [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+
+        $html = $this->get($uri)->assertOk()->getContent();
+        throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
+        preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
+        $snapshot = html_entity_decode($matches[1] ?? throw new RuntimeException('Missing Livewire snapshot.'), ENT_QUOTES);
+
+        return ['components' => [['snapshot' => $snapshot, 'updates' => [], 'calls' => [['path' => '', 'method' => 'increment', 'params' => []]]]]];
+    }
+
+    private function withoutRenderingRoute(): void
+    {
         $routes = new RouteCollection;
         foreach (Route::getRoutes()->getRoutes() as $route) {
             if ('/' . $route->uri() !== self::URI) {
@@ -61,26 +123,22 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         }
 
         Route::setRoutes($routes);
-        Livewire::flushState();
-
-        $this->replay($payload)->assertStatus(419);
     }
 
-    /** @return array<string, mixed> */
-    private function render(): array
+    /**
+     * The snapshot as a component rendered before rendering routes were recorded carries it, validly signed.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withoutRouteIdentity(array $payload): array
     {
-        $this->actingAsAdmin();
-        Livewire::component('runtime.replay-counter', RuntimeCounterComponent::class);
-        $panel = Filament::getPanel('admin');
-        Route::get(self::URI, static fn (): string => Livewire::mount('runtime.replay-counter'))
-            ->middleware([...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+        $snapshot = json_decode($payload['components'][0]['snapshot'], true, flags: JSON_THROW_ON_ERROR);
+        unset($snapshot['memo'][InstalledPanelRuntime::SNAPSHOT_MEMO], $snapshot['checksum']);
+        $snapshot['checksum'] = Checksum::generate($snapshot);
+        $payload['components'][0]['snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
 
-        $html = $this->get(self::URI)->assertOk()->getContent();
-        throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
-        preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
-        $snapshot = html_entity_decode($matches[1] ?? throw new RuntimeException('Missing Livewire snapshot.'), ENT_QUOTES);
-
-        return ['components' => [['snapshot' => $snapshot, 'updates' => [], 'calls' => [['path' => '', 'method' => 'increment', 'params' => []]]]]];
+        return $payload;
     }
 
     /** @param array<string, mixed> $payload */

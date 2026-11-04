@@ -14,6 +14,7 @@ use Capell\Admin\Http\Controllers\UpdateAuthenticatedAdminLanguageController;
 use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Admin\Support\AdminPanelEntrypoint;
+use Capell\Admin\Support\AdminRouteProvenance;
 use Illuminate\Support\Facades\Route;
 
 $adminRoutes = Route::prefix(AdminPanelEntrypoint::path());
@@ -22,7 +23,8 @@ if (($adminDomain = AdminPanelEntrypoint::domain()) !== null) {
     $adminRoutes->domain($adminDomain);
 }
 
-$adminRoutes->group(function (): void {
+// Recorded as admin code, so each route keeps its panel ownership through `route:cache`.
+AdminRouteProvenance::group(static fn () => $adminRoutes->group(function (): void {
     Route::get('theme-preview/{theme}/{site}/{page}', ThemePreviewController::class)
         ->middleware(['web', 'signed', EnforceLockdownAdminAccess::class])
         ->name('capell.admin.theme-preview');
@@ -64,4 +66,4 @@ $adminRoutes->group(function (): void {
     Route::get('extension-asset', ExtensionAssetController::class)
         ->middleware(['web', EnforceLockdownAdminAccess::class])
         ->name('capell-admin.extension-asset');
-});
+}));

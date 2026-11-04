@@ -177,7 +177,7 @@ final class SingletonLifetimeInventory
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.
-            InstalledPanelRuntime::class => self::boot('Applied extender entries, package middleware contributions, route middleware snapshots, reconciled and refused routes belong to each panel bootstrap, held through weak panel and route keys; panels synchronised after boot are kept by id, and public route names are boot declarations, for match-time route coverage.'),
+            InstalledPanelRuntime::class => self::boot("Applied extender entries, package middleware contributions, route middleware snapshots, reconciled and refused routes belong to each panel bootstrap, held through weak panel and route keys; panels synchronised after boot are kept by id, and declared route provenance is a boot declaration, for match-time route coverage. The replayed rendering route belongs to one Livewire request and is forgotten on Livewire's flush-state."),
             AgentAdminToolRegistry::class => self::boot('Admin agent tools are package boot registrations and resolve actor scope per invocation.'),
             AgentAdminToolInvocationService::class => self::stateless('The invocation service retains only readonly registries and cache-backed confirmation collaborators.'),
             ExtensionPageRegistry::class => self::boot('Extension pages are package boot registrations.'),

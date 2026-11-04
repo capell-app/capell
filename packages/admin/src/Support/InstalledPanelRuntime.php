@@ -43,6 +43,9 @@ use WeakMap;
 /** Tracks application wiring per panel, independently of transient plugin instances. */
 final class InstalledPanelRuntime
 {
+    /** The snapshot memo key recording the route that rendered a Livewire component. */
+    public const string SNAPSHOT_MEMO = 'capellRoute';
+
     /**
      * Filament panel routes that serve visitors who cannot have signed in yet. Email verification
      * serves signed-in users, so it keeps the panel's authentication and package security.
@@ -56,15 +59,16 @@ final class InstalledPanelRuntime
 
     /**
      * Packages that only serve the admin panels, by namespace. A route whose action is shipped in their
-     * source or route files is owned by a panel unless declared public.
+     * source or route files must be owned by a panel or carry a recorded provenance; any other is reported.
      */
     private const array ADMIN_NAMESPACES = ['Filament\\', 'Livewire\\', 'Capell\\Admin\\'];
 
     /**
-     * Livewire's own endpoints, which every page uses, signed in or not. The update endpoint serves
-     * public components too: a panel component's update replays its panel's middleware for the route
-     * that rendered it. Uploads and previews are credentialed by their URL signature, and the rest
-     * serve Livewire's static script, maps and component assets.
+     * Livewire's own endpoints, which every page uses, signed in or not, and so are public host routes
+     * although they run Livewire code. The update endpoint serves public components too: a panel
+     * component's update replays its panel's middleware for the route that rendered it. Uploads and
+     * previews are credentialed by their URL signature, and the rest serve Livewire's static script,
+     * maps and component assets.
      */
     private const array PUBLIC_ACTIONS = [
         HandleRequests::class,
@@ -108,14 +112,28 @@ final class InstalledPanelRuntime
     /** @var array<string, true> */
     private array $unavailable = [];
 
-    /** @var array<string, true> Route names their owners declared public, such as signed preview links. */
-    private array $publicRoutes = [];
+    /**
+     * @var array<string, string> The provenance of vendor routes Core cannot register itself, by route
+     *                            name: public (such as signed preview links) or admin.
+     */
+    private array $declaredRoutes = [];
 
     /** @var array<string, true> Namespaces of admin-only packages declared beyond Filament, Livewire and Capell admin. */
     private array $adminNamespaces = [];
 
-    /** @var WeakMap<Route, array{0: mixed, 1: bool}> Whether a route runs admin code, by the action it was classified from. */
-    private WeakMap $adminCode;
+    /**
+     * The rendering route carried by the snapshots of the Livewire update being handled.
+     *
+     * @var array{route: string, security: list<string>}|null
+     */
+    private ?array $replayedRoute = null;
+
+    /**
+     * Rendering identities computed during the current request, by route, so the components of one page share one.
+     *
+     * @var WeakMap<Route, array{route: string, security: list<string>}>
+     */
+    private WeakMap $renderings;
 
     /** @var array<string, string|null>|null The admin packages' source and route directories, with the namespace each source directory holds. */
     private ?array $adminRoots = null;
@@ -145,7 +163,7 @@ final class InstalledPanelRuntime
         $this->reconciledRoutes = new WeakMap;
         $this->refusedRoutes = new WeakMap;
         $this->inspectedRoutes = new WeakMap;
-        $this->adminCode = new WeakMap;
+        $this->renderings = new WeakMap;
     }
 
     public function isUnavailable(string $panel): bool
@@ -154,31 +172,44 @@ final class InstalledPanelRuntime
     }
 
     /**
-     * Declare named routes under a panel path that are deliberately reachable without signing in,
-     * such as signed preview links or assets the sign-in page loads. Every other route a panel
-     * owns is held to the panel's authentication stack.
+     * Declare named routes that are deliberately reachable without signing in, such as signed preview
+     * links or assets the sign-in page loads. Every other route a panel owns is held to the panel's
+     * authentication stack.
      */
     public function allowPublicRoute(string ...$names): void
     {
         foreach ($names as $name) {
-            $this->publicRoutes[$name] = true;
+            $this->declaredRoutes[$name] = AdminRouteProvenance::PUBLIC;
         }
     }
 
-    /** Treat routes running code shipped by the packages of these namespaces (admin-only Filament plugins) as admin code. */
+    /**
+     * Declare named vendor routes that only serve the admin panels, such as an admin-only Filament
+     * plugin's endpoint, which Core cannot register through its admin route helper. Outside every
+     * panel path they belong to the default Capell panel and run its whole stack.
+     */
+    public function declareAdminRoute(string ...$names): void
+    {
+        foreach ($names as $name) {
+            $this->declaredRoutes[$name] = AdminRouteProvenance::ADMIN;
+        }
+    }
+
+    /** Report routes running code shipped by the packages of these namespaces (admin-only Filament plugins) as admin code. */
     public function declareAdminCode(string ...$namespaces): void
     {
         foreach ($namespaces as $namespace) {
             $this->adminNamespaces[rtrim($namespace, '\\') . '\\'] = true;
         }
 
-        $this->adminCode = new WeakMap;
         $this->adminRoots = null;
     }
 
     /**
-     * Routes running Filament, Livewire or Capell admin code that no panel owns and that nothing
-     * declared public. They are refused when matched.
+     * Routes running Filament, Livewire or Capell admin code that no panel owns and that carry no
+     * recorded provenance. Ownership is never inferred from a route's code, so such a route is served
+     * as a public host route; this report is how a missing declaration is caught before release. It
+     * inspects live actions only: a cached closure is never unserialised to read its code.
      *
      * @return list<string>
      */
@@ -251,10 +282,6 @@ final class InstalledPanelRuntime
             $this->refuse(reset($owners), $route, new RuntimeException(__('capell-admin::message.extension_panel_route_ambiguous')));
         }
 
-        if ($owners === [] && $this->isUnclassified($route)) {
-            $this->refuse(null, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
-        }
-
         foreach ($owners as $id => $panel) {
             $availability = EnsureInstalledPanelAvailable::class . ':' . $id;
             if (! in_array($availability, $route->middleware(), true)) {
@@ -274,7 +301,7 @@ final class InstalledPanelRuntime
      * persistent middleware, so the replay runs the route as it stands now and a refused route is
      * refused, whatever middleware the route excludes.
      */
-    public function reconcileLivewireReplay(Request $request, string $path, string $method): void
+    public function reconcileLivewireReplay(Request $request, string $path, string $method, mixed $renderedBy): void
     {
         $server = clone $request->server;
         $server->set('REQUEST_URI', str_replace('/' . ltrim($request->path(), '/'), '/' . ltrim($path, '/'), (string) $server->get('REQUEST_URI')));
@@ -288,7 +315,100 @@ final class InstalledPanelRuntime
             abort(419);
         }
 
+        // The snapshot is signed with the route that rendered it and the panels that owned that route. A
+        // different route answering the same path now, such as a public catch-all once an admin route
+        // is removed, is not that route; nor is the same route after a panel stopped owning it. A panel
+        // that owns the route since the render only adds its stack to the replay.
+        $current = $this->rendering($route);
+        if ($renderedBy === null) {
+            // Components rendered before rendering routes were recorded, such as public pages in an HTML
+            // cache, keep working on a public host route; a panel's snapshot must name its route.
+            abort_unless($current['security'] === [] && ! $this->isUnderPanelPath($path), 419);
+        } else {
+            abort_unless(is_array($renderedBy) && is_string($renderedBy['route'] ?? null) && is_array($renderedBy['security'] ?? null), 419);
+            abort_unless(hash_equals($current['route'], $renderedBy['route']), 419);
+            abort_unless(array_diff($renderedBy['security'], $current['security']) === [], 419);
+        }
+
+        $this->replayedRoute = $renderedBy === null ? null : $current;
         $this->reconcileMatchedRoute($route);
+    }
+
+    /**
+     * The identity of the route rendering a Livewire component, recorded in its signed snapshot memo: on
+     * a Livewire update, that of the route the update replays, so child components keep it.
+     *
+     * @return array{route: string, security: list<string>}|null
+     */
+    public function renderingRouteIdentity(Request $request): ?array
+    {
+        if (resolve(HandleRequests::class)->isLivewireRoute()) {
+            return $this->replayedRoute;
+        }
+
+        $route = $request->route();
+
+        return $route instanceof Route ? ($this->renderings[$route] ??= $this->rendering($route)) : null;
+    }
+
+    /** Forget the replayed rendering route and this request's rendering identities at the end of a request. */
+    public function forgetReplayedRoute(): void
+    {
+        $this->replayedRoute = null;
+        $this->renderings = new WeakMap;
+    }
+
+    /**
+     * The panel that serves a record a panel started, such as a Filament export: its originating panel
+     * when Capell extends it, otherwise the default Capell panel. Null when the record belongs to a
+     * Filament panel Capell does not extend, or no panel is extended, so Filament's own stack governs.
+     */
+    public function originatingPanel(?string $origin): ?Panel
+    {
+        if ($origin !== null && isset($this->synchronised[$origin])) {
+            return $this->synchronised[$origin];
+        }
+
+        if ($origin !== null && array_key_exists($origin, Filament::getPanels())) {
+            return null;
+        }
+
+        return $this->fallbackPanel();
+    }
+
+    /**
+     * A route's identity (name, methods, domain and URI) and the panels owning it, each opaque in public
+     * HTML. A name route:cache generates is random per cache, so it does not identify a route.
+     *
+     * @return array{route: string, security: list<string>}
+     */
+    private function rendering(Route $route): array
+    {
+        $key = (string) config('app.key');
+        $name = (string) $route->getName();
+        $owners = array_map(static fn (string $id): string => hash_hmac('sha256', 'panel:' . $id, $key), array_map(strval(...), array_keys($this->owners($route))));
+        sort($owners);
+
+        return [
+            'route' => hash_hmac('sha256', (string) json_encode([
+                str_starts_with($name, 'generated::') ? '' : $name,
+                $route->methods(),
+                $route->getDomain(),
+                $route->uri(),
+            ]), $key),
+            'security' => $owners,
+        ];
+    }
+
+    private function isUnderPanelPath(string $path): bool
+    {
+        $path = trim($path, '/');
+
+        return array_any($this->synchronised, static function (Panel $panel) use ($path): bool {
+            $prefix = trim($panel->getPath(), '/');
+
+            return $prefix !== '' && ($path === $prefix || str_starts_with($path, $prefix . '/'));
+        });
     }
 
     private function protectRoutes(Panel $panel, string $id): void
@@ -450,14 +570,6 @@ final class InstalledPanelRuntime
             }
         }
 
-        // Every route running admin code is owned by a panel or declared public; anything else is refused.
-        if ($panel === $this->fallbackPanel()) {
-            foreach ($routes->getRoutes() as $route) {
-                if ($this->isUnclassified($route)) {
-                    $this->refuse($panel, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
-                }
-            }
-        }
     }
 
     /** Fail closed for this route only: the failure is recorded and the route is refused. */
@@ -763,12 +875,12 @@ final class InstalledPanelRuntime
 
         // Ownership by name or declaration and ownership by path must agree on one panel.
         $owners += $byPath;
-        if ($owners !== [] || ! $this->isAdminCode($route) || $this->isDeclaredPublic($route) || $this->namesRegisteredPanel($route)) {
+        if ($owners !== [] || $this->provenance($route) !== AdminRouteProvenance::ADMIN || $this->namesRegisteredPanel($route)) {
             return $owners;
         }
 
-        // Admin code outside every panel (such as Filament's global export download, which keeps no
-        // panel on its record) belongs to the fallback panel and runs that panel's whole stack.
+        // Admin code outside every panel path, recorded as such when it was registered, belongs to the
+        // fallback panel and runs that panel's whole stack.
         $fallback = $this->fallbackPanel();
 
         return $fallback instanceof Panel ? [$fallback->getId() => $fallback] : [];
@@ -799,10 +911,21 @@ final class InstalledPanelRuntime
         return $this->synchronised === [] ? null : reset($this->synchronised);
     }
 
-    /** Admin code no panel owns and nothing declared public. Without a panel Capell extends, Filament's own stacks govern. */
+    /** Live admin code no panel owns that carries no provenance. Without a panel Capell extends, Filament's own stacks govern. */
     private function isUnclassified(Route $route): bool
     {
-        return $this->synchronised !== [] && $this->isAdminCode($route) && ! $this->isDeclaredPublic($route) && ! $this->namesRegisteredPanel($route) && $this->owners($route) === [];
+        return $this->synchronised !== []
+            && $this->provenance($route) === null
+            && $this->isAdminCode($route)
+            && ! in_array($this->actionCode($route)[0], self::PUBLIC_ACTIONS, true)
+            && ! $this->namesRegisteredPanel($route)
+            && $this->owners($route) === [];
+    }
+
+    /** The provenance declared for the route by name, or recorded in its action when it was registered. */
+    private function provenance(Route $route): ?string
+    {
+        return $this->declaredRoutes[(string) $route->getName()] ?? AdminRouteProvenance::of($route);
     }
 
     /** A route of a Filament panel the Capell runtime does not extend belongs to that panel and its own stack. */
@@ -811,42 +934,9 @@ final class InstalledPanelRuntime
         return array_any(array_keys(Filament::getPanels()), fn (string $id): bool => $this->associated($route, $id));
     }
 
-    /** Declared public by name, or one of Livewire's own endpoints. */
-    private function isDeclaredPublic(Route $route): bool
-    {
-        if (isset($this->publicRoutes[(string) $route->getName()])) {
-            return true;
-        }
-
-        [$class] = $this->actionCode($route);
-
-        return $class !== null && in_array($class, self::PUBLIC_ACTIONS, true);
-    }
-
-    /** Whether the route runs Filament, Livewire or Capell admin code, or a declared admin-only package. */
+    /** The action is shipped in an admin package's source or route files, or is a Filament page. */
     private function isAdminCode(Route $route): bool
     {
-        $uses = $route->getAction('uses');
-        $cached = $this->adminCode[$route] ?? null;
-        if ($cached !== null && $cached[0] === $uses) {
-            return $cached[1];
-        }
-
-        $admin = $this->classifyAdminCode($route);
-        $this->adminCode[$route] = [$uses, $admin];
-
-        return $admin;
-    }
-
-    /** The action is shipped in an admin package's source or route files, or is a Filament page. */
-    private function classifyAdminCode(Route $route): bool
-    {
-        // A cached closure that names no declaring class cannot be traced to its package, so it fails
-        // closed: it is treated as admin code unless it is declared public.
-        if (RouteAction::containsSerializedClosure($route->getAction()) && $this->serializedClosureScope($route) === null) {
-            return true;
-        }
-
         [$class, $file] = $this->actionCode($route);
         if ($file === null && $class !== null && class_exists($class)) {
             if (is_subclass_of($class, BasePage::class)) {
@@ -869,9 +959,9 @@ final class InstalledPanelRuntime
     private function actionCode(Route $route): array
     {
         $uses = $route->getAction('uses');
-        // A closure from the route cache stays serialised until the route runs; it names its declaring class.
+        // A closure from the route cache stays serialised until the route runs, and is never unserialised to be read.
         if (RouteAction::containsSerializedClosure($route->getAction())) {
-            return [$this->serializedClosureScope($route), null];
+            return [null, null];
         }
 
         if ($uses instanceof Closure) {
@@ -897,14 +987,6 @@ final class InstalledPanelRuntime
         }
 
         return [null, null];
-    }
-
-    /** The class a cached closure was declared in, read from its serialised form without unserialising it. */
-    private function serializedClosureScope(Route $route): ?string
-    {
-        $uses = $route->getAction('uses');
-
-        return is_string($uses) && preg_match('/s:5:"scope";s:\\d+:"([^"]+)";/', $uses, $matches) === 1 ? $matches[1] : null;
     }
 
     /**
@@ -967,11 +1049,11 @@ final class InstalledPanelRuntime
     /** Filament's own sign-in, password-reset and registration routes, and declared public routes. */
     private function isPublicPanelRoute(Route $route, string $id): bool
     {
-        $name = (string) $route->getName();
-        if (isset($this->publicRoutes[$name])) {
+        if ($this->provenance($route) === AdminRouteProvenance::PUBLIC) {
             return true;
         }
 
+        $name = (string) $route->getName();
         if (! str_starts_with($name, 'filament.' . $id . '.')) {
             return false;
         }

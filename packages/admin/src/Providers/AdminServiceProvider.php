@@ -66,6 +66,7 @@ use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Enums\TransferDownloadEnum;
 use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
@@ -230,6 +231,7 @@ use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
+use Capell\Admin\Support\Transfers\TransferOrigins;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
@@ -306,17 +308,24 @@ use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Foundation\Application;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 
 use function Livewire\before;
 
+use Livewire\Component as LivewireComponent;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
+use Livewire\Mechanisms\HandleComponents\ComponentContext;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
+
+use function Livewire\on;
+
 use Override;
 use ReflectionClass;
 use RuntimeException;
@@ -425,10 +434,29 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->callAfterResolving(InstalledPanelRuntime::class, static function (InstalledPanelRuntime $runtime): void {
             // The admin-only Filament plugins the panels install; their routes are admin code too.
             $runtime->declareAdminCode('Guava\\IconPicker', 'Pboivin\\FilamentPeek', 'STS\\FilamentImpersonate');
+            // The icon picker only serves admin forms.
+            $runtime->declareAdminRoute('guava-icon-picker.index', 'guava-icon-picker.svgs');
             // Signed preview links and the token-keyed internal preview are credentialed by their URL.
             $runtime->allowPublicRoute('capell.admin.theme-preview', 'capell.admin.preview-page', 'filament-peek.preview');
             // Leaving an impersonation serves the impersonated user, who need not have panel access.
             $runtime->allowPublicRoute('filament-impersonate.leave');
+            // Filament's global downloads only send the visitor on to the originating panel's copy of the route.
+            $runtime->allowPublicRoute(...array_map(static fn (TransferDownloadEnum $download): string => $download->globalRouteName(), TransferDownloadEnum::cases()));
+        });
+        // Each export and import remembers the panel it was started in, which later serves its download.
+        $events->listen('eloquent.created: *', static function (string $event, array $payload): void {
+            if (($payload[0] ?? null) instanceof Model && TransferDownloadEnum::forModel($payload[0]) instanceof TransferDownloadEnum) {
+                resolve(TransferOrigins::class)->record($payload[0]);
+            }
+        });
+        $events->listen('eloquent.deleted: *', static function (string $event, array $payload): void {
+            if (($payload[0] ?? null) instanceof Model && TransferDownloadEnum::forModel($payload[0]) instanceof TransferDownloadEnum) {
+                resolve(TransferOrigins::class)->forget($payload[0]);
+            }
+        });
+        // Once every package has registered its routes, and before `route:cache` stores them.
+        $this->app->booted(static function (Application $app): void {
+            TransferDownloadEnum::takeOverGlobalRoutes($app->make(Router::class));
         });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             $name = (string) $event->route->getName();
@@ -649,7 +677,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 return;
             }
 
-            resolve(InstalledPanelRuntime::class)->reconcileLivewireReplay(request(), $path, $method);
+            resolve(InstalledPanelRuntime::class)->reconcileLivewireReplay(request(), $path, $method, $snapshot['memo'][InstalledPanelRuntime::SNAPSHOT_MEMO] ?? null);
+        });
+        // Each snapshot is signed with the route that rendered its component, so an update is only
+        // replayed through that same route.
+        on('dehydrate', static function (LivewireComponent $component, ComponentContext $context): void {
+            $context->addMemo(InstalledPanelRuntime::SNAPSHOT_MEMO, resolve(InstalledPanelRuntime::class)->renderingRouteIdentity(request()));
+        });
+        on('flush-state', static function (): void {
+            resolve(InstalledPanelRuntime::class)->forgetReplayedRoute();
         });
 
         BaseFileUpload::configureUsing(
