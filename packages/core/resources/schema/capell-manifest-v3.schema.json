@@ -144,7 +144,9 @@
                     {
                         "if": {
                             "properties": {
-                                "type": { "const": "content-widget" }
+                                "type": {
+                                    "const": "content-widget"
+                                }
                             },
                             "required": ["type"]
                         },
@@ -252,7 +254,9 @@
                             "type": "object",
                             "additionalProperties": {
                                 "oneOf": [
-                                    { "$ref": "#/$defs/stringList" },
+                                    {
+                                        "$ref": "#/$defs/stringList"
+                                    },
                                     {
                                         "type": "array",
                                         "minItems": 1,
@@ -282,8 +286,13 @@
                                 "additionalProperties": false,
                                 "required": ["type", "key", "providerBucket"],
                                 "properties": {
-                                    "type": { "type": "string" },
-                                    "key": { "type": "string", "minLength": 1 },
+                                    "type": {
+                                        "type": "string"
+                                    },
+                                    "key": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
                                     "class": {
                                         "type": "string",
                                         "minLength": 1
@@ -303,7 +312,10 @@
                         }
                     }
                 },
-                { "type": "array", "maxItems": 0 }
+                {
+                    "type": "array",
+                    "maxItems": 0
+                }
             ]
         },
         "settings": {
@@ -398,6 +410,25 @@
                             "type": "boolean"
                         },
                         "clients": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "manualClients": {
+                            "$ref": "#/$defs/stringList"
+                        }
+                    }
+                },
+                "manual": {
+                    "description": "Route facts the generator cannot derive from route files, declared by hand. Each entry is a route identity (METHOD /uri (name)) that must exist, and must not duplicate a derived fact.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "signedRoutes": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "tokenizedRoutes": {
                             "$ref": "#/$defs/stringList"
                         }
                     }
@@ -562,6 +593,34 @@
                 },
                 "categories": {
                     "$ref": "#/$defs/stringList"
+                },
+                "problem": {
+                    "type": "string",
+                    "minLength": 12,
+                    "description": "The problem the extension removes, in the buyer's words."
+                },
+                "outcome": {
+                    "type": "string",
+                    "minLength": 12,
+                    "description": "What a site has once the extension is installed and configured."
+                },
+                "faq": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["question", "answer"],
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "minLength": 12
+                            },
+                            "answer": {
+                                "type": "string",
+                                "minLength": 12
+                            }
+                        }
+                    }
                 }
             }
         },

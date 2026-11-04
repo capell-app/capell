@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Data\Install\InstallHandoffFactsData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\NewUserData;
 use InvalidArgumentException;
 
 /**
@@ -25,6 +27,9 @@ final class InstallHandoffTips
     public const string KEY_FIRST_PAGE = 'first_page';
 
     public const string KEY_THEME = 'theme';
+
+    /** The guide every handoff points at for creating or editing the first page. */
+    public const string FIRST_PAGE_GUIDE_URL = 'https://docs.capell.app/getting-started/create-your-first-page/';
 
     private const string THEME_PACKAGE_PREFIX = 'capell-app/theme-';
 
@@ -59,89 +64,109 @@ final class InstallHandoffTips
         string $publicUrl,
         string $firstPageStatus,
     ): array {
-        if (! $completed) {
+        return $this->buildFor(new InstallHandoffFactsData(
+            completed: $completed,
+            needsFrontendBuild: $needsFrontendBuild,
+            adminUrl: $adminUrl,
+            adminEmail: $adminEmail,
+            publicUrl: $publicUrl,
+            firstPageStatus: $firstPageStatus,
+            demoContent: $inputData->demoContent,
+            existingAccount: $inputData->userId !== null && ! $inputData->newUser instanceof NewUserData,
+            selectedThemeKey: $inputData->selectedThemeKey,
+            selectedPackages: $selectedPackages,
+        ));
+    }
+
+    /**
+     * The same tips from recorded facts, for surfaces that no longer hold the install input.
+     *
+     * @return list<array{key: string, label: string, detail: string}>
+     */
+    public function buildFor(InstallHandoffFactsData $facts): array
+    {
+        if (! $facts->completed) {
             return [$this->tip(self::KEY_REVIEW, 'review')];
         }
 
         $tips = [];
 
-        if ($needsFrontendBuild) {
+        if ($facts->needsFrontendBuild) {
             $tips[] = $this->tip(self::KEY_FRONTEND_BUILD, 'frontend_build', [
                 'command' => 'php artisan capell:frontend-after-install --apply --no-interaction',
             ]);
         }
 
-        $tips[] = $this->signInTip($inputData, $adminUrl, $adminEmail);
+        $tips[] = $this->signInTip($facts);
 
-        if ($needsFrontendBuild) {
+        if ($facts->needsFrontendBuild) {
             return $tips;
         }
 
-        $firstPage = $this->firstPageTip($inputData, $publicUrl, $firstPageStatus);
+        $firstPage = $this->firstPageTip($facts);
 
         if ($firstPage !== null) {
             $tips[] = $firstPage;
         }
 
-        $theme = $this->themeTip($inputData, $selectedPackages);
+        $theme = $this->themeTip($facts);
 
         if ($theme !== null) {
             $tips[] = $theme;
         }
 
-        return [...$tips, ...$this->contentPackageTips($selectedPackages)];
+        return [...$tips, ...$this->contentPackageTips($facts->selectedPackages)];
     }
 
     /**
      * @return array{key: string, label: string, detail: string}
      */
-    private function signInTip(InstallInputData $inputData, ?string $adminUrl, ?string $adminEmail): array
+    private function signInTip(InstallHandoffFactsData $facts): array
     {
-        if ($adminUrl === null) {
+        if ($facts->adminUrl === null) {
             return $this->tip(self::KEY_SIGN_IN, 'sign_in_no_admin');
         }
 
-        $email = $adminEmail !== null && trim($adminEmail) !== '' ? trim($adminEmail) : null;
+        $email = $facts->adminEmail !== null && trim($facts->adminEmail) !== '' ? trim($facts->adminEmail) : null;
 
         if ($email !== null) {
-            return $this->tip(self::KEY_SIGN_IN, 'sign_in_as', ['url' => $adminUrl, 'email' => $email]);
+            return $this->tip(self::KEY_SIGN_IN, 'sign_in_as', ['url' => $facts->adminUrl, 'email' => $email]);
         }
 
         return $this->tip(
             self::KEY_SIGN_IN,
-            $inputData->userId !== null ? 'sign_in_existing' : 'sign_in',
-            ['url' => $adminUrl],
+            $facts->existingAccount ? 'sign_in_existing' : 'sign_in',
+            ['url' => $facts->adminUrl],
         );
     }
 
     /**
      * @return array{key: string, label: string, detail: string}|null
      */
-    private function firstPageTip(InstallInputData $inputData, string $publicUrl, string $firstPageStatus): ?array
+    private function firstPageTip(InstallHandoffFactsData $facts): ?array
     {
-        if ($inputData->demoContent && $firstPageStatus !== 'missing') {
-            return $this->tip(self::KEY_FIRST_PAGE, 'first_page_demo', ['url' => $publicUrl]);
+        if ($facts->demoContent && $facts->firstPageStatus !== 'missing') {
+            return $this->tip(self::KEY_FIRST_PAGE, 'first_page_demo', ['url' => $facts->publicUrl]);
         }
 
-        return match ($firstPageStatus) {
-            'editable' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_editable', ['url' => $publicUrl]),
-            'present_unverified' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_unverified', ['url' => $publicUrl]),
+        return match ($facts->firstPageStatus) {
+            'editable' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_editable', ['url' => $facts->publicUrl]),
+            'present_unverified' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_unverified', ['url' => $facts->publicUrl]),
             'missing' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_missing'),
             default => null,
         };
     }
 
     /**
-     * @param  list<string>  $selectedPackages
      * @return array{key: string, label: string, detail: string}|null
      */
-    private function themeTip(InstallInputData $inputData, array $selectedPackages): ?array
+    private function themeTip(InstallHandoffFactsData $facts): ?array
     {
-        $themePackage = collect($selectedPackages)
+        $themePackage = collect($facts->selectedPackages)
             ->first(fn (string $package): bool => str_starts_with($package, self::THEME_PACKAGE_PREFIX));
 
         if (! is_string($themePackage)) {
-            $themeKey = $inputData->selectedThemeKey;
+            $themeKey = $facts->selectedThemeKey;
 
             if (! is_string($themeKey) || trim($themeKey) === '') {
                 return null;
