@@ -1995,3 +1995,50 @@ it('adds a view-page notification action for the current page URL', function ():
         ->not->toBe(PageUrlPresenter::fullUrl($urls['redirect']))
         ->and($viewAction->shouldOpenUrlInNewTab())->toBeTrue();
 });
+
+it('hydrates a restored scratch draft held in another schema shape so blocks are keyed and formatted like a fresh mount', function (): void {
+    resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
+    $translation = Translation::factory()->language($language)->translatable($page)->state(['content' => []])->create();
+    $path = sprintf('translations.record-%d.content', $translation->getKey());
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
+    // A draft saved before the schema changed holds the stored, list-keyed shape.
+    $payload = $component->instance()->data;
+    data_set($payload, $path, [['type' => FormattedFieldFilamentWidget::getWidgetName(), 'data' => ['reference' => FormattedFieldFilamentWidget::STORED]]]);
+
+    $component->dispatch('page-scratch-draft-restored', pageId: $page->getKey(), data: $payload)
+        ->assertNotified(__('capell-admin::scratch_drafts.restored'));
+
+    $blocks = data_get($component->instance()->data, $path);
+
+    expect($blocks)->toBeArray()->toHaveCount(1)
+        ->and(Str::isUuid((string) array_key_first($blocks)))->toBeTrue()
+        ->and(array_values($blocks)[0]['type'])->toBe(FormattedFieldFilamentWidget::getWidgetName())
+        ->and(array_values($blocks)[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
+});
+
+it('restores a scratch draft of the current schema without changing the edited values', function (): void {
+    resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create(['name' => 'Saved name']);
+    $translation = Translation::factory()
+        ->language($language)
+        ->translatable($page)
+        ->state(['content' => [['type' => FormattedFieldFilamentWidget::getWidgetName(), 'data' => ['reference' => FormattedFieldFilamentWidget::STORED]]]])
+        ->create();
+    $path = sprintf('translations.record-%d.content', $translation->getKey());
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->set('data.name', 'Draft name');
+    $payload = $component->instance()->data;
+    $component->set('data.name', 'Unrelated edit');
+
+    $component->dispatch('page-scratch-draft-restored', pageId: $page->getKey(), data: $payload);
+
+    $blocks = array_values(data_get($component->instance()->data, $path));
+
+    expect($component->instance()->data['name'])->toBe('Draft name')
+        ->and($blocks)->toHaveCount(1)
+        ->and($blocks[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
+});

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Pages\Pages\CreatePage;
 use Capell\Admin\Support\Pages\PageCreationRecovery;
+use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Admin\Tests\Fixtures\Widgets\FormattedFieldFilamentWidget;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Language;
@@ -176,4 +179,29 @@ it('starts a new creation recovery after its own expired row was pruned', functi
     $newContext = $component->instance()->creationRecoveryContext;
     expect($newContext)->not->toBe($oldContext)
         ->and(EditorScratchDraft::query()->where('context', $newContext)->sole()->payload['name'])->toBe('After pruning');
+});
+
+it('hydrates a restored creation recovery held in another schema shape so blocks are keyed and formatted', function (): void {
+    resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
+    // The default page blueprint (from beforeEach) edits content as blocks.
+    Blueprint::query()->get()->each(fn (Blueprint $blueprint): bool => $blueprint->forceFill([
+        'meta' => [...($blueprint->meta ?? []), 'content_structure' => ContentStructure::Blocks],
+    ])->save());
+    $site = Site::factory()->withTranslations()->createOne();
+    $component = Livewire::test(CreatePage::class)->set('data.site_id', $site->id);
+    $payload = $component->instance()->data;
+    $key = array_key_first($payload['translations']);
+    expect($key)->not->toBeNull();
+    // Saved before the schema changed: the stored, list-keyed block shape.
+    $payload['translations'][$key]['content'] = [['type' => FormattedFieldFilamentWidget::getWidgetName(), 'data' => ['reference' => FormattedFieldFilamentWidget::STORED]]];
+    resolve(PageCreationRecovery::class)->save(test()->authenticatedUser(), $site->id, 'en', 'page-create:earlier', null, $payload);
+    $draft = EditorScratchDraft::query()->where('context', 'page-create:earlier')->sole();
+
+    $component->call('restoreCreationRecovery', $draft->id, $draft->revision, $draft->content_hash);
+
+    $blocks = $component->instance()->data['translations'][$key]['content'];
+
+    expect($blocks)->toBeArray()->toHaveCount(1)
+        ->and(Str::isUuid((string) array_key_first($blocks)))->toBeTrue()
+        ->and(array_values($blocks)[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
 });

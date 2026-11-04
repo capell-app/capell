@@ -9,6 +9,7 @@ use Capell\Admin\Actions\GetFlatComponentKeysAction;
 use Capell\Admin\Actions\MutateContentPresenterAction;
 use Capell\Admin\Actions\PrepareTranslationRelationshipDataForSaveAction;
 use Capell\Admin\Actions\RestoreDeletedTranslationForLanguageAction;
+use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Admin\Support\Loader\LanguageLoader;
 use Capell\Core\Enums\ContentStructure;
@@ -25,6 +26,7 @@ use Capell\Core\Support\TableName;
 use Closure;
 use DateTimeInterface;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Field;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -245,6 +247,52 @@ class TranslationsRepeater extends RepeaterTabs
     }
 
     /**
+     * Restored state (a scratch draft or a creation recovery) can hold another
+     * schema shape. Present each row's content for the editor the form renders
+     * for it (blocks for the content builder, HTML otherwise), then hydrate those
+     * content fields as a fresh fill does (builder items keyed by uuid, field
+     * formatters run), without reloading the rows from the database.
+     */
+    public function hydrateRestoredContent(): void
+    {
+        $state = $this->getRawState();
+
+        if (! is_array($state) || $state === []) {
+            return;
+        }
+
+        $paths = [];
+
+        foreach ($this->getItems() as $key => $item) {
+            $row = $state[$key] ?? null;
+            $path = sprintf('%s.%s.content', $this->getStatePath(), $key);
+            $editor = $this->restoredContentEditor($item, $path);
+
+            if (! is_array($row)) {
+                continue;
+            }
+
+            if (! $editor instanceof Field) {
+                continue;
+            }
+
+            $row['content'] = MutateContentPresenterAction::run(
+                $row['content'] ?? [],
+                $editor instanceof ContentBuilder ? ContentStructure::Blocks : ContentStructure::Html,
+            );
+            $state[$key] = $row;
+            $paths[] = $path;
+        }
+
+        if ($paths === []) {
+            return;
+        }
+
+        $this->rawState($state);
+        $this->getRootContainer()->hydrateStatePartially($paths);
+    }
+
+    /**
      * Resolves the tab badge for a single translation row. The badge closure only
      * has the repeater item uuid, so this method names the record-level contract
      * it delegates to and keeps it directly testable.
@@ -355,6 +403,18 @@ class TranslationsRepeater extends RepeaterTabs
         return $query->select(['id', 'name', 'flag'])
             ->enabled()
             ->ordered();
+    }
+
+    /** The content field a repeater item renders at <path>, if any. */
+    private function restoredContentEditor(Schema $item, string $path): ?Field
+    {
+        foreach ($item->getFlatComponents(withActions: false, withHidden: true) as $component) {
+            if ($component instanceof Field && $component->getStatePath() === $path) {
+                return $component;
+            }
+        }
+
+        return null;
     }
 
     private function saveRestoredTranslationRelationships(Schema $item, Translation $translation): void

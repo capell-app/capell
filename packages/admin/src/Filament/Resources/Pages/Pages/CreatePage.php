@@ -13,6 +13,7 @@ use Capell\Admin\Data\Pages\PageAuthoringInputData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Concerns\HasConfigurableFormActionPosition;
+use Capell\Admin\Filament\Concerns\RestoresRecoveredFormState;
 use Capell\Admin\Filament\Contracts\HasPageResource;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
@@ -48,6 +49,7 @@ use Override;
 class CreatePage extends CreateRecord implements HasPageResource
 {
     use HasConfigurableFormActionPosition;
+    use RestoresRecoveredFormState;
 
     #[Url]
     public ?string $type = null;
@@ -210,7 +212,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             $this->creationRecoveryConflict = false;
         }
 
-        $this->data = $draft->payload;
+        $this->restoreRecoveredFormState($draft->payload);
     }
 
     public function discardCreationRecovery(int $id, ?string $revision, string $hash): void
