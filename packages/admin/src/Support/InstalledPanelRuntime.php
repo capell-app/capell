@@ -20,6 +20,7 @@ use Filament\Panel;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
+use Illuminate\Routing\RouteAction;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -840,6 +841,12 @@ final class InstalledPanelRuntime
     /** The action is shipped in an admin package's source or route files, or is a Filament page. */
     private function classifyAdminCode(Route $route): bool
     {
+        // A cached closure that names no declaring class cannot be traced to its package, so it fails
+        // closed: it is treated as admin code unless it is declared public.
+        if (RouteAction::containsSerializedClosure($route->getAction()) && $this->serializedClosureScope($route) === null) {
+            return true;
+        }
+
         [$class, $file] = $this->actionCode($route);
         if ($file === null && $class !== null && class_exists($class)) {
             if (is_subclass_of($class, BasePage::class)) {
@@ -862,8 +869,11 @@ final class InstalledPanelRuntime
     private function actionCode(Route $route): array
     {
         $uses = $route->getAction('uses');
-        // A closure from the route cache stays serialised until the route runs; it is classified
-        // by the route's name, panel declaration and path alone.
+        // A closure from the route cache stays serialised until the route runs; it names its declaring class.
+        if (RouteAction::containsSerializedClosure($route->getAction())) {
+            return [$this->serializedClosureScope($route), null];
+        }
+
         if ($uses instanceof Closure) {
             $file = new ReflectionFunction($uses)->getFileName();
             if ($file === false) {
@@ -887,6 +897,14 @@ final class InstalledPanelRuntime
         }
 
         return [null, null];
+    }
+
+    /** The class a cached closure was declared in, read from its serialised form without unserialising it. */
+    private function serializedClosureScope(Route $route): ?string
+    {
+        $uses = $route->getAction('uses');
+
+        return is_string($uses) && preg_match('/s:5:"scope";s:\\d+:"([^"]+)";/', $uses, $matches) === 1 ? $matches[1] : null;
     }
 
     /**
