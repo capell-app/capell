@@ -21,6 +21,13 @@ enum ExtensionAttentionReason: string
 
     public function label(): string
     {
-        return (string) __('capell-admin::generic.extension_attention_reason_' . $this->value);
+        return (string) match ($this) {
+            self::Blocked => __('capell-admin::generic.extension_attention_reason_blocked'),
+            self::MissingTables => __('capell-admin::generic.extension_attention_reason_missing_tables'),
+            self::CriticalAlert => __('capell-admin::generic.extension_attention_reason_critical_alert'),
+            self::WarningAlert => __('capell-admin::generic.extension_attention_reason_warning_alert'),
+            self::ProviderQuarantined => __('capell-admin::generic.extension_attention_reason_provider_quarantined'),
+            self::ComposerDrift => __('capell-admin::generic.extension_attention_reason_composer_drift'),
+        };
     }
 }
