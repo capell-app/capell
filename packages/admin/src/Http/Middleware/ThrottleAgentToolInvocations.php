@@ -23,7 +23,7 @@ final readonly class ThrottleAgentToolInvocations
     public function handle(Request $request, Closure $next): Response
     {
         $maxAttempts = max(1, (int) config('capell-admin.agent.tool_invocations_per_minute', 30));
-        $key = 'capell-admin:agent-tools-invoke:' . sha1((string) ($request->user()?->getAuthIdentifier() ?? $request->ip()));
+        $key = 'capell-admin:agent-tools-invoke:' . hash('sha256', (string) ($request->user()?->getAuthIdentifier() ?? $request->ip()));
 
         if ($this->limiter->tooManyAttempts($key, $maxAttempts)) {
             $retryAfter = $this->limiter->availableIn($key);
