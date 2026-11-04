@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Controllers;
 
+use Capell\Core\Actions\Install\ResolveInstallFirstPageStatusAction;
 use Capell\Core\Actions\Install\ResolveInstallRecommendationAction;
 use Capell\Core\Actions\Install\WriteTableConfigurationAction;
+use Capell\Core\Data\Install\InstallHandoffFactsData;
 use Capell\Core\Enums\InstallRecommendationAction;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
+use Capell\Core\Support\Install\InstallHandoffTips;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Installer\Actions\AdvanceInstallerRunAction;
 use Capell\Installer\Actions\BuildInstallerCompletionDataAction;
@@ -308,16 +312,22 @@ final class InstallController
             || ! $this->sessions->hasSuccessSummary($installId), 404);
 
         $successSummary = $this->sessions->pullSuccessSummary($installId);
+        $completedSteps = $this->sessions->completedSteps($installId);
         $this->allowInstallerRemoval($request);
+        $completion = BuildInstallerCompletionDataAction::run();
+        $existingAccount = ($successSummary['existingAccount'] ?? false) === true;
 
         return response()->view('capell-installer::success', [
             'installId' => $installId,
             'primaryAdmin' => $successSummary['primaryAdmin'] ?? null,
             'roleUsersCreated' => ($successSummary['roleUsersCreated'] ?? false) === true,
+            'existingAccount' => $existingAccount,
+            'handoffTips' => $this->handoffTips($successSummary, $completedSteps, $completion->adminUrl, $completion->siteUrl, $existingAccount),
+            'firstPageGuideUrl' => InstallHandoffTips::FIRST_PAGE_GUIDE_URL,
             'canRemoveInstaller' => true,
             'showWelcomeRouteChoice' => CapellCore::isPackageInstalled('capell-app/frontend') && resolve(WelcomeRouteInstaller::class)->hasStockWelcomeRoute(),
             'welcomeRouteRemoved' => false,
-            'completion' => BuildInstallerCompletionDataAction::run(),
+            'completion' => $completion,
         ])->withHeaders($this->installerSessionHeaders());
     }
 
@@ -336,6 +346,9 @@ final class InstallController
                 'installId' => $installId,
                 'primaryAdmin' => null,
                 'roleUsersCreated' => false,
+                'existingAccount' => false,
+                'handoffTips' => [],
+                'firstPageGuideUrl' => InstallHandoffTips::FIRST_PAGE_GUIDE_URL,
                 'canRemoveInstaller' => $this->canRemoveInstaller($request),
                 'showWelcomeRouteChoice' => false,
                 'welcomeRouteRemoved' => false,
@@ -350,6 +363,9 @@ final class InstallController
             'installId' => $installId,
             'primaryAdmin' => null,
             'roleUsersCreated' => false,
+            'existingAccount' => false,
+            'handoffTips' => [],
+            'firstPageGuideUrl' => InstallHandoffTips::FIRST_PAGE_GUIDE_URL,
             'canRemoveInstaller' => $this->canRemoveInstaller($request),
             'showWelcomeRouteChoice' => false,
             'welcomeRouteRemoved' => true,
@@ -412,6 +428,39 @@ final class InstallController
         }
 
         return to_route('capell-installer.show');
+    }
+
+    /**
+     * The next steps Core derives for a finished install, from the recorded summary and
+     * the current first-page state. The summary is shown once, so the tips are too.
+     *
+     * @param  array<string, mixed>  $successSummary
+     * @param  list<string>  $completedSteps
+     * @return list<array{key: string, label: string, detail: string}>
+     */
+    private function handoffTips(array $successSummary, array $completedSteps, ?string $adminUrl, string $siteUrl, bool $existingAccount): array
+    {
+        $selectedPackages = array_values(array_filter(
+            is_array($successSummary['selectedPackages'] ?? null) ? $successSummary['selectedPackages'] : [],
+            static fn (mixed $package): bool => is_string($package) && $package !== '',
+        ));
+        $frontendSelected = in_array('capell-app/frontend', $selectedPackages, true)
+            || in_array(InstallPlan::packageAfterInstallStepKey('capell-app/frontend'), $completedSteps, true);
+        $adminEmail = $successSummary['adminEmail'] ?? null;
+        $themeKey = $successSummary['selectedThemeKey'] ?? null;
+
+        return resolve(InstallHandoffTips::class)->buildFor(new InstallHandoffFactsData(
+            completed: true,
+            needsFrontendBuild: $frontendSelected && ! in_array(InstallPlan::STEP_REBUILD_RESOURCES, $completedSteps, true),
+            adminUrl: $adminUrl,
+            adminEmail: is_string($adminEmail) ? $adminEmail : null,
+            publicUrl: $siteUrl,
+            firstPageStatus: ResolveInstallFirstPageStatusAction::run(),
+            demoContent: ($successSummary['demoContent'] ?? false) === true,
+            existingAccount: $existingAccount,
+            selectedThemeKey: is_string($themeKey) ? $themeKey : null,
+            selectedPackages: $selectedPackages,
+        ));
     }
 
     private function reportDownloadFilename(string $installId): string

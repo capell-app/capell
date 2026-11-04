@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
-use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\Install\BuildAndAnnounceInstallSpecAction;
 use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
@@ -14,6 +13,7 @@ use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\ReportInstallFailureAction;
+use Capell\Core\Actions\Install\ResolveInstallFirstPageStatusAction;
 use Capell\Core\Actions\Install\ResolveTableCollisionsAction;
 use Capell\Core\Actions\Install\RunArtisanCommandAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
@@ -38,7 +38,6 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Install\Cli\FilamentAdminInstallPreflight;
@@ -64,7 +63,6 @@ use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
-use Capell\Core\Support\TableName;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -373,7 +371,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             inputData: $inputData,
             result: $result,
             adminUrl: $this->installAdminUrl(),
-            firstPageStatus: $this->installFirstPageStatus(),
+            firstPageStatus: ResolveInstallFirstPageStatusAction::run(),
             warnings: array_values(array_unique($this->manualInstallChanges)),
             adminEmail: $inputData->newUser?->email,
         );
@@ -1353,27 +1351,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function installAdminUrl(): ?string
     {
         return resolve(AdminPanelUrlResolver::class)->resolve();
-    }
-
-    private function installFirstPageStatus(): string
-    {
-        try {
-            if (! Schema::hasTable(TableName::resolve('pages'))) {
-                return 'missing';
-            }
-
-            $page = Page::query()->with('blueprint')->first();
-
-            if (! $page instanceof Page) {
-                return 'missing';
-            }
-
-            return GetEditPageResourceUrlAction::run($page) !== null
-                ? 'editable'
-                : 'present_unverified';
-        } catch (Throwable) {
-            return 'unavailable';
-        }
     }
 
     /**
