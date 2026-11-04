@@ -9,13 +9,13 @@ use Illuminate\Foundation\Vite;
 final class StylesheetRecoveryRenderer
 {
     /**
-     * Published runtime bodies keyed by path and modification time, so a
-     * long-running worker re-reads a republished file and never serves a stale
-     * runtime, while each render avoids the file read.
+     * Runtime bodies read by this instance, keyed by path and modification
+     * time. Instance state only: a long-running worker must not carry file
+     * contents across requests, and the 2 KB read is served from the OS cache.
      *
      * @var array<string, string|null>
      */
-    private static array $inlineRuntimes = [];
+    private array $inlineRuntimes = [];
 
     public function __construct(private readonly Vite $vite) {}
 
@@ -82,14 +82,14 @@ final class StylesheetRecoveryRenderer
 
         $cacheKey = $path . '|' . $modified;
 
-        if (! array_key_exists($cacheKey, self::$inlineRuntimes)) {
+        if (! array_key_exists($cacheKey, $this->inlineRuntimes)) {
             $contents = file_get_contents($path);
-            self::$inlineRuntimes[$cacheKey] = is_string($contents) && $contents !== '' && stripos($contents, '</script') === false && ! str_contains($contents, '<!--')
+            $this->inlineRuntimes[$cacheKey] = is_string($contents) && $contents !== '' && stripos($contents, '</script') === false && ! str_contains($contents, '<!--')
                 ? rtrim($contents)
                 : null;
         }
 
-        return self::$inlineRuntimes[$cacheKey];
+        return $this->inlineRuntimes[$cacheKey];
     }
 
     private function fallbackUrl(): ?string
