@@ -301,6 +301,74 @@ it('declares package security metadata in the manifest v3 json schema', function
         ->and(data_get($schema, 'properties.security.properties.publicSurface.properties.routeNames.$ref'))->toBe('#/$defs/stringList');
 });
 
+it('declares manually listed external HTTP clients in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.security.properties.externalHttpClients.additionalProperties'))->toBeFalse()
+        ->and(data_get($schema, 'properties.security.properties.externalHttpClients.properties.manualClients.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.externalHttpClients.properties.clients.$ref'))->toBe('#/$defs/stringList');
+});
+
+it('accepts manually listed external HTTP clients beside the detected ones', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'externalHttpClients' => [
+            'requiresTimeouts' => true,
+            'requiresSecretRedaction' => true,
+            'clients' => ['Vendor\\Sdk\\Client'],
+            'manualClients' => ['Vendor\\Sdk\\Client'],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('declares hand-declared signed and tokenized routes in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.security.properties.manual.additionalProperties'))->toBeFalse()
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.signedRoutes.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.tokenizedRoutes.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.description.type'))->toBe('string');
+});
+
+it('accepts hand-declared signed and tokenized routes', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'manual' => [
+            'description' => 'Portal links carry a bearer token in the uri.',
+            'signedRoutes' => ['GET /portal/{token} (capell-example.portal)'],
+            'tokenizedRoutes' => ['POST /hook (capell-example.hook)'],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects a malformed hand-declared route declaration', function (mixed $manual, string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = ['manual' => $manual];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $field);
+})->with([
+    'not an object' => ['GET /x', 'security.manual'],
+    'unknown field' => [['webhookRoutes' => []], 'security.manual.webhookRoutes'],
+    'signed routes not a list' => [['signedRoutes' => 'GET /x'], 'signedRoutes'],
+    'tokenized route not a string' => [['tokenizedRoutes' => ['GET /x', 3]], 'tokenizedRoutes'],
+    'description not a string' => [['description' => ['x']], 'security.manual.description'],
+]);
+
 it('validates screenshot paths in the published schema without depending on its regex spelling', function (string $path, bool $safe): void {
     $schema = json_decode(
         (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
@@ -361,6 +429,18 @@ it('rejects malformed package security contract metadata', function (Closure $mu
             $manifest['security']['publicSurface']['routeNames'] = ['capell-example.webhook', false];
         },
         'routeNames',
+    ],
+    'malformed manual HTTP clients' => [
+        function (array &$manifest): void {
+            $manifest['security']['externalHttpClients']['manualClients'] = 'Vendor\\Sdk\\Client';
+        },
+        'manualClients',
+    ],
+    'manual HTTP client that is not a string' => [
+        function (array &$manifest): void {
+            $manifest['security']['externalHttpClients']['manualClients'] = ['Vendor\\Sdk\\Client', 3];
+        },
+        'manualClients',
     ],
     'malformed public output boolean' => [
         function (array &$manifest): void {
