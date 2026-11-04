@@ -18,6 +18,15 @@ final readonly class PerformanceSectionValidator implements ManifestSectionValid
         }
 
         $performance = $data['performance'];
+
+        // The schema requires both budgets; the loader reads them into ExtensionPerformanceBudgetData,
+        // so a manifest without them must fail here rather than silently run with a zero budget.
+        foreach (['frontendRenderBudgetMs', 'adminQueryBudget'] as $budget) {
+            if (! array_key_exists($budget, $performance) || ! is_int($performance[$budget]) || $performance[$budget] < 0) {
+                throw InvalidManifestException::invalidField('performance.' . $budget, 'must be an integer budget of zero or more');
+            }
+        }
+
         $this->rules->stringList($performance, 'cacheTags');
 
         if (! is_array($performance['cacheSafety'] ?? null)) {

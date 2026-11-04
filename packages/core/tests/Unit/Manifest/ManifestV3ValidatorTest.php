@@ -301,6 +301,74 @@ it('declares package security metadata in the manifest v3 json schema', function
         ->and(data_get($schema, 'properties.security.properties.publicSurface.properties.routeNames.$ref'))->toBe('#/$defs/stringList');
 });
 
+it('declares manually listed external HTTP clients in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.security.properties.externalHttpClients.additionalProperties'))->toBeFalse()
+        ->and(data_get($schema, 'properties.security.properties.externalHttpClients.properties.manualClients.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.externalHttpClients.properties.clients.$ref'))->toBe('#/$defs/stringList');
+});
+
+it('accepts manually listed external HTTP clients beside the detected ones', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'externalHttpClients' => [
+            'requiresTimeouts' => true,
+            'requiresSecretRedaction' => true,
+            'clients' => ['Vendor\\Sdk\\Client'],
+            'manualClients' => ['Vendor\\Sdk\\Client'],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('declares hand-declared signed and tokenized routes in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.security.properties.manual.additionalProperties'))->toBeFalse()
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.signedRoutes.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.tokenizedRoutes.$ref'))->toBe('#/$defs/stringList')
+        ->and(data_get($schema, 'properties.security.properties.manual.properties.description.type'))->toBe('string');
+});
+
+it('accepts hand-declared signed and tokenized routes', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'manual' => [
+            'description' => 'Portal links carry a bearer token in the uri.',
+            'signedRoutes' => ['GET /portal/{token} (capell-example.portal)'],
+            'tokenizedRoutes' => ['POST /hook (capell-example.hook)'],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects a malformed hand-declared route declaration', function (mixed $manual, string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = ['manual' => $manual];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $field);
+})->with([
+    'not an object' => ['GET /x', 'security.manual'],
+    'unknown field' => [['webhookRoutes' => []], 'security.manual.webhookRoutes'],
+    'signed routes not a list' => [['signedRoutes' => 'GET /x'], 'signedRoutes'],
+    'tokenized route not a string' => [['tokenizedRoutes' => ['GET /x', 3]], 'tokenizedRoutes'],
+    'description not a string' => [['description' => ['x']], 'security.manual.description'],
+]);
+
 it('validates screenshot paths in the published schema without depending on its regex spelling', function (string $path, bool $safe): void {
     $schema = json_decode(
         (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
@@ -361,6 +429,18 @@ it('rejects malformed package security contract metadata', function (Closure $mu
             $manifest['security']['publicSurface']['routeNames'] = ['capell-example.webhook', false];
         },
         'routeNames',
+    ],
+    'malformed manual HTTP clients' => [
+        function (array &$manifest): void {
+            $manifest['security']['externalHttpClients']['manualClients'] = 'Vendor\\Sdk\\Client';
+        },
+        'manualClients',
+    ],
+    'manual HTTP client that is not a string' => [
+        function (array &$manifest): void {
+            $manifest['security']['externalHttpClients']['manualClients'] = ['Vendor\\Sdk\\Client', 3];
+        },
+        'manualClients',
     ],
     'malformed public output boolean' => [
         function (array &$manifest): void {
@@ -941,4 +1021,132 @@ it('rejects unknown traceability fields and malformed contribution identity fiel
         'type' => 'asset',
         'class' => '',
     ]]]],
+]);
+
+it('names the declared manifest version and the field when the version is unsupported', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = array_replace(manifestV3Fixture('valid-premium-package'), ['manifest-version' => 2]);
+
+    try {
+        $validator->validate($manifest, composerJson: manifestV3ComposerJson());
+    } catch (InvalidManifestException $invalidManifestException) {
+        expect($invalidManifestException->getMessage())->toBe('Capell manifest declares manifest-version 2, but Capell reads manifest-version 3 only.')
+            ->and($invalidManifestException->field)->toBe('manifest-version');
+
+        return;
+    }
+
+    test()->fail('A manifest-version 2 manifest must be rejected.');
+});
+
+it('lists the real surfaces when a surface is unknown', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = array_replace(manifestV3Fixture('valid-premium-package'), ['surfaces' => ['frontend', 'backoffice']]);
+
+    try {
+        $validator->validate($manifest, composerJson: manifestV3ComposerJson());
+    } catch (InvalidManifestException $invalidManifestException) {
+        expect($invalidManifestException->getMessage())->toBe("Capell manifest has invalid surface: 'backoffice'. Must be one of: content, admin, frontend, workflow, delivery, operations, integrations, marketplace, console, shared")
+            ->and($invalidManifestException->field)->toBe('surfaces');
+
+        return;
+    }
+
+    test()->fail('An unknown surface must be rejected.');
+});
+
+it('names the unknown and missing provider buckets', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $providers = $manifest['providers'];
+    unset($providers['frontend']);
+    $providers['web'] = [];
+    $manifest['providers'] = $providers;
+
+    try {
+        $validator->validate($manifest, composerJson: manifestV3ComposerJson());
+    } catch (InvalidManifestException $invalidManifestException) {
+        expect($invalidManifestException->getMessage())->toBe("Capell manifest has invalid providers: unknown bucket 'web'; missing bucket 'frontend'. Required buckets: metadata, install, runtime, admin, frontend. Allowed buckets: metadata, install, runtime, auth, admin, frontend")
+            ->and($invalidManifestException->field)->toBe('providers');
+
+        return;
+    }
+
+    test()->fail('Unknown and missing provider buckets must be rejected.');
+});
+
+it('reports structural problems keyed by field without loading classes', function (): void {
+    $validator = new ManifestValidator;
+    $valid = manifestV3Fixture('valid-premium-package');
+
+    expect($validator->structureProblems($valid, composerJson: manifestV3ComposerJson()))->toBe([]);
+
+    $withoutPerformance = $valid;
+    unset($withoutPerformance['performance']);
+
+    expect($validator->structureProblems($withoutPerformance, composerJson: manifestV3ComposerJson()))
+        ->toBe(['performance' => 'Capell manifest is missing required field: performance']);
+
+    $spoofed = manifestV3Fixture('invalid-commercial-spoof');
+    $problems = $validator->structureProblems($spoofed, composerJson: manifestV3ComposerJson());
+
+    expect(array_keys($problems))->toBe(['commercial.effectiveLicense'])
+        ->and($problems['commercial.effectiveLicense'])->toContain('author proposal metadata only');
+});
+
+it('requires the performance budgets the schema declares', function (string $budget, mixed $value): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+
+    if ($value === null) {
+        unset($manifest['performance'][$budget]);
+    } else {
+        $manifest['performance'][$budget] = $value;
+    }
+
+    expect($validator->structureProblems($manifest, composerJson: manifestV3ComposerJson()))
+        ->toBe(['performance.' . $budget => 'Capell manifest has invalid field performance.' . $budget . ': must be an integer budget of zero or more']);
+})->with([
+    'frontendRenderBudgetMs missing' => ['frontendRenderBudgetMs', null],
+    'adminQueryBudget missing' => ['adminQueryBudget', null],
+    'frontendRenderBudgetMs negative' => ['frontendRenderBudgetMs', -1],
+    'adminQueryBudget string' => ['adminQueryBudget', '20'],
+]);
+
+it('judges structure without composer data but still refuses platform namespace spoofing', function (): void {
+    $validator = new ManifestValidator;
+
+    expect($validator->structureProblems(manifestV3Fixture('valid-premium-package')))->toBe([])
+        ->and(array_keys($validator->structureProblems(manifestV3Fixture('invalid-namespace-spoof'))))->toBe(['class'])
+        ->and($validator->structureProblems(manifestV3Fixture('valid-premium-package'), composerJson: ['autoload' => ['psr-4' => ['Other\\Vendor\\' => 'src/']]]))
+        ->toHaveKey('class');
+});
+
+it('accepts optional outcome copy and FAQ entries in the marketplace section', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['marketplace']['problem'] = 'Editors retype the same notice on every page.';
+    $manifest['marketplace']['outcome'] = 'One notice, edited once, shown wherever it applies.';
+    $manifest['marketplace']['faq'] = [
+        ['question' => 'Does it work with every theme?', 'answer' => 'Yes, it renders through the theme notice slot.'],
+    ];
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects outcome copy that would render blank or malformed', function (array $marketplace, string $field): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['marketplace'] = array_replace($manifest['marketplace'], $marketplace);
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'Capell manifest has invalid field ' . $field . ':');
+})->with([
+    'short problem' => [['problem' => 'Too short'], 'marketplace.problem'],
+    'non-string outcome' => [['outcome' => ['not', 'text']], 'marketplace.outcome'],
+    'faq not a list' => [['faq' => ['question' => 'x']], 'marketplace.faq'],
+    'faq entry not an object' => [['faq' => ['just a string']], 'marketplace.faq.0'],
+    'faq entry without answer' => [['faq' => [['question' => 'Does it work with every theme?']]], 'marketplace.faq.0.answer'],
+    'faq entry with stray key' => [['faq' => [['question' => 'Does it work with every theme?', 'answer' => 'Yes, through the theme notice slot.', 'link' => 'x']]], 'marketplace.faq.0.link'],
 ]);
