@@ -450,7 +450,7 @@ final class InstalledPanelRuntime
         }
 
         // Every route running admin code is owned by a panel or declared public; anything else is refused.
-        if ($panel->getId() === $this->defaultPanelId()) {
+        if ($panel === $this->fallbackPanel()) {
             foreach ($routes->getRoutes() as $route) {
                 if ($this->isUnclassified($route)) {
                     $this->refuse($panel, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
@@ -513,7 +513,7 @@ final class InstalledPanelRuntime
         }
 
         $this->refusedRoutes[$route] = true;
-        $id = $panel?->getId() ?? $this->defaultPanelId();
+        $id = ($panel ?? $this->fallbackPanel())?->getId() ?? 'admin';
         // Keyed by route, so a refused route never masks a later failure of the panel itself.
         resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $id . ':' . ($route->getName() ?? $route->uri()));
         Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
@@ -767,30 +767,47 @@ final class InstalledPanelRuntime
         }
 
         // Admin code outside every panel (such as Filament's global export download, which keeps no
-        // panel on its record) belongs to the default panel and runs that panel's whole stack.
-        $default = $this->defaultPanelId();
+        // panel on its record) belongs to the fallback panel and runs that panel's whole stack.
+        $fallback = $this->fallbackPanel();
 
-        return isset($this->synchronised[$default]) ? [$default => $this->synchronised[$default]] : [];
+        return $fallback instanceof Panel ? [$fallback->getId() => $fallback] : [];
     }
 
+    /**
+     * The panel that owns admin code outside every panel: the default Filament panel when Capell
+     * extends it, otherwise the first panel Capell extends.
+     */
+    private function fallbackPanel(): ?Panel
+    {
+        try {
+            $default = Filament::getDefaultPanel()->getId();
+        } catch (Throwable) {
+            $default = null;
+        }
+
+        if ($default !== null && isset($this->synchronised[$default])) {
+            return $this->synchronised[$default];
+        }
+
+        foreach (array_keys(Filament::getPanels()) as $id) {
+            if (isset($this->synchronised[$id])) {
+                return $this->synchronised[$id];
+            }
+        }
+
+        return $this->synchronised === [] ? null : reset($this->synchronised);
+    }
+
+    /** Admin code no panel owns and nothing declared public. Without a panel Capell extends, Filament's own stacks govern. */
     private function isUnclassified(Route $route): bool
     {
-        return $this->isAdminCode($route) && ! $this->isDeclaredPublic($route) && ! $this->namesRegisteredPanel($route) && $this->owners($route) === [];
+        return $this->synchronised !== [] && $this->isAdminCode($route) && ! $this->isDeclaredPublic($route) && ! $this->namesRegisteredPanel($route) && $this->owners($route) === [];
     }
 
     /** A route of a Filament panel the Capell runtime does not extend belongs to that panel and its own stack. */
     private function namesRegisteredPanel(Route $route): bool
     {
         return array_any(array_keys(Filament::getPanels()), fn (string $id): bool => $this->associated($route, $id));
-    }
-
-    private function defaultPanelId(): string
-    {
-        try {
-            return Filament::getDefaultPanel()->getId();
-        } catch (Throwable) {
-            return 'admin';
-        }
     }
 
     /** Declared public by name, or one of Livewire's own endpoints. */

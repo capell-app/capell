@@ -1,0 +1,59 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Tests\Unit\Filament\Plugin;
+
+use Capell\Admin\Providers\Filament\AdminPanelProvider;
+use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Tests\AdminTestCase;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\ForeignDefaultPanelProvider;
+use Filament\Actions\Exports\Models\Export;
+use Filament\Facades\Filament;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use Override;
+
+/**
+ * When the host's default Filament panel is one Capell does not extend, Filament's global routes
+ * belong to the Capell panel instead of being refused.
+ */
+final class InstalledPanelRuntimeForeignDefaultPanelTest extends AdminTestCase
+{
+    public function test_global_admin_routes_belong_to_the_capell_panel(): void
+    {
+        $this->assertSame('portal', Filament::getDefaultPanel()->getId());
+        $this->assertSame([], resolve(InstalledPanelRuntime::class)->unclassifiedAdminRoutes());
+
+        Schema::create('exports', static function (Blueprint $table): void {
+            $table->id();
+            $table->timestamp('completed_at')->nullable();
+            $table->string('file_disk');
+            $table->string('file_name')->nullable();
+            $table->string('exporter');
+            $table->unsignedInteger('processed_rows')->default(0);
+            $table->unsignedInteger('total_rows');
+            $table->unsignedInteger('successful_rows')->default(0);
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->timestamps();
+        });
+        $user = $this->createUser();
+        $export = new Export;
+        $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
+        $url = route('filament.exports.download', ['export' => $export]);
+
+        $this->get($url)->assertRedirect('/admin/login');
+        $this->actingAs($user)->get($url)->assertForbidden();
+    }
+
+    /** @return list<class-string> */
+    #[Override]
+    protected function getPackageProviders(mixed $app): array
+    {
+        $providers = parent::getPackageProviders($app);
+        $position = array_search(AdminPanelProvider::class, $providers, true);
+        array_splice($providers, $position === false ? 0 : $position, 0, [ForeignDefaultPanelProvider::class]);
+
+        return $providers;
+    }
+}
