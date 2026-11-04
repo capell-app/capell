@@ -8,14 +8,17 @@ use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\DomainCapellPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\ForeignPanelProvider;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\OtherDomainCapellPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\SecondCapellPanelProvider;
+use Capell\Core\Support\TableName;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Actions\Exports\Models\Export;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -90,26 +93,48 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
             ->assertOk();
     }
 
-    /** A Filament panel Capell does not extend keeps Filament's own download on the global route. */
-    public function test_an_export_started_in_a_panel_capell_does_not_extend_downloads_through_filament(): void
+    /** A Filament panel Capell does not extend has no Capell security stack to serve its downloads, so they are refused. */
+    public function test_an_export_started_in_a_panel_capell_does_not_extend_is_refused(): void
     {
         [$user, $url] = $this->exportFrom('portal');
 
         $this->actingAs($user)->get($url)
-            ->assertOk()
-            ->assertDownload('runtime-export.csv');
+            ->assertForbidden()
+            ->assertSee(__('capell-admin::message.transfer_origin_unknown'));
     }
 
-    /** A panel served on its own domain is sent an absolute URL on that domain. */
-    public function test_an_export_started_in_a_panel_on_another_domain_is_sent_to_that_domain(): void
+    /** An export with no recorded panel, such as one started before origins were recorded, cannot be tied to a panel. */
+    public function test_an_export_without_a_recorded_panel_is_refused_with_its_recovery(): void
     {
-        [$user, $url] = $this->exportFrom('desk');
+        [$user, $url] = $this->exportFrom(null);
+
+        $this->actingAs($user)->get($url)
+            ->assertForbidden()
+            ->assertSee(__('capell-admin::message.transfer_origin_unknown'));
+    }
+
+    /** An export started in a panel that no longer exists is refused rather than served by another panel. */
+    public function test_an_export_started_in_a_retired_panel_is_refused(): void
+    {
+        [$user, $url, $export] = $this->exportFrom(null);
+        DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'export', 'transfer_key' => (string) $export->getKey(), 'panel' => 'retired', 'host' => 'localhost']);
+
+        $this->actingAs($user)->get($url)->assertForbidden();
+    }
+
+    /** With panels on different domains, the download is sent to the host that served the export, as an absolute URL. */
+    public function test_an_export_started_on_a_panel_domain_is_sent_back_to_that_host(): void
+    {
+        [$user, $url, $export] = $this->exportFrom('desk', DomainCapellPanelProvider::DOMAIN);
 
         $download = (string) $this->actingAs($user)->get($url)->headers->get('Location');
 
         $this->assertSame(DomainCapellPanelProvider::DOMAIN, parse_url($download, PHP_URL_HOST));
         $this->assertStringStartsWith('/desk/capell/exports/', (string) parse_url($download, PHP_URL_PATH));
         $this->get($download)->assertOk()->assertDownload('runtime-export.csv');
+        // The other domain's panel does not serve it.
+        $this->get('http://' . OtherDomainCapellPanelProvider::DOMAIN . URL::signedRoute('filament.counter.capell.exports.download', ['authGuard' => 'web', 'export' => $export, 'format' => 'csv'], absolute: false))
+            ->assertNotFound();
     }
 
     /** @return list<class-string> */
@@ -118,7 +143,7 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
     {
         $providers = parent::getPackageProviders($app);
         $position = array_search(AdminPanelProvider::class, $providers, true);
-        array_splice($providers, $position === false ? count($providers) : $position + 1, 0, [SecondCapellPanelProvider::class, DomainCapellPanelProvider::class, ForeignPanelProvider::class]);
+        array_splice($providers, $position === false ? count($providers) : $position + 1, 0, [SecondCapellPanelProvider::class, DomainCapellPanelProvider::class, OtherDomainCapellPanelProvider::class, ForeignPanelProvider::class]);
 
         return $providers;
     }
@@ -128,7 +153,7 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
      *
      * @return array{0: User, 1: string, 2: Export}
      */
-    private function exportFrom(string $panel): array
+    private function exportFrom(?string $panel, ?string $host = null): array
     {
         Schema::create('exports', static function (Blueprint $table): void {
             $table->id();
@@ -144,7 +169,7 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
         });
 
         $user = $this->createUserWithRole('super_admin');
-        $export = $this->startedIn($panel, static function () use ($user): Export {
+        $export = $this->startedIn($panel, $host, static function () use ($user): Export {
             $export = new Export;
             $export->forceFill(['file_disk' => 'local', 'file_name' => 'runtime-export', 'exporter' => 'exporter', 'total_rows' => 1, 'user_id' => $user->getKey()])->save();
 
@@ -182,7 +207,7 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
         });
 
         $user = $this->createUserWithRole('super_admin');
-        $import = $this->startedIn($panel, static function () use ($user): Import {
+        $import = $this->startedIn($panel, null, static function () use ($user): Import {
             $import = new Import;
             $import->forceFill(['file_name' => 'runtime.csv', 'file_path' => 'runtime.csv', 'importer' => Importer::class, 'total_rows' => 1, 'user_id' => $user->getKey()])->save();
 
@@ -193,19 +218,27 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
     }
 
     /**
+     * Create a record while the given panel serves a request on the given host, as Filament's actions do.
+     *
      * @template T
      *
      * @param  callable(): T  $create
      * @return T
      */
-    private function startedIn(string $panel, callable $create): mixed
+    private function startedIn(?string $panel, ?string $host, callable $create): mixed
     {
         $serving = Filament::getCurrentPanel();
-        Filament::setCurrentPanel(Filament::getPanel($panel));
+        $servingHost = request()->headers->get('host');
+        Filament::setCurrentPanel($panel === null ? $serving : Filament::getPanel($panel));
+        if ($host !== null) {
+            request()->headers->set('host', $host);
+        }
+
         try {
             return $create();
         } finally {
             Filament::setCurrentPanel($serving);
+            request()->headers->set('host', $servingHost);
         }
     }
 }

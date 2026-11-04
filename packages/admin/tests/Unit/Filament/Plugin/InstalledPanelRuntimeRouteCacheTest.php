@@ -6,10 +6,11 @@ namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Support\AdminRouteProvenance;
-use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
+use Capell\Core\Support\TableName;
 use Closure;
 use Illuminate\Routing\RouteCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 
@@ -59,7 +60,7 @@ final class InstalledPanelRuntimeRouteCacheTest extends AdminTestCase
         $this->get(route('guava-icon-picker.index'))->assertRedirect('/admin/login');
     }
 
-    /** Admin code registered without the helper is recorded as admin code before `route:cache` stores it, so it stays refused. */
+    /** Admin code registered without the helper, even after boot, is recorded as admin code when it is registered, so it stays refused once cached. */
     public function test_cached_unmarked_admin_routes_stay_refused(): void
     {
         Route::get('/runtime-unmarked-admin/{initials}.svg', AdminAvatarController::class)->middleware('web');
@@ -73,17 +74,16 @@ final class InstalledPanelRuntimeRouteCacheTest extends AdminTestCase
     /** Filament's global export download keeps sending visitors to the originating panel once cached. */
     public function test_a_cached_global_export_download_is_sent_to_the_originating_panel(): void
     {
+        DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'export', 'transfer_key' => '7', 'panel' => 'admin', 'host' => 'localhost']);
         $this->cacheRoutes();
 
         $this->get(route('filament.exports.download', ['export' => 7, 'format' => 'csv']))
-            ->assertRedirectContains('/admin/capell/exports/7/download');
+            ->assertRedirectContains('//localhost/admin/capell/exports/7/download');
     }
 
     /** Write and load the route cache exactly as `route:cache` does. */
     private function cacheRoutes(): void
     {
-        // What the application's boot records once every route is registered, before `route:cache` runs.
-        resolve(InstalledPanelRuntime::class)->recordDetectedAdminCode();
         $routes = Route::getRoutes();
         $this->assertInstanceOf(RouteCollection::class, $routes);
         foreach ($routes->getRoutes() as $route) {

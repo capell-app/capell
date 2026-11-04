@@ -13,6 +13,8 @@ return [
     'extension_panel_route_ambiguous' => "More than one admin panel claims this route, so it cannot be held to a single panel's security middleware.",
     'extension_panel_security_order' => "Panel security middleware cannot run before this route's own middleware, so the route is refused.",
     'extension_panel_route_unowned' => 'This route runs admin code but was registered without a panel or an admin route declaration, so it is refused.',
+    'transfer_origin_unknown' => 'This download cannot be served because Capell has no record of the admin panel it was started in, or that panel is no longer available. Run the export or import again from the panel you use, then download the new file.',
+    'upgrade_livewire_snapshot_routes' => 'Regenerate stored public pages so their interactive components keep working',
     'extension_panel_route_refused' => "The admin route :route is unavailable because it could not be held to the panel's security middleware.",
 
     'extension_activation_pending' => 'The extension is installed, but activation needs a cache refresh and a fresh application. Reload retained workers before continuing.',

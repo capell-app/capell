@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Tests\AdminTestCase;
+use Capell\Core\Support\TableName;
 use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
@@ -25,6 +27,7 @@ final class InstalledPanelRuntimeArtisanRouteCacheTest extends AdminTestCase
         $this->get(route('capell-admin.extension-asset'))->assertRedirect('/admin/login');
         $this->get(route('guava-icon-picker.index'))->assertRedirect('/admin/login');
         // Filament's global export download still sends the visitor on to the originating panel.
+        DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'export', 'transfer_key' => '7', 'panel' => 'admin', 'host' => 'localhost']);
         $this->get(route('filament.exports.download', ['export' => 7, 'format' => 'csv']))
             ->assertRedirectContains('/admin/capell/exports/7/download');
         // Livewire's script stays public.

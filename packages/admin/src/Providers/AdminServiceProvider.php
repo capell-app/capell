@@ -223,6 +223,7 @@ use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
+use Capell\Admin\Support\ProvenanceRouteCollection;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
@@ -232,6 +233,7 @@ use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\Transfers\TransferOrigins;
+use Capell\Admin\Support\Upgrade\InvalidateCachedLivewireSnapshotsStep;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
@@ -308,8 +310,8 @@ use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Foundation\Application;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -431,6 +433,20 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
+        // Each route records whether it runs admin code as it is registered, before any route is cached.
+        $router = $this->app->make(Router::class);
+        $registered = $router->getRoutes();
+        if ($registered instanceof RouteCollection && ! $registered instanceof ProvenanceRouteCollection) {
+            $routes = new ProvenanceRouteCollection;
+            foreach ($registered->getRoutes() as $route) {
+                $routes->add($route);
+            }
+
+            $router->setRoutes($routes);
+        }
+
+        // Stored public HTML carries Livewire snapshots without their rendering route, which updates reject.
+        $this->app->tag([InvalidateCachedLivewireSnapshotsStep::class], 'capell.upgrade-steps');
         $this->callAfterResolving(InstalledPanelRuntime::class, static function (InstalledPanelRuntime $runtime): void {
             // The admin-only Filament plugins the panels install; their routes are admin code too.
             $runtime->declareAdminCode('Guava\\IconPicker', 'Pboivin\\FilamentPeek', 'STS\\FilamentImpersonate');
@@ -454,12 +470,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 resolve(TransferOrigins::class)->forget($payload[0]);
             }
         });
-        // Once every package has registered its routes, and before `route:cache` stores them.
-        $this->app->booted(static function (Application $app): void {
-            TransferDownloadEnum::takeOverGlobalRoutes($app->make(Router::class));
-            // Admin code registered without Core's admin route helper keeps that fact through the cache, and is refused.
-            $app->make(InstalledPanelRuntime::class)->recordDetectedAdminCode();
-        });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             $name = (string) $event->route->getName();
             if (str_starts_with($name, 'filament.')) {
@@ -472,7 +482,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             }
 
             // Routes registered after the panel synchronised are held to package security too.
-            resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route);
+            resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route, $event->request);
         });
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
         $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (InstalledRuntimeRefreshed $event): void {

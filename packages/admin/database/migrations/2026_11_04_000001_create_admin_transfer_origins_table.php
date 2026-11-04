@@ -16,8 +16,8 @@ return new class extends Migration
             $table->string('transfer_type', 32);
             $table->string('transfer_key');
             $table->string('panel');
-            // The panel domain that served the request, for a panel on its own domains.
-            $table->string('domain')->nullable();
+            // The host (with any port) that served the request, where its download is sent.
+            $table->string('host');
             $table->timestamps();
             // Explicit short names also fit PostgreSQL with prefixed tables.
             $table->unique(['transfer_type', 'transfer_key'], TableName::namedIndex('admin_transfer_origins', 'admin_transfer_origins_transfer'));

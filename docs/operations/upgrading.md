@@ -1,5 +1,29 @@
 # Upgrading Capell
 
+## Admin route ownership, export downloads and Livewire snapshots
+
+This Admin update decides which admin panel owns a route, an export or an import from facts recorded
+when each is created, and refuses anything it cannot prove.
+
+- **Routes.** Every route records, as it is registered, whether it runs Filament, Livewire or Capell
+  admin code, and that record is stored by `route:cache`. Admin code registered outside a panel and
+  outside Core's admin route helper is refused with 503. Rebuild the route cache on every node
+  (`capell:runtime-refresh` does it) so cached routes carry the record. A route under the path of a
+  panel served on its own domains belongs to that panel only when the route is constrained to one of
+  those domains.
+- **Export and import downloads.** Each export and import now records the panel and host it was
+  started on in `admin_transfer_origins`. Run the normal upgrade flow to migrate the table before
+  serving requests. A download is served only by that panel, on that host. Exports and imports
+  created before the upgrade, or in a panel that no longer exists or that Capell does not extend, are
+  refused with a message asking the user to run the export or import again.
+- **Livewire snapshots.** A Livewire update must carry the signed record of the route that rendered
+  the component, so components rendered before the upgrade answer "page expired" and reload. Open
+  admin tabs need one reload. `capell:upgrade` runs the
+  `capell-admin.livewire-snapshot-rendering-routes` step, which marks every page stored by the HTML
+  cache stale (`capell:html-cache:clear`), so run `capell:html-cache:process-stale` and purge the edge
+  as described in [Deploys and cache refresh](deploy-and-cache-refresh.md#refresh-public-html-in-the-right-order).
+  Regenerate static HTML exports (`capell:generate-html`) after upgrading.
+
 ## Admin upload ownership registry
 
 This Admin update adds `admin_upload_grants`; it does not alter existing content

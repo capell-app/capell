@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * The panel each Filament export or import was started in, recorded when the record is created
- * so its download is later served by that panel. Until the table is migrated nothing is recorded,
- * and downloads belong to the default Capell panel as before.
+ * The panel each Filament export or import was started in, and the host that served it, recorded
+ * when the record is created so its download is later served by that panel alone. A record with no
+ * origin, including every record created before the table was migrated, is never downloaded.
  */
 final class TransferOrigins
 {
@@ -31,16 +31,15 @@ final class TransferOrigins
             return;
         }
 
-        $host = request()->getHost();
         $now = now();
         $this->table()->upsert([[
             'transfer_type' => $download->value,
             'transfer_key' => (string) $transfer->getKey(),
             'panel' => $panel->getId(),
-            'domain' => in_array($host, $panel->getDomains(), true) ? $host : null,
+            'host' => request()->getHttpHost(),
             'created_at' => $now,
             'updated_at' => $now,
-        ]], ['transfer_type', 'transfer_key'], ['panel', 'domain', 'updated_at']);
+        ]], ['transfer_type', 'transfer_key'], ['panel', 'host', 'updated_at']);
     }
 
     public function forget(Model $transfer): void
@@ -58,12 +57,12 @@ final class TransferOrigins
             return null;
         }
 
-        $row = $this->table()->where('transfer_type', $download->value)->where('transfer_key', $key)->first(['panel', 'domain']);
-        if ($row === null || ! is_string($row->panel)) {
+        $row = $this->table()->where('transfer_type', $download->value)->where('transfer_key', $key)->first(['panel', 'host']);
+        if ($row === null || ! is_string($row->panel) || ! is_string($row->host) || $row->host === '') {
             return null;
         }
 
-        return new TransferOrigin($row->panel, is_string($row->domain) ? $row->domain : null);
+        return new TransferOrigin($row->panel, $row->host);
     }
 
     private function isAvailable(): bool

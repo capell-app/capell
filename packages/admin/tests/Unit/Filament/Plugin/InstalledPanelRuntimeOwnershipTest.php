@@ -12,6 +12,7 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Tests\Fixtures\Models\User;
 use Closure;
 use Filament\Actions\Exports\Models\Export;
+use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Routing\Router;
@@ -35,10 +36,10 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
     }
 
     /**
-     * Filament's global export download is served by the panel the export was started in; one started
-     * outside every panel belongs to the default admin panel and runs that panel's authentication.
+     * Filament's global export download is served by the panel the export was started in, which runs
+     * that panel's authentication.
      */
-    public function test_the_global_export_download_runs_the_default_panel_authentication(): void
+    public function test_the_global_export_download_runs_the_originating_panel_authentication(): void
     {
         [$user, $url] = $this->ownExport();
 
@@ -180,7 +181,11 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
 
         $user = $this->createUser();
         $export = new Export;
+        // Started while the admin panel serves the request, as Filament's export action is.
+        $serving = Filament::getCurrentPanel();
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
         $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
+        Filament::setCurrentPanel($serving);
 
         return [$user, URL::signedRoute('filament.exports.download', ['authGuard' => 'web', 'export' => $export, 'format' => 'csv'], absolute: false)];
     }

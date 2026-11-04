@@ -21,7 +21,6 @@ use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\RouteAction;
-use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -212,22 +211,14 @@ final class InstalledPanelRuntime
     }
 
     /**
-     * Record on every registered route that runs Filament, Livewire or Capell admin code without a
-     * declared provenance that it is admin code, while its action can still be inspected. Called once
-     * every route is registered, before `route:cache` stores them, so a cached route keeps the fact
-     * and a cached closure is never unserialised to recover it.
+     * Record on a route, as it is registered, that it runs Filament, Livewire or Capell admin code
+     * without a declared provenance, while its action can still be inspected. The record travels with
+     * the route through `route:cache`, so a cached closure is never unserialised to recover it.
      */
-    public function recordDetectedAdminCode(): void
+    public function recordRegisteredRoute(Route $route): void
     {
-        $routes = $this->router->getRoutes();
-        if (! $routes instanceof RouteCollection) {
-            return;
-        }
-
-        foreach ($routes->getRoutes() as $route) {
-            if ($this->provenance($route) === null && ! $this->isPublicAction($route) && $this->runsAdminCode($route)) {
-                $route->action[AdminRouteProvenance::DETECTED] = true;
-            }
+        if ($this->provenance($route) === null && ! $this->isPublicAction($route) && $this->runsAdminCode($route)) {
+            $route->action[AdminRouteProvenance::DETECTED] = true;
         }
     }
 
@@ -295,7 +286,7 @@ final class InstalledPanelRuntime
      * A route that cannot be covered is refused here, before its middleware runs, so no
      * middleware exclusion can serve it.
      */
-    public function reconcileMatchedRoute(Route $route): void
+    public function reconcileMatchedRoute(Route $route, ?Request $request = null): void
     {
         if (! app()->isBooted()) {
             return;
@@ -311,6 +302,10 @@ final class InstalledPanelRuntime
         }
 
         foreach ($owners as $id => $panel) {
+            // A panel served on its own domains is not served on any other host, whatever the route's constraint.
+            $domains = $panel->getDomains();
+            abort_if($request instanceof Request && $domains !== [] && ! in_array($request->getHost(), $domains, true), 404);
+
             $availability = EnsureInstalledPanelAvailable::class . ':' . $id;
             if (! in_array($availability, $route->middleware(), true)) {
                 $route->middleware($availability);
@@ -355,7 +350,7 @@ final class InstalledPanelRuntime
         abort_unless(array_diff($renderedBy['security'], $current['security']) === [], 419);
 
         $this->replayedRoute = $current;
-        $this->reconcileMatchedRoute($route);
+        $this->reconcileMatchedRoute($route, $request);
     }
 
     /**
@@ -382,22 +377,10 @@ final class InstalledPanelRuntime
         $this->renderings = new WeakMap;
     }
 
-    /**
-     * The panel that serves a record a panel started, such as a Filament export: its originating panel
-     * when Capell extends it, otherwise the default Capell panel. Null when the record belongs to a
-     * Filament panel Capell does not extend, or no panel is extended, so Filament's own stack governs.
-     */
-    public function originatingPanel(?string $origin): ?Panel
+    /** The panel Capell extends with this id, if it is still registered and synchronised. */
+    public function capellPanel(string $id): ?Panel
     {
-        if ($origin !== null && isset($this->synchronised[$origin])) {
-            return $this->synchronised[$origin];
-        }
-
-        if ($origin !== null && array_key_exists($origin, Filament::getPanels())) {
-            return null;
-        }
-
-        return $this->fallbackPanel();
+        return $this->synchronised[$id] ?? null;
     }
 
     /**
@@ -582,15 +565,6 @@ final class InstalledPanelRuntime
                 $this->reconcileOrRefuse($panel, $instance);
             }
         }
-
-        // Admin code registered outside Core's admin route helper, which no panel owns, is refused.
-        if ($panel === $this->fallbackPanel()) {
-            foreach ($routes->getRoutes() as $route) {
-                if ($this->isUnclassified($route)) {
-                    $this->refuse($panel, $route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
-                }
-            }
-        }
     }
 
     /** Fail closed for this route only: the failure is recorded and the route is refused. */
@@ -647,7 +621,7 @@ final class InstalledPanelRuntime
         }
 
         $this->refusedRoutes[$route] = true;
-        $id = ($panel ?? $this->fallbackPanel())?->getId() ?? 'admin';
+        $id = ($panel ?? $this->entrypointPanel())?->getId() ?? 'admin';
         // Keyed by route, so a refused route never masks a later failure of the panel itself.
         resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $id . ':' . ($route->getName() ?? $route->uri()));
         Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
@@ -901,46 +875,41 @@ final class InstalledPanelRuntime
         }
 
         // Admin code outside every panel path, recorded as such when it was registered, belongs to the
-        // fallback panel and runs that panel's whole stack.
-        $fallback = $this->fallbackPanel();
+        // Capell admin entrypoint's panel and runs that panel's whole stack.
+        $entrypoint = $this->entrypointPanel();
 
-        return $fallback instanceof Panel ? [$fallback->getId() => $fallback] : [];
+        return $entrypoint instanceof Panel ? [$entrypoint->getId() => $entrypoint] : [];
     }
 
     /**
-     * The panel that owns admin code outside every panel: the default Filament panel when Capell
-     * extends it, otherwise the first panel Capell extends.
+     * The panel serving the configured Capell admin entrypoint (its path, on its domain). Null unless
+     * exactly one synchronised panel serves it, so admin routes outside every panel path are refused.
      */
-    private function fallbackPanel(): ?Panel
+    private function entrypointPanel(): ?Panel
     {
-        try {
-            $default = Filament::getDefaultPanel()->getId();
-        } catch (Throwable) {
-            $default = null;
-        }
+        $path = trim(AdminPanelEntrypoint::path(), '/');
+        $domain = AdminPanelEntrypoint::domain();
+        $panels = array_filter($this->synchronised, static fn (Panel $panel): bool => trim($panel->getPath(), '/') === $path
+            && ($domain === null ? $panel->getDomains() === [] : in_array($domain, $panel->getDomains(), true)));
 
-        if ($default !== null && isset($this->synchronised[$default])) {
-            return $this->synchronised[$default];
-        }
-
-        foreach (array_keys(Filament::getPanels()) as $id) {
-            if (isset($this->synchronised[$id])) {
-                return $this->synchronised[$id];
-            }
-        }
-
-        return $this->synchronised === [] ? null : reset($this->synchronised);
+        return count($panels) === 1 ? reset($panels) : null;
     }
 
-    /** Live admin code no panel owns that carries no provenance. Without a panel Capell extends, Filament's own stacks govern. */
+    /**
+     * Admin code no panel owns: declared admin, or recorded or running as admin code without a declared
+     * provenance. Without a panel Capell extends, Filament's own stacks govern.
+     */
     private function isUnclassified(Route $route): bool
     {
-        return $this->synchronised !== []
-            && $this->provenance($route) === null
-            && ! $this->isPublicAction($route)
-            && $this->isAdminCode($route)
-            && ! $this->namesRegisteredPanel($route)
-            && $this->owners($route) === [];
+        if ($this->synchronised === []) {
+            return false;
+        }
+
+        $provenance = $this->provenance($route);
+        $admin = $provenance === AdminRouteProvenance::ADMIN
+            || ($provenance === null && ! $this->isPublicAction($route) && $this->isAdminCode($route));
+
+        return $admin && ! $this->namesRegisteredPanel($route) && $this->owners($route) === [];
     }
 
     /** One of Livewire's own endpoints, which serve every visitor. */
@@ -1083,9 +1052,10 @@ final class InstalledPanelRuntime
             return null;
         }
 
+        // A panel on its own domains holds only routes constrained to one of them: a route without a domain
+        // answers every host, so it is not assumed to be that panel's.
         $domains = $panel->getDomains();
-        $domain = $route->getDomain();
-        if ($domains !== [] && $domain !== null && ! in_array($domain, $domains, true)) {
+        if ($domains !== [] && ! in_array($route->getDomain(), $domains, true)) {
             return null;
         }
 

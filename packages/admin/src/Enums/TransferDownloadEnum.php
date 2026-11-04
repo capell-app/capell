@@ -11,8 +11,7 @@ use Filament\Actions\Exports\Models\Export;
 use Filament\Actions\Imports\Http\Controllers\DownloadImportFailureCsv;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Routing\RouteCollection;
-use Illuminate\Routing\Router;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
 
 /**
@@ -43,29 +42,16 @@ enum TransferDownloadEnum: string
     }
 
     /**
-     * Point Filament's global download routes at the controllers that send each visitor on to the
-     * originating panel. Done once routes are registered, so `route:cache` stores the new actions.
+     * Point a route that runs Filament's download controller, as Filament's global download routes do,
+     * at the controller that serves each record through its originating panel. Done as the route is
+     * registered, so `route:cache` stores the new action and no later scan is needed.
      */
-    public static function takeOverGlobalRoutes(Router $router): void
+    public static function takeOverRegisteredRoute(Route $route): void
     {
-        $routes = $router->getRoutes();
-        // A cached route table already stores the new actions: `route:cache` boots the application first.
-        if (! $routes instanceof RouteCollection) {
-            return;
-        }
-
-        $changed = false;
-        // Names given after a route was added reach the name lookup only once it is refreshed.
-        foreach ($routes->getRoutes() as $route) {
-            $download = self::tryFromGlobalRouteName((string) $route->getName());
-            if ($download instanceof self && $route->getControllerClass() !== $download->originController()) {
-                $route->uses($download->originController());
-                $changed = true;
-            }
-        }
-
-        if ($changed) {
-            $routes->refreshActionLookups();
+        $controller = $route->getControllerClass();
+        $download = array_find(self::cases(), static fn (self $download): bool => $download->filamentController() === $controller);
+        if ($download instanceof self) {
+            $route->uses($download->originController());
         }
     }
 
