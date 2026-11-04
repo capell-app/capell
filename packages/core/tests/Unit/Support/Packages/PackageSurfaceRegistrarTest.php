@@ -52,6 +52,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
         new BlueprintSubjectRegistry,
         $receipts,
         new SecurityWeaknessRegistry,
+        app(),
     );
 
     $receipts->rememberNamespaceContext(

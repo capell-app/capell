@@ -57,6 +57,7 @@ use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
+use Capell\Core\Console\Commands\SecurityRefreshNodeCommand;
 use Capell\Core\Console\Commands\SecurityScanCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
@@ -344,6 +345,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AdoptTableCommand::class,
             DoctorCommand::class,
             SecurityScanCommand::class,
+            SecurityRefreshNodeCommand::class,
             HashExtensionContentsCommand::class,
             ReleaseExtensionQuarantineCommand::class,
             ExtensionAuditCommand::class,
@@ -425,22 +427,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     protected function packageSettingClass(): string
     {
         return CoreSettings::class;
-    }
-
-    /**
-     * @param  iterable<mixed>  $tagged
-     * @return list<object>
-     */
-    private function uniqueByClass(iterable $tagged): array
-    {
-        $unique = [];
-        foreach ($tagged as $instance) {
-            if (is_object($instance)) {
-                $unique[$instance::class] ??= $instance;
-            }
-        }
-
-        return array_values($unique);
     }
 
     private function registerPublicationTransitions(): self
@@ -625,6 +611,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(BlueprintSubjectRegistry::class),
             $app->make(ExtensionContributionReceiptRegistry::class),
             $app->make(SecurityWeaknessRegistry::class),
+            $app,
         ));
         $this->app->singleton(SecurityWeaknessRegistry::class);
         $this->app->bindIf(SecurityWeaknessAnalyser::class, NullSecurityWeaknessAnalyser::class);
@@ -636,20 +623,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(OutboundEventRegistry::class);
         $this->app->singleton(BlueprintSubjectRegistry::class);
         $this->app->booted(function (): void {
-            // The container appends tag entries on every provider registration, so a
-            // re-registered provider would otherwise offer each built-in check twice.
+            // Tags are collected once per class here and again for every package
+            // that boots late, inside PackageSurfaceRegistrar::duringPackageInstallation().
             $security = $this->app->make(SecurityWeaknessRegistry::class);
-            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessCheck::TAG)) as $check) {
-                if ($check instanceof SecurityWeaknessCheck) {
-                    $security->registerCheck($check);
-                }
-            }
-
-            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessRemediation::TAG)) as $remediation) {
-                if ($remediation instanceof SecurityWeaknessRemediation) {
-                    $security->registerRemediation($remediation);
-                }
-            }
+            $security->adoptTagged($this->app);
 
             $security->freeze();
             $this->app->make(OutboundEventRegistry::class)->freeze();
@@ -907,6 +884,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerSecurityScanSchedule(): self
     {
+        if (config('capell.multi_node', false) === true) {
+            // Every node must run this, so no onOneServer() and no shared overlap mutex.
+            $this->registerSchedule(function (Schedule $schedule): void {
+                $schedule->command('capell:security:refresh-node')->everyFiveMinutes();
+            });
+        }
+
         if (config('capell.security.scan.scheduled', true) !== true) {
             return $this;
         }

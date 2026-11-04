@@ -6,24 +6,26 @@ reach it.
 
 ## The three serving tiers
 
-| Tier | Serves | Expected path |
-| --- | --- | --- |
-| CDN edge | Anonymous public HTML already stored near the visitor | Cloudflare responds without contacting your server |
-| Web server | Generated HTML on the `page_cache` disk | nginx or Apache reads a file without starting PHP |
-| PHP runtime | Admin, authenticated, personalised, uncached, and write requests | PHP-FPM or Octane boots or reuses Laravel |
+| Tier        | Serves                                                           | Expected path                                      |
+| ----------- | ---------------------------------------------------------------- | -------------------------------------------------- |
+| CDN edge    | Anonymous public HTML already stored near the visitor            | Cloudflare responds without contacting your server |
+| Web server  | Generated HTML on the `page_cache` disk                          | nginx or Apache reads a file without starting PHP  |
+| PHP runtime | Admin, authenticated, personalised, uncached, and write requests | PHP-FPM or Octane boots or reuses Laravel          |
 
 Keep the tiers in that order. Octane can reduce the cost of the third tier, but it
 cannot beat a safe edge hit or a local static file.
 
 ## Serve generated HTML before PHP
 
-The package that owns the page cache defines its filename and invalidation contract.
-Use its documented mapping rather than guessing from the public URL. A typical nginx
-shape is:
+The package that owns the page cache defines its filename and invalidation contract,
+and [Web server configuration](web-server.md#serving-the-static-html-cache) is the
+maintained server-side contract for it: the per-origin root (`page-cache/<scheme>.<host>`),
+the `pc__index__pc.html` homepage file, the `~port-<n>/` layout for non-standard ports,
+the keys only PHP can compute, and the bypass list. Copy the `try_files` rules from
+there rather than deriving them from the public URL. The additional step a performance
+tuning adds is a public cache policy on the responses served from disk:
 
 ```nginx
-set $page_cache_root /absolute/path/to/public/page-cache/https.example.com;
-
 location = / {
     add_header Cache-Control "max-age=300, public, s-maxage=1800, stale-while-revalidate=86400" always;
     try_files $page_cache_root/pc__index__pc.html /index.php?$query_string;
@@ -42,11 +44,12 @@ security-header set inside each of these locations alongside `Cache-Control`, or
 cached pages ship without it — see
 [Security headers](going-live.md#security-headers).
 
-This is only the final lookup. Before it, bypass the static path for anything that can
-vary by visitor or request: methods other than `GET` or `HEAD`, query strings that are
-not explicitly cache-safe, Laravel session cookies, authorization headers, signed or
-preview URLs, and Livewire or other navigation requests. Keep the same bypass contract
-at the web server, package middleware, and CDN.
+This is only the final lookup. Before it, apply the bypass list from the web-server
+contract (methods other than `GET` or `HEAD`, query strings, Laravel session cookies,
+authorization headers, signed or preview URLs, Livewire or other navigation requests)
+at the web server, package middleware, and CDN alike. Remember that a file served from
+disk skips the package's TTL check; where expiry has to be exact, keep those paths on
+PHP serving as the contract describes.
 
 The example policy means:
 
@@ -153,13 +156,13 @@ setting.
 
 Use this as an initial 4 GB allocation, then replace it with measured high-water marks:
 
-| Area | Starting budget |
-| --- | ---: |
-| Operating system, web server, and monitoring | 700-1000 MB |
-| Database | 600-1000 MB |
-| PHP web and queue workers | 900-1400 MB |
-| Redis and other local services | 100-300 MB |
-| Uncommitted headroom | at least 500 MB |
+| Area                                         | Starting budget |
+| -------------------------------------------- | --------------: |
+| Operating system, web server, and monitoring |     700-1000 MB |
+| Database                                     |     600-1000 MB |
+| PHP web and queue workers                    |     900-1400 MB |
+| Redis and other local services               |      100-300 MB |
+| Uncommitted headroom                         | at least 500 MB |
 
 Do not fill every budget simultaneously. Database imports, cache generation, image
 work, backups, and deploys create short peaks; memory caps and headroom turn those peaks

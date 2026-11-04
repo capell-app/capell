@@ -51,16 +51,18 @@ fi
 # The default Homebrew PATH selects PHP 8.5; Core supports 8.4.
 [ -d /opt/homebrew/opt/php@8.4/bin ] && export PATH="/opt/homebrew/opt/php@8.4/bin:$PATH"
 
-# PHPStan runs many workers, so it goes through the host heavy queue (weight 3),
-# as the App's pre-push does. Skip the wrap when this hook already runs inside a
-# heavy reservation. Without the queue (a CI runner, for example) run unguarded.
+# PHPStan goes through the host heavy queue. phpstan/diff.neon caps it at four
+# workers, which is weight 2, so pushes no longer reserve a full gate and serialise
+# behind each other (tests/Shell/pre-push-analysis-heavy.sh keeps the two in step).
+# Skip the wrap when this hook already runs inside a heavy reservation. Without the
+# queue (a CI runner, for example) run unguarded.
 heavy_wrap=()
 if [ -n "${HEAVY_SLOT_OWNER:-}" ]; then
     :
 elif command -v heavy > /dev/null 2>&1; then
-    heavy_wrap=(heavy run -w 3 core-pre-push-analysis --)
+    heavy_wrap=(heavy run -w 2 core-pre-push-analysis --)
 elif [ -x "$HOME/.local/share/heavy/heavy-slot.sh" ]; then
-    heavy_wrap=("$HOME/.local/share/heavy/heavy-slot.sh" --weight 3 core-pre-push-analysis)
+    heavy_wrap=("$HOME/.local/share/heavy/heavy-slot.sh" --weight 2 core-pre-push-analysis)
 else
     echo "pre-push analysis: no heavy queue found (heavy or ~/.local/share/heavy/heavy-slot.sh); running PHPStan unguarded." >&2
 fi
