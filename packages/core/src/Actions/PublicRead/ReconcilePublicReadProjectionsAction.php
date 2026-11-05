@@ -14,6 +14,7 @@ use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\TableName;
 use Closure;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
@@ -50,6 +51,7 @@ use Throwable;
  */
 final class ReconcilePublicReadProjectionsAction
 {
+    use AsFake;
     use AsObject;
 
     public const string TABLE = 'public_read_projection_watermarks';

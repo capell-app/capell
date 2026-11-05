@@ -10,9 +10,9 @@ use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Frontend\Tests\Support\PublicReadTransitionSqsLikeQueue;
 use Carbon\CarbonImmutable;
 use Illuminate\Queue\Connectors\ConnectorInterface as QueueConnector;
-use Illuminate\Queue\DatabaseQueue;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -195,56 +195,6 @@ it('gives up at a deadline taken from its transition and says so', function (): 
 
     $log->shouldHaveReceived('warning')->withArgs(static fn (string $message, array $context): bool => $context['transition_at'] === $transition->toIso8601String())->once();
 });
-
-/**
- * A database-backed queue with Amazon SQS's limits: a delay above 900 seconds
- * is rejected, a FIFO queue ignores the delay, and a release (a visibility
- * change) above 12 hours is rejected. $broken makes every dispatch fail.
- */
-final class PublicReadTransitionSqsLikeQueue extends DatabaseQueue
-{
-    public static bool $fifo = false;
-
-    public static bool $broken = false;
-
-    public static int $dispatches = 0;
-
-    public static int $rejected = 0;
-
-    /** @var list<int> */
-    public static array $delays = [];
-
-    #[Override]
-    public function later($delay, $job, $data = '', $queue = null)
-    {
-        self::$dispatches++;
-        throw_if(self::$broken, RuntimeException::class, 'The queue is unavailable.');
-        $seconds = $this->secondsUntil($delay);
-        if (! self::$fifo && $seconds > 900) {
-            self::$rejected++;
-
-            throw new RuntimeException('Value for parameter DelaySeconds is invalid.');
-        }
-
-        self::$delays[] = self::$fifo ? 0 : $seconds;
-
-        return parent::later(self::$fifo ? 0 : $delay, $job, $data, $queue);
-    }
-
-    #[Override]
-    public function release($queue, $job, $delay)
-    {
-        if ($delay > 43200) {
-            self::$rejected++;
-
-            throw new RuntimeException('Value for parameter VisibilityTimeout is invalid.');
-        }
-
-        self::$delays[] = $delay;
-
-        return parent::release($queue, $job, $delay);
-    }
-}
 
 function transitionJobSqsQueue(bool $fifo = false, bool $broken = false): void
 {
