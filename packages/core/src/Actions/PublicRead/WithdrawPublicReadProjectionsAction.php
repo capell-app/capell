@@ -21,7 +21,7 @@ use Throwable;
  * this revision and scope. Each step then runs on its own: a step that throws
  * is reported and stays owed, the others still run, and the failures are
  * rethrown together at the end. An owed step is cleared only when it has
- * succeeded; the retry command (capell:public-read:retry-withdrawals) runs
+ * succeeded; the reconcile command (capell:public-read:reconcile) runs
  * whatever is still owed.
  *
  * @experimental

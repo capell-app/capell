@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\PublicRead;
 
+use Capell\Core\Contracts\PublicRead\FingerprintsPublicReadRules;
 use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
 use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
@@ -63,6 +64,13 @@ final class PublicPageReadEligibilityRegistry extends AbstractKeyedRegistry
             return array_fill(0, count($candidates), true);
         }
 
+        // Whatever is built from these decisions may be cached only while they hold.
+        $consulted = resolve(PublicReadResponseStamps::class);
+
+        foreach ($candidates as $candidate) {
+            $consulted->record($candidate->siteId);
+        }
+
         // Rules whose revision cannot be read cannot be trusted to be current.
         if (resolve(PublicReadEligibilityRevision::class)->current() === null) {
             return array_fill(0, count($candidates), false);
@@ -100,6 +108,26 @@ final class PublicPageReadEligibilityRegistry extends AbstractKeyedRegistry
         }
 
         return array_values($decisions);
+    }
+
+    /**
+     * A digest of every contributor's stored rule inputs, in key order. A
+     * contributor that does not fingerprint its inputs contributes only its
+     * key, so its changes are detected only when it records them through
+     * RecordPublicReadEligibilityChangeAction. Throws when a contributor
+     * cannot read its inputs.
+     */
+    public function fingerprint(): string
+    {
+        $parts = [];
+
+        foreach ($this->allItems() as $eligibility) {
+            $parts[$eligibility->key()] = $eligibility instanceof FingerprintsPublicReadRules ? $eligibility->publicReadRulesFingerprint() : '';
+        }
+
+        ksort($parts);
+
+        return hash('sha256', json_encode($parts, JSON_THROW_ON_ERROR));
     }
 
     /**

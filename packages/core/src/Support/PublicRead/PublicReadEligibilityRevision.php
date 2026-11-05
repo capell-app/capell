@@ -51,6 +51,13 @@ use Throwable;
  * successful advance clears only the token it read before its own write, so
  * a failure recorded after that read still stands.
  *
+ * None of this is what correctness rests on. Each advance also records a
+ * fingerprint of the stored rules, and the public-read reconciler
+ * (ReconcilePublicReadProjectionsAction, every minute) advances the revision
+ * whenever the rules no longer match it, then withdraws every stored copy
+ * built under another revision. A lost failure counter, token or event
+ * therefore delays withdrawal by at most one reconciler run.
+ *
  * @experimental
  */
 final class PublicReadEligibilityRevision
@@ -116,16 +123,20 @@ final class PublicReadEligibilityRevision
         // The failure generation and token this advance may clear, read before its write.
         $observed = $this->failures();
         $token = $this->unknownToken();
+        // The rules this revision names, read before its write: a change after
+        // this read leaves a mismatch the reconciler advances past.
+        $fingerprint = $this->rulesFingerprint();
 
         try {
             $updated = DB::table(TableName::resolve(self::TABLE))
                 ->where('id', 1)
-                ->update(['revision' => $revision, 'updated_at' => now()]);
+                ->update(['revision' => $revision, 'fingerprint' => $fingerprint, 'updated_at' => now()]);
 
             if ($updated === 0) {
                 DB::table(TableName::resolve(self::TABLE))->insertOrIgnore([
                     'id' => 1,
                     'revision' => $revision,
+                    'fingerprint' => $fingerprint,
                     'updated_at' => now(),
                 ]);
             }
@@ -148,6 +159,19 @@ final class PublicReadEligibilityRevision
         }
 
         return $this->fresh();
+    }
+
+    /**
+     * The durable state as stored: the revision, the fingerprint of the rules
+     * it was advanced under, and whether a failed advance marked it unknown.
+     * Null when the row cannot be read. Ignores this request's copy and the
+     * shared cache.
+     *
+     * @return array{revision: string|null, fingerprint: string|null, unknown: bool}|null
+     */
+    public function durable(): ?array
+    {
+        return $this->readRow();
     }
 
     public function isUnknown(): bool
@@ -370,12 +394,12 @@ final class PublicReadEligibilityRevision
      * The stored revision and whether a failed advance left it unknown, in
      * one read, or null when the row cannot be read.
      *
-     * @return array{revision: string|null, unknown: bool}|null
+     * @return array{revision: string|null, fingerprint: string|null, unknown: bool}|null
      */
     private function readRow(): ?array
     {
         try {
-            $row = DB::table(TableName::resolve(self::TABLE))->where('id', 1)->first(['revision', 'unknown_token']);
+            $row = DB::table(TableName::resolve(self::TABLE))->where('id', 1)->first(['revision', 'fingerprint', 'unknown_token']);
         } catch (Throwable $throwable) {
             report($throwable);
 
@@ -383,11 +407,25 @@ final class PublicReadEligibilityRevision
         }
 
         $revision = $row->revision ?? null;
+        $fingerprint = $row->fingerprint ?? null;
         $token = $row->unknown_token ?? null;
 
         return [
             'revision' => is_string($revision) && $revision !== '' ? $revision : null,
+            'fingerprint' => is_string($fingerprint) && $fingerprint !== '' ? $fingerprint : null,
             'unknown' => is_string($token) && $token !== '',
         ];
+    }
+
+    /** The fingerprint of the stored rules, or null when they cannot be read. */
+    private function rulesFingerprint(): ?string
+    {
+        try {
+            return resolve(PublicPageReadEligibilityRegistry::class)->fingerprint();
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return null;
+        }
     }
 }

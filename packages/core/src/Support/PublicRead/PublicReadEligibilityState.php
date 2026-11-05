@@ -49,6 +49,8 @@ final class PublicReadEligibilityState
             return new PublicReadStampData(null, null);
         }
 
+        resolve(PublicReadResponseStamps::class)->record($siteId);
+
         return $this->stampFor($this->revision->current(), $siteId);
     }
 
@@ -62,6 +64,8 @@ final class PublicReadEligibilityState
             return new PublicReadStampData(null, null);
         }
 
+        resolve(PublicReadResponseStamps::class)->record($siteId);
+
         return $this->stampFor($this->revision->fresh(), $siteId);
     }
 
@@ -74,6 +78,9 @@ final class PublicReadEligibilityState
         if (! $this->isRestricted()) {
             return true;
         }
+
+        // A stored copy served now is bounded by the rules of every site.
+        resolve(PublicReadResponseStamps::class)->record(null);
 
         $current = $this->revision->current();
 

@@ -16,6 +16,8 @@ return new class extends Migration
         Schema::create(TableName::resolve('public_read_eligibility_state'), function (Blueprint $table): void {
             $table->unsignedInteger('id')->primary();
             $table->string('revision', 64);
+            // A digest of the stored rules this revision was advanced under; the reconciler advances past a mismatch.
+            $table->string('fingerprint', 64)->nullable();
             // Set when an advance fails, so the unknown state survives a cache clear.
             $table->string('unknown_token', 64)->nullable();
             $table->timestamp('updated_at')->nullable();

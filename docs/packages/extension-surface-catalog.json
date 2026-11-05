@@ -263,6 +263,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.reconcile-public-read-projections",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublicRead\\ReconcilePublicReadProjectionsAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Source of truth for withdrawal: repairs the revision and withdraws stores built under another stamp.",
+            "contractTestId": null
+        },
+        {
             "id": "core.action.record-public-read-eligibility-change",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\PublicRead\\RecordPublicReadEligibilityChangeAction",
@@ -471,6 +481,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Neutral runtime contribution receipt boundary.",
             "contractTestId": "core.extension-contribution-receipt"
+        },
+        {
+            "id": "core.contract.fingerprints-public-read-rules",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\FingerprintsPublicReadRules",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Digest of a contributor's stored rule inputs, so a change nobody announced is still detected.",
+            "contractTestId": null
         },
         {
             "id": "core.contract.frontend-route-reservation-contributor",
@@ -911,6 +931,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build SiteSpec reference.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.public-read-reconciliation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\PublicRead\\PublicReadReconciliationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "What one reconciliation run withdrew and which store withdrawals failed.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.public-read-stamp",
@@ -1423,6 +1453,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.support.cap-public-read-response-caching",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Http\\Middleware\\CapPublicReadResponseCaching",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Global rule bounding cache lifetimes and validators of responses built from public-read decisions.",
+            "contractTestId": null
+        },
+        {
             "id": "core.support.log-channel-reporter",
             "kind": "support",
             "identifier": "Capell\\Core\\Support\\Reporting\\LogChannelReporter",
@@ -1473,6 +1513,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.support.public-read-response-stamps",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadResponseStamps",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Sites whose public-read rules the current request consulted.",
+            "contractTestId": null
+        },
+        {
             "id": "core.support.public-read-scanner",
             "kind": "support",
             "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadScanner",
@@ -1489,7 +1539,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Register an idempotent step that withdraws stored public output; failed steps stay owed and are retried.",
+            "summary": "Register an idempotent withdrawal step per store; the reconciler runs it per site until its copies match the current rules.",
             "contractTestId": null
         },
         {

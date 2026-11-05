@@ -103,7 +103,7 @@ it('still removes static exports and purges the CDN when the fragment cache stor
     }
 });
 
-it('keeps a CDN purge that throws owed until the retry command completes it', function (): void {
+it('keeps a CDN purge that throws owed until the reconcile command completes it', function (): void {
     withdrawalRestrictReads();
     $domain = SiteDomain::factory()->default()->create();
     withdrawalFakeCdn(false);
@@ -114,12 +114,12 @@ it('keeps a CDN purge that throws owed until the retry command completes it', fu
         ->and(DB::table(TableName::resolve(WithdrawPublicReadProjectionsAction::TABLE))->value('attempts'))->toBe(1);
 
     // Still unavailable: the step stays owed and the command reports failure.
-    expect(Artisan::call('capell:public-read:retry-withdrawals'))->toBe(1);
+    expect(Artisan::call('capell:public-read:reconcile'))->toBe(1);
 
     expect(withdrawalOwedSteps())->toBe([FrontendPublicReadWithdrawalSteps::CDN]);
 
     withdrawalFakeCdn(true);
-    expect(Artisan::call('capell:public-read:retry-withdrawals'))->toBe(0);
+    expect(Artisan::call('capell:public-read:reconcile'))->toBe(0);
 
     expect(withdrawalOwedSteps())->toBe([]);
 });
