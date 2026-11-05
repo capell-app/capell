@@ -5,6 +5,7 @@
 # do-not-commit marker past them. Excludes and file types come from .pre-commit-config.yaml unchanged.
 #
 # Usage: scripts/guards/check-commit-range.sh <base-ref> <head-ref>
+# The head ref must resolve to the checked-out HEAD.
 # The PHP Quality workflow calls it; the pre-push stage runs the same hooks natively.
 set -euo pipefail
 
@@ -18,6 +19,15 @@ head=$2
 
 if ! git rev-parse --verify --quiet "${base}^{commit}" >/dev/null; then
     echo "check-commit-range: base ${base} is not a commit in this checkout; fetch it (CI needs fetch-depth: 0)." >&2
+    exit 2
+fi
+
+if ! resolved_head=$(git rev-parse --verify --quiet "${head}^{commit}"); then
+    echo "check-commit-range: head ${head} is not a commit in this checkout." >&2
+    exit 2
+fi
+if [ "$(git rev-parse HEAD)" != "$resolved_head" ]; then
+    echo "check-commit-range: head ${head} must be the checked-out HEAD." >&2
     exit 2
 fi
 

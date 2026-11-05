@@ -5,8 +5,8 @@ from pathlib import Path
 import re
 import sys
 
-DEBUGGING = re.compile(rb'\bdd[ \t]*\(|(?<!->)(?<!::)\bdebug[ \t]*\(|(?<!json\.)\bdump[ \t]*\(|\bray[ \t]*\(|\brd[ \t]*\(|\bdie[ \t]*\(|\bexit[ \t]*\(|\bddRawSql[ \t]*\(|\bvar_dump[ \t]*\(|\bprint_r[ \t]*\(')
-EXIT = re.compile(rb'\bexit[ \t]*\(')
+DEBUGGING = re.compile(rb'\bdd[ \t]*\(|(?<!->)(?<!::)\bdebug[ \t]*\(|(?<!json\.)\bdump[ \t]*\(|\bray[ \t]*\(|\brd[ \t]*\(|\bdie[ \t]*\(|\bexit[ \t]*\(|\bddRawSql[ \t]*\(|\bvar_dump[ \t]*\(|\bprint_r[ \t]*\(', re.IGNORECASE)
+EXIT = re.compile(rb'\bexit[ \t]*\(', re.IGNORECASE)
 CLI_SCRIPTS = frozenset({
     'with-lock', 'with-admission', 'check-test-psr4',
     'check-composer-major-constraints', 'check-lang-spelling',
@@ -23,6 +23,8 @@ CLI_SCRIPTS = frozenset({
 })
 STATUS_EXIT = re.compile(rb'exit\((?:[0-9]+|\$status|\$exitCode)\)')
 SPECIAL_EXITS = {
+    '.claude/hooks/session-start.sh': (b'ex' + b'it(PHP_VERSION_ID >= 80400 ? 0 : 1)',),
+    'scripts/verify-container-quickstart.sh': (b'ex' + b'it(1)',),
     'scripts/with-admission.php': (b'ex' + b'it(is_resource($process) ? proc_close($process) : 127)',),
     'scripts/run-preflight.php': (b'ex' + b'it(is_resource($process) ? proc_close($process) : 127)',),
     'scripts/with-lock.php': (b'ex' + b'it($runCommand($command))',),
@@ -41,6 +43,11 @@ SPECIAL_EXITS = {
 }
 
 
+SPECIAL_CALLS = {
+    'packages/admin/publishes/build/js/filament/rich-content-plugins/highlight.js': (b'R' + b'd(n)', b'R' + b'd(x)'),
+}
+
+
 def is_status_exit(name, line, match):
     path = Path(name)
     remaining = line[match.start():]
@@ -56,14 +63,16 @@ def main(paths):
         with Path(name).open('rb') as source:
             for number, line in enumerate(source, 1):
                 for match in DEBUGGING.finditer(line):
-                    if match.group().startswith(b'debug') and re.search(rb'\bfunction\s+&?\s*$', line[:match.start()]):
+                    if any(line[match.start():].startswith(call) for call in SPECIAL_CALLS.get(Path(name).as_posix(), ())):
                         continue
-                    if match.group() == b'ex' + b'it(' and is_status_exit(name, line, match):
+                    if match.group().lower().startswith(b'debug') and re.search(rb'\bfunction\s+&?\s*$', line[:match.start()]):
+                        continue
+                    if EXIT.fullmatch(match.group()) and is_status_exit(name, line, match):
                         continue
                     found = True
                     sys.stdout.buffer.write(f'{name}:{number}:'.encode() + line.rstrip(b'\r\n') + b'\n')
                     if name.startswith('scripts/') and EXIT.search(line):
-                        sys.stderr.write('The debugging guard also matches CLI ' + 'exit' + '(). If this is a legitimate CLI status, review a narrowly scoped hook exemption for this script.\n')
+                        sys.stderr.write('The debugging guard also matches CLI ' + 'exit' + '(). If this is a legitimate CLI status, review SPECIAL_EXITS or CLI_SCRIPTS in scripts/check-debugging.py for a narrowly scoped exception.\n')
                     break
     return int(found)
 

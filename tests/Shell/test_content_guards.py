@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise both content guards through the push and CI entry points."""
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -67,6 +68,17 @@ class CliDebuggingGuardTest(unittest.TestCase):
                 result = subprocess.run(['python3', os.environ.get('GUARD_TEST_DEBUGGING', str(ROOT / 'scripts/check-debugging.py')), path], cwd=scratch, capture_output=True)
                 self.assertEqual(result.returncode, 1, call.decode())
                 self.assertIn(call, result.stdout)
+    def test_debugging_calls_are_case_insensitive(self):
+        guard = os.environ.get('GUARD_TEST_DEBUGGING', str(ROOT / 'scripts/check-debugging.py'))
+        with tempfile.TemporaryDirectory(dir=ROOT / 'var') as directory:
+            fixture = Path(directory) / 'fixture.php'
+            for call in (b'D' + b'D($value);', b'Var_' + b'Du' + b'mp($value);'):
+                with self.subTest(call=call):
+                    fixture.write_bytes(call)
+                    result = subprocess.run(['python3', guard, str(fixture)], cwd=ROOT, capture_output=True)
+                    self.assertEqual(result.returncode, 1, call.decode())
+                    self.assertIn(call, result.stdout)
+
     def test_only_approved_cli_status_exits_pass(self):
         with tempfile.TemporaryDirectory(dir=ROOT / 'var') as directory:
             scratch = Path(directory)
@@ -109,34 +121,78 @@ class CliDebuggingGuardTest(unittest.TestCase):
                     self.assertEqual(result.returncode, 1)
                     self.assertIn(b'd' + b'd($value);', result.stdout)
 
+    def test_tracked_text_files_pass_configured_hooks(self):
+        runner = os.environ.get('GUARD_TEST_PRE_COMMIT', 'pre-commit')
+        # pre-commit supplies text type detection and both global and hook excludes.
+        for hook in ('checkfordebugging', 'donotcommit'):
+            result = subprocess.run([runner, 'run', hook, '--hook-stage', 'manual', '--all-files'], cwd=ROOT, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('Passed', result.stdout)
+
+    def test_special_exits_are_exact_and_case_sensitive(self):
+        guard = os.environ.get('GUARD_TEST_DEBUGGING', str(ROOT / 'scripts/check-debugging.py'))
+        cases = {
+            '.claude/hooks/session-start.sh': b'ex' + b'it(PHP_VERSION_ID >= 80400 ? 0 : 1)',
+            'scripts/verify-container-quickstart.sh': b'ex' + b'it(1)',
+        }
+        with tempfile.TemporaryDirectory(dir=ROOT / 'var') as directory:
+            scratch = Path(directory)
+            for name, allowed in cases.items():
+                fixture = scratch / name
+                fixture.parent.mkdir(parents=True, exist_ok=True)
+                for content, expected in ((allowed, 0), (allowed.upper(), 1), (allowed + b'; D' + b'D($x)', 1), (b'ex' + b'it(2)', 1)):
+                    fixture.write_bytes(content + b'\n')
+                    result = subprocess.run(['python3', guard, name], cwd=scratch, capture_output=True)
+                    self.assertEqual(result.returncode, expected, result.stdout.decode())
+
+    def test_generated_javascript_exact_calls_do_not_hide_debugging(self):
+        name = 'packages/admin/publishes/build/js/filament/rich-content-plugins/highlight.js'
+        guard = os.environ.get('GUARD_TEST_DEBUGGING', str(ROOT / 'scripts/check-debugging.py'))
+        with tempfile.TemporaryDirectory(dir=ROOT / 'var') as directory:
+            scratch = Path(directory)
+            fixture = scratch / name
+            fixture.parent.mkdir(parents=True)
+            for content, expected in ((b'R' + b'd(n); R' + b'd(x);', 0), (b'R' + b'd(n); r' + b'd($value);', 1), (b'R' + b'd(other);', 1)):
+                fixture.write_bytes(content)
+                result = subprocess.run(['python3', guard, name], cwd=scratch, capture_output=True)
+                self.assertEqual(result.returncode, expected, result.stdout.decode())
+
+    def test_head_must_be_checked_out(self):
+        script = os.environ.get('GUARD_TEST_RANGE_SCRIPT', 'scripts/guards/check-commit-range.sh')
+        result = subprocess.run([script, 'HEAD~1', 'HEAD~1'], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn('checked-out HEAD', result.stderr)
+
     def test_committed_range_uses_real_history(self):
-        commits = subprocess.check_output(['git', 'log', '--format=%H', '--max-count=50', '--', 'packages'], cwd=ROOT, text=True).splitlines()
-        path = None
-        for head in commits:
-            base = head + '^'
-            changed = subprocess.check_output(['git', 'diff', '--name-only', base, head, '--', 'packages'], cwd=ROOT, text=True).splitlines()
-            path = next((name for name in changed if name.endswith('.php') and (ROOT / name).is_file()), None)
-            if path:
+        # Use existing history without writing Git objects, refs or an index.
+        commits = subprocess.check_output(['git', 'log', '--diff-filter=R', '--format=%H', 'HEAD'], cwd=ROOT, text=True).splitlines()
+        rename = None
+        for commit in commits:
+            base = commit + '^'
+            changes = subprocess.check_output(['git', 'diff', '--name-status', '-M', base, 'HEAD'], cwd=ROOT, text=True).splitlines()
+            renames = [line.split('\t') for line in changes if re.match(r'^R[0-9]+\t', line)]
+            deleted = [line.split('\t')[1] for line in changes if line.startswith('D\t')]
+            rename = next((entry[2] for entry in renames if (ROOT / entry[2]).is_file()), None)
+            if rename and deleted:
                 break
-        self.assertIsNotNone(path, 'No surviving PHP file found in recent package history')
+        self.assertTrue(rename and deleted, 'No surviving rename and deletion found in history')
         git_dir = subprocess.check_output(['git', 'rev-parse', '--absolute-git-dir'], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory(dir=ROOT / 'var') as directory:
             scratch = Path(directory)
-            for name in ('.pre-commit-config.yaml', 'scripts/check-debugging.py', 'scripts/guards/check-commit-range.sh', path):
+            for name in ('.pre-commit-config.yaml', 'scripts/check-debugging.py', 'scripts/guards/check-commit-range.sh', rename):
                 target = scratch / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 source = Path(os.environ.get('GUARD_TEST_RANGE_SCRIPT', ROOT / name)) if name == 'scripts/guards/check-commit-range.sh' else ROOT / name
                 target.write_bytes(source.read_bytes())
                 target.chmod(source.stat().st_mode)
             env = dict(os.environ, GIT_DIR=git_dir, GIT_WORK_TREE=str(scratch))
-            fixture = scratch / path
-            original = fixture.read_bytes()
-            for marker, expected in ((b'', 0), (b'd' + b'd($value);', 1), (b'DO NOT ' + b'COMMIT', 1)):
-                fixture.write_bytes(original + b'\n' + marker + b'\n')
-                result = subprocess.run(['scripts/guards/check-commit-range.sh', base, head], cwd=scratch, env=env, capture_output=True, text=True)
+            fixture = scratch / rename
+            for marker, expected in ((b'clean content', 0), (b'd' + b'd($value);', 1), (b'DO NOT ' + b'COMMIT', 1)):
+                fixture.write_bytes(marker + b'\n')
+                result = subprocess.run(['scripts/guards/check-commit-range.sh', base, 'HEAD'], cwd=scratch, env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
-                if marker:
-                    self.assertIn(path, result.stdout + result.stderr)
+                if expected:
+                    self.assertIn(rename, result.stdout + result.stderr)
                 else:
                     self.assertEqual(result.stdout.count('Passed'), 2, result.stdout + result.stderr)
 
