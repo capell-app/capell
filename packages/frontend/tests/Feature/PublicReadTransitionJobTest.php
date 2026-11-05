@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * These tests drive the transition job through a real database queue and
@@ -28,11 +27,9 @@ use Illuminate\Support\Facades\Schema;
  */
 function transitionJobQueue(): void
 {
+    // The jobs and failed_jobs tables come from the suite's migrations, never from DDL here:
+    // on MySQL and MariaDB a CREATE TABLE commits the test's transaction and leaks rows.
     config()->set('queue.default', 'database');
-
-    if (! Schema::hasTable('jobs')) {
-        (require dirname(__DIR__, 4) . '/vendor/orchestra/testbench-core/laravel/migrations/0001_01_01_000002_testbench_create_jobs_table.php')->up();
-    }
 }
 
 function transitionJobRules(CarbonImmutable $transition): void
@@ -150,10 +147,12 @@ it('retries a transition whose revision could not be stored, until it is', funct
 
     $failing = new stdClass;
     $failing->on = true;
-    DB::beforeExecuting(static function (string $query) use ($failing): void {
+    // Quoted as this connection quotes it: MySQL and MariaDB use backticks, SQLite and PostgreSQL double quotes.
+    $revisionColumn = DB::connection()->getQueryGrammar()->wrap('revision');
+    DB::beforeExecuting(static function (string $query) use ($failing, $revisionColumn): void {
         $sql = mb_strtolower(ltrim($query));
 
-        throw_if($failing->on && str_starts_with($sql, 'update') && str_contains($sql, 'public_read_eligibility_state') && str_contains($sql, '"revision"'), RuntimeException::class, 'The revision cannot be written.');
+        throw_if($failing->on && str_starts_with($sql, 'update') && str_contains($sql, 'public_read_eligibility_state') && str_contains($sql, $revisionColumn), RuntimeException::class, 'The revision cannot be written.');
     });
 
     $this->travelTo($transition);
