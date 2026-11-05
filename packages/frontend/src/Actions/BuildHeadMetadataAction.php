@@ -6,10 +6,12 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Data\HeadMetadataData;
 use Capell\Frontend\Support\Render\HeadMetadataRegistry;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildHeadMetadataAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly HeadMetadataRegistry $registry) {}

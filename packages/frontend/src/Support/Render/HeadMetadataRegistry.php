@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use InvalidArgumentException;
 
-final class HeadMetadataRegistry
+/** @extends AbstractKeyedRegistry<string|array<string, mixed>> */
+final class HeadMetadataRegistry extends AbstractKeyedRegistry
 {
     private const KEYS = ['og:title', 'og:description', 'og:type', 'og:url', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description', 'jsonld:WebSite', 'jsonld:WebPage', 'robots'];
-
-    /** @var array<string, string|array<string, mixed>> */
-    private array $values = [];
 
     public static function mergeRobots(string ...$contributions): string
     {
@@ -41,9 +40,10 @@ final class HeadMetadataRegistry
     {
         throw_if(! in_array($key, self::KEYS, true) || (str_starts_with($key, 'jsonld:') !== is_array($value)), InvalidArgumentException::class, 'Invalid head metadata contribution: ' . $key);
 
-        $this->values[$key] = $key === 'robots' && is_string($value) && isset($this->values[$key]) && is_string($this->values[$key])
-            ? self::mergeRobots($this->values[$key], $value)
-            : $value;
+        $existing = $this->getItem($key);
+        $this->setItem($key, $key === 'robots' && is_string($value) && is_string($existing)
+            ? self::mergeRobots($existing, $value)
+            : $value);
     }
 
     /** @param array<string, string|array<string, mixed>> $defaults
@@ -51,9 +51,10 @@ final class HeadMetadataRegistry
      */
     public function apply(array $defaults): array
     {
-        $values = array_replace($defaults, $this->values);
-        if (isset($defaults['robots'], $this->values['robots']) && is_string($defaults['robots']) && is_string($this->values['robots'])) {
-            $values['robots'] = self::mergeRobots($defaults['robots'], $this->values['robots']);
+        $registered = $this->allItems();
+        $values = array_replace($defaults, $registered);
+        if (isset($defaults['robots'], $registered['robots']) && is_string($defaults['robots']) && is_string($registered['robots'])) {
+            $values['robots'] = self::mergeRobots($defaults['robots'], $registered['robots']);
         }
 
         return $values;
