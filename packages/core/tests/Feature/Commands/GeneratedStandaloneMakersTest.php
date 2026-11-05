@@ -9,17 +9,17 @@ use Symfony\Component\Process\Process;
 beforeEach(function (): void {
     $this->oldBase = app()->basePath();
     $this->oldApp = app()->path();
-    $this->oldRoots = config('capell.diagnostics.allowed_roots');
+    $this->oldConfig = config('capell');
     $this->workspace = getcwd() . '/var/generatedmaker' . bin2hex(random_bytes(8));
     app()->setBasePath($this->workspace);
     app()->useAppPath($this->workspace . '/app');
-    config(['capell.diagnostics.allowed_roots' => [$this->workspace]]);
+    config(['capell' => require getcwd() . '/packages/core/config/capell.php']);
 });
 
 afterEach(function (): void {
     app()->setBasePath($this->oldBase);
     app()->useAppPath($this->oldApp);
-    config(['capell.diagnostics.allowed_roots' => $this->oldRoots]);
+    config(['capell' => $this->oldConfig]);
     new Filesystem()->deleteDirectory($this->workspace);
 });
 
@@ -38,4 +38,5 @@ it('creates a runnable test for an autoloaded maker', function (string $maker, s
 })->with([
     ['core.action', 'app/Actions/ExampleAction.php', 'tests/Feature/Generated/ExampleActionTest.php'],
     ['core.data', 'app/Data/ExampleData.php', 'tests/Feature/Generated/ExampleDataTest.php'],
+    ['core.schema', 'app/Schemas/ExampleSchema.php', 'tests/Feature/Generated/ExampleSchemaTest.php'],
 ]);

@@ -1,0 +1,12 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Schemas\{{ class }}Schema;
+use Filament\Schemas\Schema;
+
+require_once dirname(__DIR__, 3) . '/app/Schemas/{{ class }}Schema.php';
+
+it('builds the {{ class }} schema', function (): void {
+    expect({{ class }}Schema::make(new Schema))->toBe([]);
+});
