@@ -77,6 +77,7 @@ class SocialIcons extends Fieldset
                                     ->placeholder('https://')
                                     ->hintAction(
                                         Action::make('visit')
+                                            ->label(__('capell-admin::button.visit'))
                                             ->color('gray')
                                             ->hiddenLabel()
                                             ->icon('heroicon-m-arrow-top-right-on-square')

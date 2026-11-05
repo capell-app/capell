@@ -24,6 +24,7 @@
                     ])
                     type="button"
                     title="{{ $this->lockdownActive ? __('capell-admin::button.disable_lockdown_tooltip') : __('capell-admin::button.site_tools') }}"
+                    aria-label="{{ $this->lockdownActive ? __('capell-admin::button.disable_lockdown_tooltip') : __('capell-admin::button.site_tools') }}"
                     x-tooltip.raw="{{ $this->lockdownActive ? __('capell-admin::message.lockdown_banner') : __('capell-admin::button.site_tools') }}"
                 >
                     @svg(Heroicon::WrenchScrewdriver->getIconForSize(IconSize::Small), 'h-4 w-4')

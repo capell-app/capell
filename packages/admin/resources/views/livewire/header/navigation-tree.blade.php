@@ -19,6 +19,7 @@
                 ])
                 type="button"
                 title="{{ __('capell-admin::button.navigation_tree_tooltip') }}"
+                aria-label="{{ __('capell-admin::button.navigation_tree_tooltip') }}"
                 x-tooltip.raw="{{ __('capell-admin::button.navigation_tree_tooltip') }}"
                 wire:click="loadTree"
             >
@@ -256,6 +257,7 @@
                                                 class="hover:text-primary-600 focus:text-primary-600 focus-visible:ring-primary-500 dark:hover:text-primary-400 dark:focus:text-primary-400 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 opacity-0 transition outline-none group-hover:opacity-100 focus:opacity-100 focus-visible:ring-2"
                                                 href="{{ $site['edit_url'] }}"
                                                 title="{{ __('capell-admin::button.edit_site') }}"
+                                                aria-label="{{ __('capell-admin::button.edit_site') }}"
                                                 x-tooltip.raw="{{ __('capell-admin::button.edit_site') }}"
                                             >
                                                 @svg(Heroicon::OutlinedPencilSquare->getIconForSize(IconSize::Small), 'h-4 w-4')

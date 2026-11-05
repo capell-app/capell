@@ -15,6 +15,7 @@
 
     <a
         class="sitemap-icon"
+        aria-label="{{ __('capell-admin::button.visit_page') }}"
         href="{{ $sitemapPage->url }}"
         target="_blank"
     >
