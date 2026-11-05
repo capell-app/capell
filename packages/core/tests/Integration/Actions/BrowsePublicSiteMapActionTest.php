@@ -30,9 +30,8 @@ it('lists only translated published pages with usable same-site urls', function 
 
     $result = BrowsePublicSiteMapAction::run($fixture['site'], $fixture['language']);
 
-    expect($result->total())->toBe(2)
-        ->and($result->getCollection()->pluck('url')->all())->toBe(['/home', '/visible'])
-        ->and($result->getCollection()[1]['title'])->toBe('Visible page');
+    expect(array_column($result->items(), 'url'))->toBe(['/home', '/visible'])
+        ->and($result->items()[1]['title'])->toBe('Visible page');
 });
 
 it('requires the requested language translation', function (): void {
@@ -46,7 +45,7 @@ it('requires the requested language translation', function (): void {
 
     $result = BrowsePublicSiteMapAction::run($fixture['site'], $fixture['language']);
 
-    expect($result->getCollection()->pluck('url')->all())->toBe(['/home']);
+    expect(array_column($result->items(), 'url'))->toBe(['/home']);
 });
 
 it('excludes urls whose same-site domain is disabled', function (): void {
@@ -57,7 +56,7 @@ it('excludes urls whose same-site domain is disabled', function (): void {
 
     $result = BrowsePublicSiteMapAction::run($fixture['site'], $fixture['language']);
 
-    expect($result->total())->toBe(0);
+    expect($result->items())->toBe([]);
 });
 
 /** @return array{site: Site, language: Language, page: Page} */

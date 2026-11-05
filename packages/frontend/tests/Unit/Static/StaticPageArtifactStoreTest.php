@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -18,9 +20,9 @@ afterEach(function (): void {
 
 it('keeps cumulative ownership private when public export receipts are replaced', function (): void {
     $store = resolve(StaticPageArtifactStore::class);
-    $store->putOwnedHtml('private/index.html', 'Confidential', 10);
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'private/index.html', 'Confidential', 10));
     $store->writeManifest(['artifacts' => [['file' => 'private/index.html']]]);
-    $store->putOwnedHtml('public/index.html', 'Public', 20);
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'public/index.html', 'Public', 20));
 
     $receipt = ['artifacts' => [['file' => 'public/index.html']]];
     $store->writeManifest($receipt);
@@ -41,16 +43,16 @@ it('does not publish HTML if private inventory publication fails', function (): 
     $store = resolve(StaticPageArtifactStore::class);
     File::partialMock()->shouldReceive('move')->once()->with(Mockery::type('string'), $store->ownershipPath())->andReturn(false);
 
-    expect(fn () => $store->putOwnedHtml('private/index.html', 'Confidential', 10))->toThrow(RuntimeException::class)
+    expect(fn (): bool => PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'private/index.html', 'Confidential', 10)))->toThrow(RuntimeException::class)
         ->and(File::exists($store->root() . '/private/index.html'))->toBeFalse();
 });
 
 it('retains former ownership when a replacement HTML publication fails', function (): void {
     $store = resolve(StaticPageArtifactStore::class);
-    $store->putOwnedHtml('shared/index.html', 'Former confidential bytes', 10);
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'shared/index.html', 'Former confidential bytes', 10));
     File::partialMock()->shouldReceive('move')->once()->with(Mockery::type('string'), $store->root() . '/shared/index.html')->andReturn(false);
 
-    expect(fn () => $store->putOwnedHtml('shared/index.html', 'New public bytes', 20))->toThrow(RuntimeException::class)
+    expect(fn (): bool => PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'shared/index.html', 'New public bytes', 20)))->toThrow(RuntimeException::class)
         ->and(File::get($store->root() . '/shared/index.html'))->toBe('Former confidential bytes');
 
     $store->purgeSite(10);
@@ -60,7 +62,7 @@ it('retains former ownership when a replacement HTML publication fails', functio
 
 it('gates repair on corrupt ownership rather than silently retaining confidential files', function (): void {
     $store = resolve(StaticPageArtifactStore::class);
-    $store->putOwnedHtml('private/index.html', 'Confidential', 10);
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'private/index.html', 'Confidential', 10));
     File::put($store->ownershipPath(), '{broken');
 
     expect(fn () => $store->purgeSite(10))->toThrow(JsonException::class)
@@ -69,9 +71,9 @@ it('gates repair on corrupt ownership rather than silently retaining confidentia
 
 it('removes untracked legacy HTML beyond the current receipt', function (): void {
     $store = resolve(StaticPageArtifactStore::class);
-    $store->putHtml('old-host/removed-route/index.html', 'Confidential orphan');
-    $store->putHtml('latest/index.html', 'Unattributed latest export');
-    $store->putHtml('.git/hidden/index.html', 'Confidential hidden export');
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putHtml($permit, 'old-host/removed-route/index.html', 'Confidential orphan'));
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putHtml($permit, 'latest/index.html', 'Unattributed latest export'));
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putHtml($permit, '.git/hidden/index.html', 'Confidential hidden export'));
     $store->writeManifest(['artifacts' => [['file' => 'latest/index.html'], ['file' => 'already-invalidated/index.html']]]);
 
     $store->purgeSite(10);

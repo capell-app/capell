@@ -8,10 +8,12 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Frontend\Actions\GenerateMaintenancePageCacheAction;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
+use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -26,6 +28,8 @@ afterEach(function (): void {
 it('generates static maintenance html and updates the manifest for each site domain', function (): void {
     $store = new class implements StaticMaintenancePageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [];
 
@@ -39,7 +43,7 @@ it('generates static maintenance html and updates the manifest for each site dom
             return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
         }
 
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }
@@ -95,6 +99,8 @@ it('generates static maintenance html and updates the manifest for each site dom
 it('rejects and does not store maintenance html that fails the public render contract', function (): void {
     $store = new class implements StaticMaintenancePageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [];
 
@@ -108,7 +114,7 @@ it('rejects and does not store maintenance html that fails the public render con
             return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
         }
 
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }

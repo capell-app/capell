@@ -401,6 +401,11 @@ abstract class AbstractTestCase extends TestCase
 
             Config::set('database.default', 'capell_mysql_test');
             Config::set('database.connections.capell_mysql_test', $connection);
+            // The skeleton keys these to DB_CONNECTION; left there, failed jobs and batches would be
+            // written through a second connection outside the test's transaction (and, in parallel
+            // runs, to the unsuffixed database), so the test could not see them and they would leak.
+            Config::set('queue.failed.database', 'capell_mysql_test');
+            Config::set('queue.batching.database', 'capell_mysql_test');
         } else {
             Config::set('database.default', $requestedConnection === '' ? 'sqlite' : $requestedConnection);
 
