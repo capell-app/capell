@@ -42,6 +42,14 @@ final class HeadMetadataCollector
                 return $match[0];
             }
 
+            // A script carrying a Capell data marker (the agent schema read by the agent bridge) is
+            // not a head default: leave it, and its attributes, exactly as emitted.
+            foreach ($script->attributes ?? [] as $attribute) {
+                if (str_starts_with(strtolower($attribute->nodeName), 'data-capell-')) {
+                    return $match[0];
+                }
+            }
+
             $data = json_decode($script->textContent, true);
             if (! is_array($data)) {
                 return $match[0];

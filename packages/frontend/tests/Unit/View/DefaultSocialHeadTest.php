@@ -136,3 +136,19 @@ it('encodes a hydrated page graph safely as JSON', function (): void {
         ->and($graph[1]['url'])->toBe('https://example.test/page?q=</script>')
         ->and($json)->toContain('\\u003C\\/script\\u003E')->not->toContain('</script>');
 });
+
+it('leaves the agent schema script intact when it describes the page', function (): void {
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Example Site'])->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => 'Example Page'])->create();
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+    resolve(RenderHookRegistry::class)->register(RenderHookLocation::HeadClose, fn (): string => '<script type="application/ld+json" data-capell-agent-schema>{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Agent page"}]}</script>');
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+
+    expect(substr_count($html, 'data-capell-agent-schema'))->toBe(1)
+        ->and($html)->toContain('"name":"Agent page"');
+});
