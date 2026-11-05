@@ -86,3 +86,34 @@ uses(' . PackagesTestCase::class . '::class);', $generated));
     'asset blade' => ['core.asset-blade-component', 'resources/views/components/asset/example.blade.php', 'tests/Feature/Generated/ExampleAssetComponentTest.php', []],
     'page livewire' => ['core.page-livewire-component', 'app/Livewire/Example.php', 'tests/Feature/Generated/ExampleLivewireTest.php', ['resources/views/livewire/example.blade.php']],
 ]);
+
+it('refuses names that would break generated paths or PHP strings', function (string $maker, string $name): void {
+    $code = Artisan::call('capell:make', ['maker' => $maker, '--name' => $name]);
+
+    expect($code)->not->toBe(0)
+        ->and(Artisan::output())->toContain('The name must')
+        ->and(base_path('app'))->not->toBeDirectory()
+        ->and(base_path('tests'))->not->toBeDirectory();
+})->with([
+    'slash in a class name' => ['core.action', 'Blog/Publish'],
+    'dot in a class name' => ['core.data', 'Blog.Publish'],
+    'quote in a component name' => ['core.page-blade-component', "it's"],
+    'slash in an asset component name' => ['core.asset-blade-component', 'hero/image'],
+]);
+
+it('still writes generated tests when a published config lacks the generated-tests root', function (): void {
+    config(['capell.diagnostics.allowed_roots' => [app_path('Actions'), app_path('Data')]]);
+
+    $code = Artisan::call('capell:make', ['maker' => 'core.action', '--name' => 'Example']);
+
+    expect($code)->toBe(0, Artisan::output())
+        ->and(base_path('tests/Feature/Generated/ExampleActionTest.php'))->toBeFile();
+});
+
+it('writes a test for the data class generated beside an action', function (): void {
+    $code = Artisan::call('capell:make:action', ['name' => 'Example', '--data' => true]);
+
+    expect($code)->toBe(0, Artisan::output())
+        ->and(base_path('app/Data/ExampleData.php'))->toBeFile()
+        ->and(base_path('tests/Feature/Generated/ExampleDataTest.php'))->toBeFile();
+});

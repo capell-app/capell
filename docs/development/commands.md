@@ -35,14 +35,14 @@ This page is the short command map for the host packages in this repository. Run
 
 ## Developer Makers
 
-| Command                 | Use it for                                             |
-| ----------------------- | ------------------------------------------------------ |
-| `capell:make`           | Preview or run any maker registered in `MakerRegistry` |
-| `capell:make-action`    | Generate an Action class under `App\Actions`           |
-| `capell:make-data`      | Generate a Laravel Data class under `App\Data`         |
-| `capell:make-extender`  | Generate a `PageSchemaExtender`                        |
-| `capell:make-schema`    | Generate a schema class                                |
-| `capell:make-blueprint` | Generate a blueprint subject model and its test        |
+| Command                 | Use it for                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `capell:make`           | Preview or run any maker registered in `MakerRegistry`                                                          |
+| `capell:make:action`    | Generate an Action class under `App\Actions`                                                                    |
+| `capell:make:data`      | Generate a Laravel Data class under `App\Data`                                                                  |
+| `capell:make:extender`  | Generate a `PageSchemaExtender`                                                                                 |
+| `capell:make:schema`    | Generate a schema class                                                                                         |
+| `capell:make:blueprint` | Generate a blueprint subject model and its test (the deprecated `capell:make-type` alias writes the same model) |
 
 The maker hub accepts `--dry-run`, `--force`, `--name=`, `--type=`, `--source=`, `--livewire`, and `--database` where a maker supports them. Use `capell:make --dry-run` before writing files when you are checking a generator.
 

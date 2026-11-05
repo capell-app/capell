@@ -47,6 +47,11 @@ final class ActionMaker extends AbstractFileMaker
                 $this->renderStub(__DIR__ . '/../../../../stubs/makers/action-data.stub', ['class' => $name]),
                 $input->force,
             ));
+            $files->push($this->fileData(
+                base_path('tests/Feature/Generated/' . $name . 'DataTest.php'),
+                $this->renderStub(__DIR__ . '/../../../../stubs/makers/data-test.stub', ['class' => $name]),
+                $input->force,
+            ));
         }
 
         return $this->previewData(

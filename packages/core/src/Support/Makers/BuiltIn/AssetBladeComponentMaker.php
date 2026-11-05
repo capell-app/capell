@@ -19,7 +19,7 @@ final class AssetBladeComponentMaker extends AbstractFileMaker
 
     protected function buildPreview(MakerInputData $input): MakerPreviewData
     {
-        $name = Str::kebab((string) ($input->values['name'] ?? 'custom-asset'));
+        $name = $this->safeKebab((string) ($input->values['name'] ?? 'custom-asset'));
 
         return $this->previewData(
             $input,

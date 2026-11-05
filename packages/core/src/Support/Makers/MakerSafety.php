@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Makers;
 
 use Capell\Core\Data\Makers\MakerSafetyData;
+use Illuminate\Support\Collection;
 
 class MakerSafety
 {
@@ -26,7 +27,7 @@ class MakerSafety
         return new MakerSafetyData(
             phpWritesAllowed: $phpWritesAllowed,
             databaseWritesAllowed: $databaseWritesAllowed,
-            allowedRoots: collect((array) config('capell.diagnostics.allowed_roots', []))
+            allowedRoots: $this->configuredRoots()
                 ->map(fn (string $path): string => $this->normalizePath($path))
                 ->values(),
             environment: $environment,
@@ -42,9 +43,23 @@ class MakerSafety
             return false;
         }
 
-        return collect((array) config('capell.diagnostics.allowed_roots', []))
+        return $this->configuredRoots()
             ->map(fn (string $root): ?string => $this->canonicalPath($root))
             ->contains(fn (?string $root): bool => $root !== null && ($normalizedPath === $root || str_starts_with($normalizedPath, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)));
+    }
+
+    /**
+     * The configured roots plus the generated-tests root, which every maker writes to.
+     * An application that published an older config would otherwise refuse every maker.
+     *
+     * @return Collection<int, string>
+     */
+    private function configuredRoots(): Collection
+    {
+        return collect((array) config('capell.diagnostics.allowed_roots', []))
+            ->push(base_path('tests/Feature/Generated'))
+            ->unique()
+            ->values();
     }
 
     private function modeAllows(string $mode, string $environment): bool

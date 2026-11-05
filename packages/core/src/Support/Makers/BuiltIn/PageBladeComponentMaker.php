@@ -19,7 +19,7 @@ final class PageBladeComponentMaker extends AbstractFileMaker
 
     protected function buildPreview(MakerInputData $input): MakerPreviewData
     {
-        $name = Str::kebab((string) ($input->values['name'] ?? 'custom-page'));
+        $name = $this->safeKebab((string) ($input->values['name'] ?? 'custom-page'));
 
         return $this->previewData(
             $input,

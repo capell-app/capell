@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Makers\BuiltIn;
 use Capell\Core\Data\Makers\MakerDefinitionData;
 use Capell\Core\Data\Makers\MakerInputData;
 use Capell\Core\Data\Makers\MakerPreviewData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Makers\AbstractFileMaker;
 use Illuminate\Support\Str;
 
@@ -30,7 +31,7 @@ final class BlueprintMaker extends AbstractFileMaker
             collect(['php artisan capell:make:blueprint ' . $name]),
             collect([
                 'Create a migration for the model table with a nullable blueprint_id foreign key; the model already carries the Blueprintable contract.',
-                'Register the subject from bootInstalledPackage(): $this->surface()->blueprintSubject(new BlueprintSubjectDescriptorData(key: \'' . Str::kebab($name) . "', label: '" . $name . '\', modelClass: \App\Blueprints\\' . $name . "::class, ownerPackage: 'your-vendor/your-package')).",
+                'In an application, register the subject from a service provider boot method: resolve(' . BlueprintSubjectRegistry::class . '::class)->register(new \Capell\Core\Data\BlueprintSubjectDescriptorData(key: \'' . Str::kebab($name) . "', label: '" . $name . '\', modelClass: \\App\\Blueprints\\' . $name . "::class, ownerPackage: 'app/" . Str::kebab($name) . '\')). A package registers it from bootInstalledPackage() with $this->surface()->blueprintSubject() instead.',
             ]),
         );
     }

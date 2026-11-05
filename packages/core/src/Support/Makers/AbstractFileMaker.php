@@ -12,6 +12,7 @@ use Capell\Core\Data\Makers\MakerResultData;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 abstract class AbstractFileMaker implements Maker
 {
@@ -88,11 +89,25 @@ abstract class AbstractFileMaker implements Maker
     {
         $name = Str::studly((string) ($input->values['name'] ?? ''));
 
+        throw_unless(preg_match('/^[A-Za-z][A-Za-z0-9]*$/', $name) === 1, InvalidArgumentException::class, 'The name must start with a letter and contain only letters, numbers, spaces, dashes or underscores (for example HeroFields), not slashes, dots or quotes.');
+
         if ($suffix !== '' && ! str_ends_with($name, $suffix)) {
             $name .= $suffix;
         }
 
         return $name;
+    }
+
+    /**
+     * Normalise a component name to a kebab-case key that is safe in a path and in generated PHP strings.
+     */
+    protected function safeKebab(string $name): string
+    {
+        $key = Str::kebab($name);
+
+        throw_unless(preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $key) === 1, InvalidArgumentException::class, 'The name must use only letters, numbers, spaces and dashes (for example hero-image), not slashes, dots or quotes.');
+
+        return $key;
     }
 
     protected function kebabName(MakerInputData $input, string $suffix = ''): string
