@@ -14,7 +14,8 @@ class HintEditAction extends Action
     {
         parent::setUp();
 
-        $this->color('gray')
+        $this->label(__('capell-admin::button.edit'))
+            ->color('gray')
             ->hiddenLabel()
             ->icon('heroicon-m-pencil-square')
             ->iconButton()
