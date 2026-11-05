@@ -24,7 +24,7 @@ final class BlueprintMaker extends AbstractFileMaker
         return $this->previewData(
             $input,
             collect([$this->fileData(app_path('Blueprints/' . $name . 'Blueprint.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/blueprint.stub', ['class' => $name, 'name' => Str::kebab($name), 'label' => Str::headline($name)]), $input->force)]),
-            collect(['php artisan capell:make-blueprint ' . $name]),
+            collect(['php artisan capell:make:blueprint ' . $name]),
             collect(['Register the blueprint through CapellCore::registerPageType().']),
         );
     }

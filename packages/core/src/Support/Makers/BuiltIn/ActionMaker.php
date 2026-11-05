@@ -47,7 +47,7 @@ final class ActionMaker extends AbstractFileMaker
         return $this->previewData(
             $input,
             $files,
-            collect(['php artisan capell:make-action ' . $name . (($input->values['data'] ?? false) === true ? ' --data' : '')]),
+            collect(['php artisan capell:make:action ' . $name . (($input->values['data'] ?? false) === true ? ' --data' : '')]),
             collect(['Action will be auto-loadable by Composer.']),
         );
     }

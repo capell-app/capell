@@ -23,7 +23,7 @@ final class DataMaker extends AbstractFileMaker
         return $this->previewData(
             $input,
             collect([$this->fileData(app_path('Data/' . $name . 'Data.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/data.stub', ['class' => $name]), $input->force)]),
-            collect(['php artisan capell:make-data ' . $name]),
+            collect(['php artisan capell:make:data ' . $name]),
             collect(['Data objects are intended for typed boundaries.']),
         );
     }

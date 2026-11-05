@@ -8,8 +8,15 @@ when you add a public surface.
 
 ## 1. Scaffold
 
-Use the colon commands for new work. The older hyphenated commands remain
-available for compatibility, but generated instructions use these names:
+Run `php artisan capell:make --list` to see registered makers and their
+descriptions, including makers supplied by installed extensions.
+
+Use `capell:make:action`, `capell:make:data`, `capell:make:schema`,
+`capell:make:extender`, and `capell:make:blueprint` for the corresponding
+application classes. The older hyphenated commands and `capell:make-type`
+remain available as deprecated aliases and print their replacement.
+
+For packages, use:
 
 ```bash
 php artisan capell:make:extension acme/notice-board \
@@ -28,6 +35,10 @@ Choose `minimal` when you only need a package provider and manifest. Choose
 `full` when you want the working example widget, settings, typed input and
 render Data objects, widget assets, and tests. A generated theme includes its
 provider, manifest, CSS source, and a rendering test.
+
+Pass `--local` to also create a discoverable app-local theme manifest at
+`resources/views/capell/themes/capell-app/<theme-key>/theme.json`. The command
+refuses to replace an existing manifest for that key.
 
 Do not hand-copy a first-party package directory. The generators use only the
 public package contracts and avoid Capell's internal development overlay.

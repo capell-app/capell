@@ -37,7 +37,7 @@ final class ExtenderMaker extends AbstractFileMaker
         return $this->previewData(
             $input,
             collect([$this->fileData(app_path('Extenders/' . $name . 'Extender.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/extender.stub', ['class' => $name, 'hook' => $hook, 'hookLabel' => $hookLabel]), $input->force)]),
-            collect(['php artisan capell:make-extender ' . $name . ' ' . $hook]),
+            collect(['php artisan capell:make:extender ' . $name . ' ' . $hook]),
             collect([
                 'Declare the extender as a contribution in the package manifest (capell.json).',
                 'Register it through the canonical registrar in your service provider: '
