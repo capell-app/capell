@@ -898,9 +898,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerPublicReadWithdrawalRetrySchedule(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
+            // A run killed mid-way must not hold the backstop's lock for the default day.
             $schedule->command('capell:public-read:reconcile')
                 ->everyMinute()
-                ->withoutOverlapping()
+                ->withoutOverlapping(5)
                 ->onOneServer();
         });
 

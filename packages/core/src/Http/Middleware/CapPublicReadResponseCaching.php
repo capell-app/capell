@@ -72,7 +72,7 @@ final class CapPublicReadResponseCaching
 
         $keys = array_values(array_unique($keys));
 
-        if ($keys === ['unrestricted']) {
+        if ($keys === [PublicReadStampData::UNRESTRICTED_KEY]) {
             return $response;
         }
 
@@ -124,10 +124,13 @@ final class CapPublicReadResponseCaching
             }
         }
 
-        // A cache may reuse a public response without an explicit lifetime heuristically.
-        if ($headers->hasCacheControlDirective('public') && ! $headers->hasCacheControlDirective('max-age') && ! $headers->hasCacheControlDirective('s-maxage') && ! $headers->hasCacheControlDirective('no-cache')) {
-            $headers->addCacheControlDirective('max-age', (string) $remaining);
-            $fresh = $remaining;
+        // Without max-age a browser may reuse a cacheable response heuristically
+        // (from Last-Modified), even when shared caches were given s-maxage.
+        if (! $headers->hasCacheControlDirective('max-age') && ! $headers->hasCacheControlDirective('no-cache') && ! $headers->hasCacheControlDirective('private')
+            && ($headers->hasCacheControlDirective('public') || $headers->hasCacheControlDirective('s-maxage'))) {
+            $lifetime = $headers->hasCacheControlDirective('s-maxage') ? min($this->seconds($headers->getCacheControlDirective('s-maxage')), $remaining) : $remaining;
+            $headers->addCacheControlDirective('max-age', (string) $lifetime);
+            $fresh = max($fresh, $lifetime);
         }
 
         foreach (self::STALE_WINDOWS as $directive) {

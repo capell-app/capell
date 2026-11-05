@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\PublicRead;
 
 use Capell\Core\Data\PublicRead\PublicReadReconciliationData;
+use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
@@ -34,7 +35,10 @@ use Throwable;
  * cache entry having been written. Those remain a fast path only.
  *
  * Fail closed: when the rules, the revision or the watermarks cannot be read,
- * every step runs for every site and no watermark is marked clean.
+ * every step runs for every site and no watermark is marked clean. The one
+ * exception is a store with no watermark while nothing restricts reads (a
+ * fresh install or upgrade without any restricting package): it cannot hold
+ * a restricted page, so it is not purged.
  *
  * Fair: due work is taken in order of its last attempt (failed work after
  * work that succeeded at the same moment), at most $limit items per run, and
@@ -83,6 +87,13 @@ final class ReconcilePublicReadProjectionsAction
                 $target = $targets[$scope];
 
                 if ($target !== null && $watermark !== null && $watermark['stamp_key'] === $target) {
+                    continue;
+                }
+
+                // Nothing restricts reads and this store was never withdrawn: no
+                // restricted page can be in it, so there is nothing to withdraw.
+                // Once any rule restricts reads, the missing watermark is due.
+                if ($target === PublicReadStampData::UNRESTRICTED_KEY && $watermarks !== null && $watermark === null) {
                     continue;
                 }
 

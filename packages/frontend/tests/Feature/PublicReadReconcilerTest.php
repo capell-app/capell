@@ -8,6 +8,7 @@ use Capell\Core\Actions\PublicRead\WithdrawPublicReadProjectionsAction;
 use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
 use Capell\Core\Contracts\PublicRead\FingerprintsPublicReadRules;
 use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Events\PublicReadEligibilityChanged;
@@ -19,6 +20,10 @@ use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Core\Support\TableName;
 use Capell\Frontend\Support\PublicRead\FrontendPublicReadWithdrawalSteps;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Carbon\CarbonImmutable;
+use Illuminate\Console\Scheduling\Event as ScheduledEvent;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -279,4 +284,89 @@ it('takes the least recently attempted work first, so one failing store cannot s
 
     expect($second[FrontendPublicReadWithdrawalSteps::CDN])->toBe($first[FrontendPublicReadWithdrawalSteps::CDN])
         ->and(collect($second)->filter(static fn (string $at, string $step): bool => $at !== $first[$step])->keys()->all())->toHaveCount(1);
+});
+
+function reconcilerCdnPurges(): int
+{
+    return Http::recorded(static fn (Request $request): bool => str_contains($request->url(), 'api.cloudflare.com'))->count();
+}
+
+it('withdraws nothing on its first run where no rules restrict public reads, and everything once they do', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $root = reconcilerExportRoot();
+    reconcilerCdn(true);
+
+    try {
+        // An export written while nothing restricts reads: no gated page can be in it.
+        expect(reconcilerExport($domain->site_id, 'open/index.html', 'Public'))->toBeTrue()
+            ->and(reconcile())->toBe(0)
+            ->and(is_file($root . '/open/index.html'))->toBeTrue()
+            ->and(reconcilerCdnPurges())->toBe(0);
+
+        // Once rules restrict reads, every store without a watermark for them is withdrawn.
+        reconcilerRules();
+
+        expect(reconcile())->toBe(0)
+            ->and(is_file($root . '/open/index.html'))->toBeFalse()
+            ->and(reconcilerCdnPurges())->toBeGreaterThan(0);
+    } finally {
+        File::deleteDirectory($root);
+    }
+});
+
+it('withdraws edge copies after a scheduled transition when no transition job runs', function (): void {
+    SiteDomain::factory()->default()->create();
+    reconcilerCdn(true);
+    $transition = CarbonImmutable::now()->addHours(2)->startOfSecond();
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($transition) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private CarbonImmutable $transition) {}
+
+        public function key(): string
+        {
+            return 'reconciler-scheduled';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            return $now->lessThan($this->transition) ? $this->transition : null;
+        }
+    });
+
+    expect(reconcile())->toBe(0);
+    $purged = reconcilerCdnPurges();
+
+    // Nothing changes before the transition, so nothing is withdrawn again.
+    $this->travel(30)->minutes();
+    expect(reconcile())->toBe(0)
+        ->and(reconcilerCdnPurges())->toBe($purged);
+
+    // Past it, copies built under the old schedule are stale even though the revision never moved.
+    $this->travelTo($transition->addMinute());
+    expect(reconcile())->toBe(0)
+        ->and(reconcilerCdnPurges())->toBeGreaterThan($purged);
+});
+
+it('runs the reconciler every minute with a lock that a killed run releases within minutes', function (): void {
+    $events = collect(resolve(Schedule::class)->events())
+        ->filter(static fn (ScheduledEvent $event): bool => str_contains((string) $event->command, 'capell:public-read:reconcile'))
+        ->map(static fn (ScheduledEvent $event): array => [
+            'expression' => $event->expression,
+            'without_overlapping' => $event->withoutOverlapping,
+            'lock_minutes' => $event->expiresAt,
+        ])
+        ->values()
+        ->all();
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['expression'])->toBe('* * * * *')
+        ->and($events[0]['without_overlapping'])->toBeTrue()
+        ->and($events[0]['lock_minutes'])->toBeLessThanOrEqual(5);
 });

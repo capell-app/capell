@@ -15,6 +15,9 @@ use Carbon\CarbonImmutable;
  */
 final readonly class PublicReadStampData
 {
+    /** The key of a stamp built while no package restricts public reads. */
+    public const string UNRESTRICTED_KEY = 'unrestricted';
+
     /**
      * @param  string|null  $revision  null when no package restricts public reads
      */
@@ -29,7 +32,7 @@ final readonly class PublicReadStampData
      */
     public static function fromKey(string $key): ?self
     {
-        if ($key === 'unrestricted') {
+        if ($key === self::UNRESTRICTED_KEY) {
             return new self(null, null);
         }
 
@@ -56,7 +59,7 @@ final readonly class PublicReadStampData
     public function key(): string
     {
         if ($this->revision === null) {
-            return 'unrestricted';
+            return self::UNRESTRICTED_KEY;
         }
 
         return $this->revision . '@' . ($this->validUntil instanceof CarbonImmutable ? (string) $this->validUntil->getTimestamp() : 'open');

@@ -145,3 +145,23 @@ it('leaves responses alone when nothing restricts public reads', function (): vo
     expect(responseCachingDirectives((string) $response->headers->get('Cache-Control')))->toBe(['max-age' => 300, 'public' => true])
         ->and($response->headers->get('ETag'))->toBeNull();
 });
+
+it('gives browsers an explicit lifetime when only shared caches were given one', function (): void {
+    $schedule = responseCachingRules();
+    $schedule->at = CarbonImmutable::now()->addSeconds(120);
+    Route::get('/response-caching-modified', static function (): ResponseFactory|Response {
+        resolve(PublicPageReadEligibilityRegistry::class)->allowsMany([new PublicPageReadCandidateData(url: 'https://example.test/article', siteId: 7)]);
+
+        return response('[]', 200, [
+            'Cache-Control' => 's-maxage=3600',
+            'Last-Modified' => CarbonImmutable::now()->subYear()->toRfc7231String(),
+        ]);
+    });
+
+    // Without max-age a browser would fall back to heuristic freshness from Last-Modified, past the transition.
+    $directives = responseCachingDirectives((string) $this->get('/response-caching-modified')->headers->get('Cache-Control'));
+
+    expect($directives['s-maxage'])->toBeLessThanOrEqual(120)->toBeGreaterThan(0)
+        ->and($directives)->toHaveKey('max-age')
+        ->and($directives['max-age'])->toBeLessThanOrEqual(120);
+});
