@@ -25,6 +25,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use LogicException;
 use ReflectionFunction;
 use UnitEnum;
@@ -306,7 +307,13 @@ class RenderHookRegistry
 
             $html = is_string($result) ? $result : (string) $result;
 
-            return (new HeadMetadataCollector)->collect($html);
+            $collector = new HeadMetadataCollector;
+            $filtered = $collector->collect($html);
+            if ($collector->values() !== []) {
+                Log::warning('Managed head metadata was stripped from a render hook fragment.', ['hook' => $reference->stableKey]);
+            }
+
+            return $filtered;
         }
 
         throw new LogicException(sprintf('Cannot render missing render hook fragment [%s].', $reference->stableKey));

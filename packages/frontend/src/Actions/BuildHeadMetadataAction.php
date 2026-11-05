@@ -23,9 +23,10 @@ final class BuildHeadMetadataAction
         $description = strip_tags($description ?? '');
         $siteName = strip_tags($siteName ?? '');
         $url ??= '';
-        if ($isError) {
-            unset($legacy['robots']);
-        }
+        $legacyRobots = $legacy['robots'] ?? '';
+        unset($legacy['robots']);
+        $pageRobots = $isError ? 'noindex' : implode(', ', $robots);
+        $mergedRobots = HeadMetadataRegistry::mergeRobots($pageRobots, is_string($legacyRobots) ? $legacyRobots : '');
 
         $values = $this->registry->apply(array_replace([
             'og:title' => $title,
@@ -36,10 +37,17 @@ final class BuildHeadMetadataAction
             'twitter:card' => 'summary',
             'twitter:title' => $title,
             'twitter:description' => $description,
-            'robots' => $isError ? 'noindex' : ($robots === [] ? 'index, follow' : implode(', ', $robots)),
+            'robots' => $mergedRobots === '' ? 'index, follow' : $mergedRobots,
             'jsonld:WebSite' => ['@type' => 'WebSite', 'name' => $siteName],
             'jsonld:WebPage' => ['@type' => 'WebPage', 'name' => $title, 'description' => $description, 'url' => $url],
         ], $legacy));
+        if ($url === '') {
+            unset($values['og:url']);
+            if (is_array($values['jsonld:WebPage'])) {
+                unset($values['jsonld:WebPage']['url']);
+            }
+        }
+
         $graph = [$values['jsonld:WebSite'], $values['jsonld:WebPage']];
         unset($values['jsonld:WebSite'], $values['jsonld:WebPage']);
 

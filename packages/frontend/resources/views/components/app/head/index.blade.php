@@ -177,11 +177,11 @@
 
     @php
         $metaTitle = trans(strip_tags($title), $translationVariables);
-        $socialTitle = trans($title, $translationVariables);
+        $socialTitle = trans(strip_tags($title), $translationVariables);
 
         if (isset($__env) && $__env->hasSection('meta_title')) {
             $metaTitle = $__env->yieldContent('meta_title', $metaTitle);
-            $socialTitle = $metaTitle;
+            $socialTitle = strip_tags($metaTitle);
         }
     @endphp
 

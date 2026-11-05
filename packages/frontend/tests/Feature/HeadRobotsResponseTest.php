@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Support\Render\HeadMetadataRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Support\Facades\Cache;
 
@@ -45,3 +46,17 @@ it('suppresses managed metadata from body hooks on a frontend response', functio
     $tags = new DOMXPath($document)->query('//meta[@name="robots"]') ?: throw new RuntimeException('Invalid XPath');
     expect($tags->length)->toBe(1)->and($response->getContent())->toContain('Body hook survives');
 });
+
+it('keeps restrictive robots directives on fallback views despite package metadata', function (string $view, string $expected): void {
+    resolve(HeadMetadataRegistry::class)->register('robots', 'index, follow');
+    $html = view($view)->render();
+    $document = new DOMDocument;
+    @$document->loadHTML($html);
+    $tags = new DOMXPath($document)->query('//meta[@name="robots"]') ?: throw new RuntimeException('Invalid XPath');
+    $tag = $tags->item(0);
+    throw_unless($tag instanceof DOMElement, RuntimeException::class, 'Missing robots tag');
+    expect($tags->length)->toBe(1)->and($tag->getAttribute('content'))->toBe($expected);
+})->with([
+    ['capell::errors.minimal', 'noindex, follow'],
+    ['capell::install-required', 'noindex, nofollow'],
+]);

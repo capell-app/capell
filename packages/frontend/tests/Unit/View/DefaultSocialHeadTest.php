@@ -132,7 +132,7 @@ it('encodes a hydrated page graph safely as JSON', function (): void {
     $graph = $decoded['@graph'];
     expect($decoded['@context'])->toBe('https://schema.org')
         ->and(array_column($graph, '@type'))->toBe(['WebSite', 'WebPage'])
-        ->and($graph[1]['name'])->toContain('Quote " café </script>')
+        ->and($graph[1]['name'])->toBe('Quote " café ')
         ->and($graph[1]['url'])->toBe('https://example.test/page?q=</script>')
         ->and($json)->toContain('\\u003C\\/script\\u003E')->not->toContain('</script>');
 });
@@ -151,4 +151,42 @@ it('leaves the agent schema script intact when it describes the page', function 
 
     expect(substr_count($html, 'data-capell-agent-schema'))->toBe(1)
         ->and($html)->toContain('"name":"Agent page"');
+});
+
+it('keeps page noindex when a site snippet allows indexing', function (): void {
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Example Site'])->create(['meta' => ['meta_tags' => '<meta name="robots" content="index, follow">']]);
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => 'Example Page'])->create(['meta' => ['robots' => ['noindex' => true]]]);
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+    $document = new DOMDocument;
+    @$document->loadHTML($html);
+    $tags = new DOMXPath($document)->query('//meta[@name="robots"]') ?: throw new RuntimeException('Invalid XPath');
+    $tag = $tags->item(0);
+    throw_unless($tag instanceof DOMElement, RuntimeException::class, 'Missing robots tag');
+    expect($tags->length)->toBe(1)->and($tag->getAttribute('content'))->toBe('noindex, follow');
+});
+
+it('uses plain text for social titles', function (): void {
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Site'])->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => '<b>Example</b>'])->create();
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+    $document = new DOMDocument;
+    @$document->loadHTML($html);
+    $titles = new DOMXPath($document)->query('//meta[@property="og:title"]');
+    throw_if($titles === false, RuntimeException::class, 'Invalid XPath');
+
+    $title = $titles->item(0);
+    throw_unless($title instanceof DOMElement, RuntimeException::class, 'Missing title');
+    expect($title->getAttribute('content'))->toBe('Example');
 });
