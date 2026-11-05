@@ -29,10 +29,16 @@ final class HeadMetadataCollector
             libxml_use_internal_errors($previous);
             $meta = $document->getElementsByTagName('meta')->item(0);
             if ($meta instanceof DOMElement) {
-                $key = strtolower($meta->getAttribute('name') ?: $meta->getAttribute('property'));
-                if (in_array($key, self::META_KEYS, true)) {
-                    $this->values[$key] = $meta->getAttribute('content');
+                $managed = false;
+                foreach (['name', 'property'] as $attribute) {
+                    $key = strtolower($meta->getAttribute($attribute));
+                    if (in_array($key, self::META_KEYS, true)) {
+                        $this->values[$key] = $meta->getAttribute('content');
+                        $managed = true;
+                    }
+                }
 
+                if ($managed) {
                     return '';
                 }
             }
@@ -42,12 +48,9 @@ final class HeadMetadataCollector
                 return $match[0];
             }
 
-            // A script carrying a Capell data marker (the agent schema read by the agent bridge) is
-            // not a head default: leave it, and its attributes, exactly as emitted.
-            foreach ($script->attributes ?? [] as $attribute) {
-                if (str_starts_with(strtolower($attribute->nodeName), 'data-capell-')) {
-                    return $match[0];
-                }
+            // The agent bridge reads this separate schema directly from the page.
+            if ($script->hasAttribute('data-capell-agent-schema')) {
+                return $match[0];
             }
 
             $data = json_decode($script->textContent, true);
