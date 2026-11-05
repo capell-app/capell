@@ -8,11 +8,12 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+# var/ is untracked, so a fresh CI checkout does not have it; every test creates its fixtures there.
+(ROOT / 'var').mkdir(exist_ok=True)
 
 
 class ContentGuardTest(unittest.TestCase):
     def test_push_and_ci_reject_each_marker(self):
-        (ROOT / 'var').mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=ROOT / 'var') as directory:
             scratch = Path(directory)
             fixture = scratch / 'fixture.php'
