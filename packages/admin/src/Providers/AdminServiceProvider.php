@@ -51,6 +51,7 @@ use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Contracts\RegistryInspectorInterface;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
 use Capell\Admin\Data\AdminAssetData;
+use Capell\Admin\Data\AdminHelpEntryData;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminZoneContextData;
 use Capell\Admin\Data\AdminZoneContributionData;
@@ -156,6 +157,7 @@ use Capell\Admin\Support\Activity\AdminActivitySettingsReader;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
+use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
@@ -516,6 +518,111 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
         $this->app->singleton(ImportEntryRegistry::class);
+        $this->app->scoped(AdminHelpRegistry::class, function (): AdminHelpRegistry {
+            $registry = new AdminHelpRegistry;
+            $registry->register('filament.admin.resources.pages.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.pages.title'),
+                (string) __('capell-admin::help.pages.summary'),
+                (string) __('capell-admin::help.pages.next'),
+            ));
+            $registry->register('filament.admin.resources.pages.edit', new AdminHelpEntryData(
+                (string) __('capell-admin::help.page_edit.title'),
+                (string) __('capell-admin::help.page_edit.summary'),
+                (string) __('capell-admin::help.page_edit.next'),
+            ));
+            $registry->register('filament.admin.resources.media.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.media.title'),
+                (string) __('capell-admin::help.media.summary'),
+                (string) __('capell-admin::help.media.next'),
+            ));
+            $registry->register('filament.admin.resources.sites.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.sites.title'),
+                (string) __('capell-admin::help.sites.summary'),
+                (string) __('capell-admin::help.sites.next'),
+            ));
+            $registry->register('filament.admin.resources.layouts.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.layouts.title'),
+                (string) __('capell-admin::help.layouts.summary'),
+                (string) __('capell-admin::help.layouts.next'),
+            ));
+            $registry->register('filament.admin.resources.themes.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.themes.title'),
+                (string) __('capell-admin::help.themes.summary'),
+                (string) __('capell-admin::help.themes.next'),
+            ));
+            $registry->register('filament.admin.resources.blueprints.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.blueprints.title'),
+                (string) __('capell-admin::help.blueprints.summary'),
+                (string) __('capell-admin::help.blueprints.next'),
+            ));
+            $registry->register('filament.admin.resources.users.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.users.title'),
+                (string) __('capell-admin::help.users.summary'),
+                (string) __('capell-admin::help.users.next'),
+            ));
+            $registry->register('filament.admin.resources.shield.roles.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.roles.title'),
+                (string) __('capell-admin::help.roles.summary'),
+                (string) __('capell-admin::help.roles.next'),
+            ));
+            $registry->register('filament.admin.pages.settings', new AdminHelpEntryData(
+                (string) __('capell-admin::help.settings.title'),
+                (string) __('capell-admin::help.settings.summary'),
+                (string) __('capell-admin::help.settings.next'),
+            ));
+            $registry->register('filament.admin.pages.extensions', new AdminHelpEntryData(
+                (string) __('capell-admin::help.extensions.title'),
+                (string) __('capell-admin::help.extensions.summary'),
+                (string) __('capell-admin::help.extensions.next'),
+            ));
+            $registry->register('filament.admin.resources.redirects.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.redirects.title'),
+                (string) __('capell-admin::help.redirects.summary'),
+                (string) __('capell-admin::help.redirects.next'),
+            ));
+            $registry->register('filament.admin.pages.sitemap', new AdminHelpEntryData(
+                (string) __('capell-admin::help.sitemap.title'),
+                (string) __('capell-admin::help.sitemap.summary'),
+                (string) __('capell-admin::help.sitemap.next'),
+            ));
+            $registry->register('filament.admin.pages.site-health', new AdminHelpEntryData(
+                (string) __('capell-admin::help.site_health.title'),
+                (string) __('capell-admin::help.site_health.summary'),
+                (string) __('capell-admin::help.site_health.next'),
+            ));
+            $registry->register('filament.admin.resources.languages.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.languages.title'),
+                (string) __('capell-admin::help.languages.summary'),
+                (string) __('capell-admin::help.languages.next'),
+            ));
+            $registry->register('filament.admin.resources.activities.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.activity.title'),
+                (string) __('capell-admin::help.activity.summary'),
+                (string) __('capell-admin::help.activity.next'),
+            ));
+            $registry->register('filament.admin.pages.recently-deleted', new AdminHelpEntryData(
+                (string) __('capell-admin::help.recently_deleted.title'),
+                (string) __('capell-admin::help.recently_deleted.summary'),
+                (string) __('capell-admin::help.recently_deleted.next'),
+            ));
+            $registry->register('filament.admin.pages.analytics-dashboard', new AdminHelpEntryData(
+                (string) __('capell-admin::help.analytics.title'),
+                (string) __('capell-admin::help.analytics.summary'),
+                (string) __('capell-admin::help.analytics.next'),
+            ));
+            $registry->register('filament.admin.pages.upgrade', new AdminHelpEntryData(
+                (string) __('capell-admin::help.upgrade.title'),
+                (string) __('capell-admin::help.upgrade.summary'),
+                (string) __('capell-admin::help.upgrade.next'),
+            ));
+            $registry->register('filament.admin.pages.capell-dashboard', new AdminHelpEntryData(
+                (string) __('capell-admin::help.dashboard.title'),
+                (string) __('capell-admin::help.dashboard.summary'),
+                (string) __('capell-admin::help.dashboard.next'),
+            ));
+
+            return $registry;
+        });
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
