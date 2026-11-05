@@ -497,6 +497,7 @@ return [
             app_path('Schemas'),
             app_path('Types'),
             resource_path('views'),
+            base_path('tests/Feature/Generated'),
         ],
     ],
 ];

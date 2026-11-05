@@ -15,6 +15,9 @@ Use `capell:make:action`, `capell:make:data`, `capell:make:schema`,
 `capell:make:extender`, and `capell:make:blueprint` for the corresponding
 application classes. The older hyphenated commands and `capell:make-type`
 remain available as deprecated aliases and print their replacement.
+Action and Data classes are autoloaded without registration. Their generated
+Pest tests are written to `tests/Feature/Generated`; run them with your app's
+normal Pest command and extend them as you add behaviour.
 
 For packages, use:
 

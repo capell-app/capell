@@ -42,6 +42,10 @@ class MakeDataCommand extends Command
             $this->info(sprintf('%s: %s', $file->operation, $file->path));
         }
 
+        foreach ($result->notes as $note) {
+            $this->line($note);
+        }
+
         return static::SUCCESS;
     }
 }
