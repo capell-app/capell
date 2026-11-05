@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Capell\Frontend\Tests\Unit\View;
+
 use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -14,6 +16,7 @@ use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Tests\FrontendTestCase;
+use Closure;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -26,6 +29,8 @@ use Livewire\Blaze\Support\Utils as BlazeUtils;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
+use RuntimeException;
 
 // Pest does not initialise PHPUnit’s Composer path for isolated processes.
 if (! defined('PHPUNIT_COMPOSER_INSTALL')) {
