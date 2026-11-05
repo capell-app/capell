@@ -23,7 +23,10 @@ final class PageBladeComponentMaker extends AbstractFileMaker
 
         return $this->previewData(
             $input,
-            collect([$this->fileData(resource_path('views/components/page/' . $name . '.blade.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/page-component.blade.stub', []), $input->force)]),
+            collect([
+                $this->fileData(resource_path('views/components/page/' . $name . '.blade.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/page-component.blade.stub', []), $input->force),
+                $this->fileData(base_path('tests/Feature/Generated/' . Str::studly($name) . 'PageComponentTest.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/page-component-test.stub', ['name' => $name]), $input->force),
+            ]),
             collect(['php artisan capell:make core.page-blade-component --name="' . $name . '"']),
             collect(['Run php artisan capell:cache-components after creating new components.']),
         );

@@ -90,7 +90,7 @@ it('routes capell make schema through the registered maker', function (): void {
 
 it('routes capell make blueprint through the registered maker', function (): void {
     prepareMakerCommandFilesystem();
-    $expectedPath = app_path('Blueprints/LandingPageBlueprint.php');
+    $expectedPath = app_path('Blueprints/LandingPage.php');
 
     artisanCommand('capell:make-blueprint', ['name' => 'LandingPage'])
         ->expectsOutputToContain($expectedPath)

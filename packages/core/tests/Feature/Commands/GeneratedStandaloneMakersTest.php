@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\PackagesTestCase;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Process;
@@ -39,4 +40,49 @@ it('creates a runnable test for an autoloaded maker', function (string $maker, s
     ['core.action', 'app/Actions/ExampleAction.php', 'tests/Feature/Generated/ExampleActionTest.php'],
     ['core.data', 'app/Data/ExampleData.php', 'tests/Feature/Generated/ExampleDataTest.php'],
     ['core.schema', 'app/Schemas/ExampleSchema.php', 'tests/Feature/Generated/ExampleSchemaTest.php'],
+]);
+
+it('creates a runnable test for a generated page schema extender and tells the developer to tag it', function (): void {
+    expect(Artisan::call('capell:make', ['maker' => 'core.extender', '--name' => 'Example']))->toBe(0);
+    expect(Artisan::output())->toContain('PageSchemaExtender::TAG');
+    expect(base_path('app/Extenders/ExampleExtender.php'))->toBeFile()->and(base_path('tests/Feature/Generated/ExampleExtenderTest.php'))->toBeFile();
+    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path('tests/Feature/Generated/ExampleExtenderTest.php')], getcwd());
+    $pest->run();
+
+    expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
+});
+
+it('creates a blueprint subject model with a runnable registry test and tells the developer how to register it', function (): void {
+    $code = Artisan::call('capell:make', ['maker' => 'core.blueprint', '--name' => 'Example']);
+    $output = Artisan::output();
+    expect($code)->toBe(0, $output)->and($output)->toContain('blueprintSubject(');
+    expect(base_path('app/Blueprints/Example.php'))->toBeFile()->and(base_path('tests/Feature/Generated/ExampleBlueprintSubjectTest.php'))->toBeFile();
+    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path('tests/Feature/Generated/ExampleBlueprintSubjectTest.php')], getcwd());
+    $pest->run();
+
+    expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
+});
+
+it('creates a runnable test for each generated component', function (string $maker, string $viewPath, string $testPath, array $extraFiles): void {
+    $code = Artisan::call('capell:make', ['maker' => $maker, '--name' => 'Example']);
+    $output = Artisan::output();
+    expect($code)->toBe(0, $output)->and(base_path($viewPath))->toBeFile()->and(base_path($testPath))->toBeFile();
+
+    foreach ($extraFiles as $extra) {
+        expect(base_path($extra))->toBeFile();
+    }
+
+    // A real application binds tests/Feature to its TestCase in tests/Pest.php; mirror that binding for the workspace copy.
+    $generated = (string) file_get_contents(base_path($testPath));
+    file_put_contents(base_path($testPath), str_replace('declare(strict_types=1);', 'declare(strict_types=1);
+
+uses(' . PackagesTestCase::class . '::class);', $generated));
+    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path($testPath)], getcwd());
+    $pest->run();
+
+    expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
+})->with([
+    'page blade' => ['core.page-blade-component', 'resources/views/components/page/example.blade.php', 'tests/Feature/Generated/ExamplePageComponentTest.php', []],
+    'asset blade' => ['core.asset-blade-component', 'resources/views/components/asset/example.blade.php', 'tests/Feature/Generated/ExampleAssetComponentTest.php', []],
+    'page livewire' => ['core.page-livewire-component', 'app/Livewire/Example.php', 'tests/Feature/Generated/ExampleLivewireTest.php', ['resources/views/livewire/example.blade.php']],
 ]);

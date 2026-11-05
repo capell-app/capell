@@ -19,6 +19,17 @@ Action and Data classes are autoloaded without registration. Their generated
 Pest tests are written to `tests/Feature/Generated`; run them with your app's
 normal Pest command and extend them as you add behaviour.
 
+Every maker that writes PHP or a view also writes a Pest test beside it:
+Action, Data, Schema, Extender, Blueprint, and the page Blade, asset Blade and
+page Livewire component makers. Extenders and blueprint subjects are not
+discovered automatically. The Extender maker's test shows the
+`PageSchemaExtender::TAG` registration to add in your service provider, and the
+Blueprint maker writes an Eloquent model that implements `Blueprintable` plus a
+test that registers it as a blueprint subject. Add a migration for the model
+table and hand the descriptor to `$this->surface()->blueprintSubject()` from
+`bootInstalledPackage()`. The extension and theme scaffolds ship their own
+Pest tests.
+
 For packages, use:
 
 ```bash
