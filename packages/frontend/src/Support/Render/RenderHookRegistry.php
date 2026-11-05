@@ -304,7 +304,9 @@ class RenderHookRegistry
                 allowFragmentCapture: false,
             );
 
-            return is_string($result) ? $result : (string) $result;
+            $html = is_string($result) ? $result : (string) $result;
+
+            return (new HeadMetadataCollector)->collect($html);
         }
 
         throw new LogicException(sprintf('Cannot render missing render hook fragment [%s].', $reference->stableKey));

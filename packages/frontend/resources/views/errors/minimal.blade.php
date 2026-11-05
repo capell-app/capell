@@ -24,7 +24,7 @@
     />
     <meta
         name="robots"
-        content="noindex"
+        content="{{ app(\Capell\Frontend\Support\Render\HeadMetadataRegistry::class)->apply(['robots' => 'noindex'])['robots'] }}"
     />
 
     <title>@yield('title')</title>

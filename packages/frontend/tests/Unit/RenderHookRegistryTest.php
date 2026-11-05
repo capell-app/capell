@@ -552,3 +552,22 @@ it('leaves ordinary contributions on the existing render path while capturing fr
     expect($captured)->toStartWith('<span>ordinary</span>')
         ->and($fragments->references())->toHaveCount(1);
 });
+
+it('suppresses managed metadata when a head fragment is rehydrated', function (): void {
+    $fragments = new RenderHookFragmentRegistry;
+    app()->instance(RenderHookFragmentRegistry::class, $fragments);
+    $registry = new RenderHookRegistry;
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        location: RenderHookLocation::HeadClose,
+        blade: '<meta name="robots" content="noindex"><meta property="og:title" content="Fragment"><link rel="author" href="/author">',
+        owner: 'vendor/example',
+        key: 'head-fragment',
+        fragment: true,
+    ));
+    $fragments->beginCapture();
+    $captured = $registry->renderAll(RenderHookLocation::HeadClose);
+    $fragments->endCapture();
+    $cache = $fragments->prepareCache($captured, static fn (string $html): string => $html);
+    $rendered = $fragments->renderCached($cache, $registry, static fn (): string => '');
+    expect($rendered)->not->toContain('robots', 'og:title')->toContain('<link rel="author" href="/author">');
+});
