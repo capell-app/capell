@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\PublicRead;
 
 use Capell\Core\Support\TableName;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -172,6 +173,31 @@ final class PublicReadEligibilityRevision
     public function durable(): ?array
     {
         return $this->readRow();
+    }
+
+    /**
+     * Whether the stored revision was advanced at or after $timestamp and no
+     * failed advance has marked it unknown since. Every copy built before
+     * that advance was withdrawn by it, so work owed to a moment at or before
+     * $timestamp is already done. False when the row cannot be read.
+     */
+    public function advancedSince(int $timestamp): bool
+    {
+        try {
+            $row = DB::table(TableName::resolve(self::TABLE))->where('id', 1)->first(['revision', 'unknown_token', 'updated_at']);
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return false;
+        }
+
+        $revision = $row->revision ?? null;
+        $advancedAt = $row->updated_at ?? null;
+
+        return is_string($revision) && $revision !== ''
+            && ($row->unknown_token ?? null) === null
+            && is_string($advancedAt) && $advancedAt !== ''
+            && CarbonImmutable::parse($advancedAt)->getTimestamp() >= $timestamp;
     }
 
     public function isUnknown(): bool

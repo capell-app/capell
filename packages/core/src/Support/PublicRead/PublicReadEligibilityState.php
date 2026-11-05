@@ -121,9 +121,12 @@ final class PublicReadEligibilityState
      * valid_until may be served without Laravel. This job withdraws edge
      * copies and triggers regeneration at the transition, without waiting for
      * the scheduler. A synchronous queue would run it at once, before the
-     * transition, so it is left to the scheduler there. When the dispatch
-     * fails, its once-per-transition marker is removed so a later request
-     * schedules it again.
+     * transition, so it is left to the scheduler there. The marker is the
+     * job's only admission (it is not a queue-unique job); it lives until
+     * just after the transition, however far ahead that is, and a duplicate
+     * queued after a lost marker does nothing (see the job). When the
+     * dispatch fails, the marker is removed so a later request schedules it
+     * again.
      */
     private function scheduleExpiry(CarbonImmutable $validUntil): void
     {

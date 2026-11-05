@@ -725,9 +725,12 @@ it('withdraws stored output at a scheduled transition without the scheduler', fu
     config()->set('queue.default', 'database');
     Queue::fake();
     Event::fake([PublicReadEligibilityChanged::class]);
-    resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    $opening = CarbonImmutable::now()->addHour()->startOfSecond();
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($opening) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
     {
         use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private CarbonImmutable $opening) {}
 
         public function key(): string
         {
@@ -741,24 +744,20 @@ it('withdraws stored output at a scheduled transition without the scheduler', fu
 
         public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
         {
-            $opening = CarbonImmutable::parse('2026-11-03 12:00:00');
-
-            return $now->lessThan($opening) ? $opening : null;
+            return $now->lessThan($this->opening) ? $this->opening : null;
         }
     });
-    $this->travelTo(CarbonImmutable::parse('2026-11-03 11:00:00'));
-
     // Storing anything under the current rules schedules its withdrawal once, for exactly valid_until.
     resolve(PublicReadEligibilityState::class)->stamp();
     resolve(PublicReadEligibilityState::class)->stamp();
 
     Queue::assertPushed(ExpirePublicReadProjectionsJob::class, 1);
-    Queue::assertPushed(ExpirePublicReadProjectionsJob::class, static fn (ExpirePublicReadProjectionsJob $job): bool => $job->transitionAt === CarbonImmutable::parse('2026-11-03 12:00:00')->getTimestamp()
+    Queue::assertPushed(ExpirePublicReadProjectionsJob::class, static fn (ExpirePublicReadProjectionsJob $job): bool => $job->transitionAt === $opening->getTimestamp()
         && $job->delay instanceof DateTimeInterface
-        && CarbonImmutable::instance($job->delay)->equalTo(CarbonImmutable::parse('2026-11-03 12:00:00')));
+        && CarbonImmutable::instance($job->delay)->equalTo($opening));
 
-    $job = new ExpirePublicReadProjectionsJob(CarbonImmutable::parse('2026-11-03 12:00:00')->getTimestamp());
-    $this->travelTo(CarbonImmutable::parse('2026-11-03 12:00:00'));
+    $job = new ExpirePublicReadProjectionsJob($opening->getTimestamp());
+    $this->travelTo($opening);
     $job->handle();
 
     Event::assertDispatched(PublicReadEligibilityChanged::class, static fn (PublicReadEligibilityChanged $event): bool => $event->source === 'public-read.scheduled-transition');
