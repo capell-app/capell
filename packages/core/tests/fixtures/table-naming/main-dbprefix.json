@@ -838,6 +838,18 @@
         "indexes": ["primary"],
         "foreign_keys": []
     },
+    "public_read_owed_withdrawals": {
+        "indexes": ["primary", "public_read_owed_withdrawals_unique"],
+        "foreign_keys": []
+    },
+    "public_read_projection_watermarks": {
+        "indexes": [
+            "primary",
+            "public_read_projection_watermarks_attempted",
+            "public_read_projection_watermarks_unique"
+        ],
+        "foreign_keys": []
+    },
     "redirect_health_snapshots": {
         "indexes": [
             "primary",

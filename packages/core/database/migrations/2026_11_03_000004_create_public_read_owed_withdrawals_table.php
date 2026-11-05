@@ -20,7 +20,7 @@ return new class extends Migration
             $table->unsignedInteger('attempts')->default(0);
             $table->text('last_error')->nullable();
             $table->timestamps();
-            $table->unique(['revision', 'step', 'scope'], 'public_read_owed_withdrawals_unique');
+            $table->unique(['revision', 'step', 'scope'], TableName::namedIndex('public_read_owed_withdrawals', 'public_read_owed_withdrawals_unique'));
         });
     }
 
