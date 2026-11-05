@@ -30,9 +30,10 @@ else
     exit 2
 fi
 
+# --files prevents pre-commit from stashing the checkout; the ref range still selects the files.
 status=0
 for hook in checkfordebugging donotcommit; do
-    "${runner[@]}" run "$hook" --hook-stage manual --from-ref "$base" --to-ref "$head" || status=1
+    "${runner[@]}" run "$hook" --hook-stage manual --from-ref "$base" --to-ref "$head" --files .pre-commit-config.yaml || status=1
 done
 
 exit "$status"
