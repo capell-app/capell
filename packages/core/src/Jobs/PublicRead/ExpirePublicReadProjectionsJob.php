@@ -32,9 +32,10 @@ use Throwable;
  * other change) does nothing. Retries therefore converge.
  *
  * Its budget is a deadline taken from the transition, not an attempt count:
- * a queue that delivers it early releases it until the transition without
- * using anything up, a failed recording is retried with backoff until the
- * deadline, and a job still not done by then is failed and logged.
+ * a queue that delivers it early, or cannot delay it that long, releases
+ * it towards the transition in steps it accepts without using anything
+ * up; a failed recording is retried with backoff until the deadline; and
+ * a job still not done by then is failed and logged.
  *
  * @experimental
  */
@@ -45,6 +46,8 @@ final class ExpirePublicReadProjectionsJob implements ShouldQueue
     /** How long after its transition the job may still record it. */
     public const int DEADLINE_SECONDS = 3600;
 
+    public const int SQS_MAX_DELAY_SECONDS = 900;
+
     // Unlimited attempts: early deliveries are releases, not failures. retryUntil() and $maxExceptions bound it.
     public int $tries = 0;
 
@@ -54,6 +57,20 @@ final class ExpirePublicReadProjectionsJob implements ShouldQueue
     public array $backoff = [10, 30, 60, 120, 300];
 
     public function __construct(public readonly int $transitionAt) {}
+
+    /**
+     * The longest delay or release the connection accepts, or null when it
+     * has no limit. Amazon SQS rejects a delay above 15 minutes (a FIFO queue
+     * ignores it) and a release above 12 hours, so the job waits there in
+     * 15-minute steps.
+     */
+    public static function maxDelayFor(?string $connection): ?int
+    {
+        $connection ??= config('queue.default');
+        $driver = is_string($connection) ? config('queue.connections.' . $connection . '.driver') : null;
+
+        return $driver === 'sqs' ? self::SQS_MAX_DELAY_SECONDS : null;
+    }
 
     public function retryUntil(): DateTimeInterface
     {
@@ -66,7 +83,9 @@ final class ExpirePublicReadProjectionsJob implements ShouldQueue
 
         // A queue that runs a job early must not record the transition before it happens.
         if ($now < $this->transitionAt) {
-            $this->release($this->transitionAt - $now);
+            $wait = $this->transitionAt - $now;
+            $maxDelay = self::maxDelayFor($this->job?->getConnectionName());
+            $this->release($maxDelay === null ? $wait : min($wait, $maxDelay));
 
             return;
         }

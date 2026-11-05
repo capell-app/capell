@@ -8,7 +8,10 @@ use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Bus\Dispatcher;
+use Illuminate\Queue\NullQueue;
+use Illuminate\Queue\SyncQueue;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Throwable;
 
 /**
@@ -25,6 +28,9 @@ use Throwable;
 final class PublicReadEligibilityState
 {
     public const string EXPIRY_SCHEDULED_PREFIX = 'capell:public-read-eligibility:expiry-scheduled:';
+
+    /** How long a failed dispatch holds off the next attempt for the same transition. */
+    public const int EXPIRY_DISPATCH_RETRY_SECONDS = 60;
 
     /** @var array<int, true> */
     private array $scheduled = [];
@@ -121,12 +127,17 @@ final class PublicReadEligibilityState
      * valid_until may be served without Laravel. This job withdraws edge
      * copies and triggers regeneration at the transition, without waiting for
      * the scheduler. A synchronous queue would run it at once, before the
-     * transition, so it is left to the scheduler there. The marker is the
-     * job's only admission (it is not a queue-unique job); it lives until
-     * just after the transition, however far ahead that is, and a duplicate
-     * queued after a lost marker does nothing (see the job). When the
-     * dispatch fails, the marker is removed so a later request schedules it
-     * again.
+     * transition, so it is left to the reconciler there; so is any queue
+     * that runs jobs in this process (sync, deferred, background, null).
+     *
+     * The marker is the job's only admission (it is not a queue-unique job);
+     * it lives until just after the transition, however far ahead that is,
+     * and a duplicate queued after a lost marker does nothing (see the job).
+     * The delay never exceeds what the queue accepts (ExpirePublicReadProjectionsJob::maxDelayFor());
+     * the job waits out the rest in steps. When the dispatch fails, the marker
+     * is kept for EXPIRY_DISPATCH_RETRY_SECONDS, so an unavailable queue is
+     * tried, and reported, at most once in that interval rather than on
+     * every request.
      */
     private function scheduleExpiry(CarbonImmutable $validUntil): void
     {
@@ -154,24 +165,34 @@ final class PublicReadEligibilityState
             return;
         }
 
+        $maxDelay = ExpirePublicReadProjectionsJob::maxDelayFor(null);
+        $runAt = $maxDelay === null ? $validUntil : $validUntil->min(CarbonImmutable::now()->addSeconds($maxDelay));
+
         try {
-            resolve(Dispatcher::class)->dispatch(new ExpirePublicReadProjectionsJob($at)->delay($validUntil));
+            resolve(Dispatcher::class)->dispatch(new ExpirePublicReadProjectionsJob($at)->delay($runAt));
         } catch (Throwable $throwable) {
             report($throwable);
 
             try {
-                Cache::forget($marker);
-            } catch (Throwable $forgetFailure) {
-                report($forgetFailure);
+                Cache::put($marker, true, self::EXPIRY_DISPATCH_RETRY_SECONDS);
+            } catch (Throwable $retryFailure) {
+                report($retryFailure);
             }
         }
     }
 
+    /** Queues that run a job in this process, at once or after the response, cannot hold it until the transition. */
     private function queueRunsJobsImmediately(): bool
     {
-        $connection = config('queue.default');
-        $driver = is_string($connection) ? config('queue.connections.' . $connection . '.driver') : null;
+        try {
+            $queue = Queue::connection();
+        } catch (Throwable $throwable) {
+            // An unusable queue cannot hold the job either; the reconciler covers it.
+            report($throwable);
 
-        return $driver === 'sync' || $driver === 'null';
+            return true;
+        }
+
+        return $queue instanceof SyncQueue || $queue instanceof NullQueue;
     }
 }

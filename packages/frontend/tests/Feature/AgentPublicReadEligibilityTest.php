@@ -677,7 +677,7 @@ it('retries a failed revision write at most once per interval across requests', 
     expect((new PublicReadEligibilityRevision)->current())->toBeString();
 });
 
-it('schedules transition cleanup only on a real queue and never leaves its marker after a failed dispatch', function (): void {
+it('schedules transition cleanup only on a real queue and retries a failed dispatch after a short hold-off', function (): void {
     $transition = CarbonImmutable::now()->addMinutes(10);
     resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($transition) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
     {
@@ -711,13 +711,17 @@ it('schedules transition cleanup only on a real queue and never leaves its marke
         ->and(Cache::has($marker))->toBeFalse();
     Event::assertNotDispatched(PublicReadEligibilityChanged::class);
 
-    // A dispatch that fails leaves no marker, so a later request schedules it again.
+    // A dispatch that fails holds off retries briefly, then lets a later request schedule it again.
     config()->set('queue.default', 'database');
     Bus::shouldReceive('dispatch')->andThrow(new RuntimeException('The queue is unavailable.'));
     app()->forgetScopedInstances();
 
     expect(resolve(PublicReadEligibilityState::class)->stamp())->not->toBeNull()
-        ->and(Cache::has($marker))->toBeFalse();
+        ->and(Cache::has($marker))->toBeTrue();
+
+    $this->travel(PublicReadEligibilityState::EXPIRY_DISPATCH_RETRY_SECONDS + 1)->seconds();
+
+    expect(Cache::has($marker))->toBeFalse();
 });
 
 it('withdraws stored output at a scheduled transition without the scheduler', function (): void {

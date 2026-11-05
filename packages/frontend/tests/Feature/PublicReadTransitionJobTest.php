@@ -11,6 +11,8 @@ use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Carbon\CarbonImmutable;
+use Illuminate\Queue\Connectors\ConnectorInterface as QueueConnector;
+use Illuminate\Queue\DatabaseQueue;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -193,3 +195,132 @@ it('gives up at a deadline taken from its transition and says so', function (): 
 
     $log->shouldHaveReceived('warning')->withArgs(static fn (string $message, array $context): bool => $context['transition_at'] === $transition->toIso8601String())->once();
 });
+
+/**
+ * A database-backed queue with Amazon SQS's limits: a delay above 900 seconds
+ * is rejected, a FIFO queue ignores the delay, and a release (a visibility
+ * change) above 12 hours is rejected. $broken makes every dispatch fail.
+ */
+final class PublicReadTransitionSqsLikeQueue extends DatabaseQueue
+{
+    public static bool $fifo = false;
+
+    public static bool $broken = false;
+
+    public static int $dispatches = 0;
+
+    public static int $rejected = 0;
+
+    /** @var list<int> */
+    public static array $delays = [];
+
+    #[Override]
+    public function later($delay, $job, $data = '', $queue = null)
+    {
+        self::$dispatches++;
+        throw_if(self::$broken, RuntimeException::class, 'The queue is unavailable.');
+        $seconds = $this->secondsUntil($delay);
+        if (! self::$fifo && $seconds > 900) {
+            self::$rejected++;
+
+            throw new RuntimeException('Value for parameter DelaySeconds is invalid.');
+        }
+
+        self::$delays[] = self::$fifo ? 0 : $seconds;
+
+        return parent::later(self::$fifo ? 0 : $delay, $job, $data, $queue);
+    }
+
+    #[Override]
+    public function release($queue, $job, $delay)
+    {
+        if ($delay > 43200) {
+            self::$rejected++;
+
+            throw new RuntimeException('Value for parameter VisibilityTimeout is invalid.');
+        }
+
+        self::$delays[] = $delay;
+
+        return parent::release($queue, $job, $delay);
+    }
+}
+
+function transitionJobSqsQueue(bool $fifo = false, bool $broken = false): void
+{
+    transitionJobQueue();
+    PublicReadTransitionSqsLikeQueue::$fifo = $fifo;
+    PublicReadTransitionSqsLikeQueue::$broken = $broken;
+    PublicReadTransitionSqsLikeQueue::$dispatches = 0;
+    PublicReadTransitionSqsLikeQueue::$rejected = 0;
+    PublicReadTransitionSqsLikeQueue::$delays = [];
+    Queue::extend('sqs', static fn (): QueueConnector => new class implements QueueConnector
+    {
+        public function connect(array $config): PublicReadTransitionSqsLikeQueue
+        {
+            return new PublicReadTransitionSqsLikeQueue(DB::connection(), 'jobs', 'default', 90);
+        }
+    });
+    config()->set('queue.connections.sqs-like', ['driver' => 'sqs', 'queue' => 'default']);
+    config()->set('queue.default', 'sqs-like');
+}
+
+function transitionJobWorkSqs(): void
+{
+    Artisan::call('queue:work', ['connection' => 'sqs-like', '--once' => true, '--sleep' => 0, '--tries' => 1]);
+}
+
+it('steps a transition further out than an SQS delay allows, then records it once', function (bool $fifo): void {
+    transitionJobSqsQueue(fifo: $fifo);
+    $transition = CarbonImmutable::now()->addDays(2)->startOfSecond();
+    transitionJobRules($transition);
+    $recorded = transitionJobRecorded();
+
+    transitionJobStamp();
+    expect(transitionJobQueued())->toBe(1);
+
+    // However early the queue hands it over, the job waits in steps the queue accepts.
+    for ($step = 0; $step < 3; $step++) {
+        $this->travel(15)->minutes();
+        transitionJobWorkSqs();
+    }
+
+    $this->travelTo($transition);
+    transitionJobWorkSqs();
+
+    expect($recorded->count)->toBe(1)
+        ->and(transitionJobQueued())->toBe(0)
+        ->and(transitionJobFailed())->toBe(0)
+        ->and(PublicReadTransitionSqsLikeQueue::$rejected)->toBe(0)
+        ->and(max(PublicReadTransitionSqsLikeQueue::$delays))->toBeLessThanOrEqual(900);
+})->with(['standard' => [false], 'FIFO' => [true]]);
+
+it('tries a failing dispatch at most once a minute, not on every request', function (): void {
+    transitionJobSqsQueue(broken: true);
+    transitionJobRules(CarbonImmutable::now()->addHours(2)->startOfSecond());
+
+    for ($request = 0; $request < 5; $request++) {
+        transitionJobStamp();
+    }
+
+    expect(PublicReadTransitionSqsLikeQueue::$dispatches)->toBe(1);
+
+    $this->travel(PublicReadEligibilityState::EXPIRY_DISPATCH_RETRY_SECONDS + 1)->seconds();
+    transitionJobStamp();
+
+    expect(PublicReadTransitionSqsLikeQueue::$dispatches)->toBe(2);
+});
+
+it('leaves cleanup to the reconciler on queues that run jobs in this process', function (string $driver): void {
+    config()->set('queue.connections.in-process', ['driver' => $driver]);
+    config()->set('queue.default', 'in-process');
+
+    $transition = CarbonImmutable::now()->addHour()->startOfSecond();
+    transitionJobRules($transition);
+    $recorded = transitionJobRecorded();
+
+    transitionJobStamp();
+
+    expect(Cache::has(PublicReadEligibilityState::EXPIRY_SCHEDULED_PREFIX . $transition->getTimestamp()))->toBeFalse()
+        ->and($recorded->count)->toBe(0);
+})->with(['deferred', 'background']);
