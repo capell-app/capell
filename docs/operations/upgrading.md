@@ -9,14 +9,23 @@ is created, and refuses anything it cannot prove.
   group registered it (Filament's panel groups, or Core's `AdminRouteProvenance::panel()` for Capell's
   own admin routes) with the domain it was registered on, public admin code (Livewire's endpoints, signed
   previews, Filament's global downloads), the host application's own route, or refused. `route:cache`
-  stores the record, so serving reads it and never re-derives ownership. Refused with 503:
-  admin code no panel registered; a route registered for a panel that is not installed, or for a panel
-  served on its own domains without one of those domains; a route given a panel's name, middleware or
-  another domain after it was registered; and a host route answering on a Capell panel's path and host.
-  A route cache built by an earlier release carries no record and every route in it is refused, so
-  rebuild the route cache on every node (`php artisan route:cache`, or `capell:runtime-refresh`) as part
-  of the deploy, before the release takes traffic. Register a package's panel routes inside the panel's
-  route group (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards.
+  stores the record, so serving reads it and never re-derives ownership. Refused with 503: admin code
+  no panel registered; a route registered for a panel that is not installed, or for a panel served on
+  its own domains without one of those domains; and a route given a panel's name, middleware or another
+  domain after it was registered.
+- **Package admin routes.** Register a package's panel routes inside the panel's route group
+  (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards. A package
+  route that the Capell admin serves outside Filament's pages, such as a callback or a signed preview,
+  registers through `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on
+  the admin domain and runs the admin panel's stack and sign-in (`guests: true` skips the sign-in for
+  routes a URL signature credentials). An application route under a panel's path keeps serving; it is
+  reported as a collision in the log at boot and by `capell:doctor` (`admin.routes.ownership`).
+- **Route cache.** A route cache built by an earlier release carries no ownership record. Public
+  controller routes in it keep serving, but closures and admin code in it are refused until it is
+  rebuilt, and the application logs a critical error with the commands. `capell:upgrade` fails at the
+  `capell-admin.route-cache-ownership` step and `capell:doctor` reports `admin.routes.ownership` while
+  the cache is stale. Rebuild the route cache on every node (`php artisan route:clear && php artisan
+  route:cache`, or `capell:runtime-refresh`) as part of the deploy, before the release takes traffic.
 - **Export and import downloads.** Each export and import records the panel, host and port it was
   started on in `admin_transfer_origins`. Run the normal upgrade flow to migrate the table before
   serving requests. A download is served only by that panel, on that host and port. Exports and imports

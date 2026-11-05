@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
+use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\DomainCapellPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\ForeignPanelProvider;
@@ -18,7 +19,9 @@ use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -149,6 +152,17 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
         $this->actingAs($user)->get('http://' . explode(':', $startedOn)[0] . ':9443' . $path)->assertNotFound();
     }
 
+    /**
+     * The origin is the panel whose route served the creating request, not whichever panel Filament last set as
+     * current: a record created while a host route serves the request has no panel origin and is refused.
+     */
+    public function test_an_export_created_while_a_host_route_serves_the_request_is_refused(): void
+    {
+        [$user, $url] = $this->exportFrom(null, null, currentPanel: 'admin');
+
+        $this->actingAs($user)->get($url)->assertForbidden()->assertSee(__('capell-admin::message.transfer_origin_unknown'));
+    }
+
     /** @return list<class-string> */
     #[Override]
     protected function getPackageProviders(mixed $app): array
@@ -165,8 +179,12 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
      *
      * @return array{0: User, 1: string, 2: Export}
      */
-    private function exportFrom(?string $panel, ?string $host = null): array
+    private function exportFrom(?string $panel, ?string $host = null, ?string $currentPanel = null): array
     {
+        if ($currentPanel !== null) {
+            Filament::setCurrentPanel(Filament::getPanel($currentPanel));
+        }
+
         Schema::create('exports', static function (Blueprint $table): void {
             $table->id();
             $table->timestamp('completed_at')->nullable();
@@ -230,7 +248,8 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
     }
 
     /**
-     * Create a record while the given panel serves a request on the given host, as Filament's actions do.
+     * Create a record while a route the given panel registered serves the request, on the given host, as
+     * Filament's actions do.
      *
      * @template T
      *
@@ -239,18 +258,21 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
      */
     private function startedIn(?string $panel, ?string $host, callable $create): mixed
     {
-        $serving = Filament::getCurrentPanel();
-        $servingHost = request()->headers->get('host');
-        Filament::setCurrentPanel($panel === null ? $serving : Filament::getPanel($panel));
+        $request = request();
+        $servingHost = $request->headers->get('host');
+        $resolver = $request->getRouteResolver();
+        $route = $panel === null ? null : collect(Route::getRoutes()->getRoutes())
+            ->first(static fn (RoutingRoute $route): bool => PanelOwnership::of($route)?->ownedBy($panel) === true);
+        $request->setRouteResolver(static fn (): ?RoutingRoute => $route);
         if ($host !== null) {
-            request()->headers->set('host', $host);
+            $request->headers->set('host', $host);
         }
 
         try {
             return $create();
         } finally {
-            Filament::setCurrentPanel($serving);
-            request()->headers->set('host', $servingHost);
+            $request->setRouteResolver($resolver ?? static fn (): null => null);
+            $request->headers->set('host', $servingHost);
         }
     }
 }

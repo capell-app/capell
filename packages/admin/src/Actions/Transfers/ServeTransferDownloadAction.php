@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Transfers;
 
+use Capell\Admin\Enums\RouteOwnershipEnum;
 use Capell\Admin\Enums\TransferDownloadEnum;
 use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Support\Transfers\TransferOrigin;
 use Capell\Admin\Support\Transfers\TransferOrigins;
-use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -39,15 +40,18 @@ final class ServeTransferDownloadAction
         $panel = $origin instanceof TransferOrigin ? resolve(InstalledPanelRuntime::class)->capellPanel($origin->panel) : null;
         abort_unless($origin instanceof TransferOrigin && $panel instanceof Panel, 403, __('capell-admin::message.transfer_origin_unknown'));
 
+        // The route's recorded ownership decides what serves the request: a panel's own copy of the download, or
+        // Filament's public global route, which only sends the visitor on.
         $route = $request->route();
-        if (! $route instanceof Route || $route->getName() !== $download->globalRouteName()) {
-            // A panel's own copy of the download serves only the records that panel started, on the host
-            // and port they were started on.
-            $serving = Filament::getCurrentPanel();
-            abort_unless($serving instanceof Panel && $serving->getId() === $panel->getId() && $request->getHttpHost() === $origin->host, 404);
+        $ownership = $route instanceof Route ? PanelOwnership::of($route) : null;
+        if ($ownership?->kind === RouteOwnershipEnum::Panel) {
+            // A panel's copy serves only the records that panel started, on the host and port they were started on.
+            abort_unless($ownership->panel === $panel->getId() && $request->getHttpHost() === $origin->host, 404);
 
             return $this->serveWithFilament($request, $download, $key);
         }
+
+        abort_unless($ownership?->kind === RouteOwnershipEnum::Public, 404);
 
         return redirect()->away($this->panelUrl($request, $download, $key, $panel, $origin->host));
     }

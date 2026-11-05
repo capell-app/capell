@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Transfers;
 
 use Capell\Admin\Enums\TransferDownloadEnum;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Core\Support\TableName;
-use Filament\Facades\Filament;
-use Filament\Panel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -22,12 +21,16 @@ final class TransferOrigins
 {
     private ?bool $available = null;
 
-    /** Record the panel serving the request that created the record, if any. */
+    /**
+     * Record the panel whose route served the request that created the record (on a Livewire update, the route
+     * the update replays), with the request's host and port. A record created without a panel route is not
+     * recorded, so its download is refused.
+     */
     public function record(Model $transfer): void
     {
         $download = TransferDownloadEnum::forModel($transfer);
-        $panel = Filament::getCurrentPanel();
-        if (! $download instanceof TransferDownloadEnum || ! $panel instanceof Panel || ! $this->isAvailable()) {
+        $panel = resolve(InstalledPanelRuntime::class)->servingPanel(request());
+        if (! $download instanceof TransferDownloadEnum || $panel === null || ! $this->isAvailable()) {
             return;
         }
 
@@ -35,7 +38,7 @@ final class TransferOrigins
         $this->table()->upsert([[
             'transfer_type' => $download->value,
             'transfer_key' => (string) $transfer->getKey(),
-            'panel' => $panel->getId(),
+            'panel' => $panel,
             'host' => request()->getHttpHost(),
             'created_at' => $now,
             'updated_at' => $now,

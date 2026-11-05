@@ -32,6 +32,23 @@ final class AdminRouteProvenance
     }
 
     /**
+     * Register routes the Capell admin entrypoint serves: the admin panel's, under its path and on its domain when
+     * one is configured. Packages register admin routes outside Filament's panel group through this.
+     */
+    public static function entrypoint(Closure $routes, bool $guests = false): void
+    {
+        self::panel(AdminPanelEntrypoint::PANEL, static function () use ($routes): void {
+            $attributes = ['prefix' => AdminPanelEntrypoint::path()];
+
+            if (($domain = AdminPanelEntrypoint::domain()) !== null) {
+                $attributes['domain'] = $domain;
+            }
+
+            RouteFacade::group($attributes, $routes);
+        }, $guests);
+    }
+
+    /**
      * The panels the route's groups declared, and whether a group declared that it serves guests.
      *
      * @return array{panels: list<string>, guests: bool}

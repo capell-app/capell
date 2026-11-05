@@ -155,8 +155,11 @@ final class InstalledPanelRuntime
     /** @var WeakMap<Panel, list<class-string>> */
     private WeakMap $fullPageOnly;
 
-    /** @var WeakMap<Route, true> Routes whose refusal on a panel's path has been reported. */
-    private WeakMap $reportedOverlaps;
+    /** The panel that recorded ownership of the route the current Livewire update replays, if a panel's. */
+    private ?string $replayedPanel = null;
+
+    /** Whether this process has already reported serving from a route cache built before ownership was recorded. */
+    private bool $staleCacheReported = false;
 
     public function __construct(private readonly Router $router)
     {
@@ -166,7 +169,6 @@ final class InstalledPanelRuntime
         $this->contributed = new WeakMap;
         $this->reconciledRoutes = new WeakMap;
         $this->refusedRoutes = new WeakMap;
-        $this->reportedOverlaps = new WeakMap;
         $this->renderings = new WeakMap;
     }
 
@@ -232,7 +234,7 @@ final class InstalledPanelRuntime
      * exclusion can serve a refused route: a panel's route runs that panel's whole stack, and a route the
      * ownership cannot vouch for is refused.
      */
-    public function reconcileMatchedRoute(Route $route, ?Request $request = null): void
+    public function reconcileMatchedRoute(Route $route): void
     {
         if (! app()->isBooted()) {
             return;
@@ -262,9 +264,6 @@ final class InstalledPanelRuntime
         }
 
         abort_if($this->isRouteRefused($route), 503, __('capell-core::runtime-refresh.application_unavailable'));
-        if ($request instanceof Request && $ownership?->kind === RouteOwnershipEnum::Host) {
-            $this->refuseOnPanelPath($route, $request);
-        }
     }
 
     /**
@@ -298,7 +297,9 @@ final class InstalledPanelRuntime
         abort_unless(array_diff($renderedBy['security'], $current['security']) === [], 419);
 
         $this->replayedRoute = $current;
-        $this->reconcileMatchedRoute($route, $request);
+        $ownership = PanelOwnership::of($route);
+        $this->replayedPanel = $ownership?->kind === RouteOwnershipEnum::Panel ? $ownership->panel : null;
+        $this->reconcileMatchedRoute($route);
     }
 
     /**
@@ -322,6 +323,7 @@ final class InstalledPanelRuntime
     public function forgetReplayedRoute(): void
     {
         $this->replayedRoute = null;
+        $this->replayedPanel = null;
         $this->renderings = new WeakMap;
     }
 
@@ -329,6 +331,86 @@ final class InstalledPanelRuntime
     public function capellPanel(string $id): ?Panel
     {
         return $this->synchronised[$id] ?? null;
+    }
+
+    /**
+     * The panel serving the request, from the recorded ownership of its route: on a Livewire update, of the
+     * route the update replays. Null when no panel registered that route.
+     */
+    public function servingPanel(Request $request): ?string
+    {
+        if (resolve(HandleRequests::class)->isLivewireRoute()) {
+            return $this->replayedPanel;
+        }
+
+        $route = $request->route();
+        $ownership = $route instanceof Route ? PanelOwnership::of($route) : null;
+
+        return $ownership?->kind === RouteOwnershipEnum::Panel ? $ownership->panel : null;
+    }
+
+    /**
+     * Routes carrying no recorded ownership: a route cache built by a release before ownership was recorded.
+     *
+     * @return list<string>
+     */
+    public function unrecordedRoutes(): array
+    {
+        return $this->describe(array_filter(
+            $this->router->getRoutes()->getRoutes(),
+            static fn (Route $route): bool => ! PanelOwnership::of($route) instanceof PanelOwnership,
+        ));
+    }
+
+    /**
+     * Routes whose recorded ownership refuses them, wherever they are requested.
+     *
+     * @return list<string>
+     */
+    public function refusedRoutes(): array
+    {
+        return $this->describe(array_filter(
+            $this->router->getRoutes()->getRoutes(),
+            fn (Route $route): bool => PanelOwnership::of($route) instanceof PanelOwnership && $this->refusal($route) !== null,
+        ));
+    }
+
+    /**
+     * The host application's routes answering on a Capell panel's path, on a host that panel is served on.
+     * They keep serving with their own middleware, but share the panel's URLs, so each is reported.
+     *
+     * @return list<string>
+     */
+    public function panelPathCollisions(): array
+    {
+        $collisions = [];
+        foreach ($this->router->getRoutes()->getRoutes() as $route) {
+            if (PanelOwnership::of($route)?->kind !== RouteOwnershipEnum::Host) {
+                continue;
+            }
+
+            $uri = trim($route->uri(), '/');
+            foreach ($this->synchronised as $id => $panel) {
+                $path = trim($panel->getPath(), '/');
+                // A panel served from the site root registers every route it serves; the site's other routes are the host's.
+                if ($path === '') {
+                    continue;
+                }
+
+                if ($uri !== $path && ! str_starts_with($uri, $path . '/')) {
+                    continue;
+                }
+
+                $domains = $panel->getDomains();
+                if ($domains !== [] && $route->getDomain() !== null && ! in_array($route->getDomain(), $domains, true)) {
+                    continue;
+                }
+
+                $collisions[] = $this->describe([$route])[0] . ' -> ' . $id;
+            }
+        }
+
+        return $collisions;
     }
 
     /**
@@ -805,7 +887,13 @@ final class InstalledPanelRuntime
     {
         $ownership = PanelOwnership::of($route);
         if (! $ownership instanceof PanelOwnership) {
-            return 'capell-admin::message.extension_panel_route_unrecorded';
+            $this->reportStaleRouteCache();
+
+            // Without a record, only a route proven to be the host's own, or public admin code, keeps serving: a
+            // serialised closure cannot be inspected, and other admin code may belong to a panel.
+            return RouteAction::containsSerializedClosure($route->getAction()) || (! $this->isPublicAction($route) && $this->runsAdminCode($route))
+                ? 'capell-admin::message.extension_panel_route_unrecorded'
+                : null;
         }
 
         if ($ownership->kind === RouteOwnershipEnum::Refused) {
@@ -848,39 +936,27 @@ final class InstalledPanelRuntime
             : null;
     }
 
-    /**
-     * A host route answering a request on a path and host a Capell panel serves was not registered by that
-     * panel, so it is refused there: the panel's URLs only serve the panel's own routes.
-     */
-    private function refuseOnPanelPath(Route $route, Request $request): void
+    /** Report, once per process, that requests are served from a route cache that records no ownership. */
+    private function reportStaleRouteCache(): void
     {
-        $uri = trim($route->uri(), '/');
-        foreach ($this->synchronised as $id => $panel) {
-            $path = trim($panel->getPath(), '/');
-            // A panel served from the site root registers every route it serves; the site's other routes are the host's.
-            if ($path === '') {
-                continue;
-            }
-
-            if ($uri !== $path && ! str_starts_with($uri, $path . '/')) {
-                continue;
-            }
-
-            $domains = $panel->getDomains();
-            if ($domains !== [] && ! in_array($request->getHost(), $domains, true)) {
-                continue;
-            }
-
-            if (! isset($this->reportedOverlaps[$route])) {
-                $this->reportedOverlaps[$route] = true;
-                Log::warning(__('capell-admin::message.extension_panel_route_refused', ['route' => $route->getName() ?? $route->uri()]), [
-                    'panel' => $id,
-                    'reason' => __('capell-admin::message.extension_panel_route_on_panel_path'),
-                ]);
-            }
-
-            abort(503, __('capell-core::runtime-refresh.application_unavailable'));
+        if ($this->staleCacheReported) {
+            return;
         }
+
+        $this->staleCacheReported = true;
+        Log::critical(__('capell-admin::message.route_cache_unrecorded'));
+    }
+
+    /**
+     * @param  array<array-key, Route>  $routes
+     * @return list<string>
+     */
+    private function describe(array $routes): array
+    {
+        return array_values(array_map(
+            static fn (Route $route): string => $route->getName() ?? implode('|', $route->methods()) . ' ' . $route->uri(),
+            $routes,
+        ));
     }
 
     /**

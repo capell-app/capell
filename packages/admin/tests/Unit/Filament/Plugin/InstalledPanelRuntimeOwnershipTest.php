@@ -14,7 +14,6 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Tests\Fixtures\Models\User;
 use Closure;
 use Filament\Actions\Exports\Models\Export;
-use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Routing\Router;
@@ -74,6 +73,34 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->get('/runtime-admin-code/AB.svg')->assertRedirect('/admin/login');
         $this->actingAsUser()->get('/runtime-admin-code/AB.svg')->assertForbidden();
         $this->actingAsAdmin()->get('/runtime-admin-code/AB.svg')->assertOk();
+    }
+
+    /** Routes registered on the admin entrypoint take its path and run the admin panel's authentication. */
+    public function test_routes_registered_on_the_admin_entrypoint_take_its_path_and_panel(): void
+    {
+        AdminRouteProvenance::entrypoint(static function (): void {
+            Route::get('runtime-entrypoint/{initials}.svg', AdminAvatarController::class);
+        });
+
+        $this->get('/admin/runtime-entrypoint/AB.svg')->assertRedirect('/admin/login');
+        $this->actingAsUser()->get('/admin/runtime-entrypoint/AB.svg')->assertForbidden();
+        $this->actingAsAdmin()->get('/admin/runtime-entrypoint/AB.svg')->assertOk();
+        $this->get('/runtime-entrypoint/AB.svg')->assertNotFound();
+    }
+
+    /** Entrypoint routes that serve guests skip the panel's sign-in but stay the admin panel's. */
+    public function test_entrypoint_routes_serving_guests_skip_the_panel_sign_in(): void
+    {
+        AdminRouteProvenance::entrypoint(static function (): void {
+            Route::get('runtime-entrypoint-guest/{initials}.svg', AdminAvatarController::class);
+        }, guests: true);
+
+        $this->get('/admin/runtime-entrypoint-guest/AB.svg')->assertOk();
+        $route = collect(Route::getRoutes()->getRoutes())
+            ->first(static fn (RoutingRoute $route): bool => $route->uri() === 'admin/runtime-entrypoint-guest/{initials}.svg');
+        $this->assertInstanceOf(RoutingRoute::class, $route);
+        $this->assertTrue(PanelOwnership::of($route)?->ownedBy(AdminPanelEntrypoint::PANEL));
+        $this->assertTrue(PanelOwnership::of($route)->guests);
     }
 
     /** Admin code registered for a panel that is not installed is refused, never assigned to another panel. */
@@ -194,11 +221,18 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
 
         $user = $this->createUser();
         $export = new Export;
-        // Started while the admin panel serves the request, as Filament's export action is.
-        $serving = Filament::getCurrentPanel();
-        Filament::setCurrentPanel(Filament::getPanel('admin'));
-        $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
-        Filament::setCurrentPanel($serving);
+        // Started while an admin panel route serves the request, as Filament's export action is.
+        $request = request();
+        $resolver = $request->getRouteResolver();
+        $adminRoute = collect(Route::getRoutes()->getRoutes())
+            ->first(static fn (RoutingRoute $route): bool => PanelOwnership::of($route)?->ownedBy('admin') === true);
+        $this->assertInstanceOf(RoutingRoute::class, $adminRoute);
+        $request->setRouteResolver(static fn (): RoutingRoute => $adminRoute);
+        try {
+            $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
+        } finally {
+            $request->setRouteResolver($resolver ?? static fn (): null => null);
+        }
 
         return [$user, URL::signedRoute('filament.exports.download', ['authGuard' => 'web', 'export' => $export, 'format' => 'csv'], absolute: false)];
     }

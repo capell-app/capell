@@ -22,12 +22,15 @@ final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
 {
     private const string BODY = 'path route served';
 
-    public function test_a_host_route_under_the_panel_path_is_refused(): void
+    /** A host route under the panel path is not adopted: it runs its own middleware and is reported. */
+    public function test_a_host_route_under_the_panel_path_is_not_adopted_and_is_reported(): void
     {
         Route::get('/admin/runtime-plain-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
 
-        $this->get('/admin/runtime-plain-callback')->assertStatus(503)->assertDontSee(self::BODY);
-        $this->actingAsAdmin()->get('/admin/runtime-plain-callback')->assertStatus(503)->assertDontSee(self::BODY);
+        $this->get('/admin/runtime-plain-callback')->assertRedirect('/admin/login')->assertDontSee(self::BODY);
+        // Its own authentication admits the admin; the panel's package security is not added to a host route.
+        $this->actingAsAdmin()->get('/admin/runtime-plain-callback')->assertOk()->assertSee(self::BODY);
+        $this->assertContains('GET|HEAD admin/runtime-plain-callback -> admin', resolve(InstalledPanelRuntime::class)->panelPathCollisions());
     }
 
     public function test_a_route_the_panel_registered_under_its_path_carries_package_security(): void
@@ -56,7 +59,10 @@ final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
         Route::domain('shop.capell.test')->get('/admin/runtime-foreign-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
         $this->actingAsAdmin();
 
-        $this->get('http://cms.capell.test/admin/runtime-alias-callback')->assertStatus(503)->assertDontSee(self::BODY);
+        $this->get('http://cms.capell.test/admin/runtime-alias-callback')->assertOk()->assertSee(self::BODY);
+        $collisions = resolve(InstalledPanelRuntime::class)->panelPathCollisions();
+        $this->assertContains('GET|HEAD admin/runtime-alias-callback -> admin', $collisions);
+        $this->assertNotContains('GET|HEAD admin/runtime-foreign-callback -> admin', $collisions);
         $this->get('http://shop.capell.test/admin/runtime-foreign-callback')->assertOk()->assertSee(self::BODY);
     }
 

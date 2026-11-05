@@ -6,6 +6,7 @@ namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\DomainCapellPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\OtherDomainCapellPanelProvider;
@@ -21,14 +22,17 @@ final class InstalledPanelRuntimeDomainOwnershipTest extends AdminTestCase
 {
     private const string DESK = 'http://' . DomainCapellPanelProvider::DOMAIN;
 
-    /** A host's public route sharing a domain panel's path serves guests on hosts that panel is not served on. */
-    public function test_a_public_route_without_a_domain_under_a_domain_panels_path_stays_public_off_its_domain(): void
+    /**
+     * A host's public route sharing a domain panel's path keeps serving guests on every host, with its own
+     * middleware: it is not the panel's, and is reported as sharing the panel's URLs on the panel's domain.
+     */
+    public function test_a_public_route_without_a_domain_under_a_domain_panels_path_stays_public_and_is_reported(): void
     {
         Route::get('/desk/runtime-public', static fn (): string => 'public page')->middleware('web');
 
         $this->get('/desk/runtime-public')->assertOk()->assertSee('public page');
-        // On the panel's own domain the path is the panel's, and a route the panel did not register is refused.
-        $this->get(self::DESK . '/desk/runtime-public')->assertStatus(503)->assertDontSee('public page');
+        $this->get(self::DESK . '/desk/runtime-public')->assertOk()->assertSee('public page');
+        $this->assertContains('GET|HEAD desk/runtime-public -> desk', resolve(InstalledPanelRuntime::class)->panelPathCollisions());
     }
 
     public function test_admin_code_without_a_domain_under_a_domain_panels_path_is_refused(): void
@@ -83,15 +87,20 @@ final class InstalledPanelRuntimeDomainOwnershipTest extends AdminTestCase
         $this->get(self::DESK . '/admin/runtime-desk-shared')->assertRedirect(self::DESK . '/desk/login');
     }
 
-    /** A route constrained to a domain panel's domain but not registered by the panel is refused on that domain. */
-    public function test_a_route_on_a_domain_panels_domain_not_registered_by_it_is_refused(): void
+    /**
+     * A host route on a domain panel's domain that the panel did not register is not adopted into the panel:
+     * it runs only its own middleware, and is reported against each panel whose path it shares.
+     */
+    public function test_a_host_route_on_a_domain_panels_domain_is_not_adopted_and_is_reported(): void
     {
         Route::domain(DomainCapellPanelProvider::DOMAIN)->get('/desk/runtime-unregistered', static fn (): string => 'unregistered')->middleware('web');
         Route::domain(DomainCapellPanelProvider::DOMAIN)->get('/admin/runtime-unregistered', static fn (): string => 'unregistered')->middleware('web');
 
-        $this->get(self::DESK . '/desk/runtime-unregistered')->assertStatus(503)->assertDontSee('unregistered');
-        // The domainless admin panel serves its path on every host, so a host route there is refused too.
-        $this->get(self::DESK . '/admin/runtime-unregistered')->assertStatus(503)->assertDontSee('unregistered');
+        $this->get(self::DESK . '/desk/runtime-unregistered')->assertOk()->assertSee('unregistered');
+        $collisions = resolve(InstalledPanelRuntime::class)->panelPathCollisions();
+        $this->assertContains('GET|HEAD desk/runtime-unregistered -> desk', $collisions);
+        // The domainless admin panel serves its path on every host, so it shares that path too.
+        $this->assertContains('GET|HEAD admin/runtime-unregistered -> admin', $collisions);
     }
 
     /** @return list<class-string> */

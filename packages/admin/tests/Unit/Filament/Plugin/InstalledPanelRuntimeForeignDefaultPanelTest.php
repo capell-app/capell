@@ -47,11 +47,13 @@ final class InstalledPanelRuntimeForeignDefaultPanelTest extends AdminTestCase
         });
         $user = $this->createUser();
         $export = new Export;
-        // Started while the admin panel serves the request, as Filament's export action is.
-        $serving = Filament::getCurrentPanel();
-        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        // Started while a route the admin panel registered serves the request, as Filament's export action is.
+        $request = request();
+        $resolver = $request->getRouteResolver();
+        $adminRoute = collect(Route::getRoutes()->getRoutes())->first(static fn (RoutingRoute $route): bool => PanelOwnership::of($route)?->ownedBy('admin') === true);
+        $request->setRouteResolver(static fn (): ?RoutingRoute => $adminRoute);
         $export->forceFill(['file_disk' => 'local', 'exporter' => 'exporter', 'total_rows' => 0, 'user_id' => $user->getKey()])->save();
-        Filament::setCurrentPanel($serving);
+        $request->setRouteResolver($resolver ?? static fn (): null => null);
         $url = route('filament.exports.download', ['export' => $export]);
 
         $download = (string) $this->get($url)->assertRedirectContains('/admin/')->headers->get('Location');

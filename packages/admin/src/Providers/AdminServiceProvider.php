@@ -189,6 +189,7 @@ use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
 use Capell\Admin\Support\Dashboard\NullRecentlyPublishedDataProvider;
 use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
+use Capell\Admin\Support\Diagnostics\Checks\AdminRouteOwnershipCheck;
 use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
@@ -234,6 +235,7 @@ use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\Transfers\TransferOrigins;
 use Capell\Admin\Support\Upgrade\InvalidateCachedLivewireSnapshotsStep;
+use Capell\Admin\Support\Upgrade\RequireRecordedRouteCacheStep;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
@@ -310,6 +312,7 @@ use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Foundation\Application;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
@@ -430,13 +433,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'Capell\\Admin\\Support\\Media\\LegacyAdminMediaFieldFactoryAdapter',
         );
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
-        $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
+        $this->app->tag([AdminUserAccessCheck::class, AdminRouteOwnershipCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
         // Each route records who serves it as it is registered, before any route is cached.
         ProvenanceRouteCollection::install($this->app->make(Router::class));
 
         // Stored public HTML carries Livewire snapshots without their rendering route, which updates reject.
-        $this->app->tag([InvalidateCachedLivewireSnapshotsStep::class], 'capell.upgrade-steps');
+        $this->app->tag([RequireRecordedRouteCacheStep::class, InvalidateCachedLivewireSnapshotsStep::class], 'capell.upgrade-steps');
         // Each export and import remembers the panel it was started in, which later serves its download.
         $events->listen('eloquent.created: *', static function (string $event, array $payload): void {
             if (($payload[0] ?? null) instanceof Model && TransferDownloadEnum::forModel($payload[0]) instanceof TransferDownloadEnum) {
@@ -450,7 +453,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
             // Each route is served as its recorded ownership says, before its middleware runs.
-            resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route, $event->request);
+            resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route);
         });
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
         $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (InstalledRuntimeRefreshed $event): void {
@@ -647,6 +650,18 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        // A host route answering on an admin panel's path keeps serving, but shares the panel's URLs, so it is
+        // reported. Only uncached boots check: a cached application reports it through the doctor check.
+        $this->app->booted(static function (Application $app): void {
+            if ($app->routesAreCached()) {
+                return;
+            }
+
+            foreach (resolve(InstalledPanelRuntime::class)->panelPathCollisions() as $collision) {
+                [$route, $panel] = explode(' -> ', $collision, 2) + [1 => ''];
+                Log::warning(__('capell-admin::message.route_panel_path_collision', ['route' => $route, 'panel' => $panel]));
+            }
+        });
         // A Livewire update replays the persistent middleware of the route that rendered the
         // component; that route is reconciled first, as it stands now. Registered at boot, once
         // Livewire's event bus exists.
