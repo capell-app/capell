@@ -1268,8 +1268,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         foreach ([CapellExtension::class, ExtensionHealthAlert::class] as $model) {
             foreach (['saved', 'deleted'] as $event) {
-                $model::registerModelEvent($event, static function (): void {
+                $model::registerModelEvent($event, static function (Model $record): void {
                     resolve(ExtensionNavigationBadgeCounts::class)->forget();
+
+                    if ($record->getConnection()->transactionLevel() > 0) {
+                        $record->getConnection()->afterCommit(static function (): void {
+                            resolve(ExtensionNavigationBadgeCounts::class)->forget();
+                        });
+                    }
                 });
             }
         }

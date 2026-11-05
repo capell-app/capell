@@ -2,12 +2,22 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
+use Capell\Admin\Actions\Extensions\ResolveExtensionAssetPathAction;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
+use Capell\Core\Enums\ExtensionHealthAlertCategory;
+use Capell\Core\Enums\ExtensionHealthAlertSeverity;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Models\ExtensionHealthAlert;
+use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 uses(CreatesAdminUser::class)->group('extension');
 
@@ -63,4 +73,126 @@ it('rebuilds the badge counts only after extensions change', function (): void {
 
     expect($counts->summaryBuilds)->toBe(1)
         ->and($afterChange->summaryBuilds)->toBe(1);
+});
+
+it('does not consult badge counts for a user without permission', function (): void {
+    test()->actingAsUser();
+    $counts = countingBadgeCounts();
+
+    expect(ExtensionsPage::getNavigationBadge())->toBeNull()
+        ->and(ExtensionsPage::getNavigationBadgeColor())->toBeNull()
+        ->and($counts->summaryBuilds)->toBe(0);
+});
+
+it('invalidates counts on lifecycle uninstall', function (): void {
+    $extension = CapellExtension::query()->create([
+        'composer_name' => 'vendor/badge-uninstall', 'name' => 'Badge uninstall', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+    ]);
+    $counts = countingBadgeCounts();
+    ExtensionsPage::getNavigationBadge();
+    resolve(ExtensionLifecycleRepository::class)->delete($extension->composer_name);
+    $next = countingBadgeCounts();
+    ExtensionsPage::getNavigationBadge();
+
+    expect($counts->summaryBuilds)->toBe(1)->and($next->summaryBuilds)->toBe(1);
+});
+
+it('does not resolve screenshot assets for admin navigation', function (): void {
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/badge-screenshot',
+        surfaces: ['admin'],
+        overrides: ['marketplace' => ['screenshots' => [['path' => 'images/screenshot.jpg', 'alt' => 'Screenshot']]]],
+    ));
+    resolve(CapellPackageRegistry::class)->register($manifest);
+    $assets = bindFakeAction(ResolveExtensionAssetPathAction::class);
+    $summary = new BuildExtensionOperationsSummaryAction;
+    $spy = new stdClass;
+    $spy->builds = 0;
+
+    app()->bind(BuildExtensionOperationsSummaryAction::class, fn (): object => new readonly class($summary, $spy)
+    {
+        public function __construct(private BuildExtensionOperationsSummaryAction $summary, private stdClass $spy) {}
+
+        /** @return array{unhealthy: int, blocked: int} */
+        public function navigationCounts(): array
+        {
+            return $this->summary->navigationCounts();
+        }
+
+        public function handle(): mixed
+        {
+            $this->spy->builds++;
+
+            return $this->summary->handle();
+        }
+    });
+
+    test()->get('/admin')->assertOk();
+    expect($assets->called)->toBeFalse()->and($spy->builds)->toBe(0);
+
+    BuildExtensionOperationsSummaryAction::run();
+    expect($assets->called)->toBeTrue()->and($spy->builds)->toBe(1);
+});
+
+it('invalidates cached counts for extension and health changes', function (): void {
+    $extension = CapellExtension::query()->create([
+        'composer_name' => 'vendor/badge-events', 'name' => 'Badge events', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+    ]);
+    $counts = countingBadgeCounts();
+    ExtensionsPage::getNavigationBadge();
+
+    $extension->update(['status' => ExtensionStatusEnum::Disabled]);
+    ExtensionsPage::getNavigationBadge();
+    $extension->update(['status' => ExtensionStatusEnum::Enabled, 'version' => '2.0.0']);
+    ExtensionsPage::getNavigationBadge();
+    $alert = ExtensionHealthAlert::query()->create([
+        'alert_id' => 'badge-events', 'source' => 'marketplace', 'composer_name' => $extension->composer_name,
+        'severity' => ExtensionHealthAlertSeverity::Warning, 'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Alert', 'message' => 'Alert', 'signature' => 'test', 'issued_at' => now(),
+    ]);
+    ExtensionsPage::getNavigationBadge();
+    $alert->delete();
+    ExtensionsPage::getNavigationBadge();
+
+    expect($counts->summaryBuilds)->toBe(5);
+});
+
+it('invalidates again after an extension transaction commits', function (): void {
+    $extension = CapellExtension::query()->create([
+        'composer_name' => 'vendor/badge-transaction', 'name' => 'Badge transaction', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+    ]);
+    $counts = countingBadgeCounts();
+    ExtensionsPage::getNavigationBadge();
+
+    DB::transaction(function () use ($extension): void {
+        $extension->update(['status' => ExtensionStatusEnum::Disabled]);
+        ExtensionsPage::getNavigationBadge();
+    });
+    ExtensionsPage::getNavigationBadge();
+
+    expect($counts->summaryBuilds)->toBe(3);
+});
+
+it('uses the persistent cache on the next admin request', function (): void {
+    $directory = base_path('var/badge-cache-' . bin2hex(random_bytes(8)));
+    File::ensureDirectoryExists($directory);
+    config(['cache.default' => 'badge_test', 'cache.stores.badge_test' => [
+        'driver' => 'file', 'path' => $directory, 'lock_path' => $directory,
+    ]]);
+
+    try {
+        $first = countingBadgeCounts();
+        test()->get('/admin')->assertOk();
+        expect(ExtensionsPage::getNavigationBadge())->toBe('2');
+        $next = countingBadgeCounts();
+        test()->get('/admin')->assertOk();
+        expect(ExtensionsPage::getNavigationBadge())->toBe('2');
+
+        expect($first->summaryBuilds)->toBe(1)->and($next->summaryBuilds)->toBe(0);
+    } finally {
+        File::deleteDirectory($directory);
+    }
 });

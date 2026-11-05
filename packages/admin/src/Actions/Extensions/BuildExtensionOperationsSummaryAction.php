@@ -75,6 +75,38 @@ final class BuildExtensionOperationsSummaryAction
         );
     }
 
+    /** @return array{unhealthy: int, blocked: int} */
+    public function navigationCounts(): array
+    {
+        $registry = resolve(CapellPackageRegistry::class);
+        $extensions = $this->extensions();
+        $alerts = $this->healthAlerts();
+        $unhealthy = 0;
+        $blocked = 0;
+
+        $manifests = $registry->all();
+
+        foreach ($manifests as $packageName => $manifest) {
+            $extension = $extensions->get($packageName);
+            $runtimeAllowed = ! $extension instanceof CapellExtension || ResolveExtensionRuntimeGateAction::run($extension)->allowed;
+            $health = $this->healthState($alerts->get($packageName, collect()), $this->missingRequiredTables($manifest), $runtimeAllowed);
+            $hasRecovery = $extension instanceof CapellExtension && $extension->provider_recovery_state === ExtensionProviderRecoveryStateEnum::Quarantined;
+            $hasDrift = $extension instanceof CapellExtension && resolve(ComposerDriftClassifier::class)->reason($extension) !== null;
+
+            $unhealthy += (int) ($health !== 'ok' || $hasRecovery || $hasDrift);
+            $blocked += (int) ! $runtimeAllowed;
+        }
+
+        foreach ($this->composerDriftedExtensions($extensions) as $extension) {
+            if (! isset($manifests[$extension->composer_name])) {
+                $unhealthy++;
+                $blocked++;
+            }
+        }
+
+        return ['unhealthy' => $unhealthy, 'blocked' => $blocked];
+    }
+
     private function build(): ExtensionOperationsSummaryData
     {
         $registry = resolve(CapellPackageRegistry::class);

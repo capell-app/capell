@@ -17,6 +17,7 @@ use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionRuntimeCompatibilityData;
 use Capell\Admin\Data\Extensions\ExtensionUpdateReadinessData;
 use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
+use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryAccessiblePage;
 use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryInaccessiblePage;
 use Capell\Core\Actions\RequirePackageAction;
@@ -106,6 +107,33 @@ it('keeps foreign site health alerts out of the operations summary', function (b
         $console->setValue(app(), $previousConsole);
     }
 })->with(['console' => false, 'cached HTTP request' => true]);
+
+it('scopes cached navigation counts to site access', function (): void {
+    $packageName = 'vendor/badge-site-scope';
+    registerOperationsSummaryManifest($packageName, ['displayName' => 'Badge site scope', 'version' => '1.0.0']);
+    $site = Site::factory()->create();
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'badge-site-scope', 'source' => 'test', 'composer_name' => $packageName,
+        'affected_site_id' => $site->id, 'severity' => ExtensionHealthAlertSeverity::Critical,
+        'category' => ExtensionHealthAlertCategory::Security, 'title' => 'Private alert',
+        'message' => 'Private diagnostic', 'signature' => 'test', 'issued_at' => now(),
+    ]);
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $site->id]);
+
+    test()->actingAs($actor);
+    $console = new ReflectionProperty(app(), 'isRunningInConsole');
+    $previous = $console->getValue(app());
+    $console->setValue(app(), false);
+
+    try {
+        expect(resolve(ExtensionNavigationBadgeCounts::class)->unhealthy())->toBe(1);
+        $actor->assignedSiteIds = collect();
+        expect(resolve(ExtensionNavigationBadgeCounts::class)->unhealthy())->toBe(0);
+    } finally {
+        $console->setValue(app(), $previous);
+    }
+});
 
 it('refreshes cached health alerts when the same actor loses site access', function (): void {
     $packageName = 'vendor/revoked-site-health';
@@ -829,6 +857,8 @@ it('builds an operations summary from manifests, extension records, health alert
     ]);
 
     $summary = BuildExtensionOperationsSummaryAction::run();
+    $counts = resolve(BuildExtensionOperationsSummaryAction::class)->navigationCounts();
+    expect($counts)->toBe(['unhealthy' => $summary->unhealthyCount, 'blocked' => $summary->blockedCount]);
     $editorialPackage = $summary->package('vendor/editorial-tools');
     $blockedPackage = $summary->package('vendor/blocked-commerce');
 
