@@ -5,8 +5,8 @@
 
 <div
     x-data="{ open: @entangle('open') }"
-    x-on:keydown.meta.k.window="$wire.toggle()"
-    x-on:keydown.ctrl.k.window="$wire.toggle()"
+    x-on:keydown.meta.k.window.prevent="$wire.toggle()"
+    x-on:keydown.ctrl.k.window.prevent="$wire.toggle()"
     x-on:keydown.escape.window="
         if (open) {
             $wire.close();
@@ -25,6 +25,10 @@
     {{-- Palette modal --}}
     <div
         x-show="open"
+        x-trap.inert.noscroll="open"
+        role="dialog"
+        aria-modal="true"
+        aria-label="{{ __('capell-admin::palette.title') }}"
         x-transition.scale.origin.top
         class="fixed inset-x-0 top-20 z-50 mx-auto max-w-xl px-4"
         style="display: none"
@@ -37,7 +41,13 @@
                 class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800"
             >
                 @svg(Heroicon::OutlinedMagnifyingGlass->getIconForSize(IconSize::Small), 'h-5 w-5 flex-shrink-0 text-gray-400')
+                <label
+                    class="sr-only"
+                    for="command-palette-search"
+                    >{{ __('capell-admin::palette.search_label') }}</label
+                >
                 <input
+                    id="command-palette-search"
                     class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none dark:text-gray-200"
                     placeholder="{{ __('capell-admin::palette.search_placeholder') }}"
                     type="text"
@@ -59,13 +69,52 @@
                 </kbd>
             </div>
 
-            {{-- Results --}}
-            <ul
-                class="max-h-80 overflow-y-auto py-2"
-                role="listbox"
+            <details
+                class="border-b border-gray-100 px-4 py-2 text-sm dark:border-gray-800"
             >
+                <summary>{{ __('capell-admin::palette.shortcuts') }}</summary>
+                <dl>
+                    <div>
+                        <dt>{{ __('capell-admin::palette.open_shortcut') }}</dt>
+                        <dd>⌘/Ctrl + K</dd>
+                    </div>
+                    <div>
+                        <dt>
+                            {{ __('capell-admin::palette.close_shortcut') }}
+                        </dt>
+                        <dd>Esc</dd>
+                    </div>
+                    <div>
+                        <dt>{{ __('capell-admin::palette.save_shortcut') }}</dt>
+                        <dd>⌘/Ctrl + S</dd>
+                    </div>
+                    <div>
+                        <dt>
+                            {{ __('capell-admin::palette.delete_shortcut') }}
+                        </dt>
+                        <dd>⌘/Ctrl + D</dd>
+                    </div>
+                    <div>
+                        <dt>
+                            {{ __('capell-admin::palette.create_another_shortcut') }}
+                        </dt>
+                        <dd>⌘/Ctrl + Shift + S</dd>
+                    </div>
+                    @foreach (config('capell-admin.shortcuts', []) as $shortcut)
+                        <div>
+                            <dt>{{ $shortcut['label'] }}</dt>
+                            <dd>
+                                {{ $shortcut['sequence'] ?? $shortcut['key'] ?? '' }}
+                            </dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </details>
+
+            {{-- Results --}}
+            <ul class="max-h-80 overflow-y-auto py-2">
                 @forelse ($this->filteredCommands() as $command)
-                    <li role="option">
+                    <li>
                         @if ($command->url !== null)
                             <a
                                 class="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
