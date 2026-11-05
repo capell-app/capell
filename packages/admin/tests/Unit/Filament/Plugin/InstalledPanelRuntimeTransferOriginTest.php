@@ -137,6 +137,18 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
             ->assertNotFound();
     }
 
+    /** The originating panel's copy serves the download only on the host and port the export was started on. */
+    public function test_the_originating_panels_copy_is_not_served_on_another_host(): void
+    {
+        $startedOn = request()->getHttpHost();
+        [$user, , $export] = $this->exportFrom('admin');
+        $path = URL::signedRoute('filament.admin.capell.exports.download', ['authGuard' => 'web', 'export' => $export, 'format' => 'csv'], absolute: false);
+
+        $this->actingAs($user)->get('http://' . $startedOn . $path)->assertOk()->assertDownload('runtime-export.csv');
+        $this->actingAs($user)->get('http://elsewhere.example.test' . $path)->assertNotFound();
+        $this->actingAs($user)->get('http://' . explode(':', $startedOn)[0] . ':9443' . $path)->assertNotFound();
+    }
+
     /** @return list<class-string> */
     #[Override]
     protected function getPackageProviders(mixed $app): array

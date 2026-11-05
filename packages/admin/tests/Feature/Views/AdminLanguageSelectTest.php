@@ -53,8 +53,12 @@ it('does not render the admin language select on Filament auth routes', function
     Role::findOrCreate('panel_user', 'web');
     test()->actingAsRole('panel_user');
 
-    Route::get('/admin/multi-factor-authentication/set-up', fn (): Factory|View => view($view))
-        ->name('filament.admin.auth.multi-factor-authentication.set-up-required');
+    // Registered in the panel's route group, as Filament registers it.
+    Route::name('filament.admin.')->group(static function () use ($view): void {
+        Route::get('/admin/multi-factor-authentication/set-up', fn (): Factory|View => view($view))
+            ->name('auth.multi-factor-authentication.set-up-required');
+    });
+    Route::getRoutes()->refreshNameLookups();
 
     get(route('filament.admin.auth.multi-factor-authentication.set-up-required'))
         ->assertOk()

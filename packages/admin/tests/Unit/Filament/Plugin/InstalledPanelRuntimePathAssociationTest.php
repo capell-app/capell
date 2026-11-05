@@ -14,17 +14,28 @@ use Filament\Panel;
 use Illuminate\Support\Facades\Route;
 use Override;
 
-/** Routes under the panel path belong to the panel whether or not they name or declare it. */
+/**
+ * A panel's path only serves the routes the panel registered: a host route sharing it is refused on the
+ * hosts the panel serves, rather than adopted into the panel, and a route outside it is the host's own.
+ */
 final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
 {
     private const string BODY = 'path route served';
 
-    public function test_an_unnamed_route_under_the_panel_path_carries_package_security(): void
+    public function test_a_host_route_under_the_panel_path_is_refused(): void
     {
         Route::get('/admin/runtime-plain-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
+
+        $this->get('/admin/runtime-plain-callback')->assertStatus(503)->assertDontSee(self::BODY);
+        $this->actingAsAdmin()->get('/admin/runtime-plain-callback')->assertStatus(503)->assertDontSee(self::BODY);
+    }
+
+    public function test_a_route_the_panel_registered_under_its_path_carries_package_security(): void
+    {
+        Route::middleware(['panel:admin'])->group(static fn () => Route::get('/admin/runtime-panel-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]));
         $this->actingAsAdmin();
 
-        $this->get('/admin/runtime-plain-callback')
+        $this->get('/admin/runtime-panel-callback')
             ->assertForbidden()
             ->assertSee(PackageSecurityDenyMiddleware::BODY)
             ->assertDontSee(self::BODY);
@@ -38,18 +49,19 @@ final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
         $this->get('/administrator/runtime-callback')->assertOk()->assertSee(self::BODY);
     }
 
-    public function test_the_panel_domain_decides_which_routes_under_its_path_belong_to_it(): void
+    public function test_the_panel_domain_decides_where_its_path_refuses_host_routes(): void
     {
         Filament::getPanel('admin')->domains(['admin.capell.test', 'cms.capell.test']);
         Route::domain('cms.capell.test')->get('/admin/runtime-alias-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
         Route::domain('shop.capell.test')->get('/admin/runtime-foreign-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
         $this->actingAsAdmin();
 
-        $this->get('http://cms.capell.test/admin/runtime-alias-callback')->assertForbidden()->assertDontSee(self::BODY);
+        $this->get('http://cms.capell.test/admin/runtime-alias-callback')->assertStatus(503)->assertDontSee(self::BODY);
         $this->get('http://shop.capell.test/admin/runtime-foreign-callback')->assertOk()->assertSee(self::BODY);
     }
 
-    public function test_a_route_claimed_by_two_panels_is_refused(): void
+    /** Declaring a panel's middleware after registration, under another panel's path, does not make it either panel's. */
+    public function test_a_route_given_another_panels_middleware_after_registration_is_refused(): void
     {
         resolve(InstalledPanelRuntime::class)->extend(Panel::make()->id('second')->path('second'));
         Route::get('/second/runtime-claimed', static fn (): string => self::BODY)->middleware(['panel:admin', 'web', Authenticate::class]);

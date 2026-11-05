@@ -311,7 +311,6 @@ use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Routing\Events\RouteMatched;
-use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -433,32 +432,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
-        // Each route records whether it runs admin code as it is registered, before any route is cached.
-        $router = $this->app->make(Router::class);
-        $registered = $router->getRoutes();
-        if ($registered instanceof RouteCollection && ! $registered instanceof ProvenanceRouteCollection) {
-            $routes = new ProvenanceRouteCollection;
-            foreach ($registered->getRoutes() as $route) {
-                $routes->add($route);
-            }
-
-            $router->setRoutes($routes);
-        }
+        // Each route records who serves it as it is registered, before any route is cached.
+        ProvenanceRouteCollection::install($this->app->make(Router::class));
 
         // Stored public HTML carries Livewire snapshots without their rendering route, which updates reject.
         $this->app->tag([InvalidateCachedLivewireSnapshotsStep::class], 'capell.upgrade-steps');
-        $this->callAfterResolving(InstalledPanelRuntime::class, static function (InstalledPanelRuntime $runtime): void {
-            // The admin-only Filament plugins the panels install; their routes are admin code too.
-            $runtime->declareAdminCode('Guava\\IconPicker', 'Pboivin\\FilamentPeek', 'STS\\FilamentImpersonate');
-            // The icon picker only serves admin forms.
-            $runtime->declareAdminRoute('guava-icon-picker.index', 'guava-icon-picker.svgs');
-            // Signed preview links and the token-keyed internal preview are credentialed by their URL.
-            $runtime->allowPublicRoute('capell.admin.theme-preview', 'capell.admin.preview-page', 'filament-peek.preview');
-            // Leaving an impersonation serves the impersonated user, who need not have panel access.
-            $runtime->allowPublicRoute('filament-impersonate.leave');
-            // Filament's global downloads only send the visitor on to the originating panel's copy of the route.
-            $runtime->allowPublicRoute(...array_map(static fn (TransferDownloadEnum $download): string => $download->globalRouteName(), TransferDownloadEnum::cases()));
-        });
         // Each export and import remembers the panel it was started in, which later serves its download.
         $events->listen('eloquent.created: *', static function (string $event, array $payload): void {
             if (($payload[0] ?? null) instanceof Model && TransferDownloadEnum::forModel($payload[0]) instanceof TransferDownloadEnum) {
@@ -471,17 +449,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             }
         });
         $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
-            $name = (string) $event->route->getName();
-            if (str_starts_with($name, 'filament.')) {
-                // A long-lived worker matches the same route object on every request.
-                $availability = EnsureInstalledPanelAvailable::class . ':' . explode('.', $name)[1];
-                if (! in_array($availability, $event->route->middleware(), true)) {
-                    $event->route->middleware($availability);
-                    $event->route->computedMiddleware = null;
-                }
-            }
-
-            // Routes registered after the panel synchronised are held to package security too.
+            // Each route is served as its recorded ownership says, before its middleware runs.
             resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route, $event->request);
         });
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);

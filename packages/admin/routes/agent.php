@@ -16,8 +16,8 @@ if (($adminDomain = AdminPanelEntrypoint::domain()) !== null) {
     $adminAgentRoutes->domain($adminDomain);
 }
 
-// Recorded as admin code, so each route keeps its panel ownership through `route:cache`.
-AdminRouteProvenance::group(static fn () => $adminAgentRoutes
+// Served by the Capell admin panel, which runs its whole stack on its domains for each route.
+AdminRouteProvenance::panel(AdminPanelEntrypoint::PANEL, static fn () => $adminAgentRoutes
     ->middleware(['web', Authenticate::class, EnforceLockdownAdminAccess::class, SetSitePermissionScope::class])
     ->name('capell-admin.agent.')
     ->group(function (): void {

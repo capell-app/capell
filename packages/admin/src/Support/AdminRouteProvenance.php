@@ -9,42 +9,44 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
 
 /**
- * Who owns a route, recorded in its action when admin code registers it. The action travels with the
- * route through `route:cache`, so ownership never has to be inferred from a route's code. A route
- * with no recorded provenance that no panel names, declares or holds under its path is a public host route.
+ * The route group through which Capell's admin code registers panel routes outside Filament's own panel
+ * groups. It records, on every route it registers, the panel that serves it; the record is read as the
+ * route is added to the router, where it decides the route's {@see PanelOwnership}.
  */
 final class AdminRouteProvenance
 {
-    /** The route action attribute that records the provenance. */
+    /** The route action attribute that records the declaration. */
     public const string ACTION = 'capell_admin';
 
+    private const string PANEL = 'panel:';
+
+    private const string GUESTS = 'guests';
+
     /**
-     * The route action attribute recording that a route registered without a provenance runs admin
-     * code, captured while its action can still be inspected, before `route:cache` stores it.
+     * Register routes the given panel serves, held to its whole stack on its domains. Routes serving guests
+     * (credentialed by a URL signature, say) skip the panel's sign-in but keep its package middleware.
      */
-    public const string DETECTED = 'capell_admin_code';
-
-    /** Admin code outside every panel path: owned by the default Capell panel and held to its whole stack. */
-    public const string ADMIN = 'admin';
-
-    /** Reachable without signing in, because something other than a session is its credential (a URL signature or token). */
-    public const string PUBLIC = 'public';
-
-    /** Register admin routes, recording on each that admin code owns it. */
-    public static function group(Closure $routes): void
+    public static function panel(string $panel, Closure $routes, bool $guests = false): void
     {
-        RouteFacade::group([self::ACTION => self::ADMIN], $routes);
+        RouteFacade::group([self::ACTION => $guests ? [self::PANEL . $panel, self::GUESTS] : self::PANEL . $panel], $routes);
     }
 
-    /** The provenance recorded on the route, if any. */
-    public static function of(Route $route): ?string
+    /**
+     * The panels the route's groups declared, and whether a group declared that it serves guests.
+     *
+     * @return array{panels: list<string>, guests: bool}
+     */
+    public static function declared(Route $route): array
     {
-        // Nested groups merge their attributes recursively, so a nested declaration arrives as a list.
-        $declared = (array) $route->getAction(self::ACTION);
-        if (in_array(self::ADMIN, $declared, true)) {
-            return self::ADMIN;
+        // Nested groups merge their attributes recursively, so nested declarations arrive as a list.
+        $declared = array_filter((array) $route->getAction(self::ACTION), is_string(...));
+        $panels = [];
+        foreach ($declared as $declaration) {
+            if (str_starts_with($declaration, self::PANEL)) {
+                $panels[] = substr($declaration, strlen(self::PANEL));
+            }
         }
 
-        return in_array(self::PUBLIC, $declared, true) ? self::PUBLIC : null;
+        return ['panels' => array_values(array_unique($panels)), 'guests' => in_array(self::GUESTS, $declared, true)];
     }
 }

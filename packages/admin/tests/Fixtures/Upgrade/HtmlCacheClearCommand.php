@@ -6,22 +6,22 @@ namespace Capell\Admin\Tests\Fixtures\Upgrade;
 
 use Illuminate\Console\Command;
 
-/** Stands in for the HTML cache package's command that marks stored public HTML stale. */
+/**
+ * Stands in for the HTML cache package's clear command, with its signature: marks every stored page stale,
+ * and with --process regenerates them in this process through process-stale.
+ */
 final class HtmlCacheClearCommand extends Command
 {
-    public int $runs = 0;
+    protected $signature = 'capell:html-cache:clear {slug?} {--recursive} {--process}';
 
-    protected $signature = 'capell:html-cache:clear';
-
-    public function __construct(private readonly int $exitCode = self::SUCCESS)
+    public function handle(StoredPublicPages $pages): int
     {
-        parent::__construct();
-    }
+        foreach (array_keys($pages->pages) as $url) {
+            $pages->pages[$url] = 'stale';
+        }
 
-    public function handle(): int
-    {
-        $this->runs++;
+        $this->info(sprintf('Marked %d URL(s) stale. Nothing has been regenerated yet; the old HTML is still being served.', count($pages->pages)));
 
-        return $this->exitCode;
+        return $this->option('process') === true ? $this->call('capell:html-cache:process-stale') : self::SUCCESS;
     }
 }

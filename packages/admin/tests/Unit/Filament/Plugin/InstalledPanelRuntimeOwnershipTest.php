@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Enums\RouteOwnershipEnum;
 use Capell\Admin\Http\Controllers\AdminAvatarController;
+use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminRouteProvenance;
-use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Tests\Fixtures\Models\User;
@@ -23,16 +25,16 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 
 /**
- * Every route that runs Filament, Livewire or Capell admin code is owned by a panel and runs that
- * panel's whole stack, unless it is explicitly declared public. Public declarations are justified here.
+ * Every route that runs Filament, Livewire or Capell admin code was registered by a panel and runs that
+ * panel's whole stack, unless its code is public admin code. Public admin code is justified here.
  */
 final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
 {
-    public function test_every_admin_code_route_is_owned_by_a_panel_or_declared_public(): void
+    public function test_every_admin_code_route_is_registered_by_a_panel_or_public(): void
     {
-        $unclassified = resolve(InstalledPanelRuntime::class)->unclassifiedAdminRoutes();
+        $refused = $this->refusedRoutes();
 
-        $this->assertSame([], $unclassified, 'Admin code routes neither owned by a panel nor declared public: ' . implode(', ', $unclassified));
+        $this->assertSame([], $refused, "Routes neither registered by a panel nor public or the host's own: " . implode(', ', $refused));
     }
 
     /**
@@ -62,10 +64,10 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->get('/' . str_replace('{component}', 'runtime-missing-component', $route->uri()))->assertNotFound();
     }
 
-    /** Capell admin code registered outside the panel path through Core's admin route helper runs the panel's authentication. */
-    public function test_admin_code_outside_the_panel_path_runs_the_default_panel_authentication(): void
+    /** Capell admin code registered outside the panel path for the admin panel runs that panel's authentication. */
+    public function test_admin_code_registered_for_the_admin_panel_outside_its_path_runs_its_authentication(): void
     {
-        AdminRouteProvenance::group(static function (): void {
+        AdminRouteProvenance::panel(AdminPanelEntrypoint::PANEL, static function (): void {
             Route::get('/runtime-admin-code/{initials}.svg', AdminAvatarController::class)->middleware('web');
         });
 
@@ -74,12 +76,23 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         $this->actingAsAdmin()->get('/runtime-admin-code/AB.svg')->assertOk();
     }
 
-    /** Admin code registered without Core's admin route helper outside every panel path is refused, and reported. */
+    /** Admin code registered for a panel that is not installed is refused, never assigned to another panel. */
+    public function test_admin_code_registered_for_a_panel_that_is_not_installed_is_refused(): void
+    {
+        AdminRouteProvenance::panel('retired', static function (): void {
+            Route::get('/admin/runtime-retired-panel/{initials}.svg', AdminAvatarController::class)->middleware('web');
+        });
+
+        $this->get('/admin/runtime-retired-panel/AB.svg')->assertStatus(503);
+        $this->actingAsAdmin()->get('/admin/runtime-retired-panel/AB.svg')->assertStatus(503);
+    }
+
+    /** Admin code registered by no panel outside every panel path is refused, and its ownership records why. */
     public function test_an_unmarked_admin_controller_outside_the_panel_path_is_refused(): void
     {
         Route::get('/runtime-unmarked-admin/{initials}.svg', AdminAvatarController::class)->middleware('web')->name('runtime.unmarked-admin');
 
-        $this->assertSame(['runtime.unmarked-admin'], resolve(InstalledPanelRuntime::class)->unclassifiedAdminRoutes());
+        $this->assertSame(['runtime.unmarked-admin'], $this->refusedRoutes());
         $this->get('/runtime-unmarked-admin/AB.svg')->assertStatus(503);
         $this->actingAsAdmin()->get('/runtime-unmarked-admin/AB.svg')->assertStatus(503);
     }
@@ -188,5 +201,18 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
         Filament::setCurrentPanel($serving);
 
         return [$user, URL::signedRoute('filament.exports.download', ['authGuard' => 'web', 'export' => $export, 'format' => 'csv'], absolute: false)];
+    }
+
+    /**
+     * Routes the router would refuse wherever they are requested: carrying no ownership, or refused by it.
+     *
+     * @return list<string>
+     */
+    private function refusedRoutes(): array
+    {
+        return array_values(collect(Route::getRoutes()->getRoutes())
+            ->reject(static fn (RoutingRoute $route): bool => in_array(PanelOwnership::of($route)?->kind, [RouteOwnershipEnum::Panel, RouteOwnershipEnum::Public, RouteOwnershipEnum::Host], true))
+            ->map(static fn (RoutingRoute $route): string => $route->getName() ?? implode('|', $route->methods()) . ' ' . $route->uri())
+            ->all());
     }
 }

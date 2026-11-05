@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Enums\RouteOwnershipEnum;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
-use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\ForeignDefaultPanelProvider;
 use Filament\Actions\Exports\Models\Export;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Override;
 
@@ -23,7 +26,12 @@ final class InstalledPanelRuntimeForeignDefaultPanelTest extends AdminTestCase
     public function test_global_admin_routes_belong_to_the_capell_panel(): void
     {
         $this->assertSame('portal', Filament::getDefaultPanel()->getId());
-        $this->assertSame([], resolve(InstalledPanelRuntime::class)->unclassifiedAdminRoutes());
+        $refused = collect(Route::getRoutes()->getRoutes())
+            ->filter(static fn (RoutingRoute $route): bool => PanelOwnership::of($route)?->kind === RouteOwnershipEnum::Refused)
+            ->map(static fn (RoutingRoute $route): string => (string) $route->getName())
+            ->values()
+            ->all();
+        $this->assertSame([], $refused);
 
         Schema::create('exports', static function (Blueprint $table): void {
             $table->id();

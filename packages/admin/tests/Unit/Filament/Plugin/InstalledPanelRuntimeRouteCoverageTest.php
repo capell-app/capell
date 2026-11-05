@@ -71,7 +71,7 @@ final class InstalledPanelRuntimeRouteCoverageTest extends AdminTestCase
     {
         $panel = Filament::getPanel('admin');
         Route::middlewareGroup('runtime-panel-stack', [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
-        Route::get('/admin/runtime-grouped', static fn (): string => 'panel route served')->middleware('runtime-panel-stack');
+        Route::middleware('runtime-panel-stack')->group(static fn () => Route::get('/admin/runtime-grouped', static fn (): string => 'panel route served'));
         $this->get('/admin/runtime-grouped')->assertRedirect('/admin/login');
 
         // The route's declared middleware is unchanged, but what it resolves to no longer authenticates.
@@ -86,12 +86,16 @@ final class InstalledPanelRuntimeRouteCoverageTest extends AdminTestCase
         return [...parent::getPackageProviders($app), BootAuthenticationRuntimeProvider::class];
     }
 
-    /** A standalone route carrying the panel's full stack, as a package callback would. */
+    /** A route registered in a group carrying the panel's full stack, as a package callback would be. */
     private function panelRoute(string $uri): RoutingRoute
     {
         $panel = Filament::getPanel('admin');
+        $route = null;
+        Route::middleware([...$panel->getMiddleware(), ...$panel->getAuthMiddleware()])->group(static function () use ($uri, &$route): void {
+            $route = Route::get($uri, static fn (): string => 'panel route served');
+        });
+        $this->assertInstanceOf(RoutingRoute::class, $route);
 
-        return Route::get($uri, static fn (): string => 'panel route served')
-            ->middleware([...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+        return $route;
     }
 }

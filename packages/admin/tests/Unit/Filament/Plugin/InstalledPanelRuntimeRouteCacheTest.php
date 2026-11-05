@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Controllers\AdminAvatarController;
+use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Core\Support\TableName;
@@ -40,10 +41,10 @@ final class InstalledPanelRuntimeRouteCacheTest extends AdminTestCase
         $this->get('/whats-new/scoped.xml')->assertOk()->assertSee('captured 1');
     }
 
-    /** An admin closure registered through Core's admin route helper stays owned by the panel once cached. */
-    public function test_a_cached_admin_closure_runs_the_default_panel_authentication(): void
+    /** An admin closure registered for the admin panel stays that panel's once cached. */
+    public function test_a_cached_admin_closure_runs_the_admin_panel_authentication(): void
     {
-        AdminRouteProvenance::group(static function (): void {
+        AdminRouteProvenance::panel(AdminPanelEntrypoint::PANEL, static function (): void {
             Route::get('/runtime-cached-admin', static fn (): string => 'admin closure served')->middleware('web');
         });
         $this->cacheRoutes();
@@ -52,7 +53,7 @@ final class InstalledPanelRuntimeRouteCacheTest extends AdminTestCase
         $this->actingAsAdmin()->get('/runtime-cached-admin')->assertOk()->assertSee('admin closure served');
     }
 
-    /** A vendor admin route Core declares by name, such as the icon picker, stays owned once cached. */
+    /** An admin plugin endpoint serving the admin panel's forms, such as the icon picker, stays the panel's once cached. */
     public function test_a_cached_declared_admin_route_runs_the_default_panel_authentication(): void
     {
         $this->cacheRoutes();

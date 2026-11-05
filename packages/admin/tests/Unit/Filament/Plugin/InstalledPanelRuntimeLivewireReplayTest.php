@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Support\ProvenanceRouteCollection;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
 use Filament\Facades\Filament;
 use Illuminate\Routing\Route as RoutingRoute;
-use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
@@ -117,12 +118,13 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         $this->actingAsAdmin();
         Livewire::component('runtime.replay-counter', RuntimeCounterComponent::class);
         $panel = Filament::getPanel('admin');
+        // Routes on the panel's path are registered in a group running the panel's middleware, as the panel's own are.
         $register = static function () use ($uri, $middleware, $panel): void {
-            Route::get($uri, static fn (): string => Livewire::mount('runtime.replay-counter'))
-                ->middleware($middleware ?? [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()]);
+            Route::middleware($middleware ?? [...$panel->getMiddleware(), ...$panel->getAuthMiddleware()])
+                ->group(static fn () => Route::get($uri, static fn (): string => Livewire::mount('runtime.replay-counter')));
         };
-        // Admin code outside every panel path is registered through Core's admin route helper.
-        $adminCode ? AdminRouteProvenance::group($register) : $register();
+        // Admin code outside every panel path is registered for the admin panel.
+        $adminCode ? AdminRouteProvenance::panel(AdminPanelEntrypoint::PANEL, $register) : $register();
 
         $html = $this->get($uri)->assertOk()->getContent();
         throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
@@ -139,7 +141,7 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
 
     private function replayRoutesWithout(string $uri): void
     {
-        $routes = new RouteCollection;
+        $routes = new ProvenanceRouteCollection;
         foreach (Route::getRoutes()->getRoutes() as $route) {
             if ('/' . $route->uri() !== $uri) {
                 $routes->add($route);

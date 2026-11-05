@@ -2,26 +2,38 @@
 
 ## Admin route ownership, export downloads and Livewire snapshots
 
-This Admin update decides which admin panel owns a route, an export or an import from facts recorded
-when each is created, and refuses anything it cannot prove.
+This Admin update decides who serves a route, an export or an import from one fact recorded when each
+is created, and refuses anything it cannot prove.
 
-- **Routes.** Every route records, as it is registered, whether it runs Filament, Livewire or Capell
-  admin code, and that record is stored by `route:cache`. Admin code registered outside a panel and
-  outside Core's admin route helper is refused with 503. Rebuild the route cache on every node
-  (`capell:runtime-refresh` does it) so cached routes carry the record. A route under the path of a
-  panel served on its own domains belongs to that panel only when the route is constrained to one of
-  those domains.
-- **Export and import downloads.** Each export and import now records the panel and host it was
+- **Routes.** As each route is added to the router it records its ownership: the panel whose route
+  group registered it (Filament's panel groups, or Core's `AdminRouteProvenance::panel()` for Capell's
+  own admin routes) with the domain it was registered on, public admin code (Livewire's endpoints, signed
+  previews, Filament's global downloads), the host application's own route, or refused. `route:cache`
+  stores the record, so serving reads it and never re-derives ownership. Refused with 503:
+  admin code no panel registered; a route registered for a panel that is not installed, or for a panel
+  served on its own domains without one of those domains; a route given a panel's name, middleware or
+  another domain after it was registered; and a host route answering on a Capell panel's path and host.
+  A route cache built by an earlier release carries no record and every route in it is refused, so
+  rebuild the route cache on every node (`php artisan route:cache`, or `capell:runtime-refresh`) as part
+  of the deploy, before the release takes traffic. Register a package's panel routes inside the panel's
+  route group (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards.
+- **Export and import downloads.** Each export and import records the panel, host and port it was
   started on in `admin_transfer_origins`. Run the normal upgrade flow to migrate the table before
-  serving requests. A download is served only by that panel, on that host. Exports and imports
+  serving requests. A download is served only by that panel, on that host and port. Exports and imports
   created before the upgrade, or in a panel that no longer exists or that Capell does not extend, are
   refused with a message asking the user to run the export or import again.
 - **Livewire snapshots.** A Livewire update must carry the signed record of the route that rendered
   the component, so components rendered before the upgrade answer "page expired" and reload. Open
   admin tabs need one reload. `capell:upgrade` runs the
-  `capell-admin.livewire-snapshot-rendering-routes` step, which marks every page stored by the HTML
-  cache stale (`capell:html-cache:clear`), so run `capell:html-cache:process-stale` and purge the edge
-  as described in [Deploys and cache refresh](deploy-and-cache-refresh.md#refresh-public-html-in-the-right-order).
+  `capell-admin.livewire-snapshot-rendering-routes` step, which, when the HTML cache package is
+  installed, checks the edge purge configuration (`capell:html-cache:edge-purge:verify`) and then
+  regenerates every stored page in the upgrade process (`capell:html-cache:clear --process`), purging
+  each page from the edge as it is written. If either command fails, the step fails the upgrade with the
+  command output and the commands that finish the refresh: run
+  `php artisan capell:html-cache:process-stale` until it reports no failures, then
+  `php artisan capell:html-cache:edge-purge:verify`, and run the upgrade again. Run `capell:upgrade`
+  against the new release before switching traffic to it, as described in
+  [Deploys and cache refresh](deploy-and-cache-refresh.md#refresh-public-html-in-the-right-order).
   Regenerate static HTML exports (`capell:generate-html`) after upgrading.
 
 ## Admin upload ownership registry

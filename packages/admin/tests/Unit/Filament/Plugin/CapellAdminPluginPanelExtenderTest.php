@@ -44,6 +44,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
 use Filament\Panel;
+use Filament\PanelRegistry;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
@@ -54,6 +55,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Configuration\ApplicationBuilder;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider;
 use Illuminate\Queue\QueueManager;
+use Illuminate\Routing\Route as IlluminateRoute;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Artisan;
@@ -101,7 +103,7 @@ it('retains duplicate extender registrations while applying each tag entry once'
 
 it('refuses only the existing route that late authentication middleware cannot identify', function (): void {
     $panel = Panel::make()->id('runtime-empty');
-    $route = Route::get('runtime-empty/probe', static fn (): string => 'probe')->name('filament.runtime-empty.probe');
+    $route = capell_runtime_panel_route('runtime-empty', static fn (): IlluminateRoute => Route::get('runtime-empty/probe', static fn (): string => 'probe')->name('probe'));
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
 
     resolve(InstalledPanelRuntime::class)->extend($panel);
@@ -113,8 +115,8 @@ it('refuses only the existing route that late authentication middleware cannot i
 
 it('denies requests and refuses retry after an extender partially fails', function (): void {
     $panel = Panel::make()->id('runtime-retry')->authMiddleware([RuntimeAllowMiddleware::class]);
-    Route::get('runtime-retry/probe', static fn (): string => 'probe')
-        ->middleware([RuntimeAllowMiddleware::class])->name('filament.runtime-retry.probe');
+    capell_runtime_panel_route('runtime-retry', static fn (): IlluminateRoute => Route::get('runtime-retry/probe', static fn (): string => 'probe')
+        ->middleware([RuntimeAllowMiddleware::class])->name('probe'));
     $extender = new class implements AdminPanelExtender
     {
         public bool $fail = true;
@@ -277,9 +279,9 @@ it('emits the layer-order stylesheet before a registered extension stylesheet', 
 
 it('holds an existing authenticated route to the host stack and the late extender middleware', function (): void {
     $panel = Filament::getPanel('admin');
-    $route = Route::get('/admin/runtime-delta-probe', static fn (): string => 'ok')
+    $route = capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/runtime-delta-probe', static fn (): string => 'ok')
         ->middleware([Authenticate::class])
-        ->name('filament.admin.runtime-delta-probe');
+        ->name('runtime-delta-probe'));
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
 
     resolve(InstalledPanelRuntime::class)->extend($panel);
@@ -294,9 +296,9 @@ it('holds an existing authenticated route to the host stack and the late extende
 it('captures the provider-built panel baseline after the provider registers its own middleware', function (): void {
     app()->instance(InstalledPanelRuntime::class, new InstalledPanelRuntime(resolve(Router::class)));
     $panel = new AdminPanelProvider(app())->panel(Panel::make());
-    $route = Route::get('/admin/provider-baseline-probe', static fn (): string => 'ok')
+    $route = capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/provider-baseline-probe', static fn (): string => 'ok')
         ->middleware([Authenticate::class])
-        ->name('filament.admin.provider-baseline-probe');
+        ->name('provider-baseline-probe'));
 
     resolve(InstalledPanelRuntime::class)->extend($panel);
 
@@ -324,10 +326,10 @@ it('executes provider-owned lockdown through a real authenticated callback while
     File::delete(config('capell.lockdown.file'));
     app()->instance(InstalledPanelRuntime::class, new InstalledPanelRuntime(resolve(Router::class)));
     $panel = new AdminPanelProvider(app())->panel(Panel::make());
-    $route = Route::get('/admin/provider-baseline-callback', static fn (): string => 'callback-ran')
+    $route = capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/provider-baseline-callback', static fn (): string => 'callback-ran')
         ->middleware($panel->getMiddleware())
         ->middleware($panel->getAuthMiddleware())
-        ->name('filament.admin.provider-baseline-callback');
+        ->name('provider-baseline-callback'));
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAsAdmin();
     $this->get('/admin/provider-baseline-callback')->assertOk()->assertSee('callback-ran');
@@ -352,10 +354,10 @@ it('applies a late security extender to an existing panel and its existing authe
     Filament::setCurrentPanel($panel);
     $this->actingAsAdmin();
     // The route has already copied the panel middleware before installation.
-    Route::get('/admin/runtime-security-probe', fn (): string => 'protected')
+    capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/runtime-security-probe', fn (): string => 'protected')
         ->middleware($panel->getMiddleware())
         ->middleware($panel->getAuthMiddleware())
-        ->name('filament.admin.runtime-security-probe');
+        ->name('runtime-security-probe'));
     if ($compiled) {
         $routes = resolve(Router::class)->getRoutes();
         throw_unless($routes instanceof RouteCollection, RuntimeException::class, 'Expected uncached fixture routes.');
@@ -416,7 +418,7 @@ it('completes an install whose panel extender changes topology after boot and de
 
 it('closes existing routes after ambiguous security refresh', function (): void {
     $panel = Panel::make()->id('runtime-ambiguous');
-    Route::get('/runtime-ambiguous/probe', static fn (): string => 'open')->name('filament.runtime-ambiguous.probe');
+    capell_runtime_panel_route('runtime-ambiguous', static fn (): IlluminateRoute => Route::get('/runtime-ambiguous/probe', static fn (): string => 'open')->name('probe'));
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
     resolve(InstalledPanelRuntime::class)->extend($panel);
     $this->get('/runtime-ambiguous/probe')->assertStatus(503);
@@ -435,13 +437,14 @@ it('protects grouped unnamed and tenant routes during late security refresh', fu
         'tenant' => [RuntimeAllowMiddleware::class, IdentifyTenant::class],
         default => throw new LogicException('Unknown route fixture.'),
     };
-    $route = Route::get('/runtime-coverage', static fn (): string => 'open')->middleware($middleware);
+    // Registered in a group running the panel's middleware, or named for the panel, as the panel's own routes are.
+    $route = null;
+    Route::group([...(str_starts_with($shape, 'unnamed') ? [] : ['as' => 'filament.coverage.']), 'middleware' => $middleware], static function () use (&$route): void {
+        $route = Route::get('/runtime-coverage', static fn (): string => 'open')->name('probe');
+    });
+    throw_unless($route instanceof IlluminateRoute, RuntimeException::class, 'Expected the coverage route.');
     if ($shape === 'unnamed-excluded-setup') {
         $route->withoutMiddleware(SetUpPanel::class . ':coverage');
-    }
-
-    if (! str_starts_with($shape, 'unnamed')) {
-        $route->name('filament.coverage.probe');
     }
 
     $extender = new class implements AdminPanelExtender
@@ -474,9 +477,11 @@ it('protects grouped unnamed and tenant routes during late security refresh', fu
 
 it('enforces default extender middleware on an existing Livewire update snapshot', function (): void {
     $panel = Panel::make()->id('runtime-wire')->authMiddleware([RuntimeAllowMiddleware::class], isPersistent: true);
+    // A route a panel registered is served by that panel, which must be installed.
+    resolve(PanelRegistry::class)->register($panel);
     Livewire::component('runtime.counter', RuntimeCounterComponent::class);
-    Route::get('/runtime-wire', static fn (): string => Livewire::mount('runtime.counter'))
-        ->middleware([RuntimeAllowMiddleware::class])->name('filament.runtime-wire.counter');
+    capell_runtime_panel_route('runtime-wire', static fn (): IlluminateRoute => Route::get('/runtime-wire', static fn (): string => Livewire::mount('runtime.counter'))
+        ->middleware([RuntimeAllowMiddleware::class])->name('counter'));
     $html = $this->get('/runtime-wire')->assertOk()->getContent();
     throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
     preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
@@ -506,8 +511,8 @@ it('denies excluded panel authentication instead of classifying the route as pub
     $panel = Panel::make()->id('coverage')->path('runtime-coverage')->authMiddleware([RuntimeAllowMiddleware::class]);
     $route = Route::get('/runtime-coverage/probe', static fn (): string => 'open');
     $route->middleware([RuntimeAllowMiddleware::class])->withoutMiddleware([RuntimeAllowMiddleware::class])->name('filament.coverage.probe');
-    $covered = Route::get('/runtime-coverage/covered', static fn (): string => 'covered')
-        ->middleware([RuntimeAllowMiddleware::class])->name('filament.coverage.covered');
+    $covered = capell_runtime_panel_route('coverage', static fn (): IlluminateRoute => Route::get('/runtime-coverage/covered', static fn (): string => 'covered')
+        ->middleware([RuntimeAllowMiddleware::class])->name('covered'));
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
     resolve(InstalledPanelRuntime::class)->extend($panel);
     $this->get('/runtime-coverage/probe')->assertStatus(503);
@@ -518,8 +523,10 @@ it('denies excluded panel authentication instead of classifying the route as pub
 
 it('denies Livewire updates after a partial runtime failure even if its route was not synchronised', function (string $failure): void {
     $panel = Panel::make()->id('failed-wire');
+    // A route a panel registered is served by that panel, which must be installed.
+    resolve(PanelRegistry::class)->register($panel);
     Livewire::component('runtime.failed-counter', RuntimeCounterComponent::class);
-    Route::get('/runtime-failed-wire', static fn (): string => Livewire::mount('runtime.failed-counter'))->name('filament.failed-wire.counter');
+    capell_runtime_panel_route('failed-wire', static fn (): IlluminateRoute => Route::get('/runtime-failed-wire', static fn (): string => Livewire::mount('runtime.failed-counter'))->name('counter'));
     $html = $this->get('/runtime-failed-wire')->assertOk()->getContent();
     throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
     preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
@@ -567,7 +574,7 @@ it('denies the current response when an install caller catches a partial panel f
     };
     app()->instance('runtime.caught-failure', $extender);
     app()->tag(['runtime.caught-failure'], AdminPanelExtender::TAG);
-    Route::get('/runtime-caught-failure', static function () use ($panel): string {
+    capell_runtime_panel_route('caught-failure', static fn (): IlluminateRoute => Route::get('/runtime-caught-failure', static function () use ($panel): string {
         try {
             resolve(InstalledPanelRuntime::class)->extend($panel);
         } catch (RuntimeException) {
@@ -575,7 +582,7 @@ it('denies the current response when an install caller catches a partial panel f
         }
 
         return 'ready';
-    })->name('filament.caught-failure.install');
+    })->name('install'));
     $this->get('/runtime-caught-failure')->assertStatus(503);
 });
 
@@ -632,7 +639,7 @@ it('round three confines failures to admin while unrelated entry points run', fu
     expect($inherited->make(InstalledRuntimeLifecycle::class)->isUnavailable()
         || $inherited->make(InstalledPanelRuntime::class)->isUnavailable('admin'))->toBeTrue();
     $this->refreshApplication();
-    Route::get('/admin/runtime-recovered', static fn (): string => 'recovered')->name('filament.admin.recovered');
+    capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/runtime-recovered', static fn (): string => 'recovered')->name('recovered'));
     // A fresh application serves the panel again instead of refusing it; its routes still require sign-in.
     $this->get('/admin/runtime-recovered')->assertRedirect('/admin/login');
 })->with(['hook', 'panel']);
@@ -661,8 +668,10 @@ it('round three permits inherited panel synchronisation after deactivation', fun
 
 it('round three honours an explicit full page only declaration during Livewire replay', function (): void {
     $panel = Panel::make()->id('full-page');
+    // A route a panel registered is served by that panel, which must be installed.
+    resolve(PanelRegistry::class)->register($panel);
     Livewire::component('runtime.full-page-counter', RuntimeCounterComponent::class);
-    Route::get('/runtime-full-page', static fn (): string => Livewire::mount('runtime.full-page-counter'))->name('filament.full-page.counter');
+    capell_runtime_panel_route('full-page', static fn (): IlluminateRoute => Route::get('/runtime-full-page', static fn (): string => Livewire::mount('runtime.full-page-counter'))->name('counter'));
     $html = $this->get('/runtime-full-page')->assertOk()->getContent();
     preg_match('/wire:snapshot="([^"]+)"/', (string) $html, $matches);
     $snapshot = html_entity_decode($matches[1] ?? throw new RuntimeException('Missing Livewire snapshot.'), ENT_QUOTES);
@@ -692,7 +701,8 @@ it('round three honours an explicit full page only declaration during Livewire r
 
 it('keeps an unrelated panel available after a panel-only refresh fails', function (): void {
     $panel = Panel::make()->id('one-panel');
-    Route::get('/runtime-other-panel', static fn (): string => 'other')->name('filament.other-panel.probe');
+    resolve(PanelRegistry::class)->register(Panel::make()->id('other-panel'));
+    capell_runtime_panel_route('other-panel', static fn (): IlluminateRoute => Route::get('/runtime-other-panel', static fn (): string => 'other')->name('probe'));
     $extender = new class implements AdminPanelExtender
     {
         #[Override]
@@ -741,3 +751,21 @@ it('reconciles a real compiled cache for a non-interactive Marketplace installat
         $panel->clearCachedComponents();
     }
 });
+
+/**
+ * Register a route in the panel's route group, as Filament registers the panel's own routes, so the route
+ * records that panel as its owner when it is added to the router.
+ *
+ * @param  Closure(): IlluminateRoute  $register
+ */
+function capell_runtime_panel_route(string $panel, Closure $register): IlluminateRoute
+{
+    $route = null;
+    Route::name('filament.' . $panel . '.')->group(static function () use ($register, &$route): void {
+        $route = $register();
+    });
+    Route::getRoutes()->refreshNameLookups();
+    throw_unless($route instanceof IlluminateRoute, RuntimeException::class, 'Expected the panel route.');
+
+    return $route;
+}

@@ -31,33 +31,39 @@ final class InstalledPanelRuntimeRouteProtectionTest extends AdminTestCase
         $this->assertContains($this->guard(), $resolved);
     }
 
-    public function test_routes_added_after_a_synchronisation_are_protected_by_the_next_one(): void
+    public function test_routes_the_panel_registers_after_a_synchronisation_are_protected_by_the_next_one(): void
     {
         $this->synchronise();
 
-        $late = Route::middleware(['web'])->get('/late-panel-route', static fn (): string => 'ok')->name('filament.admin.late-panel-route');
+        $late = null;
+        Route::middleware(['web'])->name('filament.admin.')->group(static function () use (&$late): void {
+            $late = Route::get('/late-panel-route', static fn (): string => 'ok')->name('late-panel-route');
+        });
         $unrelated = Route::middleware(['web'])->get('/late-unrelated-route', static fn (): string => 'ok')->name('late.unrelated');
+        $this->assertInstanceOf(IlluminateRoute::class, $late);
         $this->assertNotContains($this->guard(), $late->gatherMiddleware());
 
         $this->synchronise();
 
         $this->assertContains($this->guard(), $late->gatherMiddleware());
         $this->assertNotContains($this->guard(), $unrelated->gatherMiddleware());
+        $this->get('/late-unrelated-route')->assertOk();
     }
 
-    public function test_a_route_whose_middleware_later_declares_the_panel_is_protected(): void
+    /** Declaring the panel's set-up after registration does not make a host route the panel's: it is refused. */
+    public function test_a_route_whose_middleware_later_declares_the_panel_is_refused(): void
     {
         $route = Route::middleware(['web'])->get('/late-declared-route', static fn (): string => 'ok')->name('late.declared');
-        $this->synchronise();
-        $this->assertNotContains($this->guard(), $route->gatherMiddleware());
+        $this->get('/late-declared-route')->assertOk();
 
         $route->middleware(SetUpPanel::class . ':admin');
         $this->synchronise();
 
-        $this->assertContains($this->guard(), $route->gatherMiddleware());
+        $this->assertNotContains($this->guard(), $route->gatherMiddleware());
+        $this->get('/late-declared-route')->assertStatus(503)->assertDontSee('ok');
     }
 
-    public function test_a_route_renamed_into_the_panel_is_protected(): void
+    public function test_a_route_renamed_into_the_panel_is_refused(): void
     {
         $route = Route::middleware(['web'])->get('/late-renamed-route', static fn (): string => 'ok')->name('late.renamed');
         $this->synchronise();
@@ -65,20 +71,20 @@ final class InstalledPanelRuntimeRouteProtectionTest extends AdminTestCase
         $route->setAction([...$route->getAction(), 'as' => 'filament.admin.renamed']);
         $this->synchronise();
 
-        $this->assertContains($this->guard(), $route->gatherMiddleware());
+        $this->get('/late-renamed-route')->assertStatus(503)->assertDontSee('ok');
     }
 
-    public function test_an_alias_redefined_to_resolve_to_the_panel_set_up_is_reclassified(): void
+    public function test_an_alias_redefined_to_resolve_to_the_panel_set_up_is_refused(): void
     {
-        $route = Route::middleware(['web', 'late.panel.alias'])->get('/late-alias-route', static fn (): string => 'ok')->name('late.alias');
+        Route::middleware(['web', 'late.panel.alias'])->get('/late-alias-route', static fn (): string => 'ok')->name('late.alias');
         resolve(Router::class)->aliasMiddleware('late.panel.alias', SubstituteBindings::class);
         $this->synchronise();
-        $this->assertNotContains($this->guard(), $route->gatherMiddleware());
+        $this->get('/late-alias-route')->assertOk();
 
         resolve(Router::class)->aliasMiddleware('late.panel.alias', SetUpPanel::class . ':admin');
         $this->synchronise();
 
-        $this->assertContains($this->guard(), $route->gatherMiddleware());
+        $this->get('/late-alias-route')->assertStatus(503)->assertDontSee('ok');
     }
 
     private function guard(): string

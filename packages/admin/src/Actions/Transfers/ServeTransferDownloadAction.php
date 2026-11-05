@@ -41,9 +41,10 @@ final class ServeTransferDownloadAction
 
         $route = $request->route();
         if (! $route instanceof Route || $route->getName() !== $download->globalRouteName()) {
-            // A panel's own copy of the download serves only the records that panel started.
+            // A panel's own copy of the download serves only the records that panel started, on the host
+            // and port they were started on.
             $serving = Filament::getCurrentPanel();
-            abort_unless($serving instanceof Panel && $serving->getId() === $panel->getId(), 404);
+            abort_unless($serving instanceof Panel && $serving->getId() === $panel->getId() && $request->getHttpHost() === $origin->host, 404);
 
             return $this->serveWithFilament($request, $download, $key);
         }

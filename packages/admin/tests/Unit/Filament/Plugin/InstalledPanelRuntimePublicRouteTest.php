@@ -17,7 +17,7 @@ final class InstalledPanelRuntimePublicRouteTest extends AdminTestCase
 
     public function test_a_panel_route_without_authentication_carries_the_host_and_package_stacks(): void
     {
-        Route::get('/admin/runtime-unprotected', static fn (): string => self::BODY)->middleware(['panel:admin', 'web']);
+        Route::middleware(['panel:admin', 'web'])->group(static fn () => Route::get('/admin/runtime-unprotected', static fn (): string => self::BODY));
         $this->actingAsAdmin();
 
         $this->get('/admin/runtime-unprotected')
@@ -26,11 +26,13 @@ final class InstalledPanelRuntimePublicRouteTest extends AdminTestCase
             ->assertDontSee(self::BODY);
     }
 
-    public function test_a_guest_cannot_reach_a_panel_route_that_omitted_authentication(): void
+    /** A host route on the panel's path that the panel did not register is refused there, signed in or not. */
+    public function test_a_guest_cannot_reach_a_host_route_on_the_panel_path(): void
     {
         Route::get('/admin/runtime-guest-callback', static fn (): string => self::BODY)->middleware(['web']);
 
-        $this->get('/admin/runtime-guest-callback')->assertRedirect('/admin/login');
+        $this->get('/admin/runtime-guest-callback')->assertStatus(503)->assertDontSee(self::BODY);
+        $this->actingAsAdmin()->get('/admin/runtime-guest-callback')->assertStatus(503)->assertDontSee(self::BODY);
     }
 
     public function test_the_panel_login_stays_public_without_package_authentication(): void
