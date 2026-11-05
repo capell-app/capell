@@ -36,11 +36,15 @@ class MakerSafety
 
     public function pathIsAllowed(string $path): bool
     {
-        $normalizedPath = $this->normalizePath($path);
+        $normalizedPath = $this->canonicalPath($path);
+
+        if ($normalizedPath === null) {
+            return false;
+        }
 
         return collect((array) config('capell.diagnostics.allowed_roots', []))
-            ->map(fn (string $root): string => $this->normalizePath($root))
-            ->contains(fn (string $root): bool => $normalizedPath === $root || str_starts_with($normalizedPath, $root . DIRECTORY_SEPARATOR));
+            ->map(fn (string $root): ?string => $this->canonicalPath($root))
+            ->contains(fn (?string $root): bool => $root !== null && ($normalizedPath === $root || str_starts_with($normalizedPath, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)));
     }
 
     private function modeAllows(string $mode, string $environment): bool
@@ -52,14 +56,43 @@ class MakerSafety
         };
     }
 
-    private function normalizePath(string $path): string
+    private function canonicalPath(string $path): ?string
     {
-        $realPath = realpath($path);
-
-        if (is_string($realPath)) {
-            return rtrim($realPath, DIRECTORY_SEPARATOR);
+        if (! str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            return null;
         }
 
-        return rtrim($path, DIRECTORY_SEPARATOR);
+        $segments = explode(DIRECTORY_SEPARATOR, substr($path, 1));
+
+        if (in_array('', $segments, true) || in_array('.', $segments, true) || in_array('..', $segments, true)) {
+            return null;
+        }
+
+        $ancestor = $path;
+        $remaining = [];
+
+        while (! file_exists($ancestor)) {
+            if (is_link($ancestor)) {
+                return null;
+            }
+
+            array_unshift($remaining, basename($ancestor));
+            $parent = dirname($ancestor);
+
+            if ($parent === $ancestor) {
+                return null;
+            }
+
+            $ancestor = $parent;
+        }
+
+        $resolved = realpath($ancestor);
+
+        return $resolved === false ? null : rtrim($resolved, DIRECTORY_SEPARATOR) . ($remaining === [] ? '' : DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $remaining));
+    }
+
+    private function normalizePath(string $path): string
+    {
+        return $this->canonicalPath($path) ?? $path;
     }
 }
