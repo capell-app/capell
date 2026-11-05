@@ -38,7 +38,7 @@ it('renders default social metadata and structured data without authoring state'
     }
 
     expect(($xpath->query('//script[@type="application/ld+json"]') ?: throw new RuntimeException('Invalid XPath'))->length)->toBe(1)
-        ->and($html)->not->toContain('wire:snapshot', 'wire:id', 'data-capell-edit');
+        ->and($html)->not->toContain('wire:snapshot')->not->toContain('wire:id')->not->toContain('data-capell-edit');
 });
 
 it('replaces one keyed social value without suppressing the other defaults', function (): void {
