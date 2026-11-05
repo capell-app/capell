@@ -71,7 +71,7 @@ Use these extension points instead of patching first-party models or providers:
 | Subscribe to lifecycle events              | `SubscriberManager::subscribe()`                                |
 | Register cache dependencies                | `CacheInvalidationRegistry::registerDependency()`               |
 | Register Tailwind source/import metadata   | `TailwindAssetsRegistry::registerSource()` / `registerImport()` |
-| Create package files from project patterns | `capell:make:<thing>` maker commands                                  |
+| Create package files from project patterns | `capell:make:<thing>` maker commands                            |
 
 When adding a Core migration, also append it to `src/Concerns/HasMigrations.php`; otherwise package installs can miss the migration.
 
