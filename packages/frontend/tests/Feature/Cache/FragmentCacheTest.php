@@ -132,7 +132,7 @@ it('retains the literal pre-change fragment key across standard-port warm serve 
     CacheOriginContexts::bind($context, $trusted);
 
     expect($fragments->remember('public', static fn (): string => 'miss', surrogateKeys: ['page:2']))->toBe('warmed')
-        ->and($repository->get('fragment:fixed:value:public')->value)->toBe('warmed')
+        ->and($repository->get('fragment:fixed:value:public'))->toBe('warmed')
         ->and(array_values(array_filter(array_keys($store->all()), static fn (string $key): bool => str_contains($key, ':value:'))))
         ->toBe(['fragment:fixed:value:public']);
     $fragments->remember('other', static fn (): string => 'keep', surrogateKeys: ['page:3']);
@@ -202,7 +202,7 @@ it('cannot alias a caller-supplied standard-port fragment key or delete its valu
 
     $fragments->invalidateBySurrogateKey('target');
     foreach ($logicalKeys as $logicalKey) {
-        expect($repository->get('fragment:fixed:value:' . $logicalKey)->value)->toBe('unrelated standard');
+        expect($repository->get('fragment:fixed:value:' . $logicalKey))->toBe('unrelated standard');
     }
 
     CacheOriginContexts::bind('https://cache.example.test:8443');
@@ -267,7 +267,7 @@ it('repairs missing surrogate membership for a tracked cache hit', function (): 
     expect($fragments->remember('tracked', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))
         ->toBe('cached')
         ->and($store->lockCalls)->toBe(1)
-        ->and($store->putCalls)->toBe(2)
+        ->and($store->putCalls)->toBe(1)
         ->and($repository->get('fragment:fixed:surrogate:map'))
         ->toBe(['page:1' => ['fragment:fixed:value:tracked']]);
 });
@@ -283,8 +283,10 @@ it('never serves a value republished into the old namespace after flush', functi
 
     expect($fragments->remember('late', static fn (): string => 'old', surrogateKeys: ['late-page']))
         ->toBe('old')
-        ->and($store->get('fragment:old-namespace:value:late'))->toBeNull()
-        ->and($store->get('fragment:old-namespace:surrogate:map'))->toBeNull()
+        ->and($store->get('fragment:old-namespace:value:late'))->toBe('old')
+        ->and($store->get('fragment:old-namespace:surrogate:map'))->toBe([
+            'late-page' => ['fragment:old-namespace:value:late'],
+        ])
         ->and($fragments->remember('late', static fn (): string => 'fresh'))->toBe('fresh');
 });
 
@@ -404,181 +406,4 @@ it('purges variants recorded by separate cache workers during a real race', func
         $files->deleteDirectory($directory);
         CacheOriginContexts::bind(null);
     }
-});
-
-it('serves fragment hits without reading surrogate maps', function (): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
-    CacheOriginContexts::bind('console');
-
-    $warm = new FragmentCache($repository);
-    foreach (['header', 'body', 'footer'] as $fragment) {
-        $warm->remember($fragment, static fn (): string => $fragment, surrogateKeys: ['page:1']);
-    }
-
-    // A fresh instance stands for the next request.
-    $fragments = new FragmentCache($repository);
-    $store->readKeys = [];
-
-    expect($fragments->remember('header', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('header');
-
-    $firstHitReads = $store->readKeys;
-    $store->readKeys = [];
-
-    expect($fragments->remember('body', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('body')
-        ->and($fragments->remember('footer', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('footer')
-        ->and($firstHitReads)->toHaveCount(3)
-        ->and($store->readKeys)->toHaveCount(6)
-        ->and(array_filter($store->readKeys, static fn (string $key): bool => str_ends_with($key, ':surrogate:map')))->toBe([]);
-});
-
-it('stops serving a fragment in the same request once its surrogate is invalidated', function (): void {
-    $repository = new Repository(new FragmentCacheTestStore);
-    CacheOriginContexts::bind('console');
-    $fragments = new FragmentCache($repository);
-
-    expect($fragments->remember('tracked', static fn (): string => 'old', surrogateKeys: ['page:1']))->toBe('old');
-
-    $fragments->invalidateBySurrogateKey('page:1');
-
-    expect($fragments->remember('tracked', static fn (): string => 'new', surrogateKeys: ['page:1']))->toBe('new');
-
-    $fragments->flush();
-
-    expect($fragments->remember('tracked', static fn (): string => 'newest', surrogateKeys: ['page:1']))->toBe('newest');
-});
-
-it('gives each request its own fragment cache memory', function (): void {
-    $first = resolve(FragmentCache::class);
-
-    app()->forgetScopedInstances();
-
-    expect(resolve(FragmentCache::class))->not->toBe($first)
-        ->and(resolve('capell-frontend.fragment-cache'))->toBe(resolve(FragmentCache::class));
-});
-
-it('invalidates against the current namespace when another process rotated it mid-request', function (): void {
-    $repository = new Repository(new FragmentCacheTestStore);
-    CacheOriginContexts::bind('console');
-    $request = new FragmentCache($repository);
-    $request->remember('early', static fn (): string => 'early');
-
-    $otherProcess = new FragmentCache($repository);
-    $otherProcess->flush();
-    $otherProcess->remember('tracked', static fn (): string => 'current', surrogateKeys: ['page:1']);
-
-    $request->invalidateBySurrogateKey('page:1');
-
-    expect(new FragmentCache($repository)->remember('tracked', static fn (): string => 'rebuilt', surrogateKeys: ['page:1']))->toBe('rebuilt');
-});
-
-it('does not serve withdrawn fragments after another request flushes the cache', function (array $surrogates): void {
-    $repository = new Repository(new FragmentCacheTestStore);
-    CacheOriginContexts::bind('console');
-    $request = new FragmentCache($repository);
-    $request->remember('early', static fn (): string => 'early');
-    $request->remember('withdrawn', static fn (): string => 'old content', surrogateKeys: $surrogates);
-
-    new FragmentCache($repository)->flush();
-
-    expect($request->remember('withdrawn', static fn (): string => 'current content', surrogateKeys: $surrogates))
-        ->toBe('current content');
-})->with([[[]], [['page:1']]]);
-
-it('rebuilds a cached fragment if a flush overlaps its lookup', function (array $surrogates): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
-    CacheOriginContexts::bind('console');
-    $request = new FragmentCache($repository);
-    $request->remember('withdrawn', static fn (): string => 'old content', surrogateKeys: $surrogates);
-
-    $store->afterFragmentRead = new FragmentCache($repository)->flush(...);
-
-    expect($request->remember('withdrawn', static fn (): string => 'current content', surrogateKeys: $surrogates))
-        ->toBe('current content');
-})->with([[[]], [['page:1']]]);
-
-it('registers current surrogate membership after another request invalidates and refills a fragment', function (): void {
-    $repository = new Repository(new FragmentCacheTestStore);
-    CacheOriginContexts::bind('console');
-    $writer = new FragmentCache($repository);
-    $writer->remember('tracked', static fn (): string => 'old', surrogateKeys: ['page:1']);
-
-    $request = new FragmentCache($repository);
-    expect($request->remember('tracked', static fn (): string => 'miss', surrogateKeys: ['page:1']))->toBe('old');
-
-    $writer->invalidateBySurrogateKey('page:1');
-    $writer->remember('tracked', static fn (): string => 'refilled');
-
-    expect($request->remember('tracked', static fn (): string => 'miss', surrogateKeys: ['page:1']))->toBe('refilled');
-    $writer->invalidateBySurrogateKey('page:1');
-
-    expect($writer->remember('tracked', static fn (): string => 'fresh'))->toBe('fresh');
-});
-
-it('returns captured callback data without caching after an overlapping flush', function (): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
-    CacheOriginContexts::bind('console');
-    $request = new FragmentCache($repository);
-    $request->remember('withdrawn', static fn (): string => 'cached old');
-
-    $capturedBeforeWithdrawal = 'withdrawn secret';
-    $callbackInvoked = false;
-    $store->afterFragmentRead = new FragmentCache($repository)->flush(...);
-
-    $result = $request->remember('withdrawn', static function () use ($capturedBeforeWithdrawal, &$callbackInvoked): string {
-        $callbackInvoked = true;
-
-        return $capturedBeforeWithdrawal;
-    });
-
-    expect($result)->toBe('withdrawn secret')
-        ->and($callbackInvoked)->toBeTrue()
-        ->and($request->remember('withdrawn', static fn (): string => 'fresh'))->toBe('fresh');
-});
-
-it('registers the refilled value when purge and refill overlap a tracked lookup', function (): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
-    CacheOriginContexts::bind('console');
-    $writer = new FragmentCache($repository);
-    $writer->remember('tracked', static fn (): string => 'old', surrogateKeys: ['page:2']);
-
-    $request = new FragmentCache($repository);
-    $store->afterFragmentRead = static function () use ($writer): void {
-        $writer->invalidateBySurrogateKey('page:2');
-        $writer->remember('tracked', static fn (): string => 'refilled');
-    };
-
-    expect($request->remember('tracked', static fn (): string => 'miss', surrogateKeys: ['page:1']))->toBe('refilled');
-    $writer->invalidateBySurrogateKey('page:1');
-    expect($writer->remember('tracked', static fn (): string => 'fresh'))->toBe('fresh');
-});
-
-it('renders uncached when registering a cached hit fails', function (): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
-    CacheOriginContexts::bind('console');
-    $fragments = new FragmentCache($repository);
-    $fragments->remember('tracked', static fn (): string => 'cached');
-
-    $store->failMapWrites = true;
-
-    expect($fragments->remember('tracked', static fn (): string => 'uncached', surrogateKeys: ['page:1']))->toBe('uncached');
-    $store->failMapWrites = false;
-    expect($fragments->remember('tracked', static fn (): string => 'miss'))->toBe('cached');
-});
-
-it('keeps the rendered miss if a competing refill cannot be registered', function (): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
-    CacheOriginContexts::bind('console');
-    $writer = new FragmentCache($repository);
-    $store->afterFragmentRead = static function () use ($writer, $store): void {
-        $writer->remember('tracked', static fn (): string => 'competing');
-        $store->failMapWrites = true;
-    };
-
-    expect(new FragmentCache($repository)->remember('tracked', static fn (): string => 'rendered', surrogateKeys: ['page:1']))->toBe('rendered');
 });

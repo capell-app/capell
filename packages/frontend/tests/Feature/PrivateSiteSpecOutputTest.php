@@ -482,7 +482,7 @@ it('makes confidential fragments unreachable despite failed deletion or surrogat
     expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
         // The retained bytes are deliberately inaccessible through every reader,
         // including fragments without surrogate membership.
-        ->and($repository->get($legacyKeys[0])->value)->toBe('CONFIDENTIAL fragment')
+        ->and($repository->get($legacyKeys[0]))->toBe('CONFIDENTIAL fragment')
         ->and($fragments->remember('private', static fn (): string => 'safe'))->toBe('safe')
         ->and($fragments->remember('untagged', static fn (): string => 'safe untagged'))->toBe('safe untagged');
 })->with(['return-false', 'throw', 'lock']);

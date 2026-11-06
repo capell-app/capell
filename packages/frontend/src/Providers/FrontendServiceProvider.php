@@ -339,7 +339,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(StaticPageArtifactPathResolver::class);
         $this->app->singleton(OnFrontendContextResolved::class);
         $this->app->scoped(ViteManifestReader::class);
-        $this->app->scoped(FragmentCache::class, fn (Application $app): FragmentCache => new FragmentCache($app->make(Repository::class)));
+        $this->app->singleton(FragmentCache::class, fn (Application $app): FragmentCache => new FragmentCache($app->make(Repository::class)));
         $this->app->alias(FragmentCache::class, 'capell-frontend.fragment-cache');
         $this->app->singleton(FrontendLocaleScope::class);
         $this->app->tag([
