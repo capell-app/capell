@@ -52,6 +52,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
         public readonly string $productGroup = 'Other',
         public readonly array $providerRecoveryEvents = [],
         public readonly array $attentionReasons = [],
+        public readonly ?string $runtimeGateReason = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -76,6 +77,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
             'certification' => $this->certification,
             'runtimeStatus' => $this->runtimeStatus,
             'runtimeAllowed' => $this->runtimeAllowed,
+            'runtimeGateReason' => $this->runtimeGateReason,
             'healthState' => $this->healthState,
             'healthAlerts' => array_map(
                 fn (ExtensionHealthAlertData $alert): array => $alert->toRecord(),

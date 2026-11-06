@@ -195,6 +195,7 @@ final class BuildExtensionOperationsSummaryAction
         $attentionReasons = $this->attentionReasons(
             installed: $installed,
             blocked: $blocked,
+            failedLifecycle: $extension?->status === ExtensionStatusEnum::Failed,
             missingRequiredTables: $missingRequiredTables,
             alerts: $marketplaceAlerts,
             providerQuarantined: $providerRecoveryAlert instanceof ExtensionHealthAlertData,
@@ -243,6 +244,7 @@ final class BuildExtensionOperationsSummaryAction
                 ? ($extension->provider_recovery_events ?? [])
                 : [],
             attentionReasons: $attentionReasons,
+            runtimeGateReason: $runtimeAllowed ? null : $this->runtimeGateReason($extension, $runtimeGate?->reason),
         );
     }
 
@@ -556,6 +558,7 @@ final class BuildExtensionOperationsSummaryAction
     private function attentionReasons(
         bool $installed,
         bool $blocked,
+        bool $failedLifecycle,
         array $missingRequiredTables,
         array $alerts,
         bool $providerQuarantined,
@@ -567,6 +570,7 @@ final class BuildExtensionOperationsSummaryAction
 
         return array_values(array_filter([
             $blocked ? ExtensionAttentionReason::Blocked : null,
+            $failedLifecycle ? ExtensionAttentionReason::FailedLifecycle : null,
             $providerQuarantined ? ExtensionAttentionReason::ProviderQuarantined : null,
             $composerDrifted ? ExtensionAttentionReason::ComposerDrift : null,
             $missingRequiredTables !== [] ? ExtensionAttentionReason::MissingTables : null,
@@ -601,6 +605,17 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         return 'ok';
+    }
+
+    private function runtimeGateReason(?CapellExtension $extension, ?string $reason): ?string
+    {
+        $status = $extension?->marketplace_runtime_status;
+
+        if ($reason === 'marketplace_runtime_disallowed' && in_array($status, ['expired', 'unverified', 'domain_mismatch', 'unapproved', 'invalid', 'revoked'], true)) {
+            return $status;
+        }
+
+        return $reason;
     }
 
     private function runtimeStatus(?CapellExtension $extension, ?string $runtimeReason): string

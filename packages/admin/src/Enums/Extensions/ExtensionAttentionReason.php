@@ -13,6 +13,7 @@ namespace Capell\Admin\Enums\Extensions;
 enum ExtensionAttentionReason: string
 {
     case Blocked = 'blocked';
+    case FailedLifecycle = 'failed_lifecycle';
     case MissingTables = 'missing_tables';
     case CriticalAlert = 'critical_alert';
     case WarningAlert = 'warning_alert';
@@ -23,6 +24,7 @@ enum ExtensionAttentionReason: string
     public function label(): string
     {
         return (string) match ($this) {
+            self::FailedLifecycle => __('capell-admin::generic.extension_lifecycle_failed_action'),
             self::Blocked => __('capell-admin::generic.extension_attention_reason_blocked'),
             self::MissingTables => __('capell-admin::generic.extension_attention_reason_missing_tables'),
             self::CriticalAlert => __('capell-admin::generic.extension_attention_reason_critical_alert'),

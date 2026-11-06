@@ -35,7 +35,16 @@ final class ExtensionHealthAlertData extends Data
         }
 
         if (is_string($this->requiredAction) && trim($this->requiredAction) !== '' && strtolower(trim($this->requiredAction)) !== 'none') {
-            return $this->requiredAction;
+            $action = trim($this->requiredAction);
+
+            return match ($action) {
+                'verify_site_or_buy_licence' => (string) __('capell-admin::generic.extension_alert_action_verify_site_or_buy_licence'),
+                'update_extension', 'upgrade' => (string) __('capell-admin::generic.extension_alert_action_update_extension'),
+                'review' => (string) __('capell-admin::generic.extension_alert_action_review'),
+                default => preg_match('/^[a-z][a-z0-9_]*$/', $action) === 1
+                    ? (string) __('capell-admin::generic.extension_alert_action_unknown')
+                    : $action,
+            };
         }
 
         $steps = [];

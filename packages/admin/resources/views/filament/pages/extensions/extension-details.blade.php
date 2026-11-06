@@ -92,7 +92,7 @@
 
     @if (($record['runtimeAllowed'] ?? true) === false)
         @php
-            $runtimeExplanation = match ($runtimeStatus) {
+            $runtimeExplanation = match ($record['runtimeGateReason'] ?? $runtimeStatus) {
                 'domain_mismatch' => __('capell-admin::generic.extension_runtime_gate_domain_mismatch'),
                 'expired', 'expired_without_activation' => __('capell-admin::generic.extension_runtime_gate_expired'),
                 'unverified' => __('capell-admin::generic.extension_runtime_gate_unverified'),
