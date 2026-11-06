@@ -54,7 +54,7 @@ class AdminPanelProvider extends PanelProvider
 
         return $panel
             ->default()
-            ->id('admin')
+            ->id(AdminPanelEntrypoint::PANEL)
             ->domain(AdminPanelEntrypoint::domain())
             ->path(AdminPanelEntrypoint::path())
             ->login()
