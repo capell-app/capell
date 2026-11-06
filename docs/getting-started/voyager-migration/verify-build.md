@@ -88,6 +88,12 @@ The scanner must recognise the real Core helper and its configured logical base.
 Unknown helpers must remain errors. Do not remove sensitive-field declarations
 to make the generated manifest check pass.
 
+A batched check can announce the complete file count and still stop at its first
+failing batch. Retain every batch result and a non-zero final exit while reviewing
+all remaining drift. For inconsistent tool output, use a new, owned cache with
+the same rules; preserve existing caches. Review generated edits before applying
+them, including duplicate trait or import suggestions.
+
 If a test passes alone and fails after another test, inspect shared containers,
 model event dispatchers and other process state. Restore the state a fixture
 borrows, then rerun the combined checks. Keep the original failure evidence.
