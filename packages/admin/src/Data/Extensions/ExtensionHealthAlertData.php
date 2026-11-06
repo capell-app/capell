@@ -22,6 +22,34 @@ final class ExtensionHealthAlertData extends Data
         public readonly ?string $managementLabel = null,
     ) {}
 
+    public function isActionable(): bool
+    {
+        return $this->runtimeDisabled || $this->protectedActionsBlocked
+            || (is_string($this->requiredAction) && trim($this->requiredAction) !== '' && strtolower(trim($this->requiredAction)) !== 'none');
+    }
+
+    public function recoveryAction(): ?string
+    {
+        if (! $this->isActionable()) {
+            return null;
+        }
+
+        if (is_string($this->requiredAction) && trim($this->requiredAction) !== '' && strtolower(trim($this->requiredAction)) !== 'none') {
+            return $this->requiredAction;
+        }
+
+        $steps = [];
+        if ($this->runtimeDisabled) {
+            $steps[] = (string) __('capell-admin::generic.extension_alert_runtime_disabled_action');
+        }
+
+        if ($this->protectedActionsBlocked) {
+            $steps[] = (string) __('capell-admin::generic.extension_alert_protected_actions_action');
+        }
+
+        return implode(' ', $steps);
+    }
+
     /** @return array<string, mixed> */
     public function toRecord(): array
     {
@@ -32,7 +60,7 @@ final class ExtensionHealthAlertData extends Data
             'category' => $this->category,
             'title' => $this->title,
             'message' => $this->message,
-            'requiredAction' => $this->requiredAction,
+            'requiredAction' => $this->recoveryAction(),
             'runtimeDisabled' => $this->runtimeDisabled,
             'protectedActionsBlocked' => $this->protectedActionsBlocked,
             'managementUrl' => $this->managementUrl,

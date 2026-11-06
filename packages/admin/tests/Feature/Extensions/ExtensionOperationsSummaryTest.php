@@ -1150,3 +1150,47 @@ it('explains a disallowed Marketplace runtime even when its activation status is
     $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
     expect($html)->toContain('Check its licence and activation in Marketplace');
 });
+
+it('counts actionable informational alerts in health and navigation', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/info-blocked', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/info-blocked', 'name' => 'Info blocked', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'info-blocked', 'source' => 'marketplace', 'composer_name' => 'vendor/info-blocked',
+        'severity' => ExtensionHealthAlertSeverity::Info, 'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Notice', 'message' => 'A notice.', 'required_action' => 'review',
+        'runtime_disabled' => true, 'protected_actions_blocked' => false, 'issued_at' => now(), 'signature' => 'test',
+    ]);
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $package = $summary->package('vendor/info-blocked');
+    expect($package->needsAttention)->toBeTrue()
+        ->and($package->healthState)->toBe('info')
+        ->and($package->attentionReasons)->not->toBeEmpty()
+        ->and($summary->needsAttentionCount)->toBe(1)
+        ->and(ExtensionsPage::getNavigationBadge())->toBe('1');
+});
+
+it('explains a deliberately disabled extension without calling it composer drift', function (): void {
+    registerOperationsSummaryManifest('vendor/disabled', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/disabled', 'name' => 'Disabled', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Disabled, 'installed_at' => now()]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/disabled');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($package->runtimeStatus)->toBe('disabled')
+        ->and($html)->toContain('Re-enable')
+        ->and($html)->not->toContain('Composer drift')
+        ->and($package->attentionReasons)->not->toContain(ExtensionAttentionReason::ComposerDrift);
+});
+
+it('shows recovery guidance for a blocked alert without a required action', function (): void {
+    registerOperationsSummaryManifest('vendor/blocked-alert', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/blocked-alert', 'name' => 'Blocked alert', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'blocked-alert', 'source' => 'marketplace', 'composer_name' => 'vendor/blocked-alert',
+        'severity' => ExtensionHealthAlertSeverity::Warning, 'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Notice', 'message' => 'A notice.', 'required_action' => null,
+        'runtime_disabled' => false, 'protected_actions_blocked' => true, 'issued_at' => now(), 'signature' => 'test',
+    ]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/blocked-alert');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Protected actions are blocked')->toContain('administrator');
+});

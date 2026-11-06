@@ -116,7 +116,7 @@ final class BuildExtensionOperationsSummaryAction
             needsAttentionCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->needsAttention)->count(),
             blockedCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->blocked)->count(),
             updatesCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->updateAvailable)->count(),
-            unhealthyCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed && in_array($package->healthState, ['critical', 'warning'], true))->count(),
+            unhealthyCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed && ($package->healthState === 'critical' || $package->healthState === 'warning' || collect($package->healthAlerts)->contains(fn (ExtensionHealthAlertData $alert): bool => $alert->isActionable())))->count(),
             installedCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed)->count(),
             uninstalledCount: $packages->reject(fn (ExtensionOperationPackageData $package): bool => $package->installed)->count(),
             availableCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->available)->count(),
@@ -162,7 +162,8 @@ final class BuildExtensionOperationsSummaryAction
             : true;
         $runtimeStatus = $this->runtimeStatus($extension, $runtimeGate?->reason);
         $managementEntries = $this->managementEntries($contributions);
-        $healthAlerts = $this->healthAlertRecords($alerts, $managementEntries);
+        $marketplaceAlerts = $this->healthAlertRecords($alerts, $managementEntries);
+        $healthAlerts = $marketplaceAlerts;
         $providerRecoveryAlert = $this->providerRecoveryAlert($extension);
 
         if ($providerRecoveryAlert instanceof ExtensionHealthAlertData) {
@@ -172,7 +173,7 @@ final class BuildExtensionOperationsSummaryAction
         $installed = $extension instanceof CapellExtension || ($package?->isInstalled() === true);
         // A package that is not installed has not run its migrations yet, so its
         // absent tables are expected rather than a fault.
-        $healthState = $this->healthState($alerts, $installed ? $missingRequiredTables : [], $runtimeAllowed);
+        $healthState = $this->healthState($marketplaceAlerts, $installed ? $missingRequiredTables : [], $runtimeAllowed);
 
         if ($providerRecoveryAlert instanceof ExtensionHealthAlertData) {
             $healthState = 'critical';
@@ -195,7 +196,7 @@ final class BuildExtensionOperationsSummaryAction
             installed: $installed,
             blocked: $blocked,
             missingRequiredTables: $missingRequiredTables,
-            alerts: $alerts,
+            alerts: $marketplaceAlerts,
             providerQuarantined: $providerRecoveryAlert instanceof ExtensionHealthAlertData,
             composerDrifted: $composerDriftAlert instanceof ExtensionHealthAlertData,
         );
@@ -545,10 +546,10 @@ final class BuildExtensionOperationsSummaryAction
     }
 
     /**
-     * Only faults an operator must fix count. Available updates, informational
-     * alerts and an unconnected Marketplace account have their own indicators.
+     * Only faults an operator must fix count. Passive notices, available updates
+     * and an unconnected Marketplace account have their own indicators.
      *
-     * @param  Collection<int, ExtensionHealthAlert>  $alerts
+     * @param  list<ExtensionHealthAlertData>  $alerts
      * @param  list<string>  $missingRequiredTables
      * @return list<ExtensionAttentionReason>
      */
@@ -556,7 +557,7 @@ final class BuildExtensionOperationsSummaryAction
         bool $installed,
         bool $blocked,
         array $missingRequiredTables,
-        Collection $alerts,
+        array $alerts,
         bool $providerQuarantined,
         bool $composerDrifted,
     ): array {
@@ -569,37 +570,33 @@ final class BuildExtensionOperationsSummaryAction
             $providerQuarantined ? ExtensionAttentionReason::ProviderQuarantined : null,
             $composerDrifted ? ExtensionAttentionReason::ComposerDrift : null,
             $missingRequiredTables !== [] ? ExtensionAttentionReason::MissingTables : null,
-            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical && $this->isActionableAlert($alert))
+            collect($alerts)->contains(fn (ExtensionHealthAlertData $alert): bool => $alert->severity === 'critical' && $alert->isActionable())
                 ? ExtensionAttentionReason::CriticalAlert
                 : null,
-            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning && $this->isActionableAlert($alert))
+            collect($alerts)->contains(fn (ExtensionHealthAlertData $alert): bool => $alert->severity === 'warning' && $alert->isActionable())
                 ? ExtensionAttentionReason::WarningAlert
+                : null,
+            collect($alerts)->contains(fn (ExtensionHealthAlertData $alert): bool => $alert->severity === 'info' && $alert->isActionable())
+                ? ExtensionAttentionReason::InfoAlert
                 : null,
         ]));
     }
 
-    private function isActionableAlert(ExtensionHealthAlert $alert): bool
-    {
-        return $alert->runtime_disabled
-            || $alert->protected_actions_blocked
-            || (is_string($alert->required_action) && trim($alert->required_action) !== '' && strtolower(trim($alert->required_action)) !== 'none');
-    }
-
     /**
-     * @param  Collection<int, ExtensionHealthAlert>  $alerts
+     * @param  list<ExtensionHealthAlertData>  $alerts
      * @param  list<string>  $missingRequiredTables
      */
-    private function healthState(Collection $alerts, array $missingRequiredTables, bool $runtimeAllowed): string
+    private function healthState(array $alerts, array $missingRequiredTables, bool $runtimeAllowed): string
     {
-        if ($alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical && $this->isActionableAlert($alert)) || ! $runtimeAllowed) {
+        if (collect($alerts)->contains(fn (ExtensionHealthAlertData $alert): bool => $alert->severity === 'critical' && $alert->isActionable()) || ! $runtimeAllowed) {
             return 'critical';
         }
 
-        if ($alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning && $this->isActionableAlert($alert)) || $missingRequiredTables !== []) {
+        if (collect($alerts)->contains(fn (ExtensionHealthAlertData $alert): bool => $alert->severity === 'warning' && $alert->isActionable()) || $missingRequiredTables !== []) {
             return 'warning';
         }
 
-        if ($alerts->isNotEmpty()) {
+        if ($alerts !== []) {
             return 'info';
         }
 
@@ -612,9 +609,17 @@ final class BuildExtensionOperationsSummaryAction
             return 'not_installed';
         }
 
+        if ($extension->status === ExtensionStatusEnum::Disabled) {
+            return $extension->status->value;
+        }
+
         if ($runtimeReason === 'provider_quarantined'
             || ($runtimeReason === 'marketplace_runtime_disallowed' && $extension->marketplace_runtime_status === 'active')) {
             return $runtimeReason;
+        }
+
+        if ($extension->status === ExtensionStatusEnum::Failed) {
+            return $extension->status->value;
         }
 
         if (is_string($extension->marketplace_runtime_status) && $extension->marketplace_runtime_status !== '') {

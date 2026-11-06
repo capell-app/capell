@@ -380,7 +380,7 @@
                 {{ $maturityLabel }}
             </x-filament::badge>
 
-            @php($showHealthTag = ($record['needsAttention'] ?? false) === true && in_array($healthState, ['critical', 'warning'], true))
+            @php($showHealthTag = ($record['needsAttention'] ?? false) === true && in_array($healthState, ['critical', 'warning', 'info'], true))
             @if ($showBlockedTag || $updateAvailable || $showHealthTag || $installInProgress)
                 @if ($installInProgress)
                     <span
@@ -408,7 +408,12 @@
 
                 @if ($showHealthTag)
                     <span
-                        class="bg-danger-500/95 inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20"
+                        @class([
+                            'inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-white ring-1 ring-white/20',
+                            'bg-danger-500/95' => $healthState === 'critical',
+                            'bg-warning-500/95' => $healthState === 'warning',
+                            'bg-info-500/95' => $healthState === 'info',
+                        ])
                     >
                         {{ $formatState($healthState) }}
                     </span>

@@ -2073,7 +2073,7 @@ it('explains why an installed extension needs attention and stays quiet about no
             'category' => ExtensionHealthAlertCategory::Security,
             'title' => $name === 'vendor/warned-extension' ? 'Certificate expires soon' : 'Notice',
             'message' => 'The certificate needs renewal.',
-            'required_action' => 'Renew the certificate in settings.',
+            'required_action' => $name === 'vendor/warned-extension' ? 'Renew the certificate in settings.' : 'none',
             'runtime_disabled' => false,
             'protected_actions_blocked' => false,
             'issued_at' => now(),

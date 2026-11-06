@@ -109,6 +109,12 @@
         <p class="text-sm">{{ $runtimeExplanation }}</p>
     @endif
 
+    @if ($runtimeStatus === 'disabled')
+        <p class="text-sm">{{ __('capell-admin::generic.extension_lifecycle_disabled_action') }}</p>
+    @elseif ($runtimeStatus === 'failed')
+        <p class="text-sm">{{ __('capell-admin::generic.extension_lifecycle_failed_action') }}</p>
+    @endif
+
     @if (! empty($record['healthAlerts']))
         <section
             aria-label="{{ __('capell-admin::generic.extension_health_alerts') }}"
