@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Support\Octane;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
+use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
@@ -97,6 +98,7 @@ use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
+use Capell\Frontend\Support\Render\HeadMetadataRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataScope;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -130,6 +132,7 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => CapellCoreManager::class,
             ThemePreviewContext::class => ThemePreviewContext::class,
             FrontendContextReader::class => FrontendState::class,
+            AdminHelpRegistry::class => AdminHelpRegistry::class,
         ];
     }
 
@@ -216,6 +219,7 @@ final class SingletonLifetimeInventory
             PublicRouteAliasRegistry::class => self::boot('Public route aliases are package boot registrations.'),
             RenderableDynamicDataRegistry::class => self::boot('Dynamic data resolvers are package boot registrations.'),
             RenderHookRegistry::class => self::boot('Render hooks are package boot registrations.'),
+            HeadMetadataRegistry::class => self::boot('Default head metadata contributions are package boot registrations.'),
             FrontendRuleConditionRegistry::class => self::boot('Rule conditions are package boot registrations.'),
             ReservedFrontendPathRegistry::class => self::boot('Reserved paths are package boot registrations.'),
             ReservedFrontendDomainRegistry::class => self::boot('Reserved domains are package boot registrations.'),

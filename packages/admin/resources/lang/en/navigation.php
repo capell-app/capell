@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 return [
+    'task_group_content' => 'Content',
+    'task_group_media' => 'Media',
+    'task_group_site' => 'Site',
+    'task_group_people' => 'People',
+    'task_group_settings' => 'Settings',
+    'task_group_reports' => 'Reports',
     'workspace_library' => 'Content library',
     'workspace_design' => 'Design',
     'workspace_marketing' => 'Marketing',
