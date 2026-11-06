@@ -26,6 +26,7 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Admin\Support\Navigation\WorkspaceNavigation;
@@ -56,7 +57,6 @@ use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
@@ -156,6 +156,8 @@ class CapellAdminPlugin implements Plugin
         $headerActionsView = 'capell-admin::components.header.actions';
         /** @var view-string $mobileHeaderView */
         $mobileHeaderView = 'capell-admin::components.header.mobile';
+        /** @var view-string $paletteToolsView */
+        $paletteToolsView = 'capell-admin::components.palette-tools';
         /** @var view-string $hiddenNavigationInitialStateView */
         $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
@@ -270,9 +272,9 @@ class CapellAdminPlugin implements Plugin
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
-                hook: fn (): string => Blade::render(
-                    '<x-capell-admin::keyboard-shortcuts />',
-                ),
+                hook: fn (): ?View => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check() && resolve(AdminInstallState::class)->installed()
+                    ? view($paletteToolsView)
+                    : null,
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,

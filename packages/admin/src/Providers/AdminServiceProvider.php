@@ -226,6 +226,7 @@ use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
+use Capell\Admin\Support\PaletteRequestState;
 use Capell\Admin\Support\ProvenanceRouteCollection;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
@@ -410,6 +411,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerAdminEventSystem();
 
+        $this->app->scoped(PaletteRequestState::class);
         $this->app->scoped(AdminUploadGrantRepository::class);
         $this->app->scoped(AdminUploadDeletion::class);
 
