@@ -21,11 +21,6 @@ final class FragmentCache
 
     private const string NAMESPACE_KEY = 'fragment:namespace';
 
-    private ?string $namespace = null;
-
-    /** @var array<string, array<array-key, list<string>>> */
-    private array $hitSurrogateMaps = [];
-
     public function __construct(private readonly Repository $cache) {}
 
     /** @param list<string> $surrogateKeys */
@@ -35,20 +30,33 @@ final class FragmentCache
         int $ttlSeconds = self::DEFAULT_TTL,
         array $surrogateKeys = [],
     ): mixed {
-        $namespace = $this->namespace(fresh: true);
-        $result = $this->rememberInNamespace($namespace, $key, $callback, $ttlSeconds, $surrogateKeys);
+        $namespace = $this->namespace();
+        $rendered = false;
+        $renderedResult = null;
+        $render = static function () use ($callback, &$rendered, &$renderedResult): mixed {
+            $rendered = true;
 
-        // A flush may overlap the lookup or render. Re-render without caching:
-        // the callback may itself have captured data from the old namespace.
-        return $this->namespace(fresh: true) === $namespace ? $result : $callback();
+            return $renderedResult = $callback();
+        };
+        $result = $this->rememberInNamespace($namespace, $key, $render, $ttlSeconds, $surrogateKeys);
+
+        /**
+         * The surrounding page was hydrated before the flush too. Return this
+         * request's callback output without publishing into the new namespace;
+         * the next request will hydrate afresh.
+         */
+        if ($this->namespace() !== $namespace) {
+            return $rendered ? $renderedResult : $render();
+        }
+
+        return $result;
     }
 
     public function invalidateBySurrogateKey(string $surrogateKey): void
     {
         // Writers never trust the request memory: another process may have
         // rotated the namespace since this request first read it.
-        $mapKey = $this->mapKey($this->namespace(fresh: true));
-        unset($this->hitSurrogateMaps[$mapKey]);
+        $mapKey = $this->mapKey($this->namespace());
         $fragmentKeys = [];
         if (! $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $surrogateKey, &$fragmentKeys): void {
             $surrogateMap = $this->surrogateMap($mapKey);
@@ -89,7 +97,7 @@ final class FragmentCache
 
     public function flush(): void
     {
-        $namespace = $this->namespace(fresh: true);
+        $namespace = $this->namespace();
         // No lock is needed because the new namespace makes late old-namespace writes unreachable.
         $replacement = bin2hex(random_bytes(16));
         throw_unless(
@@ -98,8 +106,6 @@ final class FragmentCache
             RuntimeException::class,
             'Unable to rotate the fragment cache namespace.',
         );
-        $this->namespace = $replacement;
-        $this->hitSurrogateMaps = [];
         $this->cache->forget($this->mapKey($namespace));
     }
 
@@ -113,40 +119,47 @@ final class FragmentCache
             ? 'fragment:' . $namespace . ':value:' . $key
             : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
 
-        if ($surrogateKeys === []) {
-            return $this->cache->remember($cacheKey, $ttlSeconds, $callback);
-        }
-
         $missing = new stdClass;
-        $result = $this->cache->get($cacheKey, $missing);
-        if ($result !== $missing) {
-            $mapKey = $this->mapKey($namespace);
-            $surrogateMap = $this->hitSurrogateMaps[$mapKey] ??= $this->surrogateMap($mapKey);
-            if ($this->hasSurrogateMembership($surrogateMap, $cacheKey, $surrogateKeys)) {
-                return $result;
+        $entry = $this->cache->get($cacheKey, $missing);
+        if ($entry instanceof FragmentCacheEntry) {
+            if (array_diff($surrogateKeys, $entry->surrogateKeys) === []) {
+                return $entry->value;
             }
 
+            $result = $entry->value;
+        } elseif ($entry !== $missing) {
+            if ($surrogateKeys === []) {
+                return $entry;
+            }
+
+            $result = $entry;
         } else {
             $result = $callback();
+            if ($this->namespace() !== $namespace) {
+                return $result;
+            }
         }
 
-        $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
-        unset($this->hitSurrogateMaps[$this->mapKey($namespace)]);
+        if ($surrogateKeys === []) {
+            $this->cache->put($cacheKey, $result, $ttlSeconds);
+        } else {
+            $renderedResult = $result;
+            $published = $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
+            if (! $published) {
+                return $entry === $missing ? $renderedResult : $callback();
+            }
+        }
 
         return $result;
     }
 
-    private function namespace(bool $fresh = false): string
+    private function namespace(): string
     {
-        if (! $fresh && $this->namespace !== null) {
-            return $this->namespace;
-        }
-
         $namespace = $this->cache->remember(self::NAMESPACE_KEY, self::METADATA_TTL, static fn (): string => bin2hex(random_bytes(16)));
 
         throw_unless(is_string($namespace), UnexpectedValueException::class, 'The fragment cache namespace must be a string.');
 
-        return $this->namespace = $namespace;
+        return $namespace;
     }
 
     /**
@@ -156,29 +169,46 @@ final class FragmentCache
      *
      * @param  list<string>  $surrogateKeys
      */
-    private function publishTrackedFragment(string $namespace, string $fragmentKey, mixed &$result, int $ttlSeconds, array $surrogateKeys, stdClass $missing): void
+    private function publishTrackedFragment(string $namespace, string $fragmentKey, mixed &$result, int $ttlSeconds, array $surrogateKeys, stdClass $missing): bool
     {
         $mapKey = $this->mapKey($namespace);
-        $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $fragmentKey, &$result, $ttlSeconds, $surrogateKeys, $missing): void {
+        $published = false;
+        $this->withSurrogateMapLock($mapKey, function () use ($namespace, $mapKey, $fragmentKey, &$result, $ttlSeconds, $surrogateKeys, $missing, &$published): void {
+            if ($this->namespace() !== $namespace) {
+                return;
+            }
+
             $existing = $this->cache->get($fragmentKey, $missing);
-            $newFragment = $existing === $missing;
-            if (! $newFragment) {
+            $membership = $surrogateKeys;
+            if ($existing instanceof FragmentCacheEntry) {
+                $result = $existing->value;
+                $membership = array_values(array_unique([...$existing->surrogateKeys, ...$surrogateKeys]));
+            } elseif ($existing !== $missing) {
                 $result = $existing;
             }
 
             try {
                 $surrogateMap = $this->surrogateMap($mapKey);
-                if (! $this->hasSurrogateMembership($surrogateMap, $fragmentKey, $surrogateKeys)) {
-                    $this->registerSurrogateKeys($mapKey, $fragmentKey, $surrogateKeys, $surrogateMap);
+                if (! $this->hasSurrogateMembership($surrogateMap, $fragmentKey, $membership)) {
+                    $this->registerSurrogateKeys($mapKey, $fragmentKey, $membership, $surrogateMap);
                 }
 
-                if ($newFragment) {
-                    throw_unless($this->cache->put($fragmentKey, $result, $ttlSeconds), RuntimeException::class, 'Unable to store the fragment value.');
+                if ($this->namespace() !== $namespace) {
+                    $this->cache->forget($mapKey);
+
+                    return;
+                }
+
+                if ($this->namespace() === $namespace) {
+                    throw_unless($this->cache->put($fragmentKey, new FragmentCacheEntry($result, $membership), $ttlSeconds), RuntimeException::class, 'Unable to store the fragment value.');
+                    $published = true;
                 }
             } catch (Throwable) {
-                // Do not turn a cache publication failure into a render failure.
+                // Cache publication is optional for the public response.
             }
         });
+
+        return $published;
     }
 
     /**
