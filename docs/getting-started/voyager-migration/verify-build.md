@@ -113,6 +113,14 @@ If a test passes alone and fails after another test, inspect shared containers,
 model event dispatchers and other process state. Restore the state a fixture
 borrows, then rerun the combined checks. Keep the original failure evidence.
 
+If an installed-runtime inventory reports a PHP executable path instead of its
+portable placeholder, compare the runner's `PHP_BINARY` with PHP's own resolved
+binary path. A symlink and its target can identify the same executable but fail
+an exact path replacement. Use the resolved executable consistently, then rerun
+the original test. Keep machine paths out of committed inventories. A combined
+generator and cache check passed 209 tests and 3,971 assertions after correcting
+this runner environment; the inventory itself was unchanged.
+
 A dependency-floor check can also find contracts that exist on Core's main
 branch but have no stable release. Record the release dependency and retain the
 failed check. Do not lower the declared requirement, remove the imported contract
