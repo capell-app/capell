@@ -103,7 +103,7 @@ it('retains duplicate extender registrations while applying each tag entry once'
 
 it('refuses only the existing route that late authentication middleware cannot identify', function (): void {
     $panel = Panel::make()->id('runtime-empty');
-    $route = capell_runtime_panel_route('runtime-empty', static fn (): IlluminateRoute => Route::get('runtime-empty/probe', static fn (): string => 'probe')->name('probe'));
+    $route = capell_runtime_panel_route('runtime-empty', static fn (): IlluminateRoute => Route::get('runtime-empty/probe', static fn (): string => 'probe')->middleware(Authenticate::class)->name('probe'));
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
 
     resolve(InstalledPanelRuntime::class)->extend($panel);
@@ -418,7 +418,7 @@ it('completes an install whose panel extender changes topology after boot and de
 
 it('closes existing routes after ambiguous security refresh', function (): void {
     $panel = Panel::make()->id('runtime-ambiguous');
-    capell_runtime_panel_route('runtime-ambiguous', static fn (): IlluminateRoute => Route::get('/runtime-ambiguous/probe', static fn (): string => 'open')->name('probe'));
+    capell_runtime_panel_route('runtime-ambiguous', static fn (): IlluminateRoute => Route::get('/runtime-ambiguous/probe', static fn (): string => 'open')->middleware(Authenticate::class)->name('probe'));
     app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
     resolve(InstalledPanelRuntime::class)->extend($panel);
     $this->get('/runtime-ambiguous/probe')->assertStatus(503);
@@ -639,7 +639,7 @@ it('round three confines failures to admin while unrelated entry points run', fu
     expect($inherited->make(InstalledRuntimeLifecycle::class)->isUnavailable()
         || $inherited->make(InstalledPanelRuntime::class)->isUnavailable('admin'))->toBeTrue();
     $this->refreshApplication();
-    capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/runtime-recovered', static fn (): string => 'recovered')->name('recovered'));
+    capell_runtime_panel_route('admin', static fn (): IlluminateRoute => Route::get('/admin/runtime-recovered', static fn (): string => 'recovered')->middleware(Authenticate::class)->name('recovered'));
     // A fresh application serves the panel again instead of refusing it; its routes still require sign-in.
     $this->get('/admin/runtime-recovered')->assertRedirect('/admin/login');
 })->with(['hook', 'panel']);

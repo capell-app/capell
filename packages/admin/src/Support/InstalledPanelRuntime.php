@@ -29,6 +29,7 @@ use Guava\IconPicker\Http\Controllers\IconIndexController;
 use Guava\IconPicker\Http\Controllers\IconSvgController;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Http\Request;
+use Illuminate\Routing\CompiledRouteCollection;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\RouteAction;
 use Illuminate\Routing\Router;
@@ -42,6 +43,7 @@ use Livewire\Features\SupportTesting\InitialRender;
 use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
+use Livewire\Mechanisms\HandleRouting\LivewirePageController;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionProperty;
@@ -103,6 +105,9 @@ final class InstalledPanelRuntime
     /** Admin plugin endpoints that only serve the Capell admin panel's forms, such as the icon picker's. */
     private const array ENTRYPOINT_ACTIONS = [IconIndexController::class, IconSvgController::class];
 
+    /** Authentication declared by the registration group, retained if an alias later changes. */
+    private const string AUTHENTICATED_ACTION = 'capell_panel_authenticated';
+
     /** @var WeakMap<Panel, array<int, bool>> */
     private WeakMap $applied;
 
@@ -127,9 +132,6 @@ final class InstalledPanelRuntime
      * @var WeakMap<Route, true>
      */
     private WeakMap $refusedRoutes;
-
-    /** @var WeakMap<Route, true> */
-    private WeakMap $unclassifiedRoutes;
 
     /** @var array<string, Panel> Panels whose routes have been reconciled after boot, by id. */
     private array $synchronised = [];
@@ -166,6 +168,9 @@ final class InstalledPanelRuntime
     /** Whether this process has already reported serving from a route cache built before ownership was recorded. */
     private bool $staleCacheReported = false;
 
+    /** @var list<mixed>|null Last completely classified route table and security configuration. */
+    private ?array $classifiedSignature = null;
+
     public function __construct(private readonly Router $router)
     {
         $this->applied = new WeakMap;
@@ -174,7 +179,6 @@ final class InstalledPanelRuntime
         $this->contributed = new WeakMap;
         $this->reconciledRoutes = new WeakMap;
         $this->refusedRoutes = new WeakMap;
-        $this->unclassifiedRoutes = new WeakMap;
         $this->renderings = new WeakMap;
     }
 
@@ -194,10 +198,15 @@ final class InstalledPanelRuntime
             $this->ownershipAtRegistration($route)->recordOn($route);
         }
 
-        $this->demoteLegacyHost($route);
-        if (PanelOwnership::of($route)?->kind === RouteOwnershipEnum::Unclassified) {
-            $this->unclassifiedRoutes[$route] = true;
+        $ownership = PanelOwnership::of($route);
+        if ($ownership?->kind === RouteOwnershipEnum::Panel && $route->getAction(self::AUTHENTICATED_ACTION) === null) {
+            $declared = $this->router->resolveMiddleware($route->middleware());
+            $panel = $this->synchronised[$ownership->panel] ?? null;
+            $route->action[self::AUTHENTICATED_ACTION] = array_any($declared, $this->isAuthenticator(...))
+                || ($panel instanceof Panel && array_intersect($declared, $this->router->resolveMiddleware($panel->getAuthMiddleware())) !== []);
         }
+
+        $this->demoteLegacyHost($route);
     }
 
     /** The route could not be held to its panel's security middleware, so it is never served. */
@@ -549,11 +558,11 @@ final class InstalledPanelRuntime
         }
 
         $this->synchronised[$panel->getId()] = $panel;
-        $matchers = $this->panelPathMatchers();
-        foreach ($this->unclassifiedRoutes as $route => $_) {
-            $this->refreshRefusal($route, $matchers);
+        if ($this->classifiedSignature === $this->routeTableSignature()) {
+            return;
         }
 
+        $matchers = $this->panelPathMatchers();
         $routes = $this->router->getRoutes();
         foreach ($routes->getRoutes() as $route) {
             $name = $route->getName();
@@ -565,10 +574,6 @@ final class InstalledPanelRuntime
 
             foreach ($instances as $instance) {
                 $this->demoteLegacyHost($instance);
-                if (PanelOwnership::of($instance)?->kind === RouteOwnershipEnum::Unclassified) {
-                    $this->unclassifiedRoutes[$instance] = true;
-                }
-
                 $this->refreshRefusal($instance, $matchers);
                 $owner = $this->ownerOf($instance);
                 if ($owner instanceof Panel) {
@@ -576,6 +581,44 @@ final class InstalledPanelRuntime
                 }
             }
         }
+
+        // Reconciliation can add middleware, so memoise the finished table, not its earlier shape.
+        $this->classifiedSignature = $this->routeTableSignature();
+    }
+
+    /**
+     * A cheap value snapshot detects fluent changes as well as additions, replacement collections,
+     * route-cache rebuilds and middleware alias/group or panel changes in long-lived workers.
+     * No controller resolution, closure inspection or source reflection belongs in this signature.
+     *
+     * @return list<mixed>
+     */
+    private function routeTableSignature(): array
+    {
+        $routes = $this->router->getRoutes();
+        $entries = [];
+        foreach ($routes->getRoutes() as $route) {
+            $instances = [$route];
+            if (($name = $route->getName()) !== null && ($named = $routes->getByName($name)) instanceof Route && $named !== $route) {
+                $instances[] = $named;
+            }
+
+            foreach ($instances as $instance) {
+                $entries[] = [$routes instanceof CompiledRouteCollection ? null : spl_object_id($instance), $instance->uri(), $instance->methods(), $instance->getAction(), $instance->wheres];
+            }
+        }
+
+        $panels = [];
+        foreach ($this->synchronised as $id => $panel) {
+            $panels[$id] = [$panel, $panel->getPath(), $panel->getDomains(), $this->middlewareOf($panel, true), $this->contributed[$panel] ?? []];
+        }
+
+        $cache = app()->getCachedRoutesPath();
+        clearstatcache(true, $cache);
+
+        return [$routes, $entries, $panels, array_keys(Filament::getPanels()), AdminPanelEntrypoint::path(), AdminPanelEntrypoint::domain(),
+            $this->router->getMiddleware(), $this->router->getMiddlewareGroups(), $this->router->middlewarePriority, $this->router->getPatterns(),
+            $cache, is_file($cache) ? filemtime($cache) : null];
     }
 
     /** Fail closed for this route only: the failure is recorded and the route is refused. */
@@ -632,6 +675,9 @@ final class InstalledPanelRuntime
         }
 
         $this->refusedRoutes[$route] = true;
+        // Laravel gathers middleware again during termination, even after the match listener returns
+        // 503. A broken controller must not throw a second time while terminating that refusal.
+        $route->computedMiddleware = [];
         $id = PanelOwnership::of($route)->panel ?? AdminPanelEntrypoint::PANEL;
         // Keyed by route, so a refused route never masks a later failure of the panel itself.
         resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-route-coverage', $id . ':' . ($route->getName() ?? $route->uri()));
@@ -673,18 +719,24 @@ final class InstalledPanelRuntime
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
-        $public = (PanelOwnership::of($instance)->guests ?? false) || $this->isSignInPage($instance);
+        $declared = $this->router->resolveMiddleware($instance->gatherMiddleware());
+        // Filament's routes() group deliberately serves unauthenticated callbacks and custom sign-in
+        // controllers. Explicit provenance outside that group opts into the panel's full stack.
+        $authenticated = $instance->getAction(self::AUTHENTICATED_ACTION) === true
+            || in_array($this->actionCode($instance)[0], self::ENTRYPOINT_ACTIONS, true)
+            || AdminRouteProvenance::declared($instance)['panels'] !== []
+            || array_intersect($declared, $this->router->resolveMiddleware($current['auth'])) !== []
+            || array_any($declared, $this->isAuthenticator(...));
+        $instance->action[self::AUTHENTICATED_ACTION] = $authenticated;
+        $public = (PanelOwnership::of($instance)->guests ?? false) || $this->isSignInPage($instance) || ! $authenticated;
         if (! $public && $contributed['auth'] !== [] && $host['auth'] === []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_ambiguous'));
         }
 
         // Exclusions must not hide the route's declared tenancy.
-        $declared = $this->router->resolveMiddleware($instance->gatherMiddleware());
         $tenanted = in_array(IdentifyTenant::class, $declared, true);
-        // Every route the panel owns runs like the panel's own routes: the host panel's request
-        // stack (which sets up the panel and its session), its authentication and the package
-        // contributions. Only Filament's own public authentication routes, and routes the owner
-        // declared public, skip the panel stack and authentication.
+        // Keep the panel's unauthenticated group unauthenticated. Explicit standalone declarations
+        // carry the full stack unless they declare guests; authenticated group routes retain security.
         $isMissing = fn (string $middleware): bool => array_diff($this->router->resolveMiddleware([$middleware]), $declared) !== [];
         $stack = $public ? [] : array_values(array_filter($host['middleware'], $isMissing));
         $required = [
@@ -928,7 +980,7 @@ final class InstalledPanelRuntime
                 : null;
         }
 
-        if ($ownership->kind === RouteOwnershipEnum::Unclassified && $this->matchesPanelPath($route, $matchers)) {
+        if ($ownership->kind === RouteOwnershipEnum::Unclassified && ($this->runsAdminCode($route) || $this->matchesPanelPath($route, $matchers))) {
             return 'capell-admin::message.extension_panel_route_unowned';
         }
 
@@ -949,10 +1001,12 @@ final class InstalledPanelRuntime
 
         $panel = $this->synchronised[$ownership->panel] ?? null;
         if (! $panel instanceof Panel) {
-            // A panel Capell does not extend serves its routes through Filament's own stack.
-            return array_key_exists($ownership->panel, Filament::getPanels()) || $this->isUnavailable($ownership->panel)
-                ? null
-                : 'capell-admin::message.extension_panel_route_unowned';
+            // Standalone declarations depend on Capell to add their security. Filament registration
+            // alone cannot vouch for those routes, even though native panel groups have their own stack.
+            return AdminRouteProvenance::declared($route)['panels'] === []
+                && (array_key_exists($ownership->panel, Filament::getPanels()) || $this->isUnavailable($ownership->panel))
+                    ? null
+                    : 'capell-admin::message.extension_panel_route_unowned';
         }
 
         return $this->withinPanelDomains($route, $this->compilePanelDomains(array_values($panel->getDomains())))
@@ -1070,6 +1124,17 @@ final class InstalledPanelRuntime
     private function runsAdminCode(Route $route): bool
     {
         [$class, $file] = $this->actionCode($route);
+        if ($class === LivewirePageController::class) {
+            $component = $route->getAction('livewire_component');
+            // The macro adds its component after Route::get() has recorded ownership. At that point
+            // classification waits for the finished action; it never exempts a panel-owned route.
+            if ($component === null) {
+                return false;
+            }
+
+            $class = is_object($component) ? $component::class : resolve('livewire.factory')->resolveComponentClass($component);
+        }
+
         if ($file === null && $class !== null && class_exists($class)) {
             if (is_subclass_of($class, BasePage::class)) {
                 return true;
@@ -1102,10 +1167,18 @@ final class InstalledPanelRuntime
             $this->reportStaleRouteCache();
         }
 
+        if (isset($this->refusedRoutes[$route])) {
+            $route->computedMiddleware = null;
+        }
+
         unset($this->refusedRoutes[$route]);
-        $reason = $this->refusal($route, $matchers);
-        if ($reason !== null) {
-            $this->refuse($route, new RuntimeException(__($reason)));
+        try {
+            $reason = $this->refusal($route, $matchers);
+            if ($reason !== null) {
+                $this->refuse($route, new RuntimeException(__($reason)));
+            }
+        } catch (Throwable $throwable) {
+            $this->refuse($route, $throwable);
         }
     }
 

@@ -13,20 +13,18 @@ use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
 use Override;
 
-/** Only recognised public panel routes may skip the panel's authentication stack. */
+/** Filament's unauthenticated group keeps serving guests while authenticated routes retain security. */
 final class InstalledPanelRuntimePublicRouteTest extends AdminTestCase
 {
     private const string BODY = 'unauthenticated panel route served';
 
-    public function test_a_panel_route_without_authentication_carries_the_host_and_package_stacks(): void
+    public function test_a_panel_route_without_authentication_keeps_serving_guests(): void
     {
         Route::middleware(['panel:admin', 'web'])->group(static fn () => Route::get('/admin/runtime-unprotected', static fn (): string => self::BODY));
-        $this->actingAsAdmin();
-
         $this->get('/admin/runtime-unprotected')
-            ->assertForbidden()
-            ->assertSee(PackageSecurityDenyMiddleware::BODY)
-            ->assertDontSee(self::BODY);
+            ->assertOk()
+            ->assertSee(self::BODY)
+            ->assertDontSee(PackageSecurityDenyMiddleware::BODY);
     }
 
     /**

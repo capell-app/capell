@@ -14,22 +14,35 @@ is created, and refuses anything it cannot prove.
   its own domains without one of those domains; and a route given a panel's name, middleware or another
   domain after it was registered.
 - **Package admin routes.** Register a package's panel routes inside the panel's route group
-  (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards. A package
-  route that the Capell admin serves outside Filament's pages, such as a callback or a signed preview,
-  registers through `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on
-  the admin domain and runs the admin panel's stack and sign-in (`guests: true` skips the sign-in for
-  routes a URL signature credentials). An application route under a panel's path keeps serving; it is
-  reported as a collision in the log at boot and by `capell:doctor` (`admin.routes.ownership`).
-- **Route cache.** A route cache built by an earlier release carries no ownership record. Public
-  controller routes in it keep serving. Filament sign-in pages require a verified page class and a
-  synchronised panel; a sign-in route name alone grants no exemption. Livewire assets require a
-  verified vendor action, including the installed source and declaring scope for cached closures.
-  Other closures and unattributable admin actions are refused until the cache is rebuilt, and the
-  application logs a critical error with the commands. An unverifiable cached action must be resolved
-  by rebuilding the cache, rather than adding a name or URI exemption. `capell:upgrade` fails at the
-  `capell-admin.route-cache-ownership` step and `capell:doctor` reports `admin.routes.ownership` while
-  the cache is stale. Rebuild the route cache on every node (`php artisan route:clear && php artisan
-route:cache`, or `capell:runtime-refresh`) as part of the deploy, before the release takes traffic.
+  (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards.
+  `$panel->routes()` is Filament's unauthenticated group: OAuth callbacks, SSO redirects and custom
+  sign-in controllers keep serving guests unless they declare authentication. Routes that already
+  authenticate are reconciled to the panel's authentication, including package contributions.
+  A package route that the Capell admin serves outside Filament's pages registers through
+  `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on the admin domain
+  and runs the admin panel's stack and sign-in. `AdminRouteProvenance::panel($id, ...)` declares a
+  different panel. Both declarations refuse requests until Capell has synchronised that panel;
+  registering it with Filament alone is insufficient. `guests: true` skips sign-in for routes
+  credentialed by a URL signature, while retaining package middleware.
+- **Application routes.** Undeclared application or package routes under a non-root panel path are
+  unclassified and refused with 503. Wrap application routes that deliberately share that path in
+  `AdminRouteProvenance::host(static function (): void { ... })`. These declared host routes run their
+  own middleware and are reported as collisions in the boot log and by `capell:doctor`
+  (`admin.routes.ownership`). A `Route::livewire()` page is classified by its resolved component,
+  rather than Livewire's page controller: application components keep serving as ordinary application
+  routes, subject to the same panel-path rule. Components in admin code still require panel ownership;
+  recorded ownership, panel names and panel middleware continue to protect panel routes.
+- **Route cache.** A route cache built by an earlier release carries no ownership record. Ordinary
+  application controllers and Livewire page routes serving application components keep serving outside
+  panel paths. Filament sign-in pages require a verified page class and a synchronised panel; a sign-in
+  route name alone grants no exemption. Livewire assets require a verified vendor action, including the
+  installed source and declaring scope for cached closures. Other closures and unattributable admin
+  actions are refused until the cache is rebuilt, and the application logs a critical error with the
+  commands. An unverifiable cached action must be resolved by rebuilding the cache, rather than adding
+  a name or URI exemption. `capell:upgrade` fails at the `capell-admin.route-cache-ownership` step and
+  `capell:doctor` reports `admin.routes.ownership` while the cache is stale. Rebuild the route cache on
+  every node with `php artisan route:clear && php artisan route:cache` (or `capell:runtime-refresh`) as
+  part of the deploy, before the release takes traffic.
 - **Export and import downloads.** Each export and import records the panel, host and port it was
   started on in `admin_transfer_origins`. Run the normal upgrade flow to migrate the table before
   serving requests. A download is served only by that panel, on that host and port. Exports and imports

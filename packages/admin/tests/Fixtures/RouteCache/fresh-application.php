@@ -10,15 +10,13 @@ declare(strict_types=1);
  *   php fresh-application.php serve <file>   Boots from the route cache in <file> and prints, as JSON, how
  *                                            each probe request is answered.
  */
-use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\DomainCapellPanelProvider;
-use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\OldCacheDenyProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\StaleCachePublicController;
 use Composer\Autoload\ClassLoader;
 use Filament\Http\Controllers\RedirectToHomeController;
-use Filament\Panel;
 use Guava\IconPicker\Http\Controllers\IconIndexController;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Application as LaravelApplication;
@@ -26,7 +24,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Foundation\Application;
 use Orchestra\Testbench\Foundation\Config;
 use StandalonePackage\PreviewController;
@@ -36,25 +33,6 @@ require $root . '/vendor/autoload.php';
 $loader = new ClassLoader(__DIR__ . '/../StandalonePackage');
 $loader->addPsr4('StandalonePackage\\', __DIR__ . '/../StandalonePackage/src');
 $loader->register();
-
-/** Adds security before panel routes are served in the fresh application. */
-final class OldCacheDenyProvider extends ServiceProvider
-{
-    #[Override]
-    public function register(): void
-    {
-        $this->app->tag([OldCacheDenyExtender::class], AdminPanelExtender::TAG);
-    }
-}
-
-final class OldCacheDenyExtender implements AdminPanelExtender
-{
-    #[Override]
-    public function extend(Panel $panel): void
-    {
-        $panel->middleware([PackageSecurityDenyMiddleware::class]);
-    }
-}
 
 [, $mode, $file] = $argv + [null, null, null];
 throw_if(! in_array($mode, ['cache', 'old-cache', 'serve', 'serve-old'], true) || ! is_string($file), InvalidArgumentException::class, 'Usage: fresh-application.php cache|serve <route-cache-file>');

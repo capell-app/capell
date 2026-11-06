@@ -11,6 +11,7 @@ use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\DomainCapellPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\OtherDomainCapellPanelProvider;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 use Override;
 
@@ -68,7 +69,7 @@ final class InstalledPanelRuntimeDomainOwnershipTest extends AdminTestCase
     /** A route registered in a domain panel's group on its domain runs that panel's authentication. */
     public function test_a_route_registered_in_a_domain_panel_on_its_domain_runs_that_panels_authentication(): void
     {
-        Route::domain(DomainCapellPanelProvider::DOMAIN)->middleware(['panel:desk', 'web'])->group(static function (): void {
+        Route::domain(DomainCapellPanelProvider::DOMAIN)->middleware([...Filament::getPanel('desk')->getMiddleware(), ...Filament::getPanel('desk')->getAuthMiddleware()])->group(static function (): void {
             Route::get('/desk/runtime-owned', static fn (): string => 'owned');
         });
 
@@ -81,7 +82,7 @@ final class InstalledPanelRuntimeDomainOwnershipTest extends AdminTestCase
      */
     public function test_a_domain_panels_route_under_the_domainless_panels_path_belongs_to_the_domain_panel(): void
     {
-        Route::domain(DomainCapellPanelProvider::DOMAIN)->middleware(['panel:desk', 'web'])->group(static function (): void {
+        Route::domain(DomainCapellPanelProvider::DOMAIN)->middleware([...Filament::getPanel('desk')->getMiddleware(), ...Filament::getPanel('desk')->getAuthMiddleware()])->group(static function (): void {
             Route::get('/admin/runtime-desk-shared', static fn (): string => 'desk shared');
         });
 

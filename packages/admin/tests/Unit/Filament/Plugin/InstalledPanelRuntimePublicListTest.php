@@ -52,7 +52,7 @@ final class InstalledPanelRuntimePublicListTest extends AdminTestCase
     /** A route's name does not make it a sign-in page: only Filament's sign-in pages serve guests. */
     public function test_a_route_named_like_a_sign_in_page_keeps_the_panels_authentication(): void
     {
-        $this->panelRoutes(static fn () => Route::get('/admin/runtime-named-entry', static fn (): string => self::BODY)->name('runtime.auth.login'));
+        $this->panelRoutes(static fn () => Route::get('/admin/runtime-named-entry', static fn (): string => self::BODY)->middleware(Authenticate::class)->name('runtime.auth.login'));
 
         $this->get('/admin/runtime-named-entry')->assertRedirect('/admin/login');
     }
