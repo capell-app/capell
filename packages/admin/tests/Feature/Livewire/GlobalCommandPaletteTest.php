@@ -315,6 +315,8 @@ it('filters the rendered list locally without a Livewire request and resets sear
         const window = { Livewire: { find: () => ({ entangle: () => false }) } };
         const state = new Function('window', 'return (' + process.argv[1] + ')')(window);
         let reset;
+        // Focus restoration runs in the browser; this harness checks local search synchronously.
+        state.$nextTick = () => {};
         state.$watch = (key, callback) => { assert.equal(key, 'open'); reset = callback; };
         state.init();
         for (const [query, label, description, expected] of [

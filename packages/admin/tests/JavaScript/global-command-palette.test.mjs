@@ -105,6 +105,8 @@ test('palette shortcut ignores editable targets and extra modifiers', () => {
     const state = new Function('MutationObserver', `return (${expression})`)(
         class {},
     )
+    // This test isolates shortcut routing from browser focus capture.
+    state.captureOpener = () => {}
     let toggles = 0
     state.$wire = { toggle: () => toggles++ }
     const input = { matches: () => true, isContentEditable: false }
@@ -128,3 +130,54 @@ test('palette shortcut ignores editable targets and extra modifiers', () => {
     assert.equal(toggles, 1)
     assert.equal(prevented, true)
 })
+
+for (const connected of [true, false]) {
+    test(`closing restores ${connected ? 'the opener' : 'the main landmark when the opener was removed'} before the server request`, async () => {
+        const document = { activeElement: null, body: {} }
+        class HTMLElement {
+            isConnected = true
+            focus() {
+                document.activeElement = this
+            }
+            hasAttribute() {
+                return false
+            }
+            setAttribute(name, value) {
+                this[name] = value
+            }
+        }
+        const opener = new HTMLElement()
+        const main = new HTMLElement()
+        document.querySelector = () => main
+        document.activeElement = opener
+        const state = new Function(
+            'document',
+            'HTMLElement',
+            `return (${expression})`,
+        )(document, HTMLElement)
+        state.$el = { contains: () => false }
+        const ticks = []
+        state.$nextTick = (callback) => ticks.push(callback)
+        let calls = 0
+        state.$wire = {
+            close() {
+                calls++
+                assert.equal(state.open, false)
+                assert.equal(document.activeElement, connected ? opener : main)
+                return Promise.resolve()
+            },
+        }
+        state.captureOpener()
+        state.open = true
+        document.activeElement = new HTMLElement()
+        opener.isConnected = connected
+        state.closePalette()
+        assert.equal(state.open, false, 'the trap is released locally')
+        assert.equal(calls, 0, 'no server request before the focus tick')
+        ticks.shift()()
+        await Promise.resolve()
+        assert.equal(calls, 1)
+        assert.equal(state.closing, false)
+        if (!connected) assert.equal(main.tabindex, '-1')
+    })
+}

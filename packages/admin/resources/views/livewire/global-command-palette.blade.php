@@ -7,23 +7,66 @@
     data-command-palette
     x-data="{
         open: @entangle('open'),
+        opener: null,
+        closing: false,
         query: '',
         commands: [],
         resultsObserver: null,
         init() {
             this.$watch('open', (value) => {
-                if (! value) this.query = '';
+                if (value) {
+                    if (! this.opener) this.captureOpener();
+                } else {
+                    this.query = '';
+                    if (! this.closing) this.$nextTick(() => this.restoreFocus());
+                }
+            });
+        },
+        captureOpener() {
+            const active = document.activeElement;
+            if (active instanceof HTMLElement && active !== document.body && ! this.$el.contains(active)) {
+                this.opener = active;
+            }
+        },
+        restoreFocus() {
+            if (this.open) return;
+            const opener = this.opener;
+            this.opener = null;
+            if (opener?.isConnected) {
+                opener.focus({ preventScroll: true });
+                if (document.activeElement === opener) return;
+            }
+            const fallback = document.querySelector('main, [role=main]') ?? this.$el;
+            if (fallback) {
+                if (! fallback.hasAttribute('tabindex')) fallback.setAttribute('tabindex', '-1');
+                fallback.focus({ preventScroll: true });
+            }
+        },
+        closePalette() {
+            if (! this.open) return;
+            this.closing = true;
+            this.open = false;
+            this.$nextTick(() => {
+                this.restoreFocus();
+                this.$wire.close().finally(() => { this.closing = false; });
             });
         },
         handleGlobalKey(event) {
             const target = event.target;
-            if (target?.matches?.('input, textarea, select') || target?.isContentEditable) return;
+            const isToggle = event.key.toLowerCase() === 'k' && (event.metaKey !== event.ctrlKey) && ! event.altKey && ! event.shiftKey;
+            const inOwnPalette = this.open && target instanceof Node && this.$el.contains(target);
+            if ((target?.matches?.('input, textarea, select') || target?.isContentEditable) && ! (isToggle && inOwnPalette)) return;
             if (event.key.toLowerCase() === 'escape' && this.open && ! event.metaKey && ! event.ctrlKey && ! event.altKey) {
-                this.$wire.close();
+                this.closePalette();
             }
-            if (event.key.toLowerCase() === 'k' && (event.metaKey !== event.ctrlKey) && ! event.altKey && ! event.shiftKey) {
+            if (isToggle) {
                 event.preventDefault();
-                this.$wire.toggle();
+                if (this.open) {
+                    this.closePalette();
+                } else {
+                    this.captureOpener();
+                    this.$wire.toggle();
+                }
             }
         },
         observeResults(results) {
@@ -64,13 +107,13 @@
         x-transition.opacity
         class="fixed inset-0 z-50 bg-black/40"
         style="display: none"
-        x-on:click="$wire.close()"
+        x-on:click="closePalette()"
     ></div>
 
     {{-- Palette modal --}}
     <div
         x-show="open"
-        x-trap.inert.noscroll="open"
+        x-trap.inert.noscroll.noreturn="open"
         role="dialog"
         aria-modal="true"
         aria-label="{{ __('capell-admin::palette.title') }}"
@@ -98,7 +141,7 @@
                     type="text"
                     x-model.debounce.250ms="query"
                     x-ref="paletteInput"
-                    x-on:keydown.escape.stop="$wire.close()"
+                    x-on:keydown.escape.stop="closePalette()"
                     x-init="
                         $watch('open', (value) => {
                             if (value) {
@@ -107,6 +150,14 @@
                         })
                     "
                 />
+                <button
+                    type="button"
+                    class="rounded p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    aria-label="{{ __('capell-admin::palette.close_shortcut') }}"
+                    x-on:click="closePalette()"
+                >
+                    @svg(Heroicon::OutlinedXMark->getIconForSize(IconSize::Small), 'h-5 w-5')
+                </button>
                 <kbd
                     class="block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 max-sm:hidden dark:bg-gray-800 dark:text-gray-400"
                 >

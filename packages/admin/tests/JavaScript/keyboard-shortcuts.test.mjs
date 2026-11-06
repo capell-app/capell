@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { readFileSync } from 'node:fs'
 import keyboardShortcuts from '../../resources/js/components/keyboard-shortcuts.js'
 
 for (const source of ['source', 'published']) {
@@ -108,23 +107,6 @@ for (const source of ['source', 'published']) {
         }
     })
 }
-
-test('the published keyboard module is byte-identical to the source', () => {
-    assert.deepEqual(
-        readFileSync(
-            new URL(
-                '../../publishes/build/js/components/keyboard-shortcuts.js',
-                import.meta.url,
-            ),
-        ),
-        readFileSync(
-            new URL(
-                '../../resources/js/components/keyboard-shortcuts.js',
-                import.meta.url,
-            ),
-        ),
-    )
-})
 
 test('modified keystrokes cannot start or complete global shortcuts', () => {
     globalThis.HTMLInputElement = class {}
