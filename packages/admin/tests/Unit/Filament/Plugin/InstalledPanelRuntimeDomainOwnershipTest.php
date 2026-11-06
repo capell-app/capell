@@ -6,6 +6,7 @@ namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
+use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\DomainCapellPanelProvider;
@@ -28,7 +29,7 @@ final class InstalledPanelRuntimeDomainOwnershipTest extends AdminTestCase
      */
     public function test_a_public_route_without_a_domain_under_a_domain_panels_path_stays_public_and_is_reported(): void
     {
-        Route::get('/desk/runtime-public', static fn (): string => 'public page')->middleware('web');
+        AdminRouteProvenance::host(static fn () => Route::get('/desk/runtime-public', static fn (): string => 'public page')->middleware('web'));
 
         $this->get('/desk/runtime-public')->assertOk()->assertSee('public page');
         $this->get(self::DESK . '/desk/runtime-public')->assertOk()->assertSee('public page');
@@ -93,8 +94,8 @@ final class InstalledPanelRuntimeDomainOwnershipTest extends AdminTestCase
      */
     public function test_a_host_route_on_a_domain_panels_domain_is_not_adopted_and_is_reported(): void
     {
-        Route::domain(DomainCapellPanelProvider::DOMAIN)->get('/desk/runtime-unregistered', static fn (): string => 'unregistered')->middleware('web');
-        Route::domain(DomainCapellPanelProvider::DOMAIN)->get('/admin/runtime-unregistered', static fn (): string => 'unregistered')->middleware('web');
+        AdminRouteProvenance::host(static fn () => Route::domain(DomainCapellPanelProvider::DOMAIN)->get('/desk/runtime-unregistered', static fn (): string => 'unregistered')->middleware('web'));
+        AdminRouteProvenance::host(static fn () => Route::domain(DomainCapellPanelProvider::DOMAIN)->get('/admin/runtime-unregistered', static fn (): string => 'unregistered')->middleware('web'));
 
         $this->get(self::DESK . '/desk/runtime-unregistered')->assertOk()->assertSee('unregistered');
         $collisions = resolve(InstalledPanelRuntime::class)->panelPathCollisions();

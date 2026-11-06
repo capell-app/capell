@@ -13,8 +13,11 @@ enum RouteOwnershipEnum: string
     /** Declared public: something other than a session is its credential, such as a URL signature or token. */
     case Public = 'public';
 
-    /** The host application's own route, which runs only its own middleware and answers no panel's path. */
+    /** Explicitly declared host route, which runs only its own middleware. */
     case Host = 'host';
+
+    /** No positive host, panel or public declaration; check against panels as they appear. */
+    case Unclassified = 'unclassified';
 
     /** Admin code that no panel registered, or registered for more than one panel: it is never served. */
     case Refused = 'refused';

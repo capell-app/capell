@@ -126,6 +126,9 @@ final class InstalledPanelRuntime
      */
     private WeakMap $refusedRoutes;
 
+    /** @var WeakMap<Route, true> */
+    private WeakMap $unclassifiedRoutes;
+
     /** @var array<string, Panel> Panels whose routes have been reconciled after boot, by id. */
     private array $synchronised = [];
 
@@ -169,6 +172,7 @@ final class InstalledPanelRuntime
         $this->contributed = new WeakMap;
         $this->reconciledRoutes = new WeakMap;
         $this->refusedRoutes = new WeakMap;
+        $this->unclassifiedRoutes = new WeakMap;
         $this->renderings = new WeakMap;
     }
 
@@ -186,6 +190,12 @@ final class InstalledPanelRuntime
     {
         if (! PanelOwnership::of($route) instanceof PanelOwnership) {
             $this->ownershipAtRegistration($route)->recordOn($route);
+        }
+
+        $this->demoteLegacyHost($route);
+        if (PanelOwnership::of($route)?->kind === RouteOwnershipEnum::Unclassified) {
+            $this->unclassifiedRoutes[$route] = true;
+            $this->refuseUnclassified($route);
         }
     }
 
@@ -241,6 +251,7 @@ final class InstalledPanelRuntime
         }
 
         ProvenanceRouteCollection::install($this->router);
+        $this->demoteLegacyHost($route);
         $reason = $this->refusal($route);
         if ($reason !== null) {
             $this->refuse($route, new RuntimeException(__($reason)));
@@ -541,6 +552,10 @@ final class InstalledPanelRuntime
         }
 
         $this->synchronised[$panel->getId()] = $panel;
+        foreach ($this->unclassifiedRoutes as $route => $_) {
+            $this->refuseUnclassified($route);
+        }
+
         $routes = $this->router->getRoutes();
         foreach ($routes->getRoutes() as $route) {
             $name = $route->getName();
@@ -551,6 +566,12 @@ final class InstalledPanelRuntime
             }
 
             foreach ($instances as $instance) {
+                $this->demoteLegacyHost($instance);
+                if (PanelOwnership::of($instance)?->kind === RouteOwnershipEnum::Unclassified) {
+                    $this->unclassifiedRoutes[$instance] = true;
+                    $this->refuseUnclassified($instance);
+                }
+
                 if (PanelOwnership::of($instance)?->ownedBy($panel->getId()) !== true) {
                     continue;
                 }
@@ -873,9 +894,13 @@ final class InstalledPanelRuntime
             return PanelOwnership::panel(AdminPanelEntrypoint::PANEL, $domain, false);
         }
 
+        if (AdminRouteProvenance::isHost($route)) {
+            return PanelOwnership::host();
+        }
+
         return $this->runsAdminCode($route)
             ? PanelOwnership::refused('capell-admin::message.extension_panel_route_unowned')
-            : PanelOwnership::host();
+            : PanelOwnership::unclassified();
     }
 
     /**
@@ -891,9 +916,17 @@ final class InstalledPanelRuntime
 
             // Without a record, only a route proven to be the host's own, or public admin code, keeps serving: a
             // serialised closure cannot be inspected, and other admin code may belong to a panel.
-            return RouteAction::containsSerializedClosure($route->getAction()) || (! $this->isPublicAction($route) && $this->runsAdminCode($route))
+            return RouteAction::containsSerializedClosure($route->getAction())
+                || $this->panelsNamedBy($route, asMatched: true, includeUnknown: true) !== []
+                || AdminRouteProvenance::declared($route)['panels'] !== []
+                || $this->matchesPanelPath($route)
+                || (! $this->isPublicAction($route) && $this->runsAdminCode($route))
                 ? 'capell-admin::message.extension_panel_route_unrecorded'
                 : null;
+        }
+
+        if ($ownership->kind === RouteOwnershipEnum::Unclassified && $this->matchesPanelPath($route)) {
+            return 'capell-admin::message.extension_panel_route_unowned';
         }
 
         if ($ownership->kind === RouteOwnershipEnum::Refused) {
@@ -965,10 +998,10 @@ final class InstalledPanelRuntime
      *
      * @return array<string, true>
      */
-    private function panelsNamedBy(Route $route, bool $asMatched): array
+    private function panelsNamedBy(Route $route, bool $asMatched, bool $includeUnknown = false): array
     {
         $panels = [];
-        if (preg_match('/^filament\.([^.]+)\./', (string) $route->getName(), $matches) === 1) {
+        if (preg_match('/^filament\.([^.]+)\./', (string) $route->getName(), $matches) === 1 && ! in_array($matches[1], ['exports', 'imports'], true)) {
             $panels[$matches[1]] = true;
         }
 
@@ -981,7 +1014,7 @@ final class InstalledPanelRuntime
             }
         }
 
-        if (! $asMatched) {
+        if (! $asMatched || $includeUnknown) {
             return $panels;
         }
 
@@ -1036,6 +1069,49 @@ final class InstalledPanelRuntime
         }
 
         return $file !== null && array_any(array_keys($this->adminRoots()), static fn (string $root): bool => str_starts_with($file, $root));
+    }
+
+    /** Older caches inferred host ownership, so only retain it with an explicit declaration. */
+    private function demoteLegacyHost(Route $route): void
+    {
+        if (PanelOwnership::of($route)?->kind === RouteOwnershipEnum::Host && ! AdminRouteProvenance::isHost($route)) {
+            PanelOwnership::unclassified()->recordOn($route);
+        }
+    }
+
+    /** Refuse unclassified routes whenever a matching panel becomes known. */
+    private function refuseUnclassified(Route $route): void
+    {
+        if ($this->matchesPanelPath($route)) {
+            $this->refuse($route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
+        }
+    }
+
+    private function matchesPanelPath(Route $route): bool
+    {
+        $uri = trim($route->uri(), '/');
+        $matches = static function (string $path) use ($uri): bool {
+            $path = trim($path, '/');
+
+            return $path !== '' && ($uri === $path || str_starts_with($uri, $path . '/'));
+        };
+
+        if ($matches(AdminPanelEntrypoint::path())) {
+            return true;
+        }
+
+        foreach ($this->synchronised as $panel) {
+            $domains = $panel->getDomains();
+            if ($domains !== [] && $route->getDomain() !== null && ! in_array($route->getDomain(), $domains, true)) {
+                continue;
+            }
+
+            if (trim($panel->getPath(), '/') === '' || $matches($panel->getPath())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

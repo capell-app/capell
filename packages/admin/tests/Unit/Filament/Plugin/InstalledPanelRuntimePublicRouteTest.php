@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
@@ -34,8 +35,8 @@ final class InstalledPanelRuntimePublicRouteTest extends AdminTestCase
      */
     public function test_a_host_route_on_the_panel_path_runs_its_own_middleware_and_is_reported(): void
     {
-        Route::get('/admin/runtime-guest-callback', static fn (): string => self::BODY)->middleware(['web']);
-        Route::get('/admin/runtime-guarded-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
+        AdminRouteProvenance::host(static fn () => Route::get('/admin/runtime-guest-callback', static fn (): string => self::BODY)->middleware(['web']));
+        AdminRouteProvenance::host(static fn () => Route::get('/admin/runtime-guarded-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]));
 
         $this->get('/admin/runtime-guest-callback')->assertOk()->assertSee(self::BODY);
         $this->get('/admin/runtime-guarded-callback')->assertRedirect()->assertDontSee(self::BODY);

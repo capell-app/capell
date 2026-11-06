@@ -245,7 +245,7 @@ final class InstalledPanelRuntimeOwnershipTest extends AdminTestCase
     private function refusedRoutes(): array
     {
         return array_values(collect(Route::getRoutes()->getRoutes())
-            ->reject(static fn (RoutingRoute $route): bool => in_array(PanelOwnership::of($route)?->kind, [RouteOwnershipEnum::Panel, RouteOwnershipEnum::Public, RouteOwnershipEnum::Host], true))
+            ->reject(static fn (RoutingRoute $route): bool => in_array(PanelOwnership::of($route)?->kind, [RouteOwnershipEnum::Panel, RouteOwnershipEnum::Public, RouteOwnershipEnum::Host, RouteOwnershipEnum::Unclassified], true))
             ->map(static fn (RoutingRoute $route): string => $route->getName() ?? implode('|', $route->methods()) . ' ' . $route->uri())
             ->all());
     }

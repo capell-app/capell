@@ -41,6 +41,11 @@ final readonly class PanelOwnership
         return new self(RouteOwnershipEnum::Host);
     }
 
+    public static function unclassified(): self
+    {
+        return new self(RouteOwnershipEnum::Unclassified);
+    }
+
     /** @param  string  $reason  The translation key explaining the refusal. */
     public static function refused(string $reason): self
     {

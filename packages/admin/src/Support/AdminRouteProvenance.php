@@ -22,6 +22,19 @@ final class AdminRouteProvenance
 
     private const string GUESTS = 'guests';
 
+    private const string HOST = 'host';
+
+    /** Declare routes belonging to the host application, including routes sharing a panel path. */
+    public static function host(Closure $routes): void
+    {
+        RouteFacade::group([self::ACTION => self::HOST], $routes);
+    }
+
+    public static function isHost(Route $route): bool
+    {
+        return in_array(self::HOST, (array) $route->getAction(self::ACTION), true);
+    }
+
     /**
      * Register routes the given panel serves, held to its whole stack on its domains. Routes serving guests
      * (credentialed by a URL signature, say) skip the panel's sign-in but keep its package middleware.

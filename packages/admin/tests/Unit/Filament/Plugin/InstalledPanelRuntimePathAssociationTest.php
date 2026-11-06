@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
@@ -25,7 +26,7 @@ final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
     /** A host route under the panel path is not adopted: it runs its own middleware and is reported. */
     public function test_a_host_route_under_the_panel_path_is_not_adopted_and_is_reported(): void
     {
-        Route::get('/admin/runtime-plain-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
+        AdminRouteProvenance::host(static fn () => Route::get('/admin/runtime-plain-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]));
 
         $this->get('/admin/runtime-plain-callback')->assertRedirect('/admin/login')->assertDontSee(self::BODY);
         // Its own authentication admits the admin; the panel's package security is not added to a host route.
@@ -55,8 +56,8 @@ final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
     public function test_the_panel_domain_decides_where_its_path_refuses_host_routes(): void
     {
         Filament::getPanel('admin')->domains(['admin.capell.test', 'cms.capell.test']);
-        Route::domain('cms.capell.test')->get('/admin/runtime-alias-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
-        Route::domain('shop.capell.test')->get('/admin/runtime-foreign-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]);
+        AdminRouteProvenance::host(static fn () => Route::domain('cms.capell.test')->get('/admin/runtime-alias-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]));
+        AdminRouteProvenance::host(static fn () => Route::domain('shop.capell.test')->get('/admin/runtime-foreign-callback', static fn (): string => self::BODY)->middleware(['web', Authenticate::class]));
         $this->actingAsAdmin();
 
         $this->get('http://cms.capell.test/admin/runtime-alias-callback')->assertOk()->assertSee(self::BODY);

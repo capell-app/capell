@@ -17,6 +17,7 @@ use Override;
 /** Match-time coverage of routes under the admin panel, request by request. */
 final class InstalledPanelRuntimeRouteCoverageTest extends AdminTestCase
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

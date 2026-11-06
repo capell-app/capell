@@ -12,7 +12,7 @@ return [
     'extension_panel_security_excluded' => 'Excluded panel security middleware requires a fresh application.',
     'extension_panel_route_ambiguous' => "This route was registered for more than one admin panel, so it cannot be held to a single panel's security middleware.",
     'extension_panel_security_order' => "Panel security middleware cannot run before this route's own middleware, so the route is refused.",
-    'extension_panel_route_unowned' => "This route runs admin code but was not registered by a panel's route group, or its panel is not installed, so it is refused. Register it through the panel's routes.",
+    'extension_panel_route_unowned' => "This route is not attributed to an installed panel or declared as a host route. Register it through the panel's routes or declare its host ownership.",
     'extension_panel_route_unrecorded' => 'This route runs admin code but the route cache was built by an earlier release, so it carries no record of the panel that registered it and is refused. Rebuild the route cache: php artisan route:clear && php artisan route:cache.',
     'route_cache_unrecorded' => 'The route cache was built by an earlier release and records no route ownership: admin routes are refused until it is rebuilt. Run php artisan route:clear && php artisan route:cache on every node.',
     'route_ownership_check_label' => 'Admin route ownership',

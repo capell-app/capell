@@ -46,6 +46,25 @@ final class InstalledPanelRuntimeFreshCachedBootTest extends AdminTestCase
         $this->assertStringContainsString("'capell_ownership'", $cache);
     }
 
+    public function test_a_fresh_boot_refuses_unrecorded_panel_routes_from_an_old_cache(): void
+    {
+        $file = storage_path('framework/testing-old-routes-' . bin2hex(random_bytes(6)) . '.php');
+        File::ensureDirectoryExists(dirname($file));
+        try {
+            $this->runFresh('old-cache', $file);
+            $answers = $this->runFresh('serve-old', $file);
+        } finally {
+            File::delete($file);
+        }
+
+        $this->assertTrue($answers['routes_cached']);
+        $this->assertSame(403, $answers['security_control']['status']);
+        $this->assertSame(503, $answers['old_named']['status']);
+        $this->assertSame(503, $answers['old_middleware']['status']);
+        $this->assertSame(503, $answers['old_package_preview']['status']);
+        $this->assertSame(200, $answers['old_host']['status']);
+    }
+
     /** @return array<string, mixed> */
     private function runFresh(string $mode, string $file): array
     {
