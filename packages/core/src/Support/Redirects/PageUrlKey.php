@@ -13,8 +13,7 @@ use Throwable;
 
 final class PageUrlKey
 {
-    /** @var array<string, bool> */
-    private static array $caseInsensitive = [];
+    private ?bool $caseInsensitive = null;
 
     private readonly Connection $connection;
 
@@ -25,18 +24,16 @@ final class PageUrlKey
 
     public function url(string $url): string
     {
-        $name = $this->connection->getName();
         try {
             $dialect = CapellDatabase::for($this->connection)->schemaDialect();
-            $cacheKey = $dialect::class . ':' . $name;
-            self::$caseInsensitive[$cacheKey] ??= $dialect->isColumnCaseInsensitive((new PageUrl)->getTable(), 'url', $this->connection);
+            $this->caseInsensitive ??= $dialect->isColumnCaseInsensitive((new PageUrl)->getTable(), 'url', $this->connection);
         } catch (UnsupportedDatabaseDriver) {
             return $url;
         } catch (Throwable) {
             return mb_strtolower($url);
         }
 
-        return self::$caseInsensitive[$cacheKey] ? mb_strtolower($url) : $url;
+        return $this->caseInsensitive ? mb_strtolower($url) : $url;
     }
 
     public function taken(mixed $siteId, int $languageId, string $url): string
