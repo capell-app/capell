@@ -178,6 +178,7 @@ final class ListExtensionManagementEntriesAction
                 fn (ExtensionAttentionReason $reason): string => $reason->label(),
                 $operations->attentionReasons,
             ),
+            runtimeGateReason: $operations->runtimeGateReason,
         );
     }
 

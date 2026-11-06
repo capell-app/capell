@@ -1240,6 +1240,24 @@ it('explains both a disabled lifecycle and a revoked runtime', function (): void
         ->toContain(__('capell-admin::generic.extension_lifecycle_disabled_action'));
 });
 
+it('preserves revoked licence recovery in the management table details record', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/disabled-revoked-table', ['version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/disabled-revoked-table', 'name' => 'Disabled revoked table', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Disabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'revoked', 'marketplace_runtime_allowed' => false,
+    ]);
+
+    $record = collect(new ExtensionsPage()->getExtensionsData())->firstWhere('packageName', 'vendor/disabled-revoked-table');
+    expect($record)->not->toBeNull();
+
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $record])->render();
+    expect($html)->toContain(__('capell-admin::generic.extension_runtime_gate_revoked'))
+        ->toContain(__('capell-admin::generic.extension_lifecycle_disabled_action'))
+        ->not->toContain(__('capell-admin::generic.extension_runtime_gate_unknown'));
+});
+
 it('shows readable guidance for marketplace action codes in extension details', function (): void {
     registerOperationsSummaryManifest('vendor/action-codes', ['version' => '1.0.0']);
     CapellExtension::query()->create(['composer_name' => 'vendor/action-codes', 'name' => 'Action codes', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);

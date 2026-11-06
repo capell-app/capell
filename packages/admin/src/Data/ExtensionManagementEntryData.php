@@ -56,6 +56,7 @@ final class ExtensionManagementEntryData extends Data
         public readonly string $productGroup = 'Other',
         /** @var list<string> */
         public readonly array $attentionReasons = [],
+        public readonly ?string $runtimeGateReason = null,
     ) {}
 
     /**
@@ -89,6 +90,7 @@ final class ExtensionManagementEntryData extends Data
      *     certification: string,
      *     runtimeStatus: string,
      *     runtimeAllowed: bool,
+     *     runtimeGateReason: ?string,
      *     healthState: string,
      *     contributionCount: int,
      *     healthAlerts: list<array<string, mixed>>,
@@ -136,6 +138,7 @@ final class ExtensionManagementEntryData extends Data
             'certification' => $this->certification,
             'runtimeStatus' => $this->runtimeStatus,
             'runtimeAllowed' => $this->runtimeAllowed,
+            'runtimeGateReason' => $this->runtimeGateReason,
             'healthState' => $this->healthState,
             'contributionCount' => $this->contributionCount,
             'healthAlerts' => $this->healthAlerts,
