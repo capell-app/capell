@@ -32,7 +32,8 @@
                                 @class([
                                 'shrink-0 rounded-md px-2 py-1 text-xs font-semibold',
                                 'bg-danger-50 text-danger-700 dark:bg-danger-400/10 dark:text-danger-200' => $alert->severity === 'critical',
-                                'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-200' => $alert->severity !== 'critical',
+                                'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-200' => $alert->severity === 'warning',
+                                'bg-info-50 text-info-700 dark:bg-info-400/10 dark:text-info-200' => $alert->severity === 'info',
                             ])
                             >
                                 {{ str($alert->severity)->headline() }}

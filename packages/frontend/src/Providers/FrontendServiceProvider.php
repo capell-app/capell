@@ -89,6 +89,7 @@ use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Capell\Frontend\Support\Assets\PublicFrontendAssetUrl;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
+use Capell\Frontend\Support\Assets\ViteManifestReader;
 use Capell\Frontend\Support\Blade\BuildAssetDirective;
 use Capell\Frontend\Support\Blade\FrontendAssetDirective;
 use Capell\Frontend\Support\Blade\WireNavigateDirective;
@@ -337,6 +338,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(StaticPageArtifactStore::class);
         $this->app->singleton(StaticPageArtifactPathResolver::class);
         $this->app->singleton(OnFrontendContextResolved::class);
+        $this->app->scoped(ViteManifestReader::class);
         $this->app->singleton(FragmentCache::class, fn (Application $app): FragmentCache => new FragmentCache($app->make(Repository::class)));
         $this->app->alias(FragmentCache::class, 'capell-frontend.fragment-cache');
         $this->app->singleton(FrontendLocaleScope::class);

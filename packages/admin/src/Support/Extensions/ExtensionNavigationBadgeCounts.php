@@ -48,7 +48,7 @@ class ExtensionNavigationBadgeCounts
     {
         $summary = BuildExtensionOperationsSummaryAction::run();
 
-        return ['unhealthy' => $summary->unhealthyCount, 'blocked' => $summary->blockedCount];
+        return ['unhealthy' => $summary->needsAttentionCount, 'blocked' => $summary->blockedCount];
     }
 
     /** @return array{unhealthy: int, blocked: int} */

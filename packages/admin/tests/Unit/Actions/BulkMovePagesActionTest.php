@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Pages\BulkMovePagesAction;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Core\Enums\UrlTypeEnum;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -392,4 +393,25 @@ it('rolls back the whole batch when a move fails mid-transaction', function (): 
         ])
         ->and($firstPage->fresh()->parent_id)->toBeNull()
         ->and($failingPage->fresh()->parent_id)->toBeNull();
+});
+
+it('rolls back the move when redirect saving detects a collision after the lookup', function (): void {
+    $actor = test()->createUserWithRole('super_admin');
+    $site = Site::factory()->withTranslations()->create();
+    $newParent = Page::factory()->recycle($site)->withTranslations()->create();
+    $page = Page::factory()->recycle($site)->withTranslations()->create();
+    $oldUrl = $page->fresh()->pageUrls()->whereNull('type')->firstOrFail()->url;
+
+    PageUrl::saving(function (PageUrl $url) use ($oldUrl): void {
+        if ($url->type === UrlTypeEnum::Redirect && $url->url === $oldUrl) {
+            throw new PageUrlCollisionException($url->url, $url->site_id, $url->language_id);
+        }
+    });
+
+    $result = BulkMovePagesAction::run(new Collection([$page]), $newParent, $actor, true);
+
+    expect($result['moved'])->toBe(0)
+        ->and($result['redirects'])->toBe(0)
+        ->and($result['failed_at'])->not->toBeNull()
+        ->and($page->fresh()->parent_id)->toBeNull();
 });

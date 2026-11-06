@@ -59,7 +59,7 @@ class ExtensionHealthFilamentWidget extends Widget implements CapellFilamentWidg
         $alerts = BuildExtensionDiagnosticsAction::run();
 
         return collect($alerts)
-            ->filter(fn (ExtensionHealthAlertData $alert): bool => in_array($alert->severity, ['critical', 'warning'], true))
+            ->filter(fn (ExtensionHealthAlertData $alert): bool => $alert->isActionable())
             ->values();
     }
 }

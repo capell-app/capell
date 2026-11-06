@@ -13,16 +13,11 @@ use Capell\Admin\Http\Controllers\Themes\ThemePreviewController;
 use Capell\Admin\Http\Controllers\UpdateAuthenticatedAdminLanguageController;
 use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
-use Capell\Admin\Support\AdminPanelEntrypoint;
+use Capell\Admin\Support\AdminRouteProvenance;
 use Illuminate\Support\Facades\Route;
 
-$adminRoutes = Route::prefix(AdminPanelEntrypoint::path());
-
-if (($adminDomain = AdminPanelEntrypoint::domain()) !== null) {
-    $adminRoutes->domain($adminDomain);
-}
-
-$adminRoutes->group(function (): void {
+// Signed preview links are credentialed by their URL signature, so the panel serves them to guests too.
+AdminRouteProvenance::entrypoint(static function (): void {
     Route::get('theme-preview/{theme}/{site}/{page}', ThemePreviewController::class)
         ->middleware(['web', 'signed', EnforceLockdownAdminAccess::class])
         ->name('capell.admin.theme-preview');
@@ -30,7 +25,10 @@ $adminRoutes->group(function (): void {
     Route::get('preview/page/{page}', PagePreviewController::class)
         ->middleware(['web', 'signed', EnforceLockdownAdminAccess::class])
         ->name('capell.admin.preview-page');
+}, guests: true);
 
+// Served by the Capell admin panel, which runs its whole stack on its domains for each route.
+AdminRouteProvenance::entrypoint(static function (): void {
     // Internal admin API routes - CSRF-protected, with site-scoped policy authorization.
     Route::prefix('api')
         ->middleware(['web', 'auth', EnforceLockdownAdminAccess::class, SetSitePermissionScope::class])

@@ -11,6 +11,7 @@ use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Enums\TransferDownloadEnum;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
@@ -161,6 +162,8 @@ class CapellAdminPlugin implements Plugin
         $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
         $panel->authMiddleware(self::authMiddleware());
+        // Filament's global export and import downloads are served through the panel they were started in.
+        $panel->authenticatedRoutes(TransferDownloadEnum::registerPanelRoutes(...));
 
         $panel->renderHook(
             name: PanelsRenderHook::STYLES_BEFORE,
