@@ -8,8 +8,14 @@ use Illuminate\Database\Connection;
 it('uses the requested database comparison key', function (string $driver, ?string $column, ?string $table, string $expected): void {
     $connection = Mockery::mock(Connection::class);
     $connection->shouldReceive('getDriverName')->andReturn($driver);
+    $connection->shouldReceive('getName')->andReturn(uniqid('url-key-', true));
     if (in_array($driver, ['mysql', 'mariadb'], true)) {
-        $connection->shouldReceive('getName')->andReturn(uniqid('url-key-', true));
+        if ($driver === 'mysql') {
+            $pdo = Mockery::mock(PDO::class);
+            $pdo->shouldReceive('getAttribute')->andReturn('8.0.36');
+            $connection->shouldReceive('getPdo')->andReturn($pdo);
+        }
+
         $connection->shouldReceive('getDatabaseName')->once()->andReturn('testing');
         $connection->shouldReceive('getTablePrefix')->once()->andReturn('');
         $connection->shouldReceive('selectOne')->once()->andReturn((object) ['column_collation' => $column, 'table_collation' => $table]);
@@ -33,6 +39,9 @@ it('uses the requested database comparison key', function (string $driver, ?stri
 it('uses the safe case-insensitive fallback when collation metadata cannot be read', function (): void {
     $connection = Mockery::mock(Connection::class);
     $connection->shouldReceive('getDriverName')->andReturn('mysql');
+    $pdo = Mockery::mock(PDO::class);
+    $pdo->shouldReceive('getAttribute')->andReturn('8.0.36');
+    $connection->shouldReceive('getPdo')->andReturn($pdo);
     $connection->shouldReceive('getName')->andReturn(uniqid('url-key-', true));
     $connection->shouldReceive('getDatabaseName')->once()->andReturn('testing');
     $connection->shouldReceive('getTablePrefix')->once()->andReturn('');
@@ -42,4 +51,13 @@ it('uses the safe case-insensitive fallback when collation metadata cannot be re
 
     expect($key->url('/AbOut'))->toBe('/about')
         ->and($key->url('/AbOut'))->toBe('/about');
+});
+
+it('uses the safe fallback when the server cannot be inspected', function (): void {
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getDriverName')->andReturn('mysql');
+    $connection->shouldReceive('getName')->andReturn(uniqid('url-key-', true));
+    $connection->shouldReceive('getPdo')->andThrow(new RuntimeException('server unavailable'));
+
+    expect(new PageUrlKey($connection)->url('/AbOut'))->toBe('/about');
 });

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Redirects;
 
+use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
@@ -23,35 +25,22 @@ final class PageUrlKey
 
     public function url(string $url): string
     {
-        if (! in_array($this->connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+        $name = $this->connection->getName();
+        try {
+            $dialect = CapellDatabase::for($this->connection)->schemaDialect();
+            $cacheKey = $dialect::class . ':' . $name;
+            self::$caseInsensitive[$cacheKey] ??= $dialect->isColumnCaseInsensitive((new PageUrl)->getTable(), 'url', $this->connection);
+        } catch (UnsupportedDatabaseDriver) {
             return $url;
+        } catch (Throwable) {
+            return mb_strtolower($url);
         }
 
-        $name = $this->connection->getName();
-        self::$caseInsensitive[$name] ??= $this->readCaseInsensitive();
-
-        return self::$caseInsensitive[$name] ? mb_strtolower($url) : $url;
+        return self::$caseInsensitive[$cacheKey] ? mb_strtolower($url) : $url;
     }
 
     public function taken(mixed $siteId, int $languageId, string $url): string
     {
         return $siteId . "\0" . $languageId . "\0" . $this->url($url);
-    }
-
-    private function readCaseInsensitive(): bool
-    {
-        try {
-            $database = $this->connection->getDatabaseName();
-            $table = $this->connection->getTablePrefix() . (new PageUrl)->getTable();
-            $row = $this->connection->selectOne(
-                'select (select COLLATION_NAME from information_schema.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ? and COLUMN_NAME = ?) as column_collation, (select TABLE_COLLATION from information_schema.TABLES where TABLE_SCHEMA = ? and TABLE_NAME = ?) as table_collation',
-                [$database, $table, 'url', $database, $table],
-            );
-            $collation = $row->column_collation ?? $row->table_collation ?? null;
-
-            return ! is_string($collation) || str_ends_with(strtolower($collation), '_ci');
-        } catch (Throwable) {
-            return true;
-        }
     }
 }
