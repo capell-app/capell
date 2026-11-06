@@ -430,3 +430,7 @@ If an admin contribution is missing, start with [Extension Troubleshooting](exte
 - run `php artisan capell:admin-cache-configurators` for configurators and schema extenders;
 - run `php artisan capell:admin-cache-widgets` for widgets;
 - re-run `php artisan capell:admin-install` when permissions or policies changed.
+
+## Command palette
+
+Extensions can register commands with `CapellAdmin::registerCommand()` and `PaletteCommandData`. Registered commands are shown to every authenticated user of the current panel. Register only commands whose destinations the extension authorises itself; the palette does not enforce destination permissions.

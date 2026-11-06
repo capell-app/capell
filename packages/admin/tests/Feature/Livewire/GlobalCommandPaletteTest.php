@@ -14,8 +14,8 @@ use Spatie\Permission\Models\Permission;
 uses(CreatesAdminUser::class);
 
 it('renders a labelled modal and a labelled search field', function (): void {
-    CapellAdmin::shouldReceive('getPaletteCommands')->andReturn([]);
-
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAsUser();
     Livewire::test(GlobalCommandPalette::class)
         ->assertSeeHtml('role="dialog"')
         ->assertSeeHtml('aria-modal="true"')
@@ -92,4 +92,43 @@ it('lets an extension replace a core command by id', function (): void {
     expect($commands)->toHaveCount(1)
         ->and($commands[0]->label)->toBe('Replacement pages')
         ->and($commands[0]->url)->toBe('/replacement');
+});
+
+it('mounts the palette and shortcuts for an authenticated panel user', function (): void {
+    $this->actingAsAdmin();
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.visible', label: 'Visible extension command', url: '/visible-extension-command'));
+    config()->set('capell-admin.shortcuts', [['key' => 'x', 'action' => 'custom', 'target' => 'test', 'label' => 'Visible shortcut label']]);
+
+    $this->get('/admin')->assertOk()
+        ->assertSee('Command palette')
+        ->assertSee('capellKeyboardShortcuts')
+        ->assertSee('Visible extension command')
+        ->assertSee('/visible-extension-command')
+        ->assertSee('Visible shortcut label');
+});
+
+it('does not expose the palette or shortcuts on the login page', function (): void {
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.secret', label: 'Private extension command', url: '/private-extension-command'));
+    config()->set('capell-admin.shortcuts', [['key' => 'x', 'action' => 'custom', 'target' => 'test', 'label' => 'Private shortcut label']]);
+
+    $this->get('/admin/login')->assertOk()
+        ->assertDontSee('Command palette')
+        ->assertDontSee('capellKeyboardShortcuts')
+        ->assertDontSee('Private extension command')
+        ->assertDontSee('/private-extension-command')
+        ->assertDontSee('Private shortcut label');
+});
+
+it('does not expose commands or palette content in a direct guest Livewire request', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.secret', label: 'Private extension command', url: '/private-extension-command'));
+    config()->set('capell-admin.shortcuts', [['key' => 'x', 'action' => 'custom', 'target' => 'test', 'label' => 'Private shortcut label']]);
+
+    expect((new GlobalCommandPalette)->filteredCommands())->toBe([]);
+    Livewire::test(GlobalCommandPalette::class)
+        ->call('toggle')
+        ->assertDontSee('Command palette')
+        ->assertDontSee('Private extension command')
+        ->assertDontSee('/private-extension-command')
+        ->assertDontSee('Private shortcut label');
 });

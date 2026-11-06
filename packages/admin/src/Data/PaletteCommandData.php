@@ -10,6 +10,8 @@ use Spatie\LaravelData\Data;
 /**
  * A single entry in the global command palette.
  * Add-on packages contribute entries via CapellAdmin::registerCommand().
+ * Commands are shown to every authenticated panel user; extensions must
+ * authorise access to each command destination themselves.
  */
 class PaletteCommandData extends Data
 {

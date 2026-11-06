@@ -27,6 +27,10 @@ class GlobalCommandPalette extends Component
     #[Computed]
     public function filteredCommands(): array
     {
+        if (! $this->isAuthenticated()) {
+            return [];
+        }
+
         $allCommands = [...$this->coreCommands(), ...CapellAdmin::getPaletteCommands()];
         uasort($allCommands, fn (PaletteCommandData $first, PaletteCommandData $second): int => $first->sort <=> $second->sort);
 
@@ -51,6 +55,10 @@ class GlobalCommandPalette extends Component
     #[Computed]
     public function shortcuts(): array
     {
+        if (! $this->isAuthenticated()) {
+            return [];
+        }
+
         $commands = $this->coreCommands();
 
         return array_values(array_filter(
@@ -75,12 +83,21 @@ class GlobalCommandPalette extends Component
         $this->query = '';
     }
 
-    public function render(): View
+    public function render(): View|string
     {
+        if (! $this->isAuthenticated()) {
+            return '<div></div>';
+        }
+
         /** @var view-string $view */
         $view = 'capell-admin::livewire.global-command-palette';
 
         return view($view);
+    }
+
+    private function isAuthenticated(): bool
+    {
+        return Filament::getCurrentPanel() !== null && Filament::auth()->check();
     }
 
     /** @return array<string, PaletteCommandData> */

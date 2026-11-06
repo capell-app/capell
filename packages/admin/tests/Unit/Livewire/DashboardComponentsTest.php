@@ -9,14 +9,14 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Livewire\GlobalCommandPalette;
 use Capell\Admin\Livewire\InfoBanner;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
 
 it('filters global command palette commands by label or description and resets on close', function (): void {
-    CapellAdmin::shouldReceive('getPaletteCommands')
-        ->andReturn([
-            new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content'),
-            new PaletteCommandData(id: 'media', label: 'Media library', description: 'Find images'),
-        ]);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAsUser();
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content'));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'media', label: 'Media library', description: 'Find images'));
 
     $palette = new GlobalCommandPalette;
 

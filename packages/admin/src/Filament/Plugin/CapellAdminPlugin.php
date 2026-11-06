@@ -257,9 +257,11 @@ class CapellAdminPlugin implements Plugin
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
-                hook: fn (): string => Blade::render(
-                    "<x-capell-admin::keyboard-shortcuts />@livewire('capell-admin::global-command-palette')",
-                ),
+                hook: fn (): string => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check()
+                    ? Blade::render(
+                        "<x-capell-admin::keyboard-shortcuts />@livewire('capell-admin::global-command-palette')",
+                    )
+                    : '',
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
