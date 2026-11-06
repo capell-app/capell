@@ -222,6 +222,7 @@ use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
+use Capell\Admin\Support\PaletteRequestState;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
@@ -248,6 +249,7 @@ use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Events\PageUrlsRewritten;
+use Capell\Core\Events\PermissionRelationsCleared;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
@@ -296,6 +298,7 @@ use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
+use Illuminate\Cache\Events\ForgettingKey;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -391,10 +394,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerAdminEventSystem();
 
+        $this->app->scoped(PaletteRequestState::class);
         $this->app->scoped(AdminUploadGrantRepository::class);
         $this->app->scoped(AdminUploadDeletion::class);
 
         $events = $this->app->make(Dispatcher::class);
+        $events->listen(ForgettingKey::class, [PaletteRequestState::class, 'forgetPermissionCache']);
+        $events->listen(PermissionRelationsCleared::class, [PaletteRequestState::class, 'forgetActorPermissions']);
         $events->listen(TransactionBeginning::class, [AdminUploadGrantTransactionListener::class, 'beginning']);
         $events->listen(TransactionCommitted::class, [AdminUploadGrantTransactionListener::class, 'committed']);
         $events->listen(TransactionRolledBack::class, [AdminUploadGrantTransactionListener::class, 'rolledBack']);

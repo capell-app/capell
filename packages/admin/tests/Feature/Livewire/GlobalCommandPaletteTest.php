@@ -2,14 +2,21 @@
 
 declare(strict_types=1);
 
+use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Data\PaletteCommandData;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Livewire\GlobalCommandPalette;
+use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
+use Capell\Admin\Tests\Support\SiteScopedUserFactory;
+use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 uses(CreatesAdminUser::class);
 
@@ -105,6 +112,53 @@ it('mounts the palette and shortcuts for an authenticated panel user', function 
         ->assertSee('Visible extension command')
         ->assertSee('/visible-extension-command')
         ->assertSee('Visible shortcut label');
+});
+
+it('filters destination shortcuts from the full admin page', function (): void {
+    config()->set('capell-admin.shortcuts', [
+        ['sequence' => 'g p', 'action' => 'navigate', 'target' => 'pages', 'label' => 'Private pages shortcut'],
+        ['sequence' => 'g s', 'action' => 'navigate', 'target' => 'settings', 'label' => 'Private settings shortcut'],
+        ['key' => '/', 'action' => 'focus', 'target' => '#search', 'label' => 'Public search shortcut'],
+    ]);
+
+    $role = Role::findOrCreate(Utils::getPanelUserRoleName(), 'web');
+    $this->actingAs($this->createUserWithRole($role));
+    $this->get('/admin')->assertOk()
+        ->assertDontSee('Private pages shortcut')->assertDontSee('Private settings shortcut')
+        ->assertDontSee('/admin/pages')->assertDontSee('/admin/settings')
+        ->assertSee('Public search shortcut');
+
+    $this->actingAsAdmin();
+    $this->get('/admin')->assertOk()
+        ->assertSee('Private pages shortcut')->assertSee('Private settings shortcut')
+        ->assertSee('/admin/pages')->assertSee('/admin/settings')
+        ->assertSee('Public search shortcut');
+});
+
+it('retains site scoped commands on a Livewire update', function (): void {
+    config(['permission.teams' => true, 'auth.providers.users.model' => RealSiteScopedAdminResourceUser::class]);
+    $registrar = resolve(PermissionRegistrar::class);
+    $registrar->teams = true;
+    $registrar->forgetCachedPermissions();
+
+    try {
+        $site = Site::factory()->createOne();
+        $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
+        $this->actingAs($user)->withSession(['capell.current_site_id' => $site->getKey()]);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $palette = PermissionTeamContext::run($site->getKey(), fn () => Livewire::test(GlobalCommandPalette::class), $user);
+        $palette->assertSeeHtml('href="' . SettingsPage::getUrl() . '"')
+            ->set('query', 'settings')
+            ->assertSeeHtml('href="' . SettingsPage::getUrl() . '"');
+        expect($registrar->getPermissionsTeamId())->toBeNull();
+    } finally {
+        auth()->logout();
+        $registrar->setPermissionsTeamId(null);
+        $registrar->teams = false;
+        $registrar->forgetCachedPermissions();
+        config(['permission.teams' => false]);
+    }
 });
 
 it('does not expose the palette or shortcuts on the login page', function (): void {

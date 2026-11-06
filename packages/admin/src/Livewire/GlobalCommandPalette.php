@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Livewire;
 
 use Capell\Admin\Data\PaletteCommandData;
-use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Admin\Filament\Pages\SettingsPage;
-use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\PaletteAccess;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
@@ -31,7 +28,7 @@ class GlobalCommandPalette extends Component
             return [];
         }
 
-        $allCommands = [...$this->coreCommands(), ...CapellAdmin::getPaletteCommands()];
+        $allCommands = [...resolve(PaletteAccess::class)->coreCommands(), ...CapellAdmin::getPaletteCommands()];
         uasort($allCommands, fn (PaletteCommandData $first, PaletteCommandData $second): int => $first->sort <=> $second->sort);
 
         if ($this->query === '') {
@@ -55,17 +52,7 @@ class GlobalCommandPalette extends Component
     #[Computed]
     public function shortcuts(): array
     {
-        if (! $this->isAuthenticated()) {
-            return [];
-        }
-
-        $commands = $this->coreCommands();
-
-        return array_values(array_filter(
-            config('capell-admin.shortcuts', []),
-            fn (array $shortcut): bool => $shortcut['action'] !== 'navigate'
-                || isset($commands['capell.' . $shortcut['target']]),
-        ));
+        return resolve(PaletteAccess::class)->shortcuts();
     }
 
     public function toggle(): void
@@ -98,58 +85,5 @@ class GlobalCommandPalette extends Component
     private function isAuthenticated(): bool
     {
         return Filament::getCurrentPanel() !== null && Filament::auth()->check();
-    }
-
-    /** @return array<string, PaletteCommandData> */
-    private function coreCommands(): array
-    {
-        $panel = Filament::getCurrentPanel();
-
-        if ($panel === null || ! Filament::auth()->check()) {
-            return [];
-        }
-
-        $commands = [];
-        foreach ([ResourceEnum::Page, ResourceEnum::Site] as $type) {
-            $resource = AdminSurfaceLookup::resourceIfRegistered($type);
-            if ($resource === null) {
-                continue;
-            }
-
-            if (! in_array($resource, $panel->getResources(), true)) {
-                continue;
-            }
-
-            if (! $resource::canAccess()) {
-                continue;
-            }
-
-            $key = $type === ResourceEnum::Page ? 'pages' : 'sites';
-            $commands['capell.' . $key] = new PaletteCommandData(
-                id: 'capell.' . $key,
-                label: (string) __('capell-admin::palette.' . $key),
-                url: $resource::getUrl(),
-                sort: $type === ResourceEnum::Page ? 10 : 20,
-            );
-        }
-
-        foreach (['settings' => SettingsPage::class, 'extensions' => ExtensionsPage::class] as $key => $page) {
-            if (! in_array($page, $panel->getPages(), true)) {
-                continue;
-            }
-
-            if (! $page::canAccess()) {
-                continue;
-            }
-
-            $commands['capell.' . $key] = new PaletteCommandData(
-                id: 'capell.' . $key,
-                label: (string) __('capell-admin::palette.' . $key),
-                url: $page::getUrl(),
-                sort: $key === 'settings' ? 30 : 40,
-            );
-        }
-
-        return $commands;
     }
 }
