@@ -25,6 +25,7 @@ use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
 use Filament\Pages\BasePage;
 use Filament\Panel;
+use Filament\PanelRegistry;
 use Guava\IconPicker\Http\Controllers\IconIndexController;
 use Guava\IconPicker\Http\Controllers\IconSvgController;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -201,7 +202,9 @@ final class InstalledPanelRuntime
         $ownership = PanelOwnership::of($route);
         if ($ownership?->kind === RouteOwnershipEnum::Panel && $route->getAction(self::AUTHENTICATED_ACTION) === null) {
             $declared = $this->router->resolveMiddleware($route->middleware());
-            $panel = $this->synchronised[$ownership->panel] ?? null;
+            // Do not resolve the registry before Filament's providers have registered their panels.
+            $registered = app()->resolved(PanelRegistry::class) ? Filament::getPanels() : [];
+            $panel = $registered[$ownership->panel] ?? $this->synchronised[$ownership->panel] ?? null;
             $route->action[self::AUTHENTICATED_ACTION] = array_any($declared, $this->isAuthenticator(...))
                 || ($panel instanceof Panel && array_intersect($declared, $this->router->resolveMiddleware($panel->getAuthMiddleware())) !== []);
         }
@@ -387,10 +390,18 @@ final class InstalledPanelRuntime
      */
     public function refusedRoutes(): array
     {
-        return $this->describe(array_filter(
-            $this->router->getRoutes()->getRoutes(),
-            fn (Route $route): bool => PanelOwnership::of($route) instanceof PanelOwnership && $this->refusal($route) !== null,
-        ));
+        $refused = [];
+        foreach ($this->router->getRoutes()->getRoutes() as $route) {
+            try {
+                if (PanelOwnership::of($route) instanceof PanelOwnership && $this->refusal($route) !== null) {
+                    $refused[] = $this->describe([$route])[0];
+                }
+            } catch (Throwable $throwable) {
+                $refused[] = $this->describe([$route])[0] . ': ' . $throwable->getMessage();
+            }
+        }
+
+        return $refused;
     }
 
     /**
@@ -719,24 +730,29 @@ final class InstalledPanelRuntime
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
-        $declared = $this->router->resolveMiddleware($instance->gatherMiddleware());
-        // Filament's routes() group deliberately serves unauthenticated callbacks and custom sign-in
-        // controllers. Explicit provenance outside that group opts into the panel's full stack.
+        // Inspect declarations independently of the effective pipeline and its cached exclusions.
+        $declared = $this->router->resolveMiddleware([...$instance->middleware(), ...$instance->controllerMiddleware()]);
+        // Filament's routes() group keeps non-admin callbacks and custom sign-in controllers public.
+        // Admin actions and explicit provenance opt into the panel's full stack.
         $authenticated = $instance->getAction(self::AUTHENTICATED_ACTION) === true
-            || in_array($this->actionCode($instance)[0], self::ENTRYPOINT_ACTIONS, true)
+            || $this->runsAdminCode($instance)
             || AdminRouteProvenance::declared($instance)['panels'] !== []
             || array_intersect($declared, $this->router->resolveMiddleware($current['auth'])) !== []
             || array_any($declared, $this->isAuthenticator(...));
         $instance->action[self::AUTHENTICATED_ACTION] = $authenticated;
-        $public = (PanelOwnership::of($instance)->guests ?? false) || $this->isSignInPage($instance) || ! $authenticated;
+        $public = (PanelOwnership::of($instance)->guests ?? false)
+            || $this->isSignInPage($instance)
+            || $this->isPublicAction($instance)
+            || $this->isPublicRouteFile($instance)
+            || ! $authenticated;
         if (! $public && $contributed['auth'] !== [] && $host['auth'] === []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_ambiguous'));
         }
 
         // Exclusions must not hide the route's declared tenancy.
         $tenanted = in_array(IdentifyTenant::class, $declared, true);
-        // Keep the panel's unauthenticated group unauthenticated. Explicit standalone declarations
-        // carry the full stack unless they declare guests; authenticated group routes retain security.
+        // Non-admin callbacks in the unauthenticated group keep serving guests. Admin actions and
+        // explicit standalone declarations carry the full stack unless they explicitly allow guests.
         $isMissing = fn (string $middleware): bool => array_diff($this->router->resolveMiddleware([$middleware]), $declared) !== [];
         $stack = $public ? [] : array_values(array_filter($host['middleware'], $isMissing));
         $required = [
@@ -940,13 +956,11 @@ final class InstalledPanelRuntime
             return PanelOwnership::panel(AdminPanelEntrypoint::PANEL, $domain, false);
         }
 
-        if (AdminRouteProvenance::isHost($route)) {
-            return PanelOwnership::host();
+        if ($this->runsAdminCode($route)) {
+            return PanelOwnership::refused('capell-admin::message.extension_panel_route_unowned');
         }
 
-        return $this->runsAdminCode($route)
-            ? PanelOwnership::refused('capell-admin::message.extension_panel_route_unowned')
-            : PanelOwnership::unclassified();
+        return AdminRouteProvenance::isHost($route) ? PanelOwnership::host() : PanelOwnership::unclassified();
     }
 
     /**
@@ -980,7 +994,8 @@ final class InstalledPanelRuntime
                 : null;
         }
 
-        if ($ownership->kind === RouteOwnershipEnum::Unclassified && ($this->runsAdminCode($route) || $this->matchesPanelPath($route, $matchers))) {
+        if ((in_array($ownership->kind, [RouteOwnershipEnum::Host, RouteOwnershipEnum::Unclassified], true) && $this->runsAdminCode($route))
+            || ($ownership->kind === RouteOwnershipEnum::Unclassified && $this->matchesPanelPath($route, $matchers))) {
             return 'capell-admin::message.extension_panel_route_unowned';
         }
 
@@ -1001,9 +1016,10 @@ final class InstalledPanelRuntime
 
         $panel = $this->synchronised[$ownership->panel] ?? null;
         if (! $panel instanceof Panel) {
-            // Standalone declarations depend on Capell to add their security. Filament registration
-            // alone cannot vouch for those routes, even though native panel groups have their own stack.
+            // Standalone declarations and global admin plugin endpoints depend on Capell to add their
+            // security. Native Filament panel groups already carry their own stack.
             return AdminRouteProvenance::declared($route)['panels'] === []
+                && ! in_array($this->actionCode($route)[0], self::ENTRYPOINT_ACTIONS, true)
                 && (array_key_exists($ownership->panel, Filament::getPanels()) || $this->isUnavailable($ownership->panel))
                     ? null
                     : 'capell-admin::message.extension_panel_route_unowned';

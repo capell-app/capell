@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Support\AdminRouteProvenance;
+use Capell\Admin\Support\Diagnostics\Checks\AdminRouteOwnershipCheck;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\InspectedRouteController;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeSignInPage;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\SpoofedAssetPage;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\StaleCachePublicController;
 use Capell\Tests\Fixtures\ApplicationPageComponent;
@@ -18,6 +21,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Panel;
 use Filament\PanelRegistry;
 use Guava\IconPicker\Http\Controllers\IconIndexController;
+use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Date;
@@ -100,6 +104,108 @@ final class InstalledPanelRuntimeRegressionTest extends AdminTestCase
 
         $this->get($uri)->assertOk()->assertSee($body);
         $this->get('/admin/explicit-auth')->assertRedirect('/admin/login');
+    }
+
+    #[TestWith(['routes', SpoofedAssetPage::class])]
+    #[TestWith(['name', SpoofedAssetPage::class])]
+    #[TestWith(['middleware', SpoofedAssetPage::class])]
+    #[TestWith(['routes', AdminAvatarController::class])]
+    public function test_panel_owned_admin_actions_require_authentication(string $registration, string $action): void
+    {
+        $panel = Filament::getPanel('admin');
+        $register = static fn () => Route::get('/runtime-admin/{initials}', $action);
+        if ($registration === 'routes') {
+            $panel->routes($register);
+            Route::prefix('admin')->name('filament.admin.')->middleware($panel->getMiddleware())->group(static function () use ($panel): void {
+                foreach ($panel->getRoutes() as $routes) {
+                    $routes($panel);
+                }
+            });
+        } elseif ($registration === 'name') {
+            Route::prefix('admin')->name('filament.admin.')->middleware('web')->group($register);
+        } else {
+            Route::prefix('admin')->middleware(['web', 'panel:admin'])->group($register);
+        }
+
+        $this->get('/admin/runtime-admin/AB')->assertRedirect('/admin/login')->assertDontSee(SpoofedAssetPage::BODY);
+    }
+
+    public function test_a_sign_in_subclass_in_the_unauthenticated_group_stays_public(): void
+    {
+        Route::name('filament.admin.')->middleware(['web', 'panel:admin'])->group(static fn () => Route::get('/admin/runtime-sign-in', RuntimeSignInPage::class));
+
+        $this->get('/admin/runtime-sign-in')->assertOk()->assertSee(RuntimeSignInPage::BODY);
+    }
+
+    public function test_a_callback_controller_in_the_unauthenticated_group_stays_public(): void
+    {
+        Route::name('filament.admin.')->middleware(['web', 'panel:admin'])->group(static fn () => Route::get('/admin/runtime-oauth', StaleCachePublicController::class));
+
+        $this->get('/admin/runtime-oauth')->assertOk()->assertSee(StaleCachePublicController::BODY);
+    }
+
+    public function test_excluded_custom_authentication_is_retained_before_panel_synchronisation(): void
+    {
+        $panel = Panel::make()->id('custom-auth')->path('custom-auth')->middleware(['web'])->authMiddleware([PackageSecurityDenyMiddleware::class]);
+        resolve(PanelRegistry::class)->register($panel);
+        $panel->authenticatedRoutes(static fn () => Route::get('/callback', StaleCachePublicController::class)->withoutMiddleware(PackageSecurityDenyMiddleware::class));
+        Route::prefix($panel->getPath())->name('filament.custom-auth.')->middleware([...$panel->getMiddleware(), ...$panel->getAuthMiddleware()])->group(static function () use ($panel): void {
+            foreach ($panel->getAuthenticatedRoutes() as $routes) {
+                $routes($panel);
+            }
+        });
+
+        $registered = Route::getRoutes()->match(Request::create('/custom-auth/callback'));
+        $this->assertTrue($registered->getAction('capell_panel_authenticated'));
+        $runtime = resolve(InstalledPanelRuntime::class);
+        $log = Log::spy();
+        $runtime->extend($panel);
+        $this->get('/custom-auth/callback')->assertStatus(503)->assertDontSee(StaleCachePublicController::BODY);
+        $log->shouldHaveReceived('warning')->withArgs(static fn (string $message, array $context): bool => ($context['reason'] ?? null) === __('capell-admin::message.extension_panel_security_excluded'));
+    }
+
+    public function test_icon_picker_waits_for_the_admin_panel_to_be_synchronised(): void
+    {
+        $runtime = new InstalledPanelRuntime(resolve(Router::class));
+        $this->app->instance(InstalledPanelRuntime::class, $runtime);
+
+        Route::get('/runtime-unsynchronised-icons', IconIndexController::class)->middleware('web');
+        $this->get('/runtime-unsynchronised-icons')->assertStatus(503);
+        $runtime->extend(Filament::getPanel('admin'));
+        $this->get('/runtime-unsynchronised-icons')->assertRedirect('/admin/login');
+    }
+
+    #[TestWith([SpoofedAssetPage::class])]
+    #[TestWith([AdminAvatarController::class])]
+    public function test_host_declarations_do_not_exempt_admin_actions(string $action): void
+    {
+        AdminRouteProvenance::host(static fn () => Route::get('/runtime-host-admin/{initials}', $action)->middleware('web'));
+
+        $this->get('/runtime-host-admin/AB')->assertStatus(503)->assertDontSee(SpoofedAssetPage::BODY);
+    }
+
+    public function test_a_host_declared_livewire_admin_component_is_refused_after_registration_finishes(): void
+    {
+        AdminRouteProvenance::host(static fn () => Route::livewire('/runtime-host-admin-component', SpoofedAssetPage::class)->middleware('web'));
+
+        $this->get('/runtime-host-admin-component')->assertStatus(503)->assertDontSee(SpoofedAssetPage::BODY);
+    }
+
+    public function test_the_ownership_doctor_reports_uninspectable_routes_and_continues(): void
+    {
+        InspectedRouteController::$broken = false;
+        Route::get('/runtime-doctor-inspection', InspectedRouteController::class)->name('runtime.doctor.inspection');
+        AdminRouteProvenance::host(static fn () => Route::get('/runtime-doctor-admin/{initials}', AdminAvatarController::class)->name('runtime.doctor.admin'));
+        InspectedRouteController::$broken = true;
+        try {
+            $result = resolve(AdminRouteOwnershipCheck::class)->check();
+            $this->assertFalse($result->passed);
+            $this->assertStringContainsString('runtime.doctor.inspection', $result->message);
+            $this->assertStringContainsString('Cannot inspect this route controller', $result->message);
+            $this->assertStringContainsString('runtime.doctor.admin', $result->message);
+        } finally {
+            InspectedRouteController::$broken = false;
+        }
     }
 
     public function test_unchanged_route_tables_are_not_reclassified_and_changes_invalidate_the_memo(): void

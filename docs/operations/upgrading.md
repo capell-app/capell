@@ -16,8 +16,11 @@ is created, and refuses anything it cannot prove.
 - **Package admin routes.** Register a package's panel routes inside the panel's route group
   (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards.
   `$panel->routes()` is Filament's unauthenticated group: OAuth callbacks, SSO redirects and custom
-  sign-in controllers keep serving guests unless they declare authentication. Routes that already
-  authenticate are reconciled to the panel's authentication, including package contributions.
+  sign-in controllers outside admin code keep serving guests unless they declare authentication.
+  Panel-owned admin pages and controllers require the panel's authentication even in this group,
+  unless they are recognised sign-in pages, public framework endpoints or explicitly declare guests.
+  Routes that already authenticate retain that requirement even when middleware is excluded;
+  exclusions that remove required security refuse the route with 503.
   A package route that the Capell admin serves outside Filament's pages registers through
   `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on the admin domain
   and runs the admin panel's stack and sign-in. `AdminRouteProvenance::panel($id, ...)` declares a
@@ -30,8 +33,9 @@ is created, and refuses anything it cannot prove.
   own middleware and are reported as collisions in the boot log and by `capell:doctor`
   (`admin.routes.ownership`). A `Route::livewire()` page is classified by its resolved component,
   rather than Livewire's page controller: application components keep serving as ordinary application
-  routes, subject to the same panel-path rule. Components in admin code still require panel ownership;
-  recorded ownership, panel names and panel middleware continue to protect panel routes.
+  routes, subject to the same panel-path rule. Pages, controllers and components in admin code still
+  require panel ownership, including inside a host declaration; recorded ownership, panel names and
+  panel middleware continue to protect panel routes.
 - **Route cache.** A route cache built by an earlier release carries no ownership record. Ordinary
   application controllers and Livewire page routes serving application components keep serving outside
   panel paths. Filament sign-in pages require a verified page class and a synchronised panel; a sign-in
