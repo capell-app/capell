@@ -9,10 +9,12 @@ use Capell\Core\Contracts\Redirects\BatchRedirectUrlRecorder;
 use Capell\Core\Data\Redirects\RedirectUrlRecordData;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 final class PageUrlRedirectUrlRecorder implements BatchRedirectUrlRecorder
@@ -37,6 +39,7 @@ final class PageUrlRedirectUrlRecorder implements BatchRedirectUrlRecorder
         }
 
         $taken = $this->takenUrls($records);
+        $hasExistingCandidates = $taken !== [];
         $targets = $this->currentUrls($records);
 
         foreach ($records as $record) {
@@ -46,6 +49,14 @@ final class PageUrlRedirectUrlRecorder implements BatchRedirectUrlRecorder
             $takenKey = $this->takenKey($siteId, $languageId, $record->url);
 
             if (isset($taken[$takenKey])) {
+                continue;
+            }
+
+            // MySQL collations can equate more than case (for example accents).
+            // Let the column's collation decide when the batched search found
+            // potential matches that do not share an ASCII-folded key.
+            if ($hasExistingCandidates && in_array($this->driver(), ['mysql', 'mariadb'], true)
+                && PageUrl::query()->where('site_id', $siteId)->where('language_id', $languageId)->where('url', $record->url)->exists()) {
                 continue;
             }
 
@@ -63,7 +74,13 @@ final class PageUrlRedirectUrlRecorder implements BatchRedirectUrlRecorder
             ]);
             // The page is already loaded; spare the observer looking it up again.
             $redirect->setRelation('page', $pageable);
-            $redirect->save();
+            try {
+                $redirect->save();
+            } catch (PageUrlCollisionException) {
+                // An earlier record in this batch can also collide according
+                // to the database collation, even when its spelling differs.
+                continue;
+            }
 
             $taken[$takenKey] = true;
         }
@@ -80,10 +97,17 @@ final class PageUrlRedirectUrlRecorder implements BatchRedirectUrlRecorder
     {
         $taken = [];
 
-        PageUrl::query()
+        $query = PageUrl::query();
+        $urls = array_values(array_unique(array_map(fn (RedirectUrlRecordData $record): string => $record->url, $records)));
+        if ($this->driver() === 'sqlite') {
+            $query->whereIn(DB::raw('lower(url)'), array_map(strtolower(...), $urls));
+        } else {
+            $query->whereIn('url', $urls);
+        }
+
+        $query
             ->whereIn('site_id', array_values(array_unique(array_map(fn (RedirectUrlRecordData $record): mixed => $record->pageable->site_id, $records))))
             ->whereIn('language_id', array_values(array_unique(array_map(fn (RedirectUrlRecordData $record): int => (int) $record->language->getKey(), $records))))
-            ->whereIn('url', array_values(array_unique(array_map(fn (RedirectUrlRecordData $record): string => $record->url, $records))))
             ->toBase()
             ->get(['site_id', 'language_id', 'url'])
             ->each(function (object $row) use (&$taken): void {
@@ -135,7 +159,12 @@ final class PageUrlRedirectUrlRecorder implements BatchRedirectUrlRecorder
 
     private function takenKey(mixed $siteId, int $languageId, string $url): string
     {
-        return $siteId . "\0" . $languageId . "\0" . $url;
+        return $siteId . "\0" . $languageId . "\0" . strtolower($url);
+    }
+
+    private function driver(): string
+    {
+        return DB::connection((new PageUrl)->getConnectionName())->getDriverName();
     }
 
     private function targetKey(string $type, mixed $id, int $languageId): string
