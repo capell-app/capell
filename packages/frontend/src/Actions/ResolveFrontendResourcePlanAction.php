@@ -24,6 +24,7 @@ use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\FrontendResourcePlacement;
 use Capell\Frontend\Enums\FrontendResourceSourceKind;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
+use Capell\Frontend\Support\Assets\ViteManifestReader;
 use Illuminate\Foundation\Vite;
 use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,7 @@ final class ResolveFrontendResourcePlanAction
     public function __construct(
         private readonly UrlGenerator $url,
         private readonly Vite $vite,
+        private readonly ViteManifestReader $manifests,
     ) {}
 
     /**
@@ -499,7 +501,7 @@ final class ResolveFrontendResourcePlanAction
             throw new FrontendResourcePlanException(sprintf('Vite manifest not found for frontend resource [%s] at [%s].', $resource->handle, $manifestPath));
         }
 
-        $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
+        $manifest = $this->manifests->read($manifestPath);
 
         if (! is_array($manifest) || ! isset($manifest[$source->entry]) || ! is_array($manifest[$source->entry])) {
             throw new FrontendResourcePlanException(sprintf('Vite entry [%s] is missing for frontend resource [%s].', $source->entry, $resource->handle));
