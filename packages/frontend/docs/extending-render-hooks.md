@@ -139,3 +139,11 @@ Hooks are available in:
 - This mechanism is additive and composable—multiple packages can contribute extensions at any hook.
 - Prefer this system over Blade overrides for maintainability and upgrade safety.
 - Use scenario/target scoping for granular control when needed.
+
+### Keyed head metadata
+
+Register replacements in a frontend service provider using `HeadMetadataRegistry::register($key, $value)`. The last registration for a key replaces its default without affecting other keys, except robots directives are merged. String keys are `og:title`, `og:description`, `og:type`, `og:url`, `og:site_name`, `twitter:card`, `twitter:title`, `twitter:description` and `robots`. The `jsonld:WebSite` and `jsonld:WebPage` keys accept associative arrays representing schema.org graph nodes. Values are escaped when rendered. Register metadata through this contract instead of emitting the same tags from an unkeyed head hook.
+
+Legacy head hooks, site, theme and page snippets, custom head views and the meta section are folded into the same keys before defaults render. Later legacy values replace earlier ones and explicit registry values take precedence, except robots directives are merged across all sources. Restrictive directives cannot be overridden by permissive ones; error and installation pages retain `noindex`. Unrelated head markup is preserved. JSON-LD nodes of other types remain in their original contributions.
+
+Managed metadata in body output and rehydrated fragments is suppressed in favour of the head values. Register managed keys through `HeadMetadataRegistry`; when managed metadata is stripped from a fragment, a warning identifies the hook.

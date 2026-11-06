@@ -28,6 +28,12 @@ final class CacheInstallerSuccessSummaryAction
         $this->sessions->putSuccessSummary($installId, [
             'primaryAdmin' => $this->primaryAdminSummary($inputData),
             'roleUsersCreated' => $inputData->additionalUsers !== [],
+            // Facts the completion screen turns into next steps; no credential is kept.
+            'existingAccount' => $inputData->userId !== null && ! $inputData->newUser instanceof NewUserData,
+            'adminEmail' => $inputData->newUser?->email,
+            'demoContent' => $inputData->demoContent,
+            'selectedThemeKey' => $inputData->selectedThemeKey,
+            'selectedPackages' => array_values(array_unique([...$inputData->packages, ...$inputData->extraPackages])),
         ]);
     }
 

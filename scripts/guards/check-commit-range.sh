@@ -5,6 +5,7 @@
 # do-not-commit marker past them. Excludes and file types come from .pre-commit-config.yaml unchanged.
 #
 # Usage: scripts/guards/check-commit-range.sh <base-ref> <head-ref>
+# The head ref must resolve to the checked-out HEAD.
 # The PHP Quality workflow calls it; the pre-push stage runs the same hooks natively.
 set -euo pipefail
 
@@ -21,6 +22,15 @@ if ! git rev-parse --verify --quiet "${base}^{commit}" >/dev/null; then
     exit 2
 fi
 
+if ! resolved_head=$(git rev-parse --verify --quiet "${head}^{commit}"); then
+    echo "check-commit-range: head ${head} is not a commit in this checkout." >&2
+    exit 2
+fi
+if [ "$(git rev-parse HEAD)" != "$resolved_head" ]; then
+    echo "check-commit-range: head ${head} must be the checked-out HEAD." >&2
+    exit 2
+fi
+
 if [ -n "${PRE_COMMIT:-}" ]; then
     read -r -a runner <<<"${PRE_COMMIT}"
 elif command -v pre-commit >/dev/null 2>&1; then
@@ -30,9 +40,10 @@ else
     exit 2
 fi
 
+# --files prevents pre-commit from stashing the checkout; the ref range still selects the files.
 status=0
 for hook in checkfordebugging donotcommit; do
-    "${runner[@]}" run "$hook" --hook-stage manual --from-ref "$base" --to-ref "$head" || status=1
+    "${runner[@]}" run "$hook" --hook-stage manual --from-ref "$base" --to-ref "$head" --files .pre-commit-config.yaml || status=1
 done
 
 exit "$status"

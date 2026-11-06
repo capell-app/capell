@@ -12,7 +12,7 @@ it('lists registered makers in dry-run mode', function (): void {
     ])
         ->expectsOutputToContain('core.action')
         ->expectsOutputToContain('PublishPageAction.php')
-        ->expectsOutputToContain('php artisan capell:make-action PublishPage')
+        ->expectsOutputToContain('php artisan capell:make:action PublishPage')
         ->assertExitCode(Command::SUCCESS);
 });
 
@@ -25,4 +25,11 @@ it('blocks execution when php writes are disabled', function (): void {
     ])
         ->expectsOutputToContain('PHP writes are disabled')
         ->assertExitCode(Command::FAILURE);
+});
+
+it('lists registered makers without requiring a name', function (): void {
+    artisanCommand('capell:make', ['--list' => true])
+        ->expectsOutputToContain('core.action: Create a Capell action class')
+        ->expectsOutputToContain('core.blueprint')
+        ->assertExitCode(Command::SUCCESS);
 });

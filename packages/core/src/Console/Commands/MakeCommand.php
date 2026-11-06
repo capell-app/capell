@@ -28,6 +28,7 @@ class MakeCommand extends Command
 
     protected $signature = 'capell:make
         {maker? : Registered maker key}
+        {--list : List available generators}
         {--name= : Primary generated name}
         {--type= : Optional type/schema/component type}
         {--source= : Optional source schema/component key}
@@ -38,6 +39,18 @@ class MakeCommand extends Command
 
     public function handle(MakerRegistryInterface $registry): int
     {
+        if ($this->option('list')) {
+            foreach ($registry->all() as $registeredMaker) {
+                $definition = $registeredMaker->definition();
+                $this->line(sprintf('%s: %s', $definition->key, $definition->description));
+            }
+
+            $this->line('capell:make:extension: Create an extension package');
+            $this->line('capell:make:theme: Create a theme package');
+
+            return static::SUCCESS;
+        }
+
         $this->writeCommandIntro('run a Capell maker', $this->enabledOptionDetails([
             'name' => 'a provided name',
             'type' => 'a selected type',

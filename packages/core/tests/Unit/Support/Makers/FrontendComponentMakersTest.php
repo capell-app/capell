@@ -66,7 +66,7 @@ it('previews a page livewire component class and view', function (): void {
     $render = [$component, 'render'];
     throw_unless(is_callable($render), RuntimeException::class, 'Generated component cannot render.');
     expect($component)->toBeInstanceOf(Component::class)
-        ->and($render())->toContain('<section>');
+        ->and((string) $render())->toContain('<section>');
 });
 
 it('previews an asset blade component', function (): void {

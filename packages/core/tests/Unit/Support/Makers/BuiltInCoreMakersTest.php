@@ -35,11 +35,11 @@ it('previews a data class', function (): void {
     expect($file->contents)->toContain('declare(strict_types=1);');
 });
 
-it('previews a blueprint class without typed class constants', function (): void {
+it('previews a blueprint subject model without typed class constants', function (): void {
     $preview = resolve(BlueprintMaker::class)->preview(new MakerInputData('core.blueprint', ['name' => 'LandingPage'], true, false, false));
     $file = expectPresent(firstDataItem($preview->files));
 
-    expect($file->path)->toBe(app_path('Blueprints/LandingPageBlueprint.php'));
+    expect($file->path)->toBe(app_path('Blueprints/LandingPage.php'));
     expect($file->contents)
         ->toContain('declare(strict_types=1);')
         ->not->toContain('const string');
