@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Makers\RunMakerAction;
+use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Makers\MakerInputData;
 use Illuminate\Console\Command;
@@ -12,11 +13,14 @@ use Throwable;
 
 class MakeDataCommand extends Command
 {
+    use DeprecatesMakerAliases;
     use DescribesCommandOptions;
+
+    protected $aliases = ['capell:make-data'];
 
     protected $description = 'Generate a new Spatie\\LaravelData\\Data subclass in App\\Data';
 
-    protected $signature = 'capell:make-data
+    protected $signature = 'capell:make:data
         {name : The name of the Data class, without the Data suffix (e.g. BlogPost)}
         {--F|force : Overwrite existing files after warning}';
 
@@ -36,6 +40,10 @@ class MakeDataCommand extends Command
 
         foreach ($result->files as $file) {
             $this->info(sprintf('%s: %s', $file->operation, $file->path));
+        }
+
+        foreach ($result->notes as $note) {
+            $this->line($note);
         }
 
         return static::SUCCESS;

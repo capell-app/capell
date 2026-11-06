@@ -1,0 +1,11 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Actions\{{ class }}Action;
+
+require_once dirname(__DIR__, 3) . '/app/Actions/{{ class }}Action.php';
+
+it('runs the {{ class }} action', function (): void {
+    expect({{ class }}Action::run())->toBeNull();
+});

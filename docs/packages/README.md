@@ -4,22 +4,22 @@ Capell packages extend the CMS without adding feature code to Core, Admin, or Fr
 
 Use this section if you build or maintain a Capell package.
 
-| I need to...                               | Read                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| Get from a scaffold to a rendering package | [Extension and theme development](../../packages/core/docs/extension-development.md) |
-| Decide between host, package, and app code | [Host, package, or app code](../development/package-boundaries.md) |
-| Build a package from start to finish       | [Build an extension end to end](build-extension-end-to-end.md)     |
-| Find the shortest path for a package task  | [Package authoring jobs](package-authoring-jobs.md)                |
-| Understand package files and structure     | [Package anatomy](package-anatomy.md)                              |
-| Choose an extension point                  | [Extension point chooser](extension-point-chooser.md)              |
-| Add admin surfaces                         | [Admin extensions](admin-extensions.md)                            |
-| Add anonymous-safe frontend output         | [Frontend extensions](frontend-extensions.md)                      |
-| Look up exact contracts, tags, and tests   | [Extension point API reference](extension-point-api-reference.md)  |
-| Browse every extension surface in one list | [Extension surface catalogue](extension-surface-catalog.md)        |
-| Know which Capell versions a package supports | [Extension API versioning](extension-api-versioning.md)         |
-| Test a package                             | [Testing packages](testing-packages.md)                            |
-| Debug missing package output               | [Extension troubleshooting](extension-troubleshooting.md)          |
-| Plan the next Core compatibility line      | [Core Filament neutrality and 2.x preparation](core-filament-neutrality.md) |
+| I need to...                                  | Read                                                                                 |
+| --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Get from a scaffold to a rendering package    | [Extension and theme development](../../packages/core/docs/extension-development.md) |
+| Decide between host, package, and app code    | [Host, package, or app code](../development/package-boundaries.md)                   |
+| Build a package from start to finish          | [Build an extension end to end](build-extension-end-to-end.md)                       |
+| Find the shortest path for a package task     | [Package authoring jobs](package-authoring-jobs.md)                                  |
+| Understand package files and structure        | [Package anatomy](package-anatomy.md)                                                |
+| Choose an extension point                     | [Extension point chooser](extension-point-chooser.md)                                |
+| Add admin surfaces                            | [Admin extensions](admin-extensions.md)                                              |
+| Add anonymous-safe frontend output            | [Frontend extensions](frontend-extensions.md)                                        |
+| Look up exact contracts, tags, and tests      | [Extension point API reference](extension-point-api-reference.md)                    |
+| Browse every extension surface in one list    | [Extension surface catalogue](extension-surface-catalog.md)                          |
+| Know which Capell versions a package supports | [Extension API versioning](extension-api-versioning.md)                              |
+| Test a package                                | [Testing packages](testing-packages.md)                                              |
+| Debug missing package output                  | [Extension troubleshooting](extension-troubleshooting.md)                            |
+| Plan the next Core compatibility line         | [Core Filament neutrality and 2.x preparation](core-filament-neutrality.md)          |
 
 Use [Extension surface vocabulary](extension-surface-vocabulary.md) when you need the shared definitions for packages, surfaces, contributions, capabilities, install impact, and Marketplace proof.
 
@@ -49,19 +49,19 @@ Packages with admin UI usually also include translations, Filament resources/pag
 
 ## Create A Package
 
-Use `capell:make-extension` for new local package scaffolds. The command keeps the existing extension command name, but the generated files use package language and manifest v3 provider buckets.
+Use `capell:make:extension` for new local package scaffolds. The command keeps the existing extension command name, but the generated files use package language and manifest v3 provider buckets.
 
 Interactive mode asks for missing values:
 
 ```bash
-php artisan capell:make-extension
+php artisan capell:make:extension
 ```
 
 Non-interactive scripts must pass the package name, profile, and target directory:
 
 ```bash
-php artisan capell:make-extension vendor/example --profile=minimal --path=packages --name="Example"
-php artisan capell:make-extension vendor/example-tools --profile=full --path=packages --premium
+php artisan capell:make:extension vendor/example --profile=minimal --path=packages --name="Example"
+php artisan capell:make:extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
 Use `minimal` for a lean installable package: Composer metadata, `capell.json`, a Composer-discovered package provider, translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test. Use `full` when you want live examples of the metadata/install/admin provider buckets, a package-owned command, a persistent settings class with its migration, a Layout Builder content widget with typed Data objects, and package-owned widget assets. Its tests save and reload the settings, and prove that the widget stays out of the editor, assets and public output until Capell enables the package, then renders escaped output.
@@ -193,13 +193,13 @@ Useful admin surfaces:
 
 Frontend package code must preserve public HTML safety. Anonymous output must not expose authoring selectors, model IDs, field paths, signed admin URLs, permissions, or package internals.
 
-| Need                    | Use                                                                                                   |
-| ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| Small HTML injection    | [`RenderHookRegistry::register(...)`](../../packages/frontend/docs/extending-render-hooks.md).        |
+| Need                    | Use                                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Small HTML injection    | [`RenderHookRegistry::register(...)`](../../packages/frontend/docs/extending-render-hooks.md).                                                      |
 | Public widget           | `LayoutWidgetRegistry::register(...)` with `LayoutWidgetTarget::FrontendBlade` or `FrontendLivewire`, when the Layout Builder package is installed. |
-| Package CSS/JS          | `TailwindAssetsRegistry::registerSource(...)` and `registerImport(...)`.                              |
-| Page cache invalidation | `CacheInvalidationRegistry::registerDependency(...)`.                                                 |
-| Static-site export hook | `StaticSiteExtensionRegistry::register(...)` when the static export package is installed.             |
+| Package CSS/JS          | `TailwindAssetsRegistry::registerSource(...)` and `registerImport(...)`.                                                                            |
+| Page cache invalidation | `CacheInvalidationRegistry::registerDependency(...)`.                                                                                               |
+| Static-site export hook | `StaticSiteExtensionRegistry::register(...)` when the static export package is installed.                                                           |
 
 ## Database And Migrations
 

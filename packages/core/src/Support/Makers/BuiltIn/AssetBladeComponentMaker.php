@@ -19,11 +19,14 @@ final class AssetBladeComponentMaker extends AbstractFileMaker
 
     protected function buildPreview(MakerInputData $input): MakerPreviewData
     {
-        $name = Str::kebab((string) ($input->values['name'] ?? 'custom-asset'));
+        $name = $this->safeKebab((string) ($input->values['name'] ?? 'custom-asset'));
 
         return $this->previewData(
             $input,
-            collect([$this->fileData(resource_path('views/components/asset/' . $name . '.blade.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/asset-component.blade.stub', []), $input->force)]),
+            collect([
+                $this->fileData(resource_path('views/components/asset/' . $name . '.blade.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/asset-component.blade.stub', []), $input->force),
+                $this->fileData(base_path('tests/Feature/Generated/' . Str::studly($name) . 'AssetComponentTest.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/asset-component-test.stub', ['name' => $name]), $input->force),
+            ]),
             collect(['php artisan capell:make core.asset-blade-component --name="' . $name . '"']),
             collect(['Run php artisan capell:cache-components after creating new components.']),
         );
