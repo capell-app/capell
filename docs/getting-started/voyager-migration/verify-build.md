@@ -11,7 +11,10 @@ application, Core and Companion Packages revisions with the results.
 ## Before you start
 
 Use the Companion Packages repository as the working directory, its supported
-PHP 8.4 dependencies and a disposable SQLite test database. Keep the previous
+PHP 8.4 dependencies and a disposable SQLite test database. The MariaDB
+compatibility check additionally needs a separate disposable local MariaDB
+service and its connection environment. Confirm that connection before running
+the check; keep it separate from application and customer databases. Keep the previous
 source revisions and dependency manifests so the build can be restored.
 When regenerating a local Composer overlay, back up its manifest and lock first.
 Use the repository generator to select a clean Core source pin. Check the
@@ -55,6 +58,18 @@ This pilot command also exited 0, with 12 tests and 1,952 assertions:
 ```sh
 vendor/bin/pest packages/contacts/tests/Integration/Providers/InstalledRuntimeParityTest.php packages/layout-builder/tests/Integration/Providers/InstalledRuntimeParityTest.php packages/access-gate/tests/Integration/Providers/InstalledRuntimeParityTest.php --configuration=phpunit.xml
 ```
+
+The default-schema MariaDB compatibility check was also run successfully:
+
+```sh
+php scripts/run-mariadb-migration-check.php
+```
+
+It passed one test and 15 assertions after applying, rolling back and reapplying
+the complete ordered migration set. The harness creates a generated test database
+and removes it in its cleanup block. The disposable service was stopped after
+the check. This result does not prove coexistence with Voyager, prefixed schemas
+or the host application's integer user keys.
 
 The subsequent run covering all 54 packages with migration metadata passed
 110 tests and 32,340 assertions. These tests compare fresh installed, uninstalled
