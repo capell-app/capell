@@ -6,6 +6,7 @@ use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Contracts\Agent\AgentAdminTool;
 use Capell\Admin\Data\Agent\AgentAdminToolInvocationData;
 use Capell\Admin\Data\Agent\AgentAdminToolResultData;
+use Capell\Admin\Http\Middleware\ThrottleAgentToolInvocations;
 use Capell\Admin\Support\Agent\AgentAdminConfirmationStore;
 use Capell\Admin\Support\Agent\AgentAdminToolInvocationService;
 use Capell\Admin\Support\Agent\AgentAdminToolRegistry;
@@ -15,10 +16,13 @@ use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Security\LockdownStore;
+use Illuminate\Cache\RateLimiter;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpFoundation\Response;
 
 afterEach(function (): void {
     resolve(PermissionRegistrar::class)->setPermissionsTeamId(null);
@@ -200,4 +204,28 @@ it('limits how often one user can invoke admin agent tools', function (): void {
     test()->actingAsAdmin();
 
     expect($invoke())->not->toBe(429);
+});
+
+it('enforces the limit when concurrent checks observe the same stale count', function (): void {
+    config()->set('capell-admin.agent.tool_invocations_per_minute', 2);
+
+    $limiter = new class(cache()->store('array')) extends RateLimiter
+    {
+        #[Override]
+        public function tooManyAttempts($key, $maxAttempts)
+        {
+            // Simulate requests that all read the count before any increments.
+            return false;
+        }
+    };
+    $middleware = new ThrottleAgentToolInvocations($limiter);
+    $request = Request::create('/agent-tools', Symfony\Component\HttpFoundation\Request::METHOD_POST, server: ['REMOTE_ADDR' => '192.0.2.123']);
+    $next = fn (): Response => new Response(status: 204);
+
+    $statuses = [];
+    for ($i = 0; $i < 4; $i++) {
+        $statuses[] = $middleware->handle($request, $next)->getStatusCode();
+    }
+
+    expect($statuses)->toBe([204, 204, 429, 429]);
 });
