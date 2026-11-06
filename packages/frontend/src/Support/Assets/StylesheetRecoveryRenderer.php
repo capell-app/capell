@@ -43,37 +43,17 @@ final class StylesheetRecoveryRenderer
         // capture-phase 'error' and 'load' listeners on document; it performs no
         // retrospective scan for stylesheets that already failed. A deferred
         // script executes only after the document has been parsed, by which time
-        // the recovery-eligible <link> may have already fired its error event, so
-        // recovery would silently never happen for a stylesheet failing on
-        // initial load. The tag must execute before the stylesheet link is
-        // parsed; that ordering is asserted by frontend-optimizer's
-        // RenderProfileAssetRendererTest and documented in its
-        // docs/critical-css.md.
+        // the recovery-eligible <link> has already been requested and may have
+        // already fired its error event - so the listener is registered too late
+        // to see it, and recovery silently never happens for exactly the case it
+        // exists to handle: a stylesheet failing on initial load.
         //
-        // When a nonce authorises it, the published runtime is inlined so ordering costs no blocking
-        // request in every public head. The external tag remains the fallback
-        // when the published file cannot be read or could close the element.
-        $inline = $nonceAttribute !== '' ? $this->inlineRuntime($runtimeUrl) : null;
-
-        if ($inline !== null) {
-            return '<script' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime>' . $inline . '</script>';
-        }
-
+        // The tag must therefore execute inline, before the stylesheet link is
+        // parsed. That ordering is asserted by frontend-optimizer's
+        // RenderProfileAssetRendererTest and documented in its
+        // docs/critical-css.md ("load stylesheet-recovery.js before the
+        // stylesheet").
         return '<script src="' . e($runtimeUrl) . '"' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime></script>';
-    }
-
-    private function inlineRuntime(string $runtimeUrl): ?string
-    {
-        $path = public_path(ltrim((string) parse_url($runtimeUrl, PHP_URL_PATH), '/'));
-        if (! is_file($path) || ! is_readable($path)) {
-            return null;
-        }
-
-        $contents = file_get_contents($path);
-
-        return is_string($contents) && $contents !== '' && stripos($contents, '</script') === false && ! str_contains($contents, '<!--')
-            ? rtrim($contents)
-            : null;
     }
 
     private function fallbackUrl(): ?string
