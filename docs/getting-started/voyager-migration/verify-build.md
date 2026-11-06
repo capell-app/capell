@@ -109,6 +109,13 @@ all remaining drift. For inconsistent tool output, use a new, owned cache with
 the same rules; preserve existing caches. Review generated edits before applying
 them, including duplicate trait or import suggestions.
 
+Review automated control-flow changes against real import behaviour. A tool
+can incorrectly simplify a condition that distinguishes a first import from an
+update. Keep first-import creation checks separate from update and no-op paths,
+and rerun the source-key behaviour tests after any such change. During source
+verification, those tests caught two failures after an unsafe simplification; the
+corrected condition passed all six tests.
+
 If a test passes alone and fails after another test, inspect shared containers,
 model event dispatchers and other process state. Restore the state a fixture
 borrows, then rerun the combined checks. Keep the original failure evidence.
