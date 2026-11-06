@@ -29,11 +29,27 @@ from a live site or an unrelated workflow.
 
 Check default-empty, prefix-only, alias-over-prefix and collision refusal. Verify migrations, models, queries, foreign keys and validation agree on the same physical names. Not yet verified.
 
+Include explicit index names, morph indexes and foreign-key symbols in that
+check. A table can have the correct alias and still fail installation because
+its index name collides with a legacy table. Leave a legacy table and its indexes
+in the fixture, configure a different package table name, then alias that name.
+Check that the new indexes are created and the legacy table is unchanged.
+
+Collision planning must work before a package is installed or enabled. Check
+the plan for an uninstalled package with both a configured table name and a
+Core alias. A registration available only after runtime activation is too late
+for an installation preflight. Also verify that a connection-specific package
+reads its ownership evidence from that connection's migration ledger.
+
 The verification command and expected output are **not yet verified**.
 
 ## What can go wrong and how to recover
 
 An existing table is not evidence of Capell ownership. Stop if a migration silently adopts it. Do not change naming after tables have been populated without a separately reviewed migration.
+
+A matching migration filename is not sufficient ownership evidence either:
+an application can have created its own table with the same conventional name.
+Retain that case in the coexistence fixture and stop if it is silently adopted.
 
 ## Roll back
 

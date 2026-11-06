@@ -8,7 +8,7 @@ Establish which data and behaviour belong to Voyager, and which belong to the ap
 
 ## Before you start
 
-A schema-only SQL export and a disposable Voyager instance with seeded BREAD metadata, menus, settings and role assignments. Keep the original export immutable. A filename is not proof that an export contains no data.
+Python 3, a schema-only SQL export and a disposable Voyager instance with seeded BREAD metadata, menus, settings and role assignments. Keep the original export immutable. A filename is not proof that an export contains no data.
 
 ## Procedure and exact commands
 
