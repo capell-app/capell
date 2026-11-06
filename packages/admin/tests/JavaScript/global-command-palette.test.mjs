@@ -100,3 +100,31 @@ test('the empty state reacts to morphed commands without another keystroke', () 
     state.destroy()
     assert.equal(observer.target, null, 'destroy disconnects the observer')
 })
+
+test('palette shortcut ignores editable targets and extra modifiers', () => {
+    const state = new Function('MutationObserver', `return (${expression})`)(
+        class {},
+    )
+    let toggles = 0
+    state.$wire = { toggle: () => toggles++ }
+    const input = { matches: () => true, isContentEditable: false }
+    const body = { matches: () => false, isContentEditable: false }
+    for (const event of [
+        { key: 'k', ctrlKey: true, target: input },
+        { key: 'k', metaKey: true, altKey: true, target: body },
+        { key: 'k', ctrlKey: true, metaKey: true, target: body },
+    ])
+        state.handleGlobalKey(event)
+    assert.equal(toggles, 0)
+    let prevented = false
+    state.handleGlobalKey({
+        key: 'k',
+        metaKey: true,
+        target: body,
+        preventDefault: () => {
+            prevented = true
+        },
+    })
+    assert.equal(toggles, 1)
+    assert.equal(prevented, true)
+})

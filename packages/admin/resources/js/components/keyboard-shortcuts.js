@@ -53,6 +53,13 @@ export default function capellKeyboardShortcuts(shortcuts) {
                 return
             }
 
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                clearTimeout(this.pendingTimer)
+                this.pendingKey = null
+                this.pendingTimer = null
+                return
+            }
+
             const pressedKey = event.key.toLowerCase()
 
             // Resolve a pending chord first.
@@ -97,29 +104,20 @@ export default function capellKeyboardShortcuts(shortcuts) {
 
         executeShortcut(shortcut) {
             if (shortcut.action === 'navigate') {
-                const panelBase = this.detectPanelBase()
-                window.location.href =
-                    shortcut.url ?? panelBase + '/' + shortcut.target
+                const palette = document.querySelector('[data-command-palette]')
+                const id = palette?.getAttribute('wire:id')
+                if (id && shortcut.commandId) {
+                    window.Livewire?.find(id)?.call(
+                        'runCommand',
+                        shortcut.commandId,
+                    )
+                }
             } else if (shortcut.action === 'focus') {
                 const element = document.querySelector(shortcut.target)
                 if (element instanceof HTMLElement) {
                     element.focus()
                 }
             }
-        },
-
-        detectPanelBase() {
-            // Detect the admin panel base path from the current URL.
-            // Filament panel URLs follow: /admin/... — walk back to the
-            // first path segment that looks like the panel prefix.
-            const pathSegments = window.location.pathname
-                .split('/')
-                .filter(Boolean)
-            // Default to /admin — the typical panel prefix.
-            if (pathSegments.length > 0) {
-                return '/' + pathSegments[0]
-            }
-            return '/admin'
         },
     }
 }

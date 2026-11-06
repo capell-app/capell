@@ -5,9 +5,11 @@ declare(strict_types=1);
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\PaletteCommandData;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Livewire\GlobalCommandPalette;
+use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\PaletteAccess;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PaletteWorkspaceResource;
 use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
@@ -87,7 +89,7 @@ it('shows destination shortcuts and commands only when the user has access', fun
 it('sorts extension commands together with core commands', function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAs($this->createUserWithPermission(Permission::findOrCreate('ViewAny:Page', 'web')));
-    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.first', label: 'Extension first', sort: 1));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.first', label: 'Extension first', sort: 1, visible: static fn (Authenticatable $actor): bool => true));
 
     expect(array_column(Livewire::test(GlobalCommandPalette::class)->viewData('commands'), 'id'))
         ->toBe(['extension.first', 'capell.pages']);
@@ -111,7 +113,7 @@ it('reserves core command ids even when their destination is denied', function (
 
 it('mounts the palette and shortcuts for an authenticated panel user', function (): void {
     $this->actingAsAdmin();
-    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.visible', label: 'Visible extension command', url: '/visible-extension-command'));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.visible', label: 'Visible extension command', url: '/visible-extension-command', visible: static fn (Authenticatable $actor): bool => true));
     config()->set('capell-admin.shortcuts', [['key' => 'x', 'action' => 'custom', 'target' => 'test', 'label' => 'Visible shortcut label']]);
 
     $this->get('/admin')->assertOk()
@@ -283,7 +285,7 @@ it('requires explicit visibility and an exact extension ID for extension shortcu
         ['key' => 'd', 'action' => 'navigate', 'target' => 'extension.default', 'label' => 'Implicit shortcut'],
         ['key' => 'e', 'action' => 'navigate', 'target' => 'extension-explicit', 'label' => 'URL path shortcut'],
     ]);
-    Livewire::test(GlobalCommandPalette::class)->assertSee('Default extension')->assertSee('Explicit extension')
+    Livewire::test(GlobalCommandPalette::class)->assertDontSee('Default extension')->assertSee('Explicit extension')
         ->assertDontSee('Implicit shortcut')->assertDontSee('URL path shortcut');
 });
 
@@ -363,3 +365,59 @@ it('hides and reports a throwing extension without breaking the admin page or ot
     'exception' => fn (): Throwable => new RuntimeException('Extension visibility failed'),
     'error' => fn (): Throwable => new Error('Extension visibility failed'),
 ]);
+
+it('fails closed for implicit extension destinations and rechecks access when run', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $permission = Permission::findOrCreate('View:SettingsPage', 'web');
+    $allowed = $this->createUserWithPermission($permission);
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'implicit.settings', label: 'Implicit settings', url: SettingsPage::getUrl()));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'implicit.unknown', label: 'Unknown destination', url: '/unknown'));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'implicit.action', label: 'Unknown action', alpineHandler: 'window.test()'));
+    $this->actingAs($allowed);
+    $palette = Livewire::test(GlobalCommandPalette::class)->assertSee('Implicit settings')->assertDontSee('Unknown destination')->assertDontSee('Unknown action');
+    $allowed->revokePermissionTo($permission);
+    $palette->call('runCommand', 'implicit.settings')->assertNoRedirect()->assertDontSee('Implicit settings');
+    Livewire::test(GlobalCommandPalette::class)->assertDontSee('Implicit settings');
+});
+
+it('searches real core commands only when the actor can access them', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs($this->createUserWithPermission(Permission::findOrCreate('View:SettingsPage', 'web')));
+    $html = Livewire::test(GlobalCommandPalette::class)->html();
+    throw_if($html === '', RuntimeException::class, 'Expected rendered palette HTML.');
+    $dom = new DOMDocument;
+    @$dom->loadHTML($html);
+    $xpath = new DOMXPath($dom);
+    $root = ($xpath->query('//*[@x-data]') ?: throw new RuntimeException('Invalid palette selector.'))->item(0);
+    assert($root instanceof DOMElement);
+    $nodes = $xpath->query('//*[@data-palette-command]') ?: throw new RuntimeException('Invalid command selector.');
+    $labels = [];
+    foreach ($nodes as $node) {
+        assert($node instanceof DOMElement);
+        $labels[] = $node->getAttribute('data-label');
+    }
+
+    $process = new Process(['node', '-e', <<<'JS_WRAP'
+    const assert = require('node:assert/strict');
+    const window = { Livewire: { find: () => ({ entangle: () => false }) } };
+    const state = new Function('window', 'return (' + process.argv[1] + ')')(window);
+    state.query = 'settings';
+    assert.ok(JSON.parse(process.argv[2]).some(label => state.matches(label, '')));
+    JS_WRAP, $root->getAttribute('x-data'), json_encode($labels, JSON_THROW_ON_ERROR)]);
+    $process->mustRun();
+
+    $this->actingAsUser();
+    Livewire::test(GlobalCommandPalette::class)->assertDontSee(__('capell-admin::palette.settings'));
+});
+
+it('resolves an implicit resource create destination using resource access', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAs($this->createUserWithPermission(Permission::findOrCreate('ViewAny:Page', 'web')));
+    $resource = AdminSurfaceLookup::resourceIfRegistered(ResourceEnum::Page);
+    throw_if($resource === null, RuntimeException::class, 'Expected the pages resource to be registered.');
+
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'implicit.create', label: 'Implicit create page', url: $resource::getUrl('create')));
+    Livewire::test(GlobalCommandPalette::class)->assertSee('Implicit create page');
+    $this->actingAsUser();
+    Livewire::test(GlobalCommandPalette::class)->assertDontSee('Implicit create page');
+});

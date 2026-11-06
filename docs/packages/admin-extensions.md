@@ -433,7 +433,7 @@ If an admin contribution is missing, start with [Extension Troubleshooting](exte
 
 ## Command palette
 
-Extensions register commands at boot with `CapellAdmin::registerCommand()` and `PaletteCommandData`. The registry lives for the worker's lifetime: do not register commands per request or capture the current user in a callback. An optional `visible` closure receives the current authenticated panel actor and runs inside the page's site permission scope on every access computation. Without it, the command remains visible to authenticated panel users as before. Extensions must also authorise the destination itself.
+Extensions register commands at boot with `CapellAdmin::registerCommand()` and `PaletteCommandData`. The registry lives for the worker's lifetime: do not register commands per request or capture the current user in a callback. An optional `visible` closure receives the current authenticated panel actor and runs inside the page's site permission scope on every access computation. Without it, the destination must resolve to an accessible registered Filament page or resource; unresolved destinations and actions are hidden. Extensions must also authorise the destination itself.
 
 ```php
 use Capell\Admin\Data\PaletteCommandData;

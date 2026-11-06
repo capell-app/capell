@@ -10,14 +10,15 @@ use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Livewire\GlobalCommandPalette;
 use Capell\Admin\Livewire\InfoBanner;
 use Filament\Facades\Filament;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 it('renders commands for local filtering and toggles or closes the global command palette', function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAsUser();
-    CapellAdmin::registerCommand(new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content'));
-    CapellAdmin::registerCommand(new PaletteCommandData(id: 'media', label: 'Media library', description: 'Find images'));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content', visible: static fn (Authenticatable $actor): bool => true));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'media', label: 'Media library', description: 'Find images', visible: static fn (Authenticatable $actor): bool => true));
 
     $palette = Livewire::test(GlobalCommandPalette::class);
     expect(array_column($palette->viewData('commands'), 'id'))->toBe(['create', 'media']);

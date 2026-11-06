@@ -14,8 +14,11 @@ use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Closure;
 use Filament\Facades\Filament;
+use Filament\Resources\Pages\Page as ResourcePage;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Spatie\Permission\PermissionRegistrar;
 use Throwable;
 
@@ -39,7 +42,7 @@ final class PaletteAccess
                 }
 
                 try {
-                    if ($command->visible !== null && ! ($command->visible)($actor)) {
+                    if ($command->visible !== null ? ! ($command->visible)($actor) : ! $this->canAccessDestination($command)) {
                         continue;
                     }
                 } catch (Throwable $exception) {
@@ -59,6 +62,44 @@ final class PaletteAccess
     public function coreCommands(): array
     {
         return $this->inSiteScope(fn (): array => $this->resolveCoreCommands(), []);
+    }
+
+    private function canAccessDestination(PaletteCommandData $command): bool
+    {
+        $panel = Filament::getCurrentPanel();
+        if ($panel === null || $command->url === null) {
+            return false;
+        }
+
+        $url = $command->url;
+        $origin = parse_url(url('/'));
+        $parts = parse_url($url);
+        if ($parts === false || (isset($parts['host']) && ($parts['host'] !== ($origin['host'] ?? null) || ($parts['scheme'] ?? null) !== ($origin['scheme'] ?? null) || ($parts['port'] ?? null) !== ($origin['port'] ?? null)))) {
+            return false;
+        }
+
+        if (! isset($parts['host']) && ! str_starts_with($url, '/')) {
+            return false;
+        }
+
+        $route = Route::getRoutes()->match(Request::create($url, \Symfony\Component\HttpFoundation\Request::METHOD_GET));
+        $class = explode('@', $route->getActionName())[0];
+        $name = $route->getName();
+        if ($name === null || ! str_starts_with($name, 'filament.' . $panel->getId() . '.')) {
+            return false;
+        }
+
+        if (in_array($class, $panel->getPages(), true)) {
+            return $class::canAccess();
+        }
+
+        if (is_subclass_of($class, ResourcePage::class)) {
+            $resource = $class::getResource();
+
+            return in_array($resource, $panel->getResources(), true) && $resource::canAccess();
+        }
+
+        return false;
     }
 
     /**
@@ -92,6 +133,7 @@ final class PaletteAccess
                 }
 
                 $shortcut['url'] = $command->url;
+                $shortcut['commandId'] = $command->id;
             }
 
             $shortcuts[] = $shortcut;

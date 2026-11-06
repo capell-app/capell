@@ -4,6 +4,7 @@
 @endphp
 
 <div
+    data-command-palette
     x-data="{
         open: @entangle('open'),
         query: '',
@@ -13,6 +14,17 @@
             this.$watch('open', (value) => {
                 if (! value) this.query = '';
             });
+        },
+        handleGlobalKey(event) {
+            const target = event.target;
+            if (target?.matches?.('input, textarea, select') || target?.isContentEditable) return;
+            if (event.key.toLowerCase() === 'escape' && this.open && ! event.metaKey && ! event.ctrlKey && ! event.altKey) {
+                this.$wire.close();
+            }
+            if (event.key.toLowerCase() === 'k' && (event.metaKey !== event.ctrlKey) && ! event.altKey && ! event.shiftKey) {
+                event.preventDefault();
+                this.$wire.toggle();
+            }
         },
         observeResults(results) {
             this.resultsObserver?.disconnect();
@@ -44,13 +56,7 @@
             );
         },
     }"
-    x-on:keydown.meta.k.window.prevent="$wire.toggle()"
-    x-on:keydown.ctrl.k.window.prevent="$wire.toggle()"
-    x-on:keydown.escape.window="
-        if (open) {
-            $wire.close();
-        }
-    "
+    x-on:keydown.window="handleGlobalKey($event)"
 >
     {{-- Backdrop --}}
     <div
@@ -168,8 +174,7 @@
                             <a
                                 class="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                                 href="{{ $command->url }}"
-                                wire:navigate
-                                x-on:click="$wire.close()"
+                                x-on:click.prevent="$wire.runCommand(@js($command->id))"
                             >
                                 @if ($command->icon !== null)
                                     @svg(is_string($command->icon) ? $command->icon : $command->icon->value, 'h-4 w-4 flex-shrink-0 text-gray-400')
@@ -193,7 +198,7 @@
                             <button
                                 class="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                                 type="button"
-                                x-on:click="{{ $command->alpineHandler !== null ? $command->alpineHandler . '; ' : '' }}$wire.close()"
+                                x-on:click="if (await $wire.runCommand(@js($command->id))) { {{ $command->alpineHandler }} }"
                             >
                                 @if ($command->icon !== null)
                                     @svg(is_string($command->icon) ? $command->icon : $command->icon->value, 'h-4 w-4 flex-shrink-0 text-gray-400')

@@ -32,6 +32,21 @@ class GlobalCommandPalette extends Component
         $this->open = false;
     }
 
+    public function runCommand(string $id): bool
+    {
+        $command = resolve(PaletteAccess::class)->forRender()->commands[$id] ?? null;
+        if ($command === null) {
+            return false;
+        }
+
+        $this->close();
+        if ($command->url !== null) {
+            $this->redirect($command->url, navigate: true);
+        }
+
+        return true;
+    }
+
     public function render(): View|string
     {
         if (! $this->isAuthenticated()) {

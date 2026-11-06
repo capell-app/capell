@@ -9,27 +9,19 @@ for (const source of ['source', 'published']) {
             ? { default: keyboardShortcuts }
             : await import('../../publishes/build/js/components/keyboard-shortcuts.js')
 
-    test(`${source}: navigation uses the authorised destination when the command ID differs`, () => {
-        globalThis.window = { location: { pathname: '/admin/pages', href: '' } }
-        createShortcuts([]).executeShortcut({
-            action: 'navigate',
-            target: 'extension.report',
-            url: '/admin/reports/weekly',
-        })
-        assert.equal(window.location.href, '/admin/reports/weekly')
-        delete globalThis.window
-    })
-
-    test(`${source}: navigation retains the legacy panel-relative fallback`, () => {
-        globalThis.window = {
-            location: { pathname: '/workspace/pages', href: '' },
+    test(`${source}: navigation fails closed without a palette or command ID`, () => {
+        globalThis.document = { querySelector: () => null }
+        globalThis.window = { location: { pathname: '/admin', href: '' } }
+        try {
+            createShortcuts([]).executeShortcut({
+                action: 'navigate',
+                target: 'pages',
+            })
+            assert.equal(window.location.href, '')
+        } finally {
+            delete globalThis.window
+            delete globalThis.document
         }
-        createShortcuts([]).executeShortcut({
-            action: 'navigate',
-            target: 'themes',
-        })
-        assert.equal(window.location.href, '/workspace/themes')
-        delete globalThis.window
     })
 
     test(`${source}: remount and SPA navigation retain one keyboard listener`, () => {
@@ -132,4 +124,75 @@ test('the published keyboard module is byte-identical to the source', () => {
             ),
         ),
     )
+})
+
+test('modified keystrokes cannot start or complete global shortcuts', () => {
+    globalThis.HTMLInputElement = class {}
+    globalThis.HTMLTextAreaElement = class {}
+    globalThis.HTMLSelectElement = class {}
+    globalThis.HTMLElement = class {}
+    try {
+        const state = keyboardShortcuts([
+            { key: 'p', action: 'focus', target: '#search' },
+            { sequence: 'g p', action: 'navigate', target: 'pages' },
+        ])
+        let count = 0
+        state.executeShortcut = () => count++
+        for (const modifier of ['ctrlKey', 'metaKey', 'altKey']) {
+            state.handleKeydown({
+                key: 'p',
+                target: null,
+                [modifier]: true,
+                preventDefault() {},
+            })
+            state.handleKeydown({
+                key: 'g',
+                target: null,
+                [modifier]: true,
+                preventDefault() {},
+            })
+            assert.equal(state.pendingKey, null)
+            state.handleKeydown({ key: 'g', target: null, preventDefault() {} })
+            state.handleKeydown({
+                key: 'p',
+                target: null,
+                [modifier]: true,
+                preventDefault() {},
+            })
+            assert.equal(count, 0)
+            state.destroy()
+        }
+    } finally {
+        for (const name of [
+            'HTMLInputElement',
+            'HTMLTextAreaElement',
+            'HTMLSelectElement',
+            'HTMLElement',
+        ])
+            delete globalThis[name]
+    }
+})
+
+test('navigation shortcuts recheck the command on the server', () => {
+    const calls = []
+    globalThis.document = {
+        querySelector: () => ({ getAttribute: () => 'palette-id' }),
+    }
+    globalThis.window = {
+        Livewire: { find: () => ({ call: (...args) => calls.push(args) }) },
+        location: { pathname: '/admin', href: '' },
+    }
+    try {
+        keyboardShortcuts([]).executeShortcut({
+            action: 'navigate',
+            target: 'pages',
+            commandId: 'capell.pages',
+            url: '/admin/pages',
+        })
+        assert.deepEqual(calls, [['runCommand', 'capell.pages']])
+        assert.equal(window.location.href, '')
+    } finally {
+        delete globalThis.window
+        delete globalThis.document
+    }
 })
