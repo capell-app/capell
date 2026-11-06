@@ -14,6 +14,7 @@ use Capell\Frontend\Enums\FrontendResourcePlacement;
 use Capell\Frontend\Enums\ReferrerPolicy;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
+use Capell\Frontend\Support\Assets\StylesheetRecoveryRenderer;
 use Illuminate\Foundation\Vite;
 use Illuminate\Support\Facades\File;
 
@@ -151,5 +152,51 @@ it('inlines the published stylesheet recovery runtime before the stylesheet so n
             ->not->toContain('<b>broken</b>');
     } finally {
         File::deleteDirectory($runtimeDirectory);
+    }
+});
+
+it('uses an external recovery runtime when no CSP nonce is available', function (): void {
+    $directory = public_path('vendor/capell-recovery-csp-test');
+    File::ensureDirectoryExists($directory);
+    File::put($directory . '/runtime.js', 'window.recovery = true;');
+    config()->set('capell-frontend.stylesheet_recovery', [
+        'enabled' => true,
+        'fallback_url' => '/fallback.css',
+        'runtime_url' => '/vendor/capell-recovery-csp-test/runtime.js',
+    ]);
+
+    try {
+        $renderer = new StylesheetRecoveryRenderer(new Vite);
+        expect($renderer->runtimeTag())->toContain('src="/vendor/capell-recovery-csp-test/runtime.js"')
+            ->not->toContain('window.recovery = true');
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});
+
+it('uses the replaced recovery runtime even when its modification time is unchanged', function (): void {
+    $directory = public_path('vendor/capell-recovery-replace-test');
+    $path = $directory . '/runtime.js';
+    File::ensureDirectoryExists($directory);
+    File::put($path, 'window.recovery = "old";');
+    $mtime = filemtime($path);
+    config()->set('capell-frontend.stylesheet_recovery', [
+        'enabled' => true,
+        'fallback_url' => '/fallback.css',
+        'runtime_url' => '/vendor/capell-recovery-replace-test/runtime.js',
+    ]);
+    $vite = new Vite;
+    $vite->useCspNonce('test-nonce');
+
+    $renderer = new StylesheetRecoveryRenderer($vite);
+
+    try {
+        expect($renderer->runtimeTag())->toContain('window.recovery = "old"');
+        File::put($path, 'window.recovery = "new";');
+        touch($path, $mtime);
+        clearstatcache(true, $path);
+        expect($renderer->runtimeTag())->toContain('window.recovery = "new"')->not->toContain('window.recovery = "old"');
+    } finally {
+        File::deleteDirectory($directory);
     }
 });

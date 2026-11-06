@@ -21,13 +21,6 @@ final class FragmentCache
 
     private const string NAMESPACE_KEY = 'fragment:namespace';
 
-    /**
-     * Request-scoped memory (the container binds this class scoped). A page
-     * renders many fragments, and each hit would otherwise re-read the
-     * namespace and unserialise the whole site-wide surrogate map. Another
-     * process rotating the namespace mid-request is seen by the next request,
-     * exactly as if this request had started a moment earlier.
-     */
     private ?string $namespace = null;
 
     /** @var array<string, array<array-key, list<string>>> */
@@ -42,35 +35,12 @@ final class FragmentCache
         int $ttlSeconds = self::DEFAULT_TTL,
         array $surrogateKeys = [],
     ): mixed {
-        $namespace = $this->namespace();
-        $origin = CacheOrigin::discriminator();
-        // Keep standard-port keys byte-identical. A separate physical prefix
-        // prevents arbitrary logical keys from aliasing non-standard variants.
-        $cacheKey = $origin === ''
-            ? 'fragment:' . $namespace . ':value:' . $key
-            : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
+        $namespace = $this->namespace(fresh: true);
+        $result = $this->rememberInNamespace($namespace, $key, $callback, $ttlSeconds, $surrogateKeys);
 
-        if ($surrogateKeys === []) {
-            return $this->cache->remember($cacheKey, $ttlSeconds, $callback);
-        }
-
-        $missing = new stdClass;
-        $result = $this->cache->get($cacheKey, $missing);
-        if ($result !== $missing) {
-            $mapKey = $this->mapKey($namespace);
-            $surrogateMap = $this->hitSurrogateMaps[$mapKey] ??= $this->surrogateMap($mapKey);
-            if ($this->hasSurrogateMembership($surrogateMap, $cacheKey, $surrogateKeys)) {
-                return $result;
-            }
-
-        } else {
-            $result = $callback();
-        }
-
-        $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
-        unset($this->hitSurrogateMaps[$this->mapKey($namespace)]);
-
-        return $result;
+        // A flush may overlap the lookup or render. Re-render without caching:
+        // the callback may itself have captured data from the old namespace.
+        return $this->namespace(fresh: true) === $namespace ? $result : $callback();
     }
 
     public function invalidateBySurrogateKey(string $surrogateKey): void
@@ -131,6 +101,39 @@ final class FragmentCache
         $this->namespace = $replacement;
         $this->hitSurrogateMaps = [];
         $this->cache->forget($this->mapKey($namespace));
+    }
+
+    /** @param list<string> $surrogateKeys */
+    private function rememberInNamespace(string $namespace, string $key, callable $callback, int $ttlSeconds, array $surrogateKeys): mixed
+    {
+        $origin = CacheOrigin::discriminator();
+        // Keep standard-port keys byte-identical. A separate physical prefix
+        // prevents arbitrary logical keys from aliasing non-standard variants.
+        $cacheKey = $origin === ''
+            ? 'fragment:' . $namespace . ':value:' . $key
+            : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
+
+        if ($surrogateKeys === []) {
+            return $this->cache->remember($cacheKey, $ttlSeconds, $callback);
+        }
+
+        $missing = new stdClass;
+        $result = $this->cache->get($cacheKey, $missing);
+        if ($result !== $missing) {
+            $mapKey = $this->mapKey($namespace);
+            $surrogateMap = $this->hitSurrogateMaps[$mapKey] ??= $this->surrogateMap($mapKey);
+            if ($this->hasSurrogateMembership($surrogateMap, $cacheKey, $surrogateKeys)) {
+                return $result;
+            }
+
+        } else {
+            $result = $callback();
+        }
+
+        $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
+        unset($this->hitSurrogateMaps[$this->mapKey($namespace)]);
+
+        return $result;
     }
 
     private function namespace(bool $fresh = false): string

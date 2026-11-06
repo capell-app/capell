@@ -31,6 +31,8 @@ final class FragmentCacheTestStore extends ArrayStore
 
     public ?Closure $beforeMapWrite = null;
 
+    public ?Closure $afterFragmentRead = null;
+
     #[Override]
     public function lock($name, $seconds = 0, $owner = null)
     {
@@ -46,7 +48,14 @@ final class FragmentCacheTestStore extends ArrayStore
     {
         $this->readKeys[] = (string) $key;
 
-        return parent::get($key);
+        $value = parent::get($key);
+        if (is_string($key) && $this->isFragmentValueKey($key) && $this->afterFragmentRead instanceof Closure) {
+            $callback = $this->afterFragmentRead;
+            $this->afterFragmentRead = null;
+            $callback();
+        }
+
+        return $value;
     }
 
     #[Override]

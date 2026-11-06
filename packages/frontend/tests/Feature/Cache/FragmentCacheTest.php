@@ -408,7 +408,7 @@ it('purges variants recorded by separate cache workers during a real race', func
     }
 });
 
-it('reads the namespace and surrogate map once per request and one value per further fragment hit', function (): void {
+it('rechecks the namespace while reusing the surrogate map across fragment hits', function (): void {
     $store = new FragmentCacheTestStore;
     $repository = new Repository($store);
     CacheOriginContexts::bind('console');
@@ -429,9 +429,9 @@ it('reads the namespace and surrogate map once per request and one value per fur
 
     expect($fragments->remember('body', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('body')
         ->and($fragments->remember('footer', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('footer')
-        ->and($firstHitReads)->toHaveCount(3)
-        ->and($store->readKeys)->toHaveCount(2)
-        ->and(array_filter($store->readKeys, static fn (string $key): bool => str_ends_with($key, ':surrogate:map') || $key === 'fragment:namespace'))->toBe([]);
+        ->and($firstHitReads)->toHaveCount(4)
+        ->and($store->readKeys)->toHaveCount(6)
+        ->and(array_filter($store->readKeys, static fn (string $key): bool => str_ends_with($key, ':surrogate:map')))->toBe([]);
 });
 
 it('stops serving a fragment in the same request once its surrogate is invalidated', function (): void {
@@ -473,3 +473,29 @@ it('invalidates against the current namespace when another process rotated it mi
 
     expect(new FragmentCache($repository)->remember('tracked', static fn (): string => 'rebuilt', surrogateKeys: ['page:1']))->toBe('rebuilt');
 });
+
+it('does not serve withdrawn fragments after another request flushes the cache', function (array $surrogates): void {
+    $repository = new Repository(new FragmentCacheTestStore);
+    CacheOriginContexts::bind('console');
+    $request = new FragmentCache($repository);
+    $request->remember('early', static fn (): string => 'early');
+    $request->remember('withdrawn', static fn (): string => 'old content', surrogateKeys: $surrogates);
+
+    new FragmentCache($repository)->flush();
+
+    expect($request->remember('withdrawn', static fn (): string => 'current content', surrogateKeys: $surrogates))
+        ->toBe('current content');
+})->with([[[]], [['page:1']]]);
+
+it('rebuilds a cached fragment if a flush overlaps its lookup', function (array $surrogates): void {
+    $store = new FragmentCacheTestStore;
+    $repository = new Repository($store);
+    CacheOriginContexts::bind('console');
+    $request = new FragmentCache($repository);
+    $request->remember('withdrawn', static fn (): string => 'old content', surrogateKeys: $surrogates);
+
+    $store->afterFragmentRead = new FragmentCache($repository)->flush(...);
+
+    expect($request->remember('withdrawn', static fn (): string => 'current content', surrogateKeys: $surrogates))
+        ->toBe('current content');
+})->with([[[]], [['page:1']]]);

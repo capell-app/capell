@@ -8,15 +8,6 @@ use Illuminate\Foundation\Vite;
 
 final class StylesheetRecoveryRenderer
 {
-    /**
-     * Runtime bodies read by this instance, keyed by path and modification
-     * time. Instance state only: a long-running worker must not carry file
-     * contents across requests, and the 2 KB read is served from the OS cache.
-     *
-     * @var array<string, string|null>
-     */
-    private array $inlineRuntimes = [];
-
     public function __construct(private readonly Vite $vite) {}
 
     public function enabled(): bool
@@ -59,10 +50,10 @@ final class StylesheetRecoveryRenderer
         // RenderProfileAssetRendererTest and documented in its
         // docs/critical-css.md.
         //
-        // The published runtime is inlined so that ordering costs no blocking
+        // When a nonce authorises it, the published runtime is inlined so ordering costs no blocking
         // request in every public head. The external tag remains the fallback
         // when the published file cannot be read or could close the element.
-        $inline = $this->inlineRuntime($runtimeUrl);
+        $inline = $nonceAttribute !== '' ? $this->inlineRuntime($runtimeUrl) : null;
 
         if ($inline !== null) {
             return '<script' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime>' . $inline . '</script>';
@@ -74,22 +65,15 @@ final class StylesheetRecoveryRenderer
     private function inlineRuntime(string $runtimeUrl): ?string
     {
         $path = public_path(ltrim((string) parse_url($runtimeUrl, PHP_URL_PATH), '/'));
-        $modified = is_file($path) && is_readable($path) ? filemtime($path) : false;
-
-        if ($modified === false) {
+        if (! is_file($path) || ! is_readable($path)) {
             return null;
         }
 
-        $cacheKey = $path . '|' . $modified;
+        $contents = file_get_contents($path);
 
-        if (! array_key_exists($cacheKey, $this->inlineRuntimes)) {
-            $contents = file_get_contents($path);
-            $this->inlineRuntimes[$cacheKey] = is_string($contents) && $contents !== '' && stripos($contents, '</script') === false && ! str_contains($contents, '<!--')
-                ? rtrim($contents)
-                : null;
-        }
-
-        return $this->inlineRuntimes[$cacheKey];
+        return is_string($contents) && $contents !== '' && stripos($contents, '</script') === false && ! str_contains($contents, '<!--')
+            ? rtrim($contents)
+            : null;
     }
 
     private function fallbackUrl(): ?string
