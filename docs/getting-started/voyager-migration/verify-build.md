@@ -121,6 +121,20 @@ corrected first-import assertion passed all six tests and the standard
 Rector check. Keep the mapping state at the typed assertion boundary so an
 incorrect simplification at its caller cannot erase the creation check.
 
+Keep the clock contract when reviewing automated changes. An application can
+override Carbon's clock; native persistence clocks must still fence expired
+leases and record the actual event time. In the Shop persistence source checks,
+three regressions rejected a clock conversion that backdated claims and outbox
+events and allowed an expired lease to complete. Retaining the native clock and
+limiting the conversion-rule exception to its two owning classes preserved the
+existing behaviour.
+
+For a build containing Shop, this command passed 11 tests and 40 assertions:
+
+```sh
+vendor/bin/pest packages/shop/tests/Feature/ShopPersistenceTest.php --configuration=phpunit.xml
+```
+
 If a test passes alone and fails after another test, inspect shared containers,
 model event dispatchers and other process state. Restore the state a fixture
 borrows, then rerun the combined checks. Keep the original failure evidence.
