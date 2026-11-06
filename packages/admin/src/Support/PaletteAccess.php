@@ -29,10 +29,13 @@ final class PaletteAccess
     public function forRender(): PaletteRenderData
     {
         return $this->inSiteScope(function (): PaletteRenderData {
+            $actor = Filament::auth()->user();
+            if ($actor === null) {
+                return new PaletteRenderData([], []);
+            }
+
             $core = $this->resolveCoreCommands();
             $extensions = [];
-            $actor = Filament::auth()->user();
-            assert($actor !== null);
             $reservedIds = [...self::CORE_TARGETS, ...array_map(static fn (string $target): string => 'capell.' . $target, self::CORE_TARGETS)];
             foreach (CapellAdmin::getPaletteCommands() as $id => $command) {
                 if (in_array($id, $reservedIds, true)) {
@@ -199,7 +202,12 @@ final class PaletteAccess
 
             $commands['capell.' . $key] = new PaletteCommandData(
                 id: 'capell.' . $key,
-                label: (string) __('capell-admin::palette.' . $key),
+                label: (string) match ($key) {
+                    'pages' => __('capell-admin::palette.pages'),
+                    'sites' => __('capell-admin::palette.sites'),
+                    'themes' => __('capell-admin::palette.themes'),
+                    'publishing-studio' => __('capell-admin::palette.publishing-studio'),
+                },
                 url: $resource::getUrl(),
                 sort: match ($key) {
                     'pages' => 10,
@@ -221,7 +229,10 @@ final class PaletteAccess
 
             $commands['capell.' . $key] = new PaletteCommandData(
                 id: 'capell.' . $key,
-                label: (string) __('capell-admin::palette.' . $key),
+                label: (string) match ($key) {
+                    'settings' => __('capell-admin::palette.settings'),
+                    'extensions' => __('capell-admin::palette.extensions'),
+                },
                 url: $page::getUrl(),
                 sort: $key === 'settings' ? 30 : 40,
             );
