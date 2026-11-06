@@ -29,6 +29,17 @@ from a live site or an unrelated workflow.
 
 Require equal sitemap sets, zero status changes and equal canonical/meta/JSON-LD hashes. Investigate every normalised HTML difference. Exercise builder, cart, account and sandbox checkout separately; compare performance with the same conditions. Not yet verified.
 
+Read the sitemap served by each rehearsal application. A sitemap file in the
+checkout can be stale and cannot prove what either application is serving.
+Keep sitemap membership separate from extra redirect and pagination probes.
+
+If reports need privacy scrubbing, assign an opaque identity to each URL before
+scrubbing its text. Matching anonymised URL strings can merge different paths
+or change when the private-value list changes. Refuse an older baseline that
+has lost its original identities and recapture it from the authorised fixtures;
+do not reconstruct identities from scrubbed names. Keep generated digests
+separate from source JSON-LD and other fields that must still be scrubbed.
+
 The verification command and expected output are **not yet verified**.
 
 ## What can go wrong and how to recover
