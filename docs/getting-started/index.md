@@ -22,6 +22,7 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 | Install into a Laravel app  | [Install guide](install.md)               |
 | Run locally on Mac or Windows | [Local development](local-development.md) |
 | Put the install on a domain | [Going live](../operations/going-live.md) |
+| Migrate a Voyager application | [Migrating from Voyager to Capell](voyager-migration/index.md) (draft) |
 
 ## Author
 
