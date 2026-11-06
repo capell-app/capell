@@ -1012,7 +1012,7 @@ final class InstalledPanelRuntime
      */
     private function refusal(Route $route, ?array $matchers = null): ?string
     {
-        // Public framework endpoints remain public in old caches, including serialised asset closures.
+        // Verifiable public framework endpoints remain public in old caches.
         if ($this->isPublicAction($route) || $this->isPublicRouteFile($route)) {
             return null;
         }

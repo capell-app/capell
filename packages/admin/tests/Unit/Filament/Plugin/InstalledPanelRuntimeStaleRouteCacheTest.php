@@ -131,21 +131,27 @@ final class InstalledPanelRuntimeStaleRouteCacheTest extends AdminTestCase
         $this->assertFalse(CachedActionWakeupTrap::$restored);
     }
 
-    public function test_serialised_livewire_component_assets_from_an_old_cache_are_served(): void
+    public function test_livewire_component_assets_from_the_live_route_table_are_served(): void
     {
         Livewire::component('runtime-cached-assets', CachedAssetComponent::class);
         $paths = [EndpointResolver::componentCssPath(), EndpointResolver::componentGlobalCssPath(), EndpointResolver::componentJsPath()];
         foreach ($paths as $path) {
-            $this->get(str_replace('{component}', 'runtime-cached-assets', $path))->assertOk();
+            $this->get(str_replace('{component}', 'runtime-cached-assets', $path))
+                ->assertOk()->assertSee(str_ends_with($path, '.js') ? 'cachedAsset' : '.cached-asset');
         }
+    }
 
+    public function test_serialised_livewire_component_assets_from_an_old_cache_are_refused(): void
+    {
+        Livewire::component('runtime-cached-assets', CachedAssetComponent::class);
+        $paths = [EndpointResolver::componentCssPath(), EndpointResolver::componentGlobalCssPath(), EndpointResolver::componentJsPath()];
         $this->cacheRoutesAsAnEarlierRelease();
         foreach ($paths as $path) {
             $uri = str_replace('{component}', 'runtime-cached-assets', $path);
             $route = Route::getRoutes()->match(Request::create($uri));
             $this->assertTrue(RouteAction::containsSerializedClosure($route->getAction()));
             $this->assertNotInstanceOf(PanelOwnership::class, PanelOwnership::of($route));
-            $this->get($uri)->assertOk()->assertSee(str_ends_with($path, '.js') ? 'cachedAsset' : '.cached-asset');
+            $this->get($uri)->assertStatus(503)->assertDontSee(str_ends_with($path, '.js') ? 'cachedAsset' : '.cached-asset');
         }
     }
 
