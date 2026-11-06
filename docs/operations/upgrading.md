@@ -18,15 +18,35 @@ is created, and refuses anything it cannot prove.
   `$panel->routes()` is Filament's unauthenticated group: OAuth callbacks, SSO redirects and custom
   sign-in controllers outside admin code keep serving guests unless they declare authentication.
   Panel-owned admin pages and controllers require the panel's authentication even in this group,
-  unless they are recognised sign-in pages, public framework endpoints or explicitly declare guests.
-  Routes that already authenticate retain that requirement even when middleware is excluded;
-  exclusions that remove required security refuse the route with 503.
-  A package route that the Capell admin serves outside Filament's pages registers through
-  `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on the admin domain
-  and runs the admin panel's stack and sign-in. `AdminRouteProvenance::panel($id, ...)` declares a
-  different panel. Both declarations refuse requests until Capell has synchronised that panel;
-  registering it with Filament alone is insufficient. `guests: true` skips sign-in for routes
-  credentialed by a URL signature, while retaining package middleware.
+  including application and plugin subclasses of `Filament\Pages\SimplePage` or other Filament pages.
+  Filament's `Login`, `RequestPasswordReset`, `ResetPassword` and `Register` pages (and their subclasses)
+  keep serving guests. Public framework endpoints keep their exemption only outside authenticated groups.
+  Custom magic-link or OTP sign-in, invitation acceptance and SSO provider picker pages must explicitly
+  declare guests. The boot log warns once per route-table signature and `capell:doctor`
+  (`admin.routes.ownership`) lists pages that gain authentication and the remedy.
+  Wrap only the guest pages in `AdminRouteProvenance::panel($id, ..., guests: true)` inside `->routes()`:
+
+    ```php
+    use Capell\Admin\Support\AdminRouteProvenance;
+    use Illuminate\Support\Facades\Route;
+
+    $panel->routes(static function (\Filament\Panel $panel): void {
+        AdminRouteProvenance::panel($panel->getId(), static function (): void {
+            Route::get('magic-link', \App\Filament\Pages\MagicLink::class);
+        }, guests: true);
+    });
+    ```
+
+    Guest declarations retain package middleware and skip the panel's sign-in.
+    Routes that already authenticate retain that requirement even when middleware is excluded;
+    exclusions that remove required security refuse the route with 503.
+    A package route that the Capell admin serves outside Filament's pages registers through
+    `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on the admin domain
+    and runs the admin panel's stack and sign-in. `AdminRouteProvenance::panel($id, ...)` declares a
+    different panel. Both declarations refuse requests until Capell has synchronised that panel;
+    registering it with Filament alone is insufficient. `guests: true` skips sign-in for routes
+    credentialed by a URL signature, while retaining package middleware.
+
 - **Application routes.** Undeclared application or package routes under a non-root panel path are
   unclassified and refused with 503. Wrap application routes that deliberately share that path in
   `AdminRouteProvenance::host(static function (): void { ... })`. These declared host routes run their

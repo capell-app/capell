@@ -109,6 +109,9 @@ final class InstalledPanelRuntime
     /** Authentication declared by the registration group, retained if an alias later changes. */
     private const string AUTHENTICATED_ACTION = 'capell_panel_authenticated';
 
+    /** A page gaining authentication solely because it runs admin code, retained through reconciliation and route caching. */
+    private const string PAGE_AUTHENTICATION_ACTION = 'capell_panel_page_authentication';
+
     /** @var WeakMap<Panel, array<int, bool>> */
     private WeakMap $applied;
 
@@ -391,9 +394,10 @@ final class InstalledPanelRuntime
     public function refusedRoutes(): array
     {
         $refused = [];
+        $matchers = $this->panelPathMatchers();
         foreach ($this->router->getRoutes()->getRoutes() as $route) {
             try {
-                if (PanelOwnership::of($route) instanceof PanelOwnership && $this->refusal($route) !== null) {
+                if (PanelOwnership::of($route) instanceof PanelOwnership && $this->refusal($route, $matchers) !== null) {
                     $refused[] = $this->describe([$route])[0];
                 }
             } catch (Throwable $throwable) {
@@ -402,6 +406,25 @@ final class InstalledPanelRuntime
         }
 
         return $refused;
+    }
+
+    /**
+     * Pages in a panel's unauthenticated routes() group that gain sign-in because they run admin code.
+     * Explicit panel declarations already opt into the full stack; sign-in pages and guest declarations are exempt.
+     *
+     * @return list<string>
+     */
+    public function pagesRequiringGuestDeclaration(): array
+    {
+        $pages = [];
+        foreach ($this->router->getRoutes()->getRoutes() as $route) {
+            $page = $route->getAction(self::PAGE_AUTHENTICATION_ACTION);
+            if (is_string($page)) {
+                $pages[] = $this->describe([$route])[0] . ' -> ' . PanelOwnership::of($route)?->panel . ' (' . $page . ')';
+            }
+        }
+
+        return $pages;
     }
 
     /**
@@ -595,6 +618,10 @@ final class InstalledPanelRuntime
 
         // Reconciliation can add middleware, so memoise the finished table, not its earlier shape.
         $this->classifiedSignature = $this->routeTableSignature();
+        $pages = $this->pagesRequiringGuestDeclaration();
+        if ($pages !== []) {
+            Log::warning(__('capell-admin::message.route_pages_require_authentication', ['routes' => implode(', ', $pages)]), ['pages' => $pages]);
+        }
     }
 
     /**
@@ -734,16 +761,29 @@ final class InstalledPanelRuntime
         $declared = $this->router->resolveMiddleware([...$instance->middleware(), ...$instance->controllerMiddleware()]);
         // Filament's routes() group keeps non-admin callbacks and custom sign-in controllers public.
         // Admin actions and explicit provenance opt into the panel's full stack.
-        $authenticated = $instance->getAction(self::AUTHENTICATED_ACTION) === true
-            || $this->runsAdminCode($instance)
-            || AdminRouteProvenance::declared($instance)['panels'] !== []
+        $declaredAuthentication = $instance->getAction(self::AUTHENTICATED_ACTION) === true
             || array_intersect($declared, $this->router->resolveMiddleware($current['auth'])) !== []
             || array_any($declared, $this->isAuthenticator(...));
-        $instance->action[self::AUTHENTICATED_ACTION] = $authenticated;
+        $provenance = AdminRouteProvenance::declared($instance);
+        if ($instance->getAction(self::PAGE_AUTHENTICATION_ACTION) === null) {
+            // Decide before adding authentication, so later synchronisation and cached boots retain the upgrade warning.
+            $instance->action[self::PAGE_AUTHENTICATION_ACTION] = ! $declaredAuthentication
+                && ! (PanelOwnership::of($instance)->guests ?? false)
+                && ! $this->isSignInPage($instance)
+                && $provenance['panels'] === []
+                    ? ($this->filamentPage($instance) ?? false)
+                    : false;
+        }
+
+        $authenticated = $declaredAuthentication
+            || $this->runsAdminCode($instance)
+            || $provenance['panels'] !== [];
+        // Retain declared authentication only: admin-code inference must not turn a public framework
+        // action into an authenticated-group route on the next reconciliation.
+        $instance->action[self::AUTHENTICATED_ACTION] = $declaredAuthentication;
         $public = (PanelOwnership::of($instance)->guests ?? false)
             || $this->isSignInPage($instance)
-            || $this->isPublicAction($instance)
-            || $this->isPublicRouteFile($instance)
+            || (! $declaredAuthentication && ($this->isPublicAction($instance) || $this->isPublicRouteFile($instance)))
             || ! $authenticated;
         if (! $public && $contributed['auth'] !== [] && $host['auth'] === []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_ambiguous'));
@@ -1134,6 +1174,18 @@ final class InstalledPanelRuntime
         }
 
         return false;
+    }
+
+    /** The Filament page class served directly or through Livewire's route macro. */
+    private function filamentPage(Route $route): ?string
+    {
+        $class = $this->actionCode($route)[0];
+        if ($class === LivewirePageController::class) {
+            $component = $route->getAction('livewire_component');
+            $class = $component === null ? null : (is_object($component) ? $component::class : resolve('livewire.factory')->resolveComponentClass($component));
+        }
+
+        return $class !== null && is_subclass_of($class, BasePage::class) ? $class : null;
     }
 
     /** The action is shipped in an admin package's source or route files, or is a Filament page. */

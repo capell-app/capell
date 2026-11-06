@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
@@ -19,6 +20,7 @@ use Filament\Http\Middleware\Authenticate;
 use Illuminate\Routing\Middleware\ValidateSignature;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
+use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 use Override;
 use PHPUnit\Framework\Attributes\TestWith;
 use RuntimeException;
@@ -82,6 +84,42 @@ final class InstalledPanelRuntimePublicListTest extends AdminTestCase
 
         $page = Page::factory()->createOne();
         $this->get(route('capell.admin.preview-page', ['page' => $page]))->assertForbidden()->assertDontSee(PackageSecurityDenyMiddleware::BODY);
+    }
+
+    public function test_public_framework_actions_in_guest_groups_stay_public_after_resynchronisation(): void
+    {
+        $this->panelRoutes(static fn () => Route::get('/admin/runtime-public-script', [FrontendAssets::class, 'returnJavaScriptAsFile']));
+        $runtime = resolve(InstalledPanelRuntime::class);
+        $panel = Filament::getPanel('admin');
+        $runtime->extend($panel);
+        resolve(Router::class)->aliasMiddleware('runtime-unused-auth', Authenticate::class);
+        $runtime->extend($panel);
+
+        $this->get('/admin/runtime-public-script')->assertOk();
+        $this->get('/admin/runtime-public-script')->assertOk();
+    }
+
+    public function test_public_framework_actions_in_authenticated_groups_keep_package_authentication(): void
+    {
+        $this->panelRoutes(static function (): void {
+            Route::middleware(Authenticate::class)->group(static function (): void {
+                Route::get('/admin/runtime-authenticated-script', [FrontendAssets::class, 'returnJavaScriptAsFile']);
+            });
+        });
+        $this->actingAsAdmin();
+
+        $this->get('/admin/runtime-authenticated-script')->assertForbidden()->assertSee(PackageSecurityDenyMiddleware::BODY);
+    }
+
+    public function test_public_framework_actions_cannot_exclude_authentication_from_an_authenticated_group(): void
+    {
+        $this->panelRoutes(static function (): void {
+            Route::middleware(Authenticate::class)->group(static function (): void {
+                Route::get('/admin/runtime-excluded-script', [FrontendAssets::class, 'returnJavaScriptAsFile'])->withoutMiddleware(Authenticate::class);
+            });
+        });
+
+        $this->get('/admin/runtime-excluded-script')->assertStatus(503);
     }
 
     #[Override]

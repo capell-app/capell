@@ -24,6 +24,7 @@ final readonly class AdminRouteOwnershipCheck implements DoctorCheck
         $unrecorded = $this->runtime->unrecordedRoutes();
         $refused = $this->runtime->refusedRoutes();
         $collisions = $this->runtime->panelPathCollisions();
+        $pages = $this->runtime->pagesRequiringGuestDeclaration();
         $messages = [];
         $remediation = [];
         if ($unrecorded !== []) {
@@ -43,6 +44,11 @@ final readonly class AdminRouteOwnershipCheck implements DoctorCheck
             $remediation[] = __('capell-admin::message.route_ownership_check_remediation_routes');
         }
 
+        if ($pages !== []) {
+            $messages[] = __('capell-admin::message.route_pages_require_authentication', ['routes' => implode(', ', $pages)]);
+            $remediation[] = __('capell-admin::message.route_pages_guest_remediation');
+        }
+
         $passed = $messages === [];
 
         return new DoctorCheckResultData(
@@ -52,7 +58,7 @@ final readonly class AdminRouteOwnershipCheck implements DoctorCheck
             remediation: $passed ? null : implode(' ', $remediation),
             id: 'admin.routes.ownership',
             severity: $unrecorded !== [] || $refused !== [] ? DoctorCheckSeverity::Critical : DoctorCheckSeverity::Warning,
-            evidence: ['unrecorded' => count($unrecorded), 'refused' => $refused, 'collisions' => $collisions],
+            evidence: ['unrecorded' => count($unrecorded), 'refused' => $refused, 'collisions' => $collisions, 'pages_requiring_guest_declaration' => $pages],
         );
     }
 }

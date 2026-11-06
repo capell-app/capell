@@ -15,6 +15,8 @@ return [
     'extension_panel_route_unowned' => "This route is not attributed to an installed panel or declared as a host route. Register it through the panel's routes or declare its host ownership.",
     'extension_panel_route_unrecorded' => 'This route runs admin code but the route cache was built by an earlier release, so it carries no record of the panel that registered it and is refused. Rebuild the route cache: php artisan route:clear && php artisan route:cache.',
     'route_cache_unrecorded' => 'The route cache was built by an earlier release and records no route ownership: admin routes are refused until it is rebuilt. Run php artisan route:clear && php artisan route:cache on every node.',
+    'route_pages_require_authentication' => 'These Filament pages in routes() now require panel sign-in because they run admin code without a guest declaration: :routes. Review any page intended for guests and declare it with AdminRouteProvenance::panel($id, ..., guests: true).',
+    'route_pages_guest_remediation' => 'Inside the panel routes() group, wrap pages intended for guests in AdminRouteProvenance::panel($id, ..., guests: true). Keep authentication for pages that require sign-in.',
     'route_ownership_check_label' => 'Admin route ownership',
     'route_ownership_check_ok' => 'Every route records who serves it, none is refused and no host route shares an admin panel path.',
     'route_ownership_check_unrecorded' => 'The route cache records no ownership for :count route(s), so admin routes are refused.',
