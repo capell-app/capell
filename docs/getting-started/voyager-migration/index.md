@@ -26,6 +26,10 @@ beside these pages and give them alt text explaining the visible result.
 Capell captures must use the shared screenshot runner and retain its receipt;
 see the [visual standard](../../standards/documentation-visuals.md).
 
+If the rehearsal uses a source build, first follow
+[Verify a migration build from source](verify-build.md). Its checks and failure
+recovery notes come from preparing the migration toolchain.
+
 ## Follow the chapters in order
 
 | Chapter | Result to prove | Current evidence |
