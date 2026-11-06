@@ -57,6 +57,7 @@ use Illuminate\Queue\QueueManager;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
@@ -722,5 +723,31 @@ it('reconciles a real compiled cache for a non-interactive Marketplace installat
         }
 
         $panel->clearCachedComponents();
+    }
+});
+
+it('does not query site or permission tables from palette hooks before installation', function (): void {
+    $this->actingAsUser();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $panel = Panel::make();
+    CapellAdminPlugin::make()->register($panel);
+    CapellCore::markPackageUninstalled(AdminServiceProvider::$packageName);
+    $hooks = new ReflectionClass($panel)->getProperty('renderHooks')->getValue($panel);
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        foreach ($hooks[PanelsRenderHook::BODY_START][''] as $hook) {
+            $view = $hook();
+            if ($view instanceof View && $view->name() === 'capell-admin::components.palette-tools') {
+                $view->render();
+                test()->fail('The uninstalled application must not mount palette tools.');
+            }
+        }
+
+        $queries = collect(DB::getQueryLog())->pluck('query')->implode('\n');
+        expect($queries)->not->toMatch('/\b(?:from|join)\s+["`\[]?(sites|roles|permissions|model_has_roles|model_has_permissions|role_has_permissions)\b/');
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
     }
 });

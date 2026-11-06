@@ -12,7 +12,8 @@ final class PermissionTeamContext
 {
     /**
      * Loaded Eloquent relations are independent of Spatie's permission cache.
-     * Clear both relations at each boundary, including exceptional exits.
+     * Refresh at entry for every authorisation computation. Relations loaded in
+     * another team must be cleared on exit, including exceptional exits.
      *
      * @template TResult
      *
@@ -30,7 +31,9 @@ final class PermissionTeamContext
             return $operation();
         } finally {
             $registrar->setPermissionsTeamId($previous);
-            $actor?->unsetRelation('roles')->unsetRelation('permissions');
+            if ($previous !== $teamId) {
+                $actor?->unsetRelation('roles')->unsetRelation('permissions');
+            }
         }
     }
 }

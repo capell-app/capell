@@ -24,34 +24,6 @@ class GlobalCommandPalette extends Component
         $this->initialAccess = $access;
     }
 
-    /**
-     * @param  array<string, PaletteCommandData>|null  $commands
-     * @return list<PaletteCommandData>
-     */
-    public function filteredCommands(?array $commands = null): array
-    {
-        if (! $this->isAuthenticated()) {
-            return [];
-        }
-
-        $allCommands = $commands ?? resolve(PaletteAccess::class)->forRender()->commands;
-        uasort($allCommands, fn (PaletteCommandData $first, PaletteCommandData $second): int => $first->sort <=> $second->sort);
-
-        if ($this->query === '') {
-            return array_values($allCommands);
-        }
-
-        $normalizedQuery = mb_strtolower($this->query);
-
-        return array_values(
-            array_filter(
-                $allCommands,
-                fn (PaletteCommandData $command): bool => str_contains(mb_strtolower($command->label), $normalizedQuery)
-                    || ($command->description !== null && str_contains(mb_strtolower($command->description), $normalizedQuery)),
-            ),
-        );
-    }
-
     public function toggle(): void
     {
         $this->open = ! $this->open;
@@ -83,6 +55,34 @@ class GlobalCommandPalette extends Component
             'commands' => $this->filteredCommands($access->commands),
             'shortcuts' => $access->shortcuts,
         ]);
+    }
+
+    /**
+     * @param  array<string, PaletteCommandData>|null  $commands
+     * @return list<PaletteCommandData>
+     */
+    protected function filteredCommands(?array $commands = null): array
+    {
+        if (! $this->isAuthenticated()) {
+            return [];
+        }
+
+        $allCommands = $commands ?? resolve(PaletteAccess::class)->forRender()->commands;
+        uasort($allCommands, fn (PaletteCommandData $first, PaletteCommandData $second): int => $first->sort <=> $second->sort);
+
+        if ($this->query === '') {
+            return array_values($allCommands);
+        }
+
+        $normalizedQuery = mb_strtolower($this->query);
+
+        return array_values(
+            array_filter(
+                $allCommands,
+                fn (PaletteCommandData $command): bool => str_contains(mb_strtolower($command->label), $normalizedQuery)
+                    || ($command->description !== null && str_contains(mb_strtolower($command->description), $normalizedQuery)),
+            ),
+        );
     }
 
     private function isAuthenticated(): bool

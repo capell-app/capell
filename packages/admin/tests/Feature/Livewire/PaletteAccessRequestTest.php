@@ -393,3 +393,21 @@ it('rechecks access in an Octane sandbox whose dispatcher captured the root cont
         Facade::setFacadeApplication($root);
     }
 });
+
+it('keeps freshly loaded permissions available to navigation in the unchanged team', function (): void {
+    $site = Site::factory()->createOne();
+    $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
+    $this->actingAs($user);
+    request()->setUserResolver(fn (): RealSiteScopedAdminResourceUser => $user);
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($site->getKey());
+    expect(resolve(PaletteAccess::class)->coreCommands())->toHaveKey('capell.settings');
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    expect(SettingsPage::canAccess())->toBeTrue();
+    expect(palettePermissionQueryCount())->toBe(0);
+
+    // The next access computation still observes unsignalled direct revocation.
+    $user->permissions()->detach();
+    expect(resolve(PaletteAccess::class)->coreCommands())->not->toHaveKey('capell.settings');
+});

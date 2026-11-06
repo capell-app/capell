@@ -15,16 +15,35 @@ use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Closure;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\PermissionRegistrar;
 
 final class PaletteAccess
 {
+    private const array CORE_TARGETS = ['pages', 'sites', 'themes', 'publishing-studio', 'settings', 'extensions'];
+
     public function forRender(): PaletteRenderData
     {
         return $this->inSiteScope(function (): PaletteRenderData {
-            $commands = [...$this->resolveCoreCommands(), ...CapellAdmin::getPaletteCommands()];
+            $core = $this->resolveCoreCommands();
+            $extensions = [];
+            $actor = Filament::auth()->user();
+            assert($actor !== null);
+            foreach (CapellAdmin::getPaletteCommands() as $id => $command) {
+                if (in_array($id, array_map(static fn (string $target): string => 'capell.' . $target, self::CORE_TARGETS), true)) {
+                    Log::debug('Ignoring extension palette command with reserved core ID.', ['id' => $id]);
 
-            return new PaletteRenderData($commands, $this->shortcuts($commands));
+                    continue;
+                }
+
+                if ($command->visible !== null && ! ($command->visible)($actor)) {
+                    continue;
+                }
+
+                $extensions[$id] = $command;
+            }
+
+            return new PaletteRenderData([...$core, ...$extensions], $this->shortcuts($core, $extensions));
         }, new PaletteRenderData([], []));
     }
 
@@ -35,20 +54,32 @@ final class PaletteAccess
     }
 
     /**
-     * @param  array<string, PaletteCommandData>  $commands
+     * @param  array<string, PaletteCommandData>  $core
+     * @param  array<string, PaletteCommandData>  $extensions
      * @return list<array{sequence?: string, key?: string, action: string, target: string, label: string, url?: string}>
      */
-    public function shortcuts(array $commands): array
+    private function shortcuts(array $core, array $extensions): array
     {
         $shortcuts = [];
         foreach (config('capell-admin.shortcuts', []) as $shortcut) {
             if ($shortcut['action'] === 'navigate') {
-                $path = '/' . trim((Filament::getCurrentPanel()?->getPath() ?? '') . '/' . $shortcut['target'], '/');
-                $command = array_find($commands, fn (PaletteCommandData $command): bool => $command->url !== null
-                    && ($command->id === $shortcut['target']
-                        || $command->id === 'capell.' . $shortcut['target']
-                        || parse_url($command->url, PHP_URL_PATH) === $path));
+                $target = $shortcut['target'];
+                $coreTarget = str_starts_with((string) $target, 'capell.') ? substr((string) $target, 7) : $target;
+                if (in_array($coreTarget, self::CORE_TARGETS, true)) {
+                    $command = $core['capell.' . $coreTarget] ?? null;
+                } else {
+                    // Extensions opt in with an exact ID and their own visibility.
+                    $command = $extensions[$target] ?? null;
+                    if ($command?->visible === null) {
+                        continue;
+                    }
+                }
+
                 if ($command === null) {
+                    continue;
+                }
+
+                if ($command->url === null) {
                     continue;
                 }
 

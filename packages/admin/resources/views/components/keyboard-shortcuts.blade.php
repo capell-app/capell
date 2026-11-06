@@ -11,7 +11,6 @@
         x-load
         x-load-src="{{ FilamentAsset::getAlpineComponentSrc('capell-keyboard-shortcuts', 'capell-admin') }}"
         x-data="capellKeyboardShortcuts(@js($shortcuts))"
-        x-init="init()"
         style="display: none"
         aria-hidden="true"
     ></div>

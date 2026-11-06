@@ -4,7 +4,24 @@
 @endphp
 
 <div
-    x-data="{ open: @entangle('open') }"
+    x-data="{
+        open: @entangle('open'),
+        query: '',
+        init() {
+            this.$watch('open', (value) => {
+                if (! value) this.query = '';
+            });
+        },
+        matches(label, description) {
+            const query = this.query.toLocaleLowerCase();
+            return label.toLocaleLowerCase().includes(query) || (description ?? '').toLocaleLowerCase().includes(query);
+        },
+        hasResults() {
+            return Array.from(this.$refs.results.querySelectorAll('[data-palette-command]')).some((command) =>
+                this.matches(command.dataset.label, command.dataset.description)
+            );
+        },
+    }"
     x-on:keydown.meta.k.window.prevent="$wire.toggle()"
     x-on:keydown.ctrl.k.window.prevent="$wire.toggle()"
     x-on:keydown.escape.window="
@@ -51,7 +68,7 @@
                     class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none dark:text-gray-200"
                     placeholder="{{ __('capell-admin::palette.search_placeholder') }}"
                     type="text"
-                    wire:model.live="query"
+                    x-model.debounce.250ms="query"
                     x-ref="paletteInput"
                     x-on:keydown.escape.stop="$wire.close()"
                     x-init="
@@ -112,9 +129,18 @@
             </details>
 
             {{-- Results --}}
-            <ul class="max-h-80 overflow-y-auto py-2">
-                @forelse ($commands as $command)
-                    <li>
+            <ul
+                class="max-h-80 overflow-y-auto py-2"
+                x-ref="results"
+            >
+                @foreach ($commands as $command)
+                    <li
+                        wire:key="palette-command-{{ $command->id }}"
+                        data-palette-command
+                        data-label="{{ $command->label }}"
+                        data-description="{{ $command->description }}"
+                        x-show="matches($el.dataset.label, $el.dataset.description)"
+                    >
                         @if ($command->url !== null)
                             <a
                                 class="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -166,11 +192,13 @@
                             </button>
                         @endif
                     </li>
-                @empty
-                    <li class="px-4 py-6 text-center text-sm text-gray-400">
-                        {{ __('capell-admin::palette.no_results') }}
-                    </li>
-                @endforelse
+                @endforeach
+                <li
+                    x-show="! hasResults()"
+                    class="px-4 py-6 text-center text-sm text-gray-400"
+                >
+                    {{ __('capell-admin::palette.no_results') }}
+                </li>
             </ul>
         </div>
     </div>

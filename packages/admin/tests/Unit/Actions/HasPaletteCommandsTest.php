@@ -58,3 +58,10 @@ it('builds PaletteCommandData with all optional fields', function (): void {
         ->and($command->group)->toBe('Navigation')
         ->and($command->sort)->toBe(5);
 });
+
+it('excludes the visibility callback from palette data serialisation', function (): void {
+    $command = new PaletteCommandData(id: 'private', label: 'Private', visible: static fn (): bool => false);
+    expect($command->toArray())->not->toHaveKey('visible');
+    expect($command->toJson())->not->toContain('visible');
+    expect(fn (): string => serialize($command))->toThrow(Exception::class, "Serialization of 'Closure' is not allowed");
+});

@@ -24,6 +24,7 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Admin\Support\Navigation\WorkspaceNavigation;
@@ -258,7 +259,7 @@ class CapellAdminPlugin implements Plugin
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
-                hook: fn (): ?View => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check()
+                hook: fn (): ?View => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check() && resolve(AdminInstallState::class)->installed()
                     ? view($paletteToolsView)
                     : null,
             )

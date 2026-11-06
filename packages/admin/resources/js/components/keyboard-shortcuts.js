@@ -14,10 +14,30 @@ export default function capellKeyboardShortcuts(shortcuts) {
         pendingTimer: null,
         chordTimeoutMs: 1000,
 
+        listenerController: null,
+
         init() {
-            window.addEventListener('keydown', (event) =>
-                this.handleKeydown(event),
+            this.destroy()
+            this.listenerController = new AbortController()
+            const { signal } = this.listenerController
+            window.addEventListener(
+                'keydown',
+                (event) => this.handleKeydown(event),
+                { signal },
             )
+            document.addEventListener(
+                'livewire:navigate',
+                () => this.destroy(),
+                { signal },
+            )
+        },
+
+        destroy() {
+            this.listenerController?.abort()
+            this.listenerController = null
+            clearTimeout(this.pendingTimer)
+            this.pendingTimer = null
+            this.pendingKey = null
         },
 
         handleKeydown(event) {

@@ -1,1 +1,125 @@
-function r(o){return{pendingKey:null,pendingTimer:null,chordTimeoutMs:1e3,init(){window.addEventListener("keydown",e=>this.handleKeydown(e))},handleKeydown(e){let n=e.target;if(n instanceof HTMLInputElement||n instanceof HTMLTextAreaElement||n instanceof HTMLSelectElement||n instanceof HTMLElement&&n.isContentEditable)return;let i=e.key.toLowerCase();if(this.pendingKey!==null){let t=this.pendingKey+" "+i;clearTimeout(this.pendingTimer),this.pendingKey=null;let l=o.find(s=>s.sequence===t);if(l){e.preventDefault(),this.executeShortcut(l);return}}let a=o.find(t=>t.key===i&&!t.sequence);if(a){e.preventDefault(),this.executeShortcut(a);return}o.filter(t=>t.sequence&&t.sequence.startsWith(i+" ")).length>0&&(this.pendingKey=i,this.pendingTimer=setTimeout(()=>{this.pendingKey=null},this.chordTimeoutMs))},executeShortcut(e){if(e.action==="navigate"){let n=this.detectPanelBase();window.location.href=e.url??n+"/"+e.target}else if(e.action==="focus"){let n=document.querySelector(e.target);n instanceof HTMLElement&&n.focus()}},detectPanelBase(){let e=window.location.pathname.split("/").filter(Boolean);return e.length>0?"/"+e[0]:"/admin"}}}export{r as default};
+/**
+ * Capell Admin — Keyboard shortcuts Alpine component.
+ *
+ * Registered as an Alpine component and mounted once on the admin body.
+ * Supports:
+ *   - Key sequences (e.g. "g p") with a 1 000 ms chord timeout.
+ *   - Single key presses (e.g. "/").
+ *
+ * Configuration is injected from PHP via capell-admin.shortcuts config key.
+ */
+export default function capellKeyboardShortcuts(shortcuts) {
+    return {
+        pendingKey: null,
+        pendingTimer: null,
+        chordTimeoutMs: 1000,
+
+        listenerController: null,
+
+        init() {
+            this.destroy()
+            this.listenerController = new AbortController()
+            const { signal } = this.listenerController
+            window.addEventListener(
+                'keydown',
+                (event) => this.handleKeydown(event),
+                { signal },
+            )
+            document.addEventListener(
+                'livewire:navigate',
+                () => this.destroy(),
+                { signal },
+            )
+        },
+
+        destroy() {
+            this.listenerController?.abort()
+            this.listenerController = null
+            clearTimeout(this.pendingTimer)
+            this.pendingTimer = null
+            this.pendingKey = null
+        },
+
+        handleKeydown(event) {
+            // Ignore shortcuts when the user is typing in an input, textarea, or
+            // contenteditable element to avoid hijacking normal text entry.
+            const target = event.target
+            if (
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target instanceof HTMLSelectElement ||
+                (target instanceof HTMLElement && target.isContentEditable)
+            ) {
+                return
+            }
+
+            const pressedKey = event.key.toLowerCase()
+
+            // Resolve a pending chord first.
+            if (this.pendingKey !== null) {
+                const chordSequence = this.pendingKey + ' ' + pressedKey
+                clearTimeout(this.pendingTimer)
+                this.pendingKey = null
+
+                const sequenceShortcut = shortcuts.find(
+                    (shortcut) => shortcut.sequence === chordSequence,
+                )
+                if (sequenceShortcut) {
+                    event.preventDefault()
+                    this.executeShortcut(sequenceShortcut)
+                    return
+                }
+            }
+
+            // Check for single-key shortcuts.
+            const singleShortcut = shortcuts.find(
+                (shortcut) => shortcut.key === pressedKey && !shortcut.sequence,
+            )
+            if (singleShortcut) {
+                event.preventDefault()
+                this.executeShortcut(singleShortcut)
+                return
+            }
+
+            // Check if this key could start a chord sequence.
+            const potentialChordStarters = shortcuts.filter(
+                (shortcut) =>
+                    shortcut.sequence &&
+                    shortcut.sequence.startsWith(pressedKey + ' '),
+            )
+            if (potentialChordStarters.length > 0) {
+                this.pendingKey = pressedKey
+                this.pendingTimer = setTimeout(() => {
+                    this.pendingKey = null
+                }, this.chordTimeoutMs)
+            }
+        },
+
+        executeShortcut(shortcut) {
+            if (shortcut.action === 'navigate') {
+                const panelBase = this.detectPanelBase()
+                window.location.href =
+                    shortcut.url ?? panelBase + '/' + shortcut.target
+            } else if (shortcut.action === 'focus') {
+                const element = document.querySelector(shortcut.target)
+                if (element instanceof HTMLElement) {
+                    element.focus()
+                }
+            }
+        },
+
+        detectPanelBase() {
+            // Detect the admin panel base path from the current URL.
+            // Filament panel URLs follow: /admin/... — walk back to the
+            // first path segment that looks like the panel prefix.
+            const pathSegments = window.location.pathname
+                .split('/')
+                .filter(Boolean)
+            // Default to /admin — the typical panel prefix.
+            if (pathSegments.length > 0) {
+                return '/' + pathSegments[0]
+            }
+            return '/admin'
+        },
+    }
+}
