@@ -98,6 +98,12 @@ contract, complete the dependency pairing. Updating a signature alone leaves
 publication and withdrawal behaviour unproved. Verify the whole implementation
 and its callers before using the build.
 
+If an analyser crashes on a first-class callable to a Laravel Action, preserve
+the normal Action call behind an explicitly typed callback method. Check the
+callback's filtering, result order and return type, then verify the page and
+static analysis together. A focused clean result resolves that defect; retain
+the requirement to finish the complete build gate.
+
 If a security inventory cannot resolve a table, investigate the naming helper.
 The scanner must recognise the real Core helper and its configured logical base.
 Unknown helpers must remain errors. Do not remove sensitive-field declarations
