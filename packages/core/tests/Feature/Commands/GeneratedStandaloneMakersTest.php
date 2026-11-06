@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Tests\Support\NestedTestProcess;
 use Capell\Tests\PackagesTestCase;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
-use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     $this->oldBase = app()->basePath();
@@ -28,11 +28,11 @@ it('creates a runnable test for an autoloaded maker', function (string $maker, s
     expect(Artisan::call('capell:make', ['maker' => $maker, '--name' => 'Example']))->toBe(0);
     expect(Artisan::output())->toContain('No registration is required');
     expect(base_path($classPath))->toBeFile()->and(base_path($testPath))->toBeFile();
-    $lint = new Process([PHP_BINARY, '-l', base_path($testPath)]);
+    $lint = NestedTestProcess::make([PHP_BINARY, '-l', base_path($testPath)]);
     $lint->run();
 
     expect($lint->isSuccessful())->toBeTrue($lint->getOutput() . $lint->getErrorOutput());
-    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path($testPath)], getcwd());
+    $pest = NestedTestProcess::make([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path($testPath)], getcwd());
     $pest->run();
 
     expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
@@ -46,7 +46,7 @@ it('creates a runnable test for a generated page schema extender and tells the d
     expect(Artisan::call('capell:make', ['maker' => 'core.extender', '--name' => 'Example']))->toBe(0);
     expect(Artisan::output())->toContain('PageSchemaExtender::TAG');
     expect(base_path('app/Extenders/ExampleExtender.php'))->toBeFile()->and(base_path('tests/Feature/Generated/ExampleExtenderTest.php'))->toBeFile();
-    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path('tests/Feature/Generated/ExampleExtenderTest.php')], getcwd());
+    $pest = NestedTestProcess::make([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path('tests/Feature/Generated/ExampleExtenderTest.php')], getcwd());
     $pest->run();
 
     expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
@@ -57,7 +57,7 @@ it('creates a blueprint subject model with a runnable registry test and tells th
     $output = Artisan::output();
     expect($code)->toBe(0, $output)->and($output)->toContain('blueprintSubject(');
     expect(base_path('app/Blueprints/Example.php'))->toBeFile()->and(base_path('tests/Feature/Generated/ExampleBlueprintSubjectTest.php'))->toBeFile();
-    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path('tests/Feature/Generated/ExampleBlueprintSubjectTest.php')], getcwd());
+    $pest = NestedTestProcess::make([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path('tests/Feature/Generated/ExampleBlueprintSubjectTest.php')], getcwd());
     $pest->run();
 
     expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
@@ -77,7 +77,7 @@ it('creates a runnable test for each generated component', function (string $mak
     file_put_contents(base_path($testPath), str_replace('declare(strict_types=1);', 'declare(strict_types=1);
 
 uses(' . PackagesTestCase::class . '::class);', $generated));
-    $pest = new Process([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path($testPath)], getcwd());
+    $pest = NestedTestProcess::make([PHP_BINARY, getcwd() . '/vendor/bin/pest', '--configuration=' . getcwd() . '/phpunit.xml', base_path($testPath)], getcwd());
     $pest->run();
 
     expect($pest->isSuccessful())->toBeTrue($pest->getOutput() . $pest->getErrorOutput());
