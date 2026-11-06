@@ -2113,3 +2113,16 @@ it('explains a domain mismatch and how to restore the extension in its details',
 
     expect($html)->toContain('The activation is for a different domain. Update the domain in Marketplace and refresh the activation.');
 });
+
+it('gives relevant recovery advice for blocked extension causes', function (string $status, string $expected): void {
+    $html = view('capell-admin::filament.pages.extensions.extension-details', [
+        'record' => ['packageName' => 'vendor/example', 'runtimeStatus' => $status, 'runtimeAllowed' => false],
+    ])->render();
+
+    expect($html)->toContain($expected)
+        ->not->toContain('Check its licence and activation in Marketplace');
+})->with([
+    'missing Composer package' => ['composer_missing', 'Check the Composer installation'],
+    'Composer version mismatch' => ['version_mismatch', 'Check the Composer installation'],
+    'unknown cause' => ['unexpected_failure', 'Contact the extension&#039;s publisher'],
+]);

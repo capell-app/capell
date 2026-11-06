@@ -198,6 +198,8 @@ return [
     'extension_runtime_gate_revoked' => 'The activation has been revoked. Contact the extension provider or restore the licence in Marketplace.',
     'extension_runtime_gate_provider_quarantined' => 'The extension provider was stopped after an error. Review the health alerts below and follow their recovery instructions.',
     'extension_runtime_gate_missing' => 'The extension has no usable activation. Connect Marketplace, check the licence and refresh the activation.',
+    'extension_runtime_gate_composer_drift' => 'Check the Composer installation and restore the correct package version.',
+    'extension_runtime_gate_unknown' => "The extension is not permitted to run. Contact the extension's publisher for help.",
     'extension_runtime_gate_disallowed' => 'The extension is not permitted to run. Check its licence and activation in Marketplace, then refresh the activation.',
     'extension_attention_reason_blocked' => 'Turned off by its licence or runtime check. Open it to see what is needed to turn it back on.',
     'extension_attention_reason_composer_drift' => 'The installed files no longer match this record. Reinstall it or remove the record.',

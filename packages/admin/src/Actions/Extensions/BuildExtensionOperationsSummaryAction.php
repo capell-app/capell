@@ -83,7 +83,9 @@ final class BuildExtensionOperationsSummaryAction
         $alerts = $this->healthAlerts();
         $marketplaceAccountConnected = $this->marketplaceAccountConnected();
 
-        $packages = collect($registry->all())
+        $manifests = collect($registry->all());
+        $packages = $manifests
+            ->reject(fn (CapellManifestData $manifest, string $packageName): bool => $manifest->visibility === 'support' || $this->package($packageName)?->isSupportPackage() === true)
             ->mapWithKeys(fn (CapellManifestData $manifest, string $packageName): array => [
                 $packageName => $this->packageSummary(
                     manifest: $manifest,
@@ -98,7 +100,7 @@ final class BuildExtensionOperationsSummaryAction
         $driftedExtensions = $this->composerDriftedExtensions($extensions);
 
         foreach ($driftedExtensions as $extension) {
-            if ($packages->has($extension->composer_name)) {
+            if ($manifests->has($extension->composer_name)) {
                 continue;
             }
 
@@ -111,7 +113,7 @@ final class BuildExtensionOperationsSummaryAction
             ->all());
 
         return new ExtensionOperationsSummaryData(
-            needsAttentionCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->visibility !== 'support' && $package->needsAttention)->count(),
+            needsAttentionCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->needsAttention)->count(),
             blockedCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->blocked)->count(),
             updatesCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->updateAvailable)->count(),
             unhealthyCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed && in_array($package->healthState, ['critical', 'warning'], true))->count(),
@@ -610,7 +612,8 @@ final class BuildExtensionOperationsSummaryAction
             return 'not_installed';
         }
 
-        if ($runtimeReason === 'provider_quarantined') {
+        if ($runtimeReason === 'provider_quarantined'
+            || ($runtimeReason === 'marketplace_runtime_disallowed' && $extension->marketplace_runtime_status === 'active')) {
             return $runtimeReason;
         }
 

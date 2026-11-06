@@ -100,8 +100,10 @@
                 'invalid' => __('capell-admin::generic.extension_runtime_gate_invalid'),
                 'revoked' => __('capell-admin::generic.extension_runtime_gate_revoked'),
                 'provider_quarantined' => __('capell-admin::generic.extension_runtime_gate_provider_quarantined'),
+                'composer_missing', 'composer_unavailable', 'missing_registry_manifest', 'version_mismatch' => __('capell-admin::generic.extension_runtime_gate_composer_drift'),
+                'marketplace_runtime_disallowed' => __('capell-admin::generic.extension_runtime_gate_disallowed'),
                 'missing_marketplace_activation' => __('capell-admin::generic.extension_runtime_gate_missing'),
-                default => __('capell-admin::generic.extension_runtime_gate_disallowed'),
+                default => __('capell-admin::generic.extension_runtime_gate_unknown'),
             };
         @endphp
         <p class="text-sm">{{ $runtimeExplanation }}</p>

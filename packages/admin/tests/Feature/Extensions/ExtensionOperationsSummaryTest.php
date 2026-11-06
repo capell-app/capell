@@ -302,6 +302,9 @@ it('alerts when an installed extension record no longer has a composer package m
         ->and($summary->installedCount)->toBe(1)
         ->and($summary->availableCount)->toBe(0)
         ->and($alert?->message)->toContain('current registry has no manifest');
+
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Check the Composer installation')->not->toContain('Check its licence and activation in Marketplace');
 });
 
 it('reports quarantined provider recovery state as a critical diagnostic', function (): void {
@@ -472,6 +475,9 @@ it('alerts when composer exposes a different extension version than the capell r
     expect($package)->not->toBeNull()
         ->and($package->needsAttention)->toBeTrue()
         ->and($alert?->message)->toContain('different package version');
+
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('different package version', 'Composer')->not->toContain('Check its licence and activation in Marketplace');
 });
 
 it('records successful composer drift repair metadata and clears extension caches', function (): void {
@@ -1099,7 +1105,48 @@ it('counts only extensions an operator must fix as needing attention, and says w
         ->and($package('vendor/warned')->attentionReasons)->toBe([ExtensionAttentionReason::WarningAlert])
         ->and($package('vendor/warned')->toRecord()['attentionReasons'])->toBe([__('capell-admin::generic.extension_attention_reason_warning_alert')])
         ->and($summary->needsAttentionCount)->toBe(2)
-        ->and($summary->unhealthyCount)->toBe(3)
+        ->and($summary->unhealthyCount)->toBe(2)
         ->and($summary->updatesCount)->toBe(1)
         ->and(ExtensionsPage::getNavigationBadge())->toBe('2');
+});
+
+it('excludes hidden support packages from every summary and the navigation badge', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/hidden-blocked', [
+        'version' => '1.0.0', 'visibility' => 'support',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['hidden_missing_table']],
+    ]);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/hidden-blocked', 'name' => 'Hidden', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'revoked',
+        'marketplace_runtime_allowed' => false, 'metadata' => ['latest_version' => '2.0.0'],
+    ]);
+
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    expect($summary->blockedCount)->toBe(0)
+        ->and($summary->package('vendor/hidden-blocked'))->toBeNull()
+        ->and($summary->packages)->toBeEmpty()
+        ->and($summary->alerts)->toBeEmpty()
+        ->and($summary->needsAttentionCount)->toBe(0)
+        ->and($summary->unhealthyCount)->toBe(0)
+        ->and($summary->updatesCount)->toBe(0)
+        ->and($summary->installedCount)->toBe(0)
+        ->and($summary->uninstalledCount)->toBe(0)
+        ->and($summary->availableCount)->toBe(0)
+        ->and(ExtensionsPage::getNavigationBadge())->toBeNull()
+        ->and(ExtensionsPage::getNavigationBadgeColor())->toBe('warning');
+});
+
+it('explains a disallowed Marketplace runtime even when its activation status is active', function (): void {
+    registerOperationsSummaryManifest('vendor/disallowed-active', ['version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/disallowed-active', 'name' => 'Disallowed', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'active',
+        'marketplace_runtime_allowed' => false,
+    ]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/disallowed-active');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Check its licence and activation in Marketplace');
 });
