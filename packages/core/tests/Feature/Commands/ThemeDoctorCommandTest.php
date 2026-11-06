@@ -2,7 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Symfony\Component\Console\Command\Command;
+
+beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
+});
+
+afterEach(function (): void {
+    $this->workspace->restore();
+});
 
 it('passes for a scaffolded theme package', function (): void {
     $packagesDirectory = sys_get_temp_dir() . '/capell-theme-doctor-' . bin2hex(random_bytes(6));

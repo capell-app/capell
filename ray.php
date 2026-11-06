@@ -8,7 +8,7 @@ return [
     /*
     * This setting controls whether data should be sent to Ray.
     *
-    * By default, `ray()` will only transmit data in non-production environments.
+    * By default, Ray only transmits data in non-production environments.
     */
     'enable' => env('RAY_ENABLED', true),
 
@@ -96,13 +96,13 @@ return [
      * Absolute base path for your sites or projects in Homestead,
      * Vagrant, Docker, or another remote development server.
      */
-    'remote_path' => env('RAY_REMOTE_PATH', null),
+    'remote_path' => env('RAY_REMOTE_PATH'),
 
     /*
      * Absolute base path for your sites or projects on your local
      * computer where your IDE or code editor is running on.
      */
-    'local_path' => env('RAY_LOCAL_PATH', null),
+    'local_path' => env('RAY_LOCAL_PATH'),
 
     /*
      * When this setting is enabled, the package will not try to format values sent to Ray.

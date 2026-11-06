@@ -37,7 +37,7 @@
 | `capell:admin-clear-widgets-cache`       | Clear the cached Filament widgets                                                  |
 | `capell:admin-publish-resources`         | Publish Filament resources to app                                                  |
 
-Scaffold a schema class with the core command `capell:make-schema {name}`; it writes to `App\Schemas`.
+Scaffold a schema class with the core command `capell:make:schema {name}`; it writes to `App\Schemas`.
 
 ## Frontend Commands (`capell:frontend-*`)
 

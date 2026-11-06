@@ -5,6 +5,7 @@
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
+    use Capell\Frontend\Support\Render\HeadMetadataCollector;
     use Capell\Frontend\Support\Security\JsonLdScriptSanitizer;
 
     $documentLanguage = ($language ?? null) instanceof Language ? $language : Frontend::language();
@@ -31,6 +32,7 @@
         :resource-plan="$resourcePlan ?? null"
     />
 
+    @php(ob_start())
     <x-capell::app.body
         body-class="capell-default-theme"
         :layout="$layout"
@@ -77,4 +79,5 @@
             </script>
         @endif
     </x-capell::app.body>
+    {!! (new HeadMetadataCollector)->collect((string) ob_get_clean()) !!}
 </html>

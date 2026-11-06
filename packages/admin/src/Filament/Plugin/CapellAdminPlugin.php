@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Plugin;
 
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Capell\Admin\Actions\ResolveAdminHelpAction;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
@@ -205,6 +206,15 @@ class CapellAdminPlugin implements Plugin
                 throw_unless(resolve(InstalledPanelRuntime::class)->isUnavailable($panel->getId()), $throwable);
             }
         });
+
+        $panel->renderHook(
+            name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
+            hook: function (): ?View {
+                $entry = ResolveAdminHelpAction::run();
+
+                return $entry === null ? null : view('capell-admin::components.admin-help', ['entry' => $entry]);
+            },
+        );
 
         $panel->renderHook(
             name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,

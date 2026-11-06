@@ -34,6 +34,11 @@ final class ActionMaker extends AbstractFileMaker
                 $this->renderStub(__DIR__ . '/../../../../stubs/makers/action.stub', ['class' => $name]),
                 $input->force,
             ),
+            $this->fileData(
+                base_path('tests/Feature/Generated/' . $actionClass . 'Test.php'),
+                $this->renderStub(__DIR__ . '/../../../../stubs/makers/action-test.stub', ['class' => $name]),
+                $input->force,
+            ),
         ]);
 
         if (($input->values['data'] ?? false) === true) {
@@ -42,13 +47,18 @@ final class ActionMaker extends AbstractFileMaker
                 $this->renderStub(__DIR__ . '/../../../../stubs/makers/action-data.stub', ['class' => $name]),
                 $input->force,
             ));
+            $files->push($this->fileData(
+                base_path('tests/Feature/Generated/' . $name . 'DataTest.php'),
+                $this->renderStub(__DIR__ . '/../../../../stubs/makers/data-test.stub', ['class' => $name]),
+                $input->force,
+            ));
         }
 
         return $this->previewData(
             $input,
             $files,
-            collect(['php artisan capell:make-action ' . $name . (($input->values['data'] ?? false) === true ? ' --data' : '')]),
-            collect(['Action will be auto-loadable by Composer.']),
+            collect(['php artisan capell:make:action ' . $name . (($input->values['data'] ?? false) === true ? ' --data' : '')]),
+            collect(['No registration is required; Composer autoloads the action.']),
         );
     }
 }

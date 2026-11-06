@@ -174,7 +174,7 @@ scheduling, retention, restore drills, and the deliberate no-in-place boundary.
 
 ## Extension Lifecycle
 
-### `capell:make-theme` (`capell:make:theme` alias)
+### `capell:make:theme` (`capell:make-theme` is a deprecated alias)
 
 Scaffolds a Capell theme package. Use `--local` for app-owned client themes that
 should register runtime views during fresh installs before package install state
@@ -331,7 +331,7 @@ Inspects an extension package or manifest without installing it.
 php artisan capell:extension-playground capell-app/blog --path=packages
 ```
 
-### `capell:make-extension` (`capell:make:extension` alias)
+### `capell:make:extension` (`capell:make-extension` is a deprecated alias)
 
 Scaffolds a local Capell package and manifest. In interactive mode, the command asks for any missing package name, profile, target directory, and display name. In non-interactive scripts, pass `package`, `--profile`, and `--path`.
 
@@ -368,11 +368,11 @@ php artisan capell:make core.action --name=PublishPage --dry-run
 These commands still exist for scripts and muscle memory:
 
 ```bash
-php artisan capell:make-action CreatePage --data
-php artisan capell:make-data PageAuthoringInput
-php artisan capell:make-extender HeroFields AfterTitle
-php artisan capell:make-schema LandingPage
-php artisan capell:make-blueprint LandingPage
+php artisan capell:make:action CreatePage --data
+php artisan capell:make:data PageAuthoringInput
+php artisan capell:make:extender HeroFields AfterTitle
+php artisan capell:make:schema LandingPage
+php artisan capell:make:blueprint LandingPage
 ```
 
 Prefer `capell:make` for new docs and examples because it shows registered makers and supports dry runs.
@@ -508,13 +508,13 @@ php artisan capell:doctor
 php artisan capell:doctor --json
 ```
 
-| Option                      | Use it for                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `--json`                    | Machine-readable report for monitoring or CI                                            |
-| `--install-summary`         | The installer-focused summary, including package-owned checks                           |
-| `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                    |
-| `--connection=`             | Verify against an existing database connection instead of the default                   |
-| `--database=`               | Override that connection's database name or path for isolated verification              |
+| Option                      | Use it for                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--json`                    | Machine-readable report for monitoring or CI                                                                                               |
+| `--install-summary`         | The installer-focused summary, including package-owned checks                                                                              |
+| `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                                                                       |
+| `--connection=`             | Verify against an existing database connection instead of the default                                                                      |
+| `--database=`               | Override that connection's database name or path for isolated verification                                                                 |
 | `--repair-page-url-domains` | **Writes data.** Creates or restores a site domain at a free address for each site and language whose page URLs have none, before checking |
 
 Every option except `--repair-page-url-domains` is read-only. That one repairs records before reporting, so run the command without it first and read the result before letting it change anything.
@@ -655,12 +655,12 @@ These create local content for development and testing. Do not run them against 
 
 Commands such as static-site generation, sitemap generation, and package-specific demo commands are provided by optional packages in a consuming app. `capell:frontend-tailwind-assets` ships in `capell-app/frontend`. Keep those commands in the package README or package docs that own them.
 
-| Command                           | Package                     |
-| --------------------------------- | --------------------------- |
-| `capell:static-site`              | `capell-app/html-cache`     |
-| `capell:xml-sitemap`              | `capell-app/site-discovery` |
-| `capell:admin-demo`               | `capell-app/demo-kit`       |
-| `capell:demo-kit-full-demo`       | `capell-app/demo-kit`       |
+| Command                     | Package                     |
+| --------------------------- | --------------------------- |
+| `capell:static-site`        | `capell-app/html-cache`     |
+| `capell:xml-sitemap`        | `capell-app/site-discovery` |
+| `capell:admin-demo`         | `capell-app/demo-kit`       |
+| `capell:demo-kit-full-demo` | `capell-app/demo-kit`       |
 
 The source of truth in any app is:
 

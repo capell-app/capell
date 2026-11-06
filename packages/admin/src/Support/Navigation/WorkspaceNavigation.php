@@ -22,8 +22,19 @@ final class WorkspaceNavigation
         $this->sections = [];
         $primary = [];
         $additional = [];
+        $builtIn = [];
         foreach ($groups as $group) {
             foreach (collect($group->getItems()) as $item) {
+                $taskGroup = resolve(BuiltInTaskNavigation::class)->groupFor($item->getKey());
+                if ($taskGroup !== null) {
+                    $builtIn[$taskGroup][] = $item;
+                    if ($this->sectionFor($item, $group) === 'design') {
+                        $this->sections['design'][] = $item;
+                    }
+
+                    continue;
+                }
+
                 $section = $this->sectionFor($item, $group);
                 if ($section !== null) {
                     $this->sections[$section][] = $item;
@@ -81,6 +92,10 @@ final class WorkspaceNavigation
                 ->collapsed(! in_array($section, ['pages', 'library'], true));
         }
 
+        foreach ($builtIn as $label => $items) {
+            $result[] = NavigationGroup::make($label)->items($items);
+        }
+
         return [...$result, ...array_values($additional)];
     }
 
@@ -112,6 +127,10 @@ final class WorkspaceNavigation
         usort($items, fn (NavigationItem $a, NavigationItem $b): int => (int) ($b->getLabel() === __('capell-admin::navigation.layouts')) <=> (int) ($a->getLabel() === __('capell-admin::navigation.layouts')));
         $this->sections['design'] = $items;
         $roots = array_values(array_filter($items, function (NavigationItem $item): bool {
+            if (resolve(BuiltInTaskNavigation::class)->groupFor($item->getKey()) !== null) {
+                return false;
+            }
+
             $path = parse_url($item->getUrl() ?? '', PHP_URL_PATH);
 
             return ! is_string($path) || ! array_any(
@@ -119,8 +138,11 @@ final class WorkspaceNavigation
                 fn (string $suffix): bool => str_ends_with($path, '/' . $suffix),
             );
         }));
-        if ($roots === [] && $items !== []) {
-            $roots = [$items[0]];
+        if ($roots === []) {
+            $unmapped = array_values(array_filter($items, fn (NavigationItem $item): bool => resolve(BuiltInTaskNavigation::class)->groupFor($item->getKey()) === null));
+            if ($unmapped !== []) {
+                $roots = [$unmapped[0]];
+            }
         }
 
         if ($roots !== []) {
@@ -128,7 +150,8 @@ final class WorkspaceNavigation
             $otherKeys = array_map(fn (NavigationItem $item): string => $item->getKey(), array_slice($roots, 1));
             $first->isActiveWhen(fn (): bool => $this->hasActiveItem(array_values(array_filter(
                 $items,
-                fn (NavigationItem $item): bool => ! in_array($item->getKey(), $otherKeys, true),
+                fn (NavigationItem $item): bool => resolve(BuiltInTaskNavigation::class)->groupFor($item->getKey()) === null
+                    && ! in_array($item->getKey(), $otherKeys, true),
             ))));
             $roots[0] = $first;
         }
