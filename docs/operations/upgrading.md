@@ -59,8 +59,9 @@ is created, and refuses anything it cannot prove.
 - **Route cache.** A route cache built by an earlier release carries no ownership record. Ordinary
   application controllers and Livewire page routes serving application components keep serving outside
   panel paths. Filament sign-in pages require a verified page class and a synchronised panel; a sign-in
-  route name alone grants no exemption. Livewire assets require a verified vendor action, including the
-  installed source and declaring scope for cached closures. Other closures and unattributable admin
+  route name alone grants no exemption. Livewire asset routes stored as closures in a route cache built by an earlier release are unclassified
+  and refused until the cache is rebuilt. Livewire assets served from the live route table or a rebuilt
+  cache are recognised normally. Other closures and unattributable admin
   actions are refused until the cache is rebuilt, and the application logs a critical error with the
   commands. An unverifiable cached action must be resolved by rebuilding the cache, rather than adding
   a name or URI exemption. `capell:upgrade` fails at the `capell-admin.route-cache-ownership` step and
