@@ -41,7 +41,27 @@ Core alias. A registration available only after runtime activation is too late
 for an installation preflight. Also verify that a connection-specific package
 reads its ownership evidence from that connection's migration ledger.
 
-The verification command and expected output are **not yet verified**.
+### Supporting package checks
+
+The following command was run from the Companion Packages repository with its
+PHP 8.4 dependencies, an SQLite in-memory test database and the matching Core
+checkout. It exited **0: 73 tests, 454 assertions**. These checks exercise naming,
+collision metadata, configured bases, aliases, index coexistence and the
+connection-specific migration ledger. They do not prove installation or import
+against your site's database.
+
+```sh
+vendor/bin/pest tests/Arch/CapellTableNamesTest.php tests/Packages/Feature/PackageTableNamingTest.php tests/Packages/Feature/CapellModelTablePrefixTest.php tests/Packages/Feature/PackageMigrationMetadataTest.php tests/Unit/PhpstanPackageMigrationSchemaTest.php --configuration=phpunit.xml
+```
+
+Record the exact Core and Companion Packages revisions with your result. A
+successful focused test run does not replace the integration checks for that
+pair. In particular, the frontend's public-artefact store contracts and the
+Companion Packages implementations must agree; do not remove publication
+permits or select an older dependency simply to make analysis pass.
+
+The destination verification command and expected output are **not yet
+verified**.
 
 ## What can go wrong and how to recover
 

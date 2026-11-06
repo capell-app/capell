@@ -32,7 +32,7 @@ see the [visual standard](../../standards/documentation-visuals.md).
 | --- | --- | --- |
 | [Audit the source](audit.md) | BREAD, menus, settings, access rules and media inventoried | Schema-only inspection verified; admin inventory not yet verified |
 | [Install beside Voyager](install.md) | Collision-safe destination without changing source tables | Not yet verified |
-| [Configure table names](table-naming.md) | Default, prefix and alias behaviour; foreign tables refused | Not yet verified |
+| [Configure table names](table-naming.md) | Default, prefix and alias behaviour; foreign tables refused | Supporting package checks passed; destination installation not yet verified |
 | [Connect Migration Assistant](database-source.md) | Pinned database source and recorded provenance | Not yet verified |
 | [Import and repeat](import.md) | Preview, execute and unchanged rerun | Not yet verified |
 | [Reconcile counts](reconcile.md) | Every source row accounted for | Not yet verified |
