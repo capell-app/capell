@@ -11,12 +11,12 @@ Marketplace submission, read [Extension and theme development](../../packages/co
 
 ## Scaffold First
 
-Use the existing `capell:make-extension` command to create new packages:
+Use the existing `capell:make:extension` command to create new packages:
 
 ```bash
-php artisan capell:make-extension
-php artisan capell:make-extension vendor/example --profile=minimal --path=packages --name="Example"
-php artisan capell:make-extension vendor/example-tools --profile=full --path=packages --premium
+php artisan capell:make:extension
+php artisan capell:make:extension vendor/example --profile=minimal --path=packages --name="Example"
+php artisan capell:make:extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
 Interactive mode asks for the package name, scaffold profile, target directory, and display name when they are missing. Non-interactive scripts must pass `package`, `--profile`, and `--path`.
