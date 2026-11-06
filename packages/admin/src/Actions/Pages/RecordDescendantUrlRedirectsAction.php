@@ -170,22 +170,23 @@ final class RecordDescendantUrlRedirectsAction
             return [];
         }
 
-        $currentUrls = [];
-
-        PageUrl::query()
+        // The ids are descendants of the page the caller is authorised to edit.
+        $rows = PageUrl::query()
             ->where('pageable_type', $morphClass)
             ->whereIn('pageable_id', $pageIds)
             ->whereIn('language_id', $languageIds)
             ->where(fn (Builder $query): Builder => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
             ->orderBy('id')
             ->toBase()
-            ->get(['pageable_id', 'language_id', 'url'])
-            ->each(function (object $row) use (&$currentUrls): void {
-                // Match value(): the first matching row wins.
-                if (is_string($row->url)) {
-                    $currentUrls[(int) $row->pageable_id][(int) $row->language_id] ??= $row->url;
-                }
-            });
+            ->get(['pageable_id', 'language_id', 'url']);
+
+        $currentUrls = [];
+        foreach ($rows as $row) {
+            // Match value(): the first matching row wins.
+            if (is_object($row) && is_string($row->url ?? null)) {
+                $currentUrls[(int) $row->pageable_id][(int) $row->language_id] ??= $row->url;
+            }
+        }
 
         return $currentUrls;
     }

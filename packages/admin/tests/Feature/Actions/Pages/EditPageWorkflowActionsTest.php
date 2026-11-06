@@ -27,7 +27,6 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\QueryExecuted;
-use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -350,7 +349,50 @@ it('does not write a scratch draft while another editor owns the page lock', fun
         ->and(EditorScratchDraft::query()->count())->toBe(0);
 });
 
-it('does not lock the page or write a scratch draft when an editor sync repeats the saved content', function (): void {
+it('extends a scratch draft expiry when unchanged content is synced', function (): void {
+    Date::setTestNow('2026-08-21 10:00:00');
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+    $sync = fn (?string $revision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: ['name' => 'Draft'],
+        context: 'page-editor:expiry-test',
+        expectedRevision: $revision,
+    ));
+    $first = $sync(null);
+    $expiry = EditorScratchDraft::query()->sole()->expires_at;
+    Date::setTestNow('2026-08-21 10:10:00');
+
+    $repeat = $sync($first->revision);
+
+    expect($repeat->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and(EditorScratchDraft::query()->sole()->expires_at->greaterThan($expiry))->toBeTrue();
+});
+
+it('rejects an unchanged sync when another editor has acquired the page lock', function (): void {
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+    $sync = fn (?string $revision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: ['name' => 'Draft'],
+        context: 'page-editor:lock-test',
+        expectedRevision: $revision,
+    ));
+    $first = $sync(null);
+    $owner = test()->createUser();
+    ContentLock::query()->create([
+        'user_id' => $owner->getAuthIdentifier(), 'model_type' => $page->getMorphClass(),
+        'model_id' => $page->getKey(), 'expires_at' => Date::now()->addMinutes(15),
+    ]);
+
+    expect($sync($first->revision)->status)->toBe(PageEditorScratchDraftStatus::Locked);
+});
+
+it('keeps the revision when an editor sync repeats the saved content', function (): void {
     $page = Page::factory()->createOne();
     $editor = test()->actingAsAdmin()->authenticatedUser();
     $sync = fn (array $payload, ?string $expectedRevision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
@@ -364,18 +406,7 @@ it('does not lock the page or write a scratch draft when an editor sync repeats 
 
     $first = $sync(['name' => 'Draft name'], null);
 
-    $statements = [];
-    $transactions = 0;
-    DB::listen(function (QueryExecuted $query) use (&$statements): void {
-        $statements[] = mb_strtolower(ltrim($query->sql));
-    });
-    Event::listen(TransactionBeginning::class, function () use (&$transactions): void {
-        $transactions++;
-    });
-
     $repeat = $sync(['name' => 'Draft name'], $first->revision);
-    $repeatStatements = $statements;
-    $repeatTransactions = $transactions;
 
     $changed = $sync(['name' => 'Changed name'], $first->revision);
 
@@ -383,8 +414,6 @@ it('does not lock the page or write a scratch draft when an editor sync repeats 
         ->and($repeat->status)->toBe(PageEditorScratchDraftStatus::Saved)
         ->and($repeat->affectedRows)->toBe(0)
         ->and($repeat->revision)->toBe($first->revision)
-        ->and($repeatTransactions)->toBe(0)
-        ->and(array_filter($repeatStatements, static fn (string $sql): bool => ! str_starts_with($sql, 'select')))->toBe([])
         ->and($changed->status)->toBe(PageEditorScratchDraftStatus::Saved)
         ->and($changed->affectedRows)->toBe(1)
         ->and($changed->revision)->not->toBe($first->revision)

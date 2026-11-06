@@ -34,16 +34,6 @@ final class SavePageEditorScratchDraftAction
             return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Unauthorized);
         }
 
-        $unchanged = $this->unchangedRevision($input);
-
-        if ($unchanged !== null) {
-            // Livewire syncs the whole form on every change, often with nothing
-            // new. Answering those from one read keeps the page row unlocked and
-            // the draft unwritten, so syncs stop contending with save and the
-            // heartbeat.
-            return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 0, $unchanged);
-        }
-
         return $input->page->getConnection()->transaction(function () use ($input): PageEditorScratchDraftResultData {
             SiteAccess::forActor($input->user)->query($input->page::class)->whereKey($input->page->getKey())->lockForUpdate()->firstOrFail();
 
@@ -65,6 +55,21 @@ final class SavePageEditorScratchDraftAction
 
         if ($lock->isBlocked()) {
             return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Locked);
+        }
+
+        if ($input->context !== 'page-editor' && $input->expectedRevision !== null) {
+            $unchanged = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)
+                ->where($this->identity($input, $input->user))
+                ->where('revision', $input->expectedRevision)
+                ->where('content_hash', hash('sha256', json_encode($input->payload, JSON_THROW_ON_ERROR)))
+                ->first();
+
+            if ($unchanged instanceof EditorScratchDraft) {
+                $unchanged->expires_at = CarbonImmutable::now('UTC')->addMinutes(SaveEditorScratchDraftAction::DEFAULT_TTL_MINUTES);
+                $unchanged->save();
+
+                return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 0, $input->expectedRevision);
+            }
         }
 
         if ($input->context === 'page-editor') {
@@ -112,25 +117,6 @@ final class SavePageEditorScratchDraftAction
             affectedRows: $affected,
             revision: $affected === 1 ? $revision : null,
         );
-    }
-
-    /**
-     * The revision already holding exactly this payload, when the caller's
-     * expected revision is still current and the content has not changed.
-     */
-    private function unchangedRevision(PageEditorScratchDraftInputData $input): ?string
-    {
-        if (! $input->user instanceof Authenticatable || $input->context === 'page-editor' || $input->expectedRevision === null) {
-            return null;
-        }
-
-        $current = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)
-            ->where($this->identity($input, $input->user))
-            ->where('revision', $input->expectedRevision)
-            ->where('content_hash', hash('sha256', json_encode($input->payload, JSON_THROW_ON_ERROR)))
-            ->exists();
-
-        return $current ? $input->expectedRevision : null;
     }
 
     /** @return array<string, mixed> */
