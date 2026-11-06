@@ -14,6 +14,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\Redirects\PageUrlKey;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
@@ -179,6 +180,7 @@ class BulkMovePagesAction
         $pageables->load('pageUrls');
 
         $taken = $this->visibleTakenUrls($snapshots, $actor);
+        $keys = new PageUrlKey;
         $records = [];
 
         foreach ($snapshots as $snapshot) {
@@ -195,7 +197,7 @@ class BulkMovePagesAction
                 continue;
             }
 
-            $takenKey = $snapshot['site_id'] . "\0" . $language->getKey() . "\0" . $oldUrl;
+            $takenKey = $keys->taken($snapshot['site_id'], (int) $language->getKey(), $oldUrl);
             if (isset($taken[$takenKey])) {
                 continue;
             }
@@ -225,6 +227,7 @@ class BulkMovePagesAction
     private function visibleTakenUrls(array $snapshots, User $actor): array
     {
         $taken = [];
+        $keys = new PageUrlKey;
 
         SiteAccess::forActor($actor)->query(PageUrl::class)
             ->whereIn('site_id', array_values(array_unique(array_column($snapshots, 'site_id'))))
@@ -232,8 +235,8 @@ class BulkMovePagesAction
             ->whereIn('url', array_values(array_unique(array_column($snapshots, 'url'))))
             ->toBase()
             ->get(['site_id', 'language_id', 'url'])
-            ->each(function (object $row) use (&$taken): void {
-                $taken[$row->site_id . "\0" . $row->language_id . "\0" . $row->url] = true;
+            ->each(function (object $row) use (&$taken, $keys): void {
+                $taken[$keys->taken($row->site_id, (int) $row->language_id, (string) $row->url)] = true;
             });
 
         return $taken;

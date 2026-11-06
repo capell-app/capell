@@ -150,7 +150,7 @@ it('skips descendant urls that did not change', function (): void {
         ->and(PageUrl::query()->where('type', UrlTypeEnum::Redirect)->exists())->toBeFalse();
 });
 
-it('reads only once per recorded redirect however many descendant urls change', function (): void {
+it('keeps redirect lookup reads bounded when one old URL is occupied', function (): void {
     // Listeners of the public URL-change event are not this action's cost.
     Event::fake([PageUrlChanged::class]);
 
@@ -163,6 +163,13 @@ it('reads only once per recorded redirect however many descendant urls change', 
         foreach ($children as $index => $child) {
             rewriteCanonicalUrl($child, '/moved-' . $childCount . '/child-' . $index);
         }
+
+        $firstUrls = $snapshot[$children->first()->getKey()];
+        $occupiedLanguageId = (int) array_key_first($firstUrls);
+        PageUrl::factory()->site($site)->manualRedirect()->createOne([
+            'language_id' => $occupiedLanguageId,
+            'url' => $firstUrls[$occupiedLanguageId],
+        ]);
 
         $statements = [];
         DB::listen(function (QueryExecuted $query) use (&$statements): void {
@@ -184,12 +191,13 @@ it('reads only once per recorded redirect however many descendant urls change', 
     };
 
     $small = $measure(2);
-    $large = $measure(8);
-    $extraRedirects = $large['recorded'] - $small['recorded'];
+    $large = $measure(20);
+    $extraRedirects = $large['redirectInserts'] - $small['redirectInserts'];
 
     // The only per-redirect read left is PageUrl's own collision guard.
     expect($small['recorded'])->toBeGreaterThan(0)
-        ->and($large['recorded'])->toBe(4 * $small['recorded'])
-        ->and($large['redirectInserts'])->toBe($large['recorded'])
+        ->and($large['recorded'])->toBe(10 * $small['recorded'])
+        ->and($small['redirectInserts'])->toBe($small['recorded'] - 1)
+        ->and($large['redirectInserts'])->toBe($large['recorded'] - 1)
         ->and($large['reads'] - $small['reads'])->toBeLessThanOrEqual($extraRedirects);
 });
