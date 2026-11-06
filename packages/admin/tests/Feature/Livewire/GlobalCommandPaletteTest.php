@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use BezhanSalleh\FilamentShield\Support\Utils;
+use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\PaletteCommandData;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Livewire\GlobalCommandPalette;
+use Capell\Admin\Support\PaletteAccess;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\PaletteWorkspaceResource;
 use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
 use Capell\Admin\Tests\Support\SiteScopedUserFactory;
 use Capell\Core\Models\Site;
@@ -185,4 +188,38 @@ it('does not expose commands or palette content in a direct guest Livewire reque
         ->assertDontSee('Private extension command')
         ->assertDontSee('/private-extension-command')
         ->assertDontSee('Private shortcut label');
+});
+
+it('includes authorised themes and publishing studio shortcuts in full page HTML', function (): void {
+    $resource = PaletteWorkspaceResource::class;
+    CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource($resource, 'Workspace'));
+    Filament::getPanel('admin')->resources([$resource]);
+    $role = Role::findOrCreate(Utils::getPanelUserRoleName(), 'web');
+    $user = $this->createUserWithRole($role);
+    $this->actingAs($user);
+    $this->get('/admin')->assertOk()->assertDontSee('Go to Themes')->assertDontSee('Go to PublishingStudio')
+        ->assertDontSee('/admin/themes')->assertDontSee('/admin/publishing-studio');
+    $user->givePermissionTo([
+        Permission::findOrCreate('ViewAny:Theme', 'web'),
+        Permission::findOrCreate('ViewAny:Workspace', 'web'),
+    ]);
+    $this->get('/admin')->assertOk()->assertSee('Go to Themes')->assertSee('Go to PublishingStudio')
+        ->assertSee('g t')->assertSee('g w')->assertSee('/admin/publishing-studio');
+});
+
+it('retains extension destination shortcuts with arbitrary command IDs and resolved URLs', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    config()->set('capell-admin.shortcuts', [
+        ['sequence' => 'g x', 'action' => 'navigate', 'target' => 'extension-destination', 'label' => 'Extension path shortcut'],
+        ['sequence' => 'g y', 'action' => 'navigate', 'target' => 'extension.report', 'label' => 'Extension ID shortcut'],
+        ['sequence' => 'g z', 'action' => 'navigate', 'target' => 'extension.action', 'label' => 'Non-navigation command shortcut'],
+    ]);
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.other-id', label: 'Extension destination', url: url('/admin/extension-destination')));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.report', label: 'Weekly report', url: url('/admin/reports/weekly')));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'extension.action', label: 'Action command', alpineHandler: 'window.test()'));
+    $this->actingAsAdmin();
+    $this->get('/admin')->assertOk()->assertSee('Extension path shortcut')->assertSee('Extension ID shortcut')
+        ->assertDontSee('Non-navigation command shortcut');
+    $shortcuts = resolve(PaletteAccess::class)->forRender()->shortcuts;
+    expect(array_column($shortcuts, 'url'))->toBe([url('/admin/extension-destination'), url('/admin/reports/weekly')]);
 });

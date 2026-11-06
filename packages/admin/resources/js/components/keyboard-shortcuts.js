@@ -77,11 +77,9 @@ export default function capellKeyboardShortcuts(shortcuts) {
 
         executeShortcut(shortcut) {
             if (shortcut.action === 'navigate') {
-                // target is a named route segment — resolve via Filament's
-                // panel URL conventions. Build the URL client-side from the
-                // current panel path prefix.
                 const panelBase = this.detectPanelBase()
-                window.location.href = panelBase + '/' + shortcut.target
+                window.location.href =
+                    shortcut.url ?? panelBase + '/' + shortcut.target
             } else if (shortcut.action === 'focus') {
                 const element = document.querySelector(shortcut.target)
                 if (element instanceof HTMLElement) {

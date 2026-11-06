@@ -5,6 +5,8 @@ declare(strict_types=1);
 return [
     'pages' => 'Go to pages',
     'sites' => 'Go to sites',
+    'themes' => 'Go to themes',
+    'publishing-studio' => 'Go to Publishing Studio',
     'settings' => 'Go to settings',
     'extensions' => 'Go to extensions',
     'title' => 'Command palette',

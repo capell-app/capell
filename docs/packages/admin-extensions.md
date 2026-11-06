@@ -434,3 +434,7 @@ If an admin contribution is missing, start with [Extension Troubleshooting](exte
 ## Command palette
 
 Extensions can register commands with `CapellAdmin::registerCommand()` and `PaletteCommandData`. Registered commands are shown to every authenticated user of the current panel. Register only commands whose destinations the extension authorises itself; the palette does not enforce destination permissions.
+
+Navigation shortcuts in `capell-admin.shortcuts` are retained when their target matches an accessible core command, a registered command ID (with or without the `capell.` prefix), or a registered command's panel-relative URL path. Navigation shortcuts receive the matched command’s resolved URL, so command IDs and destination paths may differ. Commands without a URL do not authorise navigation shortcuts. Themes resolves through the `Theme` admin resource group; Publishing Studio resolves through the optional `Workspace` group. Both must be registered on the current panel and pass `canAccess()`.
+
+The body-start palette tools view computes commands and shortcuts once and passes the render data to both the keyboard handler and the palette. Livewire updates recompute access using the original page's recorded site context. Access results are never stored across renders or in Livewire's public state; the request-scoped route context stores no grants and survives permission cache resets.

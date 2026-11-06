@@ -1,8 +1,9 @@
+@props(['shortcuts' => []])
+
 @php
     use Filament\Support\Facades\FilamentAsset;
 
-    /** @var array<int, array{sequence?: string, key?: string, action: string, target: string, label: string}> $shortcuts */
-    $shortcuts = resolve(\Capell\Admin\Support\PaletteAccess::class)->shortcuts();
+    /** @var array<int, array{sequence?: string, key?: string, action: string, target: string, label: string, url?: string}> $shortcuts */
 @endphp
 
 @if (! empty($shortcuts))

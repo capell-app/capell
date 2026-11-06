@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Capell\Admin\Livewire;
 
 use Capell\Admin\Data\PaletteCommandData;
-use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Data\PaletteRenderData;
 use Capell\Admin\Support\PaletteAccess;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
-use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class GlobalCommandPalette extends Component
@@ -18,17 +17,24 @@ class GlobalCommandPalette extends Component
 
     public string $query = '';
 
+    protected ?PaletteRenderData $initialAccess = null;
+
+    public function mount(?PaletteRenderData $access = null): void
+    {
+        $this->initialAccess = $access;
+    }
+
     /**
+     * @param  array<string, PaletteCommandData>|null  $commands
      * @return list<PaletteCommandData>
      */
-    #[Computed]
-    public function filteredCommands(): array
+    public function filteredCommands(?array $commands = null): array
     {
         if (! $this->isAuthenticated()) {
             return [];
         }
 
-        $allCommands = [...resolve(PaletteAccess::class)->coreCommands(), ...CapellAdmin::getPaletteCommands()];
+        $allCommands = $commands ?? resolve(PaletteAccess::class)->forRender()->commands;
         uasort($allCommands, fn (PaletteCommandData $first, PaletteCommandData $second): int => $first->sort <=> $second->sort);
 
         if ($this->query === '') {
@@ -44,15 +50,6 @@ class GlobalCommandPalette extends Component
                     || ($command->description !== null && str_contains(mb_strtolower($command->description), $normalizedQuery)),
             ),
         );
-    }
-
-    /**
-     * @return list<array{sequence?: string, key?: string, action: string, target: string, label: string}>
-     */
-    #[Computed]
-    public function shortcuts(): array
-    {
-        return resolve(PaletteAccess::class)->shortcuts();
     }
 
     public function toggle(): void
@@ -79,7 +76,13 @@ class GlobalCommandPalette extends Component
         /** @var view-string $view */
         $view = 'capell-admin::livewire.global-command-palette';
 
-        return view($view);
+        $access = $this->initialAccess ?? resolve(PaletteAccess::class)->forRender();
+        $this->initialAccess = null;
+
+        return view($view, [
+            'commands' => $this->filteredCommands($access->commands),
+            'shortcuts' => $access->shortcuts,
+        ]);
     }
 
     private function isAuthenticated(): bool

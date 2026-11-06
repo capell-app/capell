@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models\Concerns;
 
-use Capell\Core\Events\PermissionRelationsCleared;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Override;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -27,27 +25,6 @@ use Spatie\Permission\PermissionRegistrar;
  */
 trait HasSitePermissions
 {
-    #[Override]
-    public function unsetRelation($relation): static
-    {
-        parent::unsetRelation($relation);
-
-        if (in_array($relation, ['roles', 'permissions'], true)) {
-            event(new PermissionRelationsCleared($this));
-        }
-
-        return $this;
-    }
-
-    #[Override]
-    public function unsetRelations(): static
-    {
-        parent::unsetRelations();
-        event(new PermissionRelationsCleared($this));
-
-        return $this;
-    }
-
     /**
      * Assign a role to this user scoped to the given site.
      * Safe to call multiple times — silently skips duplicate assignments.

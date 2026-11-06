@@ -16,4 +16,6 @@ Use Command on macOS and Ctrl on other platforms for the shortcuts shown as Mod.
 | G then W        | Go to Publishing Studio           | Admin, outside text fields                   |
 | /               | Focus global search               | Admin, outside text fields                   |
 
-Press the keys in a sequence within one second. Navigation shortcuts can be configured with `capell-admin.shortcuts`; their current labels and keys appear under Keyboard shortcuts in the command palette when their destination is an accessible core palette command. Shortcuts for destinations you cannot access are hidden. A shortcut only works when its target is available and you have access to it.
+Press the keys in a sequence within one second. Navigation shortcuts can be configured with `capell-admin.shortcuts`; their current labels and keys appear under Keyboard shortcuts in the command palette when their destination is an accessible core or registered extension palette command. Themes requires an accessible Themes resource; Publishing Studio requires the optional Workspace resource to be installed, registered on the panel and accessible. Shortcuts for destinations you cannot access are hidden. A shortcut only works when its target is available and you have access to it.
+
+The keyboard handler, command list and shortcut help share one access decision per page render. Palette updates check access again in the original page’s site context. Permission revocation is reflected on the next render, including direct permission and role pivot changes.

@@ -249,7 +249,6 @@ use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Events\PageUrlsRewritten;
-use Capell\Core\Events\PermissionRelationsCleared;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
@@ -298,7 +297,6 @@ use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
-use Illuminate\Cache\Events\ForgettingKey;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -399,8 +397,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(AdminUploadDeletion::class);
 
         $events = $this->app->make(Dispatcher::class);
-        $events->listen(ForgettingKey::class, [PaletteRequestState::class, 'forgetPermissionCache']);
-        $events->listen(PermissionRelationsCleared::class, [PaletteRequestState::class, 'forgetActorPermissions']);
         $events->listen(TransactionBeginning::class, [AdminUploadGrantTransactionListener::class, 'beginning']);
         $events->listen(TransactionCommitted::class, [AdminUploadGrantTransactionListener::class, 'committed']);
         $events->listen(TransactionRolledBack::class, [AdminUploadGrantTransactionListener::class, 'rolledBack']);

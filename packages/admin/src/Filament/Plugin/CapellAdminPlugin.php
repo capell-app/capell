@@ -54,7 +54,6 @@ use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
@@ -154,6 +153,8 @@ class CapellAdminPlugin implements Plugin
         $headerActionsView = 'capell-admin::components.header.actions';
         /** @var view-string $mobileHeaderView */
         $mobileHeaderView = 'capell-admin::components.header.mobile';
+        /** @var view-string $paletteToolsView */
+        $paletteToolsView = 'capell-admin::components.palette-tools';
         /** @var view-string $hiddenNavigationInitialStateView */
         $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
@@ -257,11 +258,9 @@ class CapellAdminPlugin implements Plugin
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
-                hook: fn (): string => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check()
-                    ? Blade::render(
-                        "<x-capell-admin::keyboard-shortcuts />@livewire('capell-admin::global-command-palette')",
-                    )
-                    : '',
+                hook: fn (): ?View => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check()
+                    ? view($paletteToolsView)
+                    : null,
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,

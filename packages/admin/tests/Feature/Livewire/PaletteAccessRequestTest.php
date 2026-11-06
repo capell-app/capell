@@ -14,8 +14,12 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Filament\Facades\Filament;
 use Filament\Panel;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Container\Container;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 use Livewire\EventBus;
@@ -32,12 +36,13 @@ beforeEach(function (): void {
     $registrar->forgetCachedPermissions();
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Livewire::addPersistentMiddleware([SetSitePermissionScope::class]);
+    Filament::bootCurrentPanel();
 
     Route::model('paletteSite', Site::class);
-    Route::get('/palette-site/{paletteSite}', static fn (): string => Livewire::mount(GlobalCommandPalette::class))
+    Route::get('/palette-site/{paletteSite}', static fn (): string => FilamentView::renderHook(PanelsRenderHook::BODY_START)->toHtml())
         ->middleware(['web', SubstituteBindings::class, SetSitePermissionScope::class]);
     Route::model('paletteRecord', Page::class);
-    Route::get('/palette-record/{paletteRecord}', static fn (): string => Livewire::mount(GlobalCommandPalette::class))
+    Route::get('/palette-record/{paletteRecord}', static fn (): string => FilamentView::renderHook(PanelsRenderHook::BODY_START)->toHtml())
         ->middleware(['web', SubstituteBindings::class, SetSitePermissionScope::class]);
 });
 
@@ -98,54 +103,76 @@ it('keeps the route bound site through opening and searching on real Livewire up
     }
 })->with(['page', 'site']);
 
-it('performs one permission computation for three palette consumers per render', function (bool $update): void {
+it('performs one bounded permission computation for the shared full page hook and each palette update', function (bool $update): void {
     $site = Site::factory()->createOne();
     $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
     $this->actingAs($user)->withSession(['capell.current_site_id' => $site->getKey()]);
     $record = Page::factory()->createOne(['site_id' => $site->getKey()]);
+    resolve(PaletteRequestState::class)->recordTeamId($user, $site->getKey());
+    resolve(PaletteAccess::class)->forRender();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    // Baseline: independently authorising the keyboard handler, command list
+    // and shortcut help would repeat the same database work three times.
+    for ($consumer = 0; $consumer < 3; $consumer++) {
+        resolve(PaletteAccess::class)->forRender();
+    }
+
+    $threeConsumerBaseline = palettePermissionQueryCount();
+    DB::disableQueryLog();
+
     $snapshot = null;
     if ($update) {
-        $html = (string) $this->get('/palette-record/' . $record->getKey())->assertOk()->getContent();
-        $snapshot = paletteSnapshot($html);
+        $snapshot = paletteSnapshot((string) $this->get('/palette-record/' . $record->getKey())->assertOk()->getContent());
         app()->forgetScopedInstances();
         Livewire::flushState();
     }
 
+    view()->composer('capell-admin::components.palette-tools', static function (): void {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+    });
+    $stopHydrate = resolve(EventBus::class)->on('hydrate', static function (Component $component) use ($update): void {
+        if ($update && $component instanceof GlobalCommandPalette) {
+            DB::enableQueryLog();
+            DB::flushQueryLog();
+        }
+    });
     $counts = [];
     $stop = resolve(EventBus::class)->on('render', function (Component $component) use (&$counts): ?Closure {
         if (! $component instanceof GlobalCommandPalette) {
             return null;
         }
 
-        DB::flushQueryLog();
-        DB::enableQueryLog();
-        resolve(PaletteAccess::class)->coreCommands();
-        $once = palettePermissionQueryCount();
+        $before = palettePermissionQueryCount();
 
-        return function () use (&$counts, $once): void {
-            // The template consumes commands and shortcuts: three calls including the first above.
-            $counts = [$once, palettePermissionQueryCount()];
+        return function () use (&$counts, $before): void {
+            $counts = [$before, palettePermissionQueryCount()];
         };
     });
-
     try {
         if ($update) {
             $this->postJson(resolve(HandleRequests::class)->getUpdateUri(), ['components' => [[
                 'snapshot' => $snapshot, 'updates' => ['query' => 'settings'], 'calls' => [],
             ]]], ['X-Livewire' => 'true'])->assertOk();
         } else {
-            $this->get('/palette-record/' . $record->getKey())->assertOk();
+            $this->get('/palette-record/' . $record->getKey())->assertOk()->assertSee('capellKeyboardShortcuts');
         }
 
         expect($counts)->toHaveCount(2)
-            ->and($counts[1])->toBe($counts[0])
-            ->and($counts[0])->toBeGreaterThan(0)->toBeLessThanOrEqual(6);
+            ->and($counts[1])->toBeGreaterThan(0)->toBeLessThanOrEqual(7)
+            ->and($counts[1] * 3)->toBeLessThanOrEqual($threeConsumerBaseline);
+        if (! $update) {
+            // Mount and the two palette template consumers add no grant queries.
+            expect($counts[1])->toBe($counts[0]);
+        }
     } finally {
         $stop();
+        $stopHydrate();
     }
 })->with(['full page' => false, 'palette update' => true]);
 
-it('forgets both resolved site and cached access between sequential worker requests', function (): void {
+it('forgets recorded route context between sequential worker requests', function (): void {
     $allowedSite = Site::factory()->createOne();
     $deniedSite = Site::factory()->createOne();
     $user = SiteScopedUserFactory::create($allowedSite, ['View:SettingsPage']);
@@ -160,23 +187,7 @@ it('forgets both resolved site and cached access between sequential worker reque
     $this->get('/palette-record/' . Page::factory()->createOne(['site_id' => $deniedSite->getKey()])->getKey())->assertOk()->assertDontSee($url, false);
 });
 
-it('resolves and computes access once when no site middleware has run', function (): void {
-    $site = Site::factory()->createOne();
-    $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
-    $this->actingAs($user);
-    request()->setUserResolver(fn (): RealSiteScopedAdminResourceUser => $user);
-    DB::enableQueryLog();
-    $first = resolve(PaletteAccess::class)->coreCommands();
-    $once = palettePermissionQueryCount();
-    expect($first)->toHaveKey('capell.settings')->and($once)->toBeGreaterThan(0);
-
-    expect(resolve(PaletteAccess::class)->coreCommands())->toBe($first)
-        ->and(resolve(PaletteAccess::class)->coreCommands())->toBe($first)
-        ->and(palettePermissionQueryCount())->toBe($once)
-        ->and(resolve(PermissionRegistrar::class)->getPermissionsTeamId())->toBeNull();
-});
-
-it('isolates cached commands by actor panel and resolved team within a request scope', function (): void {
+it('authorises each actor panel and resolved team independently', function (): void {
     $allowedSite = Site::factory()->createOne();
     $deniedSite = Site::factory()->createOne();
     $allowedRecord = Page::factory()->createOne(['site_id' => $allowedSite->getKey()]);
@@ -212,7 +223,7 @@ it('drops revoked commands and shortcuts within the same request', function (str
     $label = (string) __('capell-admin::palette.settings');
     $render = fn (): string => Livewire::test(GlobalCommandPalette::class)->html();
     expect($render())->toContain($url)->toContain($label);
-    expect(view('capell-admin::components.keyboard-shortcuts')->render())->toContain('settings');
+    expect(view('capell-admin::components.palette-tools')->render())->toContain('settings');
 
     DB::table('model_has_permissions')->where('model_id', $user->getKey())
         ->where('model_type', $user->getMorphClass())->where('team_id', $site->getKey())->delete();
@@ -230,10 +241,10 @@ it('drops revoked commands and shortcuts within the same request', function (str
 
     expect(resolve(PaletteRequestState::class))->toBe($state);
     expect($render())->not->toContain($url)->not->toContain($label);
-    expect(view('capell-admin::components.keyboard-shortcuts')->render())->not->toContain('settings');
+    expect(view('capell-admin::components.palette-tools')->render())->not->toContain($url)->not->toContain('Go to Settings');
 })->with(['registrar', 'roles', 'permissions', 'all relations']);
 
-it('invalidates commands when only the registrar cache is forgotten', function (): void {
+it('rechecks access after a registrar reset', function (): void {
     $site = Site::factory()->createOne();
     $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
     $this->actingAs($user);
@@ -248,7 +259,7 @@ it('invalidates commands when only the registrar cache is forgotten', function (
     expect($access->coreCommands())->not->toHaveKey('capell.settings');
 });
 
-it('invalidates commands on relation resets after fallback team resolution', function (string $reset): void {
+it('rechecks access after relation resets with fallback team resolution', function (string $reset): void {
     $site = Site::factory()->createOne();
     $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
     $this->actingAs($user);
@@ -296,5 +307,89 @@ it('drops commands after a role is revoked without flushing the registrar', func
     expect($access->coreCommands())->toHaveKey('capell.settings');
     $user->removeRoleForSite($site, 'test-site-member');
     expect($access->coreCommands())->not->toHaveKey('capell.settings');
-    expect(array_column($access->shortcuts(), 'target'))->not->toContain('settings');
+    expect(array_column($access->forRender()->shortcuts, 'target'))->not->toContain('settings');
+});
+
+it('rechecks direct pivot revocation between renders without cache signals', function (string $mutation): void {
+    $site = Site::factory()->createOne();
+    $user = SiteScopedUserFactory::create($site, str_starts_with($mutation, 'permission') ? ['View:SettingsPage'] : []);
+    $registrar = resolve(PermissionRegistrar::class);
+    $registrar->setPermissionsTeamId($site->getKey());
+
+    $role = Role::findByName('test-site-member', 'web');
+    if (! str_starts_with($mutation, 'permission')) {
+        $role->givePermissionTo(Permission::findOrCreate('View:SettingsPage', 'web'));
+    }
+
+    $this->actingAs($user);
+    request()->setUserResolver(fn (): RealSiteScopedAdminResourceUser => $user);
+    $url = SettingsPage::getUrl();
+    $render = fn (): string => Livewire::test(GlobalCommandPalette::class)->html();
+    expect($render())->toContain($url)->toContain('Go to Settings');
+    match ($mutation) {
+        'roles detach' => $user->roles()->detach(),
+        'roles sync' => $user->roles()->sync([]),
+        'permissions detach' => $user->permissions()->detach(),
+        'permissions sync' => $user->permissions()->sync([]),
+        'role permissions detach' => $role->permissions()->detach(),
+        'role permissions sync' => $role->permissions()->sync([]),
+        default => throw new InvalidArgumentException($mutation),
+    };
+    expect($render())->not->toContain($url)->not->toContain('Go to settings')->not->toContain('Go to Settings');
+})->with(['roles detach', 'roles sync', 'permissions detach', 'permissions sync', 'role permissions detach', 'role permissions sync']);
+
+it('preserves the replayed route team after a registrar reset before render', function (): void {
+    $selectedSite = Site::factory()->createOne();
+    $recordSite = Site::factory()->createOne();
+    $user = SiteScopedUserFactory::create($selectedSite, ['View:SettingsPage']);
+    PermissionTeamContext::run($recordSite->getKey(), function () use ($user, $recordSite): void {
+        Role::findOrCreate('record-member', 'web');
+        $user->assignRoleForSite($recordSite, 'record-member');
+    }, $user);
+    $this->actingAs($user)->withSession(['capell.current_site_id' => $selectedSite->getKey()]);
+    $html = (string) $this->get('/palette-record/' . Page::factory()->createOne(['site_id' => $recordSite->getKey()])->getKey())->assertOk()->getContent();
+    app()->forgetScopedInstances();
+    Livewire::flushState();
+    $stop = resolve(EventBus::class)->on('hydrate', function (Component $component): void {
+        if ($component instanceof GlobalCommandPalette) {
+            resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+        }
+    });
+    try {
+        $response = $this->postJson(resolve(HandleRequests::class)->getUpdateUri(), ['components' => [[
+            'snapshot' => paletteSnapshot($html), 'updates' => ['open' => true], 'calls' => [],
+        ]]], ['X-Livewire' => 'true'])->assertOk();
+        expect($response->json('components.0.effects.html'))->not->toContain(SettingsPage::getUrl())->not->toContain('Go to Settings');
+    } finally {
+        $stop();
+    }
+});
+
+it('rechecks access in an Octane sandbox whose dispatcher captured the root container', function (): void {
+    $site = Site::factory()->createOne();
+    $user = SiteScopedUserFactory::create($site, ['View:SettingsPage']);
+    $this->actingAs($user);
+    request()->setUserResolver(fn (): RealSiteScopedAdminResourceUser => $user);
+    $root = app();
+    $rootState = resolve(PaletteRequestState::class);
+    $sandbox = clone $root;
+    $sandbox->forgetScopedInstances();
+    Container::setInstance($sandbox);
+    Facade::setFacadeApplication($sandbox);
+    try {
+        $state = resolve(PaletteRequestState::class);
+        expect($state)->not->toBe($rootState);
+        $state->recordTeamId($user, $site->getKey());
+        $access = resolve(PaletteAccess::class);
+        expect($access->coreCommands())->toHaveKey('capell.settings');
+        resolve(PermissionRegistrar::class)->setPermissionsTeamId($site->getKey());
+        $user->permissions()->detach();
+        resolve(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+        expect($access->coreCommands())->not->toHaveKey('capell.settings');
+        expect($state->resolvedTeamId($user, static fn (): ?int => null))->toBe($site->getKey());
+    } finally {
+        Container::setInstance($root);
+        Facade::setFacadeApplication($root);
+    }
 });

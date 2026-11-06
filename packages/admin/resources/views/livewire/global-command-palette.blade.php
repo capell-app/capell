@@ -100,7 +100,7 @@
                         </dt>
                         <dd>⌘/Ctrl + Shift + S</dd>
                     </div>
-                    @foreach ($this->shortcuts as $shortcut)
+                    @foreach ($shortcuts as $shortcut)
                         <div>
                             <dt>{{ $shortcut['label'] }}</dt>
                             <dd>
@@ -113,7 +113,7 @@
 
             {{-- Results --}}
             <ul class="max-h-80 overflow-y-auto py-2">
-                @forelse ($this->filteredCommands() as $command)
+                @forelse ($commands as $command)
                     <li>
                         @if ($command->url !== null)
                             <a
