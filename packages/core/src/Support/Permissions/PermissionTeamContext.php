@@ -13,7 +13,9 @@ final class PermissionTeamContext
     /**
      * Loaded Eloquent relations are independent of Spatie's permission cache.
      * Refresh at entry for every authorisation computation. Relations loaded in
-     * another team must be cleared on exit, including exceptional exits.
+     * another team must be cleared on exit, including exceptional exits. When
+     * the team is unchanged, relations loaded inside the operation stay on the
+     * actor after either normal or exceptional exit.
      *
      * @template TResult
      *

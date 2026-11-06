@@ -17,8 +17,8 @@ use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Log;
-use Livewire\Exceptions\MethodNotFoundException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -49,13 +49,11 @@ it('shows a searchable settings command only to users who can access settings', 
 
     Livewire::test(GlobalCommandPalette::class)
         ->call('toggle')
-        ->set('query', 'settings')
         ->assertSeeHtml('href="' . SettingsPage::getUrl() . '"');
 
     $this->actingAsUser();
     Livewire::test(GlobalCommandPalette::class)
         ->call('toggle')
-        ->set('query', 'settings')
         ->assertDontSeeHtml('href="' . SettingsPage::getUrl() . '"');
 });
 
@@ -95,10 +93,10 @@ it('sorts extension commands together with core commands', function (): void {
         ->toBe(['extension.first', 'capell.pages']);
 });
 
-it('reserves core command ids even when their destination is denied', function (): void {
+it('reserves core command ids even when their destination is denied', function (string $id): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAs($this->createUserWithPermission(Permission::findOrCreate('ViewAny:Page', 'web')));
-    CapellAdmin::registerCommand(new PaletteCommandData(id: 'capell.pages', label: 'Replacement pages', url: '/replacement'));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: $id, label: 'Replacement pages', url: '/replacement'));
 
     $logger = Log::spy();
     $commands = resolve(PaletteAccess::class)->forRender()->commands;
@@ -108,8 +106,8 @@ it('reserves core command ids even when their destination is denied', function (
 
     $this->actingAsUser();
     Livewire::test(GlobalCommandPalette::class)->assertDontSee('Replacement pages')->assertDontSee('/replacement');
-    $logger->shouldHaveReceived('debug')->with('Ignoring extension palette command with reserved core ID.', ['id' => 'capell.pages']);
-});
+    $logger->shouldHaveReceived('debug')->with('Ignoring extension palette command with reserved core ID.', ['id' => $id]);
+})->with(['capell.pages', 'pages']);
 
 it('mounts the palette and shortcuts for an authenticated panel user', function (): void {
     $this->actingAsAdmin();
@@ -159,7 +157,7 @@ it('retains site scoped commands on a Livewire update', function (): void {
 
         $palette = PermissionTeamContext::run($site->getKey(), fn () => Livewire::test(GlobalCommandPalette::class), $user);
         $palette->assertSeeHtml('href="' . SettingsPage::getUrl() . '"')
-            ->set('query', 'settings')
+            ->call('toggle')
             ->assertSeeHtml('href="' . SettingsPage::getUrl() . '"');
         expect($registrar->getPermissionsTeamId())->toBeNull();
     } finally {
@@ -289,13 +287,6 @@ it('requires explicit visibility and an exact extension ID for extension shortcu
         ->assertDontSee('Implicit shortcut')->assertDontSee('URL path shortcut');
 });
 
-it('does not expose filteredCommands as a Livewire action', function (): void {
-    Filament::setCurrentPanel(Filament::getPanel('admin'));
-    $this->actingAsUser();
-    expect(fn () => Livewire::test(GlobalCommandPalette::class)->call('filteredCommands', ['bad' => [], 'worse' => []]))
-        ->toThrow(MethodNotFoundException::class);
-});
-
 it('filters the rendered list locally without a Livewire request and resets search on close', function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAsUser();
@@ -342,3 +333,33 @@ it('filters the rendered list locally without a Livewire request and resets sear
 
     expect(trim($process->getOutput()))->toBe('local search passed');
 });
+
+it('hides and reports a throwing extension without breaking the admin page or other commands', function (Throwable $failure): void {
+    Exceptions::fake();
+    $this->actingAsAdmin();
+    CapellAdmin::registerCommand(new PaletteCommandData(
+        id: 'extension.broken',
+        label: 'Broken extension command',
+        url: '/broken-extension',
+        visible: static fn (Authenticatable $actor): bool => throw $failure,
+    ));
+    CapellAdmin::registerCommand(new PaletteCommandData(
+        id: 'extension.healthy',
+        label: 'Healthy extension command',
+        url: '/healthy-extension',
+        visible: static fn (Authenticatable $actor): bool => true,
+    ));
+    config()->set('capell-admin.shortcuts', [
+        ['key' => 'b', 'action' => 'navigate', 'target' => 'extension.broken', 'label' => 'Broken shortcut'],
+        ['key' => 'h', 'action' => 'navigate', 'target' => 'extension.healthy', 'label' => 'Healthy shortcut'],
+    ]);
+
+    $this->get('/admin')->assertOk()->assertSee('Command palette')
+        ->assertSee('Healthy extension command')->assertSee('/healthy-extension')->assertSee('Healthy shortcut')
+        ->assertSee(__('capell-admin::palette.pages'))
+        ->assertDontSee('Broken extension command')->assertDontSee('/broken-extension')->assertDontSee('Broken shortcut');
+    expect(Exceptions::reported())->toContain($failure);
+})->with([
+    'exception' => fn (): Throwable => new RuntimeException('Extension visibility failed'),
+    'error' => fn (): Throwable => new Error('Extension visibility failed'),
+]);

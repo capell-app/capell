@@ -17,6 +17,7 @@ use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\PermissionRegistrar;
+use Throwable;
 
 final class PaletteAccess
 {
@@ -29,14 +30,21 @@ final class PaletteAccess
             $extensions = [];
             $actor = Filament::auth()->user();
             assert($actor !== null);
+            $reservedIds = [...self::CORE_TARGETS, ...array_map(static fn (string $target): string => 'capell.' . $target, self::CORE_TARGETS)];
             foreach (CapellAdmin::getPaletteCommands() as $id => $command) {
-                if (in_array($id, array_map(static fn (string $target): string => 'capell.' . $target, self::CORE_TARGETS), true)) {
+                if (in_array($id, $reservedIds, true)) {
                     Log::debug('Ignoring extension palette command with reserved core ID.', ['id' => $id]);
 
                     continue;
                 }
 
-                if ($command->visible !== null && ! ($command->visible)($actor)) {
+                try {
+                    if ($command->visible !== null && ! ($command->visible)($actor)) {
+                        continue;
+                    }
+                } catch (Throwable $exception) {
+                    report($exception);
+
                     continue;
                 }
 

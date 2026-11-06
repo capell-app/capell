@@ -148,3 +148,38 @@ it('exposes only the selected teams role definitions to site operators', functio
         auth()->forgetUser();
     }
 });
+
+it('clears relations on same-team entry and retains relations loaded inside the scope on exit', function (bool $throws): void {
+    $user = HasSitePermissionsTestUser::query()->create(['name' => 'Scoped user', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $registrar = resolve(PermissionRegistrar::class);
+    $registrar->setPermissionsTeamId(123);
+
+    $user->load('roles', 'permissions');
+    expect($user->relationLoaded('roles'))->toBeTrue()
+        ->and($user->relationLoaded('permissions'))->toBeTrue();
+    $roles = null;
+    $permissions = null;
+    $operation = function () use ($user, $throws, &$roles, &$permissions): string {
+        expect($user->relationLoaded('roles'))->toBeFalse()
+            ->and($user->relationLoaded('permissions'))->toBeFalse();
+        $user->load('roles', 'permissions');
+        $roles = $user->roles;
+        $permissions = $user->permissions;
+        throw_if($throws, RuntimeException::class, 'same-team failure');
+
+        return 'completed';
+    };
+
+    if ($throws) {
+        expect(fn (): mixed => PermissionTeamContext::run(123, $operation, $user))
+            ->toThrow(RuntimeException::class, 'same-team failure');
+    } else {
+        expect(PermissionTeamContext::run(123, $operation, $user))->toBe('completed');
+    }
+
+    expect($registrar->getPermissionsTeamId())->toBe(123)
+        ->and($user->relationLoaded('roles'))->toBeTrue()
+        ->and($user->relationLoaded('permissions'))->toBeTrue()
+        ->and($user->roles)->toBe($roles)
+        ->and($user->permissions)->toBe($permissions);
+})->with(['normal exit' => false, 'exceptional exit' => true]);

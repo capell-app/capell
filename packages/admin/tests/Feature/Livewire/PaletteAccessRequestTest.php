@@ -72,7 +72,7 @@ function palettePermissionQueryCount(): int
     ) === 1)->count();
 }
 
-it('keeps the route bound site through opening and searching on real Livewire updates', function (string $recordType): void {
+it('keeps the route bound site through opening and closing on real Livewire updates', function (string $recordType): void {
     $selectedSite = Site::factory()->createOne();
     $recordSite = Site::factory()->createOne();
     $user = SiteScopedUserFactory::create($recordSite, ['View:SettingsPage']);
@@ -89,12 +89,12 @@ it('keeps the route bound site through opening and searching on real Livewire up
         ->assertSessionHas('capell.current_site_id', $selectedSite->getKey())->getContent();
     $snapshot = paletteSnapshot($html);
 
-    foreach (['', 'settings'] as $query) {
+    foreach ([true, false, true] as $open) {
         app()->forgetScopedInstances();
         Livewire::flushState();
         $response = $this->postJson(resolve(HandleRequests::class)->getUpdateUri(), ['components' => [[
             'snapshot' => $snapshot,
-            'updates' => ['open' => true, 'query' => $query],
+            'updates' => ['open' => $open],
             'calls' => [],
         ]]], ['X-Livewire' => 'true'])->assertOk();
         expect($response->json('components.0.effects.html'))->toContain($url);
@@ -153,7 +153,7 @@ it('performs one bounded permission computation for the shared full page hook an
     try {
         if ($update) {
             $this->postJson(resolve(HandleRequests::class)->getUpdateUri(), ['components' => [[
-                'snapshot' => $snapshot, 'updates' => ['query' => 'settings'], 'calls' => [],
+                'snapshot' => $snapshot, 'updates' => ['open' => true], 'calls' => [],
             ]]], ['X-Livewire' => 'true'])->assertOk();
         } else {
             $this->get('/palette-record/' . $record->getKey())->assertOk()->assertSee('capellKeyboardShortcuts');

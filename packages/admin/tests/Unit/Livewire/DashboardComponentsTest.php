@@ -13,7 +13,7 @@ use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
-it('filters global command palette commands by label or description and resets on close', function (): void {
+it('renders commands for local filtering and toggles or closes the global command palette', function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $this->actingAsUser();
     CapellAdmin::registerCommand(new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content'));
@@ -21,11 +21,11 @@ it('filters global command palette commands by label or description and resets o
 
     $palette = Livewire::test(GlobalCommandPalette::class);
     expect(array_column($palette->viewData('commands'), 'id'))->toBe(['create', 'media']);
-    $palette->set('query', 'images');
-    expect(array_column($palette->viewData('commands'), 'id'))->toBe(['media']);
     $palette->call('toggle')->assertSet('open', true)
-        ->set('query', 'page')
-        ->call('toggle')->assertSet('open', false)->assertSet('query', '');
+        ->call('toggle')->assertSet('open', false)
+        ->call('toggle')->assertSet('open', true)
+        ->call('close')->assertSet('open', false);
+    expect(array_column($palette->viewData('commands'), 'id'))->toBe(['create', 'media']);
 });
 
 it('hides info banners for dismissed hints and records new dismissals', function (): void {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import keyboardShortcuts from '../../resources/js/components/keyboard-shortcuts.js'
 
 for (const source of ['source', 'published']) {
@@ -63,12 +64,29 @@ for (const source of ['source', 'published']) {
             assert.equal(window.count('keydown'), 1)
             first.handleKeydown({ key: 'g', target: null })
             assert.equal(first.pendingKey, 'g')
-            document.dispatchEvent(new Event('livewire:navigate'))
+            const navigation = new Event('livewire:navigate', {
+                cancelable: true,
+            })
+            document.addEventListener(
+                'livewire:navigate',
+                (event) => event.preventDefault(),
+                { once: true },
+            )
+            assert.equal(document.dispatchEvent(navigation), false)
+            assert.equal(window.count('keydown'), 1)
+            let cancelledExecutions = 0
+            first.executeShortcut = () => cancelledExecutions++
+            const completeChord = new Event('keydown', { cancelable: true })
+            completeChord.key = 't'
+            window.dispatchEvent(completeChord)
+            assert.equal(cancelledExecutions, 1)
+            first.handleKeydown({ key: 'g', target: null })
+            document.dispatchEvent(new Event('livewire:navigating'))
             assert.equal(window.count('keydown'), 0)
             assert.equal(first.pendingKey, null)
             assert.equal(first.pendingTimer, null)
             first.destroy()
-            assert.equal(document.count('livewire:navigate'), 0)
+            assert.equal(document.count('livewire:navigating'), 0)
 
             const next = createShortcuts([
                 { key: '/', action: 'focus', target: '#search' },
@@ -83,7 +101,7 @@ for (const source of ['source', 'published']) {
             assert.equal(executions, 1)
             next.destroy()
             assert.equal(window.count('keydown'), 0)
-            assert.equal(document.count('livewire:navigate'), 0)
+            assert.equal(document.count('livewire:navigating'), 0)
         } finally {
             for (const name of [
                 'window',
@@ -98,3 +116,20 @@ for (const source of ['source', 'published']) {
         }
     })
 }
+
+test('the published keyboard module is byte-identical to the source', () => {
+    assert.deepEqual(
+        readFileSync(
+            new URL(
+                '../../publishes/build/js/components/keyboard-shortcuts.js',
+                import.meta.url,
+            ),
+        ),
+        readFileSync(
+            new URL(
+                '../../resources/js/components/keyboard-shortcuts.js',
+                import.meta.url,
+            ),
+        ),
+    )
+})

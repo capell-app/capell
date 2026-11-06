@@ -7,18 +7,40 @@
     x-data="{
         open: @entangle('open'),
         query: '',
+        commands: [],
+        resultsObserver: null,
         init() {
             this.$watch('open', (value) => {
                 if (! value) this.query = '';
             });
+        },
+        observeResults(results) {
+            this.resultsObserver?.disconnect();
+            const refresh = () => {
+                this.commands = Array.from(results.querySelectorAll('[data-palette-command]')).map((command) => ({
+                    label: command.dataset.label,
+                    description: command.dataset.description,
+                }));
+            };
+            refresh();
+            this.resultsObserver = new MutationObserver(refresh);
+            this.resultsObserver.observe(results, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['data-label', 'data-description'],
+            });
+        },
+        destroy() {
+            this.resultsObserver?.disconnect();
         },
         matches(label, description) {
             const query = this.query.toLocaleLowerCase();
             return label.toLocaleLowerCase().includes(query) || (description ?? '').toLocaleLowerCase().includes(query);
         },
         hasResults() {
-            return Array.from(this.$refs.results.querySelectorAll('[data-palette-command]')).some((command) =>
-                this.matches(command.dataset.label, command.dataset.description)
+            return this.commands.some((command) =>
+                this.matches(command.label, command.description)
             );
         },
     }"
@@ -132,6 +154,7 @@
             <ul
                 class="max-h-80 overflow-y-auto py-2"
                 x-ref="results"
+                x-init="observeResults($el)"
             >
                 @foreach ($commands as $command)
                     <li

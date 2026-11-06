@@ -26,7 +26,7 @@ export default function capellKeyboardShortcuts(shortcuts) {
                 { signal },
             )
             document.addEventListener(
-                'livewire:navigate',
+                'livewire:navigating',
                 () => this.destroy(),
                 { signal },
             )
