@@ -50,6 +50,17 @@ Follow [the naming checks](table-naming.md#supporting-package-checks) and the
 [installed-runtime lifecycle](../../development/installed-runtime-lifecycle.md).
 An interrupted static-analysis worker cannot establish a passing build.
 
+This pilot command also exited 0, with 12 tests and 1,952 assertions:
+
+```sh
+vendor/bin/pest packages/contacts/tests/Integration/Providers/InstalledRuntimeParityTest.php packages/layout-builder/tests/Integration/Providers/InstalledRuntimeParityTest.php packages/access-gate/tests/Integration/Providers/InstalledRuntimeParityTest.php --configuration=phpunit.xml
+```
+
+The subsequent run covering all 54 packages with migration metadata passed
+110 tests and 32,340 assertions. These tests compare fresh installed, uninstalled
+and activated runtime inventories; they do not establish that your destination
+site has imported its content correctly.
+
 Review regenerated installed-runtime inventories against an immutable source
 commit before accepting them. Check provider order, the package owner and table
 roots, source-file hashes, and installation receipt emissions. An inventory
