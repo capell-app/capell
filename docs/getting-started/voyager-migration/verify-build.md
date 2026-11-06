@@ -50,6 +50,17 @@ Follow [the naming checks](table-naming.md#supporting-package-checks) and the
 [installed-runtime lifecycle](../../development/installed-runtime-lifecycle.md).
 An interrupted static-analysis worker cannot establish a passing build.
 
+Review regenerated installed-runtime inventories against an immutable source
+commit before accepting them. Check provider order, the package owner and table
+roots, source-file hashes, and installation receipt emissions. An inventory
+update must explain each behavioural difference; generating a new file does not
+prove that the change is correct. Keep the previous inventory and run the parity
+tests against the reviewed candidate.
+
+Check that each package requires a released Core version containing the naming
+API it imports. A compatible local source checkout can hide an insufficient
+Composer minimum. Preserve any higher minimum required by another contract.
+
 ## What can go wrong and how to recover
 
 A large-file hook can stall when Python and Git both fill the opposite sides of
@@ -69,6 +80,11 @@ to make the generated manifest check pass.
 If a test passes alone and fails after another test, inspect shared containers,
 model event dispatchers and other process state. Restore the state a fixture
 borrows, then rerun the combined checks. Keep the original failure evidence.
+
+A dependency-floor check can also find contracts that exist on Core's main
+branch but have no stable release. Record the release dependency and retain the
+failed check. Do not lower the declared requirement, remove the imported contract
+or substitute a stub to make the build appear releasable.
 
 ## Roll back
 
