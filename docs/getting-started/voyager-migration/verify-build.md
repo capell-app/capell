@@ -107,14 +107,19 @@ A batched check can announce the complete file count and still stop at its first
 failing batch. Retain every batch result and a non-zero final exit while reviewing
 all remaining drift. For inconsistent tool output, use a new, owned cache with
 the same rules; preserve existing caches. Review generated edits before applying
-them, including duplicate trait or import suggestions.
+them, including duplicate trait or import suggestions. If a selective invocation
+and the complete runner disagree, retain both results and investigate their
+configuration, cache and process context. Accept the complete required gate
+only after it finishes successfully.
 
 Review automated control-flow changes against real import behaviour. A tool
 can incorrectly simplify a condition that distinguishes a first import from an
 update. Keep first-import creation checks separate from update and no-op paths,
 and rerun the source-key behaviour tests after any such change. During source
 verification, those tests caught two failures after an unsafe simplification; the
-corrected condition passed all six tests.
+corrected first-import assertion passed all six tests and the standard
+Rector check. Keep the mapping state at the typed assertion boundary so an
+incorrect simplification at its caller cannot erase the creation check.
 
 If a test passes alone and fails after another test, inspect shared containers,
 model event dispatchers and other process state. Restore the state a fixture
