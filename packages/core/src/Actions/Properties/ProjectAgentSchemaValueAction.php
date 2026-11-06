@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Properties;
 
+use Capell\Core\Actions\PublicRead\PageUrlIsPubliclyReadableAction;
 use Capell\Core\Contracts\Media\MediaContract;
 use Capell\Core\Data\Properties\AgentPropertyEntryData;
 use Capell\Core\Enums\PropertyType;
@@ -11,6 +12,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Exceptions\UrlMissingSiteDomainException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
@@ -91,8 +93,10 @@ final class ProjectAgentSchemaValueAction
                 ->when($languageId !== null, static fn (Builder $translation): Builder => $translation->where('language_id', $languageId)))
             ->whereHas('siteDomain', static fn (Builder $query): Builder => $query->where('status', true))
             ->when($languageId !== null, fn (Builder $query): Builder => $query->where('language_id', $languageId))
-            ->with('siteDomain')->orderBy('id')->first();
-        if ($url === null) {
+            ->with('siteDomain')->orderBy('id')->get()
+            // A reference must not disclose a page an anonymous visitor cannot read.
+            ->first(static fn (PageUrl $candidate): bool => PageUrlIsPubliclyReadableAction::run($candidate));
+        if (! $url instanceof PageUrl) {
             return null;
         }
 

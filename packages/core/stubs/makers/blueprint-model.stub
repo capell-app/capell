@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Blueprints;
+
+use Capell\Core\Models\Concerns\HasBlueprint;
+use Capell\Core\Models\Contracts\Blueprintable;
+use Illuminate\Database\Eloquent\Model;
+
+final class {{ class }} extends Model implements Blueprintable
+{
+    use HasBlueprint;
+
+    protected $guarded = [];
+}

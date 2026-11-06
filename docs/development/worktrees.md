@@ -254,7 +254,9 @@ uncommitted edits, so:
   `python3 scripts/hooks/install-pre-commit.py`. Linked worktrees share that hook; the
   installer refuses to change shared hooks from a linked worktree. The hook checks the
   active commit index in a private snapshot; pre-push checks each pushed range against
-  its own target-commit snapshot. Neither hook stashes the original checkout.
+  its own target-commit snapshot. The debugging-method and do-not-commit guards run
+  at both stages and in the PHP Quality workflow over the changed range. Neither hook
+  stashes the original checkout.
   Existing legacy hooks are copied and run in that snapshot; review any legacy hook
   first because arbitrary code can still write absolute paths outside it. If a formatter
   changes the snapshot, the commit stops: coordinate with other writers before

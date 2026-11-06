@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
+use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -10,6 +14,8 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Frontend\Actions\GenerateErrorPageCacheAction;
 use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
@@ -17,6 +23,9 @@ use Capell\Frontend\Enums\ErrorPageStatusEnum;
 use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
+use Capell\Frontend\Tests\Support\RecordingStaticErrorPageStore;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -33,6 +42,8 @@ afterEach(function (): void {
 it('generates static error html per status and updates the manifests', function (): void {
     $store = new class implements StaticErrorPageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [];
 
@@ -46,7 +57,7 @@ it('generates static error html per status and updates the manifests', function 
             return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
         }
 
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }
@@ -144,6 +155,8 @@ it('generates static error html per status and updates the manifests', function 
 it('rejects and does not store error page html that fails the public render contract', function (): void {
     $store = new class implements StaticErrorPageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [];
 
@@ -157,7 +170,7 @@ it('rejects and does not store error page html that fails the public render cont
             return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
         }
 
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }
@@ -195,4 +208,39 @@ it('rejects and does not store error page html that fails the public render cont
         ->toThrow(PublicRenderContractViolationException::class);
 
     expect($store->files)->toBeEmpty();
+});
+
+it('writes no static error page while the public-read rules of its site are time-bounded', function (): void {
+    $store = new RecordingStaticErrorPageStore;
+    app()->instance(StaticErrorPageStore::class, $store);
+    RegenerateSiteErrorPagesAction::allowToRun();
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()->state(['scheme' => 'https', 'domain' => 'embargoed.example.test', 'language_id' => $language->id])->create();
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class((int) $siteDomain->site_id) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private int $embargoedSite) {}
+
+        public function key(): string
+        {
+            return 'error-page-embargo';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            return $siteId === null || $siteId === $this->embargoedSite ? $now->addHour() : null;
+        }
+    });
+
+    $entries = GenerateErrorPageCacheAction::run($siteDomain->site);
+
+    // Served without Laravel, so not written: Laravel renders these errors instead.
+    expect($store->files)->toBe([])
+        ->and($entries)->toBe([]);
 });

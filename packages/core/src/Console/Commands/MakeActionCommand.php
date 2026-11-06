@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Makers\RunMakerAction;
+use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Makers\MakerInputData;
 use Illuminate\Console\Command;
@@ -12,11 +13,14 @@ use Throwable;
 
 class MakeActionCommand extends Command
 {
+    use DeprecatesMakerAliases;
     use DescribesCommandOptions;
+
+    protected $aliases = ['capell:make-action'];
 
     protected $description = 'Generate a new Capell Action class (and optional Data companion) in App\\Actions';
 
-    protected $signature = 'capell:make-action
+    protected $signature = 'capell:make:action
         {name : The name of the action, without the Action suffix (e.g. CreateBlogPost)}
         {--data : Also generate a companion Data class in App\\Data}
         {--F|force : Overwrite existing files after warning}';
