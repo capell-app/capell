@@ -51,6 +51,7 @@ use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
+use Capell\Core\Console\Commands\ReconcilePublicReadProjectionsCommand;
 use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
@@ -90,8 +91,10 @@ use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
+use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
@@ -99,6 +102,7 @@ use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
+use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
@@ -194,6 +198,11 @@ use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadResponseStamps;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
@@ -241,11 +250,13 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -337,6 +348,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AuditSiteDomainOriginsCommand::class,
             CacheComponentsCommand::class,
             BackupHealthCommand::class,
+            ReconcilePublicReadProjectionsCommand::class,
             CloudBootstrapCommand::class,
             ClearComponentsCacheCommand::class,
             CoreFakerCommand::class,
@@ -401,6 +413,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
+            ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
             ->registerLinkableContentProviders()
@@ -414,6 +427,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerContentGraphExtractors()
             ->registerThemeRuntime()
             ->registerMultiNodeUploadGuard()
+            ->registerPublicReadResponseCaching()
             ->registerOptimization()
             ->registerLockdownStore()
             ->registerRedirectBehavior()
@@ -658,6 +672,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
+        $this->app->singleton(PublicPageReadEligibilityRegistry::class);
+        $this->app->singleton(PublicReadWithdrawalSteps::class);
+        $this->app->scoped(PublicReadEligibilityRevision::class);
+        $this->app->scoped(PublicReadEligibilityState::class);
+        $this->app->scoped(PublicReadResponseStamps::class);
         $this->app->scoped(
             DatabasePlatformRegistry::class,
             fn (Application $app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
@@ -854,6 +873,35 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->dailyAt('01:00')
                 ->timezone('UTC')
                 ->withoutOverlapping()
+                ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    /**
+     * Every response that consulted public-read rules gets cache lifetimes
+     * bounded by their next transition and a validator that includes them.
+     * Global, so no controller, feed or API has to remember it.
+     */
+    private function registerPublicReadResponseCaching(): self
+    {
+        $kernel = $this->app->make(HttpKernelContract::class);
+
+        if ($kernel instanceof HttpKernel && ! $kernel->hasMiddleware(CapPublicReadResponseCaching::class)) {
+            $kernel->pushMiddleware(CapPublicReadResponseCaching::class);
+        }
+
+        return $this;
+    }
+
+    private function registerPublicReadWithdrawalRetrySchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            // A run killed mid-way must not hold the backstop's lock for the default day.
+            $schedule->command('capell:public-read:reconcile')
+                ->everyMinute()
+                ->withoutOverlapping(5)
                 ->onOneServer();
         });
 
@@ -1089,6 +1137,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
         Event::listen(PageUrlsRewritten::class, [CreateRedirectsForChangedPageUrls::class, 'handleUrlRewrite']);
         Event::listen(PageSaved::class, [SyncPromotedPropertyFieldsOnPageSaved::class, 'handle']);
+        Event::listen(PublicReadEligibilityChanged::class, [WithdrawPublicReadProjectionsOnEligibilityChanged::class, 'handle']);
 
         return $this;
     }

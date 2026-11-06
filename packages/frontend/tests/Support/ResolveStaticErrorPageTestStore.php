@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Tests\Support;
 
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Illuminate\Support\Facades\File;
 use Override;
@@ -13,6 +14,8 @@ use Override;
  */
 class ResolveStaticErrorPageTestStore implements StaticErrorPageStore
 {
+    use FencesTestArtefactStore;
+
     public string $directory;
 
     public function __construct()
@@ -33,7 +36,7 @@ class ResolveStaticErrorPageTestStore implements StaticErrorPageStore
     }
 
     #[Override]
-    public function put(string $file, string $contents): void
+    public function put(PublicArtefactPermit $permit, string $file, string $contents): void
     {
         File::ensureDirectoryExists(dirname($this->fullPath($file)));
         File::put($this->fullPath($file), $contents);

@@ -253,6 +253,36 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.publish-public-artefact",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublicRead\\PublishPublicArtefactAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Only path for writing copies served without Laravel; checks eligibility under the store lock.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.action.reconcile-public-read-projections",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublicRead\\ReconcilePublicReadProjectionsAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Source of truth for withdrawal: repairs the revision and withdraws stores built under another stamp.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.action.record-public-read-eligibility-change",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\PublicRead\\RecordPublicReadEligibilityChangeAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Advances the public-read eligibility revision when access rules change without a page save.",
+            "contractTestId": null
+        },
+        {
             "id": "core.action.reporting-dispatch",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\Reporting\\DispatchSignalAction",
@@ -423,6 +453,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.evaluates-public-page-read-candidates-individually",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\EvaluatesPublicPageReadCandidatesIndividually",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Default one-at-a-time batch evaluation for public-read eligibility contributors.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.extension-contribution",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
@@ -441,6 +481,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Neutral runtime contribution receipt boundary.",
             "contractTestId": "core.extension-contribution-receipt"
+        },
+        {
+            "id": "core.contract.fingerprints-public-read-rules",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\FingerprintsPublicReadRules",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Digest of a contributor's stored rule inputs, so a change nobody announced is still detected.",
+            "contractTestId": null
         },
         {
             "id": "core.contract.frontend-route-reservation-contributor",
@@ -523,6 +573,26 @@
             "contractTestId": "core.project-build-manifest-install"
         },
         {
+            "id": "core.contract.public-artefact-fence",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\PublicArtefactFence",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "An out-of-band artefact store's lease-free lock, shared by its writes and withdrawals.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.contract.public-page-read-eligibility",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\PublicPageReadEligibility",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned anonymous public-read eligibility for page addresses in public projections.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.public-render-data",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionPublicRenderData",
@@ -551,6 +621,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Vendor-neutral operational signal delivery boundary.",
             "contractTestId": "core.reporting-dispatch"
+        },
+        {
+            "id": "core.contract.schedules-public-read-transitions",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PublicRead\\SchedulesPublicReadTransitions",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Earliest scheduled change to a contributor's public-read decisions, bounding stored projections.",
+            "contractTestId": null
         },
         {
             "id": "core.contract.site-spec-applier",
@@ -851,6 +931,26 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build SiteSpec reference.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.public-read-reconciliation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\PublicRead\\PublicReadReconciliationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "What one reconciliation run withdrew and which store withdrawals failed.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.public-read-stamp",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\PublicRead\\PublicReadStampData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Public-read rules a stored projection was built under: revision and validity.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.publication-locale-status",
@@ -1213,6 +1313,16 @@
             "contractTestId": "core.package-installed-event"
         },
         {
+            "id": "core.event.public-read-eligibility-changed",
+            "kind": "event",
+            "identifier": "Capell\\Core\\Events\\PublicReadEligibilityChanged",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Signals that stored public projections must be withdrawn or regenerated.",
+            "contractTestId": null
+        },
+        {
             "id": "core.facade.capell-core",
             "kind": "facade",
             "identifier": "Capell\\Core\\Facades\\CapellCore",
@@ -1313,6 +1423,16 @@
             "contractTestId": "core.project-build-artifact-handler-registry"
         },
         {
+            "id": "core.registry.public-page-read-eligibility",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicPageReadEligibilityRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Fail-closed public-read eligibility registry consulted by public page projections.",
+            "contractTestId": null
+        },
+        {
             "id": "core.registry.publication-readiness",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\Publishing\\PublicationReadinessRegistry",
@@ -1333,6 +1453,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.support.cap-public-read-response-caching",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Http\\Middleware\\CapPublicReadResponseCaching",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Global rule bounding cache lifetimes and validators of responses built from public-read decisions.",
+            "contractTestId": null
+        },
+        {
             "id": "core.support.log-channel-reporter",
             "kind": "support",
             "identifier": "Capell\\Core\\Support\\Reporting\\LogChannelReporter",
@@ -1341,6 +1471,76 @@
             "introducedVersion": "1.0.0",
             "summary": "Structured JSON delivery through the configured Laravel log channel.",
             "contractTestId": "core.reporting-dispatch"
+        },
+        {
+            "id": "core.support.public-artefact-permit",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicArtefactPermit",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Proof a write runs inside the publication action; artefact stores require it.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-eligibility-revision",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadEligibilityRevision",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Opaque revision that stored public projections include in their identity.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-eligibility-state",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadEligibilityState",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Stamps stored public projections and decides whether a stored copy is still current.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-projection-headers",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadProjectionHeaders",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Revalidation headers and eligibility-aware validators for public projections.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-response-stamps",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadResponseStamps",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Sites whose public-read rules the current request consulted.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-scanner",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadScanner",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Bounded, cursor-continued paging of publicly readable entries.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.support.public-read-withdrawal-steps",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\PublicRead\\PublicReadWithdrawalSteps",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Register an idempotent withdrawal step per store; the reconciler runs it per site until its copies match the current rules.",
+            "contractTestId": null
         },
         {
             "id": "core.tag.database-platform",

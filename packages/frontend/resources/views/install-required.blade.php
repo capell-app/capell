@@ -8,7 +8,7 @@
     />
     <meta
         name="robots"
-        content="noindex, nofollow"
+        content="{{ app(\Capell\Frontend\Support\Render\HeadMetadataRegistry::class)->apply(['robots' => 'noindex, nofollow'])['robots'] }}"
     />
     <title>Capell install required</title>
     <style>

@@ -1,0 +1,11 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Support\Facades\Blade;
+
+it('renders the {{ name }} page component around its slot', function (): void {
+    $template = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/page/{{ name }}.blade.php');
+
+    expect(Blade::render((string) $template, ['slot' => 'Page content']))->toContain('Page content');
+});

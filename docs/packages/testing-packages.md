@@ -10,7 +10,7 @@ Capell packages are tested with [Orchestra Testbench](https://packages.tools/tes
 
 Use this section when your package lives in its own repository. The examples elsewhere on this page assume the harness below already exists.
 
-`php artisan capell:make-extension` includes the Core, Data, permission and settings providers in its generated `TestCase`. The minimal profile runs its manifest suite with those alone. The full profile's `TestCase` also enables Testbench package discovery, so its declared Admin, Frontend and Layout Builder dependencies boot as they would in a host. Its `post-autoload-dump` script runs `vendor/bin/testbench package:discover` to build that list. The generated `TestCase` treats every other discovered Capell package as installed and leaves your package uninstalled, loads Core's migrations, and offers `migratePackageSettings()` for settings tests. Packages using other surfaces still need those surface providers and their migration fixtures, as described below.
+`php artisan capell:make:extension` includes the Core, Data, permission and settings providers in its generated `TestCase`. The minimal profile runs its manifest suite with those alone. The full profile's `TestCase` also enables Testbench package discovery, so its declared Admin, Frontend and Layout Builder dependencies boot as they would in a host. Its `post-autoload-dump` script runs `vendor/bin/testbench package:discover` to build that list. The generated `TestCase` treats every other discovered Capell package as installed and leaves your package uninstalled, loads Core's migrations, and offers `migratePackageSettings()` for settings tests. Packages using other surfaces still need those surface providers and their migration fixtures, as described below.
 
 ### 1. Development dependencies
 
@@ -223,7 +223,7 @@ Capell's internal test helpers live under the `Capell\Tests\` namespace, which i
 
 ### Checking the scaffold in a real consumer
 
-Changes to the `capell:make-extension` stubs are checked against real consumers, not only file shape. From this repository, with a Capell Packages checkout that provides Layout Builder and the default theme:
+Changes to the `capell:make:extension` stubs are checked against real consumers, not only file shape. From this repository, with a Capell Packages checkout that provides Layout Builder and the default theme:
 
 ```bash
 CAPELL_PACKAGES_CHECKOUT=/path/to/capell-packages bash scripts/verify-generated-extension-consumer.sh

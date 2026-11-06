@@ -9,6 +9,9 @@ use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
+use Capell\Core\Actions\PublicRead\PublishPublicArtefactAction;
+use Capell\Core\Actions\PublicRead\ReconcilePublicReadProjectionsAction;
+use Capell\Core\Actions\PublicRead\RecordPublicReadEligibilityChangeAction;
 use Capell\Core\Actions\Publishing\BuildPublicationLocaleStatusAction;
 use Capell\Core\Actions\PublishOutboundEventAction;
 use Capell\Core\Actions\Reporting\DispatchSignalAction;
@@ -35,6 +38,11 @@ use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
+use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\FingerprintsPublicReadRules;
+use Capell\Core\Contracts\PublicRead\PublicArtefactFence;
+use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
 use Capell\Core\Contracts\Reporting\Reporter;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
@@ -69,6 +77,8 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
+use Capell\Core\Data\PublicRead\PublicReadReconciliationData;
+use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Data\Publishing\PublicationLocaleStatusContextData;
 use Capell\Core\Data\Publishing\PublicationLocaleStatusData;
 use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
@@ -105,8 +115,10 @@ use Capell\Core\Enums\Reporting\IncidentStatus;
 use Capell\Core\Enums\Reporting\Severity;
 use Capell\Core\Events\OutboundEventPublished;
 use Capell\Core\Events\PackageInstalled;
+use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderResolver;
@@ -115,6 +127,14 @@ use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
+use Capell\Core\Support\PublicRead\PublicReadResponseStamps;
+use Capell\Core\Support\PublicRead\PublicReadScanner;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Reporting\LogChannelReporter;
 use Capell\Core\Testing\ExtensionTestHarness;
@@ -195,6 +215,26 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.database-provisioner', 'contract', DatabaseProvisioner::class, ExtensionSurfaceStability::Experimental, 'Installer database provisioning boundary.'),
             $this->entry('core.contract.database-query-dialect', 'contract', DatabaseQueryDialect::class, ExtensionSurfaceStability::Experimental, 'Portable SQL expression boundary.'),
             $this->entry('core.contract.database-schema-dialect', 'contract', DatabaseSchemaDialect::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capability boundary.'),
+            $this->entry('core.contract.public-page-read-eligibility', 'contract', PublicPageReadEligibility::class, ExtensionSurfaceStability::Experimental, 'Package-owned anonymous public-read eligibility for page addresses in public projections.'),
+            $this->entry('core.registry.public-page-read-eligibility', 'registry', PublicPageReadEligibilityRegistry::class, ExtensionSurfaceStability::Experimental, 'Fail-closed public-read eligibility registry consulted by public page projections.'),
+            $this->entry('core.contract.evaluates-public-page-read-candidates-individually', 'contract', EvaluatesPublicPageReadCandidatesIndividually::class, ExtensionSurfaceStability::Experimental, 'Default one-at-a-time batch evaluation for public-read eligibility contributors.'),
+            $this->entry('core.action.record-public-read-eligibility-change', 'action', RecordPublicReadEligibilityChangeAction::class, ExtensionSurfaceStability::Experimental, 'Advances the public-read eligibility revision when access rules change without a page save.'),
+            $this->entry('core.action.publish-public-artefact', 'action', PublishPublicArtefactAction::class, ExtensionSurfaceStability::Experimental, 'Only path for writing copies served without Laravel; checks eligibility under the store lock.'),
+            $this->entry('core.support.public-read-withdrawal-steps', 'support', PublicReadWithdrawalSteps::class, ExtensionSurfaceStability::Experimental, 'Register an idempotent withdrawal step per store; the reconciler runs it per site until its copies match the current rules.'),
+            $this->entry('core.support.public-artefact-permit', 'support', PublicArtefactPermit::class, ExtensionSurfaceStability::Experimental, 'Proof a write runs inside the publication action; artefact stores require it.'),
+            $this->entry('core.contract.fingerprints-public-read-rules', 'contract', FingerprintsPublicReadRules::class, ExtensionSurfaceStability::Experimental, "Digest of a contributor's stored rule inputs, so a change nobody announced is still detected."),
+            $this->entry('core.action.reconcile-public-read-projections', 'action', ReconcilePublicReadProjectionsAction::class, ExtensionSurfaceStability::Experimental, 'Source of truth for withdrawal: repairs the revision and withdraws stores built under another stamp.'),
+            $this->entry('core.dto.public-read-reconciliation', 'dto', PublicReadReconciliationData::class, ExtensionSurfaceStability::Experimental, 'What one reconciliation run withdrew and which store withdrawals failed.'),
+            $this->entry('core.support.public-read-response-stamps', 'support', PublicReadResponseStamps::class, ExtensionSurfaceStability::Experimental, 'Sites whose public-read rules the current request consulted.'),
+            $this->entry('core.support.cap-public-read-response-caching', 'support', CapPublicReadResponseCaching::class, ExtensionSurfaceStability::Experimental, 'Global rule bounding cache lifetimes and validators of responses built from public-read decisions.'),
+            $this->entry('core.contract.public-artefact-fence', 'contract', PublicArtefactFence::class, ExtensionSurfaceStability::Experimental, "An out-of-band artefact store's lease-free lock, shared by its writes and withdrawals."),
+            $this->entry('core.event.public-read-eligibility-changed', 'event', PublicReadEligibilityChanged::class, ExtensionSurfaceStability::Experimental, 'Signals that stored public projections must be withdrawn or regenerated.'),
+            $this->entry('core.contract.schedules-public-read-transitions', 'contract', SchedulesPublicReadTransitions::class, ExtensionSurfaceStability::Experimental, "Earliest scheduled change to a contributor's public-read decisions, bounding stored projections."),
+            $this->entry('core.dto.public-read-stamp', 'dto', PublicReadStampData::class, ExtensionSurfaceStability::Experimental, 'Public-read rules a stored projection was built under: revision and validity.'),
+            $this->entry('core.support.public-read-eligibility-state', 'support', PublicReadEligibilityState::class, ExtensionSurfaceStability::Experimental, 'Stamps stored public projections and decides whether a stored copy is still current.'),
+            $this->entry('core.support.public-read-projection-headers', 'support', PublicReadProjectionHeaders::class, ExtensionSurfaceStability::Experimental, 'Revalidation headers and eligibility-aware validators for public projections.'),
+            $this->entry('core.support.public-read-scanner', 'support', PublicReadScanner::class, ExtensionSurfaceStability::Experimental, 'Bounded, cursor-continued paging of publicly readable entries.'),
+            $this->entry('core.support.public-read-eligibility-revision', 'support', PublicReadEligibilityRevision::class, ExtensionSurfaceStability::Experimental, 'Opaque revision that stored public projections include in their identity.'),
             $this->entry('core.contract.frontend-route-reservation-contributor', 'contract', FrontendRouteReservationContributor::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation contributions.'),
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),
             $this->entry('core.contract.operational-health-check', 'contract', HealthCheck::class, ExtensionSurfaceStability::Experimental, 'Bounded operational health check boundary.'),

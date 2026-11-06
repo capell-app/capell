@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Illuminate\Support\Collection;
 use Illuminate\Translation\Translator;
 
 beforeEach(function (): void {
@@ -87,4 +89,19 @@ it('places URL redirects in health while retaining website authoring tools', fun
         ->toBe(['Website', 'Health'])
         ->and(collect($groups[0]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['Pages'])
         ->and(collect($groups[1]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['URL Redirects', 'Redirect rules']);
+});
+
+it('does not mark a package design destination active when a built-in layout is active', function (): void {
+    $navigation = new WorkspaceNavigation;
+    $groups = $navigation->organise([NavigationGroup::make()->items([
+        NavigationItem::make('Layouts')->key(LayoutResource::class)->url('/admin/layouts')->isActiveWhen(fn (): bool => true),
+        NavigationItem::make('Package layouts')->key('package.layouts')->url('/admin/layout-builder/layouts')->isActiveWhen(fn (): bool => false),
+    ])]);
+
+    $package = collect($groups)->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
+        ->first(fn (NavigationItem $item): bool => $item->getKey() === 'package.layouts');
+    expect($package)->toBeInstanceOf(NavigationItem::class);
+    assert($package instanceof NavigationItem);
+    expect($package->isActive())->toBeFalse()
+        ->and($navigation->localNavigation())->not->toBeEmpty();
 });

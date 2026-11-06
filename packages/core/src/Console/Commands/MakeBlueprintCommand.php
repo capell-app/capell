@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Makers\RunMakerAction;
+use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Makers\MakerInputData;
 use Illuminate\Console\Command;
@@ -12,15 +13,16 @@ use Throwable;
 
 class MakeBlueprintCommand extends Command
 {
+    use DeprecatesMakerAliases;
     use DescribesCommandOptions;
 
     protected $description = 'Generate a new Capell page blueprint class in App\\Blueprints';
 
-    protected $signature = 'capell:make-blueprint
+    protected $signature = 'capell:make:blueprint
         {name : The name of the blueprint (e.g. BlogPost)}
         {--F|force : Overwrite existing files after warning}';
 
-    protected $aliases = ['capell:make-type'];
+    protected $aliases = ['capell:make-blueprint', 'capell:make-type'];
 
     public function handle(): int
     {
