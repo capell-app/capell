@@ -2097,3 +2097,19 @@ it('explains why an installed extension needs attention and stays quiet about no
     expect(substr_count($html, 'data-extension-attention'))->toBe(1)
         ->and(ExtensionsPage::getNavigationBadge())->toBe('1');
 });
+
+it('does not display an urgent health badge for an advisory without an action', function (): void {
+    $html = view('capell-admin::filament.pages.extensions.extension-card', [
+        'record' => ['label' => 'Advisory', 'packageName' => 'vendor/advisory', 'healthState' => 'warning', 'needsAttention' => false],
+    ])->render();
+
+    expect($html)->not->toContain('bg-danger-500/95');
+});
+
+it('explains a domain mismatch and how to restore the extension in its details', function (): void {
+    $html = view('capell-admin::filament.pages.extensions.extension-details', [
+        'record' => ['packageName' => 'vendor/paid', 'runtimeStatus' => 'domain_mismatch', 'runtimeAllowed' => false],
+    ])->render();
+
+    expect($html)->toContain('The activation is for a different domain. Update the domain in Marketplace and refresh the activation.');
+});

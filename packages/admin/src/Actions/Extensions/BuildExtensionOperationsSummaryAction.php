@@ -111,7 +111,7 @@ final class BuildExtensionOperationsSummaryAction
             ->all());
 
         return new ExtensionOperationsSummaryData(
-            needsAttentionCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->needsAttention)->count(),
+            needsAttentionCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->visibility !== 'support' && $package->needsAttention)->count(),
             blockedCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->blocked)->count(),
             updatesCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->updateAvailable)->count(),
             unhealthyCount: $packages->filter(fn (ExtensionOperationPackageData $package): bool => $package->installed && in_array($package->healthState, ['critical', 'warning'], true))->count(),
@@ -220,7 +220,7 @@ final class BuildExtensionOperationsSummaryAction
             enabled: $package instanceof PackageData && CapellCore::isPackageEnabled($package->name),
             available: $available,
             core: $package?->isCore() === true,
-            visibility: $package->visibility ?? $manifest->visibility,
+            visibility: $package?->isSupportPackage() === true || $manifest->visibility === 'support' ? 'support' : ($package->visibility ?? $manifest->visibility),
             canUninstall: $package instanceof PackageData && $this->canUninstallPackage($package),
             tier: $tier,
             certification: $certification,
@@ -589,11 +589,11 @@ final class BuildExtensionOperationsSummaryAction
      */
     private function healthState(Collection $alerts, array $missingRequiredTables, bool $runtimeAllowed): string
     {
-        if ($alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical) || ! $runtimeAllowed) {
+        if ($alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical && $this->isActionableAlert($alert)) || ! $runtimeAllowed) {
             return 'critical';
         }
 
-        if ($alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning) || $missingRequiredTables !== []) {
+        if ($alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning && $this->isActionableAlert($alert)) || $missingRequiredTables !== []) {
             return 'warning';
         }
 
@@ -608,6 +608,10 @@ final class BuildExtensionOperationsSummaryAction
     {
         if (! $extension instanceof CapellExtension) {
             return 'not_installed';
+        }
+
+        if ($runtimeReason === 'provider_quarantined') {
+            return $runtimeReason;
         }
 
         if (is_string($extension->marketplace_runtime_status) && $extension->marketplace_runtime_status !== '') {

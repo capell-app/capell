@@ -380,7 +380,7 @@
                 {{ $maturityLabel }}
             </x-filament::badge>
 
-            @php($showHealthTag = in_array($healthState, ['critical', 'warning'], true))
+            @php($showHealthTag = ($record['needsAttention'] ?? false) === true && in_array($healthState, ['critical', 'warning'], true))
             @if ($showBlockedTag || $updateAvailable || $showHealthTag || $installInProgress)
                 @if ($installInProgress)
                     <span

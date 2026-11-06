@@ -90,6 +90,23 @@
         </div>
     </dl>
 
+    @if (($record['runtimeAllowed'] ?? true) === false)
+        @php
+            $runtimeExplanation = match ($runtimeStatus) {
+                'domain_mismatch' => __('capell-admin::generic.extension_runtime_gate_domain_mismatch'),
+                'expired', 'expired_without_activation' => __('capell-admin::generic.extension_runtime_gate_expired'),
+                'unverified' => __('capell-admin::generic.extension_runtime_gate_unverified'),
+                'unapproved' => __('capell-admin::generic.extension_runtime_gate_unapproved'),
+                'invalid' => __('capell-admin::generic.extension_runtime_gate_invalid'),
+                'revoked' => __('capell-admin::generic.extension_runtime_gate_revoked'),
+                'provider_quarantined' => __('capell-admin::generic.extension_runtime_gate_provider_quarantined'),
+                'missing_marketplace_activation' => __('capell-admin::generic.extension_runtime_gate_missing'),
+                default => __('capell-admin::generic.extension_runtime_gate_disallowed'),
+            };
+        @endphp
+        <p class="text-sm">{{ $runtimeExplanation }}</p>
+    @endif
+
     @if (! empty($record['healthAlerts']))
         <section
             aria-label="{{ __('capell-admin::generic.extension_health_alerts') }}"

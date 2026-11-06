@@ -1072,11 +1072,18 @@ it('counts only extensions an operator must fix as needing attention, and says w
         'signature' => 'test-signature',
     ]);
 
+    registerOperationsSummaryManifest('vendor/support-fault', [
+        'version' => '1.0.0',
+        'visibility' => 'support',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['missing_support_table']],
+    ]);
+    $installedExtension('vendor/support-fault');
+
     $summary = BuildExtensionOperationsSummaryAction::run();
     $package = fn (string $name): ExtensionOperationPackageData => $summary->package($name) ?? throw new RuntimeException($name);
 
     expect($package('vendor/advisory')->needsAttention)->toBeFalse()
-        ->and($package('vendor/advisory')->healthState)->toBe('warning')
+        ->and($package('vendor/advisory')->healthState)->toBe('info')
         ->and($package('vendor/update-only')->needsAttention)->toBeFalse()
         ->and($package('vendor/update-only')->updateAvailable)->toBeTrue()
         ->and($package('vendor/info-only')->needsAttention)->toBeFalse()
