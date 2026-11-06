@@ -1055,10 +1055,29 @@ it('counts only extensions an operator must fix as needing attention, and says w
         'signature' => 'test-signature',
     ]);
 
+    registerOperationsSummaryManifest('vendor/advisory', ['version' => '1.0.0']);
+    $installedExtension('vendor/advisory');
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'advisory_without_action',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/advisory',
+        'severity' => ExtensionHealthAlertSeverity::Warning,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Advisory only',
+        'message' => 'No action is required.',
+        'required_action' => null,
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'signature' => 'test-signature',
+    ]);
+
     $summary = BuildExtensionOperationsSummaryAction::run();
     $package = fn (string $name): ExtensionOperationPackageData => $summary->package($name) ?? throw new RuntimeException($name);
 
-    expect($package('vendor/update-only')->needsAttention)->toBeFalse()
+    expect($package('vendor/advisory')->needsAttention)->toBeFalse()
+        ->and($package('vendor/advisory')->healthState)->toBe('warning')
+        ->and($package('vendor/update-only')->needsAttention)->toBeFalse()
         ->and($package('vendor/update-only')->updateAvailable)->toBeTrue()
         ->and($package('vendor/info-only')->needsAttention)->toBeFalse()
         ->and($package('vendor/info-only')->healthState)->toBe('info')
@@ -1073,7 +1092,7 @@ it('counts only extensions an operator must fix as needing attention, and says w
         ->and($package('vendor/warned')->attentionReasons)->toBe([ExtensionAttentionReason::WarningAlert])
         ->and($package('vendor/warned')->toRecord()['attentionReasons'])->toBe([__('capell-admin::generic.extension_attention_reason_warning_alert')])
         ->and($summary->needsAttentionCount)->toBe(2)
-        ->and($summary->unhealthyCount)->toBe(2)
+        ->and($summary->unhealthyCount)->toBe(3)
         ->and($summary->updatesCount)->toBe(1)
         ->and(ExtensionsPage::getNavigationBadge())->toBe('2');
 });

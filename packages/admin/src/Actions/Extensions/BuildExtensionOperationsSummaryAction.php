@@ -567,13 +567,20 @@ final class BuildExtensionOperationsSummaryAction
             $providerQuarantined ? ExtensionAttentionReason::ProviderQuarantined : null,
             $composerDrifted ? ExtensionAttentionReason::ComposerDrift : null,
             $missingRequiredTables !== [] ? ExtensionAttentionReason::MissingTables : null,
-            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical)
+            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Critical && $this->isActionableAlert($alert))
                 ? ExtensionAttentionReason::CriticalAlert
                 : null,
-            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning)
+            $alerts->contains(fn (ExtensionHealthAlert $alert): bool => $alert->severity === ExtensionHealthAlertSeverity::Warning && $this->isActionableAlert($alert))
                 ? ExtensionAttentionReason::WarningAlert
                 : null,
         ]));
+    }
+
+    private function isActionableAlert(ExtensionHealthAlert $alert): bool
+    {
+        return $alert->runtime_disabled
+            || $alert->protected_actions_blocked
+            || (is_string($alert->required_action) && trim($alert->required_action) !== '' && strtolower(trim($alert->required_action)) !== 'none');
     }
 
     /**

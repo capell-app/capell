@@ -2071,9 +2071,9 @@ it('explains why an installed extension needs attention and stays quiet about no
             'composer_name' => $name,
             'severity' => $severity,
             'category' => ExtensionHealthAlertCategory::Security,
-            'title' => 'Alert',
-            'message' => 'Alert body.',
-            'required_action' => 'review',
+            'title' => $name === 'vendor/warned-extension' ? 'Certificate expires soon' : 'Notice',
+            'message' => 'The certificate needs renewal.',
+            'required_action' => 'Renew the certificate in settings.',
             'runtime_disabled' => false,
             'protected_actions_blocked' => false,
             'issued_at' => now(),
@@ -2087,6 +2087,12 @@ it('explains why an installed extension needs attention and stays quiet about no
         ->assertSee('Noticed Extension')
         ->assertSee(__('capell-admin::generic.extension_attention_reason_warning_alert'))
         ->html();
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->mountTableAction('viewExtensionDetails', 'vendor/warned-extension')
+        ->assertMountedActionModalSee('Certificate expires soon')
+        ->assertMountedActionModalSee('The certificate needs renewal.')
+        ->assertMountedActionModalSee('Renew the certificate in settings.');
 
     expect(substr_count($html, 'data-extension-attention'))->toBe(1)
         ->and(ExtensionsPage::getNavigationBadge())->toBe('1');
