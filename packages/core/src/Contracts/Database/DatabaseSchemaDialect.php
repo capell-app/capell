@@ -26,6 +26,8 @@ interface DatabaseSchemaDialect
 
     public function hasTrigger(string $trigger, Connection $connection): bool;
 
+    public function isColumnCaseInsensitive(string $table, string $column, Connection $connection): bool;
+
     public function hasForeignKeyReference(
         string $table,
         string $column,
