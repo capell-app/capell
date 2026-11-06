@@ -21,11 +21,15 @@ is created, and refuses anything it cannot prove.
   routes a URL signature credentials). An application route under a panel's path keeps serving; it is
   reported as a collision in the log at boot and by `capell:doctor` (`admin.routes.ownership`).
 - **Route cache.** A route cache built by an earlier release carries no ownership record. Public
-  controller routes in it keep serving, but closures and admin code in it are refused until it is
-  rebuilt, and the application logs a critical error with the commands. `capell:upgrade` fails at the
+  controller routes in it keep serving. Filament sign-in pages require a verified page class and a
+  synchronised panel; a sign-in route name alone grants no exemption. Livewire assets require a
+  verified vendor action, including the installed source and declaring scope for cached closures.
+  Other closures and unattributable admin actions are refused until the cache is rebuilt, and the
+  application logs a critical error with the commands. An unverifiable cached action must be resolved
+  by rebuilding the cache, rather than adding a name or URI exemption. `capell:upgrade` fails at the
   `capell-admin.route-cache-ownership` step and `capell:doctor` reports `admin.routes.ownership` while
   the cache is stale. Rebuild the route cache on every node (`php artisan route:clear && php artisan
-  route:cache`, or `capell:runtime-refresh`) as part of the deploy, before the release takes traffic.
+route:cache`, or `capell:runtime-refresh`) as part of the deploy, before the release takes traffic.
 - **Export and import downloads.** Each export and import records the panel, host and port it was
   started on in `admin_transfer_origins`. Run the normal upgrade flow to migrate the table before
   serving requests. A download is served only by that panel, on that host and port. Exports and imports

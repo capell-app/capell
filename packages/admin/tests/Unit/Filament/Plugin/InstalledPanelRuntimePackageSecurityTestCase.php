@@ -15,6 +15,7 @@ use Composer\Autoload\ClassLoader;
 use Filament\Panel;
 use Illuminate\Support\Facades\Route;
 use Override;
+use PHPUnit\Framework\Attributes\TestWith;
 use StandalonePackage\PreviewController;
 
 /** Request-level coverage when a package adds denying security middleware while the panel boots. */
@@ -102,14 +103,43 @@ abstract class InstalledPanelRuntimePackageSecurityTestCase extends AdminTestCas
         }
     }
 
-    public function test_an_unclassified_route_is_refused_when_a_root_panel_synchronises(): void
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_a_concrete_package_host_overlapping_a_parameterised_panel_is_refused(bool $beforePanel): void
+    {
+        $loader = new ClassLoader(dirname(__DIR__, 3) . '/Fixtures/StandalonePackage');
+        $loader->addPsr4('StandalonePackage\\', dirname(__DIR__, 3) . '/Fixtures/StandalonePackage/src');
+        $loader->register();
+        try {
+            $runtime = resolve(InstalledPanelRuntime::class);
+            $panel = Panel::make()->id('tenant-panel')->path('tenant-admin')->domains(['{tenant}.example.test']);
+            if (! $beforePanel) {
+                $runtime->extend($panel);
+            }
+
+            Route::domain('shop.example.test')->get('/tenant-admin/package-preview', PreviewController::class);
+            if ($beforePanel) {
+                $runtime->extend($panel);
+            }
+
+            $this->get('http://shop.example.test/tenant-admin/package-preview')->assertStatus(503)->assertDontSee('standalone preview served');
+        } finally {
+            $loader->unregister();
+        }
+    }
+
+    public function test_public_routes_registered_before_and_after_a_root_panel_synchronises_are_served(): void
     {
         $route = Route::get('/root-panel-preview', static fn (): string => 'root preview served');
         $runtime = resolve(InstalledPanelRuntime::class);
         $runtime->extend(Panel::make()->id('root')->path(''));
+        Route::get('/root-panel-after', static fn (): string => 'later preview served');
 
-        $this->assertTrue($runtime->isRouteRefused($route));
-        $this->get('/root-panel-preview')->assertStatus(503)->assertDontSee('root preview served');
+        $this->assertFalse($runtime->isRouteRefused($route));
+        $this->get('/root-panel-preview')->assertOk()->assertSee('root preview served');
+        $this->get('/root-panel-after')->assertOk()->assertSee('later preview served');
+        $this->get('/root-panel-missing')->assertNotFound();
+        $this->get('/admin/login')->assertOk();
     }
 
     public function test_an_old_inferred_host_record_is_refused_when_a_custom_panel_synchronises(): void

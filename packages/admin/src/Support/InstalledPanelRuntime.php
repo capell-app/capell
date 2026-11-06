@@ -47,6 +47,8 @@ use ReflectionFunction;
 use ReflectionProperty;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\Routing\CompiledRoute;
+use Symfony\Component\Routing\Route as SymfonyRoute;
 use Throwable;
 use WeakMap;
 
@@ -195,7 +197,6 @@ final class InstalledPanelRuntime
         $this->demoteLegacyHost($route);
         if (PanelOwnership::of($route)?->kind === RouteOwnershipEnum::Unclassified) {
             $this->unclassifiedRoutes[$route] = true;
-            $this->refuseUnclassified($route);
         }
     }
 
@@ -252,10 +253,7 @@ final class InstalledPanelRuntime
 
         ProvenanceRouteCollection::install($this->router);
         $this->demoteLegacyHost($route);
-        $reason = $this->refusal($route);
-        if ($reason !== null) {
-            $this->refuse($route, new RuntimeException(__($reason)));
-        }
+        $this->refreshRefusal($route);
 
         $ownership = PanelOwnership::of($route);
         $panel = $ownership instanceof PanelOwnership && $ownership->kind === RouteOwnershipEnum::Panel ? $ownership->panel : null;
@@ -412,8 +410,7 @@ final class InstalledPanelRuntime
                     continue;
                 }
 
-                $domains = $panel->getDomains();
-                if ($domains !== [] && $route->getDomain() !== null && ! in_array($route->getDomain(), $domains, true)) {
+                if (! $this->overlapsPanelDomains($route, $this->compilePanelDomains(array_values($panel->getDomains())))) {
                     continue;
                 }
 
@@ -552,8 +549,9 @@ final class InstalledPanelRuntime
         }
 
         $this->synchronised[$panel->getId()] = $panel;
+        $matchers = $this->panelPathMatchers();
         foreach ($this->unclassifiedRoutes as $route => $_) {
-            $this->refuseUnclassified($route);
+            $this->refreshRefusal($route, $matchers);
         }
 
         $routes = $this->router->getRoutes();
@@ -569,17 +567,13 @@ final class InstalledPanelRuntime
                 $this->demoteLegacyHost($instance);
                 if (PanelOwnership::of($instance)?->kind === RouteOwnershipEnum::Unclassified) {
                     $this->unclassifiedRoutes[$instance] = true;
-                    $this->refuseUnclassified($instance);
                 }
 
-                if (PanelOwnership::of($instance)?->ownedBy($panel->getId()) !== true) {
-                    continue;
+                $this->refreshRefusal($instance, $matchers);
+                $owner = $this->ownerOf($instance);
+                if ($owner instanceof Panel) {
+                    $this->reconcileOrRefuse($owner, $instance);
                 }
-
-                $reason = $this->refusal($instance);
-                $reason === null
-                    ? $this->reconcileOrRefuse($panel, $instance)
-                    : $this->refuse($instance, new RuntimeException(__($reason)));
             }
         }
     }
@@ -679,7 +673,7 @@ final class InstalledPanelRuntime
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
-        $public = PanelOwnership::of($instance)->guests ?? false;
+        $public = (PanelOwnership::of($instance)->guests ?? false) || $this->isSignInPage($instance);
         if (! $public && $contributed['auth'] !== [] && $host['auth'] === []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_ambiguous'));
         }
@@ -907,25 +901,34 @@ final class InstalledPanelRuntime
      * Why the route is refused wherever it is requested, if it is: it carries no ownership (a route cache
      * built before ownership was recorded), its ownership refuses it, it names or declares a panel other than
      * the one that registered it, or it was registered on a domain its panel is not served on.
+     *
+     * @param  list<array{path: string, domains: list<CompiledRoute>}>|null  $matchers
      */
-    private function refusal(Route $route): ?string
+    private function refusal(Route $route, ?array $matchers = null): ?string
     {
+        // Public framework endpoints remain public in old caches, including serialised asset closures.
+        if ($this->isPublicAction($route) || $this->isPublicRouteFile($route)) {
+            return null;
+        }
+
         $ownership = PanelOwnership::of($route);
         if (! $ownership instanceof PanelOwnership) {
-            $this->reportStaleRouteCache();
+            if ($this->isSignInPage($route)) {
+                return null;
+            }
 
             // Without a record, only a route proven to be the host's own, or public admin code, keeps serving: a
             // serialised closure cannot be inspected, and other admin code may belong to a panel.
             return RouteAction::containsSerializedClosure($route->getAction())
                 || $this->panelsNamedBy($route, asMatched: true, includeUnknown: true) !== []
                 || AdminRouteProvenance::declared($route)['panels'] !== []
-                || $this->matchesPanelPath($route)
-                || (! $this->isPublicAction($route) && $this->runsAdminCode($route))
+                || $this->matchesPanelPath($route, $matchers)
+                || $this->runsAdminCode($route)
                 ? 'capell-admin::message.extension_panel_route_unrecorded'
                 : null;
         }
 
-        if ($ownership->kind === RouteOwnershipEnum::Unclassified && $this->matchesPanelPath($route)) {
+        if ($ownership->kind === RouteOwnershipEnum::Unclassified && $this->matchesPanelPath($route, $matchers)) {
             return 'capell-admin::message.extension_panel_route_unowned';
         }
 
@@ -952,11 +955,9 @@ final class InstalledPanelRuntime
                 : 'capell-admin::message.extension_panel_route_unowned';
         }
 
-        $domains = $panel->getDomains();
-
-        return $domains !== [] && ! in_array($ownership->domain, $domains, true)
-            ? 'capell-admin::message.extension_panel_route_off_domain'
-            : null;
+        return $this->withinPanelDomains($route, $this->compilePanelDomains(array_values($panel->getDomains())))
+            ? null
+            : 'capell-admin::message.extension_panel_route_off_domain';
     }
 
     /** The synchronised panel serving the route by its recorded ownership. */
@@ -1026,13 +1027,23 @@ final class InstalledPanelRuntime
     private function isSignInPage(Route $route): bool
     {
         $class = $this->actionCode($route)[0];
+        if ($class === null || ! array_any(self::SIGN_IN_PAGES, static fn (string $page): bool => is_a($class, $page, true))) {
+            return false;
+        }
 
-        return $class !== null && array_any(self::SIGN_IN_PAGES, static fn (string $page): bool => is_a($class, $page, true));
+        $panels = $this->panelsNamedBy($route, asMatched: true, includeUnknown: true);
+
+        return count($panels) === 1 && isset($this->synchronised[array_key_first($panels)]);
     }
 
     /** Admin code that serves every visitor, such as Livewire's own endpoints. */
     private function isPublicAction(Route $route): bool
     {
+        $uses = $route->getAction('uses');
+        if ($uses instanceof Closure || RouteAction::containsSerializedClosure($route->getAction())) {
+            return LivewireRouteAction::closureClass($uses) !== null;
+        }
+
         return in_array($this->actionCode($route)[0], self::PUBLIC_ACTIONS, true);
     }
 
@@ -1079,39 +1090,136 @@ final class InstalledPanelRuntime
         }
     }
 
-    /** Refuse unclassified routes whenever a matching panel becomes known. */
-    private function refuseUnclassified(Route $route): void
+    /**
+     * A refusal describes the finished route now, never its incomplete registration-time shape.
+     * Security reconciliation is retried too, so an earlier failure cannot survive a corrected route.
+     *
+     * @param  list<array{path: string, domains: list<CompiledRoute>}>|null  $matchers
+     */
+    private function refreshRefusal(Route $route, ?array $matchers = null): void
     {
-        if ($this->matchesPanelPath($route)) {
-            $this->refuse($route, new RuntimeException(__('capell-admin::message.extension_panel_route_unowned')));
+        if (! PanelOwnership::of($route) instanceof PanelOwnership) {
+            $this->reportStaleRouteCache();
+        }
+
+        unset($this->refusedRoutes[$route]);
+        $reason = $this->refusal($route, $matchers);
+        if ($reason !== null) {
+            $this->refuse($route, new RuntimeException(__($reason)));
         }
     }
 
-    private function matchesPanelPath(Route $route): bool
+    /** @param list<array{path: string, domains: list<CompiledRoute>}>|null $matchers */
+    private function matchesPanelPath(Route $route, ?array $matchers = null): bool
     {
         $uri = trim($route->uri(), '/');
-        $matches = static function (string $path) use ($uri): bool {
-            $path = trim($path, '/');
-
-            return $path !== '' && ($uri === $path || str_starts_with($uri, $path . '/'));
-        };
-
-        if ($matches(AdminPanelEntrypoint::path())) {
-            return true;
-        }
-
-        foreach ($this->synchronised as $panel) {
-            $domains = $panel->getDomains();
-            if ($domains !== [] && $route->getDomain() !== null && ! in_array($route->getDomain(), $domains, true)) {
+        foreach ($matchers ?? $this->panelPathMatchers() as ['path' => $path, 'domains' => $domains]) {
+            if (! $this->overlapsPanelDomains($route, $domains)) {
                 continue;
             }
 
-            if (trim($panel->getPath(), '/') === '' || $matches($panel->getPath())) {
+            if ($path !== '' && ($uri === $path || str_starts_with($uri, $path . '/'))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** @return list<array{path: string, domains: list<CompiledRoute>}> */
+    private function panelPathMatchers(): array
+    {
+        $domain = AdminPanelEntrypoint::domain();
+        $matchers = [['path' => AdminPanelEntrypoint::path(), 'domains' => $this->compilePanelDomains($domain === null ? [] : [$domain])]];
+        foreach ($this->synchronised as $panel) {
+            $matchers[] = ['path' => trim($panel->getPath(), '/'), 'domains' => $this->compilePanelDomains(array_values($panel->getDomains()))];
+        }
+
+        return $matchers;
+    }
+
+    /**
+     * @param  list<string>  $domains
+     * @return list<CompiledRoute>
+     */
+    private function compilePanelDomains(array $domains): array
+    {
+        return array_map(fn (string $domain): CompiledRoute => new SymfonyRoute('/', requirements: $this->router->getPatterns(), host: $domain)->compile(), $domains);
+    }
+
+    /** @param list<CompiledRoute> $domains */
+    private function overlapsPanelDomains(Route $route, array $domains): bool
+    {
+        if ($domains === [] || ! $route->getDomain()) {
+            return true;
+        }
+
+        // Compile the final route afresh: Laravel may have cached a compilation before a fluent change.
+        $host = $route->toSymfonyRoute()->compile();
+
+        return array_any($domains, fn (CompiledRoute $panel): bool => $this->hostPatternsOverlap($host, $panel));
+    }
+
+    /**
+     * A panel-owned route must stay within its panel's hosts, not merely intersect them.
+     *
+     * @param  list<CompiledRoute>  $domains
+     */
+    private function withinPanelDomains(Route $route, array $domains): bool
+    {
+        if ($domains === []) {
+            return true;
+        }
+
+        if (! $route->getDomain()) {
+            return false;
+        }
+
+        $host = $route->toSymfonyRoute()->compile();
+
+        return array_any($domains, fn (CompiledRoute $panel): bool => $host->getHostRegex() === $panel->getHostRegex()
+            || ($host->getHostVariables() === [] && $this->hostPatternsOverlap($host, $panel)));
+    }
+
+    /** Use the same compiled host constraints as Laravel; uncertain pattern intersections fail closed. */
+    private function hostPatternsOverlap(CompiledRoute $left, CompiledRoute $right): bool
+    {
+        if (! $left->getHostRegex() || ! $right->getHostRegex()) {
+            return true;
+        }
+
+        if ($left->getHostVariables() === []) {
+            return preg_match($right->getHostRegex(), (string) $left->getHostTokens()[0][1]) === 1;
+        }
+
+        if ($right->getHostVariables() === []) {
+            return preg_match($left->getHostRegex(), (string) $right->getHostTokens()[0][1]) === 1;
+        }
+
+        // Symfony stores host tokens in reverse order. Conflicting fixed edges prove disjointness;
+        // arbitrary parameter requirements cannot safely be treated as disjoint.
+        $leftTokens = $left->getHostTokens();
+        $rightTokens = $right->getHostTokens();
+        foreach ([true, false] as $suffix) {
+            $a = $suffix ? $leftTokens[0] : $leftTokens[array_key_last($leftTokens)];
+            $b = $suffix ? $rightTokens[0] : $rightTokens[array_key_last($rightTokens)];
+            if ($a[0] !== 'text') {
+                continue;
+            }
+
+            if ($b[0] !== 'text') {
+                continue;
+            }
+
+            $length = min(strlen((string) $a[1]), strlen((string) $b[1]));
+            $a = strtolower($suffix ? substr((string) $a[1], -$length) : substr((string) $a[1], 0, $length));
+            $b = strtolower($suffix ? substr((string) $b[1], -$length) : substr((string) $b[1], 0, $length));
+            if ($a !== $b) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -67,6 +67,17 @@ final class InstalledPanelRuntimePathAssociationTest extends AdminTestCase
         $this->get('http://shop.capell.test/admin/runtime-foreign-callback')->assertOk()->assertSee(self::BODY);
     }
 
+    public function test_unclassified_routes_match_the_entrypoint_domain_before_its_path(): void
+    {
+        config()->set('capell-admin.domain', 'admin.example.test');
+        Filament::getPanel('admin')->domains(['admin.example.test']);
+        Route::domain('shop.example.test')->get('/admin/help', static fn (): string => self::BODY);
+        Route::domain('admin.example.test')->get('/admin/unclassified', static fn (): string => self::BODY);
+
+        $this->get('http://shop.example.test/admin/help')->assertOk()->assertSee(self::BODY);
+        $this->get('http://admin.example.test/admin/unclassified')->assertStatus(503)->assertDontSee(self::BODY);
+    }
+
     /** Declaring a panel's middleware after registration, under another panel's path, does not make it either panel's. */
     public function test_a_route_given_another_panels_middleware_after_registration_is_refused(): void
     {
