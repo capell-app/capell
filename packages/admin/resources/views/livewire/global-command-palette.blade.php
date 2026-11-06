@@ -100,7 +100,7 @@
                         </dt>
                         <dd>⌘/Ctrl + Shift + S</dd>
                     </div>
-                    @foreach (config('capell-admin.shortcuts', []) as $shortcut)
+                    @foreach ($this->shortcuts as $shortcut)
                         <div>
                             <dt>{{ $shortcut['label'] }}</dt>
                             <dd>

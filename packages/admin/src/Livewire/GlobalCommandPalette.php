@@ -45,6 +45,21 @@ class GlobalCommandPalette extends Component
         );
     }
 
+    /**
+     * @return list<array{sequence?: string, key?: string, action: string, target: string, label: string}>
+     */
+    #[Computed]
+    public function shortcuts(): array
+    {
+        $commands = $this->coreCommands();
+
+        return array_values(array_filter(
+            config('capell-admin.shortcuts', []),
+            fn (array $shortcut): bool => $shortcut['action'] !== 'navigate'
+                || isset($commands['capell.' . $shortcut['target']]),
+        ));
+    }
+
     public function toggle(): void
     {
         $this->open = ! $this->open;
