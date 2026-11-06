@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 return [
+    'pages' => 'Go to pages',
+    'sites' => 'Go to sites',
+    'settings' => 'Go to settings',
+    'extensions' => 'Go to extensions',
     'title' => 'Command palette',
     'search_label' => 'Search commands',
     'shortcuts' => 'Keyboard shortcuts',
