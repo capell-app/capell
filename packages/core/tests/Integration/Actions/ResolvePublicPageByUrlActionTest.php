@@ -45,6 +45,15 @@ it('resolves a public page by site language and url', function (): void {
         ]);
 });
 
+it('resolves a page whatever percent-encoding the request uses', function (): void {
+    $fixture = createPublicPageResolutionFixture(['url' => '/EV%20Show%20Plates:%20Badges']);
+
+    foreach (['/EV%20Show%20Plates%3A%20Badges', '/EV%20Show%20Plates:%20Badges', '/EV%20Show%20Plates%3a%20Badges'] as $requested) {
+        expect(ResolvePublicPageByUrlAction::run($fixture['site'], $fixture['language'], $requested)->page?->getKey())
+            ->toBe($fixture['page']->getKey());
+    }
+});
+
 it('hydrates public page url relations for rendering without lazy loading', function (): void {
     $fixture = createPublicPageResolutionFixture([
         'url' => '/about',

@@ -125,6 +125,17 @@ The verification command and expected output are **not yet verified**.
 
 Stop on an unresolved table collision, unsupported host user key type or missing entitlement. Do not rename legacy tables to get past an installer failure.
 
+An existing table that Capell should take over, such as a Laravel authentication log
+already holding the agreed history, is not a collision: list it in
+`capell.database.adopted_tables` beside its alias. A same-named Voyager settings
+migration in the migration history does not stand in for Spatie's settings table;
+the publisher now checks that the configured table exists.
+
+Run every installer step in a clean environment pinned to the target database.
+Container-level `DB_*` or `APP_NAME` variables override `.env` in child processes;
+a real rehearsal wrote admin setup rows into the wrong database until the steps
+received only an allow-listed environment.
+
 ## Roll back
 
 Restore the destination database and release together. Keep the source and its files unchanged; do not remove source tables as part of installation.

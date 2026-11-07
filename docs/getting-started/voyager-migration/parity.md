@@ -46,6 +46,13 @@ The verification command and expected output are **not yet verified**.
 
 A 200 page can still have wrong structured data, caching or asset paths. Keep failure reports, fix the responsible adapter or mapping and recapture only after the cause is understood.
 
+Compare status codes against the layer that issues them. Redirects answered by the
+CDN or web server (no application headers or cookies) are not in the database and
+still apply after cutover. Request each URL in more than one valid percent-encoding;
+a stored `/a%20b:c` must also answer `/a%20b%3Ac`, which Core now canonicalises.
+Keep the legacy listing templates on the host renderer: giving a legacy list page a
+package blueprint with its own Livewire component replaces the host's listing.
+
 ## Roll back
 
 Keep the legacy renderer and its baseline available until parity passes. Switch the rehearsal back to its previous release and database together if the replacement cannot render the content.

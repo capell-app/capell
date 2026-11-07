@@ -6,6 +6,11 @@ namespace Capell\Core\Support\Url;
 
 final class UrlPathNormalizer
 {
+    private const LITERAL_PATH_CHARACTERS = [
+        '%3A' => ':', '%40' => '@', '%21' => '!', '%24' => '$', '%26' => '&', '%27' => "'",
+        '%28' => '(', '%29' => ')', '%2A' => '*', '%2B' => '+', '%2C' => ',', '%3B' => ';', '%3D' => '=',
+    ];
+
     /**
      * Strip a trailing `/index.php` from a path (front-controller artefact).
      *
@@ -49,5 +54,17 @@ final class UrlPathNormalizer
         }
 
         return substr($path, strlen($prefix));
+    }
+
+    /**
+     * Give equivalent percent-encodings of a path one spelling, so `%3A`, `:` and `%3a`
+     * all match the same stored URL. Path characters RFC 3986 allows unencoded stay literal.
+     */
+    public static function canonicalEncoding(string $path): string
+    {
+        return implode('/', array_map(
+            static fn (string $segment): string => strtr(rawurlencode(rawurldecode($segment)), self::LITERAL_PATH_CHARACTERS),
+            explode('/', $path),
+        ));
     }
 }

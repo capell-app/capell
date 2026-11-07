@@ -93,6 +93,14 @@ exposed and verified this resolver correction.
 
 A partial session is not a clean retry. Read its failure and provenance before resuming. Do not enable force flags merely to bypass conflicts; prove their meaning against the installed version.
 
+Real production data contains states a synthetic fixture rarely has. Decide each one
+explicitly and report it rather than refusing the whole import or importing it silently:
+placements of deleted pages, pages whose author was deleted, page media rows with no
+image, body-only media files missing from the source disk, and slugs containing spaces
+or colons. Voyager stores an empty text setting as `NULL`; a typed Capell settings
+class cannot hold `null`, so map it to an empty string. Carry source creation and
+update dates in page meta, because the importer refuses direct timestamp writes.
+
 ## Roll back
 
 Roll back site sessions before their prerequisite global sessions. Verify updates restore before-images and unrelated destination rows survive. Restore backup if effects fall outside recorded provenance.

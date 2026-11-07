@@ -35,6 +35,11 @@ The verification command and expected output are **not yet verified**.
 
 Do not grant super-admin to make a smoke test pass. Find the explicit mapping or policy failure and retest the allowed and denied paths.
 
+Filament Shield admits only the super-admin role unless a panel-user role is enabled.
+Voyager admitted every role holding `browse_admin`, so the host's `canAccessPanel()`
+must keep that rule or every converted staff role is refused at the panel. Test each
+role against every admin index and edit page, not only the dashboard.
+
 ## Roll back
 
 Keep role and permission before-images with the global session. Restore assignments before reopening admin access, and confirm an independent administrator can still sign in.
