@@ -161,6 +161,27 @@ it('names every enabled package blocked by an unmet transitive requirement', fun
         ]);
 });
 
+it('lists the skipped packages once each, separately from the unmet requirement pairs', function (): void {
+    foreach (['vendor/dependent', 'vendor/second-dependent', 'vendor/disabled-requirement'] as $name) {
+        CapellCore::registerPackage($name);
+        CapellCore::markPackageInstalled($name);
+    }
+
+    CapellCore::getPackage('vendor/dependent')->requirements = ['vendor/disabled-requirement', 'vendor/second-dependent'];
+    CapellCore::getPackage('vendor/second-dependent')->requirements = ['vendor/disabled-requirement'];
+    CapellCore::markPackageDisabled('vendor/disabled-requirement');
+    $check = BuildDoctorReportAction::run()->checks->firstWhere('id', 'core.packages.installed-runtime');
+
+    expect($check?->evidence['skipped'])->toBe(['vendor/dependent', 'vendor/second-dependent'])
+        ->and($check?->message)->toContain('Skipped packages')
+        ->and($check?->message)->toContain('vendor/dependent, vendor/second-dependent');
+
+    CapellCore::markPackageInstalled('vendor/disabled-requirement');
+    $healthy = BuildDoctorReportAction::run()->checks->firstWhere('id', 'core.packages.installed-runtime');
+    expect($healthy?->evidence['skipped'])->toBe([])
+        ->and($healthy?->message)->not->toContain('Skipped packages');
+});
+
 it('reports required tables as present', function (): void {
     seedHealthyDoctorInstall();
 
