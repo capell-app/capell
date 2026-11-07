@@ -18,6 +18,7 @@ use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\Testing\Contracts\CompanionPackageContractSuite;
@@ -113,16 +114,19 @@ final class ExtensionTestHarness
         CapellCore::registerManifestPackage($manifest);
         CapellCore::forcePackageInstalled($manifest->name);
 
-        return new CapellPackageLoader(
-            $application,
-            $registry,
-            runtimeRoleResolver: new RuntimeRoleResolver(new RuntimeRoleSelectionData(
-                role: $role,
-                configuredValue: $role->value,
-                valid: true,
-            )),
-            receipts: $application->make(ExtensionContributionReceiptRegistry::class),
-        )->loadProviders();
+        return $application->make(InstalledRuntimeLifecycle::class)->duringRuntimeRole(
+            $role,
+            fn (): array => new CapellPackageLoader(
+                $application,
+                $registry,
+                runtimeRoleResolver: new RuntimeRoleResolver(new RuntimeRoleSelectionData(
+                    role: $role,
+                    configuredValue: $role->value,
+                    valid: true,
+                )),
+                receipts: $application->make(ExtensionContributionReceiptRegistry::class),
+            )->loadProviders(),
+        );
     }
 
     public function assertContributionRegistered(string $type, string $class): self

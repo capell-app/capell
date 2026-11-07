@@ -30,18 +30,19 @@ final class AssertTableOwnershipAction
      *                         $configKey set, the final configured name of a table owned by another package.
      * @param  string  $migration  The creating migration, with or without its timestamp.
      * @param  string|null  $configKey  The config key that renames an externally owned table.
+     * @param  string|null  $connection  The connection whose schema and migration ledger must agree.
      *
      * @throws ForeignTableException
      */
-    public function handle(string $table, string $migration, ?string $configKey = null): bool
+    public function handle(string $table, string $migration, ?string $configKey = null, ?string $connection = null): bool
     {
         $physical = $configKey === null ? TableName::resolve($table) : $table;
 
-        if (! Schema::hasTable($physical)) {
+        if (! Schema::connection($connection)->hasTable($physical)) {
             return false;
         }
 
-        if (TableName::migrationRecorded($migration)) {
+        if (TableName::migrationRecorded($migration, $connection)) {
             return true;
         }
 
