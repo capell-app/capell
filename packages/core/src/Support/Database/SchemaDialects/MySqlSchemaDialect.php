@@ -15,6 +15,7 @@ use Illuminate\Database\Connection;
 use Override;
 use PDO;
 use RuntimeException;
+use Throwable;
 use WeakMap;
 
 final class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect, RepairsImplicitTimestampUpdates
@@ -25,6 +26,23 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
     public function __construct(private readonly DatabaseFamily $defaultFamily = DatabaseFamily::MySql)
     {
         $this->serverCapabilities = new WeakMap;
+    }
+
+    public function isColumnCaseInsensitive(string $table, string $column, Connection $connection): bool
+    {
+        try {
+            $database = $connection->getDatabaseName();
+            $table = $this->physicalTableName($table, $connection);
+            $row = $connection->selectOne(
+                'select (select COLLATION_NAME from information_schema.COLUMNS where TABLE_SCHEMA = ? and TABLE_NAME = ? and COLUMN_NAME = ?) as column_collation, (select TABLE_COLLATION from information_schema.TABLES where TABLE_SCHEMA = ? and TABLE_NAME = ?) as table_collation',
+                [$database, $table, $column, $database, $table],
+            );
+            $collation = $row->column_collation ?? $row->table_collation ?? null;
+
+            return ! is_string($collation) || str_ends_with(strtolower($collation), '_ci');
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     public function supports(DatabaseCapability $capability, ?Connection $connection = null): bool

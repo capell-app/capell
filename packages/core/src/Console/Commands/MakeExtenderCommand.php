@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Makers\RunMakerAction;
+use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Makers\MakerInputData;
 use Illuminate\Console\Command;
@@ -12,11 +13,14 @@ use Throwable;
 
 class MakeExtenderCommand extends Command
 {
+    use DeprecatesMakerAliases;
     use DescribesCommandOptions;
+
+    protected $aliases = ['capell:make-extender'];
 
     protected $description = 'Generate a new PageSchemaExtender implementation in App\\Extenders';
 
-    protected $signature = 'capell:make-extender
+    protected $signature = 'capell:make:extender
         {name : The name of the extender (e.g. HeroFields)}
         {hook=AfterTitle : The hook position (BeforeTitle, AfterTitle, AfterContentEditor, AfterExtraContent, BeforeSearchMeta, AfterSearchMeta)}
         {--F|force : Overwrite existing files after warning}';

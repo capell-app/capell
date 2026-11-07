@@ -57,6 +57,21 @@ final class SavePageEditorScratchDraftAction
             return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Locked);
         }
 
+        if ($input->context !== 'page-editor' && $input->expectedRevision !== null) {
+            $unchanged = SiteAccess::forActor($input->user)->query(EditorScratchDraft::class)
+                ->where($this->identity($input, $input->user))
+                ->where('revision', $input->expectedRevision)
+                ->where('content_hash', hash('sha256', json_encode($input->payload, JSON_THROW_ON_ERROR)))
+                ->first();
+
+            if ($unchanged instanceof EditorScratchDraft) {
+                $unchanged->expires_at = CarbonImmutable::now('UTC')->addMinutes(SaveEditorScratchDraftAction::DEFAULT_TTL_MINUTES);
+                $unchanged->save();
+
+                return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 0, $input->expectedRevision);
+            }
+        }
+
         if ($input->context === 'page-editor') {
             $draft = SaveEditorScratchDraftAction::run(
                 record: $input->page,
@@ -69,14 +84,7 @@ final class SavePageEditorScratchDraftAction
             return new PageEditorScratchDraftResultData(PageEditorScratchDraftStatus::Saved, 1, $draft->revision);
         }
 
-        $identity = [
-            'user_id' => $input->user->getAuthIdentifier(),
-            'site_id' => $input->page->site_id,
-            'locale' => $input->locale,
-            'record_type' => $input->page->getMorphClass(),
-            'record_id' => $input->page->getKey(),
-            'context' => $input->context,
-        ];
+        $identity = $this->identity($input, $input->user);
         $payload = json_encode($input->payload, JSON_THROW_ON_ERROR);
         $hash = hash('sha256', $payload);
         $revision = (string) Str::uuid();
@@ -109,5 +117,18 @@ final class SavePageEditorScratchDraftAction
             affectedRows: $affected,
             revision: $affected === 1 ? $revision : null,
         );
+    }
+
+    /** @return array<string, mixed> */
+    private function identity(PageEditorScratchDraftInputData $input, Authenticatable $user): array
+    {
+        return [
+            'user_id' => $user->getAuthIdentifier(),
+            'site_id' => $input->page->site_id,
+            'locale' => $input->locale,
+            'record_type' => $input->page->getMorphClass(),
+            'record_id' => $input->page->getKey(),
+            'context' => $input->context,
+        ];
     }
 }

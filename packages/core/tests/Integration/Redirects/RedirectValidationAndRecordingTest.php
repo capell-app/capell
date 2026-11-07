@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Redirects\ValidateRedirectAction;
+use Capell\Core\Data\Redirects\RedirectUrlRecordData;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
@@ -40,6 +41,33 @@ it('records automatic redirects to the current page URL and does not overwrite e
         ->and($redirect->status_code)->toBe(RedirectStatusCodeEnum::Permanent)
         ->and($redirect->is_manual)->toBeFalse()
         ->and($redirect->status)->toBeTrue();
+});
+
+it('matches occupied and batch URLs using database case sensitivity', function (): void {
+    $language = Language::factory()->english()->createOne();
+    $site = Site::factory()->language($language)->withTranslations($language)->createOne();
+    $page = Page::factory()->site($site)->withTranslations($language)->createOne();
+
+    PageUrl::factory()->site($site)->language($language)->page($page)->createOne(['url' => '/About']);
+
+    $caseInsensitive = PageUrl::query()->where('site_id', $site->getKey())->where('language_id', $language->getKey())->where('url', '/about')->exists();
+
+    (new PageUrlRedirectUrlRecorder)->recordMany([
+        new RedirectUrlRecordData($page, $language, '/about'),
+        new RedirectUrlRecordData($page, $language, '/Old'),
+        new RedirectUrlRecordData($page, $language, '/old'),
+    ]);
+
+    $redirects = PageUrl::query()->where('type', UrlTypeEnum::Redirect)->pluck('url')->all();
+
+    expect($redirects)->toContain('/Old');
+
+    if ($caseInsensitive) {
+        expect($redirects)->not->toContain('/about')
+            ->and($redirects)->not->toContain('/old');
+    } else {
+        expect($redirects)->toContain('/about', '/old');
+    }
 });
 
 it('validates redirect safety loops chains duplicates and automatic redirect conflicts together', function (): void {

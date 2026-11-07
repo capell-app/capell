@@ -12,6 +12,7 @@ use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
+use Capell\Admin\Enums\Extensions\ExtensionAttentionReason;
 use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
@@ -173,6 +174,11 @@ final class ListExtensionManagementEntriesAction
             needsAttention: $operations->needsAttention,
             riskScore: $operations->riskScore,
             productGroup: $operations->productGroup,
+            attentionReasons: array_map(
+                fn (ExtensionAttentionReason $reason): string => $reason->label(),
+                $operations->attentionReasons,
+            ),
+            runtimeGateReason: $operations->runtimeGateReason,
         );
     }
 

@@ -348,3 +348,74 @@ it('does not write a scratch draft while another editor owns the page lock', fun
         ->and($result->affectedRows)->toBe(0)
         ->and(EditorScratchDraft::query()->count())->toBe(0);
 });
+
+it('extends a scratch draft expiry when unchanged content is synced', function (): void {
+    Date::setTestNow('2026-08-21 10:00:00');
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+    $sync = fn (?string $revision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: ['name' => 'Draft'],
+        context: 'page-editor:expiry-test',
+        expectedRevision: $revision,
+    ));
+    $first = $sync(null);
+    $expiry = EditorScratchDraft::query()->sole()->expires_at;
+    Date::setTestNow('2026-08-21 10:10:00');
+
+    $repeat = $sync($first->revision);
+
+    expect($repeat->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and(EditorScratchDraft::query()->sole()->expires_at->greaterThan($expiry))->toBeTrue();
+});
+
+it('rejects an unchanged sync when another editor has acquired the page lock', function (): void {
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+    $sync = fn (?string $revision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: ['name' => 'Draft'],
+        context: 'page-editor:lock-test',
+        expectedRevision: $revision,
+    ));
+    $first = $sync(null);
+    $owner = test()->createUser();
+    ContentLock::query()->create([
+        'user_id' => $owner->getAuthIdentifier(), 'model_type' => $page->getMorphClass(),
+        'model_id' => $page->getKey(), 'expires_at' => Date::now()->addMinutes(15),
+    ]);
+
+    expect($sync($first->revision)->status)->toBe(PageEditorScratchDraftStatus::Locked);
+});
+
+it('keeps the revision when an editor sync repeats the saved content', function (): void {
+    $page = Page::factory()->createOne();
+    $editor = test()->actingAsAdmin()->authenticatedUser();
+    $sync = fn (array $payload, ?string $expectedRevision): mixed => SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+        page: $page,
+        user: $editor,
+        locale: 'en',
+        payload: $payload,
+        context: 'page-editor:sync-test',
+        expectedRevision: $expectedRevision,
+    ));
+
+    $first = $sync(['name' => 'Draft name'], null);
+
+    $repeat = $sync(['name' => 'Draft name'], $first->revision);
+
+    $changed = $sync(['name' => 'Changed name'], $first->revision);
+
+    expect($first->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and($repeat->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and($repeat->affectedRows)->toBe(0)
+        ->and($repeat->revision)->toBe($first->revision)
+        ->and($changed->status)->toBe(PageEditorScratchDraftStatus::Saved)
+        ->and($changed->affectedRows)->toBe(1)
+        ->and($changed->revision)->not->toBe($first->revision)
+        ->and(EditorScratchDraft::query()->sole()->payload)->toBe(['name' => 'Changed name']);
+});

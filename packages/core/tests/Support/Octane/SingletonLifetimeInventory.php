@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Support\Octane;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
+use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
@@ -97,6 +98,7 @@ use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
+use Capell\Frontend\Support\Render\HeadMetadataRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataScope;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -130,6 +132,7 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => CapellCoreManager::class,
             ThemePreviewContext::class => ThemePreviewContext::class,
             FrontendContextReader::class => FrontendState::class,
+            AdminHelpRegistry::class => AdminHelpRegistry::class,
         ];
     }
 
@@ -182,7 +185,7 @@ final class SingletonLifetimeInventory
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.
-            InstalledPanelRuntime::class => self::boot('Applied extender entries and route middleware snapshots belong to each panel bootstrap, held through weak panel keys.'),
+            InstalledPanelRuntime::class => self::boot("Applied extender entries, package middleware contributions, route middleware snapshots, reconciled and refused routes belong to each panel bootstrap, held through weak panel and route keys; panels synchronised after boot are kept by id, for match-time route coverage; route ownership lives on each route, not here. The replayed rendering route and the rendering identities belong to one request and are forgotten on Livewire's flush-state."),
             AgentAdminToolRegistry::class => self::boot('Admin agent tools are package boot registrations and resolve actor scope per invocation.'),
             AgentAdminToolInvocationService::class => self::stateless('The invocation service retains only readonly registries and cache-backed confirmation collaborators.'),
             ExtensionPageRegistry::class => self::boot('Extension pages are package boot registrations.'),
@@ -216,6 +219,7 @@ final class SingletonLifetimeInventory
             PublicRouteAliasRegistry::class => self::boot('Public route aliases are package boot registrations.'),
             RenderableDynamicDataRegistry::class => self::boot('Dynamic data resolvers are package boot registrations.'),
             RenderHookRegistry::class => self::boot('Render hooks are package boot registrations.'),
+            HeadMetadataRegistry::class => self::boot('Default head metadata contributions are package boot registrations.'),
             FrontendRuleConditionRegistry::class => self::boot('Rule conditions are package boot registrations.'),
             ReservedFrontendPathRegistry::class => self::boot('Reserved paths are package boot registrations.'),
             ReservedFrontendDomainRegistry::class => self::boot('Reserved domains are package boot registrations.'),

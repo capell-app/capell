@@ -42,3 +42,26 @@ still fails after this is a real finding: read its diagnostics, do not loop.
 This applies to every writer lane. A lane that cannot run Git still runs the
 three formatters on its changed files before it hands back, so the manager's
 commit is a single pass.
+
+Rector sometimes needs a second pass after Pint: run it again until it reports
+zero changed files, then run Pint once more.
+
+## Run the gates CI runs before you push, not after
+
+Hosted CI repeats checks the commit hook does not, and each miss costs a push,
+a ten-minute matrix and a second round. On 2026-11-05 four consecutive Core
+rounds failed on checks a writer could have run in under a minute. Before every
+push, run the ones that apply to your diff, from the repository root:
+
+| Your diff touches                                | Run                                                                                                                                                 |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| any test file                                    | `composer check:test-weak-assertions` (no multi-argument `->not->toContain(...)`)                                                                   |
+| a test class declaration (`final class …Test`)   | `vendor/bin/pest packages/core/tests/Arch/TestPsr4ArchTest.php`: named test classes need a namespace matching the Composer PSR-4 mapping            |
+| `packages/**` Markdown, Blade, JSON, YAML or CSS | `npx prettier --check <those files>` (CI checks every packages file, not only the ones you formatted)                                               |
+| docs, command names or artisan examples          | `composer check:docs-commands check:docs-spelling check:docs-links`                                                                                 |
+| translation keys or UI text                      | `composer check:lang-keys`                                                                                                                          |
+| Packages: generated READMEs or docs              | `composer docs:rewrite-readmes` then `composer docs:rewrite-readmes:check`; never add a flag that skips part of the generator to get past a failure |
+
+A branch cut before a guard landed on `main` fails that guard's CI job for lack
+of files, not for any defect of its own: merge `origin/main` into the branch
+first. Put this table in every writer-lane brief.

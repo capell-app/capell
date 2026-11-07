@@ -51,6 +51,7 @@
                 class="focus-visible:ring-primary-500 relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-gray-400 transition outline-none hover:bg-gray-100 hover:text-gray-700 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-70 dark:bg-gray-950 dark:hover:bg-white/10 dark:hover:text-gray-200"
                 type="button"
                 title="{{ $isExpanded ? __('capell-admin::button.collapse') : __('capell-admin::button.expand') }}"
+                aria-label="{{ $isExpanded ? __('capell-admin::button.collapse') : __('capell-admin::button.expand') }}"
                 wire:click="togglePage({{ $nodeId }}, {{ $siteId }})"
                 wire:loading.attr="disabled"
                 wire:target="togglePage({{ $nodeId }}, {{ $siteId }})"
@@ -103,6 +104,7 @@
             class="hover:text-primary-600 focus:text-primary-600 focus-visible:ring-primary-500 dark:hover:text-primary-400 dark:focus:text-primary-400 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 opacity-0 transition outline-none group-hover:opacity-100 focus:opacity-100 focus-visible:ring-2"
             href="{{ $node['edit_url'] }}"
             title="{{ __('capell-admin::button.edit_page') }}"
+            aria-label="{{ __('capell-admin::button.edit_page') }}"
             x-tooltip.raw="{{ __('capell-admin::button.edit_page') }}"
         >
             @svg(Heroicon::OutlinedPencilSquare->getIconForSize(IconSize::Small), 'h-4 w-4')
@@ -115,6 +117,7 @@
                 target="_blank"
                 rel="noopener noreferrer"
                 title="{{ __('capell-admin::button.visit_page') }}"
+                aria-label="{{ __('capell-admin::button.visit_page') }}"
                 x-tooltip.raw="{{ __('capell-admin::button.visit_page') }}"
             >
                 @svg(Heroicon::OutlinedArrowTopRightOnSquare->getIconForSize(IconSize::Small), 'h-4 w-4')

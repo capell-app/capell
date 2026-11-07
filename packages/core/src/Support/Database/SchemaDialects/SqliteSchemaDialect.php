@@ -12,6 +12,11 @@ use Illuminate\Database\Connection;
 
 final class SqliteSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
 {
+    public function isColumnCaseInsensitive(string $table, string $column, Connection $connection): bool
+    {
+        return false;
+    }
+
     public function supports(DatabaseCapability $capability, ?Connection $connection = null): bool
     {
         return match ($capability) {

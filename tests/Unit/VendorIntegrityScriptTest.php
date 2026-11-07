@@ -160,7 +160,8 @@ it('rejects an inaccessible parent of the optional skeleton link', function (): 
     }
 
     $root = vendorIntegrityFixture();
-    $parent = $root . '/vendor/orchestra/testbench-core/laravel';
+    // The script reports resolved paths; TMPDIR may be a symlink or carry a trailing slash.
+    $parent = (string) realpath($root . '/vendor/orchestra/testbench-core/laravel');
     try {
         chmod($parent, 0000);
         [$exitCode, $output] = runVendorIntegrityCheck($root);

@@ -2,47 +2,15 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
-use Capell\Admin\Support\AdminPanelEntrypoint;
+use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Marketplace\Http\Controllers\MarketplaceAccountConnectionCallbackController;
 use Capell\Marketplace\Http\Controllers\MarketplaceInstallFlowCallbackController;
-use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
-use Filament\Http\Middleware\DisableBladeIconComponents;
-use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
-use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-$foundationMiddlewareNamespace = implode('\\', ['Illuminate', 'Foundation', 'Http', 'Middleware']);
-$preventRequestForgeryMiddleware = $foundationMiddlewareNamespace . '\\PreventRequestForgery';
-$requestForgeryMiddleware = class_exists($preventRequestForgeryMiddleware)
-    ? $preventRequestForgeryMiddleware
-    : $foundationMiddlewareNamespace . '\\VerifyCsrfToken';
-
-Route::prefix(AdminPanelEntrypoint::path())
-    ->middleware([
-        'panel:admin',
-        EncryptCookies::class,
-        AddQueuedCookiesToResponse::class,
-        StartSession::class,
-        AuthenticateSession::class,
-        ShareErrorsFromSession::class,
-        $requestForgeryMiddleware,
-        SubstituteBindings::class,
-        DisableBladeIconComponents::class,
-        DispatchServingFilamentEvent::class,
-        Authenticate::class,
-        // The panel's own authenticated-request stack (lockdown, locale, installer redirect, profiling):
-        // without the full stack the installed panel runtime treats these routes as partially covered.
-        ...CapellAdminPlugin::authMiddleware(),
-    ])
-    ->group(function (): void {
-        Route::get('/marketplace/connection/callback', MarketplaceAccountConnectionCallbackController::class)
-            ->name('capell-marketplace.account-connection.callback');
-        Route::get('/marketplace/install-flow/callback', MarketplaceInstallFlowCallbackController::class)
-            ->name('capell-marketplace.install-flow.callback');
-    });
+// Served by the Capell admin panel on its path and domain, which runs its whole stack and authentication.
+AdminRouteProvenance::entrypoint(static function (): void {
+    Route::get('marketplace/connection/callback', MarketplaceAccountConnectionCallbackController::class)
+        ->name('capell-marketplace.account-connection.callback');
+    Route::get('marketplace/install-flow/callback', MarketplaceInstallFlowCallbackController::class)
+        ->name('capell-marketplace.install-flow.callback');
+});
