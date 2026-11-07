@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\File;
 
 /**
  * @return array{0: Theme, 1: Site, 2: Page}
@@ -35,7 +36,7 @@ function createThemePreviewTestRecords(): array
         ],
     ]));
     $previewTheme = Theme::withoutEvents(fn (): Theme => Theme::factory()->defaultMeta()->create([
-        'key' => 'preview-theme-test',
+        'key' => 'preview-theme-test-' . getmypid() . '-' . bin2hex(random_bytes(4)),
         'meta' => [
             'colors' => [
                 'primary' => '12, 34, 56',
@@ -62,8 +63,30 @@ function createThemePreviewTestRecords(): array
     return [$previewTheme, $site, $page];
 }
 
+/**
+ * Theme override roots written by this file; each test removes them so no worker leaves files for another.
+ *
+ * @return list<string>
+ */
+function pullThemePreviewOverrideRoots(?string $root = null): array
+{
+    static $roots = [];
+
+    if ($root !== null) {
+        $roots[] = $root;
+
+        return $roots;
+    }
+
+    $pulled = $roots;
+    $roots = [];
+
+    return $pulled;
+}
+
 function createPreviewThemeOverride(Theme $theme): void
 {
+    pullThemePreviewOverrideRoots(resource_path('themes/' . $theme->key));
     $viewDirectory = resource_path('themes/' . $theme->key . '/livewire/page');
 
     if (! is_dir($viewDirectory)) {
@@ -134,6 +157,12 @@ beforeEach(function (): void {
     );
 
     Blueprint::factory()->theme()->default()->create();
+});
+
+afterEach(function (): void {
+    foreach (pullThemePreviewOverrideRoots() as $root) {
+        File::deleteDirectory($root);
+    }
 });
 
 it('rejects unsigned preview requests', function (): void {
