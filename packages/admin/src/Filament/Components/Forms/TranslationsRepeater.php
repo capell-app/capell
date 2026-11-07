@@ -262,6 +262,17 @@ class TranslationsRepeater extends RepeaterTabs
             return;
         }
 
+        // Item schemas cannot be built over a rich editor document: a builder would
+        // treat it as a list of blocks. HTML is valid for either editor.
+        foreach ($state as $key => $row) {
+            if (is_array($row) && is_array($row['content'] ?? null) && ($row['content']['type'] ?? null) === 'doc') {
+                $row['content'] = MutateContentPresenterAction::run($row['content'], ContentStructure::Html);
+                $state[$key] = $row;
+            }
+        }
+
+        $this->rawState($state);
+
         $paths = [];
 
         foreach ($this->getItems() as $key => $item) {

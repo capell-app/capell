@@ -2078,3 +2078,22 @@ it('keeps the text of a rich editor document in a restored scratch draft', funct
 
     expect(json_encode(data_get($component->instance()->data, $path)))->toContain('Recovered edit');
 });
+
+it('restores a rich editor document draft into a page that now uses blocks', function (): void {
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
+    $translation = Translation::factory()->language($language)->translatable($page)->state(['content' => []])->create();
+    $path = sprintf('translations.record-%d.content', $translation->getKey());
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
+    $payload = $component->instance()->data;
+    data_set($payload, $path, ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Recovered edit']]]]]);
+
+    $component->dispatch('page-scratch-draft-restored', pageId: $page->getKey(), data: $payload)
+        ->assertNotified(__('capell-admin::scratch_drafts.restored'));
+
+    $blocks = array_values(data_get($component->instance()->data, $path));
+
+    expect($blocks)->toHaveCount(1)
+        ->and(json_encode($blocks[0]['data']))->toContain('Recovered edit');
+});

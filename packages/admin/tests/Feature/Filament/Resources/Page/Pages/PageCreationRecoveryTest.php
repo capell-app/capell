@@ -226,3 +226,24 @@ it('restores a creation recovery saved as HTML into a page that now uses blocks'
     expect($blocks)->toHaveCount(1)
         ->and(json_encode($blocks[0]['data']))->toContain('Recovered edit');
 });
+
+it('restores a creation recovery holding a rich editor document into a page that now uses blocks', function (): void {
+    Blueprint::query()->get()->each(fn (Blueprint $blueprint): bool => $blueprint->forceFill([
+        'meta' => [...($blueprint->meta ?? []), 'content_structure' => ContentStructure::Blocks],
+    ])->save());
+    $site = Site::factory()->withTranslations()->createOne();
+    $component = Livewire::test(CreatePage::class)->set('data.site_id', $site->id);
+    $payload = $component->instance()->data;
+    $key = array_key_first($payload['translations']);
+    expect($key)->not->toBeNull();
+    $payload['translations'][$key]['content'] = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Recovered edit']]]]];
+    resolve(PageCreationRecovery::class)->save(test()->authenticatedUser(), $site->id, 'en', 'page-create:doc', null, $payload);
+    $draft = EditorScratchDraft::query()->where('context', 'page-create:doc')->sole();
+
+    $component->call('restoreCreationRecovery', $draft->id, $draft->revision, $draft->content_hash);
+
+    $blocks = array_values($component->instance()->data['translations'][$key]['content']);
+
+    expect($blocks)->toHaveCount(1)
+        ->and(json_encode($blocks[0]['data']))->toContain('Recovered edit');
+});
