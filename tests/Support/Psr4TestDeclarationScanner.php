@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Capell\Tests\Support;
 
 use FilesystemIterator;
+use RecursiveCallbackFilterIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
+use SplFileInfo;
 
 final class Psr4TestDeclarationScanner
 {
@@ -39,7 +41,11 @@ final class Psr4TestDeclarationScanner
                     }
 
                     $directories[$prefix][] = $directory;
-                    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)) as $file) {
+                    $entries = new RecursiveCallbackFilterIterator(
+                        new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
+                        static fn (SplFileInfo $entry): bool => ! str_starts_with($entry->getFilename(), '.'),
+                    );
+                    foreach (new RecursiveIteratorIterator($entries) as $file) {
                         if ($file->isFile() && $file->getExtension() === 'php') {
                             $files[$file->getPathname()] = true;
                         }

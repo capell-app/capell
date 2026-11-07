@@ -85,3 +85,59 @@ it('derives root and package mappings including multiple directories and reports
         }
     }
 })->group('Core');
+
+it('ignores hidden descendants while retaining ordinary root and package fixture violations', function (): void {
+    $root = sys_get_temp_dir() . '/capell-test-psr4-hidden-' . bin2hex(random_bytes(8));
+    $files = [
+        'composer.json' => json_encode(['autoload-dev' => ['psr-4' => ['Example\\Tests\\' => 'tests']]], JSON_THROW_ON_ERROR),
+        'packages/example/composer.json' => json_encode(['autoload-dev' => ['psr-4' => ['Example\\Package\\Tests\\' => 'tests']]], JSON_THROW_ON_ERROR),
+        'tests/Correct.php' => '<?php namespace Example\\Tests; class Correct {}',
+        'packages/example/tests/Correct.php' => '<?php namespace Example\\Package\\Tests; class Correct {}',
+        'tests/.pest/testbench-skeletons/app/Generated.php' => '<?php namespace App; class Generated {}',
+        'tests/.pest/testbench-skeletons/database/migrations/Generated.php' => '<?php class CreateGeneratedTables {}',
+        'packages/example/tests/.pest/testbench-skeletons/app/Generated.php' => '<?php namespace PackageApp; class Generated {}',
+        'packages/example/tests/.pest/testbench-skeletons/database/migrations/Generated.php' => '<?php class CreatePackageGeneratedTables {}',
+        'tests/.hidden.php' => '<?php namespace App; class HiddenFile {}',
+        'packages/example/tests/.hidden.php' => '<?php namespace PackageApp; class HiddenFile {}',
+        'tests/fixtures/ForeignFixture.php' => '<?php namespace Example\\Tests; class MisplacedFixture {}',
+        'packages/example/tests/fixtures/ForeignFixture.php' => '<?php namespace Example\\Package\\Tests; class MisplacedFixture {}',
+    ];
+
+    try {
+        foreach ($files as $path => $contents) {
+            $directory = dirname($root . '/' . $path);
+            if (! is_dir($directory)) {
+                mkdir($directory, 0755, true);
+            }
+
+            file_put_contents($root . '/' . $path, $contents);
+        }
+
+        expect(new Psr4TestDeclarationScanner()->scan($root))->toBe([
+            [
+                'file' => 'packages/example/tests/fixtures/ForeignFixture.php',
+                'line' => 1,
+                'class' => 'Example\\Package\\Tests\\MisplacedFixture',
+                'expected' => ['packages/example/tests/MisplacedFixture.php'],
+            ],
+            [
+                'file' => 'tests/fixtures/ForeignFixture.php',
+                'line' => 1,
+                'class' => 'Example\\Tests\\MisplacedFixture',
+                'expected' => ['tests/MisplacedFixture.php'],
+            ],
+        ]);
+    } finally {
+        if (is_dir($root)) {
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST) as $file) {
+                if ($file->isDir()) {
+                    rmdir($file->getPathname());
+                } else {
+                    unlink($file->getPathname());
+                }
+            }
+
+            rmdir($root);
+        }
+    }
+})->group('Core');

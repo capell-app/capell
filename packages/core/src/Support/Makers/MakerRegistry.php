@@ -20,13 +20,7 @@ final class MakerRegistry extends AbstractKeyedRegistry implements MakerRegistry
         $key = $maker->definition()->key;
         $this->setItem($key, $maker);
         if (app()->bound(RecordsExtensionContributionReceipt::class)) {
-            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
-                ExtensionContributionReceiptType::Maker,
-                'maker:' . $key,
-                $maker::class,
-                self::class,
-                'runtime',
-            );
+            $this->recordReceipt($key, $maker::class);
         }
     }
 
@@ -51,5 +45,25 @@ final class MakerRegistry extends AbstractKeyedRegistry implements MakerRegistry
     public function clear(): void
     {
         $this->clearItems();
+    }
+
+    /**
+     * Registration can run from a callback deferred until another package's
+     * provider resolves this registry, so the active context may belong to
+     * that package. Own the receipt by the maker's declaring package instead.
+     * An anonymous class has no declaring namespace (its name derives from the
+     * interface it implements), so it keeps the active context.
+     */
+    private function recordReceipt(string $key, string $implementation): void
+    {
+        $receipts = resolve(RecordsExtensionContributionReceipt::class);
+
+        if (str_contains($implementation, '@anonymous')) {
+            $receipts->recordContribution(ExtensionContributionReceiptType::Maker, 'maker:' . $key, $implementation, self::class, 'runtime');
+
+            return;
+        }
+
+        $receipts->recordContributionFromSource(ExtensionContributionReceiptType::Maker, 'maker:' . $key, $implementation, $implementation, 'runtime');
     }
 }
