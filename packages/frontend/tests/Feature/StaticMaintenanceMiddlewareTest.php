@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
+use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -23,6 +26,8 @@ beforeEach(function (): void {
 
     app()->singleton(StaticMaintenancePageStore::class, fn (): object => new class implements StaticMaintenancePageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [
             'maintenance/https.example.test/index.html' => '<h1>Maintenance</h1>',
@@ -46,7 +51,7 @@ beforeEach(function (): void {
             return $path;
         }
 
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }
@@ -101,7 +106,7 @@ it('is registered before frontend resolution in the frontend route middleware st
 
 it('serves path mounted site maintenance html for the exact mounted path', function (): void {
     $store = resolve(StaticMaintenancePageStore::class);
-    $store->put('maintenance/https.example.test/docs/index.html', '<h1>Docs maintenance</h1>');
+    PublishesStaticArtefacts::page($store, 'maintenance/https.example.test/docs/index.html', '<h1>Docs maintenance</h1>');
 
     resolve(MaintenanceManifestStore::class)->write([
         'version' => 2,
@@ -427,7 +432,7 @@ it('throws Laravel maintenance fallback when there is no template or static html
 
 it('ignores malformed manifest entries and uses the longest matching mounted domain', function (): void {
     $store = resolve(StaticMaintenancePageStore::class);
-    $store->put('maintenance/https.example.test/docs/index.html', '<h1>Docs mounted maintenance</h1>');
+    PublishesStaticArtefacts::page($store, 'maintenance/https.example.test/docs/index.html', '<h1>Docs mounted maintenance</h1>');
 
     resolve(MaintenanceManifestStore::class)->write([
         'version' => 2,
@@ -553,6 +558,8 @@ function unreadableMaintenanceFixture(): string
 
     app()->singleton(StaticMaintenancePageStore::class, fn (): object => new readonly class($path) implements StaticMaintenancePageStore
     {
+        use FencesTestArtefactStore;
+
         public function __construct(private string $path) {}
 
         public function exists(string $file): bool
@@ -565,7 +572,7 @@ function unreadableMaintenanceFixture(): string
             return $this->path;
         }
 
-        public function put(string $file, string $contents): void {}
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void {}
     });
 
     resolve(MaintenanceManifestStore::class)->write([

@@ -1,0 +1,23 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Blueprints\{{ class }};
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
+
+require_once dirname(__DIR__, 3) . '/app/Blueprints/{{ class }}.php';
+
+it('registers {{ class }} as a blueprint subject', function (): void {
+    $registry = new BlueprintSubjectRegistry;
+
+    $registry->register(new BlueprintSubjectDescriptorData(
+        key: '{{ key }}',
+        label: '{{ class }}',
+        modelClass: {{ class }}::class,
+        ownerPackage: 'app/{{ key }}',
+    ));
+
+    expect($registry->has('{{ key }}'))->toBeTrue()
+        ->and($registry->descriptor('{{ key }}')->modelClass)->toBe({{ class }}::class);
+});

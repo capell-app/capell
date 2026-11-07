@@ -10,10 +10,12 @@ use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Support\Agent\AgentPublicRenderDataContributor;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Illuminate\Support\Facades\File;
 
 /** @return array{0: Page, 1: PropertySet, 2: Taxonomy} */
@@ -69,7 +71,7 @@ it('invalidates cached and exported taxonomy-only properties when their definiti
     try {
         $output = json_encode($contributor->contribute($context)->value, JSON_THROW_ON_ERROR);
         expect($output)->toContain('Visible taxonomy description');
-        resolve(StaticPageArtifactStore::class)->putHtml($file, $output);
+        PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => resolve(StaticPageArtifactStore::class)->putHtml($permit, $file, $output));
         $cache->setToCache($key, $output, 0);
         foreach ($metadata->cacheDependencies as $dependency) {
             $dependencies->register($dependency, $key);

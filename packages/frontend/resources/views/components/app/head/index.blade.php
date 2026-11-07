@@ -12,6 +12,7 @@
     use Capell\Core\Models\SiteDomain;
     use Illuminate\Database\Eloquent\Collection as EloquentCollection;
     use Illuminate\Database\Eloquent\Model;
+    use Capell\Frontend\Actions\BuildHeadMetadataAction;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
     use Capell\Frontend\Actions\ResolvePageRobotsDirectivesAction;
     use Capell\Frontend\Actions\RenderCustomHeadAction;
@@ -30,6 +31,7 @@
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Enums\RenderHookScenario;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
+    use Capell\Frontend\Support\Render\HeadMetadataCollector;
     use Capell\Frontend\Support\Security\HeadContentSanitizer;
     use Capell\Frontend\Support\View\PublicModelMeta;
 
@@ -175,13 +177,36 @@
 
     @php
         $metaTitle = trans(strip_tags($title), $translationVariables);
+        $socialTitle = trans(strip_tags($title), $translationVariables);
 
         if (isset($__env) && $__env->hasSection('meta_title')) {
             $metaTitle = $__env->yieldContent('meta_title', $metaTitle);
+            $socialTitle = strip_tags($metaTitle);
         }
     @endphp
 
+    @php
+        $collector = new HeadMetadataCollector;
+        $resourceHead = $collector->collect($renderedFrontendResources instanceof RenderedFrontendResourcesData ? $renderedFrontendResources->headHtml : '');
+        $stylesHead = $collector->collect($__env->yieldPushContent('styles'));
+        $headHook = $collector->collect(app(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeadClose, item: ['page' => $page, 'site' => $site, 'language' => $language], scenario: RenderHookScenario::SeoMeta->value));
+        $siteHead = $collector->collect(HeadContentSanitizer::headSnippet(data_get($siteMeta, 'meta_tags')));
+        $themeHead = $collector->collect(HeadContentSanitizer::headSnippet(PublicModelMeta::get($theme, 'meta_tags')));
+        $pageHead = $collector->collect(HeadContentSanitizer::headSnippet(data_get($pageMeta, 'meta_tags')));
+        $customHead = $collector->collect(RenderCustomHeadAction::run($title, $description, $keywords));
+        $sectionHead = $collector->collect($__env->yieldContent('meta'));
+        $headMetadata = BuildHeadMetadataAction::run($socialTitle, $description, $canonicalUrl, $safeStringAttribute($siteTranslation, 'title'), $robots, Frontend::isError(), $collector->values());
+    @endphp
     <title>{{ $metaTitle }}</title>
+    @foreach ($headMetadata->meta as $key => $value)
+        <meta
+            {{ str_starts_with($key, 'og:') ? 'property' : 'name' }}="{{ $key }}"
+            content="{{ $value }}"
+        />
+    @endforeach
+    <script
+        type="application/ld+json"
+    >{!! json_encode(['@' . 'context' => 'https://schema.org', '@graph' => $headMetadata->graph], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) !!}</script>
 
     <base href="{{ $siteDomain?->full_url }}" />
 
@@ -235,7 +260,7 @@
     @endif
 
     @if ($renderedFrontendResources instanceof RenderedFrontendResourcesData)
-        {!! $renderedFrontendResources->headHtml !!}
+        {!! $resourceHead !!}
     @endif
 
     @foreach ($mediaHints as $mediaHint)
@@ -393,7 +418,7 @@
             @endphp
         @endforeach
     @endif
-    @stack('styles')
+    {!! $stylesHead !!}
 
     @if ($runtimeManifest?->usesLivewire ?? $livewireEnabled)
         @livewireStyles
@@ -413,28 +438,10 @@
         />
     @endif
 
-    @if ($robots)
-        <meta
-            name="robots"
-            content="{{ implode(', ', $robots) }}"
-        />
-    @endif
-
-    {!!
-        app(RenderHookRegistry::class)->renderAll(
-            RenderHookLocation::HeadClose,
-            item: ['page' => $page, 'site' => $site, 'language' => $language],
-            scenario: RenderHookScenario::SeoMeta->value,
-        )
-    !!}
-
-    {!! HeadContentSanitizer::headSnippet(data_get($siteMeta, 'meta_tags')) !!}
-
-    {!! HeadContentSanitizer::headSnippet(PublicModelMeta::get($theme, 'meta_tags')) !!}
-
-    {!! HeadContentSanitizer::headSnippet(data_get($pageMeta, 'meta_tags')) !!}
-
-    {!! RenderCustomHeadAction::run($title, $description, $keywords) !!}
-
-    @yield('meta')
+    {!! $headHook !!}
+    {!! $siteHead !!}
+    {!! $themeHead !!}
+    {!! $pageHead !!}
+    {!! $customHead !!}
+    {!! $sectionHead !!}
 </head>

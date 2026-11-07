@@ -1,0 +1,243 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Support;
+
+use Capell\Admin\Data\PaletteCommandData;
+use Capell\Admin\Data\PaletteRenderData;
+use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Filament\Pages\SettingsPage;
+use Capell\Admin\Http\Middleware\SetSitePermissionScope;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
+use Closure;
+use Filament\Facades\Filament;
+use Filament\Resources\Pages\Page as ResourcePage;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Spatie\Permission\PermissionRegistrar;
+use Throwable;
+
+final class PaletteAccess
+{
+    private const array CORE_TARGETS = ['pages', 'sites', 'themes', 'publishing-studio', 'settings', 'extensions'];
+
+    public function forRender(): PaletteRenderData
+    {
+        return $this->inSiteScope(function (): PaletteRenderData {
+            $actor = Filament::auth()->user();
+            if ($actor === null) {
+                return new PaletteRenderData([], []);
+            }
+
+            $core = $this->resolveCoreCommands();
+            $extensions = [];
+            $reservedIds = [...self::CORE_TARGETS, ...array_map(static fn (string $target): string => 'capell.' . $target, self::CORE_TARGETS)];
+            foreach (CapellAdmin::getPaletteCommands() as $id => $command) {
+                if (in_array($id, $reservedIds, true)) {
+                    Log::debug('Ignoring extension palette command with reserved core ID.', ['id' => $id]);
+
+                    continue;
+                }
+
+                try {
+                    if ($command->visible !== null ? ! ($command->visible)($actor) : ! $this->canAccessDestination($command)) {
+                        continue;
+                    }
+                } catch (Throwable $exception) {
+                    report($exception);
+
+                    continue;
+                }
+
+                $extensions[$id] = $command;
+            }
+
+            return new PaletteRenderData([...$core, ...$extensions], $this->shortcuts($core, $extensions));
+        }, new PaletteRenderData([], []));
+    }
+
+    /** @return array<string, PaletteCommandData> */
+    public function coreCommands(): array
+    {
+        return $this->inSiteScope(fn (): array => $this->resolveCoreCommands(), []);
+    }
+
+    private function canAccessDestination(PaletteCommandData $command): bool
+    {
+        $panel = Filament::getCurrentPanel();
+        if ($panel === null || $command->url === null) {
+            return false;
+        }
+
+        $url = $command->url;
+        $origin = parse_url(url('/'));
+        $parts = parse_url($url);
+        if ($parts === false || (isset($parts['host']) && ($parts['host'] !== ($origin['host'] ?? null) || ($parts['scheme'] ?? null) !== ($origin['scheme'] ?? null) || ($parts['port'] ?? null) !== ($origin['port'] ?? null)))) {
+            return false;
+        }
+
+        if (! isset($parts['host']) && ! str_starts_with($url, '/')) {
+            return false;
+        }
+
+        $route = Route::getRoutes()->match(Request::create($url, \Symfony\Component\HttpFoundation\Request::METHOD_GET));
+        $class = explode('@', $route->getActionName())[0];
+        $name = $route->getName();
+        if ($name === null || ! str_starts_with($name, 'filament.' . $panel->getId() . '.')) {
+            return false;
+        }
+
+        if (in_array($class, $panel->getPages(), true)) {
+            return $class::canAccess();
+        }
+
+        if (is_subclass_of($class, ResourcePage::class)) {
+            $resource = $class::getResource();
+
+            return in_array($resource, $panel->getResources(), true) && $resource::canAccess();
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, PaletteCommandData>  $core
+     * @param  array<string, PaletteCommandData>  $extensions
+     * @return list<array{sequence?: string, key?: string, action: string, target: string, label: string, url?: string}>
+     */
+    private function shortcuts(array $core, array $extensions): array
+    {
+        $shortcuts = [];
+        foreach (config('capell-admin.shortcuts', []) as $shortcut) {
+            if ($shortcut['action'] === 'navigate') {
+                $target = $shortcut['target'];
+                $coreTarget = str_starts_with((string) $target, 'capell.') ? substr((string) $target, 7) : $target;
+                if (in_array($coreTarget, self::CORE_TARGETS, true)) {
+                    $command = $core['capell.' . $coreTarget] ?? null;
+                } else {
+                    // Extensions opt in with an exact ID and their own visibility.
+                    $command = $extensions[$target] ?? null;
+                    if ($command?->visible === null) {
+                        continue;
+                    }
+                }
+
+                if ($command === null) {
+                    continue;
+                }
+
+                if ($command->url === null) {
+                    continue;
+                }
+
+                $shortcut['url'] = $command->url;
+                $shortcut['commandId'] = $command->id;
+            }
+
+            $shortcuts[] = $shortcut;
+        }
+
+        return $shortcuts;
+    }
+
+    /**
+     * @template TResult
+     *
+     * @param  Closure(): TResult  $resolve
+     * @param  TResult  $guest
+     * @return TResult
+     */
+    private function inSiteScope(Closure $resolve, mixed $guest): mixed
+    {
+        $panel = Filament::getCurrentPanel();
+        $user = $panel !== null ? Filament::auth()->user() : null;
+        if ($panel === null || $user === null) {
+            return $guest;
+        }
+
+        // Route context is authoritative even after the Livewire middleware has
+        // restored the registrar's team. It is independent of permission grants.
+        $teamId = resolve(PaletteRequestState::class)->resolvedTeamId(
+            $user,
+            fn (): ?int => resolve(SetSitePermissionScope::class)->permissionTeamId(request()),
+        );
+
+        return PermissionTeamContext::run($teamId, function () use ($resolve): mixed {
+            // Direct role-permission pivot writes do not invalidate Spatie's
+            // cached permission-to-role links. Refresh them once for this render.
+            resolve(PermissionRegistrar::class)->getPermissions()->load('roles');
+
+            return $resolve();
+        }, $user instanceof Model ? $user : null);
+    }
+
+    /** @return array<string, PaletteCommandData> */
+    private function resolveCoreCommands(): array
+    {
+        $panel = Filament::getCurrentPanel();
+
+        if ($panel === null || ! Filament::auth()->check()) {
+            return [];
+        }
+
+        $commands = [];
+        foreach (['pages' => ResourceEnum::Page, 'sites' => ResourceEnum::Site, 'themes' => ResourceEnum::Theme, 'publishing-studio' => 'Workspace'] as $key => $type) {
+            $resource = AdminSurfaceLookup::resourceIfRegistered($type);
+            if ($resource === null) {
+                continue;
+            }
+
+            if (! in_array($resource, $panel->getResources(), true)) {
+                continue;
+            }
+
+            if (! $resource::canAccess()) {
+                continue;
+            }
+
+            $commands['capell.' . $key] = new PaletteCommandData(
+                id: 'capell.' . $key,
+                label: (string) match ($key) {
+                    'pages' => __('capell-admin::palette.pages'),
+                    'sites' => __('capell-admin::palette.sites'),
+                    'themes' => __('capell-admin::palette.themes'),
+                    'publishing-studio' => __('capell-admin::palette.publishing-studio'),
+                },
+                url: $resource::getUrl(),
+                sort: match ($key) {
+                    'pages' => 10,
+                    'sites' => 20,
+                    'themes' => 50,
+                    default => 60,
+                },
+            );
+        }
+
+        foreach (['settings' => SettingsPage::class, 'extensions' => ExtensionsPage::class] as $key => $page) {
+            if (! in_array($page, $panel->getPages(), true)) {
+                continue;
+            }
+
+            if (! $page::canAccess()) {
+                continue;
+            }
+
+            $commands['capell.' . $key] = new PaletteCommandData(
+                id: 'capell.' . $key,
+                label: (string) match ($key) {
+                    'settings' => __('capell-admin::palette.settings'),
+                    'extensions' => __('capell-admin::palette.extensions'),
+                },
+                url: $page::getUrl(),
+                sort: $key === 'settings' ? 30 : 40,
+            );
+        }
+
+        return $commands;
+    }
+}

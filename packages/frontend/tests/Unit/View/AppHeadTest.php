@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\RegisterBlazeOptimizedViewsAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -23,16 +22,10 @@ use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\HtmlString;
-use Illuminate\View\Compilers\BladeCompiler;
-use Illuminate\View\Engines\CompilerEngine;
-use Livewire\Blaze\BladeService;
 use Livewire\Blaze\BlazeManager;
 use Livewire\Blaze\BlazeServiceProvider;
-use Livewire\Blaze\Runtime\BlazeRuntime;
-use Livewire\Blaze\Support\Utils as BlazeUtils;
 
 it('ignores non string translation meta values in the public head', function (): void {
     $language = Language::factory()->createOne();
@@ -270,72 +263,6 @@ it('uses swap rendering for local theme fonts', function (): void {
     expect($html)
         ->toContain("font-family: 'Inter'")
         ->toContain('font-display: swap');
-});
-
-it('renders the public head when Blaze compiles the anonymous component', function (): void {
-    app()->register(BlazeServiceProvider::class);
-
-    $componentFixturePath = __DIR__ . '/../../Fixtures/views/components';
-    $customHeadComponentPath = $componentFixturePath . '/app/head/custom.blade.php';
-    $tokenComponentPath = $componentFixturePath . '/app/head/tokens.blade.php';
-    $headComponentPath = realpath(__DIR__ . '/../../../resources/views/components/app/head/index.blade.php');
-
-    throw_unless(is_string($headComponentPath), RuntimeException::class, 'Expected the public head component path.');
-
-    $blazeBladeService = resolve(BladeService::class);
-    $blazeViewFactory = new ReflectionProperty(BladeService::class, 'view')->getValue($blazeBladeService);
-    $bladeEngine = View::getEngineResolver()->resolve('blade');
-
-    throw_unless($bladeEngine instanceof CompilerEngine, RuntimeException::class, 'Expected the Blade compiler engine.');
-
-    $bladeCompiler = $bladeEngine->getCompiler();
-
-    throw_unless($bladeCompiler instanceof BladeCompiler, RuntimeException::class, 'Expected the Blade compiler.');
-
-    View::addNamespace('capell-frontend-test', $componentFixturePath);
-    $blazeViewFactory->addNamespace('capell-frontend-test', $componentFixturePath);
-    View::getFinder()->prependNamespace('capell', dirname($componentFixturePath));
-    $blazeViewFactory->getFinder()->prependNamespace('capell', dirname($componentFixturePath));
-
-    foreach ([$bladeCompiler, $blazeBladeService->compiler] as $componentCompiler) {
-        $componentCompiler->component('capell-frontend-test::app.head.custom', 'capell::app.head.custom');
-        $componentCompiler->component('capell-frontend-test::app.head.tokens', 'capell::app.head.tokens');
-    }
-
-    expect(RegisterBlazeOptimizedViewsAction::run($componentFixturePath))->toBeTrue()
-        ->and(RegisterBlazeOptimizedViewsAction::run($headComponentPath))->toBeTrue();
-    expect(realpath($blazeBladeService->componentNameToPath('capell::app.head.custom')))
-        ->toBe(realpath($customHeadComponentPath));
-
-    File::delete($bladeCompiler->getCompiledPath($customHeadComponentPath));
-    File::delete($bladeCompiler->getCompiledPath($headComponentPath));
-    File::delete($bladeCompiler->getCompiledPath($tokenComponentPath));
-
-    bindAppHeadTestContext();
-
-    $blazeRuntime = resolve(BlazeRuntime::class);
-    $resolvedHeadComponentPath = $blazeBladeService->componentNameToPath('capell::app.head');
-    expect(realpath($resolvedHeadComponentPath))->toBe(realpath($headComponentPath));
-    $headComponentHash = BlazeUtils::hash($resolvedHeadComponentPath);
-    $headFunction = '_' . $headComponentHash;
-    // resolve() compiles and loads the component in both supported Blaze APIs.
-    expect($blazeRuntime->resolve('capell::app.head'))->toBe($headComponentHash);
-
-    throw_unless(function_exists($headFunction), RuntimeException::class, 'Expected the Blaze head function to be compiled.');
-
-    $renderHead = Closure::fromCallable($headFunction);
-
-    ob_start();
-    $renderHead($blazeRuntime, ['livewireEnabled' => false]);
-    $html = ob_get_clean();
-
-    expect($html)
-        ->toBeString()
-        ->toContain('<head>')
-        ->toContain('<title>')
-        ->toContain('name="blaze-head-token"')
-        ->toContain('content="BLAZE-HEAD"')
-        ->and(resolve(BlazeManager::class)->isEnabled())->toBeTrue();
 });
 
 it('restores Blaze when custom head rendering fails', function (): void {

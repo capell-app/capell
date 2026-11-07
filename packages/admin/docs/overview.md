@@ -175,3 +175,5 @@ Keep this prelude in the Filament asset pipeline. Do not copy it into an applica
 - [Schema hooks](schemas/hooks.md)
 - [Permissions and approval](permissions-and-approval.md)
 - [Reports](reports.md)
+
+See [Keyboard shortcuts](keyboard-shortcuts.md) for the default keyboard map.

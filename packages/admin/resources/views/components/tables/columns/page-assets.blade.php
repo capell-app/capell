@@ -39,6 +39,7 @@
             class="hover:bg-gray-400/10"
             :badge="$assetData->name . '_count' ?: null"
             :icon="$assetData->getIcon()"
+            :label="$assetData->getLabel()"
             :tooltip="$assetData->getLabel()"
             color="gray"
             size="sm"

@@ -1,0 +1,837 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Actions\Agent\BrowsePublicSiteMapAction;
+use Capell\Core\Actions\PublicRead\PageUrlIsPubliclyReadableAction;
+use Capell\Core\Actions\PublicRead\RecordPublicReadEligibilityChangeAction;
+use Capell\Core\Contracts\Agent\AgentPageSearch;
+use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
+use Capell\Core\Data\Agent\AgentSearchResultData;
+use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
+use Capell\Core\Enums\PropertyType;
+use Capell\Core\Events\PublicReadEligibilityChanged;
+use Capell\Core\Jobs\PublicRead\ExpirePublicReadProjectionsJob;
+use Capell\Core\Models\BlueprintPropertySet;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
+use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Translation;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadProjectionHeaders;
+use Capell\Core\Support\TableName;
+use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
+use Carbon\CarbonImmutable;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
+
+/** @param list<string> $restrictedUrls */
+function restrictAgentReadsTo(array $restrictedUrls): void
+{
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($restrictedUrls) implements PublicPageReadEligibility
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        /** @param list<string> $restrictedUrls */
+        public function __construct(private array $restrictedUrls) {}
+
+        public function key(): string
+        {
+            return 'test-restriction';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return ! in_array($candidate->url, $this->restrictedUrls, true);
+        }
+    });
+}
+
+function agentPageUrl(Page $page): PageUrl
+{
+    return PageUrl::query()->where('pageable_id', $page->id)->where('pageable_type', $page->getMorphClass())->orderBy('id')->firstOrFail();
+}
+
+/** @return array{0: Page, 1: Page, 2: PropertySet} */
+function agentPropertyPages(SiteDomain $domain): array
+{
+    $restricted = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Members-only handbook'])->published()->create();
+    $public = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Public catalogue item'])->published()->create();
+    $set = PropertySet::factory()->create(['key' => 'catalogue.details']);
+    foreach (array_unique([$restricted->blueprint_id, $public->blueprint_id]) as $blueprintId) {
+        BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprintId, 'property_set_id' => $set->id]);
+    }
+
+    $colour = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id, 'key' => 'colour', 'type' => PropertyType::Text, 'semantic' => null, 'agent_visible' => true,
+    ]);
+    PagePropertyValue::factory()->create([
+        'page_id' => $restricted->id, 'site_id' => $domain->site_id, 'property_definition_id' => $colour->id, 'value_text' => 'Members-only colour',
+    ]);
+    PagePropertyValue::factory()->create([
+        'page_id' => $public->id, 'site_id' => $domain->site_id, 'property_definition_id' => $colour->id, 'value_text' => 'Green',
+    ]);
+
+    return [$restricted, $public, $set];
+}
+
+it('omits a restricted page from agent navigation before pagination', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $restricted = Page::factory()->site($domain->site)->create(['visible_from' => now()->subDay()]);
+    Translation::factory()->translatable($restricted)->language($domain->language)->create(['title' => 'Members-only handbook']);
+    foreach (range(1, 50) as $index) {
+        $public = Page::factory()->site($domain->site)->create(['visible_from' => now()->subDay()]);
+        Translation::factory()->translatable($public)->language($domain->language)->create(['title' => sprintf('Public page %02d', $index)]);
+    }
+
+    $restrictedUrl = agentPageUrl($restricted);
+    // Sort the restricted address first so an unfiltered first page would contain it.
+    $restrictedUrl->forceFill(['url' => '/0-members/handbook'])->save();
+    restrictAgentReadsTo([$restrictedUrl->refresh()->fullUrl()]);
+
+    $response = $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk()
+        ->assertJsonCount(50, 'data')
+        ->assertJsonPath('links.next', null)
+        ->assertDontSee('Members-only handbook')
+        ->assertDontSee('0-members');
+
+    expect(collect($response->json('data'))->pluck('title')->all())->toContain('Public page 01', 'Public page 50');
+});
+
+it('omits a restricted page and its properties from the agent pages endpoint before pagination', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    [$restricted, , $set] = agentPropertyPages($domain);
+    $restrictedUrl = agentPageUrl($restricted)->fullUrl();
+    restrictAgentReadsTo([$restrictedUrl]);
+
+    $this->getJson($domain->full_url . '/agent/v1/pages?set=' . $set->key . '&page[size]=1')->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Public catalogue item')
+        ->assertJsonPath('data.0.properties', ['capell:catalogue.details.colour' => 'Green'])
+        ->assertJsonPath('links.next', null)
+        ->assertDontSee('Members-only handbook')
+        ->assertDontSee('Members-only colour')
+        ->assertDontSee($restrictedUrl, escape: false);
+});
+
+it('omits a restricted page from agent search results', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $search = new class implements AgentPageSearch
+    {
+        public function search(string $query, int $siteId, ?int $languageId, int $page = 1): LengthAwarePaginatorContract
+        {
+            return new LengthAwarePaginator([
+                new AgentSearchResultData('https://agent.test/members/handbook', 'Members-only handbook', 'Members-only snippet'),
+                new AgentSearchResultData('https://agent.test/catalogue', 'Public catalogue item', 'Public snippet'),
+            ], 2, 10, $page);
+        }
+    };
+    app()->instance(AgentPageSearch::class, $search);
+    restrictAgentReadsTo(['https://agent.test/members/handbook']);
+
+    $this->getJson($domain->full_url . '/agent/v1/search?q=handbook')->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Public catalogue item')
+        ->assertDontSee('Members-only handbook')
+        ->assertDontSee('Members-only snippet')
+        ->assertDontSee('members/handbook', escape: false);
+});
+
+it('omits a reference to a restricted page from a public page projection', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    [$restricted, $public, $set] = agentPropertyPages($domain);
+    $related = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id, 'key' => 'related', 'type' => PropertyType::EntryReference, 'semantic' => null, 'agent_visible' => true,
+    ]);
+    PagePropertyValue::factory()->create([
+        'page_id' => $public->id, 'site_id' => $domain->site_id, 'property_definition_id' => $related->id, 'referenced_page_id' => $restricted->id,
+    ]);
+    $restrictedUrl = agentPageUrl($restricted)->fullUrl();
+    restrictAgentReadsTo([$restrictedUrl]);
+
+    $this->getJson($domain->full_url . '/agent/v1/pages?set=' . $set->key)->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Public catalogue item')
+        ->assertJsonPath('data.0.properties', ['capell:catalogue.details.colour' => 'Green'])
+        ->assertDontSee('Members-only handbook')
+        ->assertDontSee($restrictedUrl, escape: false);
+});
+
+it('lists every page when no package restricts public reads', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    [, , $set] = agentPropertyPages($domain);
+
+    $this->getJson($domain->full_url . '/agent/v1/pages?set=' . $set->key)->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertSee('Members-only handbook')
+        ->assertSee('Public catalogue item');
+});
+
+it('denies a page whose eligibility contributor fails', function (): void {
+    $registry = resolve(PublicPageReadEligibilityRegistry::class);
+    $candidate = new PublicPageReadCandidateData('https://agent.test/page', siteId: 1, languageId: 1);
+
+    expect($registry->allows($candidate))->toBeTrue();
+
+    $registry->register(new class implements PublicPageReadEligibility
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function key(): string
+        {
+            return 'failing';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            throw new RuntimeException('Access rules unavailable.');
+        }
+    });
+
+    expect($registry->allows($candidate))->toBeFalse()
+        ->and($registry->allows(new PublicPageReadCandidateData('')))->toBeFalse();
+});
+
+it('denies a served address whose public URL cannot be built once a package restricts reads', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $page = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Orphaned address'])->published()->create();
+    $url = agentPageUrl($page);
+
+    expect(PageUrlIsPubliclyReadableAction::run($url))->toBeTrue();
+
+    restrictAgentReadsTo([]);
+    $url->setRelation('siteDomain', null);
+
+    expect(PageUrlIsPubliclyReadableAction::run($url))->toBeFalse()
+        ->and(PageUrlIsPubliclyReadableAction::run(agentPageUrl($page)))->toBeTrue();
+});
+
+/**
+ * A contributor that records every batch it is asked about, and restricts the
+ * listed URLs (or, with a prefix, every URL that starts with it).
+ *
+ * @param  list<string>  $restrictedUrls
+ */
+function recordingAgentReadEligibility(array $restrictedUrls = [], ?string $restrictedPrefix = null): PublicPageReadEligibility
+{
+    return new class($restrictedUrls, $restrictedPrefix) implements PublicPageReadEligibility
+    {
+        /** @var list<list<string>> */
+        public array $batches = [];
+
+        /** @param list<string> $restrictedUrls */
+        public function __construct(private readonly array $restrictedUrls, private readonly ?string $restrictedPrefix) {}
+
+        public function key(): string
+        {
+            return 'test-recording';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return $this->arePubliclyReadable([$candidate])[0];
+        }
+
+        public function arePubliclyReadable(array $candidates): array
+        {
+            $this->batches[] = array_map(static fn (PublicPageReadCandidateData $candidate): string => $candidate->url, $candidates);
+
+            return array_map(fn (PublicPageReadCandidateData $candidate): bool => ! in_array($candidate->url, $this->restrictedUrls, true)
+                && ($this->restrictedPrefix === null || ! str_starts_with($candidate->url, $this->restrictedPrefix)), $candidates);
+        }
+    };
+}
+
+/**
+ * @return list<string>
+ */
+function recordedAgentReadBatchUrls(PublicPageReadEligibility $eligibility, int $from = 0): array
+{
+    $batches = property_exists($eligibility, 'batches') && is_array($eligibility->batches) ? $eligibility->batches : [];
+
+    return array_values(array_map(static fn (mixed $batch): string => implode("\n", is_array($batch) ? array_filter($batch, is_string(...)) : []), array_slice($batches, $from)));
+}
+
+it('pages agent navigation past a restricted page with a bounded batched scan', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $restricted = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Members-only handbook'])->published()->create();
+    foreach (range(1, 260) as $index) {
+        Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create();
+    }
+
+    $restrictedUrl = agentPageUrl($restricted);
+    $restrictedUrl->forceFill(['url' => '/0-members/handbook'])->save();
+    $eligibility = recordingAgentReadEligibility([$restrictedUrl->refresh()->fullUrl()]);
+    resolve(PublicPageReadEligibilityRegistry::class)->register($eligibility);
+
+    // Drain the work that page creation deferred to the end of a request.
+    $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk();
+    $earlierBatches = count(recordedAgentReadBatchUrls($eligibility));
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $first = BrowsePublicSiteMapAction::run($domain->site, $domain->language);
+    $queries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    // One contributor call over one scan chunk answers page one: the rest of the site is never read.
+    expect($first->items())->toHaveCount(50)
+        ->and(array_column($first->items(), 'title'))->not->toContain('Members-only handbook')
+        ->and($first->hasMorePages())->toBeTrue()
+        ->and(recordedAgentReadBatchUrls($eligibility, $earlierBatches))->toHaveCount(1)
+        ->and(substr_count(recordedAgentReadBatchUrls($eligibility, $earlierBatches)[0] ?? '', "\n") + 1)->toBeLessThanOrEqual(200)
+        ->and($queries)->toBeLessThan(15);
+
+    // Following the next links (cursors) reaches every public page exactly once.
+    $titles = [];
+    $url = $domain->full_url . '/agent/v1/navigation';
+    $requests = 0;
+    while (is_string($url) && $requests++ < 10) {
+        $response = $this->getJson($url)->assertOk()->assertDontSee('Members-only handbook')->assertJsonMissingPath('meta.total');
+        $data = $response->json('data');
+        foreach (is_array($data) ? $data : [] as $entry) {
+            $titles[] = is_array($entry) && is_string($entry['title'] ?? null) ? $entry['title'] : '';
+        }
+
+        $next = $response->json('links.next');
+        expect($next === null || str_contains((string) $next, 'cursor='))->toBeTrue();
+        $url = is_string($next) ? $next : null;
+    }
+
+    expect($requests)->toBe(6)
+        ->and($titles)->toHaveCount(260)
+        ->and(array_unique($titles))->toHaveCount(260);
+});
+
+it('resolves a relative candidate only against the domain it is published on', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $eligibility = recordingAgentReadEligibility();
+    $registry = resolve(PublicPageReadEligibilityRegistry::class)->register($eligibility);
+
+    $decisions = $registry->allowsMany([
+        new PublicPageReadCandidateData('/catalogue', siteId: $domain->site_id, languageId: $domain->language_id, publishedOn: 'https://published.test/fr'),
+        new PublicPageReadCandidateData('/catalogue', siteId: $domain->site_id, languageId: $domain->language_id),
+        new PublicPageReadCandidateData('//elsewhere.test/catalogue', publishedOn: 'https://published.test'),
+        new PublicPageReadCandidateData('https://agent.test/catalogue', siteId: $domain->site_id),
+    ]);
+
+    // Without its publishing domain a relative address is never guessed onto another domain.
+    expect($decisions)->toBe([true, false, false, true])
+        ->and(recordedAgentReadBatchUrls($eligibility))->toBe(["https://published.test/fr/catalogue\nhttps://agent.test/catalogue"]);
+});
+
+it('denies the whole batch when a contributor answers for the wrong number of candidates', function (): void {
+    $registry = resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility
+    {
+        public function key(): string
+        {
+            return 'short-answer';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function arePubliclyReadable(array $candidates): array
+        {
+            return [true];
+        }
+    });
+
+    expect($registry->allowsMany([
+        new PublicPageReadCandidateData('https://agent.test/a'),
+        new PublicPageReadCandidateData('https://agent.test/b'),
+    ]))->toBe([false, false]);
+});
+
+it('keeps the eligibility revision in the database, across cache clears', function (): void {
+    restrictAgentReadsTo([]);
+    $revision = resolve(PublicReadEligibilityRevision::class);
+    $before = $revision->current();
+
+    Cache::flush();
+
+    expect($before)->toBeString()
+        ->and($revision->fresh())->toBe($before)
+        ->and(RecordPublicReadEligibilityChangeAction::run('test'))->not->toBe($before)
+        ->and(resolve(PublicReadEligibilityState::class)->isCurrent($before, null))->toBeFalse();
+});
+
+it('denies every read and stores nothing when the revision cannot be read', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Public catalogue item'])->published()->create();
+    restrictAgentReadsTo([]);
+    Schema::drop(TableName::resolve('public_read_eligibility_state'));
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicPageReadEligibilityRegistry::class)->allows(new PublicPageReadCandidateData('https://agent.test/page')))->toBeFalse()
+        ->and(resolve(PublicReadEligibilityState::class)->stamp())->toBeNull()
+        ->and(resolve(PublicReadEligibilityState::class)->isCurrent('anything', null))->toBeFalse();
+
+    $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk()->assertDontSee('Public catalogue item');
+});
+
+it('treats a stored projection as stale once a scheduled transition is reached', function (): void {
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function key(): string
+        {
+            return 'test-scheduled';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            $opening = CarbonImmutable::parse('2026-11-03 12:00:00');
+
+            return $now->lessThan($opening) ? $opening : null;
+        }
+    });
+    $this->travelTo(CarbonImmutable::parse('2026-11-03 11:00:00'));
+    $state = resolve(PublicReadEligibilityState::class);
+    $stamp = $state->stamp();
+
+    expect($stamp?->validUntil?->toDateTimeString())->toBe('2026-11-03 12:00:00')
+        ->and($state->isCurrent($stamp?->revision, $stamp?->validUntilTimestamp()))->toBeTrue();
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-03 12:00:00'));
+    app()->forgetScopedInstances();
+    $after = resolve(PublicReadEligibilityState::class);
+
+    expect($after->isCurrent($stamp?->revision, $stamp?->validUntilTimestamp()))->toBeFalse()
+        ->and($after->stamp()?->key())->not->toBe($stamp?->key());
+});
+
+it('builds agent search links from readable results only', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    app()->instance(AgentPageSearch::class, new class implements AgentPageSearch
+    {
+        public function search(string $query, int $siteId, ?int $languageId, int $page = 1): LengthAwarePaginatorContract
+        {
+            $results = [new AgentSearchResultData('https://agent.test/members/handbook', 'Members-only handbook', 'Members-only snippet')];
+            foreach (range(1, 11) as $index) {
+                $results[] = new AgentSearchResultData(sprintf('https://agent.test/catalogue/%02d', $index), sprintf('Catalogue %02d', $index), 'Snippet');
+            }
+
+            return new LengthAwarePaginator(array_slice($results, ($page - 1) * 5, 5), 12, 5, $page)->withPath('https://provider.test/unfiltered');
+        }
+    });
+    restrictAgentReadsTo(['https://agent.test/members/handbook']);
+
+    $titles = [];
+    $url = $domain->full_url . '/agent/v1/search?q=catalogue';
+    $requests = 0;
+    while (is_string($url) && $requests++ < 6) {
+        $response = $this->getJson($url)->assertOk()->assertDontSee('Members-only')->assertDontSee('provider.test');
+        $data = $response->json('data');
+        foreach (is_array($data) ? $data : [] as $entry) {
+            $titles[] = is_array($entry) && is_string($entry['title'] ?? null) ? $entry['title'] : '';
+        }
+
+        $next = $response->json('links.next');
+        $url = is_string($next) ? $next : null;
+    }
+
+    expect($requests)->toBe(3)
+        ->and($titles)->toHaveCount(11)
+        ->and(array_unique($titles))->toHaveCount(11);
+});
+
+it('removes exported static pages when public-read eligibility changes', function (?bool $scopedToSite): void {
+    $domain = SiteDomain::factory()->default()->create();
+    $root = sys_get_temp_dir() . '/capell-static-eligibility-' . bin2hex(random_bytes(4));
+    config(['capell-frontend.static_artifacts_path' => $root]);
+    $store = resolve(StaticPageArtifactStore::class);
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putOwnedHtml($permit, 'directory/index.html', 'Links to a members-only page', $domain->site_id));
+
+    try {
+        expect(is_file($root . '/directory/index.html'))->toBeTrue();
+
+        RecordPublicReadEligibilityChangeAction::run('test', $scopedToSite === true ? $domain->site_id : null);
+
+        expect(is_file($root . '/directory/index.html'))->toBeFalse();
+    } finally {
+        File::deleteDirectory($root);
+    }
+})->with(['for its site' => true, 'for every site' => null]);
+
+it('pages unrestricted agent navigation and page reads with no gap or repeat at page boundaries', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    [, $public, $set] = agentPropertyPages($domain);
+    $colour = PropertyDefinition::query()->where('property_set_id', $set->id)->where('key', 'colour')->firstOrFail();
+    foreach (range(1, 118) as $index) {
+        $page = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create(['blueprint_id' => $public->blueprint_id]);
+        PagePropertyValue::factory()->create([
+            'page_id' => $page->id, 'site_id' => $domain->site_id, 'property_definition_id' => $colour->id, 'value_text' => sprintf('Colour %03d', $index),
+        ]);
+    }
+
+    $navigation = [];
+    foreach (range(1, 3) as $number) {
+        $navigation = [...$navigation, ...BrowsePublicSiteMapAction::run($domain->site, $domain->language, $number)->items()];
+    }
+
+    $urls = array_column($navigation, 'url');
+    $expected = PageUrl::query()->where('site_id', $domain->site_id)->count();
+
+    expect($urls)->toHaveCount(min($expected, 150))
+        ->and(array_unique($urls))->toHaveCount(count($urls));
+
+    $titles = [];
+    foreach (range(1, 3) as $number) {
+        $response = $this->getJson($domain->full_url . '/agent/v1/pages?set=' . $set->key . '&page[size]=50&page[number]=' . $number)->assertOk();
+        foreach ((array) $response->json('data') as $entry) {
+            $titles[] = is_array($entry) ? json_encode($entry) : '';
+        }
+    }
+
+    expect($titles)->toHaveCount(120)
+        ->and(array_unique($titles))->toHaveCount(120);
+});
+
+it('restarts at the first page when a navigation cursor does not open', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    foreach (range(1, 60) as $index) {
+        Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create();
+    }
+
+    restrictAgentReadsTo([]);
+
+    $first = $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk();
+    $next = (string) $first->json('links.next');
+    parse_str((string) parse_url($next, PHP_URL_QUERY), $query);
+    $token = is_string($query['cursor'] ?? null) ? $query['cursor'] : '';
+
+    expect($token)->not->toBe('')
+        ->and($this->getJson($next)->assertOk()->json('data'))->not->toBe($first->json('data'));
+
+    foreach ([substr($token, 0, -3) . 'xyz', base64_encode('{"o":50,"s":0}')] as $forged) {
+        $this->getJson($domain->full_url . '/agent/v1/navigation?cursor=' . rawurlencode($forged))->assertOk()
+            ->assertJsonPath('data', $first->json('data'));
+    }
+
+    // Rules change: a cursor issued under the old ones starts again too.
+    RecordPublicReadEligibilityChangeAction::run('test');
+    app()->forgetScopedInstances();
+
+    $this->getJson($next)->assertOk()->assertJsonPath('data', $first->json('data'));
+});
+
+it('fails closed until a failed revision write succeeds', function (): void {
+    restrictAgentReadsTo([]);
+    $table = TableName::resolve('public_read_eligibility_state');
+    $candidate = new PublicPageReadCandidateData('https://agent.test/page');
+    $before = resolve(PublicReadEligibilityRevision::class)->current();
+
+    // The rules change but the new revision cannot be stored.
+    Schema::rename($table, $table . '_unavailable');
+    RecordPublicReadEligibilityChangeAction::run('test');
+    Schema::rename($table . '_unavailable', $table);
+
+    // The old revision is readable again, yet it no longer describes the rules: nothing is trusted.
+    expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull()
+        ->and(resolve(PublicPageReadEligibilityRegistry::class)->allows($candidate))->toBeFalse()
+        ->and(resolve(PublicReadEligibilityState::class)->stamp())->toBeNull()
+        ->and(PublicReadProjectionHeaders::cacheControl())->toBe('no-store, private')
+        ->and(resolve(PublicReadEligibilityState::class)->isCurrent($before, null))->toBeFalse();
+
+    // Another process, after the cache-backed marker: still unknown until a write succeeds.
+    app()->forgetScopedInstances();
+    Schema::rename($table, $table . '_unavailable');
+
+    expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull();
+
+    Schema::rename($table . '_unavailable', $table);
+    // Recovery is retried at most once per interval across processes.
+    $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
+    app()->forgetScopedInstances();
+    $recovered = resolve(PublicReadEligibilityRevision::class)->current();
+
+    expect($recovered)->toBeString()->not->toBe($before)
+        ->and(resolve(PublicPageReadEligibilityRegistry::class)->allows($candidate))->toBeTrue()
+        ->and(PublicReadProjectionHeaders::cacheControl())->toBe('public, no-cache');
+});
+
+it('never lets an older successful write clear a newer failure', function (): void {
+    restrictAgentReadsTo([]);
+    $older = new PublicReadEligibilityRevision;
+    $newer = new PublicReadEligibilityRevision;
+    $stage = 'armed';
+
+    // While the older advance is about to write, a newer advance fails.
+    DB::beforeExecuting(static function (string $query) use (&$stage, $newer): void {
+        if (! str_starts_with(mb_strtolower(ltrim($query)), 'update') || ! str_contains($query, 'public_read_eligibility_state')) {
+            return;
+        }
+
+        if ($stage === 'armed') {
+            $stage = 'newer';
+            $newer->advance();
+            $stage = 'done';
+
+            return;
+        }
+
+        throw_if($stage === 'newer', RuntimeException::class, 'The newer revision write fails.');
+    });
+
+    expect($older->advance())->toBeNull()
+        ->and($stage)->toBe('done');
+
+    // The newer failure still stands for every process, until a later write succeeds.
+    expect((new PublicReadEligibilityRevision)->isUnknown())->toBeTrue()
+        ->and($older->current())->toBeNull();
+});
+
+it('denies in this process when the revision-unknown state cannot be shared', function (): void {
+    restrictAgentReadsTo([]);
+    $table = TableName::resolve('public_read_eligibility_state');
+    $reported = new ArrayObject;
+    resolve(ExceptionHandler::class)->reportable(static function (Throwable $throwable) use ($reported): void {
+        $reported->append($throwable::class);
+    });
+    Cache::swap(new Repository(new class extends ArrayStore
+    {
+        public function get($key): mixed
+        {
+            throw new RuntimeException('The cache store is unavailable.');
+        }
+
+        public function forever($key, $value): bool
+        {
+            throw new RuntimeException('The cache store is unavailable.');
+        }
+    }));
+
+    Schema::rename($table, $table . '_unavailable');
+    $revision = new PublicReadEligibilityRevision;
+
+    try {
+        $advanced = $revision->advance();
+    } finally {
+        Schema::rename($table . '_unavailable', $table);
+    }
+
+    expect($advanced)->toBeNull()
+        ->and($revision->current())->toBeNull()
+        ->and($revision->isUnknown())->toBeTrue()
+        // A process that cannot read the shared state denies as well.
+        ->and((new PublicReadEligibilityRevision)->isUnknown())->toBeTrue()
+        ->and($reported->count())->toBeGreaterThan(0);
+});
+
+it('retries a failed revision write at most once per interval across requests', function (): void {
+    restrictAgentReadsTo([]);
+    $table = TableName::resolve('public_read_eligibility_state');
+    Schema::rename($table, $table . '_unavailable');
+    $attempts = 0;
+    DB::beforeExecuting(static function (string $query) use (&$attempts): void {
+        // Revision writes only: a failed write also records an unknown token.
+        $attempts += str_starts_with(mb_strtolower(ltrim($query)), 'update') && str_contains($query, 'public_read_eligibility_state') && ! str_contains($query, 'unknown_token') ? 1 : 0;
+    });
+
+    try {
+        (new PublicReadEligibilityRevision)->advance();
+        $attempts = 0;
+        // Many concurrent requests observe the unknown state.
+        $reads = array_map(static fn (int $request): ?string => (new PublicReadEligibilityRevision)->current(), range(1, 8));
+    } finally {
+        Schema::rename($table . '_unavailable', $table);
+    }
+
+    expect($reads)->each->toBeNull()
+        ->and($attempts)->toBe(1);
+
+    // Still denied until the interval passes, then one retry recovers.
+    expect((new PublicReadEligibilityRevision)->current())->toBeNull();
+
+    $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
+
+    expect((new PublicReadEligibilityRevision)->current())->toBeString();
+});
+
+it('schedules transition cleanup only on a real queue and retries a failed dispatch after a short hold-off', function (): void {
+    $transition = CarbonImmutable::now()->addMinutes(10);
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($transition) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private CarbonImmutable $transition) {}
+
+        public function key(): string
+        {
+            return 'test-scheduled-cleanup';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            return $now->lessThan($this->transition) ? $this->transition : null;
+        }
+    });
+    $marker = PublicReadEligibilityState::EXPIRY_SCHEDULED_PREFIX . $transition->getTimestamp();
+    Event::fake([PublicReadEligibilityChanged::class]);
+
+    // A synchronous queue would run the cleanup at once, before the transition.
+    config()->set('queue.default', 'sync');
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityState::class)->stamp()?->validUntilTimestamp())->toBe($transition->getTimestamp())
+        ->and(Cache::has($marker))->toBeFalse();
+    Event::assertNotDispatched(PublicReadEligibilityChanged::class);
+
+    // A dispatch that fails holds off retries briefly, then lets a later request schedule it again.
+    config()->set('queue.default', 'database');
+    Bus::shouldReceive('dispatch')->andThrow(new RuntimeException('The queue is unavailable.'));
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityState::class)->stamp())->not->toBeNull()
+        ->and(Cache::has($marker))->toBeTrue();
+
+    $this->travel(PublicReadEligibilityState::EXPIRY_DISPATCH_RETRY_SECONDS + 1)->seconds();
+
+    expect(Cache::has($marker))->toBeFalse();
+});
+
+it('withdraws stored output at a scheduled transition without the scheduler', function (): void {
+    // Cleanup is queued only on a real (asynchronous) queue.
+    config()->set('queue.default', 'database');
+    Queue::fake();
+    Event::fake([PublicReadEligibilityChanged::class]);
+    $opening = CarbonImmutable::now()->addHour()->startOfSecond();
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($opening) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private CarbonImmutable $opening) {}
+
+        public function key(): string
+        {
+            return 'test-scheduled';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            return $now->lessThan($this->opening) ? $this->opening : null;
+        }
+    });
+    // Storing anything under the current rules schedules its withdrawal once, for exactly valid_until.
+    resolve(PublicReadEligibilityState::class)->stamp();
+    resolve(PublicReadEligibilityState::class)->stamp();
+
+    Queue::assertPushed(ExpirePublicReadProjectionsJob::class, 1);
+    Queue::assertPushed(ExpirePublicReadProjectionsJob::class, static fn (ExpirePublicReadProjectionsJob $job): bool => $job->transitionAt === $opening->getTimestamp()
+        && $job->delay instanceof DateTimeInterface
+        && CarbonImmutable::instance($job->delay)->equalTo($opening));
+
+    $job = new ExpirePublicReadProjectionsJob($opening->getTimestamp());
+    $this->travelTo($opening);
+    $job->handle();
+
+    Event::assertDispatched(PublicReadEligibilityChanged::class, static fn (PublicReadEligibilityChanged $event): bool => $event->source === 'public-read.scheduled-transition');
+});
+
+it('schedules no cleanup for a contributor whose schedule cannot be read, however often its rules are read', function (): void {
+    config()->set('queue.default', 'database');
+    Queue::fake();
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function key(): string
+        {
+            return 'test-unreadable-schedule';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            throw new RuntimeException('The schedule cannot be read.');
+        }
+    });
+
+    for ($request = 1; $request <= 3; $request++) {
+        $this->travel(1)->seconds();
+        app()->forgetScopedInstances();
+        $stamp = resolve(PublicReadEligibilityState::class)->stamp();
+
+        // Still denied: whatever is built now expires at once.
+        expect($stamp?->validUntil?->lessThanOrEqualTo(CarbonImmutable::now()))->toBeTrue()
+            ->and(resolve(PublicReadEligibilityState::class)->isCurrent($stamp?->revision, $stamp?->validUntilTimestamp()))->toBeFalse();
+    }
+
+    Queue::assertNotPushed(ExpirePublicReadProjectionsJob::class);
+});
+
+it('stays unknown after a failed revision write even when the cache is cleared, until a write succeeds', function (): void {
+    restrictAgentReadsTo([]);
+    $race = new stdClass;
+    $race->failing = true;
+
+    // Only the revision write fails; the database can still record that it did.
+    DB::beforeExecuting(static function (string $query) use ($race): void {
+        $sql = mb_strtolower(ltrim($query));
+
+        throw_if($race->failing && str_starts_with($sql, 'update') && str_contains($sql, 'public_read_eligibility_state') && ! str_contains($sql, 'unknown_token'), RuntimeException::class, 'The revision write fails.');
+    });
+
+    expect(RecordPublicReadEligibilityChangeAction::run('test'))->toBeNull();
+
+    // The cache is cleared while the revision still cannot be written: the
+    // retry a read triggers fails too, and nothing is trusted.
+    Artisan::call('cache:clear');
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityRevision::class)->isUnknown())->toBeTrue()
+        ->and(resolve(PublicReadEligibilityRevision::class)->current())->toBeNull()
+        ->and(resolve(PublicReadEligibilityState::class)->stamp())->toBeNull();
+
+    $race->failing = false;
+
+    // The next successful write, once the retry interval has passed, makes the revision known again.
+    $this->travel(PublicReadEligibilityRevision::RETRY_INTERVAL_SECONDS + 1)->seconds();
+    app()->forgetScopedInstances();
+
+    expect(resolve(PublicReadEligibilityRevision::class)->current())->toBeString()
+        ->and(resolve(PublicReadEligibilityRevision::class)->isUnknown())->toBeFalse();
+});

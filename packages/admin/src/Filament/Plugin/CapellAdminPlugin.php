@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Plugin;
 
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Capell\Admin\Actions\ResolveAdminHelpAction;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Enums\TransferDownloadEnum;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
@@ -24,6 +26,7 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Admin\Support\Navigation\WorkspaceNavigation;
@@ -54,7 +57,6 @@ use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
@@ -154,10 +156,14 @@ class CapellAdminPlugin implements Plugin
         $headerActionsView = 'capell-admin::components.header.actions';
         /** @var view-string $mobileHeaderView */
         $mobileHeaderView = 'capell-admin::components.header.mobile';
+        /** @var view-string $paletteToolsView */
+        $paletteToolsView = 'capell-admin::components.palette-tools';
         /** @var view-string $hiddenNavigationInitialStateView */
         $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
         $panel->authMiddleware(self::authMiddleware());
+        // Filament's global export and import downloads are served through the panel they were started in.
+        $panel->authenticatedRoutes(TransferDownloadEnum::registerPanelRoutes(...));
 
         $panel->renderHook(
             name: PanelsRenderHook::STYLES_BEFORE,
@@ -202,6 +208,15 @@ class CapellAdminPlugin implements Plugin
                 throw_unless(resolve(InstalledPanelRuntime::class)->isUnavailable($panel->getId()), $throwable);
             }
         });
+
+        $panel->renderHook(
+            name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
+            hook: function (): ?View {
+                $entry = ResolveAdminHelpAction::run();
+
+                return $entry === null ? null : view('capell-admin::components.admin-help', ['entry' => $entry]);
+            },
+        );
 
         $panel->renderHook(
             name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
@@ -257,9 +272,9 @@ class CapellAdminPlugin implements Plugin
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
-                hook: fn (): string => Blade::render(
-                    '<x-capell-admin::keyboard-shortcuts />',
-                ),
+                hook: fn (): ?View => FilamentFacade::getCurrentPanel() !== null && FilamentFacade::auth()->check() && resolve(AdminInstallState::class)->installed()
+                    ? view($paletteToolsView)
+                    : null,
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,

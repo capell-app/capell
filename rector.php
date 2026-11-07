@@ -23,6 +23,7 @@ use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\Php83\Rector\ClassConst\AddTypeToConstRector;
 use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
+use Rector\PHPUnit\CodeQuality\Rector\ClassMethod\NoSetupWithParentCallOverrideRector;
 use Rector\Privatization\Rector\Property\PrivatizeFinalClassPropertyRector;
 use Rector\TypeDeclaration\Rector\ClassMethod\NarrowObjectReturnTypeRector;
 use RectorLaravel\Rector\ArrayDimFetch\EnvVariableToEnvHelperRector;
@@ -164,6 +165,11 @@ return RectorConfig::configure()
             'packages/admin/src/Providers/AdminServiceProvider.php',
             'packages/admin/src/Support/Media/LegacyAwareAdminMediaFieldFactory.php',
             'packages/core/src/Providers/CapellServiceProvider.php',
+        ],
+        // PHPUnit's setUp is an inherited method and must retain its Override attribute.
+        NoSetupWithParentCallOverrideRector::class => [
+            __DIR__ . '/packages/admin/tests/Unit/Filament/Plugin/InstalledPanelRuntimeRouteCoverageTest.php',
+            'packages/admin/tests/Unit/Filament/Plugin/InstalledPanelRuntimeRouteCoverageTest.php',
         ],
         InlineIsAInstanceOfRector::class => [
             __DIR__ . '/packages/admin/src/Support/Media/LegacyAwareAdminMediaFieldFactory.php',

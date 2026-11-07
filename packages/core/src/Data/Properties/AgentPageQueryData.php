@@ -17,5 +17,7 @@ final class AgentPageQueryData extends Data
         public int $page = 1,
         public ?int $languageId = null,
         public bool $publicUrlRequired = false,
+        /** A sealed cursor token from a previous next link. */
+        public ?string $cursor = null,
     ) {}
 }
