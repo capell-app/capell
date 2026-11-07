@@ -54,6 +54,42 @@ it('refuses when a mutated package directory is symlinked to another checkout', 
     }
 });
 
+it('refuses a third-party package symlinked into another checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $primary = vendorIntegrityFixture();
+
+    try {
+        mkdir($primary . '/vendor/symfony/console', 0777, true);
+        mkdir($root . '/vendor/symfony', 0777, true);
+        symlink($primary . '/vendor/symfony/console', $root . '/vendor/symfony/console');
+
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain('vendor/symfony/console resolves to ' . realpath($primary . '/vendor/symfony/console'))
+            ->and($output)->toContain('scripts/init-worktree.sh');
+    } finally {
+        deleteVendorIntegrityFixture($root);
+        deleteVendorIntegrityFixture($primary);
+    }
+});
+
+it('accepts a package symlink that stays inside the checkout', function (): void {
+    $root = vendorIntegrityFixture();
+
+    try {
+        mkdir($root . '/packages/core', 0777, true);
+        mkdir($root . '/vendor/capell', 0777, true);
+        symlink($root . '/packages/core', $root . '/vendor/capell/core');
+
+        [$exitCode] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(0);
+    } finally {
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
 it('refuses when the whole vendor directory is symlinked', function (): void {
     $root = vendorIntegrityFixture();
     $primary = vendorIntegrityFixture();

@@ -10,7 +10,8 @@ trap 'rm -rf "$fixture"' EXIT
 mkdir "$fixture/primary"
 cd "$fixture/primary"
 git init -q
-mkdir -p packages/core/src/Enums tests/fixtures/new-source vendor/bin
+mkdir -p packages/core/src/Enums tests/fixtures/new-source vendor/bin vendor/acme/library/src
+printf '<?php return "v1";\n' > vendor/acme/library/src/version.php
 cat > packages/core/src/Enums/ImageSourceType.php <<'PHP'
 <?php
 namespace Capell\Core\Enums;
@@ -49,6 +50,20 @@ php -r '$loader=require "vendor/autoload.php"; $actual=(new ReflectionClass("Fix
 cmp vendor/pest-plugins.json "$fixture/primary/vendor/pest-plugins.json"
 cmp vendor/.hidden-metadata "$fixture/primary/vendor/.hidden-metadata"
 echo 'PASS top-level vendor metadata provisioned'
+# Third-party packages must be real trees owned by this worktree: a symlink into
+# another checkout goes stale or wrong the moment that checkout's vendor changes.
+test -d vendor/acme/library
+if [ -L vendor/acme/library ]; then
+    echo "FAIL third-party package is a symlink" >&2
+    exit 1
+fi
+if find vendor -type l -exec sh -c 'for l; do case "$(cd "$(dirname "$l")" && cd "$(dirname "$(readlink "$l")")" 2>/dev/null && pwd)" in "$PWD"/*) ;; *) echo "$l"; exit 1;; esac; done' sh {} +; then :; else
+    echo "FAIL vendor contains a symlink leaving the worktree" >&2
+    exit 1
+fi
+printf '<?php return "v2";\n' > "$fixture/primary/vendor/acme/library/src/version.php"
+test "$(php -r 'echo require "vendor/acme/library/src/version.php";')" = "v1"
+echo 'PASS third-party packages are real trees isolated from the primary'
 cd "$fixture/primary"
 test "$primary_hash" = "$(shasum -a 256 vendor/composer/autoload_psr4.php)"
 echo 'PASS primary autoload metadata unchanged'
