@@ -2097,3 +2097,22 @@ it('restores a rich editor document draft into a page that now uses blocks', fun
     expect($blocks)->toHaveCount(1)
         ->and(json_encode($blocks[0]['data']))->toContain('Recovered edit');
 });
+
+it('refuses a scratch draft whose blocks an HTML editor cannot hold and leaves the form unchanged', function (): void {
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Html)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create(['name' => 'Saved name']);
+    $translation = Translation::factory()->language($language)->translatable($page)->state(['content' => '<p>Saved</p>'])->create();
+    $path = sprintf('translations.record-%d.content', $translation->getKey());
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
+    $before = $component->instance()->data;
+    $payload = $before;
+    $payload['name'] = 'Draft name';
+    data_set($payload, $path, [['type' => 'cards', 'data' => ['title' => 'Recovered card']]]);
+
+    $component->dispatch('page-scratch-draft-restored', pageId: $page->getKey(), data: $payload)
+        ->assertNotified(__('capell-admin::scratch_drafts.restore_incompatible'));
+
+    expect($component->instance()->data['name'])->toBe('Saved name')
+        ->and(data_get($component->instance()->data, $path))->toBe(data_get($before, $path));
+});

@@ -253,13 +253,17 @@ class TranslationsRepeater extends RepeaterTabs
      * for it (blocks for the content builder, HTML otherwise), then hydrate those
      * content fields as a fresh fill does (builder items keyed by uuid, field
      * formatters run), without reloading the rows from the database.
+     *
+     * Returns false, leaving the content unhydrated, when an HTML editor cannot
+     * hold a row's blocks: extraction keeps only content blocks, so restoring
+     * would silently drop the text of every other block.
      */
-    public function hydrateRestoredContent(): void
+    public function hydrateRestoredContent(): bool
     {
         $state = $this->getRawState();
 
         if (! is_array($state) || $state === []) {
-            return;
+            return true;
         }
 
         // Item schemas cannot be built over a rich editor document: a builder would
@@ -288,6 +292,10 @@ class TranslationsRepeater extends RepeaterTabs
                 continue;
             }
 
+            if (! $editor instanceof ContentBuilder && $this->holdsBlocksHtmlCannotKeep($row['content'] ?? null)) {
+                return false;
+            }
+
             $row['content'] = MutateContentPresenterAction::run(
                 $row['content'] ?? [],
                 $editor instanceof ContentBuilder ? ContentStructure::Blocks : ContentStructure::Html,
@@ -297,11 +305,13 @@ class TranslationsRepeater extends RepeaterTabs
         }
 
         if ($paths === []) {
-            return;
+            return true;
         }
 
         $this->rawState($state);
         $this->getRootContainer()->hydrateStatePartially($paths);
+
+        return true;
     }
 
     /**
@@ -415,6 +425,15 @@ class TranslationsRepeater extends RepeaterTabs
         return $query->select(['id', 'name', 'flag'])
             ->enabled()
             ->ordered();
+    }
+
+    private function holdsBlocksHtmlCannotKeep(mixed $content): bool
+    {
+        if (! is_array($content)) {
+            return false;
+        }
+
+        return array_any($content, fn ($block): bool => is_array($block) && ($block['type'] ?? null) !== 'content');
     }
 
     /** The content field a repeater item renders at <path>, if any. */

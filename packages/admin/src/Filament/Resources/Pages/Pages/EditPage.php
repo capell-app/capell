@@ -545,7 +545,9 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             }
         }
 
-        $this->restoreRecoveredFormState($data);
+        if (! $this->restoreRecoveredFormState($data)) {
+            return;
+        }
 
         Notification::make('editor-scratch-draft-restored')
             ->success()

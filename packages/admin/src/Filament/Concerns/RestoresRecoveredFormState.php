@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Concerns;
 
 use Capell\Admin\Filament\Components\Forms\TranslationsRepeater;
 use Capell\Admin\Support\Filament\RecoverableSchemaComponents;
+use Filament\Notifications\Notification;
 
 /**
  * Restores form state recovered from a scratch draft or a creation recovery. The
@@ -17,10 +18,14 @@ use Capell\Admin\Support\Filament\RecoverableSchemaComponents;
 trait RestoresRecoveredFormState
 {
     /**
+     * Returns false, with the current form untouched and the recovery kept, when
+     * the current editor cannot hold the recovered content.
+     *
      * @param  array<string, mixed>  $state
      */
-    protected function restoreRecoveredFormState(array $state): void
+    protected function restoreRecoveredFormState(array $state): bool
     {
+        $current = $this->data;
         $this->data = $state;
 
         unset($this->cachedSchemas['form']);
@@ -28,13 +33,23 @@ trait RestoresRecoveredFormState
         $form = $this->getSchema('form');
 
         if ($form === null) {
-            return;
+            return true;
         }
 
         foreach (RecoverableSchemaComponents::in($form) as $component) {
-            if ($component instanceof TranslationsRepeater) {
-                $component->hydrateRestoredContent();
+            if ($component instanceof TranslationsRepeater && ! $component->hydrateRestoredContent()) {
+                $this->data = $current;
+                unset($this->cachedSchemas['form']);
+
+                Notification::make('editor-recovery-incompatible')
+                    ->warning()
+                    ->title(__('capell-admin::scratch_drafts.restore_incompatible'))
+                    ->send();
+
+                return false;
             }
         }
+
+        return true;
     }
 }
