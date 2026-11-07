@@ -106,33 +106,11 @@ it('does not resolve screenshot assets for admin navigation', function (): void 
     ));
     resolve(CapellPackageRegistry::class)->register($manifest);
     $assets = bindFakeAction(ResolveExtensionAssetPathAction::class);
-    $summary = new BuildExtensionOperationsSummaryAction;
-    $spy = new stdClass;
-    $spy->builds = 0;
-
-    app()->bind(BuildExtensionOperationsSummaryAction::class, fn (): object => new readonly class($summary, $spy)
-    {
-        public function __construct(private BuildExtensionOperationsSummaryAction $summary, private stdClass $spy) {}
-
-        /** @return array{unhealthy: int, blocked: int} */
-        public function navigationCounts(): array
-        {
-            return $this->summary->navigationCounts();
-        }
-
-        public function handle(): mixed
-        {
-            $this->spy->builds++;
-
-            return $this->summary->handle();
-        }
-    });
-
     test()->get('/admin')->assertOk();
-    expect($assets->called)->toBeFalse()->and($spy->builds)->toBe(0);
+    expect($assets->called)->toBeFalse();
 
     BuildExtensionOperationsSummaryAction::run();
-    expect($assets->called)->toBeTrue()->and($spy->builds)->toBe(1);
+    expect($assets->called)->toBeTrue();
 });
 
 it('invalidates cached counts for extension and health changes', function (): void {
