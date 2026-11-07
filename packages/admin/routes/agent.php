@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Http\Agent\AgentAdminToolController;
 use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
+use Capell\Admin\Http\Middleware\ThrottleAgentToolInvocations;
 use Capell\Admin\Support\AdminRouteProvenance;
 use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,7 @@ AdminRouteProvenance::entrypoint(static function (): void {
                 ->name('tools');
 
             Route::post('tools/invoke', [AgentAdminToolController::class, 'invoke'])
+                ->middleware(ThrottleAgentToolInvocations::class)
                 ->name('tools.invoke');
         });
 });

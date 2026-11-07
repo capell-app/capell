@@ -76,6 +76,55 @@ final class BuildExtensionOperationsSummaryAction
         );
     }
 
+    /** @return array{unhealthy: int, blocked: int} */
+    public function navigationCounts(): array
+    {
+        $registry = resolve(CapellPackageRegistry::class);
+        $extensions = $this->extensions();
+        $alerts = $this->healthAlerts();
+        $unhealthy = 0;
+        $blocked = 0;
+
+        $manifests = $registry->all();
+
+        // Mirrors the summary's package filter and attention rules without building
+        // the screenshots, contributions and management links the badge never shows.
+        foreach ($manifests as $packageName => $manifest) {
+            $package = $this->package($packageName);
+            if ($manifest->visibility === 'support') {
+                continue;
+            }
+
+            if ($package?->isSupportPackage() === true) {
+                continue;
+            }
+
+            $extension = $extensions->get($packageName);
+            $runtimeAllowed = ! $extension instanceof CapellExtension || ResolveExtensionRuntimeGateAction::run($extension)->allowed;
+            $installed = $extension instanceof CapellExtension || ($package?->isInstalled() === true);
+
+            $unhealthy += (int) ($this->attentionReasons(
+                installed: $installed,
+                blocked: ! $runtimeAllowed,
+                failedLifecycle: $extension?->status === ExtensionStatusEnum::Failed,
+                missingRequiredTables: $this->missingRequiredTables($manifest),
+                alerts: $this->healthAlertRecords($alerts->get($packageName, collect()), []),
+                providerQuarantined: $extension instanceof CapellExtension && $extension->provider_recovery_state === ExtensionProviderRecoveryStateEnum::Quarantined,
+                composerDrifted: $extension instanceof CapellExtension && resolve(ComposerDriftClassifier::class)->reason($extension) !== null,
+            ) !== []);
+            $blocked += (int) ! $runtimeAllowed;
+        }
+
+        foreach ($this->composerDriftedExtensions($extensions) as $extension) {
+            if (! isset($manifests[$extension->composer_name])) {
+                $unhealthy++;
+                $blocked++;
+            }
+        }
+
+        return ['unhealthy' => $unhealthy, 'blocked' => $blocked];
+    }
+
     private function build(): ExtensionOperationsSummaryData
     {
         $registry = resolve(CapellPackageRegistry::class);

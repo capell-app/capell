@@ -42,4 +42,5 @@ return [
     'blueprint_read_description' => 'Read supported blueprint records available to the authenticated administrator.',
     'blueprint_key_taken' => 'A blueprint with this key already exists for the selected type.',
     'blueprint_type_invalid' => 'The blueprint type is not registered and cannot be created.',
+    'tool_invocations_throttled' => 'Too many tool requests in a short time. Wait :seconds seconds, then try again.',
 ];

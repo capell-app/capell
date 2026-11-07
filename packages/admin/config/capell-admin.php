@@ -252,4 +252,9 @@ return [
             'label' => 'Focus global search',
         ],
     ],
+
+    'agent' => [
+        // Admin agent tool invocations allowed per signed-in user per minute.
+        'tool_invocations_per_minute' => (int) env('CAPELL_ADMIN_AGENT_TOOL_INVOCATIONS_PER_MINUTE', 30),
+    ],
 ];
