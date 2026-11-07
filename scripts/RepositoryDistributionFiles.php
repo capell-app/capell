@@ -8,6 +8,11 @@ final class RepositoryDistributionFiles
     /** @var list<string> */
     public readonly array $packagePaths;
 
+    private bool $documentationPathsLoaded = false;
+
+    /** @var array<string, true>|null Null means a source archive without Git metadata. */
+    private ?array $documentationPaths = null;
+
     public function __construct(private readonly string $root)
     {
         /** @var list<array{path: string}> $packages */
@@ -99,7 +104,7 @@ final class RepositoryDistributionFiles
     public function documentationAttributes(string $scope, array $required): string
     {
         $prefix = $scope === '' ? '' : $scope . '/';
-        $excluded = $this->unusedDocumentation($prefix . 'docs', $required);
+        $excluded = $this->unusedDocumentation($prefix . 'docs', $required, $this->gitDocumentationPaths());
 
         return implode('', array_map(
             static fn (string $path): string => '/' . substr($path, strlen($prefix)) . " export-ignore\n",
@@ -154,9 +159,10 @@ final class RepositoryDistributionFiles
 
     /**
      * @param  list<string>  $required
+     * @param  array<string, true>|null  $visible
      * @return list<string>
      */
-    private function unusedDocumentation(string $directory, array $required): array
+    private function unusedDocumentation(string $directory, array $required, ?array $visible): array
     {
         if (! is_dir($this->root . '/' . $directory)) {
             return [];
@@ -173,15 +179,79 @@ final class RepositoryDistributionFiles
             }
 
             $path = $directory . '/' . $entry;
+            if ($visible !== null && ! isset($visible[$path])) {
+                continue;
+            }
+
             $needed = array_filter($required, static fn (string $file): bool => $file === $path || str_starts_with($file, $path . '/'));
             if ($needed === []) {
                 $excluded[] = $path;
             } elseif (is_dir($this->root . '/' . $path)) {
-                array_push($excluded, ...$this->unusedDocumentation($path, $required));
+                array_push($excluded, ...$this->unusedDocumentation($path, $required, $visible));
             }
         }
 
         return $excluded;
+    }
+
+    /** @return array<string, true>|null */
+    private function gitDocumentationPaths(): ?array
+    {
+        if ($this->documentationPathsLoaded) {
+            return $this->documentationPaths;
+        }
+
+        // Exported sources have no index or local Git exclusions to consult.
+        if (! file_exists($this->root . '/.git') && ! is_link($this->root . '/.git')) {
+            $this->documentationPathsLoaded = true;
+
+            return null;
+        }
+
+        $environment = getenv();
+        $environment = is_array($environment) ? $environment : [];
+        foreach (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'] as $key) {
+            unset($environment[$key]);
+        }
+
+        $paths = ['docs', ...array_map(static fn (string $package): string => $package . '/docs', $this->packagePaths)];
+        $process = proc_open(
+            ['git', '--literal-pathspecs', '-C', $this->root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...$paths],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $this->root,
+            $environment,
+        );
+        if (! is_resource($process)) {
+            throw new RuntimeException('Unable to read Git documentation paths: cannot start Git.');
+        }
+
+        fclose($pipes[0]);
+        $output = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+        $exit = proc_close($process);
+        if ($exit !== 0 || $output === false) {
+            throw new RuntimeException('Unable to read Git documentation paths: ' . trim($error === false ? 'Git command failed.' : $error));
+        }
+
+        $visible = [];
+        foreach (explode("\0", $output) as $path) {
+            if ($path === '') {
+                continue;
+            }
+
+            $visible[$path] = true;
+            while (($path = dirname($path)) !== '.') {
+                $visible[$path] = true;
+            }
+        }
+
+        $this->documentationPaths = $visible;
+        $this->documentationPathsLoaded = true;
+
+        return $visible;
     }
 
     private function read(string $path): string
