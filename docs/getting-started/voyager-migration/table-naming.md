@@ -71,6 +71,24 @@ A matching migration filename is not sufficient ownership evidence either:
 an application can have created its own table with the same conventional name.
 Retain that case in the coexistence fixture and stop if it is silently adopted.
 
+A conventional migration suffix is also insufficient. Check the effective host
+migration file that Laravel would execute, including a published file that
+shadows a registered package migration. A retimestamped publication must match
+the trusted package source or its supported deterministic publisher output.
+Ownership checks must read the schema and ledger from the same connection.
+
+The supporting Core regression run passed **60 tests, 241 assertions**, with
+PHP 8.4 and an SQLite in-memory test database:
+
+```sh
+vendor/bin/pest packages/core/tests/Unit/TableNameTest.php packages/core/tests/Feature/TableNamingReviewTest.php packages/core/tests/Unit/Support/Packages/DeferredRuntimeReceiptContextTest.php packages/core/tests/Unit/Testing/ExtensionHarnessRuntimeRoleTest.php
+```
+
+These checks also cover deferred receipt ownership and runtime-role restoration.
+They are framework regression evidence; the site's installation, MariaDB
+coexistence and screenshot verification remain **not yet verified**. Use a
+release containing the reviewed fixes before treating this as a rehearsal gate.
+
 ## Roll back
 
 Before any content import, restore the destination backup and naming configuration together. Changing config alone does not rename populated tables.

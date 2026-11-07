@@ -35,6 +35,10 @@ The verification command and expected output are **not yet verified**.
 
 Reject an unknown connection, a connection alias of the destination, a changed schema fingerprint or a missing actor. Do not substitute a live connection to make the rehearsal start.
 
+A same-database source needs a separately verified physical write boundary. A
+different connection name or a destination prefix does not establish one. Keep this phase **not yet verified** until restricted-account import,
+repeat, source-immutability and rollback checks all run successfully.
+
 ## Roll back
 
 Use the recorded session rollback only after its behaviour is proven. A complete database/storage restore remains necessary for changes outside session provenance.
