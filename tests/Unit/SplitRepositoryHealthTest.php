@@ -136,3 +136,81 @@ it('ships runtime inputs and excludes development files in real aggregate and sp
 
     return ['', ...$distribution->packagePaths];
 });
+
+it('derives documentation exclusions from tracked and non-ignored files without dropping runtime docs', function (): void {
+    $root = sys_get_temp_dir() . '/capell-distribution-ignore-' . bin2hex(random_bytes(8));
+    $filesystem = new Filesystem;
+    $files = [
+        'config/release-packages.json' => json_encode([['path' => 'packages/example']], JSON_THROW_ON_ERROR),
+        'packages/example/capell.json' => '{}',
+        'packages/example/src/Provider.php' => "<?php const REQUIRED_DOC = 'docs/ignored/needed.md';",
+        '.gitignore' => "/docs/ignored/\n/packages/example/docs/ignored/\n**/*.local\n/docs/private-cache/\n",
+        'docs/ignored/needed.md' => 'Tracked runtime documentation.',
+        'docs/ignored/tracked.md' => 'Tracked documentation covered by a later ignore rule.',
+        'docs/ignored/scratch.md' => 'Ignored local scratch.',
+        'docs/ordinary.md' => 'New untracked documentation still needs an exclusion.',
+        'docs/notes.local' => 'Ignored local file.',
+        'docs/private-cache/scratch.md' => 'Ignored local directory.',
+        'packages/example/docs/ignored/needed.md' => 'Tracked package runtime documentation.',
+        'packages/example/docs/ordinary.md' => 'New package documentation.',
+        'packages/example/docs/notes.local' => 'Ignored package local file.',
+    ];
+
+    try {
+        foreach ($files as $path => $contents) {
+            $filesystem->mkdir(dirname($root . '/' . $path));
+            file_put_contents($root . '/' . $path, $contents);
+        }
+
+        // Isolate Git from any enclosing hook's repository/index and global exclude configuration.
+        $environment = ['GIT_DIR' => false, 'GIT_WORK_TREE' => false, 'GIT_COMMON_DIR' => false, 'GIT_INDEX_FILE' => false];
+        new Process(['git', '-c', 'core.excludesFile=/dev/null', 'init', '--quiet', $root], env: $environment)->mustRun();
+        new Process(['git', '-C', $root, 'config', 'core.excludesFile', '/dev/null'], env: $environment)->mustRun();
+        new Process(['git', '-C', $root, 'add', '--force', '--', 'docs/ignored/needed.md', 'docs/ignored/tracked.md', 'packages/example/docs/ignored/needed.md'], env: $environment)->mustRun();
+
+        $distribution = new RepositoryDistributionFiles($root);
+        $required = $distribution->requiredFiles();
+
+        expect($required)->toContain('docs/ignored/needed.md', 'packages/example/docs/ignored/needed.md')
+            ->and($distribution->documentationAttributes('', $required))->toBe("/docs/ignored/tracked.md export-ignore\n/docs/ordinary.md export-ignore\n")
+            ->and($distribution->documentationAttributes('packages/example', $required))->toBe("/docs/ordinary.md export-ignore\n");
+    } finally {
+        $filesystem->remove($root);
+    }
+});
+
+it('continues deriving documentation exclusions from source archives without Git metadata', function (): void {
+    $root = sys_get_temp_dir() . '/capell-distribution-archive-' . bin2hex(random_bytes(8));
+    $filesystem = new Filesystem;
+    $filesystem->mkdir([$root . '/config', $root . '/docs']);
+
+    try {
+        file_put_contents($root . '/config/release-packages.json', '[]');
+        file_put_contents($root . '/.gitignore', "docs/*.local\n");
+        file_put_contents($root . '/docs/ordinary.md', 'Source archive documentation.');
+        file_put_contents($root . '/docs/notes.local', 'No Git metadata establishes local-only status.');
+        $distribution = new RepositoryDistributionFiles($root);
+
+        expect($distribution->documentationAttributes('', []))->toBe("/docs/notes.local export-ignore\n/docs/ordinary.md export-ignore\n");
+    } finally {
+        $filesystem->remove($root);
+    }
+});
+
+it('reports an unusable Git checkout instead of silently generating host-specific exclusions', function (): void {
+    $root = sys_get_temp_dir() . '/capell-distribution-invalid-git-' . bin2hex(random_bytes(8));
+    $filesystem = new Filesystem;
+    $filesystem->mkdir([$root . '/config', $root . '/docs']);
+
+    try {
+        file_put_contents($root . '/config/release-packages.json', '[]');
+        file_put_contents($root . '/.git', "gitdir: missing-git-directory\n");
+        file_put_contents($root . '/docs/ordinary.md', 'Documentation.');
+        $distribution = new RepositoryDistributionFiles($root);
+
+        expect(fn (): string => $distribution->documentationAttributes('', []))
+            ->toThrow(RuntimeException::class, 'Unable to read Git documentation paths');
+    } finally {
+        $filesystem->remove($root);
+    }
+});

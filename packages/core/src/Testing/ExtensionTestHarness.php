@@ -18,7 +18,6 @@ use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\Testing\Contracts\CompanionPackageContractSuite;
@@ -114,19 +113,32 @@ final class ExtensionTestHarness
         CapellCore::registerManifestPackage($manifest);
         CapellCore::forcePackageInstalled($manifest->name);
 
-        return $application->make(InstalledRuntimeLifecycle::class)->duringRuntimeRole(
-            $role,
-            fn (): array => new CapellPackageLoader(
+        $roleResolver = new RuntimeRoleResolver(new RuntimeRoleSelectionData(
+            role: $role,
+            configuredValue: $role->value,
+            valid: true,
+        ));
+
+        // The installed-runtime lifecycle selects buckets from the container's
+        // role. Scope the harness role there for the load so hooks activate for
+        // the role being exercised, not for the host's role.
+        $hostResolver = $application->bound(RuntimeRoleResolver::class) ? $application->make(RuntimeRoleResolver::class) : null;
+        $application->instance(RuntimeRoleResolver::class, $roleResolver);
+
+        try {
+            return new CapellPackageLoader(
                 $application,
                 $registry,
-                runtimeRoleResolver: new RuntimeRoleResolver(new RuntimeRoleSelectionData(
-                    role: $role,
-                    configuredValue: $role->value,
-                    valid: true,
-                )),
+                runtimeRoleResolver: $roleResolver,
                 receipts: $application->make(ExtensionContributionReceiptRegistry::class),
-            )->loadProviders(),
-        );
+            )->loadProviders();
+        } finally {
+            if ($hostResolver instanceof RuntimeRoleResolver) {
+                $application->instance(RuntimeRoleResolver::class, $hostResolver);
+            } else {
+                $application->forgetInstance(RuntimeRoleResolver::class);
+            }
+        }
     }
 
     public function assertContributionRegistered(string $type, string $class): self

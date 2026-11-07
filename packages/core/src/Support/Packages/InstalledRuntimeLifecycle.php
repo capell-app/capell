@@ -6,7 +6,6 @@ namespace Capell\Core\Support\Packages;
 
 use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Packages\FindUnmetPackageRequirementsAction;
-use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\EnsureInstalledRuntimeAvailable;
@@ -37,8 +36,6 @@ final class InstalledRuntimeLifecycle
 
     /** @var array<string, list<Route>> */
     private array $packageRoutes = [];
-
-    private ?RuntimeRole $runtimeRole = null;
 
     private bool $refreshing = false;
 
@@ -203,24 +200,6 @@ final class InstalledRuntimeLifecycle
         }
 
         return $result;
-    }
-
-    /**
-     * @template TReturn
-     *
-     * @param  Closure(): TReturn  $callback
-     * @return TReturn
-     */
-    public function duringRuntimeRole(RuntimeRole $role, Closure $callback): mixed
-    {
-        $previous = $this->runtimeRole;
-        $this->runtimeRole = $role;
-
-        try {
-            return $callback();
-        } finally {
-            $this->runtimeRole = $previous;
-        }
     }
 
     public function refresh(?string $package = null): void
@@ -438,7 +417,7 @@ final class InstalledRuntimeLifecycle
     private function selected(string $bucket): bool
     {
         return in_array($bucket, ['runtime', 'auth', 'frontend'], true)
-            || ($bucket === 'admin' && ($this->runtimeRole ?? $this->app->make(RuntimeRoleResolver::class)->role())->loadsAuthoringProviders());
+            || ($bucket === 'admin' && $this->app->make(RuntimeRoleResolver::class)->role()->loadsAuthoringProviders());
     }
 
     private function discovering(): bool
