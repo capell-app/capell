@@ -245,6 +245,9 @@ it('stores the translation tab orientation for the screenshot session and reject
         ->assertRedirect()
         ->assertSessionHas(ScreenshotTranslationTabs::SESSION_KEY, 'vertical');
 
+    expect(ScreenshotTranslationTabs::translatedPage()->translations()->count())->toBe(4)
+        ->and(RecordStateScreenshotFixture::page()->translations()->count())->toBe(1);
+
     test()->get('/screenshot-fixtures/translation-tabs/diagonal')->assertNotFound();
 });
 

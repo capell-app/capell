@@ -58,7 +58,7 @@ Route::get('/screenshot-fixtures/translation-tabs/{orientation}', static functio
 
     $request->session()->put(ScreenshotTranslationTabs::SESSION_KEY, $orientation);
 
-    return redirect()->to(RecordStateScreenshotFixture::pageEditUrl());
+    return redirect()->to(ScreenshotTranslationTabs::pageEditUrl());
 })->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaListUrl()))
