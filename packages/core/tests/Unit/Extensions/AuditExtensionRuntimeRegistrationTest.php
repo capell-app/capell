@@ -292,7 +292,7 @@ it('reconciles ContentGraphRegistry receipts and reports undeclared extractors',
                 'contributionKey' => 'content-graph:Illuminate\\Database\\Eloquent\\Model:' . AuditUnlistedContentGraphExtractor::class,
                 'expectedBucket' => 'runtime',
                 'actualBucket' => 'runtime',
-                'sourceClass' => ContentGraphRegistry::class,
+                'sourceClass' => AuditUnlistedContentGraphExtractor::class,
             ],
         ]);
 });

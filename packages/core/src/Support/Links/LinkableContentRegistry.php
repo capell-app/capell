@@ -23,13 +23,7 @@ final class LinkableContentRegistry extends AbstractKeyedRegistry
 
         $this->setItem($key, $provider);
         if (app()->bound(RecordsExtensionContributionReceipt::class)) {
-            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
-                ExtensionContributionReceiptType::LinkableContent,
-                'linkable-content:' . $key,
-                $provider::class,
-                self::class,
-                'runtime',
-            );
+            $this->recordReceipt($key, $provider::class);
         }
 
         return $this;
@@ -70,5 +64,25 @@ final class LinkableContentRegistry extends AbstractKeyedRegistry
     public function clear(): void
     {
         $this->clearItems();
+    }
+
+    /**
+     * Registration can run from a callback deferred until another package's
+     * provider resolves this registry, so the active context may belong to
+     * that package. Own the receipt by the provider's declaring package
+     * instead. An anonymous class has no declaring namespace (its name derives
+     * from the interface it implements), so it keeps the active context.
+     */
+    private function recordReceipt(string $key, string $implementation): void
+    {
+        $receipts = resolve(RecordsExtensionContributionReceipt::class);
+
+        if (str_contains($implementation, '@anonymous')) {
+            $receipts->recordContribution(ExtensionContributionReceiptType::LinkableContent, 'linkable-content:' . $key, $implementation, self::class, 'runtime');
+
+            return;
+        }
+
+        $receipts->recordContributionFromSource(ExtensionContributionReceiptType::LinkableContent, 'linkable-content:' . $key, $implementation, $implementation, 'runtime');
     }
 }
