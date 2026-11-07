@@ -64,10 +64,12 @@ final class ScreenshotTranslationTabs
                 $language = Language::query()->firstOrNew(['code' => $code]);
                 if (! $language->exists) {
                     $language = $site->language->replicate();
-                    $language->fill(['code' => $code, 'locale' => $locale, 'name' => $name, 'default' => false]);
+                    $language->fill(['code' => $code, 'locale' => $locale, 'name' => $name, 'flag' => $locale, 'default' => false]);
                     $language->save();
                 }
 
+                // A site's translations decide its languages, which the repeater names.
+                $site->translations()->firstOrCreate(['language_id' => $language->getKey()], ['title' => $site->name]);
                 $page->translations()->updateOrCreate(['language_id' => $language->getKey()], ['title' => $title, 'content' => $content]);
             }
 
