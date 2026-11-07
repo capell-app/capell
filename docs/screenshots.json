@@ -7,6 +7,66 @@
     "outputDirectory": "docs/images/generated/admin",
     "entries": [
         {
+            "id": "voyager-migration-source-pages",
+            "title": "Audit the source page list before migration",
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "Voyager/PageBread",
+            "scenario": "voyager-guide-admin",
+            "url": "/pages",
+            "waitFor": "body.voyager .side-body table tbody tr",
+            "user": "voyager",
+            "viewport": "desktop",
+            "colorSchemes": ["light"],
+            "capture": {
+                "fullPage": false
+            },
+            "required": false,
+            "requiresPackages": [],
+            "docsPage": "docs/getting-started/voyager-migration/audit.md",
+            "output": "docs/images/generated/voyager-migration/source-pages.png",
+            "alt": "Voyager Pages list with Title, Slug and Status columns; note these source fields before mapping content to Capell.",
+            "noticeFieldGroups": [["Title", "Slug", "Status"]],
+            "expectedTableRows": 1,
+            "lifecycle": {
+                "setup": "consumer-owned frozen synthetic Voyager fixture, verified before capture",
+                "cleanup": "runner-owned foreground app process; fixture database remains consumer-owned"
+            },
+            "notes": "Proposed optional capture of one fictional source page. Authenticated rendering, field visibility and the final image remain unverified until the shared runner succeeds and the image is inspected."
+        },
+        {
+            "id": "voyager-migration-source-settings",
+            "title": "Record source settings before reserving destination tables",
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "Voyager/Settings",
+            "scenario": "voyager-guide-admin",
+            "url": "/settings",
+            "waitFor": "body.voyager .side-body form",
+            "user": "voyager",
+            "viewport": "desktop",
+            "colorSchemes": ["light"],
+            "capture": {
+                "fullPage": false
+            },
+            "required": false,
+            "requiresPackages": [],
+            "docsPage": "docs/getting-started/voyager-migration/table-naming.md",
+            "output": "docs/images/generated/voyager-migration/source-settings.png",
+            "alt": "Voyager Settings with visible title and description fields; inventory these legacy values and their group before planning the import.",
+            "noticeFieldGroups": [
+                ["Site title", "Site description"],
+                ["Admin title", "Admin description"]
+            ],
+            "lifecycle": {
+                "setup": "consumer-owned frozen synthetic Voyager fixture, verified before capture",
+                "cleanup": "runner-owned foreground app process; fixture database remains consumer-owned"
+            },
+            "notes": "Proposed optional source-audit context. The active settings group and labels must be observed by the runner and recorded in its assertions. This screenshot does not prove table ownership, migration success or importer completion. It remains unverified until capture and visual inspection."
+        },
+        {
             "id": "docs-media-edit-focal-point",
             "title": "Media focal point editor for docs.",
             "package": "documentation",

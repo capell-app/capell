@@ -35,6 +35,18 @@ This is an initial inspection of a conventional generated SQL schema, not a
 SQL security validator: it does not prove that arbitrary SQL is safe to execute.
 The database inventory command and admin audit are **not yet verified**.
 
+Record the actual database server before choosing the rehearsal image. Laravel's
+`mysql` connection driver can connect to MariaDB; its name does not identify the
+server engine. This metadata-only query was run successfully (exit 0):
+
+```sql
+SELECT VERSION() AS server_version, @@version_comment AS server_comment
+```
+
+Record both returned fields and match the rehearsal to the source engine and
+patch version. The verified fixture uses MariaDB 10.11.19. Do not change the
+source engine to work around an importer restriction.
+
 ## What you should see
 
 Voyager: BREAD list and a seeded relationship field. Capell: destination content and resource inventory after import. Alt text must identify the relationship or unsupported field the reader should notice.

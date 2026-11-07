@@ -8,6 +8,17 @@ Check the Companion Packages code before using it in a disposable migration.
 Use this chapter when the migration build uses source repositories. Keep the
 application, Core and Companion Packages revisions with the results.
 
+Released installations can skip this source-contributor chapter. Use the
+installation chapter and the selected packages' normal migrations. The commands
+here record checks of an unreleased migration build; they are not a requirement
+to repeat the entire package test matrix for each site.
+
+Timestamp repairs are package-specific. A fresh schema with safe timestamp
+definitions makes the existing repairs no-op after their metadata checks. Keep
+those checks; do not add a blanket migration bypass or alter an unrelated host
+table's intentional automatic timestamps. Reuse the recorded repair evidence
+unless the relevant migrations, resolver or database compatibility changes.
+
 ## Before you start
 
 Use the Companion Packages repository as the working directory, its supported
