@@ -86,6 +86,22 @@ export CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED=false
 export CAPELL_MARKETPLACE_URL="${APP_URL}/api/v1"
 export CAPELL_MARKETPLACE_WEB_URL="${APP_URL}"
 
+# testbench.yaml already registers the package's admin panel. Left alone, the
+# installer scaffolds a second panel with the same id and a different middleware
+# stack, and the runtime then refuses every panel route. An application provider
+# that inherits the package panel keeps one stack and stops the scaffold.
+PANEL_PROVIDER_DIR="${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/app/Providers/Filament"
+mkdir -p "${PANEL_PROVIDER_DIR}"
+cat > "${PANEL_PROVIDER_DIR}/AdminPanelProvider.php" <<'PANEL_PROVIDER'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers\Filament;
+
+class AdminPanelProvider extends \Capell\Admin\Providers\Filament\AdminPanelProvider {}
+PANEL_PROVIDER
+
 php scripts/configure-testbench-runtime-role.php
 
 php vendor/bin/testbench capell:install \
