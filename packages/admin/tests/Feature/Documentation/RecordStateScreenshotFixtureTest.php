@@ -16,7 +16,9 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Routing\Route as IlluminateRoute;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 use Workbench\App\Support\ActionScreenshotFixture;
@@ -82,6 +84,15 @@ it('initializes idempotent record-state fixtures at actual Filament list and edi
         ->and(RecordStateScreenshotFixture::page()->getKey())->toBe($page->getKey())
         ->and(RecordStateScreenshotFixture::disabledLayout()->getKey())->toBe($layout->getKey())
         ->and($reinitializedMedia->getKey())->toBe($media->getKey());
+});
+
+it('keeps screenshot fixture routes off the admin panel path', function (): void {
+    $fixtureUris = collect(Route::getRoutes()->getRoutes())
+        ->map(static fn (IlluminateRoute $route): string => $route->uri())
+        ->filter(static fn (string $uri): bool => str_contains($uri, 'screenshot-fixtures'));
+
+    expect($fixtureUris)->not->toBeEmpty()
+        ->and($fixtureUris->filter(static fn (string $uri): bool => str_starts_with($uri, 'admin/'))->all())->toBe([]);
 });
 
 it('denies guests access to record-state fixture routes', function (): void {
