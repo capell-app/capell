@@ -1,6 +1,6 @@
 # Verify a migration build from source
 
-**Draft — source checks verified; admin screenshots not yet captured.**
+**Draft — targeted source checks verified; complete preflight not yet accepted. Admin screenshots not yet captured.**
 
 ## What this step achieves
 
@@ -20,6 +20,22 @@ When regenerating a local Composer overlay, back up its manifest and lock first.
 Use the repository generator to select a clean Core source pin. Check the
 installed files as well as the lock; a path repository can point at a different
 checkout from the one recorded in the configuration.
+
+The complete affected suite also needs clean Core and application source roots.
+Point `CAPELL_CORE_REPO_PATH`, `CAPELL_FOUNDATION_ROOT` and
+`CAPELL_RELEASE_CORE_ROOT` at Core; point `CAPELL_APPLICATION_ROOT` and
+`CAPELL_RELEASE_SKELETON_ROOT` at the application. Set
+`CAPELL_RELEASE_ENVIRONMENT=1` for the release fixtures, and provide the
+immutable 40-character source commits in `CAPELL_RELEASE_CORE_COMMIT` and
+`CAPELL_RELEASE_APP_COMMIT`. Lock admission reads the committed lockfiles; a
+working-tree edit is not a replacement for a source pin. Commit and record the
+migration build before this check.
+
+Provide an owned MariaDB database whose name starts with
+`capell_test_timestamp_`, and set `CAPELL_TIMESTAMP_REPAIR_DATABASE`,
+`CAPELL_TIMESTAMP_REPAIR_PORT` and `CAPELL_TIMESTAMP_REPAIR_PASSWORD` explicitly.
+Use a disposable local service. Missing inputs stop the runner before it starts
+the affected tests. Remove the test database and stop that service afterwards.
 
 ## Procedure and exact commands
 
@@ -51,7 +67,10 @@ Retain each command's full log and actual exit. A complete source verification
 must also cover the naming contracts and the installed-runtime inventories.
 Follow [the naming checks](table-naming.md#supporting-package-checks) and the
 [installed-runtime lifecycle](../../development/installed-runtime-lifecycle.md).
-An interrupted static-analysis worker cannot establish a passing build.
+An interrupted static-analysis worker cannot establish a passing build. A non-empty
+JUnit file is also insufficient: nested test fixtures can inherit a parent
+report destination and replace its contents. Verify the report belongs to the
+expected suite, and isolate nested report destinations before accepting it.
 
 This pilot command also exited 0, with 12 tests and 1,952 assertions:
 
@@ -157,6 +176,35 @@ A dependency-floor check can also find contracts that exist on Core's main
 branch but have no stable release. Record the release dependency and retain the
 failed check. Do not lower the declared requirement, remove the imported contract
 or substitute a stub to make the build appear releasable.
+
+Published timestamp repairs must remain usable without loading package code.
+When adding table prefixes or aliases, test the frozen resolver against Core's
+resolver, then run the repair twice against a disposable MariaDB table. Check
+that the resolved table loses its implicit timestamp update and an unrelated
+host table remains unchanged. The source-level naming and repair contracts
+passed 464 tests and 1,793 assertions; the extended MariaDB check passed 133 tests and 1,660 assertions. The
+disposable database was removed and its service stopped afterwards.
+
+With the isolated database variables set, these checks passed:
+
+```sh
+vendor/bin/pest tests/Packages/Feature/PackageTableNamingTest.php tests/Contracts/PackageTimestampRepairMigrationTest.php tests/Arch/CapellTableNamesTest.php --configuration=phpunit.xml
+vendor/bin/pest tests/MariaDB/PackageTimestampRepairTest.php --configuration=phpunit.xml
+node --test tests/JavaScript/stdin-reader.test.mjs
+```
+
+The Node check passed three tests. Its child processes receive delayed stdin
+chunks split inside a UTF-8 character; each helper must consume the complete
+stream before parsing it. A synchronous read can fail with `EAGAIN` when a
+process runner supplies a non-blocking pipe.
+
+A nested test runner can inherit the outer runner's JUnit destinations and
+replace its reports. Give nested fixtures their own report destinations, or
+remove the inherited values, and check that the outer reports remain unchanged.
+A report written by a one-test fixture is not evidence that the outer shard
+completed. Retain incomplete shard output and memory-limit errors as failures.
+The complete preflight has **not yet passed**; focused passing checks do not
+replace it.
 
 ## Roll back
 
