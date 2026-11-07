@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\SecurityPage;
 use Capell\Admin\Filament\Widgets\Dashboard\SecurityAttentionFilamentWidget;
+use Capell\Admin\Support\Security\SecurityLabels;
 use Capell\Core\Actions\Security\ApplyApprovedSecurityRemediationsAction;
 use Capell\Core\Actions\Security\ApproveSecurityRemediationAction;
 use Capell\Core\Actions\Security\DismissSecurityWeaknessFindingAction;
@@ -15,6 +16,7 @@ use Capell\Core\Data\Security\SecurityRemediationBatchResultData;
 use Capell\Core\Data\Security\SecurityRemediationOutcomeData;
 use Capell\Core\Data\Security\SecurityScanResultData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
+use Capell\Core\Enums\Security\SecurityRemediationOutcome;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
 use Capell\Core\Models\SecurityScanRun;
@@ -368,5 +370,11 @@ it('escapes finding and history content including the evidence modal', function 
     foreach (['summary', 'evidence', 'note'] as $value) {
         $component->assertMountedActionModalSee('&lt;script&gt;' . $value, false)
             ->assertMountedActionModalDontSee('<script>' . $value, false);
+    }
+});
+
+it('labels every remediation outcome in plain words', function (): void {
+    foreach (SecurityRemediationOutcome::cases() as $outcome) {
+        expect(SecurityLabels::outcome($outcome))->not->toContain('capell-admin::');
     }
 });

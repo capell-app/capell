@@ -15,7 +15,7 @@ return [
     'first_seen' => 'First seen', 'last_seen' => 'Last seen', 'status' => 'Status', 'automatic_fix' => 'Automatic fix',
     'no_findings' => 'No findings recorded yet. Run a scan to check for weaknesses.',
     'no_matching_findings' => 'No findings match these filters',
-    'outcomes' => ['applied' => 'Applied', 'failed' => 'Failed', 'skipped' => 'Skipped'],
+    'outcomes' => ['applied' => 'Applied', 'applied_pending_nodes' => 'Applied here, waiting for other servers', 'failed' => 'Failed', 'skipped' => 'Skipped'],
     'active' => 'Active', 'available' => 'Available', 'not_available' => 'Not available', 'approved_by' => 'Approved by user :user on :date',
     'severities' => ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'critical' => 'Critical'],
     'sources' => ['builtin' => 'Built-in', 'advisory' => 'Advisory', 'analyser' => 'Analyser'],

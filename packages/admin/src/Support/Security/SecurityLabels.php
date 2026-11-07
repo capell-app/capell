@@ -51,6 +51,7 @@ final class SecurityLabels
     {
         return match ($outcome) {
             SecurityRemediationOutcome::Applied => (string) __('capell-admin::security.outcomes.applied'),
+            SecurityRemediationOutcome::AppliedPendingNodes => (string) __('capell-admin::security.outcomes.applied_pending_nodes'),
             SecurityRemediationOutcome::Failed => (string) __('capell-admin::security.outcomes.failed'),
             SecurityRemediationOutcome::Skipped => (string) __('capell-admin::security.outcomes.skipped'),
         };
