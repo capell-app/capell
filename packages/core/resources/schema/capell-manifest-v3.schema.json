@@ -350,9 +350,11 @@
                             "$ref": "#/$defs/stringList"
                         },
                         "signedRoutes": {
+                            "description": "Routes whose effective middleware pipeline validates a signature before the route runs.",
                             "$ref": "#/$defs/stringList"
                         },
                         "tokenizedRoutes": {
+                            "description": "Routes whose effective middleware pipeline validates a bearer or uri token before the route runs.",
                             "$ref": "#/$defs/stringList"
                         },
                         "webhookRoutes": {
@@ -418,7 +420,7 @@
                     }
                 },
                 "manual": {
-                    "description": "Route facts the generator cannot derive from route files, declared by hand. Each entry is a route identity (METHOD /uri (name)) that must exist, and must not duplicate a derived fact.",
+                    "description": "Declared, unverified route protection: routes that check their signature or token inside their own code rather than in route middleware. Each entry is a route identity (METHOD /uri (name)) with a reviewed declaration in the publishing repository. These routes are never verified signed or tokenized routes, so they never appear in publicSurface.signedRoutes or publicSurface.tokenizedRoutes.",
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
