@@ -148,6 +148,36 @@ It is **disabled when no translation API credentials are configured**, and its t
 
 The action is additionally gated behind `config('capell-admin.auto_translate_language_text')`, which defaults to `true`.
 
+## Translating a group of fields
+
+Use `TranslatableFields` when a form needs the same group of fields in every language, for example a name, price and description stored as Spatie translatable JSON columns. Declare the fields once. Capell creates one tab per language and binds each field to `{field}.{locale}`.
+
+```php
+use Capell\Admin\Enums\TranslationTabsOrientation;
+use Capell\Admin\Filament\Components\Forms\TranslatableFields;
+
+TranslatableFields::make()
+    ->fields([
+        TextInput::make('name')->required(),
+        TextInput::make('price'),
+        RichEditor::make('description'),
+    ])
+    ->orientation(TranslationTabsOrientation::Vertical);
+```
+
+Tabs sit across the top by default. `orientation(TranslationTabsOrientation::Vertical)`, or `verticalTabs()`, moves them to a list down the side with each language's flag and name. The translations repeater on pages and sites takes the same `orientation()` and `verticalTabs()` options, so one setting controls every translation surface. Inside the group, `$get('price')` and `$set('slug', ...)` resolve to the field's base path (`data.price`), not `data.price.en`, and `unique()` rules need an explicit column for the JSON attribute. Only the default child slot of layout components is localised.
+
+Set the default for every translation surface with `CAPELL_TRANSLATION_TABS_ORIENTATION` (`horizontal` or `vertical`, config key `capell-admin.translation_tabs_orientation`). A component's own `orientation()` call overrides it. Pass `languages()` to limit the tabs, for example to the languages a site uses.
+
+
+Translation tabs sit across the top by default:
+
+[![Page translations with language tabs across the top](images/screenshots/admin-page-translation-tabs-horizontal.png)](images/screenshots/admin-page-translation-tabs-horizontal.png)
+
+Set `CAPELL_TRANSLATION_TABS_ORIENTATION=vertical` to list languages down the side:
+
+[![Page translations with language tabs down the side](images/screenshots/admin-page-translation-tabs-vertical.png)](images/screenshots/admin-page-translation-tabs-vertical.png)
+
 ## Finding untranslated content
 
 The Pages table carries an **Untranslated into** filter. Selecting a language shows pages that have no translation row for it, or whose row for that language has both an empty title and empty content.

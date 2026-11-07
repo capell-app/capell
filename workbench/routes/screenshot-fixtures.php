@@ -15,6 +15,7 @@ use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
+use Workbench\App\Support\ScreenshotTranslationTabs;
 
 // The shared runner verifies the same authenticated web session immediately
 // before recording every admin screenshot. Keep this workbench-only endpoint
@@ -36,9 +37,6 @@ Route::get('/_capell/screenshots/auth-probe', static function (Request $request)
 Route::get('/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()))
     ->middleware('web');
 
-Route::get('/admin/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()))
-    ->middleware('web');
-
 Route::get('/screenshot-fixtures/page-history', static fn (): RedirectResponse => redirect()->to(PageHistoryFixture::editUrl()))
     ->middleware('web');
 
@@ -52,6 +50,16 @@ Route::get('/screenshot-fixtures/record-states/layouts', static fn (): RedirectR
 
 Route::get('/screenshot-fixtures/record-states/page-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pageEditUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);
+
+// Stores the translation tab orientation for this session, then opens the page
+// editor so the translations repeater renders in that layout.
+Route::get('/screenshot-fixtures/translation-tabs/{orientation}', static function (Request $request, string $orientation): RedirectResponse {
+    abort_unless(in_array($orientation, ['horizontal', 'vertical'], true), 404);
+
+    $request->session()->put(ScreenshotTranslationTabs::SESSION_KEY, $orientation);
+
+    return redirect()->to(ScreenshotTranslationTabs::pageEditUrl());
+})->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaListUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);

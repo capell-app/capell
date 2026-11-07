@@ -315,6 +315,56 @@
             "colorSchemes": ["light"],
             "required": true,
             "notes": "Uses the published editorial page and its persisted media file, shared with the frontend fixture."
+        },
+        {
+            "id": "admin-page-translation-tabs-horizontal",
+            "title": "Page translations with tabs across the top.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage/TranslationsRepeater",
+            "scenario": "admin-index",
+            "url": "/screenshot-fixtures/translation-tabs/horizontal",
+            "waitFor": ".fi-fo-repeater:has([role='tablist'])",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-fo-repeater:has([role='tablist'])"
+                }
+            ],
+            "docsPage": "packages/admin/docs/admin-multi-language.md",
+            "output": "packages/admin/docs/images/screenshots/admin-page-translation-tabs-horizontal.png",
+            "required": true,
+            "notes": "Opens the page editor through the translation-tabs fixture with the default horizontal layout so the language tabs sit above the fields.",
+            "covers": [
+                "packages/admin/src/Filament/Components/Forms/RepeaterTabs.php",
+                "packages/admin/src/Filament/Components/Forms/TranslatableFields.php"
+            ]
+        },
+        {
+            "id": "admin-page-translation-tabs-vertical",
+            "title": "Page translations with tabs down the side.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage/TranslationsRepeater",
+            "scenario": "admin-index",
+            "url": "/screenshot-fixtures/translation-tabs/vertical",
+            "waitFor": ".fi-fo-repeater:has([role='tablist'])",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": ".fi-fo-repeater:has([role='tablist'])"
+                }
+            ],
+            "docsPage": "packages/admin/docs/admin-multi-language.md",
+            "output": "packages/admin/docs/images/screenshots/admin-page-translation-tabs-vertical.png",
+            "required": true,
+            "notes": "Opens the page editor through the translation-tabs fixture with the vertical layout so each language appears in a list beside its fields.",
+            "covers": [
+                "packages/admin/src/Filament/Components/Forms/RepeaterTabs.php",
+                "packages/admin/src/Filament/Components/Forms/TranslatableFields.php"
+            ]
         }
     ]
 }
