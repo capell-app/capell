@@ -145,7 +145,7 @@ class TranslatableFields extends Tabs
             $clone = $component->getClone();
 
             if ($clone instanceof Field) {
-                $clone->statePath(($clone->getStatePath(false) ?? $clone->getName()) . '.' . $language->code)
+                $clone->statePath(($clone->getStatePath(false) ?? $clone->getName()) . '.' . ($language->locale ?? $language->code))
                     ->validationAttribute(fn (Field $component): string => lcfirst(strip_tags($this->labelText($component->getLabel()))) . ' (' . $language->name . ')');
             } else {
                 $children = $clone->getDefaultChildComponents();

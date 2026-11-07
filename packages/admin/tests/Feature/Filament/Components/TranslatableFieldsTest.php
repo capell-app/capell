@@ -47,6 +47,17 @@ function translatableFieldsChildren(Component $component): array
     return array_values(array_filter($component->getChildComponents(), fn (mixed $child): bool => $child instanceof Component));
 }
 
+it('binds state to the language locale, which can differ from its code', function (): void {
+    $language = new Language(['name' => 'English', 'code' => 'en', 'flag' => 'gb', 'locale' => 'en_EN']);
+    $tabs = TranslatableFields::make('translations')->languages(collect([$language]))->fields([TextInput::make('name')]);
+    translatableFieldsMount([$tabs]);
+
+    $field = translatableFieldsChildren(translatableFieldsTabs($tabs)[0])[0];
+
+    expect($field)->toBeInstanceOf(TextInput::class)
+        ->and($field->getStatePath())->toBe('data.name.en_EN');
+});
+
 it('creates one tab per language with field state bound to the locale', function (): void {
     $english = translatableFieldsLanguage('English', 'en', 'gb');
     $welsh = translatableFieldsLanguage('Welsh', 'cy', 'gb-wls');
