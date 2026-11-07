@@ -12,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -56,6 +57,20 @@ it('binds state to the language locale, which can differ from its code', functio
 
     expect($field)->toBeInstanceOf(TextInput::class)
         ->and($field->getStatePath())->toBe('data.name.en_EN');
+});
+
+it('localises a state-dependent layout schema once it has a container', function (): void {
+    $language = translatableFieldsLanguage('English', 'en', 'gb');
+    $tabs = TranslatableFields::make('translations')->languages(collect([$language]))->fields([
+        Grid::make()->schema(fn (Get $get): array => [TextInput::make($get('kind') === 'long' ? 'body' : 'name')]),
+    ]);
+    translatableFieldsMount([$tabs]);
+
+    $grid = translatableFieldsChildren(translatableFieldsTabs($tabs)[0])[0];
+    $field = translatableFieldsChildren($grid)[0];
+
+    expect($grid)->toBeInstanceOf(Grid::class)
+        ->and($field->getStatePath())->toBe('data.name.en');
 });
 
 it('falls back to the language code when the locale is empty', function (): void {

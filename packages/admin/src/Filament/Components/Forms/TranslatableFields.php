@@ -148,9 +148,13 @@ class TranslatableFields extends Tabs
                 $clone->statePath(($clone->getStatePath(false) ?? $clone->getName()) . '.' . (filled($language->locale) ? $language->locale : $language->code))
                     ->validationAttribute(fn (Field $component): string => lcfirst(strip_tags($this->labelText($component->getLabel()))) . ' (' . $language->name . ')');
             } else {
-                $children = $clone->getDefaultChildComponents();
+                $children = $this->declaredChildComponents($clone);
 
-                if (is_array($children) && $children !== []) {
+                if ($children instanceof Closure) {
+                    // A state-dependent schema can only be evaluated once its
+                    // container exists, so localise it when Filament asks.
+                    $clone->components(fn (): array => $this->localise((array) $clone->evaluate($children), $language));
+                } elseif (is_array($children) && $children !== []) {
                     $clone->components($this->localise($children, $language));
                 }
             }
@@ -172,12 +176,21 @@ class TranslatableFields extends Tabs
             if ($component instanceof Field) {
                 $parts[] = $component->getName();
             } elseif ($component instanceof Component) {
-                $children = $component->getDefaultChildComponents();
+                $children = $this->declaredChildComponents($component);
                 $parts[] = $component::class . '[' . (is_array($children) ? $this->fingerprint($children) : '') . ']';
             }
         }
 
         return implode(',', $parts);
+    }
+
+    /**
+     * Reads the declared default children without evaluating a closure,
+     * which would fail before the component has a container.
+     */
+    private function declaredChildComponents(Component $component): mixed
+    {
+        return (fn (): mixed => $this->childComponents['default'] ?? [])->call($component);
     }
 
     private function labelText(Htmlable|string|null $label): string

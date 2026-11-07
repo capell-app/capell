@@ -281,6 +281,17 @@ test('seeds a real scheduled page for the admin dashboard capture', () => {
 });
 
 
+test('seeds the page template for each translation tabs capture on its own', () => {
+    for (const id of [
+        'admin-page-translation-tabs-horizontal',
+        'admin-page-translation-tabs-vertical',
+    ]) {
+        assert.deepEqual(commandsForEntries([{ id }]), [
+            'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+        ])
+    }
+})
+
 test('initialises action fixture only for action coverage entries', () => {
     assert.deepEqual(commandsForEntries([{ id: 'action-coverage-parent' }]), [
         'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
