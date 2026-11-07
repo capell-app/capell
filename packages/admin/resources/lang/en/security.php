@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'title' => 'Security',
+    'read_only' => 'Only someone with permission to manage Security can run scans, approve or revoke fixes, dismiss findings, or reopen them. Ask an administrator to help.',
+    'summary' => 'Open findings', 'last_scan' => 'Last finding seen', 'never' => 'No findings have been recorded',
+    'analyser' => 'Security analyser', 'analyser_available' => 'Available', 'analyser_unavailable' => 'Not available',
+    'scan' => 'Run scan now', 'fix_approved' => 'Fix approved weaknesses now',
+    'scan_result' => 'Scan complete: :new new, :reopened reopened, :resolved resolved.',
+    'scan_failures' => ':count checks or sources could not finish. Ask a server administrator to investigate.',
+    'fix_result' => 'Fixes: :applied applied, :failed failed, :skipped skipped.',
+    'severity' => 'Severity', 'finding' => 'Finding', 'source' => 'Source', 'package' => 'Package',
+    'first_seen' => 'First seen', 'last_seen' => 'Last seen', 'status' => 'Status', 'automatic_fix' => 'Automatic fix',
+    'no_findings' => 'No findings recorded yet. Run a scan to check for weaknesses.',
+    'no_matching_findings' => 'No findings match these filters',
+    'outcomes' => ['applied' => 'Applied', 'applied_pending_nodes' => 'Applied here, waiting for other servers', 'failed' => 'Failed', 'skipped' => 'Skipped'],
+    'active' => 'Active', 'available' => 'Available', 'not_available' => 'Not available', 'approved_by' => 'Approved by user :user on :date',
+    'severities' => ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'critical' => 'Critical'],
+    'sources' => ['builtin' => 'Built-in', 'advisory' => 'Advisory', 'analyser' => 'Analyser'],
+    'statuses' => ['open' => 'Open', 'remediated' => 'Remediated', 'resolved' => 'Resolved', 'dismissed' => 'Dismissed'],
+    'approve' => 'Approve automatic fix', 'revoke' => 'Revoke approval', 'fix_now' => 'Fix now', 'dismiss' => 'Dismiss', 'reopen' => 'Reopen',
+    'view_evidence' => 'View evidence', 'close' => 'Close', 'note' => 'Note (optional)',
+    'approval_scope' => 'Approval covers every current and future finding with weakness ID :weakness until you revoke it.',
+    'approval_schedule_enabled' => 'The scheduled scan applies approved fixes automatically.',
+    'approval_schedule_disabled' => 'The scheduled scan is not currently set to apply approved fixes automatically.',
+    'fix_now_scope' => '{1} Apply the approved fix now to the :count open finding with weakness ID :weakness. Ineligible findings are skipped.|[2,*] Apply the approved fix now to all :count open findings with weakness ID :weakness. Ineligible findings are skipped.',
+    'dismissal_note' => 'Dismissal note: :note',
+    'reversible' => 'This fix is reversible.', 'not_reversible' => 'This fix is not reversible.',
+    'advice_only' => 'Advice only: Capell will not change anything for this on its own.',
+    'approvals' => 'Automatic fix approvals', 'no_approvals' => 'No automatic fixes have been approved.',
+    'no_longer_available' => 'No longer available', 'revoked' => 'Revoked', 'approved' => 'Approved',
+    'history' => 'Remediation history', 'history_limit' => 'Showing the latest 50 runs.', 'show_all_history' => 'Show all history', 'show_recent_history' => 'Show recent history', 'no_history' => 'No automatic fixes have been attempted.',
+    'before' => 'Before', 'after' => 'After', 'details' => 'Show changes',
+    'attention_title' => 'Security findings need attention', 'attention_count' => ':count open high or critical findings need review.',
+    'open_security' => 'Review security findings', 'widget' => 'Security attention',
+];

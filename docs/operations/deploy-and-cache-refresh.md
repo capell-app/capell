@@ -7,9 +7,11 @@ A runbook for the parts of a release that fail quietly. Server setup is in [Goin
 On each node, after the new release is in place:
 
 ```bash
-php artisan migrate --force
-php artisan capell:runtime-refresh
+php artisan capell:upgrade --force --no-interaction
+php artisan capell:runtime-refresh --no-interaction
 ```
+
+`capell:upgrade` runs migrations and upgrade steps. [Deploy recipes](deploy-recipes.md) give this order for Deployer, Forge and Ploi.
 
 `capell:runtime-refresh` rebuilds the Capell package cache, clears compiled views, rebuilds the configuration and route caches, warms critical pages, runs Capell Doctor, and finally runs `queue:restart` so workers pick up the release. It exits non-zero if any stage fails, and a stage that throws is recorded as failed without stopping the others. Prefer it to calling the cache commands yourself. The configuration stage only rebuilds the cache if the configuration was already cached; an uncached install stays uncached.
 

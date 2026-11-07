@@ -241,6 +241,7 @@ return [
     'custom_permissions' => [
         'impersonate_users',
         'Manage:ExtensionsPage',
+        'Manage:SecurityPage',
         'upgrade.run',
         'page.export',
         'presentation.manage_advanced',
