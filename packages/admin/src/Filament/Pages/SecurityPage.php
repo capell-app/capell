@@ -221,7 +221,17 @@ final class SecurityPage extends Page implements HasTable
     private function applyFix(?string $weakness = null): void
     {
         $user = $this->manager();
-        $result = ApplyApprovedSecurityRemediationsAction::run(actor: 'user:' . $user->getAuthIdentifier(), onlyWeaknessId: $weakness);
+        $actor = 'user:' . $user->getAuthIdentifier();
+        // Fixes apply only to findings the scan taken now confirms, never to stale stored findings.
+        $scan = RunSecurityWeaknessScanAction::run(false, $actor);
+        $result = ApplyApprovedSecurityRemediationsAction::run(
+            $actor,
+            $scan->scanId ?? '',
+            false,
+            $weakness,
+            $scan->scannedAt,
+            array_values(array_map(static fn (string $failure): string => explode(': ', substr($failure, 7), 2)[0], array_filter($scan->failures, static fn (string $failure): bool => str_starts_with($failure, 'check: ')))),
+        );
         Notification::make()->title(__('capell-admin::security.fix_result', ['applied' => $result->applied, 'failed' => $result->failed, 'skipped' => count($result->skipped)]))->status($result->failed > 0 ? 'warning' : 'success')->send();
     }
 

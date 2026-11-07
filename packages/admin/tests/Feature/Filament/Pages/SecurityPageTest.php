@@ -17,7 +17,9 @@ use Capell\Core\Data\Security\SecurityScanResultData;
 use Capell\Core\Data\Security\SecurityWeaknessFindingData;
 use Capell\Core\Models\SecurityRemediationApproval;
 use Capell\Core\Models\SecurityRemediationRun;
+use Capell\Core\Models\SecurityScanRun;
 use Capell\Core\Models\SecurityWeaknessFinding;
+use Capell\Core\Support\Security\SecurityEvidence;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
@@ -44,10 +46,26 @@ function securityUser(bool $manage = false): void
 /** @param array<string, mixed> $attributes */
 function securityFinding(array $attributes = []): SecurityWeaknessFinding
 {
-    return SecurityWeaknessFinding::query()->create(array_replace([
+    $scan = SecurityScanRun::query()->firstOrCreate(['id' => 'security-page-scan'], ['started_at' => now(), 'finished_at' => now(), 'findings_count' => 1, 'source' => 'system:console']);
+    $attributes = array_replace([
         'weakness_id' => 'test.weakness', 'fingerprint' => hash('sha256', uniqid('', true)),
         'source' => 'builtin', 'severity' => 'high', 'status' => 'open', 'title' => 'Test weakness',
         'summary' => 'Review this finding', 'remediable' => true, 'first_detected_at' => now(), 'last_detected_at' => now(),
+        'last_detected_scan_id' => $scan->id, 'evidence' => ['observations' => [['setting' => 'app.debug', 'class' => 'true']]],
+    ], $attributes);
+    $attributes['evidence_hash'] ??= SecurityEvidence::hash($attributes['evidence']);
+
+    return SecurityWeaknessFinding::query()->create($attributes);
+}
+
+/** @param array<string, mixed> $attributes */
+function securityApproval(array $attributes = []): SecurityRemediationApproval
+{
+    $finding = SecurityWeaknessFinding::query()->where('weakness_id', $attributes['weakness_id'] ?? 'test.weakness')->first() ?? securityFinding();
+
+    return SecurityRemediationApproval::query()->create(array_replace([
+        'weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now(),
+        'approved_for_scan_id' => $finding->last_detected_scan_id, 'approved_fingerprint' => $finding->fingerprint, 'evidence_hash' => $finding->evidence_hash,
     ], $attributes));
 }
 
@@ -99,7 +117,7 @@ it('orders findings by severity and shows approval state and analyser advice', f
     $low = securityFinding(['severity' => 'low', 'title' => 'Low finding', 'weakness_id' => 'test.other']);
     $high = securityFinding(['severity' => 'high', 'title' => 'High finding']);
     $advice = securityFinding(['severity' => 'critical', 'source' => 'analyser', 'title' => 'Advice finding']);
-    SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 42, 'approved_at' => now()]);
+    securityApproval(['approved_by' => 42]);
     Livewire::test(SecurityPage::class)->assertOk()->assertSeeInOrder(['Advice finding', 'High finding', 'Low finding'])
         ->assertSee(__('capell-admin::security.advice_only'))->assertSee(__('capell-admin::security.not_available'))
         ->assertSee('Approved by user 42')->assertTableActionHidden('approve', $advice)
@@ -122,9 +140,12 @@ it('applies only the selected approved weakness', function (): void {
     securityRemediation();
     $finding = securityFinding();
     securityFinding();
-    SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now()]);
+    securityApproval(['approved_by' => 1]);
+    $actor = 'user:' . test()->authenticatedUser()->getAuthIdentifier();
+    RunSecurityWeaknessScanAction::mock()->shouldReceive('handle')->once()->with(false, $actor)
+        ->andReturn(new SecurityScanResultData(CarbonImmutable::now(), 1, 0, null, 0, 0, 0, 2, null, ['check: broken.check: boom'], 'scan-confirmed'));
     ApplyApprovedSecurityRemediationsAction::mock()->shouldReceive('handle')->once()
-        ->with('user:' . test()->authenticatedUser()->getAuthIdentifier(), false, 'test.weakness')
+        ->with($actor, 'scan-confirmed', false, 'test.weakness', Mockery::type(CarbonImmutable::class), ['broken.check'])
         ->andReturn(new SecurityRemediationBatchResultData(false, 1, 1, 0));
     Livewire::test(SecurityPage::class)->mountTableAction('fixNow', $finding)
         ->assertMountedActionModalSee(trans_choice('capell-admin::security.fix_now_scope', 2, ['count' => 2, 'weakness' => 'test.weakness']))
@@ -216,7 +237,7 @@ it('explains fix now scope, reversibility and the current schedule before applyi
 
     $finding = securityFinding();
     securityFinding();
-    SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now()]);
+    securityApproval(['approved_by' => 1]);
     $enabled = $scheduled && $fixScheduled;
 
     Livewire::test(SecurityPage::class)->mountTableAction('fixNow', $finding)
@@ -240,7 +261,7 @@ it('does not execute mutations without manage permission, including after an act
     securityRemediation();
     $finding = securityFinding(['status' => $action === 'reopen' ? 'dismissed' : 'open']);
     if (in_array($action, ['revoke', 'revokeApproval', 'fixNow'], true)) {
-        SecurityRemediationApproval::query()->create(['weakness_id' => 'test.weakness', 'approved_by' => 1, 'approved_at' => now()]);
+        securityApproval(['approved_by' => 1]);
     }
 
     foreach ([RunSecurityWeaknessScanAction::class, ApproveSecurityRemediationAction::class, RevokeSecurityRemediationApprovalAction::class, ApplyApprovedSecurityRemediationsAction::class, DismissSecurityWeaknessFindingAction::class, ReopenSecurityWeaknessFindingAction::class] as $coreAction) {
