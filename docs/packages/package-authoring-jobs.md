@@ -71,7 +71,7 @@ Marketplace copy should explain the outcome the package improves before naming i
 
 The normal path is:
 
-1. Scaffold with `php artisan capell:make-extension vendor/example --profile=minimal --path=packages`.
+1. Scaffold with `php artisan capell:make:extension vendor/example --profile=minimal --path=packages`.
 2. Fill `capell.json` with identity, surfaces, provider buckets, dependencies, contributions, capabilities, performance, commercial, and marketplace metadata.
 3. Put domain behavior in `src/Actions` and structured state in `src/Data`.
 4. Register runtime behavior from the provider bucket that owns it.

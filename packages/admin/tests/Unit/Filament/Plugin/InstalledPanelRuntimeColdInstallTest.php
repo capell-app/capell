@@ -74,8 +74,9 @@ final class InstalledPanelRuntimeColdInstallTest extends AdminTestCase
 
         $this->assertFalse(resolve(InstalledRuntimeLifecycle::class)->isUnavailable());
         $this->assertSame([], resolve(InstalledRuntimeLifecycle::class)->failures());
-        Route::get('/admin/cold-install-probe', static fn (): string => 'panel')
-            ->middleware($panel->getMiddleware())->name('filament.admin.cold-install-probe');
+        Route::middleware($panel->getMiddleware())->name('filament.admin.')->group(static function (): void {
+            Route::get('/admin/cold-install-probe', static fn (): string => 'panel')->name('cold-install-probe');
+        });
         $this->get('/admin/cold-install-probe')->assertStatus(503);
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageIsOrContains('fresh application');

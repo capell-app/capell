@@ -8,8 +8,30 @@ when you add a public surface.
 
 ## 1. Scaffold
 
-Use the colon commands for new work. The older hyphenated commands remain
-available for compatibility, but generated instructions use these names:
+Run `php artisan capell:make --list` to see registered makers and their
+descriptions, including makers supplied by installed extensions.
+
+Use `capell:make:action`, `capell:make:data`, `capell:make:schema`,
+`capell:make:extender`, and `capell:make:blueprint` for the corresponding
+application classes. The older hyphenated commands and `capell:make-type`
+remain available as deprecated aliases and print their replacement.
+Action and Data classes are autoloaded without registration. Their generated
+Pest tests are written to `tests/Feature/Generated`; run them with your app's
+normal Pest command and extend them as you add behaviour.
+
+Every maker that writes PHP or a view also writes a Pest test in `tests/Feature/Generated`:
+Action, Data, Schema, Extender, Blueprint, and the page Blade, asset Blade and
+page Livewire component makers. Extenders and blueprint subjects are not
+discovered automatically. The Extender maker's test shows the
+`PageSchemaExtender::TAG` registration to add in your service provider, and the
+Blueprint maker writes an Eloquent model that implements `Blueprintable` plus a
+test that registers it as a blueprint subject. Add a migration for the model
+table and register the descriptor with `resolve(BlueprintSubjectRegistry::class)->register()` from a
+service provider boot method (a package uses `$this->surface()->blueprintSubject()` from
+`bootInstalledPackage()` instead). The extension and theme scaffolds ship their own
+Pest tests.
+
+For packages, use:
 
 ```bash
 php artisan capell:make:extension acme/notice-board \
@@ -28,6 +50,10 @@ Choose `minimal` when you only need a package provider and manifest. Choose
 `full` when you want the working example widget, settings, typed input and
 render Data objects, widget assets, and tests. A generated theme includes its
 provider, manifest, CSS source, and a rendering test.
+
+Pass `--local` to also create a discoverable app-local theme manifest at
+`resources/views/capell/themes/capell-app/<theme-key>/theme.json`. The command
+refuses to replace an existing manifest for that key.
 
 Do not hand-copy a first-party package directory. The generators use only the
 public package contracts and avoid Capell's internal development overlay.

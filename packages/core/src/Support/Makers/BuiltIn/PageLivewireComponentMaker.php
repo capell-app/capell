@@ -27,6 +27,7 @@ final class PageLivewireComponentMaker extends AbstractFileMaker
             collect([
                 $this->fileData(app_path('Livewire/' . $class . '.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/page-livewire-class.stub', ['class' => $class, 'view' => $view]), $input->force),
                 $this->fileData(resource_path('views/livewire/' . $view . '.blade.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/page-livewire-view.stub', []), $input->force),
+                $this->fileData(base_path('tests/Feature/Generated/' . $class . 'LivewireTest.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/page-livewire-test.stub', ['class' => $class]), $input->force),
             ]),
             collect(['php artisan capell:make core.page-livewire-component --name="' . $class . '"']),
             collect(['Run php artisan capell:cache-components after creating new components.']),

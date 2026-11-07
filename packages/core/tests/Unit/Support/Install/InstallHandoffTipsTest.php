@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Install\InstallHandoffFactsData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Support\Install\InstallHandoffTips;
@@ -177,4 +178,50 @@ it('only asks for a review when the install is incomplete', function (): void {
 
     expect(installTipKeys($tips))->toBe(['review'])
         ->and($tips[0]['detail'])->toContain('capell:install');
+});
+
+it('builds the same tips from recorded facts as from the install input', function (): void {
+    $tips = new InstallHandoffTips;
+    $fromInput = $tips->build(
+        inputData: installTipsInput(['userId' => 7, 'demoContent' => true, 'selectedThemeKey' => 'capell-app/theme-foundation']),
+        selectedPackages: ['capell-app/admin', 'capell-app/blog', 'capell-app/core'],
+        completed: true,
+        needsFrontendBuild: false,
+        adminUrl: 'https://example.test/admin',
+        adminEmail: null,
+        publicUrl: 'https://example.test/',
+        firstPageStatus: 'editable',
+    );
+    $fromFacts = $tips->buildFor(new InstallHandoffFactsData(
+        completed: true,
+        needsFrontendBuild: false,
+        adminUrl: 'https://example.test/admin',
+        adminEmail: null,
+        publicUrl: 'https://example.test/',
+        firstPageStatus: 'editable',
+        demoContent: true,
+        existingAccount: true,
+        selectedThemeKey: 'capell-app/theme-foundation',
+        selectedPackages: ['capell-app/admin', 'capell-app/blog', 'capell-app/core'],
+    ));
+
+    expect($fromFacts)->toBe($fromInput)
+        ->and(installTipKeys($fromFacts))->toBe(['sign_in', 'first_page', 'theme', 'package:capell-app/blog'])
+        ->and($fromFacts[0]['detail'])->toContain('existing administrator account')
+        ->and($fromFacts[1]['detail'])->toContain('Demo content');
+});
+
+it('treats an install that chose a new administrator as a new account even when a user id is recorded', function (): void {
+    $tips = (new InstallHandoffTips)->build(
+        inputData: installTipsInput(['userId' => 7, 'newUser' => new NewUserData('Ben', 'ben@example.test', 'hunter2')]),
+        selectedPackages: ['capell-app/admin', 'capell-app/core'],
+        completed: true,
+        needsFrontendBuild: false,
+        adminUrl: 'https://example.test/admin',
+        adminEmail: null,
+        publicUrl: 'https://example.test/',
+        firstPageStatus: 'unavailable',
+    );
+
+    expect($tips[0]['detail'])->toBe('https://example.test/admin');
 });

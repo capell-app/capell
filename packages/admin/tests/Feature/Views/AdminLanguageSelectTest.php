@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 
+use Spatie\Permission\Models\Role;
+
 it('renders the admin language select in the user menu', function (): void {
     /** @var view-string $view */
     $view = 'capell-admin::components.user-menu.admin-language-select';
@@ -47,10 +49,16 @@ it('does not render the admin language select on Filament auth routes', function
     /** @var view-string $view */
     $view = 'capell-admin::components.user-menu.admin-language-select';
     Language::factory()->english()->create(['status' => true]);
-    actingAs(UserFactory::new()->createOne());
+    // Filament serves this route to signed-in panel users, and the panel runtime holds it to that.
+    Role::findOrCreate('panel_user', 'web');
+    test()->actingAsRole('panel_user');
 
-    Route::get('/admin/multi-factor-authentication/set-up', fn (): Factory|View => view($view))
-        ->name('filament.admin.auth.multi-factor-authentication.set-up-required');
+    // Registered in the panel's route group, as Filament registers it.
+    Route::name('filament.admin.')->group(static function () use ($view): void {
+        Route::get('/admin/multi-factor-authentication/set-up', fn (): Factory|View => view($view))
+            ->name('auth.multi-factor-authentication.set-up-required');
+    });
+    Route::getRoutes()->refreshNameLookups();
 
     get(route('filament.admin.auth.multi-factor-authentication.set-up-required'))
         ->assertOk()

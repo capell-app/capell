@@ -36,15 +36,17 @@ final class ExtenderMaker extends AbstractFileMaker
 
         return $this->previewData(
             $input,
-            collect([$this->fileData(app_path('Extenders/' . $name . 'Extender.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/extender.stub', ['class' => $name, 'hook' => $hook, 'hookLabel' => $hookLabel]), $input->force)]),
-            collect(['php artisan capell:make-extender ' . $name . ' ' . $hook]),
+            collect([
+                $this->fileData(app_path('Extenders/' . $name . 'Extender.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/extender.stub', ['class' => $name, 'hook' => $hook, 'hookLabel' => $hookLabel]), $input->force),
+                $this->fileData(base_path('tests/Feature/Generated/' . $name . 'ExtenderTest.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/extender-test.stub', ['class' => $name, 'hook' => $hook]), $input->force),
+            ]),
+            collect(['php artisan capell:make:extender ' . $name . ' ' . $hook]),
             collect([
                 'Declare the extender as a contribution in the package manifest (capell.json).',
                 'Register it through the canonical registrar in your service provider: '
                     . '$this->surface() for core surfaces, the AdminBridgeRegistrar for admin surfaces, '
                     . 'or the FrontendHookRegistrar for render hooks. For a page schema extender, '
                     . 'tag it via PageSchemaExtender::TAG — never a raw tag string.',
-                'Add a focused harness test asserting the extender is resolved and applied.',
             ]),
         );
     }

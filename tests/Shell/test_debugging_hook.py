@@ -19,7 +19,8 @@ class DebuggingHookTest(unittest.TestCase):
             path = Path(directory).relative_to(ROOT) / 'command.php'
             result = self.scan(str(path), b'<?php\n' + b'ex' + b'it(1);\n')
             self.assertEqual(result.returncode, 1)
-            self.assertIn(b'legitimate CLI status', result.stderr)
+            self.assertIn(b'SPECIAL_EXITS', result.stderr)
+            self.assertIn(b'CLI_SCRIPTS', result.stderr)
 
     def test_debug_calls_remain_rejected_and_normal_calls_pass(self):
         with tempfile.TemporaryDirectory(dir=ROOT / 'scripts') as directory:

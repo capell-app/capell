@@ -138,6 +138,27 @@ final class ManifestValidator
     }
 
     /**
+     * The structural problems of a manifest keyed by field path, for callers that report
+     * instead of throw, such as Marketplace submission review. Validation stops at the
+     * first problem, exactly as loading the package locally would, so local authoring
+     * and submission see the same first failure.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $composerJson
+     * @return array<string, string>
+     */
+    public function structureProblems(array $data, ?array $composerJson = null, ?string $packageName = null, ?string $discoverySource = null): array
+    {
+        try {
+            $this->validateStructure($data, $composerJson, $packageName, $discoverySource);
+        } catch (InvalidManifestException $invalidManifestException) {
+            return [$invalidManifestException->field ?? 'manifest' => $invalidManifestException->getMessage()];
+        }
+
+        return [];
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>|null  $composerJson
      */
@@ -148,7 +169,7 @@ final class ManifestValidator
         ?string $discoverySource = null,
     ): void {
         if (($data['manifest-version'] ?? null) !== ExtensionManifestVersion::V3->value) {
-            throw InvalidManifestException::missingField('manifest-version 3');
+            throw InvalidManifestException::unsupportedManifestVersion($data['manifest-version'] ?? null);
         }
 
         if (array_key_exists('capell-version', $data)) {
@@ -201,11 +222,13 @@ final class ManifestValidator
 
         foreach ($data['surfaces'] as $surface) {
             if (! in_array($surface, ExtensionSurface::values(), strict: true)) {
-                throw InvalidManifestException::invalidContext((string) $surface);
+                throw InvalidManifestException::invalidSurface((string) $surface, ExtensionSurface::values());
             }
         }
 
-        $namespacePrefixes = $this->composerNamespacePrefixes($composerJson);
+        // Without composer.json (Marketplace submission review sees the manifest alone) namespace
+        // ownership cannot be judged here; the install-time load proves it from the real autoload.
+        $namespacePrefixes = $composerJson === null ? null : $this->composerNamespacePrefixes($composerJson);
         $isTrustedCore = TrustedCorePackages::contains((string) $data['name']);
 
         $this->validateClassList($data['providers'], $namespacePrefixes, $isTrustedCore, ServiceProvider::class);
@@ -257,9 +280,12 @@ final class ManifestValidator
         $missing = array_values(array_diff(self::REQUIRED_PROVIDER_BUCKETS, $buckets));
 
         if ($unexpected !== [] || $missing !== []) {
-            $context = $unexpected[0] ?? $missing[0] ?? 'providers';
-
-            throw InvalidManifestException::invalidContext((string) $context);
+            throw InvalidManifestException::invalidProviderBuckets(
+                array_map(strval(...), $unexpected),
+                $missing,
+                self::REQUIRED_PROVIDER_BUCKETS,
+                self::VALID_PROVIDER_BUCKETS,
+            );
         }
 
         foreach (self::VALID_PROVIDER_BUCKETS as $bucket) {
@@ -273,11 +299,11 @@ final class ManifestValidator
 
     /**
      * @param  array<string, list<class-string>>  $providers
-     * @param  list<string>  $namespacePrefixes
+     * @param  list<string>|null  $namespacePrefixes
      */
     private function validateClassList(
         array $providers,
-        array $namespacePrefixes,
+        ?array $namespacePrefixes,
         bool $isTrustedCore,
         string $expectedType,
     ): void {
@@ -379,9 +405,9 @@ final class ManifestValidator
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  list<string>  $namespacePrefixes
+     * @param  list<string>|null  $namespacePrefixes
      */
-    private function validateContributions(array $data, array $namespacePrefixes, bool $isTrustedCore): void
+    private function validateContributions(array $data, ?array $namespacePrefixes, bool $isTrustedCore): void
     {
         if (! is_array($data['contributes'] ?? null) || ! array_is_list($data['contributes'])) {
             throw InvalidManifestException::missingField('contributes');
@@ -538,9 +564,9 @@ final class ManifestValidator
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  list<string>  $namespacePrefixes
+     * @param  list<string>|null  $namespacePrefixes
      */
-    private function validateHealthChecks(array $data, array $namespacePrefixes, bool $isTrustedCore): void
+    private function validateHealthChecks(array $data, ?array $namespacePrefixes, bool $isTrustedCore): void
     {
         if (! is_array($data['healthChecks'] ?? null) || ! array_is_list($data['healthChecks'])) {
             throw InvalidManifestException::missingField('healthChecks');
@@ -575,11 +601,11 @@ final class ManifestValidator
     }
 
     /**
-     * @param  list<string>  $namespacePrefixes
+     * @param  list<string>|null  $namespacePrefixes  Null when no composer.json is available to judge ownership.
      */
-    private function validateClass(string $class, array $namespacePrefixes, bool $isTrustedCore, string $expectedType): void
+    private function validateClass(string $class, ?array $namespacePrefixes, bool $isTrustedCore, string $expectedType): void
     {
-        if ($namespacePrefixes === [] || ! $this->classIsInNamespace($class, $namespacePrefixes)) {
+        if ($namespacePrefixes !== null && ($namespacePrefixes === [] || ! $this->classIsInNamespace($class, $namespacePrefixes))) {
             throw InvalidManifestException::invalidField('class', $class . ' is outside the package Composer PSR-4 namespace');
         }
 

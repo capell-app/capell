@@ -9,6 +9,7 @@ use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Tests\Support\DiagnoseErrorPagesTestStore;
 use Capell\Frontend\Tests\Support\LegacyErrorPageFallbackManifestStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
@@ -49,7 +50,7 @@ afterEach(function (): void {
 
 it('names the domain predicate that rejected the entry, with expected and actual', function (): void {
     $this->store = new DiagnoseErrorPagesTestStore;
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -74,7 +75,7 @@ it('names the domain predicate that rejected the entry, with expected and actual
 
 it('reports the resolved file path and that it exists for a matching entry', function (): void {
     $this->store = new DiagnoseErrorPagesTestStore;
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 

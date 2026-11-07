@@ -11,6 +11,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Frontend\Actions\GenerateAllMaintenancePageCachesAction;
 use Capell\Frontend\Actions\PurgeCdnCacheByPageAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
@@ -24,6 +25,7 @@ use Capell\Frontend\Support\Cache\FragmentCache;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
 use Capell\Frontend\Support\Rules\Conditions\QueryParameterCondition;
+use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
@@ -191,6 +193,8 @@ it('skips CDN purge jobs without skipping fragment invalidation when no provider
 it('generates maintenance caches only for enabled sites in display order', function (): void {
     $store = new class implements StaticMaintenancePageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [];
 
@@ -204,7 +208,7 @@ it('generates maintenance caches only for enabled sites in display order', funct
             return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
         }
 
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }

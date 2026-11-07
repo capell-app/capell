@@ -90,6 +90,53 @@
         </div>
     </dl>
 
+    @if (($record['runtimeAllowed'] ?? true) === false)
+        @php
+            $runtimeExplanation = match ($record['runtimeGateReason'] ?? $runtimeStatus) {
+                'domain_mismatch' => __('capell-admin::generic.extension_runtime_gate_domain_mismatch'),
+                'expired', 'expired_without_activation' => __('capell-admin::generic.extension_runtime_gate_expired'),
+                'unverified' => __('capell-admin::generic.extension_runtime_gate_unverified'),
+                'unapproved' => __('capell-admin::generic.extension_runtime_gate_unapproved'),
+                'invalid' => __('capell-admin::generic.extension_runtime_gate_invalid'),
+                'revoked' => __('capell-admin::generic.extension_runtime_gate_revoked'),
+                'provider_quarantined' => __('capell-admin::generic.extension_runtime_gate_provider_quarantined'),
+                'composer_missing', 'composer_unavailable', 'missing_registry_manifest', 'version_mismatch' => __('capell-admin::generic.extension_runtime_gate_composer_drift'),
+                'marketplace_runtime_disallowed' => __('capell-admin::generic.extension_runtime_gate_disallowed'),
+                'missing_marketplace_activation' => __('capell-admin::generic.extension_runtime_gate_missing'),
+                default => __('capell-admin::generic.extension_runtime_gate_unknown'),
+            };
+        @endphp
+        <p class="text-sm">{{ $runtimeExplanation }}</p>
+    @endif
+
+    @if ($runtimeStatus === 'disabled')
+        <p class="text-sm">{{ __('capell-admin::generic.extension_lifecycle_disabled_action') }}</p>
+    @elseif ($runtimeStatus === 'failed')
+        <p class="text-sm">{{ __('capell-admin::generic.extension_lifecycle_failed_action') }}</p>
+    @endif
+
+    @if (! empty($record['healthAlerts']))
+        <section
+            aria-label="{{ __('capell-admin::generic.extension_health_alerts') }}"
+            class="space-y-3"
+        >
+            <h3 class="text-sm font-semibold">
+                {{ __('capell-admin::generic.extension_health_alerts') }}
+            </h3>
+            @foreach ($record['healthAlerts'] as $alert)
+                <article
+                    class="rounded-lg border border-gray-200 p-3 dark:border-white/10"
+                >
+                    <h4 class="font-semibold">{{ $alert['title'] }}</h4>
+                    <p class="mt-1 text-sm">{{ $alert['message'] }}</p>
+                    @if (is_string($alert['requiredAction'] ?? null) && trim($alert['requiredAction']) !== '')
+                        <p class="mt-2 text-sm"><span class="font-semibold">{{ __('capell-admin::generic.extension_health_alert_required_action') }}:</span> {{ $alert['requiredAction'] }}</p>
+                    @endif
+                </article>
+            @endforeach
+        </section>
+    @endif
+
     @if (is_string($documentationUrl) && $documentationUrl !== '')
         <div>
             <a

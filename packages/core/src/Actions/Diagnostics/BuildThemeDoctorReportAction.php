@@ -82,7 +82,7 @@ final class BuildThemeDoctorReportAction
                 label: 'Theme manifest',
                 passed: false,
                 message: $throwable->getMessage(),
-                remediation: 'Run php artisan capell:make-theme ' . $theme . ' --local or fix capell.json.',
+                remediation: 'Run php artisan capell:make:theme ' . $theme . ' --local or fix capell.json.',
             );
         }
 

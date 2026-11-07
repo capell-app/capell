@@ -19,6 +19,8 @@ use Capell\Frontend\Enums\FrontendResourceHintKind;
 use Capell\Frontend\Enums\FrontendResourcePlacement;
 use Capell\Frontend\Enums\ReferrerPolicy;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
+use Capell\Frontend\Support\Assets\ViteManifestReader;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Vite;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -45,7 +47,7 @@ it('resolves and dependency-orders eager resources across placements', function 
         defer: false,
     );
 
-    $plan = runBoundAction(ResolveFrontendResourcePlanAction::class, new ResolveFrontendResourcePlanAction(url(), resolve(Vite::class)), [
+    $plan = runBoundAction(ResolveFrontendResourcePlanAction::class, new ResolveFrontendResourcePlanAction(url(), resolve(Vite::class), resolve(ViteManifestReader::class)), [
         new FrontendResourceContributionData($plugin),
         new FrontendResourceContributionData($library),
     ]);
@@ -295,4 +297,51 @@ it('warns about missing external integrity by default and can require it', funct
     expect(ResolveFrontendResourcePlanAction::run([
         new FrontendResourceContributionData($resource),
     ])->diagnostics)->toBe([]);
+});
+
+it('reads each vite manifest once per request however many resources use it', function (): void {
+    $buildDirectory = 'build/frontend-resource-manifest-reads';
+    $manifestPath = public_path($buildDirectory . '/manifest.json');
+    File::ensureDirectoryExists(public_path($buildDirectory));
+    File::put($manifestPath, json_encode([
+        'resources/js/app.js' => ['file' => 'assets/app-1.js', 'isEntry' => true],
+        'resources/js/admin.js' => ['file' => 'assets/admin-1.js', 'isEntry' => true],
+    ], JSON_THROW_ON_ERROR));
+
+    $files = new class extends Filesystem
+    {
+        /** @var list<string> */
+        public array $reads = [];
+
+        #[Override]
+        public function get($path, $lock = false)
+        {
+            $this->reads[] = $path;
+
+            return parent::get($path, $lock);
+        }
+    };
+    app()->instance(Filesystem::class, $files);
+    app()->forgetScopedInstances();
+
+    $contributions = static fn (): array => [
+        new FrontendResourceContributionData(FrontendResourceData::moduleScript('capell-app/frontend:app', 'capell-app/frontend', new ViteResourceSourceData('resources/js/app.js', $buildDirectory))),
+        new FrontendResourceContributionData(FrontendResourceData::moduleScript('capell-app/frontend:admin', 'capell-app/frontend', new ViteResourceSourceData('resources/js/admin.js', $buildDirectory))),
+    ];
+
+    try {
+        ResolveFrontendResourcePlanAction::run($contributions());
+        $plan = ResolveFrontendResourcePlanAction::run($contributions());
+
+        expect(array_filter($files->reads, static fn (string $path): bool => $path === $manifestPath))->toHaveCount(1)
+            ->and([...$plan->headResources, ...$plan->bodyEndResources])->toHaveCount(2);
+
+        app()->forgetScopedInstances();
+        ResolveFrontendResourcePlanAction::run($contributions());
+
+        expect(array_filter($files->reads, static fn (string $path): bool => $path === $manifestPath))->toHaveCount(2);
+    } finally {
+        app()->forgetInstance(Filesystem::class);
+        File::deleteDirectory(public_path($buildDirectory));
+    }
 });

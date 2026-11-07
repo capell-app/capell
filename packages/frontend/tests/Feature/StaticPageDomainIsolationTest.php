@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\PublicRead\PublishPublicArtefactAction;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
+use Capell\Core\Data\PublicRead\PublicReadStampData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\PageCreator;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Frontend\Actions\BuildErrorPageCopyDiagnosticsAction;
 use Capell\Frontend\Actions\BuildStaticErrorPageDiagnosticsAction;
 use Capell\Frontend\Actions\GenerateErrorPageCacheAction;
@@ -22,6 +25,7 @@ use Capell\Frontend\Support\Error\ErrorPageFallbackManifest;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
+use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,6 +38,8 @@ beforeEach(function (): void {
     RegenerateSiteErrorPagesAction::allowToRun();
     $store = new class implements StaticErrorPageStore, StaticMaintenancePageStore
     {
+        use FencesTestArtefactStore;
+
         /** @var array<string, string> */
         public array $files = [];
 
@@ -44,7 +50,7 @@ beforeEach(function (): void {
         }
 
         #[Override]
-        public function put(string $file, string $contents): void
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void
         {
             $this->files[$file] = $contents;
         }
@@ -177,7 +183,12 @@ it('denies legacy maintenance generically on conversion failure and detects old 
     ]]]]];
     // A deployment may already have converted the file before an old worker replaces it.
     GenerateMaintenancePageCacheAction::run($domain->site);
-    resolve(StaticMaintenancePageStore::class)->put('legacy.html', 'WRONG OWNER');
+    $maintenance = resolve(StaticMaintenancePageStore::class);
+    PublishPublicArtefactAction::run($maintenance, null, new PublicReadStampData(null, null), [], static function (PublicArtefactPermit $permit) use ($maintenance): bool {
+        $maintenance->put($permit, 'legacy.html', 'WRONG OWNER');
+
+        return true;
+    });
     $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
     $renderer->shouldReceive('render')->twice()->andThrow(new RuntimeException('Offline'));
     app()->instance(ThemePreviewRendererInterface::class, $renderer);
