@@ -115,12 +115,16 @@ it('keeps foreign site health alerts out of the operations summary', function (b
 it('scopes cached navigation counts to site access', function (): void {
     $packageName = 'vendor/badge-site-scope';
     registerOperationsSummaryManifest($packageName, ['displayName' => 'Badge site scope', 'version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => $packageName, 'name' => 'Badge site scope', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+    ]);
     $site = Site::factory()->create();
     ExtensionHealthAlert::query()->create([
         'alert_id' => 'badge-site-scope', 'source' => 'test', 'composer_name' => $packageName,
         'affected_site_id' => $site->id, 'severity' => ExtensionHealthAlertSeverity::Critical,
         'category' => ExtensionHealthAlertCategory::Security, 'title' => 'Private alert',
-        'message' => 'Private diagnostic', 'signature' => 'test', 'issued_at' => now(),
+        'message' => 'Private diagnostic', 'required_action' => 'upgrade', 'signature' => 'test', 'issued_at' => now(),
     ]);
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([(int) $site->id]);
