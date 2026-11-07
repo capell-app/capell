@@ -36,11 +36,15 @@ final class ContentGraphRegistry
 
         $this->extractors[$sourceModel][] = $extractor;
         if (app()->bound(RecordsExtensionContributionReceipt::class)) {
-            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+            // Registration can run from a callback deferred until another
+            // package's provider resolves this registry, so the active context
+            // may belong to that package. Own the receipt by the extractor's
+            // declaring package instead.
+            resolve(RecordsExtensionContributionReceipt::class)->recordContributionFromSource(
                 ExtensionContributionReceiptType::ContentGraph,
                 'content-graph:' . $sourceModel . ':' . $extractor,
                 $extractor,
-                self::class,
+                $extractor,
                 'runtime',
             );
         }
