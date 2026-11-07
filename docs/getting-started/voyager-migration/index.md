@@ -47,10 +47,12 @@ recovery notes come from preparing the migration toolchain.
 | [Rehearse the freeze](rehearsal.md) | Measured repeatable operation and restore | Not yet verified |
 | [Cut over and roll back](cutover.md) | Owner-operated switch with a bounded rollback window | Not yet verified |
 
-The importer's current separate-source restriction must be reconciled with an
-in-place migration design before choosing a database topology. Table aliases
-alone do not establish that importing from the destination connection is safe
-or supported. Keep this as an explicit installation gate.
+For a same-database migration, use the importer's explicit restricted in-place
+process with separate reader, writer and metadata-inspector accounts. An ordinary
+source connection pointed at the destination is not sufficient. Bounded settings,
+shared-user-reference and page rehearsals have passed; complete multi-entity
+conversion and reconciliation remain unverified. Table aliases alone do not
+establish write isolation. Keep the privilege and physical-table checks enabled.
 
 ## Next
 

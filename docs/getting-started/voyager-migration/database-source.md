@@ -12,7 +12,7 @@ An isolated seeded source and destination, a read-only source account, a receivi
 
 ## Procedure and exact commands
 
-Record connection identity, source table names, schema fingerprint and one stable source label. Verify which entities are global and which require a site. Keep session IDs and before-images for updates. Resolve the current importer restriction on using the destination database as its own source before an in-place operation.
+Record connection identity, source table names, schema fingerprint and one stable source label. Verify which entities are global and which require a site. Keep session IDs and before-images for updates. A same-database operation requires the explicit restricted in-place process and separate reader, writer and metadata-inspector profiles. Ordinary source connections do not provide that isolation.
 
 The executable command transcript for this phase is **not yet verified**. Do not
 copy a command from another release or infer flags from this draft. Add the exact
