@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Support;
 
 use Capell\Core\Actions\Install\AssertTableOwnershipAction;
+use Capell\Core\Actions\Install\PrepareVendorTableMigrationAction;
 use Capell\Core\Exceptions\ForeignTableException;
+use Capell\Core\Support\Migration\TableShape;
+use Composer\InstalledVersions;
+use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Migrations\DatabaseMigrationRepository;
 use Illuminate\Database\Migrations\MigrationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -21,24 +26,48 @@ final class TableName
 
     private const string LEDGER_BINDING = 'capell.table-name.ledger';
 
+    private const string LEDGER_FILES_BINDING = 'capell.table-name.ledger-files';
+
+    /** @var array<string, string> Original source SHA-256 for supported historical schema transitions. */
+    private const array LEGACY_MIGRATION_SHA256 = [
+        '2026_05_10_190832_15_create_asset_relations_table' => '70d0ee9797dd00936cf83dd4b1cca7cecc3be28bdeccb01b1196db50fca922a5',
+        '2026_06_25_000003_create_page_content_snapshots_table' => '6959976c64f124c9dd89df4a4fb6534dfa39776ba44de72aebc582e62d37b114',
+    ];
+
     /**
      * Runs a callback reading the migration ledger from another repository (the table-shape probe's scratch database).
      *
      * @template T
      *
      * @param  callable(): T  $callback
+     * @param  list<string>  $migrationFiles  Registered source files explicitly executed by a scratch probe.
      * @return T
      */
-    public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback): mixed
+    public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback, array $migrationFiles = []): mixed
     {
+        foreach ($migrationFiles as $path) {
+            $known = array_any(self::migrationSources(basename($path, '.php')), fn (string $source): bool => realpath($path) !== false && realpath($source) === realpath($path));
+            throw_unless($known, RuntimeException::class, 'Scratch migration source is not registered: ' . $path);
+        }
+
         $app = app();
+        $currentFiles = $app->bound(self::LEDGER_FILES_BINDING) ? $app->make(self::LEDGER_FILES_BINDING) : null;
+        $previousFiles = is_array($currentFiles) ? $currentFiles : null;
         $current = $app->bound(self::LEDGER_BINDING) ? $app->make(self::LEDGER_BINDING) : null;
         $previous = $current instanceof MigrationRepositoryInterface ? $current : null;
         $app->instance(self::LEDGER_BINDING, $ledger);
+        $app->instance(self::LEDGER_FILES_BINDING, $migrationFiles === [] ? null : $migrationFiles);
 
         try {
             return $callback();
         } finally {
+            if ($previousFiles === null) {
+                $app->forgetInstance(self::LEDGER_FILES_BINDING);
+                unset($app[self::LEDGER_FILES_BINDING]);
+            } else {
+                $app->instance(self::LEDGER_FILES_BINDING, $previousFiles);
+            }
+
             if (! $previous instanceof MigrationRepositoryInterface) {
                 $app->forgetInstance(self::LEDGER_BINDING);
                 unset($app[self::LEDGER_BINDING]);
@@ -49,15 +78,15 @@ final class TableName
     }
 
     /** @throws ForeignTableException when the table exists without its creating migration being recorded */
-    public static function existsAndIsOwned(string $name, string $migration): bool
+    public static function existsAndIsOwned(string $name, string $migration, ?string $connection = null): bool
     {
-        return AssertTableOwnershipAction::run($name, $migration);
+        return AssertTableOwnershipAction::run($name, $migration, null, $connection);
     }
 
     /** @throws ForeignTableException when the table exists without its creating migration being recorded */
-    public static function externalExistsAndIsOwned(string $table, string $migration, ?string $configKey = null): bool
+    public static function externalExistsAndIsOwned(string $table, string $migration, ?string $configKey = null, ?string $connection = null): bool
     {
-        return AssertTableOwnershipAction::run($table, $migration, $configKey ?? self::externalConfigKey($table));
+        return AssertTableOwnershipAction::run($table, $migration, $configKey ?? self::externalConfigKey($table), $connection);
     }
 
     /** The real config key that names an externally owned table, so a message can point at it. */
@@ -144,21 +173,165 @@ final class TableName
         return $resolved;
     }
 
-    public static function migrationRecorded(string $migration): bool
+    /**
+     * Exact known source names identify managed migrations. A different publication timestamp
+     * additionally requires the recorded host file to match that source byte for byte.
+     */
+    public static function migrationRecorded(string $migration, ?string $connection = null): bool
     {
-        $repository = app()->bound(self::LEDGER_BINDING) ? resolve(self::LEDGER_BINDING) : resolve('migrator')->getRepository();
+        $repository = self::ledger($connection);
 
-        if (! $repository->repositoryExists()) {
+        if (! $repository->repositoryExists() || basename($migration) !== $migration) {
             return false;
         }
 
-        $name = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}(?:_\d{2})?_/', '', $migration) ?? $migration;
+        $sources = self::migrationSources($migration);
+        $legacy = self::legacyMigration($migration);
+        if ($sources === [] && $legacy === null) {
+            return false;
+        }
+
+        $name = self::withoutTimestamp($migration);
         foreach ($repository->getRan() as $recorded) {
-            if ($recorded === $name || str_ends_with((string) $recorded, '_' . $name)) {
-                return true;
+            if (basename($recorded) !== $recorded) {
+                continue;
+            }
+
+            if (self::withoutTimestamp($recorded) !== $name) {
+                continue;
+            }
+
+            $effective = self::effectiveMigration($recorded, $connection);
+            if ($legacy !== null) {
+                if ($recorded === $legacy && $effective === null) {
+                    return true;
+                }
+
+                $historicalHash = self::LEGACY_MIGRATION_SHA256[$legacy] ?? null;
+                $effectiveHash = $effective === null ? false : hash_file('sha256', $effective);
+                if ($historicalHash !== null && is_string($effectiveHash) && hash_equals($historicalHash, $effectiveHash)) {
+                    return true;
+                }
+            }
+
+            foreach ($sources as $source) {
+                // A host file with the same name overrides registered paths in Laravel's migrator.
+                // An exact ledger identity is sufficient only when no effective file contradicts it.
+                if ($effective === null ? $recorded === self::sourceName($source) : self::matchesPublishedSource($source, $effective)) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    private static function legacyMigration(string $migration): ?string
+    {
+        foreach (array_keys(self::LEGACY_MIGRATION_SHA256) as $canonical) {
+            if (self::withoutTimestamp($canonical) === self::withoutTimestamp($migration)) {
+                return $canonical;
+            }
+        }
+
+        return null;
+    }
+
+    private static function ledger(?string $connection): MigrationRepositoryInterface
+    {
+        if ($connection === null && app()->bound(self::LEDGER_BINDING)) {
+            return resolve(self::LEDGER_BINDING);
+        }
+
+        // The migrator repository may be pinned to another connection by a previous command.
+        $migrations = config('database.migrations');
+        $table = is_array($migrations) ? ($migrations['table'] ?? 'migrations') : ($migrations ?? 'migrations');
+        $repository = new DatabaseMigrationRepository(resolve(DatabaseManager::class), (string) $table);
+        $repository->setSource($connection ?? DB::getDefaultConnection());
+
+        return $repository;
+    }
+
+    /** @return list<string> */
+    private static function migrationSources(string $migration): array
+    {
+        $sources = TableShape::sourcesFor($migration);
+
+        // These integrations own external tables; an arbitrary host migration is never a source.
+        $packages = [
+            'create_settings_table' => 'spatie/laravel-settings',
+            'create_permission_tables' => 'spatie/laravel-permission',
+            'create_activity_log_table' => 'spatie/laravel-activitylog',
+            'create_media_table' => 'spatie/laravel-medialibrary',
+            'create_tag_tables' => 'spatie/laravel-tags',
+        ];
+        $name = self::withoutTimestamp($migration);
+        $package = $packages[$name] ?? null;
+        if ($package === null || ! InstalledVersions::isInstalled($package)) {
+            return $sources;
+        }
+
+        $path = InstalledVersions::getInstallPath($package);
+        $stub = $path . '/database/migrations/' . $name . '.php.stub';
+
+        $root = realpath($path . '/database/migrations');
+        $target = realpath($stub);
+        if ($root !== false && $target !== false && str_starts_with($target, $root . DIRECTORY_SEPARATOR)) {
+            $sources[] = $stub;
+        }
+
+        return array_values(array_unique($sources));
+    }
+
+    private static function effectiveMigration(string $recorded, ?string $connection): ?string
+    {
+        $migrator = resolve('migrator');
+        $files = $connection === null && app()->bound(self::LEDGER_FILES_BINDING) ? resolve(self::LEDGER_FILES_BINDING) : null;
+        if (is_array($files)) {
+            return $migrator->getMigrationFiles($files)[$recorded] ?? null;
+        }
+
+        // Match Laravel's execution order: the host directory is last and wins duplicate names.
+        $files = $migrator->getMigrationFiles([...$migrator->paths(), database_path('migrations')]);
+
+        return $files[$recorded] ?? null;
+    }
+
+    private static function sourceName(string $source): string
+    {
+        return str_ends_with($source, '.php.stub') ? basename($source, '.php.stub') : basename($source, '.php');
+    }
+
+    private static function matchesPublishedSource(string $source, string $published): bool
+    {
+        $sourceHash = hash_file('sha256', $source);
+        $publishedHash = hash_file('sha256', $published);
+        if (! is_string($sourceHash) || ! is_string($publishedHash)) {
+            return false;
+        }
+
+        if (hash_equals($sourceHash, $publishedHash)) {
+            return true;
+        }
+
+        // Capell deterministically configures these vendor stubs when publishing them.
+        if (! str_ends_with($source, '.php.stub') || ! in_array(self::sourceName($source), ['create_media_table', 'create_tag_tables'], true)) {
+            return false;
+        }
+
+        $contents = file_get_contents($source);
+
+        if (! is_string($contents)) {
+            return false;
+        }
+
+        $prepared = PrepareVendorTableMigrationAction::run(self::sourceName($source), $contents);
+
+        return is_string($prepared) && hash_equals(hash('sha256', $prepared), $publishedHash);
+    }
+
+    private static function withoutTimestamp(string $migration): string
+    {
+        return preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}(?:_\d{2})?_/', '', $migration) ?? $migration;
     }
 }

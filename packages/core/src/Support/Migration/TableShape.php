@@ -81,16 +81,42 @@ final class TableShape
 
     public static function locate(string $migration): ?string
     {
+        $sources = self::sourcesFor($migration);
+        foreach ($sources as $source) {
+            if (basename($source, '.php') === $migration) {
+                return $source;
+            }
+        }
+
+        return $sources[0] ?? null;
+    }
+
+    /**
+     * Every matching source in installed Capell packages and explicit ownership registrations.
+     * Host and migrator execution paths do not establish source ownership.
+     *
+     * @return list<string>
+     */
+    public static function sourcesFor(string $migration): array
+    {
         $name = self::withoutTimestamp($migration);
+        $sources = [];
         foreach (self::directories() as $directory) {
+            $root = realpath($directory);
+            if ($root === false) {
+                continue;
+            }
+
             foreach (glob($directory . '/*.php') ?: [] as $path) {
-                if (self::withoutTimestamp(basename($path, '.php')) === $name) {
-                    return $path;
+                $target = realpath($path);
+                if ($target !== false && str_starts_with($target, $root . DIRECTORY_SEPARATOR)
+                    && self::withoutTimestamp(basename($path, '.php')) === $name) {
+                    $sources[] = $path;
                 }
             }
         }
 
-        return null;
+        return array_values(array_unique($sources));
     }
 
     /** The migration that creates a base table, or the historic one for a renamed table. */
@@ -269,7 +295,7 @@ final class TableShape
     private static function installedPackagePaths(): array
     {
         if (app()->bound(self::PACKAGES_BINDING)) {
-            return array_values((array) resolve(self::PACKAGES_BINDING));
+            return self::expandAggregatePaths((array) resolve(self::PACKAGES_BINDING));
         }
 
         $paths = [];
@@ -278,14 +304,40 @@ final class TableShape
             foreach (InstalledVersions::getInstalledPackages() as $package) {
                 $path = str_starts_with($package, 'capell-app/') ? InstalledVersions::getInstallPath($package) : null;
                 if ($path !== null) {
-                    $paths[] = $path;
+                    $paths[$package] = $path;
                 }
             }
         } catch (Throwable) {
-            return $paths;
+            return self::expandAggregatePaths($paths);
         }
 
-        return $paths;
+        return self::expandAggregatePaths($paths);
+    }
+
+    /**
+     * Composer reports replaced split packages without install paths in the foundation aggregate.
+     * Their source directories belong to that explicitly installed aggregate.
+     *
+     * @param  array<string, string>  $packagePaths
+     * @return list<string>
+     */
+    private static function expandAggregatePaths(array $packagePaths): array
+    {
+        $paths = array_values($packagePaths);
+        $aggregate = $packagePaths['capell-app/capell'] ?? null;
+        if ($aggregate !== null && is_file($aggregate . '/composer.json')) {
+            $contents = file_get_contents($aggregate . '/composer.json');
+            $manifest = is_string($contents) ? json_decode($contents, true) : null;
+            $replacements = is_array($manifest) && is_array($manifest['replace'] ?? null) ? $manifest['replace'] : [];
+            foreach (['core', 'admin', 'frontend', 'installer', 'marketplace'] as $package) {
+                $path = $aggregate . '/packages/' . $package;
+                if (array_key_exists('capell-app/' . $package, $replacements) && is_dir($path)) {
+                    $paths[] = $path;
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 
     /**
@@ -368,7 +420,7 @@ final class TableShape
                 return Schema::hasTable($table)
                     ? ['shape' => self::describe($table), 'failure' => null]
                     : ['shape' => null, 'failure' => 'the migrations that define this table produce no table on SQLite'];
-            });
+            }, $files);
         } catch (Throwable $throwable) {
             return ['shape' => null, 'failure' => sprintf('migration %s cannot run on SQLite (%s), so the table cannot be compared', $current, $throwable->getMessage())];
         } finally {
