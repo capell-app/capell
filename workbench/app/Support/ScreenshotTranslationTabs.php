@@ -2,32 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Workbench\App\Http\Middleware;
+namespace Workbench\App\Support;
 
 use Capell\Admin\Enums\TranslationTabsOrientation;
-use Closure;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Screenshot workbench only. The runner cannot change configuration between
  * captures, so a fixture route stores the wanted translation tab orientation
- * in the session and every later request, Livewire updates included, applies
- * it. Unknown values are ignored.
+ * in the session and each Filament request applies it. This listens to
+ * Filament rather than joining the web group, because the admin panel refuses
+ * routes with middleware it does not own. Unknown values are ignored.
  */
-final class ApplyScreenshotTranslationTabs
+final class ScreenshotTranslationTabs
 {
     public const string SESSION_KEY = 'screenshot.translation_tabs_orientation';
 
-    /** @param Closure(Request): Response $next */
-    public function handle(Request $request, Closure $next): Response
+    public static function apply(): void
     {
-        $orientation = $request->hasSession() ? $request->session()->get(self::SESSION_KEY) : null;
+        $orientation = session(self::SESSION_KEY);
 
         if (is_string($orientation) && TranslationTabsOrientation::tryFrom($orientation) instanceof TranslationTabsOrientation) {
             config()->set('capell-admin.translation_tabs_orientation', $orientation);
         }
-
-        return $next($request);
     }
 }

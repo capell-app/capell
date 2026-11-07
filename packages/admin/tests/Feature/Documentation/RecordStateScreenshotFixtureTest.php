@@ -16,17 +16,14 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Route as IlluminateRoute;
-use Illuminate\Session\SessionManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
-use Symfony\Component\HttpFoundation\Response;
-use Workbench\App\Http\Middleware\ApplyScreenshotTranslationTabs;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
+use Workbench\App\Support\ScreenshotTranslationTabs;
 
 uses(CreatesAdminUser::class)
     ->group('admin');
@@ -246,7 +243,7 @@ it('stores the translation tab orientation for the screenshot session and reject
 
     test()->get('/screenshot-fixtures/translation-tabs/vertical')
         ->assertRedirect()
-        ->assertSessionHas(ApplyScreenshotTranslationTabs::SESSION_KEY, 'vertical');
+        ->assertSessionHas(ScreenshotTranslationTabs::SESSION_KEY, 'vertical');
 
     test()->get('/screenshot-fixtures/translation-tabs/diagonal')->assertNotFound();
 });
@@ -254,13 +251,9 @@ it('stores the translation tab orientation for the screenshot session and reject
 it('applies the stored translation tab orientation to later requests only when it is valid', function (string $stored, string $expected): void {
     config()->set('capell-admin.translation_tabs_orientation', 'horizontal');
 
-    $request = Request::create('/admin');
-    $session = resolve(SessionManager::class)->driver('array');
-    $session->put(ApplyScreenshotTranslationTabs::SESSION_KEY, $stored);
+    session()->put(ScreenshotTranslationTabs::SESSION_KEY, $stored);
 
-    $request->setLaravelSession($session);
-
-    (new ApplyScreenshotTranslationTabs)->handle($request, fn (): Response => response('ok'));
+    ScreenshotTranslationTabs::apply();
 
     expect(config('capell-admin.translation_tabs_orientation'))->toBe($expected);
 })->with([

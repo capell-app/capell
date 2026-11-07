@@ -9,13 +9,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Workbench\App\Http\Middleware\ApplyScreenshotTranslationTabs;
 use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
+use Workbench\App\Support\ScreenshotTranslationTabs;
 
 // The shared runner verifies the same authenticated web session immediately
 // before recording every admin screenshot. Keep this workbench-only endpoint
@@ -56,7 +56,7 @@ Route::get('/screenshot-fixtures/record-states/page-editor', static fn (): Redir
 Route::get('/screenshot-fixtures/translation-tabs/{orientation}', static function (Request $request, string $orientation): RedirectResponse {
     abort_unless(in_array($orientation, ['horizontal', 'vertical'], true), 404);
 
-    $request->session()->put(ApplyScreenshotTranslationTabs::SESSION_KEY, $orientation);
+    $request->session()->put(ScreenshotTranslationTabs::SESSION_KEY, $orientation);
 
     return redirect()->to(RecordStateScreenshotFixture::pageEditUrl());
 })->middleware(['web', RequireScreenshotAdmin::class]);
