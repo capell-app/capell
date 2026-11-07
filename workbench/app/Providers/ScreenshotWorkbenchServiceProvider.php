@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Workbench\App\Providers;
 
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
-use Filament\Facades\Filament;
+use Filament\Events\ServingFilament;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -87,7 +88,7 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 
         $this->loadRoutesFrom(__DIR__ . '/../../routes/screenshot-fixtures.php');
 
-        Filament::serving(ScreenshotTranslationTabs::apply(...));
+        Event::listen(ServingFilament::class, ScreenshotTranslationTabs::apply(...));
 
         Route::get('/__ping', static fn (): string => 'pong');
 
