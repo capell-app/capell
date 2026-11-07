@@ -45,6 +45,7 @@ use Capell\Admin\Filament\Concerns\HasConfigurableFormActionPosition;
 use Capell\Admin\Filament\Concerns\HasCreateActionOnEditPage;
 use Capell\Admin\Filament\Concerns\HasDynamicEventListeners;
 use Capell\Admin\Filament\Concerns\HasExtensibleRecordHeading;
+use Capell\Admin\Filament\Concerns\RestoresRecoveredFormState;
 use Capell\Admin\Filament\Concerns\Validate\PageValidation;
 use Capell\Admin\Filament\Contracts\HasPageResource;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
@@ -114,6 +115,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         HasConfigurableFormActionPosition::getFormActions insteadof InteractsWithFormActions;
     }
     use PageValidation;
+    use RestoresRecoveredFormState;
 
     public static bool $formActionsAreSticky = true;
 
@@ -543,7 +545,9 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             }
         }
 
-        $this->data = $data;
+        if (! $this->restoreRecoveredFormState($data)) {
+            return;
+        }
 
         Notification::make('editor-scratch-draft-restored')
             ->success()

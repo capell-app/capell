@@ -44,6 +44,7 @@ it('keeps the composer cache by default so an install does not re-download the w
         'require',
         '--no-interaction',
         '--no-scripts',
+        '--no-plugins',
         '--no-audit',
         '--no-progress',
         '--prefer-dist',
@@ -175,7 +176,7 @@ SH);
         ->and($result->output)->toContain('COMPOSER_HOME=' . storage_path('framework/composer'))
         ->and($result->output)->toContain('HOME=' . storage_path('framework/composer'))
         ->and($result->output)->not->toContain('--no-cache')
-        ->and($result->output)->toContain('--no-scripts')
+        ->and($result->output)->toContain('--no-scripts', '--no-plugins')
         ->and($result->output)->toContain('vendor/example:^1.2')
         ->and($result->errorOutput)->toContain('composer stderr')
         ->and(is_dir(storage_path('framework/composer')))->toBeTrue();
@@ -433,14 +434,167 @@ it('refuses a symlinked composer workspace root', function (): void {
     mkdir($temporaryStorage . '/target');
     symlink($temporaryStorage . '/target', $temporaryStorage . '/framework/composer');
     app()->useStoragePath($temporaryStorage);
+    config()->set('capell.marketplace.auth_workspace_path', $temporaryStorage . '/framework/composer');
     try {
-        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())->toThrow(RuntimeException::class, 'Unable to create a private Composer home.');
+        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())->toThrow(RuntimeException::class, 'must not be a symlink');
         expect(scandir($temporaryStorage . '/target'))->toBe(['.', '..']);
     } finally {
         app()->useStoragePath($originalStorage);
+        config()->set('capell.marketplace.auth_workspace_path');
         unlink($temporaryStorage . '/framework/composer');
         rmdir($temporaryStorage . '/framework');
         rmdir($temporaryStorage . '/target');
         rmdir($temporaryStorage);
+    }
+});
+
+it('uses a configured private workspace root', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-parent-' . bin2hex(random_bytes(8));
+    mkdir($parent, 0700);
+    $root = $parent . '/homes';
+    config()->set('capell.marketplace.auth_workspace_path', $root);
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    try {
+        $home = $workspace->create();
+        expect($workspace->root())->toBe($root)
+            ->and(dirname($home))->toBe($root);
+        $workspace->removeDirectory($home);
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        if (is_dir($root)) {
+            rmdir($root);
+        }
+
+        rmdir($parent);
+    }
+});
+
+it('refuses a world-writable workspace root', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-parent-' . bin2hex(random_bytes(8));
+    $root = $parent . '/homes';
+    mkdir($parent, 0700);
+    mkdir($root, 0700);
+    chmod($root, 0777);
+    config()->set('capell.marketplace.auth_workspace_path', $root);
+    try {
+        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())
+            ->toThrow(RuntimeException::class, 'must not be world-writable: ' . $root);
+        expect(scandir($root))->toBe(['.', '..']);
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        rmdir($root);
+        rmdir($parent);
+    }
+});
+
+it('refuses a symlinked workspace parent', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-parent-' . bin2hex(random_bytes(8));
+    mkdir($parent, 0700);
+    mkdir($parent . '/target', 0700);
+    symlink($parent . '/target', $parent . '/link');
+    config()->set('capell.marketplace.auth_workspace_path', $parent . '/link/homes');
+    try {
+        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())
+            ->toThrow(RuntimeException::class, 'must not be a symlink: ' . $parent . '/link');
+        expect(scandir($parent . '/target'))->toBe(['.', '..']);
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        unlink($parent . '/link');
+        rmdir($parent . '/target');
+        rmdir($parent);
+    }
+});
+
+it('refuses a workspace whose parent is owned by another user', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-parent-' . bin2hex(random_bytes(8));
+    mkdir($parent, 0700);
+    config()->set('capell.marketplace.auth_workspace_path', $parent . '/homes');
+    // The current user owns the parent, so a workspace expecting a different effective user sees a foreign owner.
+    $workspace = new MarketplaceComposerAuthWorkspace(effectiveUserId: (fileowner($parent) ?: 1) + 1);
+    try {
+        expect(fn (): string => $workspace->create())
+            ->toThrow(RuntimeException::class, 'must be owned by the effective user or root: ' . $parent);
+        expect(file_exists($parent . '/homes'))->toBeFalse();
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        rmdir($parent);
+    }
+});
+
+it('refuses a world-writable workspace parent', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-parent-' . bin2hex(random_bytes(8));
+    mkdir($parent, 0700);
+    chmod($parent, 0777);
+    config()->set('capell.marketplace.auth_workspace_path', $parent . '/homes');
+    try {
+        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())
+            ->toThrow(RuntimeException::class, 'must not be world-writable: ' . $parent);
+        expect(file_exists($parent . '/homes'))->toBeFalse();
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        rmdir($parent);
+    }
+});
+
+it('refuses a world-writable non-sticky ancestor and accepts a sticky override ancestor', function (): void {
+    $ancestor = sys_get_temp_dir() . '/capell-auth-ancestor-' . bin2hex(random_bytes(8));
+    mkdir($ancestor . '/parent', 0700, true);
+    chmod($ancestor, 0777);
+    config()->set('capell.marketplace.auth_workspace_path', $ancestor . '/parent/homes');
+    $workspace = new MarketplaceComposerAuthWorkspace;
+    try {
+        expect(fn (): string => $workspace->create())
+            ->toThrow(RuntimeException::class, 'must not be world-writable: ' . $ancestor);
+        chmod($ancestor, 01777);
+        $home = $workspace->create();
+        expect(dirname($home))->toBe($ancestor . '/parent/homes');
+        $workspace->removeDirectory($home);
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        chmod($ancestor, 0700);
+        if (is_dir($ancestor . '/parent/homes')) {
+            rmdir($ancestor . '/parent/homes');
+        }
+
+        rmdir($ancestor . '/parent');
+        rmdir($ancestor);
+    }
+});
+
+it('reports an untrusted workspace in the doctor report instead of failing it', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-parent-' . bin2hex(random_bytes(8));
+    mkdir($parent . '/homes', 0700, true);
+    chmod($parent, 0777);
+    config()->set('capell.marketplace.auth_workspace_path', $parent . '/homes');
+    try {
+        $check = BuildMarketplaceOperationsDoctorReportAction::run()->checks->firstWhere('id', 'marketplace.operations.composer-auth-files');
+
+        expect($check?->passed)->toBeFalse()
+            ->and($check?->severity)->toBe(DoctorCheckSeverity::Critical)
+            ->and($check?->message)->toBe(__('capell-marketplace::marketplace.auth_workspace.untrusted'))
+            ->and($check?->message)->not->toContain($parent)
+            ->and($check?->remediation)->toBe(__('capell-marketplace::marketplace.operations.doctor_auth_files_untrusted_remediation'));
+    } finally {
+        config()->set('capell.marketplace.auth_workspace_path');
+        chmod($parent, 0700);
+        rmdir($parent . '/homes');
+        rmdir($parent);
+    }
+});
+
+it('reports an untrusted parent before a workspace exists', function (): void {
+    $parent = sys_get_temp_dir() . '/capell-auth-missing-' . bin2hex(random_bytes(8));
+    mkdir($parent, 0700);
+    chmod($parent, 0777);
+    config()->set('capell.marketplace.auth_workspace_path', $parent . '/homes');
+    try {
+        $check = BuildMarketplaceOperationsDoctorReportAction::run()->checks->firstWhere('id', 'marketplace.operations.composer-auth-files');
+        expect($check?->passed)->toBeFalse()
+            ->and($check?->message)->toBe(__('capell-marketplace::marketplace.auth_workspace.untrusted'))
+            ->and(file_exists($parent . '/homes'))->toBeFalse();
+        expect(fn (): string => new MarketplaceComposerAuthWorkspace()->create())->toThrow(RuntimeException::class, $parent);
+    } finally {
+        chmod($parent, 0700);
+        rmdir($parent);
     }
 });

@@ -73,3 +73,19 @@ analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
 
 Use available Boost capabilities and reusable skills as live tooling. Do not copy
 generated Boost guideline dumps or static skill inventories into this file.
+
+- A shared `vendor/orchestra/testbench-core` lets Testbench's `CreateVendorSymlink`
+  write `laravel/vendor` through the share, so one worktree can point the primary
+  skeleton's vendor link at its own `vendor/`. Multi-file Pest runs then load
+  classes from the other worktree (for example `UnhandledMatchError` from a stale
+  `match`). `scripts/init-worktree.sh` now copies `testbench-core` and removes the
+  copied link; `php scripts/check-vendor-integrity.php` (run by `tests/Pest.php`
+  and `composer prepare`) fails when that link or `vendor/composer/autoload_real.php`
+  resolves outside the checkout. Repair with `composer install`, or
+  `bash scripts/init-worktree.sh --host-only --force` in a host-only worktree.
+
+### `CAPELL_TESTBENCH_SKELETON_ROOT` safety constraints
+
+The per-worktree testbench skeleton lives under the system temporary directory by default. When you point `CAPELL_TESTBENCH_SKELETON_ROOT` elsewhere, the stale-skeleton sweep only ever removes directories whose name starts with `capell-testbench-` and that carry a `.capell-skeleton` marker written by this checkout; anything else in that root is left untouched. Use a directory you own, never a shared location such as a project folder, and do not place other data under the `capell-testbench-` prefix there. When `symlink()` is unavailable the helper copies the vendor tree into the skeleton, which costs disk space per process; prefer a filesystem with symlink support.
+
+- The per-process Testbench skeleton root is resolved through `realpath()` before use. On macOS `sys_get_temp_dir()` sits under `/var`, a symlink to `/private/var`, and an unresolved root makes `ReleaseRootWriteGuard` refuse every release-root write (lockdown page-cache switching included) on developer machines while Linux CI stays green.

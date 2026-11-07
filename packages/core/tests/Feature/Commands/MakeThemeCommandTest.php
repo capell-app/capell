@@ -8,8 +8,17 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Testing\ExtensionTestHarness;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Support\Facades\Blade;
 use Symfony\Component\Console\Command\Command;
+
+beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
+});
+
+afterEach(function (): void {
+    $this->workspace->restore();
+});
 
 it('creates a project-local theme package scaffold', function (): void {
     $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-' . bin2hex(random_bytes(6));
@@ -61,7 +70,7 @@ it('creates a project-local theme package scaffold', function (): void {
         'heading' => 'Launch heading', 'eyebrow' => 'Public eyebrow', 'body' => '<script>private-content</script>',
     ]);
     expect($hero)->toContain('Launch heading', 'Public eyebrow', '&lt;script&gt;private-content&lt;/script&gt;')
-        ->not->toContain('<script>', 'data-capell-edit', 'wire:', 'signed');
+        ->not->toContain('<script>')->not->toContain('data-capell-edit')->not->toContain('wire:')->not->toContain('signed');
     $page = Blade::render((string) file_get_contents($themeDirectory . '/resources/views/page.blade.php'), [
         'content' => 'Hydrated page content',
     ]);
@@ -133,12 +142,15 @@ function themeScaffoldReadme(array $arguments, ?string $projectRoot = null): str
     $projectRoot ??= sys_get_temp_dir() . '/capell-make-theme-project-' . bin2hex(random_bytes(6));
     mkdir($projectRoot, 0755, true);
     $originalDirectory = getcwd();
+    $originalBase = app()->basePath();
     throw_if($originalDirectory === false, RuntimeException::class, 'Unable to resolve the working directory.');
     chdir($projectRoot);
+    app()->setBasePath($projectRoot);
 
     try {
         artisanCommand('capell:make-theme', $arguments)->assertExitCode(Command::SUCCESS);
     } finally {
+        app()->setBasePath($originalBase);
         chdir($originalDirectory);
     }
 

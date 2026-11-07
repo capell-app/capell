@@ -88,6 +88,43 @@ it('reports a broken symlink instead of treating it as owned', function (): void
     }
 });
 
+it('rejects a skeleton vendor link into another checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $other = vendorIntegrityFixture();
+
+    try {
+        $link = $root . '/vendor/orchestra/testbench-core/laravel/vendor';
+        unlink($link);
+        symlink($other . '/vendor', $link);
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain('vendor/orchestra/testbench-core/laravel/vendor resolves to ' . realpath($other . '/vendor'))
+            ->and($output)->toContain('bash scripts/init-worktree.sh --force')
+            ->and($output)->toContain('ln -sfn ' . escapeshellarg((string) realpath($root)) . '/vendor vendor/orchestra/testbench-core/laravel/vendor');
+    } finally {
+        deleteVendorIntegrityFixture($root);
+        deleteVendorIntegrityFixture($other);
+    }
+});
+
+it('rejects an autoload file resolving outside the checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $other = vendorIntegrityFixture();
+
+    try {
+        unlink($root . '/vendor/composer/autoload_real.php');
+        symlink($other . '/vendor/composer/autoload_real.php', $root . '/vendor/composer/autoload_real.php');
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain(realpath($other . '/vendor/composer/autoload_real.php'));
+    } finally {
+        deleteVendorIntegrityFixture($root);
+        deleteVendorIntegrityFixture($other);
+    }
+});
+
 it('asks for composer install when vendor is missing', function (): void {
     $root = vendorIntegrityFixture();
 
@@ -103,6 +140,40 @@ it('asks for composer install when vendor is missing', function (): void {
     }
 });
 
+it('refuses a preflight root different from the executing checkout', function (): void {
+    $root = vendorIntegrityFixture();
+    $checkout = dirname(__DIR__, 2);
+    try {
+        $process = new Process([PHP_BINARY, $checkout . '/scripts/check-vendor-integrity.php', '--checkout', $checkout], $checkout, ['CAPELL_VENDOR_INTEGRITY_ROOT' => $root]);
+        $process->run();
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getErrorOutput())->toContain((string) realpath($root))
+            ->and($process->getErrorOutput())->toContain((string) realpath($checkout));
+    } finally {
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
+it('rejects an inaccessible parent of the optional skeleton link', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        test()->markTestSkipped('Root bypasses directory permission checks.');
+    }
+
+    $root = vendorIntegrityFixture();
+    // The script reports resolved paths; TMPDIR may be a symlink or carry a trailing slash.
+    $parent = (string) realpath($root . '/vendor/orchestra/testbench-core/laravel');
+    try {
+        chmod($parent, 0000);
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain($parent)
+            ->and($output)->toContain('read and traverse permissions');
+    } finally {
+        chmod($parent, 0755);
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
 function vendorIntegrityFixture(): string
 {
     $root = sys_get_temp_dir() . '/capell-vendor-integrity-' . bin2hex(random_bytes(8));
@@ -110,6 +181,10 @@ function vendorIntegrityFixture(): string
     foreach (['/vendor/composer', '/vendor/orchestra/testbench-core'] as $directory) {
         mkdir($root . $directory, 0777, true);
     }
+
+    file_put_contents($root . '/vendor/composer/autoload_real.php', '<?php');
+    mkdir($root . '/vendor/orchestra/testbench-core/laravel', 0777, true);
+    symlink($root . '/vendor', $root . '/vendor/orchestra/testbench-core/laravel/vendor');
 
     return $root;
 }

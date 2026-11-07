@@ -31,6 +31,7 @@
         "check:package-dependencies": "@php scripts/check-package-dependencies.php",
         "check:support-contract": "@php scripts/check-support-contract.php",
         "check:queue-contract": "@php scripts/check-queue-contract.php",
+        "check:test-weak-assertions": "@php scripts/check-test-weak-assertions.php",
         "check:lang-keys": "@php scripts/check-language-key-drift.php",
         "docs:check": [
             "@check:docs-spelling",
@@ -185,7 +186,8 @@
         "prepare": [
             "@check:vendor-integrity",
             "@php vendor/bin/testbench package:discover --ansi",
-            "@prepare:testbench-vendor-configs"
+            "@prepare:testbench-vendor-configs",
+            "@check:vendor-integrity"
         ],
         "build": "@php vendor/bin/testbench workbench:build --ansi",
         "serve": [
@@ -313,6 +315,7 @@
             "Capell\\Tests\\Fixtures\\": "tests/fixtures",
             "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa\\": "tests/fixtures/marketplace-smoke-package/src/",
             "Capell\\Admin\\Tests\\": "packages/admin/tests/",
+            "StandalonePackage\\": "packages/admin/tests/Fixtures/StandalonePackage/src/",
             "Capell\\Core\\Tests\\": "packages/core/tests/",
             "Vendor\\ExtensionConformance\\": "packages/core/tests/Support/ExtensionConformance/",
             "Capell\\Installer\\Tests\\": "packages/installer/tests/",

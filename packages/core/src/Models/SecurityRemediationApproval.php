@@ -15,11 +15,15 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 /**
- * An operator's standing consent for Capell to fix one kind of weakness on
- * its own. One row per weakness id; revoking keeps the row as history.
+ * An operator's consent to fix one finding with specific evidence.
+ * One row per weakness id; revoking keeps the row as history.
  *
  * @property int $id
  * @property string $weakness_id
+ * @property string|null $approved_for_scan_id
+ * @property string|null $approved_fingerprint
+ * @property string|null $evidence_hash
+ * @property CarbonImmutable|null $superseded_at
  * @property string|null $remediation_class
  * @property int|null $approved_by
  * @property CarbonImmutable $approved_at
@@ -42,6 +46,10 @@ final class SecurityRemediationApproval extends Model
     /** @var list<string> */
     protected $fillable = [
         'weakness_id',
+        'approved_for_scan_id',
+        'approved_fingerprint',
+        'evidence_hash',
+        'superseded_at',
         'remediation_class',
         'approved_by',
         'approved_at',
@@ -52,7 +60,7 @@ final class SecurityRemediationApproval extends Model
 
     public function isActive(): bool
     {
-        return $this->revoked_at === null;
+        return $this->revoked_at === null && $this->superseded_at === null && $this->approved_for_scan_id !== null && $this->approved_fingerprint !== null && $this->evidence_hash !== null;
     }
 
     /**
@@ -61,7 +69,7 @@ final class SecurityRemediationApproval extends Model
      */
     protected function scopeActive(Builder $query): Builder
     {
-        return $query->whereNull('revoked_at');
+        return $query->whereNull('revoked_at')->whereNull('superseded_at')->whereNotNull('approved_for_scan_id')->whereNotNull('approved_fingerprint')->whereNotNull('evidence_hash');
     }
 
     /** @return array<string, string> */
@@ -71,6 +79,7 @@ final class SecurityRemediationApproval extends Model
         return [
             'approved_at' => 'immutable_datetime',
             'revoked_at' => 'immutable_datetime',
+            'superseded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

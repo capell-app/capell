@@ -198,28 +198,27 @@ it('registers site health under monitoring before grouping it with settings in t
     expect($monitoringNavigationLabels)->toContain(SiteHealthPage::getNavigationLabel())
         ->and(SiteHealthPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_monitoring'));
 
-    $system = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_system'));
-    expect($system)->toBeInstanceOf(NavigationGroup::class);
-    assert($system instanceof NavigationGroup);
+    $settings = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.task_group_settings'));
+    $site = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.task_group_site'));
+    expect($settings)->toBeInstanceOf(NavigationGroup::class)
+        ->and($site)->toBeInstanceOf(NavigationGroup::class);
+    assert($settings instanceof NavigationGroup && $site instanceof NavigationGroup);
 
-    expect(collect($system->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())
-        ->toContain(SettingsPage::getUrl(), SiteHealthPage::getUrl())
-        ->and(collect($groups)->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())
-        ->not->toContain(__('capell-admin::navigation.group_monitoring'));
+    expect(collect($settings->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())->toContain(SettingsPage::getUrl())
+        ->and(collect($site->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())->toContain(SiteHealthPage::getUrl());
 });
 
-it('keeps sidebar groups while moving secondary design tools into local navigation', function (): void {
+it('places design destinations in the site task group', function (): void {
     test()->actingAsAdmin();
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
     $groups = Filament::getNavigation();
-    $labels = collect($groups)->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all();
-    expect($labels)->toContain(__('capell-admin::navigation.group_websites'), __('capell-admin::navigation.workspace_library'), __('capell-admin::navigation.workspace_design'), __('capell-admin::navigation.workspace_system'));
-    $design = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_design'));
-    assert($design instanceof NavigationGroup);
-    expect(collect($design->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())
-        ->toBe([__('capell-admin::navigation.layouts'), __('capell-admin::navigation.themes')]);
+    $site = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.task_group_site'));
+    expect($site)->toBeInstanceOf(NavigationGroup::class);
+    assert($site instanceof NavigationGroup);
+    expect(collect($site->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())
+        ->toContain(LayoutResource::getUrl(), ThemeResource::getUrl());
 });
 
 it('does not expose secondary resources to an actor without resource permissions', function (): void {
@@ -229,7 +228,7 @@ it('does not expose secondary resources to an actor without resource permissions
     Filament::setServingStatus();
     $keys = collect(Filament::getNavigation())->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
         ->map(fn (NavigationItem $item): ?string => $item->getUrl())->all();
-    expect($keys)->not->toContain(MediaResource::getUrl(), LayoutResource::getUrl(), ThemeResource::getUrl());
+    expect($keys)->not->toContain(MediaResource::getUrl())->not->toContain(LayoutResource::getUrl())->not->toContain(ThemeResource::getUrl());
 });
 
 it('keeps a permitted package child reachable when its parent uses a different group', function (): void {

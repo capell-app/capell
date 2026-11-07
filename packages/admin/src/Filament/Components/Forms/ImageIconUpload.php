@@ -26,7 +26,6 @@ class ImageIconUpload extends FileUpload
             ->loadingIndicatorPosition('left')
             ->panelAspectRatio('2:1')
             ->panelLayout('integrated')
-            ->preserveFilenames()
             ->removeUploadedFileButtonPosition('right')
             ->uploadButtonPosition('left')
             ->uploadProgressIndicatorPosition('left');

@@ -5,21 +5,24 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Scaffolding\ScaffoldThemePackageAction;
+use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
 use Capell\Core\Support\Filesystem\AbsolutePath;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
 final class MakeThemeCommand extends Command
 {
+    use DeprecatesMakerAliases;
     use DescribesCommandOptions;
 
     /** @var array<int, string> */
-    protected $aliases = ['capell:make:theme'];
+    protected $aliases = ['capell:make-theme'];
 
-    protected $signature = 'capell:make-theme
+    protected $signature = 'capell:make:theme
         {theme? : Theme key, for example equidynamics}
         {--package= : Composer package name, for example vendor/equidynamics-theme}
         {--name= : Human-readable display name}
@@ -76,6 +79,12 @@ final class MakeThemeCommand extends Command
 
         if (is_dir($targetDirectory) && $this->directoryIsNotEmpty($targetDirectory)) {
             $this->error(sprintf('The target directory "%s" already exists and is not empty.', $targetDirectory));
+
+            return CommandAlias::FAILURE;
+        }
+
+        if ($this->option('local') === true && file_exists(resource_path(LocalAppThemeDefinitionRepository::THEME_ROOT . '/' . $themeKey . '/theme.json'))) {
+            $this->error('A local theme manifest already exists for this key.');
 
             return CommandAlias::FAILURE;
         }

@@ -24,6 +24,7 @@ use Capell\Core\Console\Commands\DoctorCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
+use Capell\Core\Console\Commands\HashExtensionContentsCommand;
 use Capell\Core\Console\Commands\HealthCheckCommand;
 use Capell\Core\Console\Commands\HealthCommand;
 use Capell\Core\Console\Commands\HealthProbeCommand;
@@ -50,11 +51,14 @@ use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
+use Capell\Core\Console\Commands\ReconcilePublicReadProjectionsCommand;
+use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
 use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
+use Capell\Core\Console\Commands\SecurityRefreshNodeCommand;
 use Capell\Core\Console\Commands\SecurityScanCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
@@ -87,8 +91,10 @@ use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
+use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
@@ -96,6 +102,7 @@ use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
+use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
@@ -181,6 +188,7 @@ use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -190,6 +198,11 @@ use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
+use Capell\Core\Support\PublicRead\PublicReadResponseStamps;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
@@ -237,11 +250,13 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Foundation\Exceptions\Handler;
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -274,6 +289,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(TableName::class);
         $this->app->singleton(MigrationRootRegistry::class);
         $this->app->singleton(ComponentRegistry::class);
+        $this->app->singleton(ExtensionQuarantineGate::class);
+        $this->app->tag([ExtensionQuarantineGate::class], Resettable::TAG);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
         $this->registerRuntimeRole();
         $this->registerSettingsSchemaRegistry();
@@ -331,6 +348,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AuditSiteDomainOriginsCommand::class,
             CacheComponentsCommand::class,
             BackupHealthCommand::class,
+            ReconcilePublicReadProjectionsCommand::class,
             CloudBootstrapCommand::class,
             ClearComponentsCacheCommand::class,
             CoreFakerCommand::class,
@@ -339,6 +357,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AdoptTableCommand::class,
             DoctorCommand::class,
             SecurityScanCommand::class,
+            SecurityRefreshNodeCommand::class,
+            HashExtensionContentsCommand::class,
+            ReleaseExtensionQuarantineCommand::class,
             ExtensionAuditCommand::class,
             ExtensionPlaygroundCommand::class,
             FakerCommand::class,
@@ -392,6 +413,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
+            ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
             ->registerLinkableContentProviders()
@@ -405,6 +427,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerContentGraphExtractors()
             ->registerThemeRuntime()
             ->registerMultiNodeUploadGuard()
+            ->registerPublicReadResponseCaching()
             ->registerOptimization()
             ->registerLockdownStore()
             ->registerRedirectBehavior()
@@ -418,22 +441,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     protected function packageSettingClass(): string
     {
         return CoreSettings::class;
-    }
-
-    /**
-     * @param  iterable<mixed>  $tagged
-     * @return list<object>
-     */
-    private function uniqueByClass(iterable $tagged): array
-    {
-        $unique = [];
-        foreach ($tagged as $instance) {
-            if (is_object($instance)) {
-                $unique[$instance::class] ??= $instance;
-            }
-        }
-
-        return array_values($unique);
     }
 
     private function registerPublicationTransitions(): self
@@ -618,6 +625,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(BlueprintSubjectRegistry::class),
             $app->make(ExtensionContributionReceiptRegistry::class),
             $app->make(SecurityWeaknessRegistry::class),
+            $app,
         ));
         $this->app->singleton(SecurityWeaknessRegistry::class);
         $this->app->bindIf(SecurityWeaknessAnalyser::class, NullSecurityWeaknessAnalyser::class);
@@ -629,20 +637,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(OutboundEventRegistry::class);
         $this->app->singleton(BlueprintSubjectRegistry::class);
         $this->app->booted(function (): void {
-            // The container appends tag entries on every provider registration, so a
-            // re-registered provider would otherwise offer each built-in check twice.
+            // Tags are collected once per class here and again for every package
+            // that boots late, inside PackageSurfaceRegistrar::duringPackageInstallation().
             $security = $this->app->make(SecurityWeaknessRegistry::class);
-            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessCheck::TAG)) as $check) {
-                if ($check instanceof SecurityWeaknessCheck) {
-                    $security->registerCheck($check);
-                }
-            }
-
-            foreach ($this->uniqueByClass($this->app->tagged(SecurityWeaknessRemediation::TAG)) as $remediation) {
-                if ($remediation instanceof SecurityWeaknessRemediation) {
-                    $security->registerRemediation($remediation);
-                }
-            }
+            $security->adoptTagged($this->app);
 
             $security->freeze();
             $this->app->make(OutboundEventRegistry::class)->freeze();
@@ -674,6 +672,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
+        $this->app->singleton(PublicPageReadEligibilityRegistry::class);
+        $this->app->singleton(PublicReadWithdrawalSteps::class);
+        $this->app->scoped(PublicReadEligibilityRevision::class);
+        $this->app->scoped(PublicReadEligibilityState::class);
+        $this->app->scoped(PublicReadResponseStamps::class);
         $this->app->scoped(
             DatabasePlatformRegistry::class,
             fn (Application $app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
@@ -876,6 +879,35 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    /**
+     * Every response that consulted public-read rules gets cache lifetimes
+     * bounded by their next transition and a validator that includes them.
+     * Global, so no controller, feed or API has to remember it.
+     */
+    private function registerPublicReadResponseCaching(): self
+    {
+        $kernel = $this->app->make(HttpKernelContract::class);
+
+        if ($kernel instanceof HttpKernel && ! $kernel->hasMiddleware(CapPublicReadResponseCaching::class)) {
+            $kernel->pushMiddleware(CapPublicReadResponseCaching::class);
+        }
+
+        return $this;
+    }
+
+    private function registerPublicReadWithdrawalRetrySchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            // A run killed mid-way must not hold the backstop's lock for the default day.
+            $schedule->command('capell:public-read:reconcile')
+                ->everyMinute()
+                ->withoutOverlapping(5)
+                ->onOneServer();
+        });
+
+        return $this;
+    }
+
     private function registerBackupPruneSchedule(): self
     {
         if (! config('backup.prune_schedule_enabled', false)) {
@@ -900,6 +932,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerSecurityScanSchedule(): self
     {
+        if (config('capell.multi_node', false) === true) {
+            // Every node must run this, so no onOneServer() and no shared overlap mutex.
+            $this->registerSchedule(function (Schedule $schedule): void {
+                $schedule->command('capell:security:refresh-node')->everyFiveMinutes();
+            });
+        }
+
         if (config('capell.security.scan.scheduled', true) !== true) {
             return $this;
         }
@@ -1098,6 +1137,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
         Event::listen(PageUrlsRewritten::class, [CreateRedirectsForChangedPageUrls::class, 'handleUrlRewrite']);
         Event::listen(PageSaved::class, [SyncPromotedPropertyFieldsOnPageSaved::class, 'handle']);
+        Event::listen(PublicReadEligibilityChanged::class, [WithdrawPublicReadProjectionsOnEligibilityChanged::class, 'handle']);
 
         return $this;
     }

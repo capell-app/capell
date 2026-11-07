@@ -48,7 +48,7 @@ it('keeps maker preview files typed', function (): void {
             ),
         ]),
         databaseRecords: collect(),
-        commands: collect(['php artisan capell:make-action PublishPage']),
+        commands: collect(['php artisan capell:make:action PublishPage']),
         notes: collect(['Action will be auto-loadable by Composer.']),
     );
 
@@ -56,5 +56,5 @@ it('keeps maker preview files typed', function (): void {
 
     expect($input->maker)->toBe('core.action');
     expect($file->operation)->toBe('create');
-    expect(firstDataItem($preview->commands))->toBe('php artisan capell:make-action PublishPage');
+    expect(firstDataItem($preview->commands))->toBe('php artisan capell:make:action PublishPage');
 });

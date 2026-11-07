@@ -64,7 +64,7 @@ class RequirePackageAction
         $env = $this->prepareComposerAuthEnv($token, $provider, $domain);
 
         $processFactory = self::$processFactory ?? fn (array $args, string $cwd, ?array $env): Process => new Process($args, $cwd, $env);
-        $process = $processFactory([...new RuntimeBinaryResolver()->composer(), 'require', $name], base_path(), $env);
+        $process = $processFactory([...new RuntimeBinaryResolver()->composer(), 'require', $name, '--no-plugins'], base_path(), $env);
         $process->setTimeout(300);
         $process->disableOutput();
 

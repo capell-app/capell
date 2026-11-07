@@ -56,6 +56,8 @@
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
     <env name="CACHE_STORE" value="array" force="true"/>
+    <!-- Test fixtures register packages Composer never installed; strict verification is switched on per test where it is the subject. -->
+    <env name="CAPELL_EXTENSION_VERIFICATION_STRICT" value="false"/>
     <env name="CURATOR_GLIDE_TOKEN" value="123456789"/>
     <env name="DB_CONNECTION" value="sqlite"/>
     <env name="DB_DATABASE" value=":memory:"/>

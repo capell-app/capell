@@ -3,11 +3,16 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\EnablePackageAction;
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
+use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
 use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Exceptions\ExtensionVerificationFailedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
@@ -17,6 +22,7 @@ use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
 use Capell\Core\Tests\Support\Fixtures\Autoload\RuntimeProviderInstallPackageFixture;
 use Capell\Core\Tests\Support\Fixtures\Autoload\ThrowingRuntimeProviderInstallPackageFixture;
 use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
@@ -88,6 +94,55 @@ it('installs and enables every bundle member before the bundle', function (): vo
 
     expect(CapellCore::isPackageInstalled('vendor/member-one'))->toBeTrue()
         ->and(CapellCore::isPackageInstalled('vendor/member-two'))->toBeTrue();
+});
+
+it('leaves all bundle members untouched when a member fails verification', function (): void {
+    config()->set('capell.extensions.verification.strict', true);
+    foreach (['vendor/existing-member', 'vendor/good-member', 'vendor/bad-member', 'vendor/verified-bundle'] as $name) {
+        CapellCore::registerPackage($name, version: '1.0.0');
+    }
+
+    CapellCore::markPackageInstalled('vendor/existing-member');
+    $existing = CapellExtension::query()->where('composer_name', 'vendor/existing-member')->firstOrFail()->getAttributes();
+    $bundle = CapellCore::getPackage('vendor/verified-bundle');
+    $bundle->kind = 'bundle';
+    $bundle->requirements = ['vendor/existing-member', 'vendor/good-member', 'vendor/bad-member'];
+
+    VerifyInstalledExtensionAction::shouldRun()->andReturnUsing(function (string $name): ExtensionVerificationReportData {
+        $failures = $name === 'vendor/bad-member' ? [new ExtensionVerificationIssueData('composer_plugin', 'Rejected', 'Remove it')] : [];
+
+        return new ExtensionVerificationReportData($name, '1.0.0', null, null, $failures === [], $failures, [], CarbonImmutable::now());
+    });
+    RunDeclaredPackageMigrationsAction::shouldRun()->never();
+
+    expect(fn () => InstallPackageAction::run($bundle))->toThrow(ExtensionVerificationFailedException::class);
+
+    expect(CapellExtension::query()->where('composer_name', $bundle->name)->firstOrFail()->status)->toBe(ExtensionStatusEnum::Failed)
+        ->and(CapellExtension::query()->where('composer_name', 'vendor/existing-member')->firstOrFail()->getAttributes())->toBe($existing)
+        ->and(CapellCore::isPackageInstalled('vendor/existing-member'))->toBeTrue()
+        ->and(CapellCore::isPackageInstalled('vendor/good-member'))->toBeFalse()
+        ->and(CapellCore::isPackageInstalled('vendor/bad-member'))->toBeFalse()
+        ->and(CapellExtension::query()->whereIn('composer_name', ['vendor/good-member', 'vendor/bad-member'])->exists())->toBeFalse();
+});
+
+it('verifies each bundle member once before installing a valid bundle', function (): void {
+    config()->set('capell.extensions.verification.strict', true);
+    foreach (['vendor/first-member', 'vendor/second-member', 'vendor/passing-bundle'] as $name) {
+        CapellCore::registerPackage($name, version: '1.0.0');
+        VerifyInstalledExtensionAction::shouldRun()->once()->with($name)->andReturn(
+            new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()),
+        );
+    }
+
+    $bundle = CapellCore::getPackage('vendor/passing-bundle');
+    $bundle->kind = 'bundle';
+    $bundle->requirements = ['vendor/first-member', 'vendor/second-member'];
+
+    InstallPackageAction::run($bundle);
+
+    expect(CapellCore::isPackageInstalled('vendor/first-member'))->toBeTrue()
+        ->and(CapellCore::isPackageInstalled('vendor/second-member'))->toBeTrue()
+        ->and(CapellCore::isPackageInstalled('vendor/passing-bundle'))->toBeTrue();
 });
 
 it('rolls back newly activated bundle members when installation fails', function (): void {

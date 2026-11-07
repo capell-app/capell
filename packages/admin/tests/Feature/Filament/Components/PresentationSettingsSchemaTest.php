@@ -21,7 +21,7 @@ it('hides advanced presentation controls from normal editors', function (): void
 
     expect($schema)->toHaveCount(2)
         ->and($basicFields)->toContain('delivery_mode', 'loading_strategy', 'lazy_policy')
-        ->and($advancedFields)->not->toContain('delivery_mode', 'loading_strategy')
+        ->and($advancedFields)->not->toContain('delivery_mode')->not->toContain('loading_strategy')
         ->and(PresentationSettingsSchema::canViewAdvanced())->toBeFalse();
 });
 

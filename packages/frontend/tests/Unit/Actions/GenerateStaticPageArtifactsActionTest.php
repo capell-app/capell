@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\PublicRead\RecordPublicReadEligibilityChangeAction;
+use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Contracts\PublicRead\SchedulesPublicReadTransitions;
 use Capell\Core\Contracts\SiteAccessPolicyProvider;
+use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Data\SiteAccessContextData;
 use Capell\Core\Data\SiteAccessPolicyData;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -13,6 +18,8 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Term;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
@@ -28,12 +35,18 @@ use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
+use Carbon\CarbonImmutable;
+use Illuminate\Cache\ArrayLock;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as IlluminateResponse;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -55,7 +68,7 @@ it('fails incomplete static exports without replacing the previous manifest', fu
 
     $store = resolve(StaticPageArtifactStore::class);
     $previousManifest = ['generated_at' => 'previous-generation', 'artifacts' => [['file' => 'previous/index.html']]];
-    $store->putHtml('previous/index.html', '<html>Previous valid export</html>');
+    PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putHtml($permit, 'previous/index.html', '<html>Previous valid export</html>'));
     $store->writeManifest($previousManifest);
 
     $previousBytes = File::get($store->manifestPath());
@@ -162,7 +175,7 @@ it('rejects failed and partial artifact writes', function (int|false $bytesWritt
     $store = resolve(StaticPageArtifactStore::class);
     File::partialMock()->shouldReceive('put')->once()->andReturn($bytesWritten);
 
-    expect(fn () => $store->putHtml('failed/index.html', '<html>Required content</html>'))
+    expect(fn (): bool => PublishesStaticArtefacts::write(fn (PublicArtefactPermit $permit) => $store->putHtml($permit, 'failed/index.html', '<html>Required content</html>')))
         ->toThrow(RuntimeException::class, 'failed/index.html');
 
     expect(File::exists($store->root() . '/failed/index.html'))->toBeFalse();
@@ -613,6 +626,179 @@ it('generates static HTML from hydrated contributor data without public-view que
 /**
  * @return array{0: Page, 1: Site, 2: PublicPageRenderData}
  */
+/**
+ * A kernel that renders the page's static HTML and runs $during while it renders.
+ */
+function staticExportKernel(PublicPageRenderData $renderData, ?Closure $during = null): Kernel
+{
+    return new readonly class($renderData, $during) implements Kernel
+    {
+        public function __construct(private PublicPageRenderData $renderData, private ?Closure $during) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($request): Response
+        {
+            resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
+            ($this->during)?->__invoke();
+
+            return new Response('<html>Static</html>', Response::HTTP_OK);
+        }
+
+        public function terminate($request, $response): void {}
+
+        public function getApplication(): Application
+        {
+            return app();
+        }
+    };
+}
+
+function staticExportReadEligibility(?CarbonImmutable $transition = null): void
+{
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($transition) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private ?CarbonImmutable $transition) {}
+
+        public function key(): string
+        {
+            return 'static-export-test';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            return $this->transition instanceof CarbonImmutable && $now->lessThan($this->transition) ? $this->transition : null;
+        }
+    });
+}
+
+it('refuses an export write when the public-read rules change after its render', function (): void {
+    [, $site, $renderData] = staticPageArtifactsRenderData('/static-race');
+    staticExportReadEligibility();
+    app()->instance(Kernel::class, staticExportKernel($renderData, static function () use ($site): void {
+        // The rules change while the page is being rendered.
+        RecordPublicReadEligibilityChangeAction::run('test', $site->id);
+    }));
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/static-race']);
+
+    expect($manifest['artifacts'])->toBe([])
+        ->and($manifest['withheld'])->toBe(['/static-race'])
+        ->and(File::exists(resolve(StaticPageArtifactStore::class)->root() . '/https.example.test/static-race/index.html'))->toBeFalse();
+});
+
+it('writes no static export of a page under time-bounded public-read rules', function (): void {
+    [, $site, $renderData] = staticPageArtifactsRenderData('/static-scheduled');
+    staticExportReadEligibility(CarbonImmutable::now()->addHour());
+    app()->instance(Kernel::class, staticExportKernel($renderData));
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/static-scheduled']);
+
+    expect($manifest['artifacts'])->toBe([])
+        ->and($manifest['withheld'])->toBe(['/static-scheduled'])
+        ->and(File::exists(resolve(StaticPageArtifactStore::class)->root() . '/https.example.test/static-scheduled/index.html'))->toBeFalse();
+});
+
+it('exports a page whose public-read rules are unchanged and open-ended', function (): void {
+    [, $site, $renderData] = staticPageArtifactsRenderData('/static-open');
+    staticExportReadEligibility();
+    app()->instance(Kernel::class, staticExportKernel($renderData));
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/static-open']);
+
+    expect($manifest['artifacts'])->toHaveCount(1)
+        ->and($manifest['withheld'])->toBe([])
+        ->and(File::get(resolve(StaticPageArtifactStore::class)->root() . '/https.example.test/static-open/index.html'))->toBe('<html>Static</html>');
+});
+
+it('exports while no leased cache lock can be taken, fenced by the store lock a withdrawal holds', function (): void {
+    [, $site, $renderData] = staticPageArtifactsRenderData('/static-fenced');
+    staticExportReadEligibility();
+    $store = resolve(StaticPageArtifactStore::class);
+    $withdrawalCouldStart = null;
+    app()->instance(Kernel::class, staticExportKernel($renderData));
+    // No cache lock is ever available: an export must not depend on a lease.
+    Cache::extend('no-locks', fn (): Repository => Cache::repository(new class extends ArrayStore
+    {
+        public function lock($name, $seconds = 0, $owner = null): ArrayLock
+        {
+            return new class($this, $name, $seconds, $owner) extends ArrayLock
+            {
+                public function acquire(): bool
+                {
+                    return false;
+                }
+            };
+        }
+    }));
+    config(['cache.stores.no-locks' => ['driver' => 'no-locks'], 'cache.default' => 'no-locks']);
+    Cache::forgetDriver('no-locks');
+    File::partialMock()->shouldReceive('move')->andReturnUsing(static function (string $from, string $to) use ($store, &$withdrawalCouldStart): bool {
+        $moved = rename($from, $to);
+
+        // The moment the exported page lands.
+        if (str_ends_with($to, '/static-fenced/index.html')) {
+            $probe = fopen($store->ownershipPath() . '.lock', 'c+');
+            $withdrawalCouldStart = flock($probe, LOCK_EX | LOCK_NB);
+            flock($probe, LOCK_UN);
+            fclose($probe);
+        }
+
+        return $moved;
+    });
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/static-fenced']);
+
+    expect($manifest['withheld'])->toBe([])
+        ->and($manifest['artifacts'])->toHaveCount(1)
+        // While the bytes land, a withdrawal of this store would have to wait.
+        ->and($withdrawalCouldStart)->toBeFalse();
+});
+
+it('bounds static exports only by schedules that can affect their own site', function (): void {
+    [, $embargoed, $embargoedRender] = staticPageArtifactsRenderData('/embargoed', 'embargoed.example.test');
+    [, $open, $openRender] = staticPageArtifactsRenderData('/open', 'open.example.test');
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new readonly class($embargoed->id) implements PublicPageReadEligibility, SchedulesPublicReadTransitions
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function __construct(private int $embargoedSite) {}
+
+        public function key(): string
+        {
+            return 'static-export-site-embargo';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+
+        public function nextPublicReadTransitionAfter(CarbonImmutable $now, ?int $siteId = null): ?CarbonImmutable
+        {
+            // An embargo that lifts in an hour, on one site only.
+            return $siteId === null || $siteId === $this->embargoedSite ? $now->addHour() : null;
+        }
+    });
+
+    app()->instance(Kernel::class, staticExportKernel($openRender));
+    $openManifest = GenerateStaticPageArtifactsAction::run(siteId: $open->id, urls: ['/open']);
+    app()->instance(Kernel::class, staticExportKernel($embargoedRender));
+    $embargoedManifest = GenerateStaticPageArtifactsAction::run(siteId: $embargoed->id, urls: ['/embargoed']);
+
+    expect($openManifest['withheld'])->toBe([])
+        ->and($openManifest['artifacts'])->toHaveCount(1)
+        ->and($embargoedManifest['withheld'])->toBe(['/embargoed'])
+        ->and($embargoedManifest['artifacts'])->toBe([]);
+});
+
 function staticPageArtifactsRenderData(string $url, string $domain = 'example.test'): array
 {
     $page = Page::factory()

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Http\Middleware;
 
 use Capell\Admin\Actions\Pages\ResolveContentLockRecordAction;
+use Capell\Admin\Support\Install\AdminInstallState;
+use Capell\Admin\Support\PaletteRequestState;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -35,21 +37,39 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SetSitePermissionScope
 {
+    public function __construct(private readonly AdminInstallState $installState) {}
+
     public function handle(Request $request, Closure $next): Response
     {
+        // Filament runs persistent middleware before the installer redirect, and an
+        // uninstalled site has no site or permission tables to scope against.
+        if (! $this->installState->installed()) {
+            return $next($request);
+        }
+
         $user = $request->user();
 
         $this->syncSessionSite($request, $user);
 
-        $siteId = $user instanceof Authenticatable && SiteAccess::forActor($user)->isGlobal()
-            ? null
-            : $this->resolveSiteId($request);
+        $siteId = $this->permissionTeamId($request);
+        if ($user instanceof Authenticatable) {
+            resolve(PaletteRequestState::class)->recordTeamId($user, $siteId);
+        }
 
         return PermissionTeamContext::run(
             $siteId,
             fn (): Response => $next($request),
             $user instanceof Model ? $user : null,
         );
+    }
+
+    public function permissionTeamId(Request $request): ?int
+    {
+        $user = $request->user();
+
+        return $user instanceof Authenticatable && SiteAccess::forActor($user)->isGlobal()
+            ? null
+            : $this->resolveSiteId($request);
     }
 
     private function resolveSiteId(Request $request): ?int
@@ -69,15 +89,15 @@ class SetSitePermissionScope
         //    Checked FIRST — the record itself is authoritative and cannot be
         //    spoofed by the caller.
         foreach ($request->route()?->parameters() ?? [] as $parameter) {
+            if ($parameter instanceof Site) {
+                return (int) $parameter->getKey();
+            }
+
             if ($parameter instanceof Model) {
                 $siteId = $parameter->getAttribute('site_id');
                 if ($siteId !== null) {
                     return (int) $siteId;
                 }
-            }
-
-            if ($parameter instanceof Site) {
-                return (int) $parameter->getKey();
             }
         }
 
@@ -98,7 +118,7 @@ class SetSitePermissionScope
         }
 
         // 3. Session-selected site — persisted by the admin topbar switcher.
-        $sessionSiteId = (int) $request->session()->get('capell.current_site_id', 0);
+        $sessionSiteId = $request->hasSession() ? (int) $request->session()->get('capell.current_site_id', 0) : 0;
         $user = $request->user();
 
         if ($sessionSiteId > 0

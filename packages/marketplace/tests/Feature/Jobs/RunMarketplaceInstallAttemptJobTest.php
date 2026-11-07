@@ -3,7 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\BuildPackageCacheAction;
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
@@ -39,6 +43,7 @@ use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Marketplace\Tests\Support\StatusRecordingPostOperationHealthCheckAction;
 use Capell\Marketplace\Tests\Support\ThrowingMarketplaceLifecycleAction;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Carbon\CarbonImmutable;
 use Filament\Notifications\BroadcastNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Filesystem\Filesystem;
@@ -54,6 +59,21 @@ require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 uses(CreatesAdminUser::class);
 
 beforeEach(function (): void {
+    // These tests exercise the later lifecycle with synthetic packages, rather
+    // than a Composer-installed distribution on disk. The job verifies with the
+    // release's constraint, and the install action then verifies by name alone.
+    VerifyInstalledExtensionAction::shouldRun()->byDefault()->andReturnUsing(
+        fn (string $name, ?string $constraint = null, ?string $previous = null): ExtensionVerificationReportData => new ExtensionVerificationReportData(
+            $name,
+            '3.0.0',
+            $constraint,
+            $previous,
+            true,
+            [],
+            [],
+            CarbonImmutable::now(),
+        ),
+    );
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
 
     // Worker tests reload Composer; retain the web readers from this checkout.
@@ -1387,4 +1407,385 @@ it('leaves the sites alone when the operator did not ask for the theme to be app
 
     expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
         ->and(Theme::query()->where('key', 'nebula')->exists())->toBeFalse();
+});
+
+it('rolls back a failed verification before discovery or health checks and stores a safe report', function (): void {
+    Notification::fake();
+    $rollbacks = recordMarketplaceRollbacks();
+    $health = new StatusRecordingPostOperationHealthCheckAction;
+    app()->instance(RunPostOperationHealthCheckAction::class, $health);
+    $checksum = str_repeat('a', 64);
+    $contentHash = str_repeat('b', 64);
+    $attempt = marketplaceOperationAttempt(['composer_name' => 'vendor/verification-fixture', 'extension_slug' => 'verification-fixture', 'context' => ['release_checksum' => $checksum, 'release_content_sha256' => $contentHash]]);
+    $runner = new RecordingMarketplaceComposerRunner('installed');
+    $issue = new ExtensionVerificationIssueData('checksum_mismatch', '/private/path', '/private/path');
+    $report = new ExtensionVerificationReportData($attempt->composer_name, '2.2.0', '^2.1', null, false, [$issue], [], CarbonImmutable::now(), installPath: '/private/path');
+    VerifyInstalledExtensionAction::shouldRun()->once()->with($attempt->composer_name, '^2.1', null, 'verification-fixture', $checksum, null, $contentHash)->andReturn($report);
+
+    new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
+
+    $attempt->refresh();
+    $message = __('capell-marketplace::marketplace.operations.verification_quarantined', [
+        'package' => $attempt->composer_name,
+        'packages' => $attempt->composer_name,
+        'reason' => __('capell-marketplace::marketplace.operations.verification_failed', [
+            'message' => __('capell::extensions.verification.checksum_mismatch.message', ['package' => $attempt->composer_name]),
+            'action' => __('capell::extensions.verification.checksum_mismatch.next_action', ['package' => $attempt->composer_name]),
+        ]),
+    ]);
+    expect($runner->ran())->toBeTrue()
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+        ->and($attempt->failure_reason)->toBe($message)
+        ->and($attempt->failure_reason)->not->toContain('/private/path')
+        ->and($rollbacks->calls)->toBe(1)
+        ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeTrue()
+        ->and($attempt->context['verification_report']['passed'] ?? null)->toBeFalse()
+        ->and($attempt->context['verification_report']['failures'][0] ?? null)->toEqual([
+            'code' => 'checksum_mismatch',
+            'message' => __('capell::extensions.verification.checksum_mismatch.message', ['package' => $attempt->composer_name]),
+            'next_action' => __('capell::extensions.verification.checksum_mismatch.next_action', ['package' => $attempt->composer_name]),
+        ])
+        ->and(json_encode($attempt->context['verification_report'] ?? []))->not->toContain('/private/path')
+        ->and($health->observedStatuses)->toBeEmpty()
+        ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::PackageDiscovery->value)->exists())->toBeFalse()
+        ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::Lifecycle->value)->exists())->toBeFalse()
+        ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::Verification->value)->exists())->toBeTrue();
+});
+
+it('continues from a passing verification to the health check', function (): void {
+    Notification::fake();
+    $path = registerHealthyLifecyclePackage('capell-app/verified-package', 'Verified Package');
+    refuseMarketplaceComposerRun();
+    $health = new StatusRecordingPostOperationHealthCheckAction;
+    app()->instance(RunPostOperationHealthCheckAction::class, $health);
+    $attempt = marketplaceOperationAttempt(['composer_name' => 'capell-app/verified-package', 'extension_slug' => 'verified-package']);
+    VerifyInstalledExtensionAction::shouldRun()->once()->with('capell-app/verified-package', '^2.1', null, 'verified-package', null, null)
+        ->andReturn(new ExtensionVerificationReportData('capell-app/verified-package', '2.2.0', '^2.1', null, true, [], [], CarbonImmutable::now()));
+    try {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+        expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+            ->and($attempt->context['verification_report']['passed'] ?? null)->toBeTrue()
+            ->and($health->observedStatuses)->toBe([MarketplaceInstallIntentStatus::Running->value]);
+    } finally {
+        File::deleteDirectory($path);
+    }
+});
+
+it('restores Composer state and stops before lifecycle work when cancelled during verification', function (): void {
+    Notification::fake();
+    $health = new StatusRecordingPostOperationHealthCheckAction;
+    app()->instance(RunPostOperationHealthCheckAction::class, $health);
+    $attempt = marketplaceOperationAttempt();
+    VerifyInstalledExtensionAction::shouldRun()->once()->andReturnUsing(function (string $name) use ($attempt): ExtensionVerificationReportData {
+        MarketplaceInstallAttempt::query()->whereKey($attempt->getKey())->update(['status' => MarketplaceInstallIntentStatus::CancelRequested]);
+
+        return new ExtensionVerificationReportData($name, '2.2.0', '^2.1', null, true, [], [], CarbonImmutable::now());
+    });
+
+    withMarketplaceVerificationTree([], [], function (string $root, string $composerBefore, string $lockBefore) use ($attempt, $health): void {
+        $runner = marketplaceFixtureComposerRunner($root, [], []);
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
+
+        expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+            ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
+            ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore)
+            ->and($health->observedStatuses)->toBeEmpty()
+            ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::Lifecycle->value)->exists())->toBeFalse()
+            ->and($attempt->events()->where('stage', MarketplaceInstallFailureStage::PackageDiscovery->value)->exists())->toBeFalse();
+    });
+});
+
+/**
+ * Run against an isolated application root and a real file restore. Only the
+ * recovery subprocess is faked; no Composer process is started by these tests.
+ *
+ * @param  list<array<string, mixed>>  $before
+ * @param  list<array<string, mixed>>  $installed
+ */
+function withMarketplaceVerificationTree(array $before, array $installed, Closure $test): void
+{
+    $previousBase = app()->basePath();
+    $root = sys_get_temp_dir() . '/marketplace-verification-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($root . '/vendor/composer');
+    // The lifecycle stage refreshes the runtime manifests under bootstrap/cache and storage, so give the relocated root both.
+    File::ensureDirectoryExists($root . '/bootstrap/cache');
+    File::ensureDirectoryExists($root . '/storage/framework/cache');
+    $composerBefore = "{\n  \"require\": {}\n}\n";
+    $lockBefore = json_encode(['packages' => $before, 'packages-dev' => []], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
+    File::put($root . '/composer.json', $composerBefore);
+    File::put($root . '/composer.lock', $lockBefore);
+    File::put($root . '/vendor/composer/installed.json', json_encode(['packages' => $installed], JSON_THROW_ON_ERROR));
+    app()->setBasePath($root);
+
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setEnv')->andReturnSelf();
+    $process->shouldReceive('setTimeout')->andReturnSelf();
+    $process->shouldReceive('run')->andReturn(0);
+    $process->shouldReceive('isSuccessful')->andReturnTrue();
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    app()->instance(PackageManifest::class, new class(resolve(Filesystem::class), $root, $root . '/packages.php') extends PackageManifest
+    {
+        public function build(): void {}
+    });
+    app()->instance(MarketplaceComposerScriptRunner::class, new class implements MarketplaceComposerScriptRunner
+    {
+        public function replayRootScript(string $event, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            return new MarketplaceComposerResultData(exitCode: 0, output: '', errorOutput: '');
+        }
+    });
+
+    try {
+        $test($root, $composerBefore, $lockBefore);
+    } finally {
+        app()->setBasePath($previousBase);
+        File::deleteDirectory($root);
+    }
+}
+
+/** @param list<array<string, mixed>> $after
+ * @param  list<array<string, mixed>>  $installed
+ */
+function marketplaceFixtureComposerRunner(string $root, array $after, array $installed, ?Closure $onRequire = null): MarketplaceComposerRunner
+{
+    return new readonly class($root, $after, $installed, $onRequire) implements MarketplaceComposerRunner
+    {
+        public function __construct(private string $root, private array $after, private array $installed, private ?Closure $onRequire) {}
+
+        public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
+        {
+            File::put($this->root . '/composer.json', '{"require":{"vendor/changed":"^1.0"}}');
+            File::put($this->root . '/composer.lock', json_encode(['packages' => $this->after, 'packages-dev' => []], JSON_THROW_ON_ERROR));
+            File::put($this->root . '/vendor/composer/installed.json', json_encode(['packages' => $this->installed], JSON_THROW_ON_ERROR));
+            ($this->onRequire)?->__invoke();
+
+            return new MarketplaceComposerResultData(exitCode: 0, output: 'installed', errorOutput: '');
+        }
+    };
+}
+
+it('bounds a real verification report and restores both Composer files', function (): void {
+    Notification::fake();
+    $name = 'vendor/bounded-fixture';
+    $package = ['name' => $name, 'version' => '2.2.0', 'type' => 'library', 'install-path' => '../vendor/bounded-fixture', 'autoload' => ['files' => array_fill(0, 1000, '../outside.php')]];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'bounded-fixture']);
+
+    withMarketplaceVerificationTree([], [], function (string $root, string $composerBefore, string $lockBefore) use ($attempt, $package, $name): void {
+        $path = $root . '/vendor/vendor/bounded-fixture';
+        File::ensureDirectoryExists($path);
+        $manifest = json_decode(File::get(__DIR__ . '/../../../../core/tests/fixtures/manifest-v3/valid-premium-package.json'), true, flags: JSON_THROW_ON_ERROR);
+        $manifest['name'] = $name;
+        $manifest['slug'] = 'bounded-fixture';
+        $manifest['providers']['runtime'] = [];
+        $manifest['contributes'] = [];
+        $manifest['healthChecks'] = [];
+        File::put($path . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        app()->instance(VerifyInstalledExtensionAction::class, new VerifyInstalledExtensionAction);
+
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$package], [$package]));
+
+        $attempt->refresh();
+        $report = $attempt->context['verification_report'] ?? [];
+        $event = $attempt->events()->where('stage', MarketplaceInstallFailureStage::Verification->value)->where('message', __('capell-marketplace::marketplace.operations.timeline_verification_failed'))->firstOrFail();
+        expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+            ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+            ->and($report['failures'] ?? null)->toHaveCount(50)
+            ->and($report['omitted_issue_count'] ?? null)->toBe(950)
+            ->and($event?->context['verification_report']['failures'] ?? null)->toHaveCount(50)
+            ->and($event?->context['verification_report']['omitted_issue_count'] ?? null)->toBe(950)
+            ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
+            ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore);
+    });
+});
+
+it('rejects a newly added Composer plugin dependency and restores the snapshot', function (): void {
+    Notification::fake();
+    $dependency = ['name' => 'vendor/new-plugin', 'version' => '1.0.0', 'type' => 'composer-plugin', 'install-path' => '../vendor/new-plugin'];
+    $attempt = marketplaceOperationAttempt();
+    withMarketplaceVerificationTree([], [], function (string $root, string $composerBefore, string $lockBefore) use ($attempt, $dependency): void {
+        File::ensureDirectoryExists($root . '/vendor/vendor/new-plugin');
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$dependency], [$dependency]));
+        $attempt->refresh();
+        $report = $attempt->context['verification_report'] ?? [];
+
+        expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+            ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+            ->and($report['composer_name'] ?? null)->toBe('vendor/new-plugin')
+            ->and($report['failures'][0]['code'])->toBe('composer_plugin')
+            ->and(json_encode($attempt->context, JSON_THROW_ON_ERROR))->not->toContain($root)
+            ->and(file_get_contents($root . '/composer.json'))->toBe($composerBefore)
+            ->and(file_get_contents($root . '/composer.lock'))->toBe($lockBefore);
+    });
+});
+
+it('quarantines the whole changed set when an added dependency fails and lifts it after a completed rollback', function (): void {
+    Notification::fake();
+    $name = 'vendor/verified-top-level';
+    $dependency = ['name' => 'vendor/tampered-dependency', 'version' => '1.0.0', 'type' => 'composer-plugin', 'install-path' => '../vendor/tampered-dependency'];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'verified-top-level']);
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+    // Observe the quarantine while the rollback runs: it must cover the whole set until the rollback completes.
+    $rollbacks = new class
+    {
+        public int $calls = 0;
+
+        /** @var list<string>|null */
+        public ?array $quarantinedDuringRollback = null;
+
+        public function handle(ComposerStateSnapshot $snapshot, int $timeoutSeconds = ComposerStateSnapshot::DEFAULT_TIMEOUT_SECONDS): bool
+        {
+            $this->calls++;
+            $this->quarantinedDuringRollback = array_keys(ExtensionQuarantine::quarantinedNames());
+
+            return true;
+        }
+    };
+    app()->instance(RestoreComposerStateAction::class, $rollbacks);
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt, $dependency): void {
+        File::ensureDirectoryExists($root . '/vendor/vendor/tampered-dependency');
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$dependency], [$dependency]));
+    });
+
+    $attempt->refresh();
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+        ->and($attempt->failure_reason)->toContain(__('capell-marketplace::marketplace.operations.verification_quarantined', [
+            'package' => 'vendor/tampered-dependency',
+            'packages' => 'vendor/tampered-dependency, vendor/verified-top-level',
+            'reason' => '',
+        ]))
+        ->and($attempt->context['quarantine']['failing_package'] ?? null)->toBe('vendor/tampered-dependency')
+        ->and($attempt->context['quarantine']['packages'] ?? null)->toBe(['vendor/tampered-dependency', $name])
+        ->and($rollbacks->calls)->toBe(1)
+        ->and($rollbacks->quarantinedDuringRollback)->toBe(['vendor/tampered-dependency', $name])
+        ->and(ExtensionQuarantine::query()->count())->toBe(0);
+});
+
+it('keeps the whole changed set quarantined when the rollback fails', function (): void {
+    Notification::fake();
+    recordMarketplaceRollbacks(new RuntimeException('restore failed'));
+    $name = 'vendor/verified-top-level';
+    $dependency = ['name' => 'vendor/tampered-dependency', 'version' => '1.0.0', 'type' => 'composer-plugin', 'install-path' => '../vendor/tampered-dependency'];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'verified-top-level']);
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt, $dependency): void {
+        File::ensureDirectoryExists($root . '/vendor/vendor/tampered-dependency');
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [$dependency], [$dependency]));
+    });
+
+    $attempt->refresh();
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeFalse()
+        ->and($attempt->failure_reason)->toContain('vendor/tampered-dependency')
+        ->and(ExtensionQuarantine::query()->orderBy('composer_name')->pluck('composer_name')->all())->toBe(['vendor/tampered-dependency', $name])
+        ->and(ExtensionQuarantine::query()->where('composer_name', $name)->value('failing_package'))->toBe('vendor/tampered-dependency');
+});
+
+it('does not reverify an unchanged dependency', function (): void {
+    Notification::fake();
+    $name = 'capell-app/unchanged-dependency-target';
+    $packagePath = null;
+    $dependency = ['name' => 'vendor/unchanged-dependency', 'version' => '1.0.0', 'install-path' => '../vendor/unchanged-dependency', 'autoload' => ['files' => ['../outside.php']]];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'unchanged-dependency-target']);
+    // The requested package is a registered fixture, not a Composer install: pass its own verification so only the dependency path is real.
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+
+    try {
+        withMarketplaceVerificationTree([$dependency], [], function (string $root) use ($attempt, $dependency, $name, &$packagePath): void {
+            File::ensureDirectoryExists($root . '/vendor/vendor/unchanged-dependency');
+            $runner = marketplaceFixtureComposerRunner($root, [$dependency], [$dependency], function () use ($name, &$packagePath): void {
+                $packagePath = registerHealthyLifecyclePackage($name, 'Unchanged Dependency Target');
+            });
+            new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
+            expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+                ->and($attempt->failure_stage)->toBeNull();
+        });
+    } finally {
+        if ($packagePath !== null) {
+            File::deleteDirectory($packagePath);
+        }
+    }
+});
+
+it('records not_compared and fails strict verification when the release supplies no digest', function (): void {
+    Notification::fake();
+    config()->set('capell.extensions.verification.strict', true);
+    recordMarketplaceRollbacks();
+    $name = 'vendor/undigested-release';
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'undigested-release']);
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now()));
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt): void {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [], []));
+    });
+
+    $attempt->refresh();
+    $report = $attempt->context['verification_report'] ?? [];
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Verification->value)
+        ->and($report['comparisons'] ?? null)->toBe(['not_compared'])
+        ->and($report['passed'] ?? null)->toBeFalse()
+        ->and(array_column($report['failures'] ?? [], 'code'))->toBe([ExtensionVerificationIssueData::RELEASE_DIGEST_NOT_COMPARED]);
+});
+
+it('records the failing content-hash comparison on the quarantine', function (): void {
+    Notification::fake();
+    recordMarketplaceRollbacks(new RuntimeException('restore failed'));
+    $name = 'vendor/hash-mismatch';
+    $expected = str_repeat('a', 64);
+    $actual = str_repeat('b', 64);
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'hash-mismatch', 'context' => ['release_content_sha256' => $expected]]);
+    $issue = new ExtensionVerificationIssueData(ExtensionVerificationIssueData::CONTENT_HASH_MISMATCH, 'mismatch', 'reinstall');
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, false, [$issue], [], CarbonImmutable::now(), comparisons: ['content_sha256'], contentHash: $actual));
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt): void {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [], []));
+    });
+
+    $record = ExtensionQuarantine::query()->where('composer_name', $name)->firstOrFail();
+    expect([$record->failing_comparison, $record->expected_digest, $record->actual_digest])->toBe(['content_sha256', $expected, $actual]);
+});
+
+it('quarantines every package whose installed state changed when the lock cannot be parsed', function (): void {
+    Notification::fake();
+    $name = 'vendor/graph-target';
+    $unchanged = ['name' => 'vendor/unchanged', 'version' => '1.0.0', 'install-path' => '../vendor/unchanged'];
+    $added = ['name' => 'vendor/added-dependency', 'version' => '1.0.0', 'install-path' => '../vendor/added-dependency'];
+    $target = ['name' => $name, 'version' => '1.0.0', 'install-path' => '../vendor/graph-target'];
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'graph-target']);
+    VerifyInstalledExtensionAction::shouldRun()->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, true, [], [], CarbonImmutable::now(), comparisons: ['content_sha256']));
+    // The rollback cannot prove the restored bytes, so the quarantine must stay.
+    $rollbacks = new class
+    {
+        /** @var list<array<string, string|null>> */
+        public array $expectedHashes = [];
+
+        public function handle(ComposerStateSnapshot $snapshot, int $timeoutSeconds = ComposerStateSnapshot::DEFAULT_TIMEOUT_SECONDS, array $expectedContentHashes = []): bool
+        {
+            $this->expectedHashes[] = $expectedContentHashes;
+
+            return false;
+        }
+    };
+    app()->instance(RestoreComposerStateAction::class, $rollbacks);
+
+    withMarketplaceVerificationTree([], [$unchanged], function (string $root) use ($attempt, $unchanged, $added, $target): void {
+        $runner = marketplaceFixtureComposerRunner($root, [], [$unchanged, $added, $target], function () use ($root): void {
+            File::put($root . '/composer.lock', '{not json');
+        });
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($runner);
+    });
+
+    $attempt->refresh();
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_reason)->toContain(__('capell-marketplace::marketplace.operations.graph_discovery_failed'))
+        ->and($attempt->failure_reason)->toContain(__('capell-marketplace::marketplace.operations.rollback_bytes_unverified'))
+        ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeFalse()
+        ->and($rollbacks->expectedHashes)->toBe([['vendor/added-dependency' => null, $name => null]])
+        ->and(ExtensionQuarantine::query()->orderBy('composer_name')->pluck('composer_name')->all())->toBe(['vendor/added-dependency', $name]);
 });

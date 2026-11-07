@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Data\Extensions;
 
 use ArrayAccess;
+use Capell\Admin\Enums\Extensions\ExtensionAttentionReason;
 use Spatie\LaravelData\Data;
 
 /**
@@ -17,6 +18,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
      * @param  list<string>  $missingRequiredTables
      * @param  list<array{label: string, url: string, permission: ?string, type: string}>  $managementEntries
      * @param  list<array<string, mixed>>  $providerRecoveryEvents
+     * @param  list<ExtensionAttentionReason>  $attentionReasons
      */
     public function __construct(
         public readonly string $packageName,
@@ -49,6 +51,8 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
         public readonly int $riskScore,
         public readonly string $productGroup = 'Other',
         public readonly array $providerRecoveryEvents = [],
+        public readonly array $attentionReasons = [],
+        public readonly ?string $runtimeGateReason = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -73,6 +77,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
             'certification' => $this->certification,
             'runtimeStatus' => $this->runtimeStatus,
             'runtimeAllowed' => $this->runtimeAllowed,
+            'runtimeGateReason' => $this->runtimeGateReason,
             'healthState' => $this->healthState,
             'healthAlerts' => array_map(
                 fn (ExtensionHealthAlertData $alert): array => $alert->toRecord(),
@@ -87,6 +92,10 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
             'riskScore' => $this->riskScore,
             'productGroup' => $this->productGroup,
             'providerRecoveryEvents' => $this->providerRecoveryEvents,
+            'attentionReasons' => array_map(
+                fn (ExtensionAttentionReason $reason): string => $reason->label(),
+                $this->attentionReasons,
+            ),
         ];
     }
 

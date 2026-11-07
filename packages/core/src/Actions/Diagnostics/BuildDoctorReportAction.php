@@ -14,6 +14,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Diagnostics\Checks\ConfigFilesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DatabaseBackupBinariesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DefaultThemeAndLayoutCheck;
+use Capell\Core\Support\Diagnostics\Checks\ExtensionVerificationCheck;
 use Capell\Core\Support\Diagnostics\Checks\FoundationVersionAlignmentCheck;
 use Capell\Core\Support\Diagnostics\Checks\GeneratedTailwindCssCheck;
 use Capell\Core\Support\Diagnostics\Checks\HomepageRouteCheck;
@@ -53,6 +54,7 @@ final class BuildDoctorReportAction
         ManifestContractsCheck::class,
         InstalledPackagesCheck::class,
         InstalledRuntimeCheck::class,
+        ExtensionVerificationCheck::class,
         SecurityPostureCheck::class,
         FoundationVersionAlignmentCheck::class,
         ViteInputsCheck::class,

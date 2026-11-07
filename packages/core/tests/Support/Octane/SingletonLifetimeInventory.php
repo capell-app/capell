@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Support\Octane;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
+use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
@@ -38,6 +39,7 @@ use Capell\Core\Concerns\HasModelRelations;
 use Capell\Core\EventSourcing\Rollback\RollbackValidatorRegistry;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\Concerns\ExtensibleModel;
+use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
@@ -59,9 +61,12 @@ use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
@@ -93,6 +98,7 @@ use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
+use Capell\Frontend\Support\Render\HeadMetadataRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataScope;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -102,6 +108,7 @@ use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendRequest;
 use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
 use Capell\Frontend\Support\State\FrontendState;
+use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
@@ -125,6 +132,7 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => CapellCoreManager::class,
             ThemePreviewContext::class => ThemePreviewContext::class,
             FrontendContextReader::class => FrontendState::class,
+            AdminHelpRegistry::class => AdminHelpRegistry::class,
         ];
     }
 
@@ -163,9 +171,12 @@ final class SingletonLifetimeInventory
             ComponentRegistry::class => self::tagged('Boot component registrations and namespaces persist while discovered components and the cache-presence memo are selectively flushed.'),
             CapellCacheManager::class => self::delegated('The core manager flushes this per-operation in-memory cache.'),
             LockdownStore::class => self::tagged('Lockdown decisions are operation-derived and explicitly flushed.'),
+            ExtensionQuarantineGate::class => self::tagged('The quarantined set is read once per boot cycle, forgotten on every quarantine write and flushed between operations.'),
             RollbackValidatorRegistry::class => self::boot('Rollback validators are package boot registrations.'),
             SettingsSchemaRegistry::class => self::boot('Settings schemas and metadata are package boot registrations.'),
             SiteAccessPolicyRegistry::class => self::boot('Site access policy providers are package boot registrations.'),
+            PublicPageReadEligibilityRegistry::class => self::boot('Public-read eligibility contributors are package registrations; decisions are read per call, never cached.'),
+            PublicReadWithdrawalSteps::class => self::boot('Public-read withdrawal steps are package boot registrations; each run reads the affected site from its caller.'),
             MetricEventRegistry::class => self::boot('Metric event definitions are package boot registrations.'),
             MetricCollectorRegistry::class => self::boot('Metric collectors are package boot registrations.'),
             OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
@@ -174,7 +185,7 @@ final class SingletonLifetimeInventory
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.
-            InstalledPanelRuntime::class => self::boot('Applied extender entries and route middleware snapshots belong to each panel bootstrap, held through weak panel keys.'),
+            InstalledPanelRuntime::class => self::boot("Applied extender entries, package middleware contributions, route middleware snapshots, reconciled and refused routes belong to each panel bootstrap, held through weak panel and route keys; panels synchronised after boot are kept by id, for match-time route coverage; route ownership lives on each route, not here. The replayed rendering route and the rendering identities belong to one request and are forgotten on Livewire's flush-state."),
             AgentAdminToolRegistry::class => self::boot('Admin agent tools are package boot registrations and resolve actor scope per invocation.'),
             AgentAdminToolInvocationService::class => self::stateless('The invocation service retains only readonly registries and cache-backed confirmation collaborators.'),
             ExtensionPageRegistry::class => self::boot('Extension pages are package boot registrations.'),
@@ -208,6 +219,7 @@ final class SingletonLifetimeInventory
             PublicRouteAliasRegistry::class => self::boot('Public route aliases are package boot registrations.'),
             RenderableDynamicDataRegistry::class => self::boot('Dynamic data resolvers are package boot registrations.'),
             RenderHookRegistry::class => self::boot('Render hooks are package boot registrations.'),
+            HeadMetadataRegistry::class => self::boot('Default head metadata contributions are package boot registrations.'),
             FrontendRuleConditionRegistry::class => self::boot('Rule conditions are package boot registrations.'),
             ReservedFrontendPathRegistry::class => self::boot('Reserved paths are package boot registrations.'),
             ReservedFrontendDomainRegistry::class => self::boot('Reserved domains are package boot registrations.'),
@@ -244,6 +256,8 @@ final class SingletonLifetimeInventory
             SignalDispatchGuard::class => 'Weak application and fibre keys isolate in-flight reporting; finally releases completed dispatches without retaining request containers.',
             HasModelRelations::class => 'This trait provides a deliberate boot registry shared by every operation.',
             PublicRenderDataScope::class => 'Render-local data set only inside during(), which restores the previous value in finally, so nothing outlives a public render or crosses requests.',
+            StaticPageArtifactStore::class => 'Ownership lock files this process holds, set only while their flock is held and removed in finally, so a nested write re-enters its own lock and nothing outlives the write.',
+            ExtensionQuarantine::class => 'The missing-table flag only suppresses repeated warnings for the process lifetime and carries no operation data.',
             ExtensibleModel::class => 'Extension fillable and cast declarations are deliberate model boot registries.',
             ManifestLoader::class => 'Registered manifest autoload paths are process boot metadata and prevent duplicate Composer loaders.',
             SanitizeSiteSpecSectionHtmlAction::class => 'The sanitizer is an immutable process-wide parser cache.',

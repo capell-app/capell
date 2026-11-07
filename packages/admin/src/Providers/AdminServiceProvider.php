@@ -51,6 +51,7 @@ use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Contracts\RegistryInspectorInterface;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
 use Capell\Admin\Data\AdminAssetData;
+use Capell\Admin\Data\AdminHelpEntryData;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminZoneContextData;
 use Capell\Admin\Data\AdminZoneContributionData;
@@ -66,6 +67,7 @@ use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Enums\TransferDownloadEnum;
 use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
@@ -157,6 +159,7 @@ use Capell\Admin\Support\Activity\AdminActivitySettingsReader;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
+use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
@@ -189,6 +192,7 @@ use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
 use Capell\Admin\Support\Dashboard\NullRecentlyPublishedDataProvider;
 use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
+use Capell\Admin\Support\Diagnostics\Checks\AdminRouteOwnershipCheck;
 use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
@@ -223,6 +227,8 @@ use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
+use Capell\Admin\Support\PaletteRequestState;
+use Capell\Admin\Support\ProvenanceRouteCollection;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
@@ -231,6 +237,9 @@ use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
+use Capell\Admin\Support\Transfers\TransferOrigins;
+use Capell\Admin\Support\Upgrade\InvalidateCachedLivewireSnapshotsStep;
+use Capell\Admin\Support\Upgrade\RequireRecordedRouteCacheStep;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
@@ -307,13 +316,24 @@ use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Foundation\Application;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+
+use function Livewire\before;
+
+use Livewire\Component as LivewireComponent;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
+use Livewire\Mechanisms\HandleComponents\ComponentContext;
+use Livewire\Mechanisms\HandleRequests\HandleRequests;
+
+use function Livewire\on;
+
 use Override;
 use ReflectionClass;
 use RuntimeException;
@@ -392,6 +412,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerAdminEventSystem();
 
+        $this->app->scoped(PaletteRequestState::class);
         $this->app->scoped(AdminUploadGrantRepository::class);
         $this->app->scoped(AdminUploadDeletion::class);
 
@@ -417,15 +438,27 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'Capell\\Admin\\Support\\Media\\LegacyAdminMediaFieldFactoryAdapter',
         );
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
-        $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
+        $this->app->tag([AdminUserAccessCheck::class, AdminRouteOwnershipCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
-        $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
-            $name = (string) $event->route->getName();
-            if (str_starts_with($name, 'filament.')) {
-                $panel = explode('.', $name)[1];
-                $event->route->middleware(EnsureInstalledPanelAvailable::class . ':' . $panel);
-                $event->route->computedMiddleware = null;
+        // Each route records who serves it as it is registered, before any route is cached.
+        ProvenanceRouteCollection::install($this->app->make(Router::class));
+
+        // Stored public HTML carries Livewire snapshots without their rendering route, which updates reject.
+        $this->app->tag([RequireRecordedRouteCacheStep::class, InvalidateCachedLivewireSnapshotsStep::class], 'capell.upgrade-steps');
+        // Each export and import remembers the panel it was started in, which later serves its download.
+        $events->listen('eloquent.created: *', static function (string $event, array $payload): void {
+            if (($payload[0] ?? null) instanceof Model && TransferDownloadEnum::forModel($payload[0]) instanceof TransferDownloadEnum) {
+                resolve(TransferOrigins::class)->record($payload[0]);
             }
+        });
+        $events->listen('eloquent.deleted: *', static function (string $event, array $payload): void {
+            if (($payload[0] ?? null) instanceof Model && TransferDownloadEnum::forModel($payload[0]) instanceof TransferDownloadEnum) {
+                resolve(TransferOrigins::class)->forget($payload[0]);
+            }
+        });
+        $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
+            // Each route is served as its recorded ownership says, before its middleware runs.
+            resolve(InstalledPanelRuntime::class)->reconcileMatchedRoute($event->route);
         });
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
         $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (InstalledRuntimeRefreshed $event): void {
@@ -517,6 +550,111 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
         $this->app->singleton(ImportEntryRegistry::class);
+        $this->app->scoped(AdminHelpRegistry::class, function (): AdminHelpRegistry {
+            $registry = new AdminHelpRegistry;
+            $registry->register('filament.admin.resources.pages.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.pages.title'),
+                (string) __('capell-admin::help.pages.summary'),
+                (string) __('capell-admin::help.pages.next'),
+            ));
+            $registry->register('filament.admin.resources.pages.edit', new AdminHelpEntryData(
+                (string) __('capell-admin::help.page_edit.title'),
+                (string) __('capell-admin::help.page_edit.summary'),
+                (string) __('capell-admin::help.page_edit.next'),
+            ));
+            $registry->register('filament.admin.resources.media.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.media.title'),
+                (string) __('capell-admin::help.media.summary'),
+                (string) __('capell-admin::help.media.next'),
+            ));
+            $registry->register('filament.admin.resources.sites.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.sites.title'),
+                (string) __('capell-admin::help.sites.summary'),
+                (string) __('capell-admin::help.sites.next'),
+            ));
+            $registry->register('filament.admin.resources.layouts.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.layouts.title'),
+                (string) __('capell-admin::help.layouts.summary'),
+                (string) __('capell-admin::help.layouts.next'),
+            ));
+            $registry->register('filament.admin.resources.themes.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.themes.title'),
+                (string) __('capell-admin::help.themes.summary'),
+                (string) __('capell-admin::help.themes.next'),
+            ));
+            $registry->register('filament.admin.resources.blueprints.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.blueprints.title'),
+                (string) __('capell-admin::help.blueprints.summary'),
+                (string) __('capell-admin::help.blueprints.next'),
+            ));
+            $registry->register('filament.admin.resources.users.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.users.title'),
+                (string) __('capell-admin::help.users.summary'),
+                (string) __('capell-admin::help.users.next'),
+            ));
+            $registry->register('filament.admin.resources.shield.roles.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.roles.title'),
+                (string) __('capell-admin::help.roles.summary'),
+                (string) __('capell-admin::help.roles.next'),
+            ));
+            $registry->register('filament.admin.pages.settings', new AdminHelpEntryData(
+                (string) __('capell-admin::help.settings.title'),
+                (string) __('capell-admin::help.settings.summary'),
+                (string) __('capell-admin::help.settings.next'),
+            ));
+            $registry->register('filament.admin.pages.extensions', new AdminHelpEntryData(
+                (string) __('capell-admin::help.extensions.title'),
+                (string) __('capell-admin::help.extensions.summary'),
+                (string) __('capell-admin::help.extensions.next'),
+            ));
+            $registry->register('filament.admin.resources.redirects.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.redirects.title'),
+                (string) __('capell-admin::help.redirects.summary'),
+                (string) __('capell-admin::help.redirects.next'),
+            ));
+            $registry->register('filament.admin.pages.sitemap', new AdminHelpEntryData(
+                (string) __('capell-admin::help.sitemap.title'),
+                (string) __('capell-admin::help.sitemap.summary'),
+                (string) __('capell-admin::help.sitemap.next'),
+            ));
+            $registry->register('filament.admin.pages.site-health', new AdminHelpEntryData(
+                (string) __('capell-admin::help.site_health.title'),
+                (string) __('capell-admin::help.site_health.summary'),
+                (string) __('capell-admin::help.site_health.next'),
+            ));
+            $registry->register('filament.admin.resources.languages.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.languages.title'),
+                (string) __('capell-admin::help.languages.summary'),
+                (string) __('capell-admin::help.languages.next'),
+            ));
+            $registry->register('filament.admin.resources.activities.index', new AdminHelpEntryData(
+                (string) __('capell-admin::help.activity.title'),
+                (string) __('capell-admin::help.activity.summary'),
+                (string) __('capell-admin::help.activity.next'),
+            ));
+            $registry->register('filament.admin.pages.recently-deleted', new AdminHelpEntryData(
+                (string) __('capell-admin::help.recently_deleted.title'),
+                (string) __('capell-admin::help.recently_deleted.summary'),
+                (string) __('capell-admin::help.recently_deleted.next'),
+            ));
+            $registry->register('filament.admin.pages.analytics-dashboard', new AdminHelpEntryData(
+                (string) __('capell-admin::help.analytics.title'),
+                (string) __('capell-admin::help.analytics.summary'),
+                (string) __('capell-admin::help.analytics.next'),
+            ));
+            $registry->register('filament.admin.pages.upgrade', new AdminHelpEntryData(
+                (string) __('capell-admin::help.upgrade.title'),
+                (string) __('capell-admin::help.upgrade.summary'),
+                (string) __('capell-admin::help.upgrade.next'),
+            ));
+            $registry->register('filament.admin.pages.capell-dashboard', new AdminHelpEntryData(
+                (string) __('capell-admin::help.dashboard.title'),
+                (string) __('capell-admin::help.dashboard.summary'),
+                (string) __('capell-admin::help.dashboard.next'),
+            ));
+
+            return $registry;
+        });
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
@@ -622,6 +760,39 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        // A host route answering on an admin panel's path keeps serving, but shares the panel's URLs, so it is
+        // reported. Only uncached boots check: a cached application reports it through the doctor check.
+        $this->app->booted(static function (Application $app): void {
+            if ($app->routesAreCached()) {
+                return;
+            }
+
+            foreach (resolve(InstalledPanelRuntime::class)->panelPathCollisions() as $collision) {
+                [$route, $panel] = explode(' -> ', $collision, 2) + [1 => ''];
+                Log::warning(__('capell-admin::message.route_panel_path_collision', ['route' => $route, 'panel' => $panel]));
+            }
+        });
+        // A Livewire update replays the persistent middleware of the route that rendered the
+        // component; that route is reconciled first, as it stands now. Registered at boot, once
+        // Livewire's event bus exists.
+        before('snapshot-verified', static function (array $snapshot): void {
+            $path = $snapshot['memo']['path'] ?? null;
+            $method = $snapshot['memo']['method'] ?? null;
+            if (! is_string($path) || ! is_string($method) || ! resolve(HandleRequests::class)->isLivewireRoute()) {
+                return;
+            }
+
+            resolve(InstalledPanelRuntime::class)->reconcileLivewireReplay(request(), $path, $method, $snapshot['memo'][InstalledPanelRuntime::SNAPSHOT_MEMO] ?? null);
+        });
+        // Each snapshot is signed with the route that rendered its component, so an update is only
+        // replayed through that same route.
+        on('dehydrate', static function (LivewireComponent $component, ComponentContext $context): void {
+            $context->addMemo(InstalledPanelRuntime::SNAPSHOT_MEMO, resolve(InstalledPanelRuntime::class)->renderingRouteIdentity(request()));
+        });
+        on('flush-state', static function (): void {
+            resolve(InstalledPanelRuntime::class)->forgetReplayedRoute();
+        });
+
         BaseFileUpload::configureUsing(
             static function (BaseFileUpload $upload): void {
                 if (! $upload instanceof SpatieMediaLibraryFileUpload) {
@@ -1270,8 +1441,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         foreach ([CapellExtension::class, ExtensionHealthAlert::class] as $model) {
             foreach (['saved', 'deleted'] as $event) {
-                $model::registerModelEvent($event, static function (): void {
+                $model::registerModelEvent($event, static function (Model $record): void {
                     resolve(ExtensionNavigationBadgeCounts::class)->forget();
+
+                    if ($record->getConnection()->transactionLevel() > 0) {
+                        $record->getConnection()->afterCommit(static function (): void {
+                            resolve(ExtensionNavigationBadgeCounts::class)->forget();
+                        });
+                    }
                 });
             }
         }

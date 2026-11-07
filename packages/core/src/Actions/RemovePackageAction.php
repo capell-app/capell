@@ -52,7 +52,7 @@ class RemovePackageAction
         $lockPath = $snapshot->lockPath;
         $originalComposer = $snapshot->composerContents;
         $composer = new RuntimeBinaryResolver()->composer();
-        $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
+        $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress'];
         $composerSucceeded = false;
 
         // Keep Laravel's current provider manifest valid while Composer still
@@ -83,6 +83,7 @@ class RemovePackageAction
                     '--with-dependencies',
                     '--no-interaction',
                     '--no-scripts',
+                    '--no-plugins',
                     // Parity with the Marketplace install runner: a non-interactive
                     // run should not spend its timeout on output nobody reads.
                     '--no-audit',

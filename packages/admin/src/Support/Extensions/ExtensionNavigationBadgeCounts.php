@@ -40,15 +40,13 @@ class ExtensionNavigationBadgeCounts
     public function forget(): void
     {
         $this->resolved = [];
-        $this->store()->forever(self::VERSION_KEY, (string) microtime(true));
+        $this->store()->forever(self::VERSION_KEY, bin2hex(random_bytes(16)));
     }
 
     /** @return array{unhealthy: int, blocked: int} */
     protected function build(): array
     {
-        $summary = BuildExtensionOperationsSummaryAction::run();
-
-        return ['unhealthy' => $summary->unhealthyCount, 'blocked' => $summary->blockedCount];
+        return resolve(BuildExtensionOperationsSummaryAction::class)->navigationCounts();
     }
 
     /** @return array{unhealthy: int, blocked: int} */

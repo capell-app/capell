@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Testing\ExtensionTestHarness;
+use Capell\Core\Tests\Support\NestedTestProcess;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
 use Spatie\LaravelData\Data;
@@ -304,7 +305,7 @@ it('renders escaped public content from the full scaffold render data', function
     $html = Blade::render((string) file_get_contents($extensionDirectory . '/resources/views/widget.blade.php'), ['widget' => $widget]);
 
     expect($html)->toContain('Public heading', 'Public body', '&lt;script&gt;', '&lt;img')
-        ->not->toContain('<script>', '<img', 'data-model-id', 'data-field-path', 'data-capell-edit', 'wire:', 'signed-editor');
+        ->not->toContain('<script>')->not->toContain('<img')->not->toContain('data-model-id')->not->toContain('data-field-path')->not->toContain('data-capell-edit')->not->toContain('wire:')->not->toContain('signed-editor');
     // New packages must ship a guard against publishing unsafe cached output.
     expect((string) file_get_contents($extensionDirectory . '/tests/Feature/ManifestTest.php'))
         ->toContain('assertNoUnsafePublicCache');
@@ -322,7 +323,7 @@ it('runs the generated minimal suite in an independent Testbench consumer', func
     File::copy(dirname(__DIR__, 5) . '/vendor/pestphp/pest/bin/pest', $directory . '/vendor/pestphp/pest/bin/pest');
     File::put($directory . '/vendor/autoload.php', '<?php $loader = require ' . var_export(dirname(__DIR__, 5) . '/vendor/autoload.php', true) . '; $loader->addPsr4("Vendor\\\\StandaloneExample\\\\", ' . var_export($directory . '/src/', true) . '); $loader->addPsr4("Vendor\\\\StandaloneExample\\\\Tests\\\\", ' . var_export($directory . '/tests/', true) . '); return $loader;');
     // A risky manifest test performs no assertion, so it must fail the generated suite.
-    $process = new Process([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--configuration=phpunit.xml.dist', '--fail-on-risky'], $directory, timeout: 60);
+    $process = NestedTestProcess::make([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--configuration=phpunit.xml.dist', '--fail-on-risky'], $directory);
     $process->run();
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput());

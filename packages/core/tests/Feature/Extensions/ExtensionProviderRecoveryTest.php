@@ -3,11 +3,16 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\EnablePackageAction;
+use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
+use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Carbon\CarbonImmutable;
+
+afterEach(fn () => VerifyInstalledExtensionAction::clearFake());
 
 it('fails closed for quarantined providers and audits an authorised re-enable', function (): void {
     $packageName = 'vendor/recovery-extension';
@@ -33,6 +38,11 @@ it('fails closed for quarantined providers and audits an authorised re-enable', 
         ->and(CapellCore::isPackageEnabled($packageName))->toBeFalse()
         ->and(ResolveExtensionRuntimeGateAction::run($quarantined)->allowed)->toBeFalse()
         ->and(ResolveExtensionRuntimeGateAction::run($quarantined)->reason)->toBe('provider_quarantined');
+
+    // Re-enabling runs the package's code, so it is verified first; this test is about recovery, not integrity.
+    VerifyInstalledExtensionAction::shouldRun()->once()->with($packageName)->andReturn(
+        new ExtensionVerificationReportData($packageName, '1.0.0', null, null, true, [], [], CarbonImmutable::now()),
+    );
 
     EnablePackageAction::run(CapellCore::getPackage($packageName), 'admin-42');
 

@@ -207,7 +207,14 @@ it('uses only the admin panel guard even when another panel is the default', fun
     expect(auth()->guard('web')->check())->toBe(! $adminSession)
         ->and(auth()->guard('admin')->check())->toBe($adminSession);
     $response = $this->get(extensionAssetUrl('docs/screenshot.png'));
-    $response->assertStatus($adminSession ? ($panelAccess ? 200 : 403) : 401);
+    if (! $adminSession) {
+        // Without an admin-guard session the panel's own authentication sends the visitor to sign in.
+        $response->assertRedirect(Filament::getPanel('admin')->getLoginUrl());
+
+        return;
+    }
+
+    $response->assertStatus($panelAccess ? 200 : 403);
 })->with([
     'admin guard session only' => [false, true, true],
     'alternative default panel' => [true, true, true],

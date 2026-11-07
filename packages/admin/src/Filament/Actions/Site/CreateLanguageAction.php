@@ -44,12 +44,20 @@ class CreateLanguageAction extends CreateAction
                 $record = new Language;
                 $record->fill($data);
                 $record->save();
+                // The success redirect resolves against the created record.
+                $action->record($record);
 
                 $schema->model($record)->saveRelationships();
 
                 $createdOptionKey = $record->getKey();
 
-                $languagesComponent->state(fn (array $state): array => array_merge($state, [$createdOptionKey]));
+                // state() stores its argument as-is; a Closure here became the
+                // field's state and broke the form when it was next decoded.
+                $currentState = $languagesComponent->getState();
+                $languagesComponent->state([
+                    ...(is_array($currentState) ? array_values($currentState) : []),
+                    $createdOptionKey,
+                ]);
                 $languagesComponent->callAfterStateUpdated();
 
                 $action->callAfter();

@@ -73,7 +73,7 @@ it('allows an authorised administrator to remove the installer with the tooling 
     $process->shouldReceive('isSuccessful')->andReturnTrue();
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')->once()
-        ->with([...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], base_path())
+        ->with([...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress'], base_path())
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
     $action = (new InstallerWarning)->deleteInstallerAction();

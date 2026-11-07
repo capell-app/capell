@@ -3,13 +3,33 @@
 declare(strict_types=1);
 
 return [
-    'command' => ['runs' => 'Changes applied: :applied; failed: :failed.'],
+    'registry' => ['owner_conflict' => 'Security weakness :id belongs to :owner and cannot be replaced by :replacement.'],
+    'command' => [
+        'scan_id' => 'Scan ID: :id',
+        'runs' => 'Changes applied: :applied; failed: :failed.',
+        'retired' => 'Node :node was retired from the security fleet.',
+        'registry_unknown' => 'The security node registry is unavailable or invalid; review the fleet before continuing.',
+        'refresh_single_node' => 'This installation is not multi-node; there is nothing to refresh.',
+        'refresh_description' => 'Apply approved security changes on this node and report it to the rest of the fleet.',
+        'refresh_no_acknowledgement' => 'No pending changes were acknowledged on this node.',
+        'refresh_node' => 'Node :node refreshed :acknowledged pending change(s); :completed change(s) finished.',
+    ],
     'doctor' => [
         'label' => 'Security posture',
+        'never_scanned' => 'No security scan has completed successfully. Run php artisan capell:security:scan.',
+        'failed_scan' => 'The security scan finished with failures at :time. Run the scan again.',
         'message' => 'Open security findings: :critical critical, :high high.',
         'action' => 'Run php artisan capell:security:scan and review the findings.',
+        'node_collision' => 'Multiple hosts have registered security node :node; give each host a unique node ID.',
+        'unknown_fleet' => 'The node membership for remediation run :run is unknown; review it before settling the change.',
+        'pending_nodes' => ':count approved change(s) are waiting for these nodes to apply them: :nodes. Check that the scheduler runs on every node.',
     ],
     'remediation' => [
+        'no_fix' => 'No automatic fix is registered for security weakness :id.',
+        'approval_requires_finding' => 'Scan first and approve one open finding with this weakness ID.',
+        'approval_required' => 'This finding needs its own approval.',
+        'evidence_changed' => 'The evidence changed since approval; review and approve the finding again.',
+        'approval_revoked' => 'Approval for this change was withdrawn or no longer matches the fix.',
         'advice_only' => 'Analyser findings are advice only.',
         'not_confirmed' => 'Not confirmed by the latest scan.',
         'fix_changed' => 'The fix changed since it was approved; approve it again.',
@@ -25,6 +45,9 @@ return [
         'cookie' => 'Require secure and HTTP-only session cookies.',
         'updates' => 'Allow Capell to take security releases for this package automatically.',
         'https_required' => 'Configure HTTPS before changing cookie settings.',
+        'pending_nodes' => 'Applied on this node; waiting for :count other node(s) to apply it.',
+        'pending_nodes_skip' => 'A change for this finding is still being applied on other nodes.',
+        'nodes_not_refreshed' => 'Not applied on every node. These nodes did not refresh: :nodes.',
         'no_update_needed' => 'The package is missing or its update policy has already changed.',
     ],
     'app' => [

@@ -230,6 +230,7 @@ return [
     'widget_extensions_recently_changed' => 'Recently changed extensions',
     'widget_extensions_recently_changed_description' => 'Shows the latest extension operation events.',
     'extensions_no_dependency_blockers' => 'No dependency blockers found.',
+    'extension_provider_failed_action' => 'Review the health check failure and contact the extension provider if it persists.',
     'extension_provider_failed_title' => 'Extension provider failed',
     'extension_provider_quarantined_title' => 'Extension provider quarantined',
     'extension_provider_quarantined_message' => 'Capell kept this extension inactive after :provider failed during registration. :reason',

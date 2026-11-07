@@ -70,3 +70,20 @@ it('offers the create language action only when Create:Language is granted', fun
     test()->actingAs(siteFormActor(['ViewAny:Site', 'View:Site', 'Create:Site', 'Create:Language']));
     Livewire::test(CreateSite::class)->assertSuccessful()->assertActionVisible($action);
 });
+
+it('creates a language from the site form and adds it to the site languages', function (): void {
+    test()->actingAs(siteFormActor(['ViewAny:Site', 'View:Site', 'Create:Site', 'Create:Language']));
+
+    $component = Livewire::test(CreateSite::class)->assertSuccessful();
+
+    $component
+        ->call('mountAction', 'createLanguage', [], ['schemaComponent' => 'form.languages::data::section'])
+        ->set('mountedActions.0.data', createLanguageFormData())
+        ->call('callMountedAction')
+        ->assertHasNoErrors();
+
+    $language = Language::query()->where('code', 'tlh')->sole();
+
+    expect(collect($component->get('data.languages'))->map(fn (mixed $id): int => (int) $id)->all())
+        ->toContain((int) $language->getKey());
+});

@@ -9,31 +9,24 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Livewire\GlobalCommandPalette;
 use Capell\Admin\Livewire\InfoBanner;
+use Filament\Facades\Filament;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 
-it('filters global command palette commands by label or description and resets on close', function (): void {
-    CapellAdmin::shouldReceive('getPaletteCommands')
-        ->andReturn([
-            new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content'),
-            new PaletteCommandData(id: 'media', label: 'Media library', description: 'Find images'),
-        ]);
+it('renders commands for local filtering and toggles or closes the global command palette', function (): void {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->actingAsUser();
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'create', label: 'Create page', description: 'Add content', visible: static fn (Authenticatable $actor): bool => true));
+    CapellAdmin::registerCommand(new PaletteCommandData(id: 'media', label: 'Media library', description: 'Find images', visible: static fn (Authenticatable $actor): bool => true));
 
-    $palette = new GlobalCommandPalette;
-
-    expect(array_column($palette->filteredCommands(), 'id'))->toBe(['create', 'media']);
-
-    $palette->query = 'images';
-
-    expect(array_column($palette->filteredCommands(), 'id'))->toBe(['media']);
-
-    $palette->toggle();
-    expect($palette->open)->toBeTrue();
-
-    $palette->query = 'page';
-    $palette->toggle();
-
-    expect($palette->open)->toBeFalse()
-        ->and($palette->query)->toBe('');
+    $palette = Livewire::test(GlobalCommandPalette::class);
+    expect(array_column($palette->viewData('commands'), 'id'))->toBe(['create', 'media']);
+    $palette->call('toggle')->assertSet('open', true)
+        ->call('toggle')->assertSet('open', false)
+        ->call('toggle')->assertSet('open', true)
+        ->call('close')->assertSet('open', false);
+    expect(array_column($palette->viewData('commands'), 'id'))->toBe(['create', 'media']);
 });
 
 it('hides info banners for dismissed hints and records new dismissals', function (): void {

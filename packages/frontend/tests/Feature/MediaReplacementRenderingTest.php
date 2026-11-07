@@ -58,7 +58,7 @@ it('renders existing media references after replacement and invalidates the depe
     $html = Blade::render('<x-capell::media :media="$media" />', ['media' => $referenced]);
 
     expect($html)->toContain($url, 'alt="Still referenced"')
-        ->not->toContain('data-capell-edit', 'wire:', 'media_id', 'signed', 'capell-admin')
+        ->not->toContain('data-capell-edit')->not->toContain('wire:')->not->toContain('media_id')->not->toContain('signed')->not->toContain('capell-admin')
         ->and($cache->getFromCache($key))->toBeNull()
         ->and(Storage::disk('public')->get($referenced->getPathRelativeToRoot()))->toBe(file_get_contents($replacement->getPathname()));
 });

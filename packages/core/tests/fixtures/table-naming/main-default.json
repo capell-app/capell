@@ -176,6 +176,13 @@
         ],
         "foreign_keys": []
     },
+    "capell_extension_quarantines": {
+        "indexes": [
+            "capell_extension_quarantines_composer_name_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_extensions": {
         "indexes": [
             "capell_extensions_auto_update_policy_index",
@@ -239,6 +246,10 @@
                 "foreign_columns": ["id"]
             }
         ]
+    },
+    "capell_security_scan_runs": {
+        "indexes": ["sqlite_autoindex_capell_security_scan_runs_1"],
+        "foreign_keys": []
     },
     "capell_security_weakness_findings": {
         "indexes": [
@@ -821,6 +832,22 @@
     },
     "property_sets": {
         "indexes": ["primary", "property_sets_key_unique"],
+        "foreign_keys": []
+    },
+    "public_read_eligibility_state": {
+        "indexes": ["primary"],
+        "foreign_keys": []
+    },
+    "public_read_owed_withdrawals": {
+        "indexes": ["primary", "public_read_owed_withdrawals_unique"],
+        "foreign_keys": []
+    },
+    "public_read_projection_watermarks": {
+        "indexes": [
+            "primary",
+            "public_read_projection_watermarks_attempted",
+            "public_read_projection_watermarks_unique"
+        ],
         "foreign_keys": []
     },
     "redirect_health_snapshots": {

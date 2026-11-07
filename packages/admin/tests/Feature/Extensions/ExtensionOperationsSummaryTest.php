@@ -10,13 +10,18 @@ use Capell\Admin\Actions\Extensions\BuildExtensionUpdateReadinessAction;
 use Capell\Admin\Actions\Extensions\ListExtensionAuditEventsAction;
 use Capell\Admin\Actions\Extensions\RepairComposerDriftAction;
 use Capell\Admin\Contracts\Extensions\ExtensionDependencyProvider;
+use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
 use Capell\Admin\Data\Extensions\ExtensionDependencyBlockData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionRuntimeCompatibilityData;
 use Capell\Admin\Data\Extensions\ExtensionUpdateReadinessData;
+use Capell\Admin\Enums\Extensions\ExtensionAttentionReason;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
 use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
+use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryAccessiblePage;
 use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryInaccessiblePage;
 use Capell\Core\Actions\RequirePackageAction;
@@ -106,6 +111,37 @@ it('keeps foreign site health alerts out of the operations summary', function (b
         $console->setValue(app(), $previousConsole);
     }
 })->with(['console' => false, 'cached HTTP request' => true]);
+
+it('scopes cached navigation counts to site access', function (): void {
+    $packageName = 'vendor/badge-site-scope';
+    registerOperationsSummaryManifest($packageName, ['displayName' => 'Badge site scope', 'version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => $packageName, 'name' => 'Badge site scope', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+    ]);
+    $site = Site::factory()->create();
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'badge-site-scope', 'source' => 'test', 'composer_name' => $packageName,
+        'affected_site_id' => $site->id, 'severity' => ExtensionHealthAlertSeverity::Critical,
+        'category' => ExtensionHealthAlertCategory::Security, 'title' => 'Private alert',
+        'message' => 'Private diagnostic', 'required_action' => 'upgrade', 'signature' => 'test', 'issued_at' => now(),
+    ]);
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $site->id]);
+
+    test()->actingAs($actor);
+    $console = new ReflectionProperty(app(), 'isRunningInConsole');
+    $previous = $console->getValue(app());
+    $console->setValue(app(), false);
+
+    try {
+        expect(resolve(ExtensionNavigationBadgeCounts::class)->unhealthy())->toBe(1);
+        $actor->assignedSiteIds = collect();
+        expect(resolve(ExtensionNavigationBadgeCounts::class)->unhealthy())->toBe(0);
+    } finally {
+        $console->setValue(app(), $previous);
+    }
+});
 
 it('refreshes cached health alerts when the same actor loses site access', function (): void {
     $packageName = 'vendor/revoked-site-health';
@@ -300,6 +336,9 @@ it('alerts when an installed extension record no longer has a composer package m
         ->and($summary->installedCount)->toBe(1)
         ->and($summary->availableCount)->toBe(0)
         ->and($alert?->message)->toContain('current registry has no manifest');
+
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Check the Composer installation')->not->toContain('Check its licence and activation in Marketplace');
 });
 
 it('reports quarantined provider recovery state as a critical diagnostic', function (): void {
@@ -470,6 +509,9 @@ it('alerts when composer exposes a different extension version than the capell r
     expect($package)->not->toBeNull()
         ->and($package->needsAttention)->toBeTrue()
         ->and($alert?->message)->toContain('different package version');
+
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('different package version', 'Composer')->not->toContain('Check its licence and activation in Marketplace');
 });
 
 it('records successful composer drift repair metadata and clears extension caches', function (): void {
@@ -539,7 +581,7 @@ it('records successful composer drift repair metadata and clears extension cache
     $extension = CapellExtension::query()->where('composer_name', 'vendor/repairable-extension')->firstOrFail();
 
     expect($requiredPackages)->toBe([
-        [...capellComposerArgv(), 'require', 'vendor/repairable-extension'],
+        [...capellComposerArgv(), 'require', 'vendor/repairable-extension', '--no-plugins'],
     ])
         ->and($results[0]['status'] ?? null)->toBe('success')
         ->and($extension->metadata[ComposerDriftMetadata::LAST_DETECTED_REASON] ?? null)->toBe('composer_unavailable')
@@ -733,7 +775,7 @@ it('repairs an explicit composer drift package from the command when the config 
         ->assertSuccessful();
 
     expect($requiredPackages)->toBe([
-        [...capellComposerArgv(), 'require', 'vendor/explicit-repair-extension'],
+        [...capellComposerArgv(), 'require', 'vendor/explicit-repair-extension', '--no-plugins'],
     ]);
 });
 
@@ -829,6 +871,8 @@ it('builds an operations summary from manifests, extension records, health alert
     ]);
 
     $summary = BuildExtensionOperationsSummaryAction::run();
+    $counts = resolve(BuildExtensionOperationsSummaryAction::class)->navigationCounts();
+    expect($counts)->toBe(['unhealthy' => $summary->needsAttentionCount, 'blocked' => $summary->blockedCount]);
     $editorialPackage = $summary->package('vendor/editorial-tools');
     $blockedPackage = $summary->package('vendor/blocked-commerce');
 
@@ -984,3 +1028,286 @@ function registerOperationsSummaryManifest(string $packageName, array $overrides
 
     CapellCore::registerManifestPackage($manifest);
 }
+
+it('counts only extensions an operator must fix as needing attention, and says why', function (): void {
+    test()->actingAsAdmin();
+
+    $installedExtension = function (string $packageName, array $attributes = []): void {
+        CapellExtension::query()->create([
+            'composer_name' => $packageName,
+            'name' => str($packageName)->afterLast('/')->headline()->toString(),
+            'version' => '1.0.0',
+            'status' => ExtensionStatusEnum::Enabled,
+            'installed_at' => now(),
+            ...$attributes,
+        ]);
+    };
+
+    registerOperationsSummaryManifest('vendor/update-only', ['version' => '1.0.0']);
+    $installedExtension('vendor/update-only', ['metadata' => ['latest_version' => '1.1.0']]);
+
+    registerOperationsSummaryManifest('vendor/info-only', ['version' => '1.0.0']);
+    $installedExtension('vendor/info-only');
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'alert_info_only',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/info-only',
+        'severity' => ExtensionHealthAlertSeverity::Info,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'New release notes',
+        'message' => 'Release notes are available.',
+        'required_action' => 'none',
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'signature' => 'test-signature',
+    ]);
+
+    registerOperationsSummaryManifest('vendor/premium-unconnected', [
+        'version' => '1.0.0',
+        'product' => ['group' => 'Commerce', 'tier' => 'premium', 'bundle' => 'commerce'],
+    ]);
+    $installedExtension('vendor/premium-unconnected');
+
+    registerOperationsSummaryManifest('vendor/not-installed-tables', [
+        'version' => '1.0.0',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['not_installed_tables']],
+    ]);
+
+    registerOperationsSummaryManifest('vendor/missing-tables', [
+        'version' => '1.0.0',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['missing_installed_tables']],
+    ]);
+    $installedExtension('vendor/missing-tables');
+
+    registerOperationsSummaryManifest('vendor/warned', ['version' => '1.0.0']);
+    $installedExtension('vendor/warned');
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'alert_warned',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/warned',
+        'severity' => ExtensionHealthAlertSeverity::Warning,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Advisory',
+        'message' => 'Upgrade soon.',
+        'required_action' => 'upgrade',
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'signature' => 'test-signature',
+    ]);
+
+    registerOperationsSummaryManifest('vendor/advisory', ['version' => '1.0.0']);
+    $installedExtension('vendor/advisory');
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'advisory_without_action',
+        'source' => 'marketplace',
+        'composer_name' => 'vendor/advisory',
+        'severity' => ExtensionHealthAlertSeverity::Warning,
+        'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Advisory only',
+        'message' => 'No action is required.',
+        'required_action' => null,
+        'runtime_disabled' => false,
+        'protected_actions_blocked' => false,
+        'issued_at' => now(),
+        'signature' => 'test-signature',
+    ]);
+
+    registerOperationsSummaryManifest('vendor/support-fault', [
+        'version' => '1.0.0',
+        'visibility' => 'support',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['missing_support_table']],
+    ]);
+    $installedExtension('vendor/support-fault');
+
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $package = fn (string $name): ExtensionOperationPackageData => $summary->package($name) ?? throw new RuntimeException($name);
+
+    expect($package('vendor/advisory')->needsAttention)->toBeFalse()
+        ->and($package('vendor/advisory')->healthState)->toBe('info')
+        ->and($package('vendor/update-only')->needsAttention)->toBeFalse()
+        ->and($package('vendor/update-only')->updateAvailable)->toBeTrue()
+        ->and($package('vendor/info-only')->needsAttention)->toBeFalse()
+        ->and($package('vendor/info-only')->healthState)->toBe('info')
+        ->and($package('vendor/premium-unconnected')->premiumMissingMarketplaceAccount)->toBeTrue()
+        ->and($package('vendor/premium-unconnected')->needsAttention)->toBeFalse()
+        ->and($package('vendor/not-installed-tables')->installed)->toBeFalse()
+        ->and($package('vendor/not-installed-tables')->needsAttention)->toBeFalse()
+        ->and($package('vendor/not-installed-tables')->healthState)->toBe('ok')
+        ->and($package('vendor/missing-tables')->needsAttention)->toBeTrue()
+        ->and($package('vendor/missing-tables')->attentionReasons)->toBe([ExtensionAttentionReason::MissingTables])
+        ->and($package('vendor/warned')->needsAttention)->toBeTrue()
+        ->and($package('vendor/warned')->attentionReasons)->toBe([ExtensionAttentionReason::WarningAlert])
+        ->and($package('vendor/warned')->toRecord()['attentionReasons'])->toBe([__('capell-admin::generic.extension_attention_reason_warning_alert')])
+        ->and($summary->needsAttentionCount)->toBe(2)
+        ->and($summary->unhealthyCount)->toBe(2)
+        ->and($summary->updatesCount)->toBe(1)
+        ->and(ExtensionsPage::getNavigationBadge())->toBe('2');
+});
+
+it('excludes hidden support packages from every summary and the navigation badge', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/hidden-blocked', [
+        'version' => '1.0.0', 'visibility' => 'support',
+        'database' => ['migrations' => true, 'settings' => false, 'requiredTables' => ['hidden_missing_table']],
+    ]);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/hidden-blocked', 'name' => 'Hidden', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'revoked',
+        'marketplace_runtime_allowed' => false, 'metadata' => ['latest_version' => '2.0.0'],
+    ]);
+
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    expect($summary->blockedCount)->toBe(0)
+        ->and($summary->package('vendor/hidden-blocked'))->toBeNull()
+        ->and($summary->packages)->toBeEmpty()
+        ->and($summary->alerts)->toBeEmpty()
+        ->and($summary->needsAttentionCount)->toBe(0)
+        ->and($summary->unhealthyCount)->toBe(0)
+        ->and($summary->updatesCount)->toBe(0)
+        ->and($summary->installedCount)->toBe(0)
+        ->and($summary->uninstalledCount)->toBe(0)
+        ->and($summary->availableCount)->toBe(0)
+        ->and(ExtensionsPage::getNavigationBadge())->toBeNull()
+        ->and(ExtensionsPage::getNavigationBadgeColor())->toBe('warning');
+});
+
+it('explains a disallowed Marketplace runtime even when its activation status is active', function (): void {
+    registerOperationsSummaryManifest('vendor/disallowed-active', ['version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/disallowed-active', 'name' => 'Disallowed', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'active',
+        'marketplace_runtime_allowed' => false,
+    ]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/disallowed-active');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Check its licence and activation in Marketplace');
+});
+
+it('counts actionable informational alerts in health and navigation', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/info-blocked', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/info-blocked', 'name' => 'Info blocked', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'info-blocked', 'source' => 'marketplace', 'composer_name' => 'vendor/info-blocked',
+        'severity' => ExtensionHealthAlertSeverity::Info, 'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Notice', 'message' => 'A notice.', 'required_action' => 'review',
+        'runtime_disabled' => true, 'protected_actions_blocked' => false, 'issued_at' => now(), 'signature' => 'test',
+    ]);
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $package = $summary->package('vendor/info-blocked');
+    expect($package->needsAttention)->toBeTrue()
+        ->and($package->healthState)->toBe('info')
+        ->and($package->attentionReasons)->not->toBeEmpty()
+        ->and($summary->needsAttentionCount)->toBe(1)
+        ->and(ExtensionsPage::getNavigationBadge())->toBe('1');
+});
+
+it('explains a deliberately disabled extension without calling it composer drift', function (): void {
+    registerOperationsSummaryManifest('vendor/disabled', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/disabled', 'name' => 'Disabled', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Disabled, 'installed_at' => now()]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/disabled');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($package->runtimeStatus)->toBe('disabled')
+        ->and($html)->toContain('Re-enable')
+        ->and($html)->not->toContain('Composer drift')
+        ->and($package->attentionReasons)->not->toContain(ExtensionAttentionReason::ComposerDrift);
+});
+
+it('shows recovery guidance for a blocked alert without a required action', function (): void {
+    registerOperationsSummaryManifest('vendor/blocked-alert', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/blocked-alert', 'name' => 'Blocked alert', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'blocked-alert', 'source' => 'marketplace', 'composer_name' => 'vendor/blocked-alert',
+        'severity' => ExtensionHealthAlertSeverity::Warning, 'category' => ExtensionHealthAlertCategory::Security,
+        'title' => 'Notice', 'message' => 'A notice.', 'required_action' => null,
+        'runtime_disabled' => false, 'protected_actions_blocked' => true, 'issued_at' => now(), 'signature' => 'test',
+    ]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/blocked-alert');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Protected actions are blocked')->toContain('administrator');
+});
+
+it('counts a failed lifecycle without describing composer drift', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/failed-lifecycle', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/failed-lifecycle', 'name' => 'Failed', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Failed, 'installed_at' => now()]);
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $package = $summary->package('vendor/failed-lifecycle');
+    expect($package->needsAttention)->toBeTrue()
+        ->and(collect($package->attentionReasons)->pluck('value')->all())->toContain('failed_lifecycle')->not->toContain('composer_drift')
+        ->and($summary->needsAttentionCount)->toBe(1)
+        ->and(ExtensionsPage::getNavigationBadge())->toBe('1');
+});
+
+it('shows a failing health provider on the dashboard', function (): void {
+    registerOperationsSummaryManifest('vendor/provider-failure', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/provider-failure', 'name' => 'Provider failure', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    app()->instance('testing.failing-health-provider', new class implements ExtensionHealthProvider
+    {
+        public function alerts(ExtensionOperationPackageData $package): array
+        {
+            throw new RuntimeException('Health check failed');
+        }
+    });
+    app()->tag(['testing.failing-health-provider'], ExtensionHealthProvider::TAG);
+
+    $alerts = new ExtensionHealthFilamentWidget()->alerts();
+    $alert = collect($alerts)->firstWhere('packageName', 'vendor/provider-failure');
+    expect($alert)->not->toBeNull()
+        ->and($alert?->recoveryAction())->not->toBeEmpty();
+});
+
+it('explains both a disabled lifecycle and a revoked runtime', function (): void {
+    registerOperationsSummaryManifest('vendor/disabled-revoked', ['version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/disabled-revoked', 'name' => 'Disabled revoked', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Disabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'revoked', 'marketplace_runtime_allowed' => false,
+    ]);
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/disabled-revoked');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain(__('capell-admin::generic.extension_runtime_gate_revoked'))
+        ->toContain(__('capell-admin::generic.extension_lifecycle_disabled_action'));
+});
+
+it('preserves revoked licence recovery in the management table details record', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/disabled-revoked-table', ['version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/disabled-revoked-table', 'name' => 'Disabled revoked table', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Disabled, 'installed_at' => now(),
+        'is_paid_marketplace_extension' => true, 'marketplace_runtime_status' => 'revoked', 'marketplace_runtime_allowed' => false,
+    ]);
+
+    $record = collect(new ExtensionsPage()->getExtensionsData())->firstWhere('packageName', 'vendor/disabled-revoked-table');
+    expect($record)->not->toBeNull();
+
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $record])->render();
+    expect($html)->toContain(__('capell-admin::generic.extension_runtime_gate_revoked'))
+        ->toContain(__('capell-admin::generic.extension_lifecycle_disabled_action'))
+        ->not->toContain(__('capell-admin::generic.extension_runtime_gate_unknown'));
+});
+
+it('shows readable guidance for marketplace action codes in extension details', function (): void {
+    registerOperationsSummaryManifest('vendor/action-codes', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/action-codes', 'name' => 'Action codes', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    foreach (['verify_site_or_buy_licence', 'update_extension', 'unknown_action_code'] as $code) {
+        ExtensionHealthAlert::query()->create([
+            'alert_id' => $code, 'source' => 'marketplace', 'composer_name' => 'vendor/action-codes',
+            'severity' => ExtensionHealthAlertSeverity::Warning, 'category' => ExtensionHealthAlertCategory::Security,
+            'title' => 'Notice', 'message' => 'A notice.', 'required_action' => $code,
+            'runtime_disabled' => false, 'protected_actions_blocked' => false, 'issued_at' => now(), 'signature' => 'test',
+        ]);
+    }
+
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/action-codes');
+    $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    expect($html)->toContain('Verify this site or buy a licence in Marketplace')
+        ->toContain('Update the extension')
+        ->toContain('Review this alert and contact the extension provider')
+        ->not->toContain('verify_site_or_buy_licence')->not->toContain('unknown_action_code');
+});

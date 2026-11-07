@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Properties;
 
+use Capell\Core\Actions\PublicRead\PageUrlsArePubliclyReadableAction;
 use Capell\Core\Data\Properties\AgentPageQueryData;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Enums\PropertyType;
@@ -12,17 +13,23 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Properties\PropertyValuePrecedenceExpression;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
+use Capell\Core\Support\PublicRead\PublicReadCursor;
+use Capell\Core\Support\PublicRead\PublicReadPaginator;
+use Capell\Core\Support\PublicRead\PublicReadScanner;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -34,8 +41,16 @@ final class QueryPagesByPropertiesAction
     use AsFake;
     use AsObject;
 
-    /** @return LengthAwarePaginator<int, Page> */
-    public function handle(Site $site, AgentPageQueryData $input): LengthAwarePaginator
+    public function __construct(private readonly PublicPageReadEligibilityRegistry $eligibility) {}
+
+    /**
+     * Only next and previous links are offered: no total is computed, so a
+     * restricted page cannot be inferred from a count and a request scans only
+     * as far as its own page.
+     *
+     * @return Paginator<int, Page>
+     */
+    public function handle(Site $site, AgentPageQueryData $input): Paginator
     {
         $set = PropertySet::query()->where('key', $input->set)->first();
         if (! $set instanceof PropertySet || ! $this->validInput($input)) {
@@ -55,14 +70,7 @@ final class QueryPagesByPropertiesAction
                 // Apply URL eligibility before paginate(), because the
                 // controller can only represent URL-addressable pages.
                 $pages->whereHas('pageUrls', function (Builder $urls) use ($site, $input): void {
-                    $urls->where('site_id', $site->id)->where('status', true)
-                        ->where(static fn (Builder $url): Builder => $url->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
-                        ->whereHas('translation', static fn (Builder $translation): Builder => $translation
-                            ->when($input->languageId !== null, static fn (Builder $locale): Builder => $locale->where('language_id', $input->languageId)))
-                        ->whereHas('siteDomain', static fn (Builder $domain): Builder => $domain->where('status', true));
-                    if ($input->languageId !== null) {
-                        $urls->where('language_id', $input->languageId);
-                    }
+                    $this->constrainPublicUrls($urls, $site, $input->languageId);
                 });
             });
 
@@ -103,7 +111,139 @@ final class QueryPagesByPropertiesAction
             }
         }
 
-        return $query->orderBy(TableName::resolve('pages') . '.id')->paginate($input->size, [TableName::resolve('pages') . '.*'], 'page[number]', $input->page);
+        $query->orderBy(TableName::resolve('pages') . '.id');
+
+        if (! $input->publicUrlRequired || ! $this->eligibility->hasContributors()) {
+            return $this->paginator(
+                array_values($query->select(TableName::resolve('pages') . '.*')->offset((max(1, $input->page) - 1) * $input->size)->limit($input->size + 1)->get()->all()),
+                $input,
+            );
+        }
+
+        return $this->paginatePubliclyReadable($query, $site, $input);
+    }
+
+    /**
+     * Public-read eligibility is decided per served address, so matches are
+     * read in bounded batches, in order, until this page and one more readable
+     * page are known. A restricted page leaves no gap or link behind it, and a
+     * cursor continues a read that stopped at the scan limit.
+     *
+     * @param  Builder<Page>  $query
+     * @return Paginator<int, Page>
+     */
+    private function paginatePubliclyReadable(Builder $query, Site $site, AgentPageQueryData $input): Paginator
+    {
+        $pages = TableName::resolve('pages');
+        $query->select($pages . '.*');
+        $context = PublicReadCursor::context('agent.pages', [
+            (int) $site->getKey(), $input->set, $input->filters, $input->sort, $input->size, $input->languageId,
+        ]);
+        $cursor = PublicReadCursor::open($input->cursor, $context);
+        $page = $cursor instanceof PublicReadCursor || $input->cursor === null ? max(1, $input->page) : 1;
+        // Unsorted reads continue after the last page id read. A property sort
+        // orders by a resolved value expression, so its reads continue from a
+        // sealed source position instead.
+        $keyset = $input->sort === null;
+        $result = resolve(PublicReadScanner::class)->scan(
+            fetch: static function (?array $after, int $limit) use ($query, $pages, $keyset): array {
+                $batch = $query->clone();
+
+                if ($keyset) {
+                    if ($after !== null) {
+                        $batch->where($pages . '.id', '>', (int) ($after['i'] ?? 0));
+                    }
+                } else {
+                    $batch->offset(min((int) ($after['o'] ?? 0), PublicReadScanner::MAX_POSITION));
+                }
+
+                $items = array_values(array_filter($batch->limit($limit)->get()->all(), static fn (mixed $page): bool => $page instanceof Page));
+                $start = (int) ($after['o'] ?? 0);
+                $positions = array_map(
+                    static fn (Page $page, int $index): array => $keyset ? ['i' => (int) $page->getKey()] : ['o' => $start + $index + 1],
+                    $items,
+                    array_keys($items),
+                );
+                $more = count($items) === $limit && ($keyset || $start + count($items) < PublicReadScanner::MAX_POSITION);
+
+                return ['items' => $items, 'positions' => $positions, 'after' => $positions === [] ? $after : $positions[array_key_last($positions)], 'more' => $more];
+            },
+            readable: function (array $items) use ($site, $input): array {
+                $readableIds = $this->readablePageIds($items, $site, $input->languageId);
+
+                return array_map(static fn (Page $page): bool => isset($readableIds[(int) $page->getKey()]), $items);
+            },
+            size: $input->size,
+            page: $page,
+            cursor: $cursor,
+        );
+
+        return new PublicReadPaginator(
+            items: new EloquentCollection($result->items),
+            perPage: $input->size,
+            currentPage: $page,
+            options: ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page[number]'],
+            nextToken: $result->next?->seal($context),
+            cursorName: 'page[cursor]',
+            fromCursor: $cursor instanceof PublicReadCursor,
+        );
+    }
+
+    /**
+     * @param  list<Page>  $pages  this page's results plus at most one more, which only signals a next page
+     * @return Paginator<int, Page>
+     */
+    private function paginator(array $pages, AgentPageQueryData $input): Paginator
+    {
+        return new Paginator(new EloquentCollection($pages), $input->size, max(1, $input->page), [
+            'path' => Paginator::resolveCurrentPath(),
+            'pageName' => 'page[number]',
+        ]);
+    }
+
+    /**
+     * @param  list<Page>  $pages
+     * @return array<int, true> keys of pages with at least one readable public address
+     */
+    private function readablePageIds(array $pages, Site $site, ?int $languageId): array
+    {
+        if ($pages === []) {
+            return [];
+        }
+
+        $urls = PageUrl::query()
+            ->where('pageable_type', (new Page)->getMorphClass())
+            ->whereIn('pageable_id', array_map(static fn (Page $page): int => (int) $page->getKey(), $pages))
+            ->with('siteDomain')
+            ->orderBy('id');
+        $this->constrainPublicUrls($urls, $site, $languageId);
+        $urls = array_values($urls->get()->all());
+        $readable = [];
+
+        foreach (PageUrlsArePubliclyReadableAction::run($urls) as $position => $isReadable) {
+            if ($isReadable) {
+                $readable[(int) $urls[$position]->pageable_id] = true;
+            }
+        }
+
+        return $readable;
+    }
+
+    /**
+     * @template TUrl of Model
+     *
+     * @param  Builder<TUrl>  $urls
+     */
+    private function constrainPublicUrls(Builder $urls, Site $site, ?int $languageId): void
+    {
+        $urls->where('site_id', $site->id)->where('status', true)
+            ->where(static fn (Builder $url): Builder => $url->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
+            ->whereHas('translation', static fn (Builder $translation): Builder => $translation
+                ->when($languageId !== null, static fn (Builder $locale): Builder => $locale->where('language_id', $languageId)))
+            ->whereHas('siteDomain', static fn (Builder $domain): Builder => $domain->where('status', true));
+        if ($languageId !== null) {
+            $urls->where('language_id', $languageId);
+        }
     }
 
     /**

@@ -48,13 +48,9 @@ class ContentFilamentWidget implements FilamentWidget
 
     private static function mediaUpload(): Field
     {
-        $field = MediaLibraryFileUpload::make('media')
+        // Stored names stay generated: an uploaded file's own name could
+        // overwrite another site's image in a shared directory.
+        return MediaLibraryFileUpload::make('media')
             ->label(__('capell-admin::widget.content_media'));
-
-        if (method_exists($field, 'preserveFilenames')) {
-            $field->preserveFilenames();
-        }
-
-        return $field;
     }
 }

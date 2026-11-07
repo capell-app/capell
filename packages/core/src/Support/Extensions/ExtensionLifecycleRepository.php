@@ -199,7 +199,8 @@ final class ExtensionLifecycleRepository
             return;
         }
 
-        CapellExtension::query()->where('composer_name', $name)->delete();
+        $extension = CapellExtension::query()->where('composer_name', $name)->first();
+        $extension?->delete();
     }
 
     public function clear(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function (): void {
     $this->workspace = new OwnedApplicationPaths(app());
@@ -13,6 +14,22 @@ beforeEach(function (): void {
 afterEach(function (): void {
     $this->workspace->restore();
 });
+
+it('prints one deprecation notice for each legacy command', function (string $legacy, string $canonical, array $arguments): void {
+    Artisan::call($legacy, $arguments);
+    $output = Artisan::output();
+    $notice = sprintf('%s is deprecated; use %s instead.', $legacy, $canonical);
+    expect(substr_count($output, $notice))->toBe(1);
+})->with([
+    ['capell:make-action', 'capell:make:action', ['name' => 'Example']],
+    ['capell:make-data', 'capell:make:data', ['name' => 'Example']],
+    ['capell:make-schema', 'capell:make:schema', ['name' => 'Example']],
+    ['capell:make-extender', 'capell:make:extender', ['name' => 'Example']],
+    ['capell:make-blueprint', 'capell:make:blueprint', ['name' => 'Example']],
+    ['capell:make-type', 'capell:make:blueprint', ['name' => 'Example']],
+    ['capell:make-extension', 'capell:make:extension', ['package' => 'INVALID']],
+    ['capell:make-theme', 'capell:make:theme', ['theme' => 'INVALID']],
+]);
 
 function prepareMakerCommandFilesystem(bool $fileExists = false): void
 {
@@ -73,7 +90,7 @@ it('routes capell make schema through the registered maker', function (): void {
 
 it('routes capell make blueprint through the registered maker', function (): void {
     prepareMakerCommandFilesystem();
-    $expectedPath = app_path('Blueprints/LandingPageBlueprint.php');
+    $expectedPath = app_path('Blueprints/LandingPage.php');
 
     artisanCommand('capell:make-blueprint', ['name' => 'LandingPage'])
         ->expectsOutputToContain($expectedPath)

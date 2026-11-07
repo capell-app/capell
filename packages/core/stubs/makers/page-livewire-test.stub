@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Livewire\{{ class }};
+
+require_once dirname(__DIR__, 3) . '/app/Livewire/{{ class }}.php';
+
+it('renders the {{ class }} Livewire view', function (): void {
+    view()->getFinder()->addLocation(dirname(__DIR__, 3) . '/resources/views');
+
+    expect((new {{ class }})->render()->render())->toContain('<section>');
+});

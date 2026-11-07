@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Scaffolding\ScaffoldPackageAction;
+use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Scaffolding\PackageScaffoldInputData;
 use Capell\Core\Enums\PackageScaffoldProfile;
@@ -15,12 +16,13 @@ use Symfony\Component\Console\Command\Command as CommandAlias;
 
 final class MakeExtensionCommand extends Command
 {
+    use DeprecatesMakerAliases;
     use DescribesCommandOptions;
 
     /** @var array<int, string> */
-    protected $aliases = ['capell:make:extension'];
+    protected $aliases = ['capell:make-extension'];
 
-    protected $signature = 'capell:make-extension
+    protected $signature = 'capell:make:extension
         {package? : Composer package name, for example vendor/example}
         {--name= : Human-readable display name}
         {--profile= : Scaffold profile: minimal or full}

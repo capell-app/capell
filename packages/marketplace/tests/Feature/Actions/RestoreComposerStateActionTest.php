@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Marketplace\Actions\CapturePreOperationPackageStateAction;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\SnapshotComposerStateAction;
 use Capell\Marketplace\Tests\Support\InMemoryComposerFilesystem;
@@ -72,7 +73,7 @@ it('restores the manifests and rebuilds vendor when the operation did change the
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
+        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts', '--no-plugins'], Mockery::type('string'))
         ->once()
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
@@ -110,4 +111,40 @@ it('throws rather than reporting a rollback it could not complete', function ():
 
     expect(fn (): bool => RestoreComposerStateAction::run($snapshot, 60))
         ->toThrow(RuntimeException::class, ComposerStateSnapshot::UNRECOVERABLE_MESSAGE);
+});
+
+it('reports a rollback as unproven when a changed package does not hold its pre-operation bytes', function (): void {
+    $previousBase = app()->basePath();
+    $root = sys_get_temp_dir() . '/marketplace-restore-bytes-' . bin2hex(random_bytes(8));
+    $packageDir = $root . '/vendor/vendor/restored-extension';
+    mkdir($root . '/vendor/composer', 0777, true);
+    mkdir($packageDir, 0777, true);
+    file_put_contents($root . '/composer.json', '{"require":{}}');
+    file_put_contents($root . '/composer.lock', '{"packages":[]}');
+    file_put_contents($root . '/vendor/composer/installed.json', json_encode(['packages' => [
+        ['name' => 'vendor/restored-extension', 'version' => '1.0.0', 'install-path' => '../vendor/restored-extension'],
+    ]], JSON_THROW_ON_ERROR));
+    file_put_contents($packageDir . '/capell.json', '{"name":"vendor/restored-extension"}');
+    file_put_contents($packageDir . '/Code.php', '<?php // original');
+    app()->setBasePath($root);
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->never();
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    try {
+        $snapshot = ComposerStateSnapshot::capture(new Filesystem, $root);
+        $before = CapturePreOperationPackageStateAction::run();
+        expect($before->contentHashes)->toHaveKey('vendor/restored-extension');
+        $expected = ['vendor/restored-extension' => $before->contentHashes['vendor/restored-extension'], 'vendor/added-by-operation' => null];
+
+        // One byte changed after the rollback: the restore must not vouch for it.
+        file_put_contents($packageDir . '/Code.php', '<?php // originaL');
+        expect(RestoreComposerStateAction::run($snapshot, 60, $expected))->toBeFalse();
+
+        file_put_contents($packageDir . '/Code.php', '<?php // original');
+        expect(RestoreComposerStateAction::run($snapshot, 60, $expected))->toBeTrue();
+    } finally {
+        app()->setBasePath($previousBase);
+        new Filesystem()->deleteDirectory($root);
+    }
 });

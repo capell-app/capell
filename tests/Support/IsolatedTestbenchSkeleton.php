@@ -19,15 +19,17 @@ use RuntimeException;
  * prompts InstallCommand and SetupCommand ask). When shards or Paratest workers run at the same
  * time they see each other's files, and the interactive-prompt expectations fail at random.
  *
- * Each process boots from var/testbench-skeletons/<token>, outside Pest's test discovery tree.
+ * Each process boots from a disposable directory outside the repository.
  * Everything is copied — crucially app/ and bootstrap/cache/ — except storage/, which is recreated
  * as an empty directory tree because the shared one accumulates gigabytes of test artefacts. The
- * copy contains no symlinks: TailwindAssetsGenerator (and friends) resolve realpath() and reject
- * paths that escape the project.
+ * Skeleton symlinks are omitted; vendor and public/storage are linked to their owned targets.
+ * If linking fails, the checkout vendor tree and empty public storage are copied instead.
  */
 final class IsolatedTestbenchSkeleton
 {
-    private const string OwnerMarker = '.capell-skeleton-owner';
+    private const string OwnerMarker = '.capell-skeleton';
+
+    private const string Prefix = 'capell-testbench-';
 
     /**
      * Directories recreated empty rather than copied, relative to the skeleton root.
@@ -54,15 +56,16 @@ final class IsolatedTestbenchSkeleton
 
     private static ?string $preparedPath = null;
 
+    private static ?int $preparedPid = null;
+
     /**
      * Resolve the base path this process should boot the Laravel application from.
      *
-     * Returns the shared skeleton when the process is not part of a parallel run — a single
-     * process cannot race itself.
+     * Serial and parallel processes both need isolation from other worktrees and runs.
      */
     public static function basePath(): string
     {
-        if (self::$preparedPath !== null) {
+        if (self::$preparedPath !== null && self::$preparedPid === getmypid()) {
             return self::$preparedPath;
         }
 
@@ -72,9 +75,8 @@ final class IsolatedTestbenchSkeleton
 
         $token = self::token();
 
-        if ($token === null) {
-            return self::$preparedPath = $sourcePath;
-        }
+        // Every process needs its own skeleton, including ordinary serial runs.
+        $token = ($token ?? 'serial') . '-' . bin2hex(random_bytes(8));
 
         // The directory name keeps the word "testbench": application code guards such as
         // ClearCachesAction::shouldSkipOptimizeClearForTestbench() recognise a Testbench skeleton
@@ -93,6 +95,8 @@ final class IsolatedTestbenchSkeleton
             }
         });
 
+        self::$preparedPid = getmypid() ?: null;
+
         return self::$preparedPath = $targetPath;
     }
 
@@ -101,7 +105,7 @@ final class IsolatedTestbenchSkeleton
      * (killed or crashed). Only directories untouched for longer than any plausible
      * run are removed, so a concurrent suite's live skeletons survive.
      */
-    public static function removeStaleSkeletons(string $directory, ?string $keep = null, int $staleAfterSeconds = 21600): int
+    public static function removeStaleSkeletons(string $directory, ?string $keep = null, int $staleAfterSeconds = 21600, ?callable $isAlive = null): int
     {
         $entries = is_dir($directory) ? scandir($directory) : false;
 
@@ -114,11 +118,7 @@ final class IsolatedTestbenchSkeleton
         $cutoff = CarbonImmutable::now()->getTimestamp() - $staleAfterSeconds;
 
         foreach ($entries as $entry) {
-            if ($entry === '.') {
-                continue;
-            }
-
-            if ($entry === '..') {
+            if (! str_starts_with($entry, self::Prefix)) {
                 continue;
             }
 
@@ -136,7 +136,7 @@ final class IsolatedTestbenchSkeleton
                 continue;
             }
 
-            if (self::isStale($path, $cutoff)) {
+            if (self::isStale($path, $cutoff, $isAlive)) {
                 self::delete($path);
                 $removed++;
             }
@@ -145,22 +145,24 @@ final class IsolatedTestbenchSkeleton
         return $removed;
     }
 
-    /**
-     * A skeleton records its owning PID. Its top-level mtime freezes once it is
-     * prepared, so age alone would delete a long run's live skeleton; age only
-     * decides for legacy skeletons that have no owner marker.
-     */
-    private static function isStale(string $path, int $cutoff): bool
+    /** Only a valid marker for this checkout permits pruning. */
+    private static function isStale(string $path, int $cutoff, ?callable $isAlive): bool
     {
-        $owner = @file_get_contents($path . '/' . self::OwnerMarker);
+        $markerPath = $path . '/' . self::OwnerMarker;
+        if (is_link($markerPath) || ! is_file($markerPath)) {
+            return false;
+        }
 
-        if (is_string($owner) && preg_match('/\A[1-9]\d*\z/', trim($owner)) === 1) {
-            return ! self::processIsAlive((int) trim($owner));
+        $marker = @file_get_contents($markerPath);
+        $owner = is_string($marker) ? json_decode($marker, true) : null;
+        $checkout = realpath(dirname(__DIR__, 2));
+        if (! is_array($owner) || ! is_string($checkout) || ($owner['checkout'] ?? null) !== $checkout || ! is_int($owner['pid'] ?? null) || $owner['pid'] <= 0) {
+            return false;
         }
 
         $modifiedAt = filemtime($path);
 
-        return $modifiedAt !== false && $modifiedAt < $cutoff;
+        return $modifiedAt !== false && $modifiedAt < $cutoff && ! ($isAlive ?? self::processIsAlive(...))($owner['pid']);
     }
 
     private static function processIsAlive(int $pid): bool
@@ -175,9 +177,42 @@ final class IsolatedTestbenchSkeleton
     private static function pathForToken(string $token): string
     {
         $root = getenv('CAPELL_TESTBENCH_SKELETON_ROOT');
-        $root = is_string($root) && $root !== '' ? rtrim($root, DIRECTORY_SEPARATOR) : dirname(__DIR__, 2) . '/var/testbench-skeletons';
+        $root = is_string($root) && $root !== '' ? rtrim($root, DIRECTORY_SEPARATOR) : sys_get_temp_dir() . '/capell-testbench-skeletons-' . hash('sha256', (string) realpath(dirname(__DIR__, 2)));
 
-        return $root . DIRECTORY_SEPARATOR . $token;
+        return self::withoutSymlinkComponents($root) . DIRECTORY_SEPARATOR . self::Prefix . $token;
+    }
+
+    /**
+     * Resolve the existing part of a path through realpath() and reattach the rest.
+     *
+     * The skeleton becomes the application base path, and ReleaseRootWriteGuard refuses a
+     * release root that traverses a symlink (an atomic current-release link). macOS keeps
+     * sys_get_temp_dir() under /var, itself a symlink to /private/var, so an unresolved root
+     * made every release-root write in the suite refuse on developer machines.
+     */
+    private static function withoutSymlinkComponents(string $path): string
+    {
+        $missing = [];
+        $existing = $path;
+
+        while (! is_dir($existing)) {
+            $parent = dirname($existing);
+
+            if ($parent === $existing) {
+                return $path;
+            }
+
+            array_unshift($missing, basename($existing));
+            $existing = $parent;
+        }
+
+        $resolved = realpath($existing);
+
+        if ($resolved === false) {
+            return $path;
+        }
+
+        return rtrim($resolved, DIRECTORY_SEPARATOR) . ($missing === [] ? '' : DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $missing));
     }
 
     /**
@@ -204,13 +239,14 @@ final class IsolatedTestbenchSkeleton
         return is_string($sanitised) && $sanitised !== '' ? $sanitised : null;
     }
 
-    private static function prepare(string $sourcePath, string $targetPath): void
+    private static function prepare(string $sourcePath, string $targetPath, ?callable $link = null, ?string $vendorPath = null): void
     {
-        self::delete($targetPath);
+        $vendorPath ??= dirname(__DIR__, 2) . '/vendor';
+        $link ??= static fn (string $source, string $target): bool => @symlink($source, $target);
 
-        throw_if(! is_dir($targetPath) && ! mkdir($targetPath, 0o777, true) && ! is_dir($targetPath), RuntimeException::class, sprintf('Unable to create the isolated Testbench skeleton at [%s].', $targetPath));
+        throw_if(! @mkdir($targetPath, 0o777, true), RuntimeException::class, sprintf('Unable to create the isolated Testbench skeleton at [%s].', $targetPath));
 
-        file_put_contents($targetPath . '/' . self::OwnerMarker, (string) getmypid());
+        throw_if(file_put_contents($targetPath . '/' . self::OwnerMarker, json_encode(['checkout' => realpath(dirname(__DIR__, 2)), 'pid' => getmypid()], JSON_THROW_ON_ERROR)) === false, RuntimeException::class, sprintf('Unable to mark the isolated Testbench skeleton at [%s].', $targetPath));
 
         $entries = scandir($sourcePath);
 
@@ -225,7 +261,15 @@ final class IsolatedTestbenchSkeleton
                 continue;
             }
 
+            if ($entry === self::OwnerMarker) {
+                continue;
+            }
+
             if ($entry === 'storage') {
+                continue;
+            }
+
+            if ($entry === 'vendor') {
                 continue;
             }
 
@@ -238,33 +282,42 @@ final class IsolatedTestbenchSkeleton
             throw_if(! is_dir($path) && ! mkdir($path, 0o777, true) && ! is_dir($path), RuntimeException::class, sprintf('Unable to create the directory [%s].', $path));
         }
 
+        // Testbench and Composer actions must resolve the current checkout's loader.
+        if (! $link($vendorPath, $targetPath . '/vendor')) {
+            self::copy($vendorPath, $targetPath . '/vendor', true);
+        }
+
         // Re-point the storage link at this copy's storage rather than the shared skeleton's.
-        if (is_dir($targetPath . '/public')) {
-            symlink($targetPath . '/storage/app/public', $targetPath . '/public/storage');
+        if (is_dir($targetPath . '/public') && ! file_exists($targetPath . '/public/storage') && ! is_link($targetPath . '/public/storage')) {
+            if (! $link($targetPath . '/storage/app/public', $targetPath . '/public/storage')) {
+                self::copy($targetPath . '/storage/app/public', $targetPath . '/public/storage', true);
+            }
         }
     }
 
-    private static function copy(string $source, string $target): void
+    /** @param list<string> $ancestors */
+    private static function copy(string $source, string $target, bool $followLinks = false, array $ancestors = []): void
     {
         // Symlinks in the skeleton (public/storage) point back at the shared skeleton, which would
         // re-introduce cross-process sharing. They are recreated against the copy instead.
-        if (is_link($source)) {
+        // The package skeleton's vendor link points back to the tree being copied.
+        if (is_link($source) && (! $followLinks || str_ends_with(str_replace('\\', '/', $source), '/orchestra/testbench-core/laravel/vendor'))) {
             return;
         }
 
         if (! is_dir($source)) {
-            copy($source, $target);
+            throw_if(! @copy($source, $target), RuntimeException::class, sprintf('Unable to copy [%s] to [%s].', $source, $target));
 
             return;
         }
 
         throw_if(! is_dir($target) && ! mkdir($target, 0o777, true) && ! is_dir($target), RuntimeException::class, sprintf('Unable to create the directory [%s].', $target));
 
-        $entries = scandir($source);
-
-        if ($entries === false) {
-            return;
-        }
+        $resolved = realpath($source);
+        throw_if($resolved === false || in_array($resolved, $ancestors, true), RuntimeException::class, sprintf('Unable to copy cyclic or inaccessible directory [%s].', $source));
+        $ancestors[] = $resolved;
+        $entries = @scandir($source);
+        throw_if($entries === false, RuntimeException::class, sprintf('Unable to read directory [%s].', $source));
 
         foreach ($entries as $entry) {
             if ($entry === '.') {
@@ -275,7 +328,7 @@ final class IsolatedTestbenchSkeleton
                 continue;
             }
 
-            self::copy($source . '/' . $entry, $target . '/' . $entry);
+            self::copy($source . '/' . $entry, $target . '/' . $entry, $followLinks, $ancestors);
         }
     }
 

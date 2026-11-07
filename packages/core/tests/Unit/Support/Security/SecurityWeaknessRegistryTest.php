@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
+use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
 use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
 use Capell\Core\Support\Security\Checks\KeyMissingCheck;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
+use Capell\Core\Tests\Support\Security\TestRemediation;
+use Illuminate\Container\Container;
 
 it('freezes registrations, reopening only during package installation', function (): void {
     $registry = new SecurityWeaknessRegistry;
@@ -18,11 +21,16 @@ it('freezes registrations, reopening only during package installation', function
         ->and(fn (): SecurityWeaknessRegistry => $registry->registerCheck(new KeyMissingCheck))->toThrow(LogicException::class);
 });
 
-it('rejects duplicate weakness registrations', function (): void {
+it('allows the same owner to replace registrations and rejects a different owner', function (): void {
     $registry = new SecurityWeaknessRegistry;
-    $registry->registerCheck(new DebugEnabledCheck);
+    $first = new DebugEnabledCheck;
+    $replacement = new DebugEnabledCheck;
+    $registry->registerCheck($first, 'OwnerA');
+    $registry->registerCheck($replacement, 'OwnerA');
 
-    expect(fn (): SecurityWeaknessRegistry => $registry->registerCheck(new DebugEnabledCheck))->toThrow(InvalidArgumentException::class);
+    expect($registry->check('app.debug_enabled'))->toBe($replacement)
+        ->and(fn (): SecurityWeaknessRegistry => $registry->registerCheck($first, 'OwnerB'))
+        ->toThrow(InvalidArgumentException::class, 'OwnerA and cannot be replaced by OwnerB');
 });
 
 it('rejects malformed weakness IDs', function (): void {
@@ -35,4 +43,35 @@ it('rejects weakness IDs longer than the database column', function (): void {
     $check = Mockery::mock(SecurityWeaknessCheck::class);
     $check->shouldReceive('weaknessId')->andReturn(str_repeat('a', 121));
     expect(fn (): SecurityWeaknessRegistry => (new SecurityWeaknessRegistry)->registerCheck($check))->toThrow(InvalidArgumentException::class);
+});
+
+it('enforces ownership independently for remediations', function (): void {
+    $registry = new SecurityWeaknessRegistry;
+    $first = new TestRemediation;
+    $replacement = new TestRemediation;
+    $registry->registerRemediation($first, 'OwnerA');
+    $registry->registerRemediation($replacement, 'OwnerA');
+
+    expect($registry->remediation('app.debug_enabled'))->toBe($replacement)
+        ->and(fn (): SecurityWeaknessRegistry => $registry->registerRemediation($first, 'OwnerB'))
+        ->toThrow(InvalidArgumentException::class, 'OwnerA and cannot be replaced by OwnerB');
+});
+
+it('adopts tagged checks and remediations once per class and keeps an existing registration', function (): void {
+    $container = new Container;
+    $container->tag([DebugEnabledCheck::class, DebugEnabledCheck::class, KeyMissingCheck::class], SecurityWeaknessCheck::TAG);
+    $container->tag([TestRemediation::class, TestRemediation::class], SecurityWeaknessRemediation::TAG);
+
+    $registry = new SecurityWeaknessRegistry;
+    $existing = new KeyMissingCheck;
+    $registry->registerCheck($existing);
+
+    $registry->adoptTagged($container);
+    $registry->adoptTagged($container);
+
+    expect(array_keys($registry->checks()))->toBe(['app.key_missing', 'app.debug_enabled'])
+        ->and($registry->check('app.key_missing'))->toBe($existing)
+        ->and($registry->check('app.debug_enabled'))->toBeInstanceOf(DebugEnabledCheck::class)
+        ->and(array_keys($registry->remediations()))->toBe(['app.debug_enabled'])
+        ->and($registry->remediation('app.debug_enabled'))->toBeInstanceOf(TestRemediation::class);
 });

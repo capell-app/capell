@@ -205,7 +205,7 @@ function bindSetupRemoveProcessFactory(): void
         ->shouldReceive('make')
         ->once()
         ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']),
+            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-plugins', '--no-audit', '--no-progress']),
             Mockery::type('string'),
         )
         ->andReturn($process);
@@ -617,6 +617,71 @@ it('renders a post-install launchpad for first admin onboarding', function (): v
     expect(domCount($page, '//*[@data-remove-installer-form]'))->toBe(1);
     expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " completion-success-panel ")]/preceding::*[@data-remove-installer-form]'))->toBe(1);
 });
+it('tells an install that kept an existing administrator to sign in with it and how to create the first page', function (): void {
+    CapellCore::forcePackageInstalled('capell-app/admin');
+    $resolver = Mockery::mock(AdminPanelUrlResolver::class);
+    $resolver->shouldReceive('resolve')->andReturn('https://example.test/admin');
+    app()->instance(AdminPanelUrlResolver::class, $resolver);
+    $installId = '7b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.success', $installId), [
+        'primaryAdmin' => 'Ben Johnson <ben@example.com>',
+        'roleUsersCreated' => false,
+        'existingAccount' => true,
+        'adminEmail' => null,
+        'demoContent' => false,
+        'selectedThemeKey' => null,
+        'selectedPackages' => ['capell-app/core', 'capell-app/admin'],
+    ]);
+
+    $html = withSession(installerAccessSessionData($installId))
+        ->get(route('capell-installer.success', ['installId' => $installId]))
+        ->assertOk()
+        ->assertSee(__('capell-installer::installer.launchpad_message_existing_account'))
+        ->assertDontSee(__('capell-installer::installer.launchpad_message'))
+        ->assertDontSee(__('capell-installer::installer.launchpad_check_pages'))
+        ->assertSee('with your existing administrator account')
+        ->assertSee('Create a site under Admin')
+        ->assertSee(__('capell-installer::installer.launchpad_first_page_guide'))
+        ->content();
+
+    $page = installerMarkup($html);
+    expect(domCount($page, '//li[@data-handoff-tip="sign_in"]'))->toBe(1)
+        ->and(domCount($page, '//li[@data-handoff-tip="first_page"]'))->toBe(1)
+        ->and(installerElement($page, '//a[contains(@href, "create-your-first-page")]')->getAttribute('href'))->toBe('https://docs.capell.app/getting-started/create-your-first-page/');
+});
+
+it('names the new administrator email and asks for the frontend build before the first page when assets were not built', function (): void {
+    CapellCore::forcePackageInstalled('capell-app/admin');
+    $resolver = Mockery::mock(AdminPanelUrlResolver::class);
+    $resolver->shouldReceive('resolve')->andReturn('https://example.test/admin');
+    app()->instance(AdminPanelUrlResolver::class, $resolver);
+    $installId = '8b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.completed_steps', $installId), [InstallPlan::STEP_MARK_CORE_INSTALLED]);
+    Cache::put(sprintf('capell.install.%s.success', $installId), [
+        'primaryAdmin' => 'Ben Johnson <ben@example.com>',
+        'roleUsersCreated' => false,
+        'existingAccount' => false,
+        'adminEmail' => 'ben@example.com',
+        'demoContent' => false,
+        'selectedThemeKey' => null,
+        'selectedPackages' => ['capell-app/core', 'capell-app/admin', 'capell-app/frontend'],
+    ]);
+
+    $html = withSession(installerAccessSessionData($installId))
+        ->get(route('capell-installer.success', ['installId' => $installId]))
+        ->assertOk()
+        ->assertSee(__('capell-installer::installer.launchpad_message'))
+        ->assertSee('capell:frontend-after-install')
+        ->assertSee('as ben@example.com')
+        ->content();
+
+    $page = installerMarkup($html);
+    expect(domCount($page, '//li[@data-handoff-tip="frontend_build"]'))->toBe(1)
+        ->and(domCount($page, '//li[@data-handoff-tip="first_page"]'))->toBe(0);
+});
+
 it('renders progress loading and failure regions with an expanded technical log', function (): void {
     $page = installerShowMarkup();
     foreach (['progress-loader', 'current-step-strip', 'failure-panel', 'technical-log-panel'] as $region) {

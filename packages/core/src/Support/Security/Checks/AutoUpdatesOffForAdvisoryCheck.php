@@ -39,6 +39,15 @@ final class AutoUpdatesOffForAdvisoryCheck implements SecurityWeaknessCheck
                 continue;
             }
 
+            $advisories = [];
+            foreach ($inventory->advisories as $item) {
+                if ($item->composerName === $advisory->composerName) {
+                    $advisories[] = ['id' => $item->identifier, 'affected_versions' => $item->affectedVersions, 'fixed_version' => $item->fixedVersion];
+                }
+            }
+
+            usort($advisories, static fn (array $a, array $b): int => strcmp(json_encode($a, JSON_THROW_ON_ERROR), json_encode($b, JSON_THROW_ON_ERROR)));
+
             $findings[$advisory->composerName] = new SecurityWeaknessFindingData(
                 weaknessId: $this->weaknessId(),
                 fingerprint: SecurityWeaknessFindingData::fingerprintFor($this->weaknessId(), $advisory->composerName),
@@ -46,6 +55,7 @@ final class AutoUpdatesOffForAdvisoryCheck implements SecurityWeaknessCheck
                 source: SecurityFindingSource::Builtin,
                 title: __('capell-core::security.extension.auto_updates_off_for_advisory.title'),
                 summary: __('capell-core::security.extension.auto_updates_off_for_advisory.summary'),
+                evidence: ['package' => $package->composerName, 'installed_version' => $package->version, 'update_policy' => $package->autoUpdatePolicy, 'advisories' => $advisories],
                 composerName: $advisory->composerName,
                 remediable: true,
                 recommendedAction: __('capell-core::security.extension.auto_updates_off_for_advisory.action'),

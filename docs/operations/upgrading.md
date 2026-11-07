@@ -1,5 +1,92 @@
 # Upgrading Capell
 
+## Admin route ownership, export downloads and Livewire snapshots
+
+This Admin update decides who serves a route, an export or an import from one fact recorded when each
+is created, and refuses anything it cannot prove.
+
+- **Routes.** As each route is added to the router it records its ownership: the panel whose route
+  group registered it (Filament's panel groups, or Core's `AdminRouteProvenance::panel()` for Capell's
+  own admin routes) with the domain it was registered on, public admin code (Livewire's endpoints, signed
+  previews, Filament's global downloads), the host application's own route, or refused. `route:cache`
+  stores the record, so serving reads it and never re-derives ownership. Refused with 503: admin code
+  no panel registered; a route registered for a panel that is not installed, or for a panel served on
+  its own domains without one of those domains; and a route given a panel's name, middleware or another
+  domain after it was registered.
+- **Package admin routes.** Register a package's panel routes inside the panel's route group
+  (`$panel->routes()` or `$panel->authenticatedRoutes()`), not by naming them afterwards.
+  `$panel->routes()` is Filament's unauthenticated group: OAuth callbacks, SSO redirects and custom
+  sign-in controllers outside admin code keep serving guests unless they declare authentication.
+  Panel-owned admin pages and controllers require the panel's authentication even in this group,
+  including application and plugin subclasses of `Filament\Pages\SimplePage` or other Filament pages.
+  Filament's `Login`, `RequestPasswordReset`, `ResetPassword` and `Register` pages (and their subclasses)
+  keep serving guests. Public framework endpoints keep their exemption only outside authenticated groups.
+  Custom magic-link or OTP sign-in, invitation acceptance and SSO provider picker pages must explicitly
+  declare guests. The boot log warns once per route-table signature and `capell:doctor`
+  (`admin.routes.ownership`) lists pages that gain authentication and the remedy.
+  Wrap only the guest pages in `AdminRouteProvenance::panel($id, ..., guests: true)` inside `->routes()`:
+
+    ```php
+    use Capell\Admin\Support\AdminRouteProvenance;
+    use Illuminate\Support\Facades\Route;
+
+    $panel->routes(static function (\Filament\Panel $panel): void {
+        AdminRouteProvenance::panel($panel->getId(), static function (): void {
+            Route::get('magic-link', \App\Filament\Pages\MagicLink::class);
+        }, guests: true);
+    });
+    ```
+
+    Guest declarations retain package middleware and skip the panel's sign-in.
+    Routes that already authenticate retain that requirement even when middleware is excluded;
+    exclusions that remove required security refuse the route with 503.
+    A package route that the Capell admin serves outside Filament's pages registers through
+    `AdminRouteProvenance::entrypoint()`, which places it under the admin path and on the admin domain
+    and runs the admin panel's stack and sign-in. `AdminRouteProvenance::panel($id, ...)` declares a
+    different panel. Both declarations refuse requests until Capell has synchronised that panel;
+    registering it with Filament alone is insufficient. `guests: true` skips sign-in for routes
+    credentialed by a URL signature, while retaining package middleware.
+
+- **Application routes.** Undeclared application or package routes under a non-root panel path are
+  unclassified and refused with 503. Wrap application routes that deliberately share that path in
+  `AdminRouteProvenance::host(static function (): void { ... })`. These declared host routes run their
+  own middleware and are reported as collisions in the boot log and by `capell:doctor`
+  (`admin.routes.ownership`). A `Route::livewire()` page is classified by its resolved component,
+  rather than Livewire's page controller: application components keep serving as ordinary application
+  routes, subject to the same panel-path rule. Pages, controllers and components in admin code still
+  require panel ownership, including inside a host declaration; recorded ownership, panel names and
+  panel middleware continue to protect panel routes.
+- **Route cache.** A route cache built by an earlier release carries no ownership record. Ordinary
+  application controllers and Livewire page routes serving application components keep serving outside
+  panel paths. Filament sign-in pages require a verified page class and a synchronised panel; a sign-in
+  route name alone grants no exemption. Livewire asset routes stored as closures in a route cache built by an earlier release are unclassified
+  and refused until the cache is rebuilt. Livewire assets served from the live route table or a rebuilt
+  cache are recognised normally. Other closures and unattributable admin
+  actions are refused until the cache is rebuilt, and the application logs a critical error with the
+  commands. An unverifiable cached action must be resolved by rebuilding the cache, rather than adding
+  a name or URI exemption. `capell:upgrade` fails at the `capell-admin.route-cache-ownership` step and
+  `capell:doctor` reports `admin.routes.ownership` while the cache is stale. Rebuild the route cache on
+  every node with `php artisan route:clear && php artisan route:cache` (or `capell:runtime-refresh`) as
+  part of the deploy, before the release takes traffic.
+- **Export and import downloads.** Each export and import records the panel, host and port it was
+  started on in `admin_transfer_origins`. Run the normal upgrade flow to migrate the table before
+  serving requests. A download is served only by that panel, on that host and port. Exports and imports
+  created before the upgrade, or in a panel that no longer exists or that Capell does not extend, are
+  refused with a message asking the user to run the export or import again.
+- **Livewire snapshots.** A Livewire update must carry the signed record of the route that rendered
+  the component, so components rendered before the upgrade answer "page expired" and reload. Open
+  admin tabs need one reload. `capell:upgrade` runs the
+  `capell-admin.livewire-snapshot-rendering-routes` step, which, when the HTML cache package is
+  installed, checks the edge purge configuration (`capell:html-cache:edge-purge:verify`) and then
+  regenerates every stored page in the upgrade process (`capell:html-cache:clear --process`), purging
+  each page from the edge as it is written. If either command fails, the step fails the upgrade with the
+  command output and the commands that finish the refresh: run
+  `php artisan capell:html-cache:process-stale` until it reports no failures, then
+  `php artisan capell:html-cache:edge-purge:verify`, and run the upgrade again. Run `capell:upgrade`
+  against the new release before switching traffic to it, as described in
+  [Deploys and cache refresh](deploy-and-cache-refresh.md#refresh-public-html-in-the-right-order).
+  Regenerate static HTML exports (`capell:generate-html`) after upgrading.
+
 ## Admin upload ownership registry
 
 This Admin update adds `admin_upload_grants`; it does not alter existing content
@@ -79,6 +166,11 @@ another operation has since advanced the installed version. Request a fresh upda
 authorisation for the current installation; retrying the same unsafe constraint
 does not bypass the check. These changes require no schema or stored payload
 migration.
+
+### Install verification
+
+Marketplace acquisition runs Composer without plugins or scripts, then checks the requested package and new or version-changed dependencies before lifecycle work, migrations and provider activation. This does not isolate Composer's own execution or prevent other processes observing the changed vendor tree before verification.
+A failed check stops the operation and restores Composer state. See [install verification](../packages/extension-lifecycle.md#install-verification) for policy and recovery guidance.
 
 ## Admin view escaping fixes
 

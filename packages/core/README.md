@@ -54,7 +54,7 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 - Provider: `Capell\Core\Providers\CapellServiceProvider`
 - Config: `config/capell.php`, `config/redirects.php`
 - Main models: `Page`, `PageUrl`, `Site`, `SiteDomain`, `Language`, `Layout`, `Theme`, `Blueprint`, `Media`, `CapellExtension`, `UpgradeLogEntry`
-- Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make-*`
+- Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make:<thing>`
 - Test case support: `Capell\Core\Testing\ExtensionTestHarness`
 
 Type terminology survives only in compatibility APIs such as `PageTypeData`. New docs and UI copy should prefer Blueprint unless they are documenting one of those compatibility APIs.
@@ -71,7 +71,7 @@ Use these extension points instead of patching first-party models or providers:
 | Subscribe to lifecycle events              | `SubscriberManager::subscribe()`                                |
 | Register cache dependencies                | `CacheInvalidationRegistry::registerDependency()`               |
 | Register Tailwind source/import metadata   | `TailwindAssetsRegistry::registerSource()` / `registerImport()` |
-| Create package files from project patterns | `capell:make-*` maker commands                                  |
+| Create package files from project patterns | `capell:make:<thing>` maker commands                            |
 
 When adding a Core migration, also append it to `src/Concerns/HasMigrations.php`; otherwise package installs can miss the migration.
 
