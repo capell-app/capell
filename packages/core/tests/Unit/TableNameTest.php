@@ -295,6 +295,20 @@ PHP);
         }
     })->with(['genuine shipped bytes' => [true], 'edited bytes' => [false]]);
 
+    it('authenticates a retained vendor publication from a supported older release', function (bool $genuine): void {
+        $recorded = '2026_05_10_190824_create_permission_tables';
+        $published = database_path('migrations/' . $recorded . '.php');
+        $shipped = (string) file_get_contents(__DIR__ . '/../fixtures/table-naming/legacy/create_permission_tables-6.25.0.php.stub');
+        file_put_contents($published, $genuine ? $shipped : $shipped . "\n// host edit\n");
+        DB::table('migrations')->insert(['migration' => $recorded, 'batch' => 1]);
+
+        try {
+            expect(TableName::migrationRecorded('create_permission_tables'))->toBe($genuine);
+        } finally {
+            File::delete($published);
+        }
+    })->with(['genuine shipped bytes' => [true], 'edited bytes' => [false]]);
+
     it('records the bytes of every current foundation create migration', function (): void {
         $root = dirname(__DIR__, 4);
         foreach (['admin', 'core', 'frontend', 'installer', 'marketplace'] as $package) {

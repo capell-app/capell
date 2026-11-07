@@ -16,6 +16,13 @@
             "f8bd97448dba340946ec3051f5b36380e3b3c5a5b686c27c5fd4487ec8aec4ff"
         ]
     },
+    "create_activity_log_table": {
+        "names": [],
+        "sha256": [
+            "bcacb1b073a31aa6554d8ecbbeac5711bac5659a95c792ac2e37bb686dfcb5b1",
+            "f5831d7da58f37e85aa2d6b5e62c23c0e5576f55f41a2b577cf12790fe06f20c"
+        ]
+    },
     "create_activity_visitors_table": {
         "names": [
             "2026_08_18_000001_create_activity_visitors_table"
@@ -347,6 +354,15 @@
             "f2866275d5c73a3fd78c4d053cd0e0ce18e14835fbde6f8a7e494f5b493f720c"
         ]
     },
+    "create_media_table": {
+        "names": [],
+        "sha256": [
+            "6367d9461ca440e696e37c6be525b73c64520b05c73a33fe46def5f54840e4f2",
+            "b0d925a5ab55f01b9e10be8e3c16b4258b060d87f83d72580c6189f4ca2e12be",
+            "b36943c5e29e55415b283d3d7fa0ebfe9e4dc0583e2a0e32d7829b3204cc5798",
+            "f064a5b9813016ccc433ba1369fef66e0c63d1fd68796b612ef649e2bb66f608"
+        ]
+    },
     "create_messages_table": {
         "names": [],
         "sha256": [
@@ -542,6 +558,19 @@
             "f871d42a5388e0735ccd3b39476586cb6108f67e79b886d17dbb27ae5f59f863"
         ]
     },
+    "create_permission_tables": {
+        "names": [],
+        "sha256": [
+            "2d65f67db820deeeeb42d0088b4a612914de28b6da77f8a37b8b13de2ce8669d",
+            "92c96ef5a582985181350e3f590afb29beb2e27a22eea1f1d76cb126c45d63af",
+            "9be723cec2a8625506c8e0073a4bbabca1fbb08dbbbfb67ab55fe3e93d7298f0",
+            "b2d2f092bd4af62169173b061c2e0007cbdb45abf0bb613e8bc0bdb8b3fc84ea",
+            "b80377e9f377ce0cb375ea3383666c6dc5d8e884f2172b7cd1b6bfd023ded6d1",
+            "bd097ba10f37a131a9a8885ed4723387521a2f222f636b37b911e7b9ed34eec2",
+            "cd48a2127375ef66f5dfeb60844ed1c3af7a0deebdc0bdd87e74743613e5e0a3",
+            "cf12ffd4d79b1a94c2f59873a490960cd7e39b7c98046c544ea2a22f92804377"
+        ]
+    },
     "create_plugins_table": {
         "names": [
             "2026_01_01_000015_create_plugins_table"
@@ -618,6 +647,16 @@
             "434e286ac6e2c049090700dcfea2410b130f3bff116ab54796ea80ee6ddfab53"
         ]
     },
+    "create_settings_table": {
+        "names": [],
+        "sha256": [
+            "45056bd5e5399a9ddd8e6c4d52067dceb13b8d3410524e3dc593c547a3721bb9",
+            "a2e2fe93b4736745134b71c9a22ad4b5725e215d2650e271653fb01c6fdbed39",
+            "a4cae301c9f1ff99921998da7435ac9de9be6cba4a1305fe212d87b95883cfdd",
+            "a947ebb3f780d197a8f54b7cf126a46fd2e52943e0f30ed9cc040f5b923e4308",
+            "bd9bd3319ce59828e43fcac3f45484954914f3df4382175aefa0a10d46a359e5"
+        ]
+    },
     "create_site_domain_claim_locks_table": {
         "names": [
             "2026_10_24_000001_create_site_domain_claim_locks_table"
@@ -671,6 +710,15 @@
         "sha256": [
             "68a17af1969182ff88ab4e2b819bef9a7d1a7af2252b1f9d8de25a31011c05f6",
             "cc9026e80106d92b630e3557dd0d6c3cdf45f61a04789d514cb450663cfd23f0"
+        ]
+    },
+    "create_tag_tables": {
+        "names": [],
+        "sha256": [
+            "45c470d91cea3dc3bb1926ef88e81708b9f61394ec0182c93cf6699415d07a77",
+            "4697a7635b69c23736c380c566a443b172074a246ac6523886810dbb4a12c7c6",
+            "82c7e2832b9a18e9c38235a074fb2829b3494fa6bcf2f6a8c3c223b084821be7",
+            "fe184cc5a70ff93b8ed66da7ba8037af3ded4e2335cb0f5996b2f0a292395b17"
         ]
     },
     "create_taxonomies_table": {
