@@ -51,6 +51,28 @@ pre-commit run check-added-large-files
 The Node run passed four tests. The manifest and documentation checks completed
 without reporting drift. The real staged size hook passed on the prepared merge.
 
+### Check the published dependency lock
+
+When a stable release contains the required contracts, verify the public lock
+with a shell that has no local Core source override. Back up the previous local
+overlay and lock first. These commands exited 0 in the rehearsal:
+
+```sh
+COMPOSER=composer.json composer install --no-interaction --no-scripts
+COMPOSER=composer.json composer validate --no-check-publish
+```
+
+Composer reported `composer.json is valid`. The installation used the five
+published foundation packages from the committed lock. Composer scripts were
+not run by this installation command; retain the separate application and
+migration verification checks before accepting the build.
+
+A clean Git status alone does not establish source provenance. Local Node
+dependencies inside a Core package can make a strict committed-tree comparison
+fail. Preserve those dependencies and retain the failed check. A public-lock
+installation has different evidence from an attested source build; record which
+one was tested.
+
 ## What you should see
 
 The size tests report four passes and no failures. The hook reports “Passed”.
@@ -205,6 +227,18 @@ A report written by a one-test fixture is not evidence that the outer shard
 completed. Retain incomplete shard output and memory-limit errors as failures.
 The complete preflight has **not yet passed**; focused passing checks do not
 replace it.
+
+For runtime contribution failures, inspect provider activation as well as the
+provider list. A Public test harness can load its selected providers while an
+incompatible lifecycle role leaves them pending. Also compare registry
+resolution order: deferred callbacks from another package can be attributed to
+the package that resolves the registry. Record a framework gap and retain the
+complete audit. Warming a registry before the test can hide that failure.
+
+An undeclared frontend component needs its registered key in the manifest.
+Verify both that the runtime receipt exists and that the auditor accepts the
+declaration. The focused regression failed before the declaration was corrected
+and passed afterwards; unrelated audit failures remain recorded separately.
 
 ## Roll back
 
