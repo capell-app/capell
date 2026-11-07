@@ -591,6 +591,12 @@ final class InstalledPanelRuntime
             return;
         }
 
+        // The losing panel of a duplicate id serves no routes, so it must not judge the winner's.
+        $registered = resolve(PanelRegistry::class)->get($panel->getId());
+        if ($registered instanceof Panel && $registered !== $panel) {
+            return;
+        }
+
         $this->synchronised[$panel->getId()] = $panel;
         if ($this->classifiedSignature === $this->routeTableSignature()) {
             return;
