@@ -23,6 +23,7 @@ use Livewire\Livewire;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
+use Workbench\App\Support\ScreenshotTranslationTabs;
 
 uses(CreatesAdminUser::class)
     ->group('admin');
@@ -234,3 +235,34 @@ it('seeds reusable action screenshot records and protects their routes', functio
     expect(Page::query()->where('name', 'Screenshot child page')->count())->toBe(1)
         ->and(Site::query()->where('name', 'Screenshot French site')->count())->toBe(1);
 });
+
+it('stores the translation tab orientation for the screenshot session and rejects unknown values', function (): void {
+    test()->actingAsAdmin();
+
+    RecordStateScreenshotFixture::initialize();
+
+    test()->get('/screenshot-fixtures/translation-tabs/vertical')
+        ->assertRedirect()
+        ->assertSessionHas(ScreenshotTranslationTabs::SESSION_KEY, 'vertical');
+
+    $translatedPage = ScreenshotTranslationTabs::translatedPage();
+
+    expect($translatedPage->translations()->count())->toBe(4)
+        ->and($translatedPage->site->languages()->where('code', 'de-shot')->exists())->toBeTrue()
+        ->and(RecordStateScreenshotFixture::page()->translations()->count())->toBe(1);
+
+    test()->get('/screenshot-fixtures/translation-tabs/diagonal')->assertNotFound();
+});
+
+it('applies the stored translation tab orientation to later requests only when it is valid', function (string $stored, string $expected): void {
+    config()->set('capell-admin.translation_tabs_orientation', 'horizontal');
+
+    session()->put(ScreenshotTranslationTabs::SESSION_KEY, $stored);
+
+    ScreenshotTranslationTabs::apply();
+
+    expect(config('capell-admin.translation_tabs_orientation'))->toBe($expected);
+})->with([
+    'vertical is applied' => ['vertical', 'vertical'],
+    'unknown value is ignored' => ['diagonal', 'horizontal'],
+]);

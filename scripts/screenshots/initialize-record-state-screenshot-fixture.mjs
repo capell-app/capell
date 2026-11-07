@@ -10,6 +10,8 @@ function hasRecordStateSeed(entries) {
         'admin-media-edit-focal-point',
         'admin-media-edit-localized-metadata',
         'admin-page-layout-select-record-states',
+        'admin-page-translation-tabs-horizontal',
+        'admin-page-translation-tabs-vertical',
     ])
 
     return entries.some(

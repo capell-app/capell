@@ -164,6 +164,7 @@ return [
     ],
     'navigation_badge_counts' => false,
     'auto_translate_language_text' => env('CAPELL_AUTO_TRANSLATE_LANGUAGE_TEXT', true),
+    'translation_tabs_orientation' => env('CAPELL_TRANSLATION_TABS_ORIENTATION', 'horizontal'),
     'show_configurator_type_hint' => env('CAPELL_SHOW_CONFIGURATOR_TYPE_HINT', false),
 
     'layout_builder' => [

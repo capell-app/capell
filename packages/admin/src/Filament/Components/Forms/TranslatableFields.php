@@ -1,0 +1,244 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Filament\Components\Forms;
+
+use Capell\Admin\Contracts\Support\FlagIconRenderer;
+use Capell\Admin\Enums\TranslationTabsOrientation;
+use Capell\Admin\Support\Loader\LanguageLoader;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\Site;
+use Closure;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Field;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
+use Override;
+use ReflectionFunction;
+
+/**
+ * Edits one group of fields once per language.
+ *
+ * Each field is cloned for every language and bound to `{field}.{locale}`, the
+ * shape Spatie translatable JSON columns use, so one declaration yields
+ * `name.en`, `name.fr` and so on. Tabs sit across the top by default or down
+ * the side via orientation().
+ */
+class TranslatableFields extends Tabs
+{
+    /** @var array<int, Component>|Closure */
+    protected array|Closure $translatableFields = [];
+
+    /** @var Collection<int, Language>|Closure|null */
+    protected Collection|Closure|null $languages = null;
+
+    protected TranslationTabsOrientation|Closure|null $orientation = null;
+
+    #[Override]
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->contained()
+            ->vertical(fn (): bool => $this->getOrientation()->isVertical())
+            ->components(fn (): array => $this->buildLanguageTabs());
+    }
+
+    /**
+     * @param  array<int, Component>|Closure  $fields
+     */
+    public function fields(array|Closure $fields): static
+    {
+        $this->translatableFields = $fields;
+
+        return $this;
+    }
+
+    /**
+     * @param  Collection<int, Language>|Closure|null  $languages
+     */
+    public function languages(Collection|Closure|null $languages): static
+    {
+        $this->languages = $languages;
+
+        return $this;
+    }
+
+    public function orientation(TranslationTabsOrientation|Closure|null $orientation): static
+    {
+        $this->orientation = $orientation;
+
+        return $this;
+    }
+
+    public function getOrientation(): TranslationTabsOrientation
+    {
+        $orientation = $this->evaluate($this->orientation);
+
+        if (is_string($orientation)) {
+            $orientation = TranslationTabsOrientation::tryFrom($orientation);
+        }
+
+        return $orientation instanceof TranslationTabsOrientation ? $orientation : TranslationTabsOrientation::configured();
+    }
+
+    public function verticalTabs(bool $condition = true): static
+    {
+        return $this->orientation($condition ? TranslationTabsOrientation::Vertical : TranslationTabsOrientation::Horizontal);
+    }
+
+    /**
+     * @return Collection<int, Language>
+     */
+    public function getLanguages(): Collection
+    {
+        $languages = $this->evaluate($this->languages);
+
+        if (is_array($languages)) {
+            $languages = collect($languages);
+        }
+
+        return $languages instanceof Collection ? $languages : LanguageLoader::languages($this->resolveSiteId());
+    }
+
+    /**
+     * A form edits one site's content, so without explicit languages it only
+     * offers that site's languages; a record without a site sees them all.
+     */
+    private function resolveSiteId(): ?int
+    {
+        $record = $this->getRecord();
+
+        if ($record instanceof Site) {
+            return (int) $record->getKey();
+        }
+
+        $siteId = $record instanceof Model ? $record->getAttribute('site_id') : null;
+
+        if (filled($siteId)) {
+            return (int) $siteId;
+        }
+
+        $tenant = Filament::getTenant();
+
+        return $tenant instanceof Site ? (int) $tenant->getKey() : null;
+    }
+
+    /**
+     * @return array<int, Tab>
+     */
+    private function buildLanguageTabs(): array
+    {
+        $fields = (array) $this->evaluate($this->translatableFields);
+        $flagRenderer = resolve(FlagIconRenderer::class);
+        // Two groups in one form must not share tab keys, so the key carries the
+        // state path and a stable fingerprint of the fields the group edits.
+        $fingerprint = hash('xxh3', $this->fingerprint($fields));
+        $keyPrefix = 'translatable-fields::' . ($this->getStatePath() ?? 'root') . '::' . $fingerprint;
+
+        return $this->getLanguages()
+            ->map(fn (Language $language): Tab => Tab::make(new HtmlString(
+                '<span aria-hidden="true">' . $flagRenderer->render('flag-4x3-' . $language->flag) . '</span> ' . e($language->name),
+            ))
+                ->key($keyPrefix . '::' . $language->code, isInheritable: false)
+                ->schema($this->localise($fields, $language)))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Clones the components for one language, rebinding every field to
+     * `{its own path}.{locale}`. Layout components are walked so a Grid or
+     * Section does not leave its fields sharing one state path.
+     *
+     * @param  array<int, mixed>  $components
+     * @return array<int, Component>
+     */
+    private function localise(array $components, Language $language): array
+    {
+        $localised = [];
+
+        foreach ($components as $component) {
+            if (! $component instanceof Component) {
+                continue;
+            }
+
+            $clone = $component->getClone();
+
+            if ($clone instanceof Field) {
+                $clone->statePath(($clone->getStatePath(false) ?? $clone->getName()) . '.' . (filled($language->locale) ? $language->locale : $language->code));
+                $declaredAttribute = (fn (): mixed => $this->validationAttribute)->call($clone);
+                $clone->validationAttribute(function (Field $component) use ($declaredAttribute, $language): string {
+                    $attribute = $component->evaluate($declaredAttribute);
+
+                    return (filled($attribute) ? (string) $attribute : lcfirst(strip_tags($this->labelText($component->getLabel())))) . ' (' . $language->name . ')';
+                });
+            } else {
+                $children = $this->declaredChildComponents($clone);
+
+                if ($children instanceof Closure) {
+                    // A state-dependent schema can only be evaluated once its
+                    // container exists, so localise it when Filament asks.
+                    $clone->components(fn (): array => $this->localise((array) $clone->evaluate($children), $language));
+                } elseif (is_array($children) && $children !== []) {
+                    $clone->components($this->localise($children, $language));
+                }
+            }
+
+            $localised[] = $clone;
+        }
+
+        return $localised;
+    }
+
+    /**
+     * @param  array<int, mixed>  $components
+     */
+    private function fingerprint(array $components): string
+    {
+        $parts = [];
+
+        foreach ($components as $component) {
+            if ($component instanceof Field) {
+                $parts[] = $component->getName();
+            } elseif ($component instanceof Component) {
+                $children = $this->declaredChildComponents($component);
+                $parts[] = $component::class . '[' . match (true) {
+                    is_array($children) => $this->fingerprint($children),
+                    // The closure's source location is stable between requests.
+                    $children instanceof Closure => $this->closureLocation($children),
+                    default => '',
+                } . ']';
+            }
+        }
+
+        return implode(',', $parts);
+    }
+
+    /**
+     * Reads the declared default children without evaluating a closure,
+     * which would fail before the component has a container.
+     */
+    private function declaredChildComponents(Component $component): mixed
+    {
+        return (fn (): mixed => $this->childComponents['default'] ?? [])->call($component);
+    }
+
+    private function closureLocation(Closure $closure): string
+    {
+        $reflection = new ReflectionFunction($closure);
+
+        return 'closure:' . $reflection->getFileName() . ':' . $reflection->getStartLine();
+    }
+
+    private function labelText(Htmlable|string|null $label): string
+    {
+        return $label instanceof Htmlable ? $label->toHtml() : (string) $label;
+    }
+}
