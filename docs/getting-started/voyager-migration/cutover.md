@@ -33,11 +33,11 @@ The verification command and expected output are **not yet verified**.
 
 ## What can go wrong and how to recover
 
-Stop before reopening if any acceptance check fails. After the first post-go-live order, a database restore would discard new business data: use an agreed roll-forward procedure instead.
+Stop before reopening if any acceptance check fails. After the first post-go-live business write, a database restore would discard new business data: use an agreed roll-forward procedure instead.
 
 ## Roll back
 
-The restore window ends before the first post-go-live order. Within that window restore the database and files and switch the release back, then verify the legacy journeys. The owner records the decision and timestamp.
+The restore window ends before the first post-go-live business write. Within that window restore the database and files and switch the release back, then verify the legacy journeys. The owner records the decision and timestamp.
 
 ## Next
 
