@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\PageContentGraphExtractor;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Tests\Support\Fixtures\Autoload\OperationTaggedPageContentGraphExtractor;
 use Capell\Core\Tests\Support\Fixtures\Autoload\TaggedPageContentGraphExtractor;
 use Capell\Core\Tests\Support\Fixtures\Autoload\TestPageContentGraphExtractor;
@@ -66,4 +69,43 @@ it('resolves tagged extractors from the current operation while preserving expli
         ->and($operationBExtractor)->not->toBe($operationAExtractor)
         ->and($operationBExtractor->operation)->toBe('operation-b')
         ->and(collect($operationBExtractors)->whereInstanceOf(OperationTaggedPageContentGraphExtractor::class))->toHaveCount(1);
+});
+
+it('keeps content graph receipts owned by the declaring package when another package activation resolves the registry', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+
+    $receipts->rememberNamespaceContext(
+        'Capell\\Core\\Tests\\Support\\Fixtures\\Autoload',
+        ExtensionContributionReceiptContext::forPackage('vendor/declaring', 'runtime', 'Vendor\\Declaring\\Provider'),
+    );
+
+    // A deferred callback registered by vendor/declaring fires while a different
+    // package's provider is the active receipt context.
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/resolving', 'runtime', 'Vendor\\Resolving\\Provider'),
+        function (): void {
+            (new ContentGraphRegistry)->register(TestPageContentGraphExtractor::class);
+        },
+    );
+
+    expect($receipts->forPackage('vendor/resolving'))->toBe([])
+        ->and($receipts->forPackage('vendor/declaring'))->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/declaring')[0]->implementation)->toBe(TestPageContentGraphExtractor::class);
+});
+
+it('still attributes content graph receipts to the active package when the extractor namespace is unmapped', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/active', 'runtime', 'Vendor\\Active\\Provider'),
+        function (): void {
+            (new ContentGraphRegistry)->register(TestPageContentGraphExtractor::class);
+        },
+    );
+
+    expect($receipts->forPackage('vendor/active'))->toHaveCount(1);
 });
