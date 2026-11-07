@@ -410,8 +410,10 @@ A normal dry run returns success when the report is generated. Add `--strict` to
 
 ```bash
 php artisan capell:upgrade --force --no-interaction
-php artisan optimize
+php artisan capell:runtime-refresh --no-interaction
 ```
+
+This is the same order as [Deploy recipes](deploy-recipes.md).
 
 Keep downgrade protection enabled for ordinary deploys. Pass `--force-downgrade` only when deliberately applying an older Composer version. `--force` skips confirmations; `--no-interaction` also enables automatic reconciliation of available first-party requirements.
 
