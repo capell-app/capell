@@ -21,6 +21,7 @@ return [
     'local_available' => 'Unsaved changes from this browser are available.',
     'local_restore' => 'Restore browser changes',
     'local_discard' => 'Discard browser changes',
+    'restore_incompatible' => 'This recovery has blocks the current editor cannot show, so it was not restored. Your form is unchanged and the recovery is kept. Switch this page back to blocks to restore it.',
     'restored' => 'Recovery draft restored.',
     'discarded' => 'Recovery draft discarded.',
 ];

@@ -98,6 +98,8 @@ class MutateContentPresenterAction
 
     private function mutateHtmlContent(mixed $content): ?string
     {
+        $content = $this->normalizeRichEditorDocument($content);
+
         if (is_array($content)) {
             return ExtractContentFromBlocksAction::run($content);
         }
