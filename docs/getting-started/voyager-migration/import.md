@@ -14,9 +14,54 @@ Approved mappings, installed optional dependencies, destination layouts/blueprin
 
 Run inventory and preview first. Resolve unsupported mappings and URL conflicts before execution. Execute global and site-owned entities in the dependency order the installed command supports. Record each session separately. Repeat the exact selections, source label, site and mappings.
 
-The executable command transcript for this phase is **not yet verified**. Do not
-copy a command from another release or infer flags from this draft. Add the exact
-command, working directory and exit only after running it on disposable data.
+### Verified settings and shared-user commands
+
+Settings preview, execution and an unchanged rerun were verified in an installed
+application on MariaDB 10.11.19. Shared-user reference import and its unchanged
+rerun also passed. Site-content reconciliation and the complete migration remain
+**not yet verified**.
+
+For a source and destination in the same database, first prepare a private
+configuration cache using the importer's
+[dedicated process requirements](https://github.com/capell-app/capell-packages/blob/main/packages/voyager-importer/docs/migration-guide.md#dedicated-restricted-cli-process).
+The default must already be the restricted writer. Keep administrative credentials
+out of this cache and the command environment. The installed packages must contain
+the in-place process implementation; an older released command may not support it.
+
+Set `IMPORT_CONFIG_CACHE` to that private cache's absolute path, `SOURCE_LABEL` to
+your registered source label and `ACTOR_ID` to the existing migration operator's
+ID. From the receiving application root, the verified preview command is:
+
+```sh
+env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  APP_ENV=local APP_CONFIG_CACHE="$IMPORT_CONFIG_CACHE" \
+  php -d zend.exception_ignore_args=1 artisan voyager-importer:import \
+  --in-place --in-place-process --source-label="$SOURCE_LABEL" \
+  --only=settings --actor-id="$ACTOR_ID" --json --no-interaction
+```
+
+It exited 0 and returned `write_plan_digest`. Review the plan, then set
+`WRITE_PLAN_DIGEST` to that value. The verified execution command is:
+
+```sh
+env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  APP_ENV=local APP_CONFIG_CACHE="$IMPORT_CONFIG_CACHE" \
+  php -d zend.exception_ignore_args=1 artisan voyager-importer:import \
+  --in-place --in-place-process --source-label="$SOURCE_LABEL" \
+  --only=settings --actor-id="$ACTOR_ID" --json --no-interaction \
+  --execute --force --write-plan-digest="$WRITE_PLAN_DIGEST"
+```
+
+It exited 0. Running the same execution again also exited 0, reporting zero
+created and updated settings and only skipped settings. The destination settings
+were byte-for-byte unchanged by the rerun; protected source tables and users were
+unchanged by both executions. `--force` here permits unattended execution; it does
+not resolve destination conflicts.
+
+Shared-user references were verified in separate sessions using the same source
+label and the same commands with `--only=users`, obtaining a new preview digest.
+The first run linked existing primary keys; the repeat skipped them. Neither run
+created or updated a user. Keep these global sessions separate from site imports.
 
 ## What you should see
 
@@ -29,7 +74,8 @@ from a live site or an unrelated workflow.
 
 For each entity retain created, updated, skipped and failed totals. The unchanged rerun must have zero created, updated and failed rows. Test a destination-edited record and verify it is reported rather than overwritten. Not yet verified.
 
-The verification command and expected output are **not yet verified**.
+The settings and shared-user commands above were verified. Full site-entity
+reconciliation and the destination-edited conflict check are **not yet verified**.
 
 ## What can go wrong and how to recover
 
