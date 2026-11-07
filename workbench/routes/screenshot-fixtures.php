@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Workbench\App\Http\Middleware\ApplyScreenshotTranslationTabs;
 use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\MarketplaceFixture;
@@ -52,6 +53,16 @@ Route::get('/screenshot-fixtures/record-states/layouts', static fn (): RedirectR
 
 Route::get('/screenshot-fixtures/record-states/page-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pageEditUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);
+
+// Stores the translation tab orientation for this session, then opens the page
+// editor so the translations repeater renders in that layout.
+Route::get('/screenshot-fixtures/translation-tabs/{orientation}', static function (Request $request, string $orientation): RedirectResponse {
+    abort_unless(in_array($orientation, ['horizontal', 'vertical'], true), 404);
+
+    $request->session()->put(ApplyScreenshotTranslationTabs::SESSION_KEY, $orientation);
+
+    return redirect()->to(RecordStateScreenshotFixture::pageEditUrl());
+})->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaListUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);

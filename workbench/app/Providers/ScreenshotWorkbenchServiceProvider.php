@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use RuntimeException;
+use Workbench\App\Http\Middleware\ApplyScreenshotTranslationTabs;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\SiteAdminMetricsScreenshotFixture;
 
@@ -84,6 +85,8 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
         $this->publishFilamentAssets();
 
         $this->loadRoutesFrom(__DIR__ . '/../../routes/screenshot-fixtures.php');
+
+        Route::pushMiddlewareToGroup('web', ApplyScreenshotTranslationTabs::class);
 
         Route::get('/__ping', static fn (): string => 'pong');
 

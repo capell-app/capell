@@ -16,8 +16,12 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Http\Request;
+use Illuminate\Session\SessionManager;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Symfony\Component\HttpFoundation\Response;
+use Workbench\App\Http\Middleware\ApplyScreenshotTranslationTabs;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
@@ -223,3 +227,32 @@ it('seeds reusable action screenshot records and protects their routes', functio
     expect(Page::query()->where('name', 'Screenshot child page')->count())->toBe(1)
         ->and(Site::query()->where('name', 'Screenshot French site')->count())->toBe(1);
 });
+
+it('stores the translation tab orientation for the screenshot session and rejects unknown values', function (): void {
+    test()->actingAsAdmin();
+
+    RecordStateScreenshotFixture::initialize();
+
+    test()->get('/screenshot-fixtures/translation-tabs/vertical')
+        ->assertRedirect()
+        ->assertSessionHas(ApplyScreenshotTranslationTabs::SESSION_KEY, 'vertical');
+
+    test()->get('/screenshot-fixtures/translation-tabs/diagonal')->assertNotFound();
+});
+
+it('applies the stored translation tab orientation to later requests only when it is valid', function (string $stored, string $expected): void {
+    config()->set('capell-admin.translation_tabs_orientation', 'horizontal');
+
+    $request = Request::create('/admin');
+    $session = resolve(SessionManager::class)->driver('array');
+    $session->put(ApplyScreenshotTranslationTabs::SESSION_KEY, $stored);
+
+    $request->setLaravelSession($session);
+
+    (new ApplyScreenshotTranslationTabs)->handle($request, fn (): Response => response('ok'));
+
+    expect(config('capell-admin.translation_tabs_orientation'))->toBe($expected);
+})->with([
+    'vertical is applied' => ['vertical', 'vertical'],
+    'unknown value is ignored' => ['diagonal', 'horizontal'],
+]);
