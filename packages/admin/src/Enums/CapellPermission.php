@@ -11,6 +11,7 @@ enum CapellPermission
 {
     case ImpersonateUsers;
     case ManageExtensions;
+    case ManageSecurity;
     case RunUpgrades;
     case ExportPage;
     case ExportSite;
@@ -45,6 +46,7 @@ enum CapellPermission
         return match ($this) {
             self::ImpersonateUsers => 'impersonate_users',
             self::ManageExtensions => 'Manage:ExtensionsPage',
+            self::ManageSecurity => 'Manage:SecurityPage',
             self::RunUpgrades => 'upgrade.run',
             self::ExportPage => 'page.export',
             self::ExportSite => 'site.export',
@@ -69,6 +71,7 @@ enum CapellPermission
             self::ManageSitePermissions,
             self::ManagePageRestrictions => ['admin', 'super_admin'],
             self::ManageExtensions,
+            self::ManageSecurity,
             self::RunUpgrades,
             self::ManageAdvancedPresentationSettings,
             self::ExportPage,

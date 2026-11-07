@@ -20,6 +20,22 @@
             "covers": ["packages/admin/src/Filament/Pages/CapellDashboard.php"]
         },
         {
+            "id": "security-page",
+            "title": "Security findings page.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "SecurityPage",
+            "scenario": "admin-index",
+            "url": "/security",
+            "waitFor": ".fi-ta",
+            "docsPage": "docs/admin/security.md",
+            "output": "packages/admin/docs/images/screenshots/security-page.png",
+            "required": true,
+            "notes": "Shows the Security page, findings and the automatic-fix controls. Capture with the shared runner after the security fixtures are available.",
+            "covers": ["packages/admin/src/Filament/Pages/SecurityPage.php"]
+        },
+        {
             "id": "site-health-page",
             "title": "Site Health page.",
             "package": "admin",

@@ -12,6 +12,7 @@ it('resolves all Capell custom permission names for default Shield config', func
     expect(CapellPermission::names())->toBe([
         'impersonate_users',
         'Manage:ExtensionsPage',
+        'Manage:SecurityPage',
         'upgrade.run',
         'page.export',
         'site.export',
