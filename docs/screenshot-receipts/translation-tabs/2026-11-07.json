@@ -272,7 +272,7 @@
     "schemaVersion": 2,
     "generator": "shared-capell-screenshot-runner",
     "policy": "runner-only-v2",
-    "generatedAt": "2026-11-07T17:41:34.848Z",
+    "generatedAt": "2026-11-07T18:15:22.078Z",
     "dryRun": false,
     "runner": {
       "version": "1.0.0-rc.1",
@@ -286,7 +286,7 @@
     "sources": [
       {
         "repository": "https://github.com/capell-app/capell.git",
-        "revision": "e34508d43f754fa167c419270c4f79cb26bd5159",
+        "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2",
         "clean": true,
         "lockFiles": [
           {
@@ -315,7 +315,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-dashboard",
@@ -361,7 +361,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-dashboard",
@@ -407,7 +407,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -453,7 +453,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -491,7 +491,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/site-health-page.png",
-          "sha256": "19b0a7d5ecc834d272e079532e67a61c679d7dd1bf5ca295334a624295cdad44"
+          "sha256": "b65c9e740a2c181c787de8a1e28e4b966ef1117f542f2c595aef4db4776800ba"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -499,7 +499,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -537,7 +537,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/site-health-page-dark.png",
-          "sha256": "5dc9ce62b833a62754f0c6cb5c4e88eeb1f09316b1e9d66557231fcde08cc02d"
+          "sha256": "2f5c44fb050c0bcaebab7128445433f9c795b1819ee97001c05903b8a7ac0350"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -545,7 +545,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -591,7 +591,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -637,7 +637,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -675,7 +675,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-pages-list.png",
-          "sha256": "d16f953ae5256a42b1557568e359d10bdce00c8b8328dea40bec7d76ff3f6928"
+          "sha256": "2e630f4a52e32bf063164d01475bfb889dedec18fad9e440347ac65453f7482d"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -683,7 +683,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -721,7 +721,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-pages-list-dark.png",
-          "sha256": "3823c7f9dc8cd0e0dda71debd890d378f2bd80c8ff10cea324bd484405ead6db"
+          "sha256": "204983b50f8661f6a848e0a24e68064a63a5a5ddc57ae3f225d1e9124c3e350b"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -729,7 +729,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -767,7 +767,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-layouts-list.png",
-          "sha256": "66c9584fa70a0e7ae0910b4a4366eb64169a285878990869b5d733499b599a7d"
+          "sha256": "95d62c9caeecd92685db0636212cce7fb208b6c1c8b3e3ea7dafab80302c2ea2"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -775,7 +775,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -813,7 +813,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-layouts-list-dark.png",
-          "sha256": "f84cedc057d4b897e323126928029affa36c4518a7a6f0bc569b75657714bbe9"
+          "sha256": "2cd8e11386b0c8ba3c71e9a7a735faedfe966883b52b6c242273a346834f2b54"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -821,7 +821,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -867,7 +867,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -913,7 +913,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -959,7 +959,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1005,7 +1005,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1051,7 +1051,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1097,7 +1097,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1135,7 +1135,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-page-layout-select-record-states.png",
-          "sha256": "fdb382dc283a48d7f6f7d1a2c6a67f146a41b3ca72a62a987b8f47a1e02d41b6"
+          "sha256": "07ce7bc459d1cdd5c2d810cbcefe5dc9ff27af8b2a6d01b3c4c1e37f57c0f8c4"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -1143,7 +1143,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1181,7 +1181,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-page-layout-select-record-states-dark.png",
-          "sha256": "da6b330ffafe3cbaa84bd4918c62ac68d1d6340cae6cb8e22695221874b5e68c"
+          "sha256": "321348419567b75eed2aca8e3b5df53c1299400c24982a8cf82fbf7f5e290677"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -1189,7 +1189,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1235,7 +1235,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1281,7 +1281,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1319,7 +1319,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
-          "sha256": "078f4bd5954771171657899d19a9b3549eb89b24fb273ecf207d03ca465a4bcd"
+          "sha256": "522f03a2a3f02f46038d83d99ce52253d1287b8d70aa681091648eb6f7455b7d"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -1327,7 +1327,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1365,7 +1365,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/page-history-rollback-preview-dark.png",
-          "sha256": "a59fa2f99b6855b7e8f1a775936136f7b302c00452b1c4a6fc98a9c49ebc2139"
+          "sha256": "86cdf037d016bb96eb2dc54f17e8402cfd55276fd2f8caa7a7e12ce53ba5f4b3"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -1373,7 +1373,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1419,7 +1419,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "frontend-page",
@@ -1463,7 +1463,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1509,7 +1509,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1555,7 +1555,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
@@ -1601,7 +1601,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "e34508d43f754fa167c419270c4f79cb26bd5159"
+          "revision": "d92bf2dd5b6b17834db6a3dc7aee309c7bcd3ca2"
         },
         "capture": {
           "scenario": "admin-index",
