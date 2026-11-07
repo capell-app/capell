@@ -12,6 +12,7 @@
     $isCompact = $isCompact();
     $isContained = $isContained();
     $isDeletable = $isDeletable();
+    $isVertical = $isVertical();
     $hasItemLabels = $hasItemLabels();
     $fieldWrapperView = $getFieldWrapperView();
     $key = $getKey();
@@ -55,15 +56,17 @@
             @class([
                 'fi-sc-tabs',
                 'fi-contained' => $isContained,
-                'flex max-w-full min-w-0 flex-col' => $isContained,
+                'flex max-w-full min-w-0 flex-col' => $isContained && ! $isVertical,
+                'fi-vertical flex max-w-full min-w-0 flex-row items-stretch' => $isVertical,
             ])
             wire:key="{{ $livewireKey }}.container"
         >
             <x-filament::tabs
                 :label="$label"
                 :contained="$isContained"
+                :vertical="$isVertical"
                 role="tablist"
-                aria-orientation="horizontal"
+                aria-orientation="{{ $isVertical ? 'vertical' : 'horizontal' }}"
                 x-ref="tablist"
                 x-on:keydown="keydown($event)"
                 x-on:focusin="tablistHasFocus = true"
@@ -112,7 +115,9 @@
                 @endforeach
 
                 @if ($isAddable || $isDeletable)
-                    <div class="ml-auto flex items-center">
+                    <div
+                        @class(['flex items-center', 'ms-auto' => ! $isVertical, 'mt-auto pt-2' => $isVertical])
+                    >
                         <x-filament::dropdown placement="bottom-end">
                             <x-slot name="trigger">
                                 <x-filament::icon-button
@@ -187,24 +192,25 @@
                 @endif
             </x-filament::tabs>
 
-            @foreach ($items as $itemKey => $item)
-                @php
+            <div @class(['min-w-0 flex-1' => $isVertical])>
+                @foreach ($items as $itemKey => $item)
+                    @php
                     $id = $item->getLivewireKey() . '.panel';
                 @endphp
 
-                {{-- Panels resolve their index from the DOM: Alpine's morph skips attribute patching on a shown element, so an index written into the markup goes stale when a translation is removed. --}}
-                <div
-                    x-bind:class="{
+                    {{-- Panels resolve their index from the DOM: Alpine's morph skips attribute patching on a shown element, so an index written into the markup goes stale when a translation is removed. --}}
+                    <div
+                        x-bind:class="{
                         'fi-active': isActive($el),
                     }"
-                    x-on:expand="activate(panelIndex($el))"
-                    x-show="isActive($el)"
-                    x-bind:aria-hidden="! isActive($el)"
-                    x-bind:hidden="! isActive($el)"
-                    @if ($activeTab !== $loop->iteration) hidden @endif
-                    aria-hidden="{{ $activeTab === $loop->iteration ? 'false' : 'true' }}"
-                    x-cloak
-                    {{
+                        x-on:expand="activate(panelIndex($el))"
+                        x-show="isActive($el)"
+                        x-bind:aria-hidden="! isActive($el)"
+                        x-bind:hidden="! isActive($el)"
+                        @if ($activeTab !== $loop->iteration) hidden @endif
+                        aria-hidden="{{ $activeTab === $loop->iteration ? 'false' : 'true' }}"
+                        x-cloak
+                        {{
                         $attributes
                             ->merge([
                                 'aria-labelledby' => $item->getLivewireKey() . '.tab',
@@ -219,17 +225,18 @@
                                 'fi-active' => $activeTab === $loop->iteration,
                             ])
                     }}
-                >
-                    <div
-                        @class([
+                    >
+                        <div
+                            @class([
                         'max-w-full min-w-0' => $isContained,
                         'p-4' => $isContained && $isCompact,
                     ])
-                    >
-                        {{ $item }}
+                        >
+                            {{ $item }}
+                        </div>
                     </div>
-                </div>
-            @endforeach
+                @endforeach
+            </div>
         </div>
     @elseif ($isAddable && $createItems)
         <div

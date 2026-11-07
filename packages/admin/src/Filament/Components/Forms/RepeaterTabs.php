@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Components\Forms;
 
 use Capell\Admin\Actions\TranslateTextAction;
+use Capell\Admin\Enums\TranslationTabsOrientation;
 use Capell\Core\Models\Language;
 use Closure;
 use Filament\Actions\Action;
@@ -47,6 +48,8 @@ class RepeaterTabs extends Repeater
     private ?Closure $beforeAddAction = null;
 
     private Closure|bool $minimal = false;
+
+    private TranslationTabsOrientation|Closure|null $orientation = null;
 
     #[Override]
     protected function setUp(): void
@@ -456,6 +459,34 @@ class RepeaterTabs extends Repeater
         $this->itemIcon = $icon;
 
         return $this;
+    }
+
+    public function orientation(TranslationTabsOrientation|Closure|null $orientation): static
+    {
+        $this->orientation = $orientation;
+
+        return $this;
+    }
+
+    public function verticalTabs(bool $condition = true): static
+    {
+        return $this->orientation($condition ? TranslationTabsOrientation::Vertical : TranslationTabsOrientation::Horizontal);
+    }
+
+    public function getOrientation(): TranslationTabsOrientation
+    {
+        $orientation = $this->evaluate($this->orientation);
+
+        if (is_string($orientation)) {
+            $orientation = TranslationTabsOrientation::tryFrom($orientation);
+        }
+
+        return $orientation instanceof TranslationTabsOrientation ? $orientation : TranslationTabsOrientation::configured();
+    }
+
+    public function isVertical(): bool
+    {
+        return $this->getOrientation()->isVertical();
     }
 
     public function minimal(bool|Closure $minimal): static
