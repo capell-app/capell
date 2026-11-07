@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: seeded source counts. Capell: matching destination lists and reconciliation report. Alt text should distinguish imported rows from deliberately excluded rows.
+Capell: matching destination lists and reconciliation report. Alt text should distinguish imported rows from deliberately excluded rows.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

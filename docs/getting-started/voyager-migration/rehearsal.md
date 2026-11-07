@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: seeded pre-freeze state. Capell: reconciliation and role smoke results before reopening. Alt text should identify the completed checkpoint.
+Capell: reconciliation and role smoke results before reopening. Alt text should identify the completed checkpoint.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

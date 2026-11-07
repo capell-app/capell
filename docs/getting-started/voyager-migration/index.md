@@ -19,9 +19,10 @@ Before allocating a database, dependencies or screenshots, check available disk
 space for the source, destination, backups and temporary copies together.
 
 Use seeded records with fictitious names and reserved example email domains.
-Use a consistent 1440 × 900 viewport and the light theme. Each chapter needs a
-Voyager screenshot and a Capell screenshot showing the relevant before/after
-state. Inspect every image at full size before committing it. Keep screenshots
+Use a consistent 1440 × 900 viewport and the light theme. Show the relevant
+Capell result after installation or import. Old Voyager screenshots are not
+required. Use command transcripts for checks without a meaningful admin screen.
+Inspect every image at full size before committing it. Keep screenshots
 beside these pages and give them alt text explaining the visible result.
 Capell captures must use the shared screenshot runner and retain its receipt;
 see the [visual standard](../../standards/documentation-visuals.md).

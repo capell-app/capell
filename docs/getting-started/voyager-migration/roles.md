@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: seeded role permissions. Capell: permitted screen and a denied operation for a lower-privilege role. Alt text must explain the access boundary.
+Capell: permitted screen and a denied operation for a lower-privilege role. Alt text must explain the access boundary.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

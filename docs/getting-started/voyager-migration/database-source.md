@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: seeded source metadata. Capell: database-source session and its destination site. Alt text should identify the source label and session state without exposing credentials.
+Capell: database-source session and its destination site. Alt text should identify the source label and session state without exposing credentials.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

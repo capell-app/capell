@@ -49,7 +49,7 @@ source engine to work around an importer restriction.
 
 ## What you should see
 
-Voyager: BREAD list and a seeded relationship field. Capell: destination content and resource inventory after import. Alt text must identify the relationship or unsupported field the reader should notice.
+Capell: destination content and resource inventory after import. Alt text must identify the relationship or unsupported field the reader should notice.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

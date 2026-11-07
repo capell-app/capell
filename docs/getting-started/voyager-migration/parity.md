@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: seeded source page and its metadata. Capell: the corresponding page and metadata. Alt text should identify the preserved URL, content hierarchy or canonical.
+Capell: the corresponding page and metadata. Alt text should identify the preserved URL, content hierarchy or canonical.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: disposable rehearsal before the switch. Capell: disposable rehearsal after smoke checks. Production screenshots are not required and must not expose customers.
+Capell: disposable rehearsal after smoke checks. Production screenshots are not required and must not expose customers.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

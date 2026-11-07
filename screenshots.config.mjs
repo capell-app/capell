@@ -27,10 +27,6 @@ export default {
     preCapture:
         'scripts/screenshots/initialize-record-state-screenshot-fixture.mjs',
     repoRoots: ['.'],
-    scenarios: {
-        'voyager-guide-admin':
-            'scripts/screenshots/voyager-profile-required.mjs',
-    },
     outputRoots: [
         'docs/images',
         'packages/admin/docs/images',

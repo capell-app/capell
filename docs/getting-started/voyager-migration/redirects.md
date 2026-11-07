@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: seeded menu link or source URL. Capell: matching redirect entry and resolved destination. Alt text should name the old-path to new-path relationship.
+Capell: matching redirect entry and resolved destination. Alt text should name the old-path to new-path relationship.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

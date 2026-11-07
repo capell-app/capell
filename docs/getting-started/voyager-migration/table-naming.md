@@ -20,7 +20,7 @@ command, working directory and exit only after running it on disposable data.
 
 ## What you should see
 
-Voyager: source content table represented in BREAD. Capell: collision choice and resulting installation state. Alt text should explain the retained source and separate destination names.
+Capell: collision choice and resulting installation state. Alt text should explain the retained source and separate destination names.
 
 Screenshots are **not yet captured or accepted**. Do not substitute screenshots
 from a live site or an unrelated workflow.

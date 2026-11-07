@@ -90,7 +90,7 @@ The size tests report four passes and no failures. The hook reports “Passed”
 The security manifest check retains the declared sensitive fields while reading
 the logical table names behind prefixes and aliases.
 
-Voyager and Capell admin screenshots are **not yet captured or accepted** for
+Capell admin screenshots are **not yet captured or accepted** for
 this chapter. Capture them from the seeded rehearsal when the installation is
 available, at the viewport and theme specified in the chapter list.
 
