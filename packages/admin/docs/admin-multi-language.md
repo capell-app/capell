@@ -169,6 +169,15 @@ Tabs sit across the top by default. `orientation(TranslationTabsOrientation::Ver
 
 Set the default for every translation surface with `CAPELL_TRANSLATION_TABS_ORIENTATION` (`horizontal` or `vertical`, config key `capell-admin.translation_tabs_orientation`). A component's own `orientation()` call overrides it. Pass `languages()` to limit the tabs, for example to the languages a site uses.
 
+
+Translation tabs sit across the top by default:
+
+[![Page translations with language tabs across the top](images/screenshots/admin-page-translation-tabs-horizontal.png)](images/screenshots/admin-page-translation-tabs-horizontal.png)
+
+Set `CAPELL_TRANSLATION_TABS_ORIENTATION=vertical` to list languages down the side:
+
+[![Page translations with language tabs down the side](images/screenshots/admin-page-translation-tabs-vertical.png)](images/screenshots/admin-page-translation-tabs-vertical.png)
+
 ## Finding untranslated content
 
 The Pages table carries an **Untranslated into** filter. Selecting a language shows pages that have no translation row for it, or whose row for that language has both an empty title and empty content.

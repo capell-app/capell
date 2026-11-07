@@ -334,7 +334,7 @@
             ],
             "docsPage": "packages/admin/docs/admin-multi-language.md",
             "output": "packages/admin/docs/images/screenshots/admin-page-translation-tabs-horizontal.png",
-            "required": false,
+            "required": true,
             "notes": "Opens the page editor through the translation-tabs fixture with the default horizontal layout so the language tabs sit above the fields.",
             "covers": [
                 "packages/admin/src/Filament/Components/Forms/RepeaterTabs.php",
@@ -359,7 +359,7 @@
             ],
             "docsPage": "packages/admin/docs/admin-multi-language.md",
             "output": "packages/admin/docs/images/screenshots/admin-page-translation-tabs-vertical.png",
-            "required": false,
+            "required": true,
             "notes": "Opens the page editor through the translation-tabs fixture with the vertical layout so each language appears in a list beside its fields.",
             "covers": [
                 "packages/admin/src/Filament/Components/Forms/RepeaterTabs.php",
