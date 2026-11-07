@@ -6,7 +6,7 @@ Use this path to install the current 1.x Foundation in a fresh Laravel applicati
 
 The current 1.x Capell Foundation release is MIT-licensed and available through public Packagist packages without a Capell account. Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access.
 
-For an existing application, use the [Install guide](install.md#existing-laravel-applications) and take a database and media backup before running migrations.
+For a new project you intend to keep, use the [starter kit](install.md#new-project-from-the-starter-kit). For an existing application, use the [Install guide](install.md#existing-laravel-applications) and take a database and media backup before running migrations.
 
 ## Before you start
 
