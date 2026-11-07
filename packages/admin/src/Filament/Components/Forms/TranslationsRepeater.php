@@ -11,6 +11,7 @@ use Capell\Admin\Actions\PrepareTranslationRelationshipDataForSaveAction;
 use Capell\Admin\Actions\RestoreDeletedTranslationForLanguageAction;
 use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Support\Filament\RawState;
+use Capell\Admin\Support\Filament\RecoverableSchemaComponents;
 use Capell\Admin\Support\Loader\LanguageLoader;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Blueprint;
@@ -408,7 +409,7 @@ class TranslationsRepeater extends RepeaterTabs
     /** The content field a repeater item renders at <path>, if any. */
     private function restoredContentEditor(Schema $item, string $path): ?Field
     {
-        foreach ($item->getFlatComponents(withActions: false, withHidden: true) as $component) {
+        foreach (RecoverableSchemaComponents::in($item) as $component) {
             if ($component instanceof Field && $component->getStatePath() === $path) {
                 return $component;
             }

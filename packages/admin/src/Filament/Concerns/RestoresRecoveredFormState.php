@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Concerns;
 
 use Capell\Admin\Filament\Components\Forms\TranslationsRepeater;
+use Capell\Admin\Support\Filament\RecoverableSchemaComponents;
 
 /**
  * Restores form state recovered from a scratch draft or a creation recovery. The
@@ -24,7 +25,13 @@ trait RestoresRecoveredFormState
 
         unset($this->cachedSchemas['form']);
 
-        foreach ($this->getSchema('form')?->getFlatComponents(withActions: false, withHidden: true) ?? [] as $component) {
+        $form = $this->getSchema('form');
+
+        if ($form === null) {
+            return;
+        }
+
+        foreach (RecoverableSchemaComponents::in($form) as $component) {
             if ($component instanceof TranslationsRepeater) {
                 $component->hydrateRestoredContent();
             }
