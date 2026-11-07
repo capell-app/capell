@@ -49,9 +49,15 @@ class ReleaseVerificationLockTest(unittest.TestCase):
         self.path = self.root / 'release.lock'
         # A private heavy-slot root keeps admission exercised without queueing
         # behind, or blocking, real host-wide heavy work.
+        # The load cap is host-wide, so a busy host (or an admitted `heavy run`
+        # parent) must not queue these children: lift the cap for this pool only.
         self.environment = dict(os.environ, CAPELL_RELEASE_VERIFICATION_LOCK_PATH=str(self.path),
-                                HEAVY_SLOT_ROOT=str(self.root / 'heavy-slots'))
-        for name in ['CAPELL_RELEASE_VERIFICATION_OWNER', 'CAPELL_NO_RELEASE_LOCK', 'COMPOSER', 'COMPOSER_VENDOR_DIR']:
+                                HEAVY_SLOT_ROOT=str(self.root / 'heavy-slots'), HEAVY_MAX_LOAD='1000000')
+        # Admission and gate state inherited from a parent `heavy run`, a release
+        # or the host shell describes the real pool and lock, not this fixture.
+        for name in ['CAPELL_RELEASE_VERIFICATION_OWNER', 'CAPELL_NO_RELEASE_LOCK', 'COMPOSER', 'COMPOSER_VENDOR_DIR',
+                     'HEAVY_SLOT_OWNER', 'HEAVY_SLOT_ENABLED', 'HEAVY_SLOT_GUARD', 'CAPELL_HEAVY_ADMITTED',
+                     'CAPELL_NO_LOCK', 'CAPELL_HEAVY_WEIGHT', 'CAPELL_HEAVY_LABEL']:
             self.environment.pop(name, None)
         self.php = shutil.which('php')
         self.assertIsNotNone(self.php)
