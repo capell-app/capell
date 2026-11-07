@@ -104,6 +104,10 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     public static function getNavigationBadge(): ?string
     {
+        if (! static::canManageExtensions()) {
+            return null;
+        }
+
         $count = resolve(ExtensionNavigationBadgeCounts::class)->unhealthy();
 
         if ($count === 0) {
@@ -116,6 +120,10 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     public static function getNavigationBadgeColor(): string|array|null
     {
+        if (! static::canManageExtensions()) {
+            return null;
+        }
+
         return resolve(ExtensionNavigationBadgeCounts::class)->blocked() > 0 ? 'danger' : 'warning';
     }
 
