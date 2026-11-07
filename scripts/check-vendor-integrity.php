@@ -9,7 +9,7 @@ declare(strict_types=1);
  * scripts/init-worktree.sh builds a hybrid vendor/ for git worktrees: real
  * copies of vendor/composer, vendor/autoload.php and vendor/bin, with the
  * remaining third-party packages symlinked at one level deeper into the
- * primary checkout. That makes a worktree usable in seconds, but it also means
+ * primary checkout (the legacy layout, now refused). That makes a worktree usable in seconds, but it also means
  * anything writing into a symlinked package directory writes into the PRIMARY
  * checkout, where another session may be mid-run.
  *
@@ -101,6 +101,30 @@ foreach ($mutatedPaths as $relativePath) {
     $failures[] = sprintf('%s resolves to %s.', $relativePath, $resolvedPath);
 }
 
+// Every package must be owned by this checkout: a link into another checkout's
+// vendor/ goes stale or wrong when that vendor/ changes, and writing through it
+// reaches across checkouts.
+foreach (glob($realRoot . '/vendor/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [] as $vendorDirectory) {
+    foreach (glob($vendorDirectory . '/*', GLOB_NOSORT) ?: [] as $packagePath) {
+        if (! is_link($packagePath)) {
+            continue;
+        }
+
+        $relativePackage = 'vendor/' . basename($vendorDirectory) . '/' . basename($packagePath);
+        $resolvedPackage = realpath($packagePath);
+
+        if (! is_string($resolvedPackage)) {
+            $failures[] = sprintf('%s is a broken symlink.', $relativePackage);
+
+            continue;
+        }
+
+        if (! str_starts_with(normalisePath($resolvedPackage) . DIRECTORY_SEPARATOR, normalisePath($realRoot) . DIRECTORY_SEPARATOR)) {
+            $failures[] = sprintf('%s resolves to %s.', $relativePackage, $resolvedPackage);
+        }
+    }
+}
+
 if ($failures !== []) {
     fwrite(STDERR, "Refusing to run: vendor/ is not owned by this checkout.\n\n");
 
@@ -109,7 +133,7 @@ if ($failures !== []) {
     }
 
     fwrite(STDERR, sprintf(
-        "\nRepair a host-only hybrid worktree: bash scripts/init-worktree.sh --force --host-only\n" .
+        "\nRepair a worktree vendor/: bash scripts/init-worktree.sh --force\n" .
         "For an owned primary checkout with a foreign skeleton vendor link, run from the checkout root:\n" .
         "ln -sfn %s/vendor vendor/orchestra/testbench-core/laravel/vendor\n",
         escapeshellarg($realRoot),
