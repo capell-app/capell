@@ -195,8 +195,8 @@
             <div @class(['min-w-0 flex-1' => $isVertical])>
                 @foreach ($items as $itemKey => $item)
                     @php
-                    $id = $item->getLivewireKey() . '.panel';
-                @endphp
+                        $id = $item->getLivewireKey() . '.panel';
+                    @endphp
 
                     {{-- Panels resolve their index from the DOM: Alpine's morph skips attribute patching on a shown element, so an index written into the markup goes stale when a translation is removed. --}}
                     <div

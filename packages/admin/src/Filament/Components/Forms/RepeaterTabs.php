@@ -481,7 +481,7 @@ class RepeaterTabs extends Repeater
             $orientation = TranslationTabsOrientation::tryFrom($orientation);
         }
 
-        return $orientation instanceof TranslationTabsOrientation ? $orientation : TranslationTabsOrientation::configured();
+        return $orientation instanceof TranslationTabsOrientation ? $orientation : TranslationTabsOrientation::Horizontal;
     }
 
     public function isVertical(): bool

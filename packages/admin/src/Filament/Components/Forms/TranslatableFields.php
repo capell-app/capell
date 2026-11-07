@@ -8,15 +8,19 @@ use Capell\Admin\Contracts\Support\FlagIconRenderer;
 use Capell\Admin\Enums\TranslationTabsOrientation;
 use Capell\Admin\Support\Loader\LanguageLoader;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Site;
 use Closure;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Override;
+use ReflectionFunction;
 
 /**
  * Edits one group of fields once per language.
@@ -100,7 +104,30 @@ class TranslatableFields extends Tabs
             $languages = collect($languages);
         }
 
-        return $languages instanceof Collection ? $languages : LanguageLoader::languages(null);
+        return $languages instanceof Collection ? $languages : LanguageLoader::languages($this->resolveSiteId());
+    }
+
+    /**
+     * A form edits one site's content, so without explicit languages it only
+     * offers that site's languages; a record without a site sees them all.
+     */
+    private function resolveSiteId(): ?int
+    {
+        $record = $this->getRecord();
+
+        if ($record instanceof Site) {
+            return (int) $record->getKey();
+        }
+
+        $siteId = $record instanceof Model ? $record->getAttribute('site_id') : null;
+
+        if (filled($siteId)) {
+            return (int) $siteId;
+        }
+
+        $tenant = Filament::getTenant();
+
+        return $tenant instanceof Site ? (int) $tenant->getKey() : null;
     }
 
     /**
@@ -145,8 +172,13 @@ class TranslatableFields extends Tabs
             $clone = $component->getClone();
 
             if ($clone instanceof Field) {
-                $clone->statePath(($clone->getStatePath(false) ?? $clone->getName()) . '.' . (filled($language->locale) ? $language->locale : $language->code))
-                    ->validationAttribute(fn (Field $component): string => lcfirst(strip_tags($this->labelText($component->getLabel()))) . ' (' . $language->name . ')');
+                $clone->statePath(($clone->getStatePath(false) ?? $clone->getName()) . '.' . (filled($language->locale) ? $language->locale : $language->code));
+                $declaredAttribute = (fn (): mixed => $this->validationAttribute)->call($clone);
+                $clone->validationAttribute(function (Field $component) use ($declaredAttribute, $language): string {
+                    $attribute = $component->evaluate($declaredAttribute);
+
+                    return (filled($attribute) ? (string) $attribute : lcfirst(strip_tags($this->labelText($component->getLabel())))) . ' (' . $language->name . ')';
+                });
             } else {
                 $children = $this->declaredChildComponents($clone);
 
@@ -177,7 +209,12 @@ class TranslatableFields extends Tabs
                 $parts[] = $component->getName();
             } elseif ($component instanceof Component) {
                 $children = $this->declaredChildComponents($component);
-                $parts[] = $component::class . '[' . (is_array($children) ? $this->fingerprint($children) : '') . ']';
+                $parts[] = $component::class . '[' . match (true) {
+                    is_array($children) => $this->fingerprint($children),
+                    // The closure's source location is stable between requests.
+                    $children instanceof Closure => $this->closureLocation($children),
+                    default => '',
+                } . ']';
             }
         }
 
@@ -191,6 +228,13 @@ class TranslatableFields extends Tabs
     private function declaredChildComponents(Component $component): mixed
     {
         return (fn (): mixed => $this->childComponents['default'] ?? [])->call($component);
+    }
+
+    private function closureLocation(Closure $closure): string
+    {
+        $reflection = new ReflectionFunction($closure);
+
+        return 'closure:' . $reflection->getFileName() . ':' . $reflection->getStartLine();
     }
 
     private function labelText(Htmlable|string|null $label): string

@@ -5,8 +5,12 @@ declare(strict_types=1);
 use Capell\Admin\Enums\TranslationTabsOrientation;
 use Capell\Admin\Filament\Components\Forms\RepeaterTabs;
 use Capell\Admin\Filament\Components\Forms\TranslatableFields;
+use Capell\Admin\Filament\Components\Forms\TranslationsRepeater;
 use Capell\Admin\Tests\Fixtures\Livewire as FormLivewire;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -178,10 +182,44 @@ it('takes the default orientation from config and lets a component override it',
     config()->set('capell-admin.translation_tabs_orientation', 'vertical');
 
     expect(TranslatableFields::make()->isVertical())->toBeTrue()
-        ->and(RepeaterTabs::make('translations')->isVertical())->toBeTrue()
-        ->and(RepeaterTabs::make('translations')->verticalTabs(false)->isVertical())->toBeFalse();
+        ->and(TranslationsRepeater::make('translations')->isVertical())->toBeTrue()
+        ->and(TranslationsRepeater::make('translations')->verticalTabs(false)->isVertical())->toBeFalse();
 
     config()->set('capell-admin.translation_tabs_orientation', 'sideways');
 
     expect(TranslatableFields::make()->isVertical())->toBeFalse();
+});
+
+it('offers only the record site languages when none are given', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+    $german = Language::factory()->german(order: 3)->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $welsh])->createOne();
+    Site::factory()->language($german)->withTranslations($german)->createOne();
+    $page = Page::factory()->site($site)->type(Blueprint::factory()->page()->createOne())->createOne();
+
+    $component = TranslatableFields::make('translations')->fields([TextInput::make('name')]);
+    Schema::make(FormLivewire::make())->statePath('data')->record($page)->components([$component])->getComponents();
+
+    expect($component->getLanguages()->pluck('code')->all())->toBe(['en', 'cy']);
+});
+
+it('keeps a validation attribute the developer declared, per language', function (): void {
+    $language = translatableFieldsLanguage('Welsh', 'cy', 'gb-wls');
+    $tabs = TranslatableFields::make('translations')->languages(collect([$language]))
+        ->fields([TextInput::make('name')->validationAttribute('headline')]);
+    translatableFieldsMount([$tabs]);
+
+    $field = translatableFieldsChildren(translatableFieldsTabs($tabs)[0])[0];
+
+    expect($field)->toBeInstanceOf(Field::class)
+        ->and($field instanceof Field ? $field->getValidationAttribute() : null)->toBe('headline (Welsh)');
+});
+
+it('applies the configured orientation to translation tabs only', function (): void {
+    config(['capell-admin.translation_tabs_orientation' => 'vertical']);
+
+    expect(RepeaterTabs::make('items')->getOrientation())->toBe(TranslationTabsOrientation::Horizontal)
+        ->and(TranslationsRepeater::make('translations')->getOrientation())->toBe(TranslationTabsOrientation::Vertical)
+        ->and(RepeaterTabs::make('items')->verticalTabs()->getOrientation())->toBe(TranslationTabsOrientation::Vertical);
 });
