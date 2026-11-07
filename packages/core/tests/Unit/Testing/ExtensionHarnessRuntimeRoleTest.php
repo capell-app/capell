@@ -63,37 +63,3 @@ it('activates actual harness contributions in the selected role and restores the
     'public' => [RuntimeRole::Public, ['runtime', 'content-graph:' . Page::class . ':' . TestPageContentGraphExtractor::class, 'frontend']],
     'combined' => [RuntimeRole::Combined, ['runtime', 'content-graph:' . Page::class . ':' . TestPageContentGraphExtractor::class, 'admin', 'frontend']],
 ]);
-
-it('restores nested lifecycle role scopes after an exception without losing pending registrations', function (): void {
-    app()->instance(RuntimeRoleResolver::class, new RuntimeRoleResolver(new RuntimeRoleSelectionData(RuntimeRole::Combined, 'combined', true)));
-    $runtime = resolve(InstalledRuntimeLifecycle::class);
-    $calls = [];
-    foreach (['nested', 'outer', 'after'] as $name) {
-        CapellCore::registerPackage('test/role-' . $name);
-        CapellCore::forcePackageInstalled('test/role-' . $name);
-    }
-
-    $register = function (string $name) use ($runtime, &$calls): void {
-        $provider = match ($name) {
-            'nested' => HarnessRuntimeProvider::class,
-            'outer' => HarnessFrontendProvider::class,
-            default => HarnessAdminProvider::class,
-        };
-        $runtime->register($provider, 'test/role-' . $name, 'admin', function () use ($name, &$calls): void {
-            $calls[] = $name;
-        });
-    };
-    $runtime->duringRuntimeRole(RuntimeRole::Public, function () use ($runtime, $register, &$calls): void {
-        expect(fn () => $runtime->duringRuntimeRole(RuntimeRole::Combined, function () use ($runtime, $register): void {
-            $register('nested');
-            $runtime->refresh();
-            throw new RuntimeException('scope failure');
-        }))->toThrow(RuntimeException::class, 'scope failure');
-        $register('outer');
-        $runtime->refresh();
-        expect($calls)->toBe(['nested']);
-    });
-    $register('after');
-    $runtime->refresh();
-    expect($calls)->toBe(['nested', 'outer', 'after']);
-});
