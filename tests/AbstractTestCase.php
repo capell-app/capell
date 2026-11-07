@@ -320,7 +320,7 @@ abstract class AbstractTestCase extends TestCase
         // These customised first-party fixtures are sources, rather than published vendor copies.
         // Register on every application, including cases reusing an already migrated database.
         $application = $this->app;
-        $this->assertInstanceOf(Application::class, $application);
+        throw_unless($application instanceof Application, RuntimeException::class, 'The test application has not booted.');
         $application->afterResolving(MigrationRootRegistry::class, static function (MigrationRootRegistry $registry): void {
             $registry->register('capell-tests/vendor-fixtures', __DIR__ . '/database/migrations', [
                 '2025_07_20_161855_create_media_table' => 'media',
