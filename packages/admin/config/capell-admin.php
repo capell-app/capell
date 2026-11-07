@@ -243,7 +243,7 @@ return [
             'sequence' => 'g w',
             'action' => 'navigate',
             'target' => 'publishing-studio',
-            'label' => 'Go to PublishingStudio',
+            'label' => 'Go to Publishing Studio',
         ],
         [
             'key' => '/',

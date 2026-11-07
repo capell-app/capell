@@ -24,7 +24,7 @@ Themes that extend Foundation should declare the parent through package metadata
 For client-specific builds, scaffold a path package inside the host app:
 
 ```bash
-php artisan capell:make-theme equidynamics \
+php artisan capell:make:theme equidynamics \
   --package=app/equidynamics-theme \
   --name=Equidynamics \
   --local

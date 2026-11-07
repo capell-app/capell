@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\PublicRead\RecordPublicReadEligibilityChangeAction;
+use Capell\Core\Contracts\PublicRead\EvaluatesPublicPageReadCandidatesIndividually;
+use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
+use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
@@ -560,4 +565,35 @@ it('stops capturing model identities when building render data fails', function 
         static fn (): PublicPageRenderData => throw new RuntimeException('Render failed.'),
     ))->toThrow(RuntimeException::class, 'Render failed.')
         ->and($tracker->capturing())->toBeFalse();
+});
+
+it('changes render data cache identity when public-read eligibility changes', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData($page, $site, $language, Layout::query()->find($page->layout_id), $site->theme, runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly));
+    $cache = resolve(PublicPageRenderDataCache::class);
+    resolve(PublicPageReadEligibilityRegistry::class)->register(new class implements PublicPageReadEligibility
+    {
+        use EvaluatesPublicPageReadCandidatesIndividually;
+
+        public function key(): string
+        {
+            return 'test-render-identity';
+        }
+
+        public function isPubliclyReadable(PublicPageReadCandidateData $candidate): bool
+        {
+            return true;
+        }
+    });
+    $before = $cache->keyForContext($context);
+
+    expect($cache->keyForContext($context))->toBe($before);
+
+    RecordPublicReadEligibilityChangeAction::run('test');
+
+    $after = $cache->keyForContext($context);
+    expect($after)->not->toBe($before)
+        ->and($cache->keyForContext($context))->toBe($after);
 });

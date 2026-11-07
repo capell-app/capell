@@ -430,3 +430,31 @@ If an admin contribution is missing, start with [Extension Troubleshooting](exte
 - run `php artisan capell:admin-cache-configurators` for configurators and schema extenders;
 - run `php artisan capell:admin-cache-widgets` for widgets;
 - re-run `php artisan capell:admin-install` when permissions or policies changed.
+
+## Command palette
+
+Extensions register commands at boot with `CapellAdmin::registerCommand()` and `PaletteCommandData`. The registry lives for the worker's lifetime: do not register commands per request or capture the current user in a callback. An optional `visible` closure receives the current authenticated panel actor and runs inside the page's site permission scope on every access computation. Without it, the destination must resolve to an accessible registered Filament page or resource; unresolved destinations and actions are hidden. Extensions must also authorise the destination itself.
+
+```php
+use Capell\Admin\Data\PaletteCommandData;
+use Capell\Admin\Facades\CapellAdmin;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Gate;
+
+CapellAdmin::registerCommand(new PaletteCommandData(
+    id: 'acme.reports',
+    label: __('acme::reports.command'),
+    url: '/admin/reports',
+    visible: static fn (Authenticatable $actor): bool => Gate::forUser($actor)->allows('viewReports'),
+));
+```
+
+Visibility callbacks stay on the server, are excluded from transformed/JSON data, and must never be queued or serialised. Register the callback itself at boot; resolve actor-specific decisions when it runs.
+
+Core command IDs are reserved: `capell.pages`, `capell.sites`, `capell.themes`, `capell.publishing-studio`, `capell.settings` and `capell.extensions`. Extension commands using one of these IDs are ignored with a debug log, including when that core destination is inaccessible or absent from the panel.
+
+Navigation shortcuts in `capell-admin.shortcuts` resolve core targets (with or without the `capell.` prefix) against accessible **core commands only**. An extension ID or URL matching a core destination cannot restore its shortcut. Themes resolves through the `Theme` admin resource group; Publishing Studio resolves through the optional `Workspace` group. Both must be registered on the current panel and pass `canAccess()`.
+
+Extension navigation shortcuts require an exact registered extension command ID, an explicit `visible` callback that allows the actor, and a command URL. URL-path matching and automatic ID prefixes are not supported for extension commands. The shortcut receives that command's resolved URL; commands without a URL cannot enable navigation shortcuts. Hidden extension commands and their shortcut labels/URLs are omitted from render data.
+
+The body-start palette tools view computes commands and shortcuts once and passes the render data to both the keyboard handler and the palette. Search filters the rendered list locally after a 250 ms debounce, without server requests or additional permission queries. Livewire actions recompute access using the original page's recorded site context. Access results are never stored across renders or in Livewire's public state; the request-scoped route context stores no grants and survives permission cache resets. Keyboard listeners are removed when the component is destroyed or Livewire navigation begins.

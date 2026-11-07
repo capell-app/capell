@@ -48,6 +48,7 @@ final class BuildExtensionDiagnosticsAction
                         category: 'provider',
                         title: __('capell-admin::dashboard.extension_provider_failed_title'),
                         message: $throwable->getMessage(),
+                        requiredAction: (string) __('capell-admin::dashboard.extension_provider_failed_action'),
                     )];
                 }
             })

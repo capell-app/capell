@@ -13,6 +13,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
@@ -163,7 +164,7 @@ final class SiteAccessQueryAllowList
             ],
             // Redirect reconciliation is an aggregate operation; fresh descendant
             // bounds exclude unrelated IDs, and the Admin save authorises its root.
-            'packages/admin/src/Actions/Pages/RecordDescendantUrlRedirectsAction.php' => ['handle|$request->page->newQuery()->whereDescendantOf($request->page->getKey())->get()->filter(fn(\Illuminate\Database\Eloquent\Model $descendant): bool => $descendant instanceof \Capell\Core\Contracts\Pageable)->keyBy(fn(\Illuminate\Database\Eloquent\Model $descendant): int => (int) $descendant->getKey())', 'urlChangedFor|$descendant->pageUrls()->where(\'language_id\', $languageId)->where(fn(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder => $query->whereNull(\'type\')->orWhere(\'type\', \'!=\', ' . UrlTypeEnum::class . "::Redirect))->value('url')"],
+            'packages/admin/src/Actions/Pages/RecordDescendantUrlRedirectsAction.php' => ['handle|$request->page->newQuery()->whereDescendantOf($request->page->getKey())->whereKey(array_keys($acceptedUrls))->get()->filter(fn(\Illuminate\Database\Eloquent\Model $descendant): bool => $descendant instanceof \Capell\Core\Contracts\Pageable)->keyBy(fn(\Illuminate\Database\Eloquent\Model $descendant): int => (int) $descendant->getKey())', 'currentUrls|' . PageUrl::class . '::query()->where(\'pageable_type\', $morphClass)->whereIn(\'pageable_id\', $pageIds)->whereIn(\'language_id\', $languageIds)->where(fn(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder => $query->whereNull(\'type\')->orWhere(\'type\', \'!=\', ' . UrlTypeEnum::class . "::Redirect))->orderBy('id')->toBase()->get(['pageable_id', 'language_id', 'url'])"],
             // The invocation's actor/site and page have already been authorised;
             // this pivot read only acquires transaction locks, returning no content.
             'packages/admin/src/Support/Agent/AgentAdminToolInvocationService.php' => [

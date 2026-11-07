@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
 class {{ class }} extends Component
 {
-    public function render(): string
+    public function render(): View
     {
-        return view('livewire.{{ view }}')->render();
+        return view('livewire.{{ view }}');
     }
 }

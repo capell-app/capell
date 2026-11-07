@@ -35,14 +35,14 @@ This page is the short command map for the host packages in this repository. Run
 
 ## Developer Makers
 
-| Command                 | Use it for                                             |
-| ----------------------- | ------------------------------------------------------ |
-| `capell:make`           | Preview or run any maker registered in `MakerRegistry` |
-| `capell:make-action`    | Generate an Action class under `App\Actions`           |
-| `capell:make-data`      | Generate a Laravel Data class under `App\Data`         |
-| `capell:make-extender`  | Generate a `PageSchemaExtender`                        |
-| `capell:make-schema`    | Generate a schema class                                |
-| `capell:make-blueprint` | Generate a page blueprint class                        |
+| Command                 | Use it for                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `capell:make`           | Preview or run any maker registered in `MakerRegistry`                                                          |
+| `capell:make:action`    | Generate an Action class under `App\Actions`                                                                    |
+| `capell:make:data`      | Generate a Laravel Data class under `App\Data`                                                                  |
+| `capell:make:extender`  | Generate a `PageSchemaExtender`                                                                                 |
+| `capell:make:schema`    | Generate a schema class                                                                                         |
+| `capell:make:blueprint` | Generate a blueprint subject model and its test (the deprecated `capell:make-type` alias writes the same model) |
 
 The maker hub accepts `--dry-run`, `--force`, `--name=`, `--type=`, `--source=`, `--livewire`, and `--database` where a maker supports them. Use `capell:make --dry-run` before writing files when you are checking a generator.
 
@@ -74,23 +74,23 @@ Do not use older schema publishing commands unless the installed package version
 
 ## Frontend
 
-| Command                         | Use it for                                  |
-| ------------------------------- | ------------------------------------------- |
-| `capell:frontend-install`       | Run frontend install work                   |
-| `capell:frontend-after-install` | Build frontend assets after package install |
-| `capell:frontend-upgrade`       | Run frontend package upgrade work           |
+| Command                           | Use it for                                     |
+| --------------------------------- | ---------------------------------------------- |
+| `capell:frontend-install`         | Run frontend install work                      |
+| `capell:frontend-after-install`   | Build frontend assets after package install    |
+| `capell:frontend-upgrade`         | Run frontend package upgrade work              |
 | `capell:frontend-tailwind-assets` | Aggregate package Tailwind sources and plugins |
 
 Static-site generation, sitemap generation, and demo commands are supplied by optional packages in a consuming app. `capell:frontend-tailwind-assets` (Tailwind aggregation) ships in `capell-app/frontend`. Treat `php artisan list capell` as the source of truth for that install.
 
 Common optional owners:
 
-| Command                           | Package                     |
-| --------------------------------- | --------------------------- |
-| `capell:static-site`              | `capell-app/html-cache`     |
-| `capell:xml-sitemap`              | `capell-app/site-discovery` |
-| `capell:admin-demo`               | `capell-app/demo-kit`       |
-| `capell:demo-kit-full-demo`       | `capell-app/demo-kit`       |
+| Command                     | Package                     |
+| --------------------------- | --------------------------- |
+| `capell:static-site`        | `capell-app/html-cache`     |
+| `capell:xml-sitemap`        | `capell-app/site-discovery` |
+| `capell:admin-demo`         | `capell-app/demo-kit`       |
+| `capell:demo-kit-full-demo` | `capell-app/demo-kit`       |
 
 ## Repository Scripts
 

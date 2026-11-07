@@ -16,8 +16,6 @@ final class ComposerDriftClassifier
 
     public const REASON_VERSION_MISMATCH = 'version_mismatch';
 
-    public const REASON_DISABLED_OR_FAILED = 'disabled_or_failed';
-
     public function reason(CapellExtension $extension): ?string
     {
         if (! CapellCore::hasPackage($extension->composer_name)) {
@@ -32,10 +30,6 @@ final class ComposerDriftClassifier
 
         if ($this->versionDiffers($extension)) {
             return self::REASON_VERSION_MISMATCH;
-        }
-
-        if (in_array($extension->status->value, ['disabled', 'failed'], true)) {
-            return self::REASON_DISABLED_OR_FAILED;
         }
 
         return null;

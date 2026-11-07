@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route as RouteFacade;
 
 use function Pest\Laravel\post;
 
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 it('applies site permission scope before content lock authorization', function (): void {
@@ -61,14 +62,22 @@ it('rejects unknown and non-pageable content lock types', function (string $type
 })->with(['unknown', RetainedDraftSubclassPage::class, 'site']);
 
 it('authorizes the resolved record before refreshing its lock', function (): void {
-    test()->actingAsUser();
+    // A panel user passes panel admission, so the refusal comes from the record's own update policy.
+    Role::findOrCreate('panel_user', 'web');
+    test()->actingAsRole('panel_user');
     $page = Page::factory()->createOne();
+    expect(test()->authenticatedUser()->can('update', $page))->toBeFalse();
+
     post(route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $page, 'type' => $page->getMorphClass()]))->assertForbidden();
+    post(route('capell-admin.api.pages.content-lock.release', ['page' => $page, 'type' => $page->getMorphClass()]))->assertForbidden();
+
     expect(ContentLock::query()->count())->toBe(0);
 });
 
 it('uses the resolved content site for permission scope instead of a caller supplied site', function (): void {
-    test()->actingAsUser();
+    // The admin API is held to the panel's authentication, so the caller must be able to use the panel.
+    Role::findOrCreate('panel_user', 'web');
+    test()->actingAsRole('panel_user');
     $page = Page::factory()->createOne();
     Gate::before(fn (): bool => resolve(PermissionRegistrar::class)->getPermissionsTeamId() === $page->site_id);
     post(route('capell-admin.api.pages.content-lock.heartbeat', [

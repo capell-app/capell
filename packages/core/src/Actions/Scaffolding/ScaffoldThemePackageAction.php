@@ -6,12 +6,14 @@ namespace Capell\Core\Actions\Scaffolding;
 
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Support\Facades\File;
 use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use RuntimeException;
 use SplFileInfo;
 
 final class ScaffoldThemePackageAction
@@ -24,6 +26,10 @@ final class ScaffoldThemePackageAction
      */
     public function handle(ThemeScaffoldInputData $input): void
     {
+        if ($input->local) {
+            $this->writeLocalManifest($input);
+        }
+
         File::ensureDirectoryExists($input->targetPath);
 
         File::put(
@@ -32,6 +38,50 @@ final class ScaffoldThemePackageAction
         );
 
         $this->renderStubDirectory($input);
+
+        if ($input->local) {
+            $repository = resolve(LocalAppThemeDefinitionRepository::class);
+            if (File::exists($repository->cachePath())) {
+                $repository->writeCache();
+            }
+        }
+
+    }
+
+    private function writeLocalManifest(ThemeScaffoldInputData $input): void
+    {
+        $repository = resolve(LocalAppThemeDefinitionRepository::class);
+        $directory = $repository->themeRootPath() . '/' . $input->themeKey;
+        $preview = '/vendor/' . $input->slug . '/preview.svg';
+        $description = $input->displayName . ' theme for Capell.';
+
+        File::ensureDirectoryExists($directory);
+        $contents = JsonCodec::encode([
+            'key' => $input->themeKey,
+            'name' => $input->displayName,
+            'description' => $description,
+            'package' => $input->packageName,
+            'previewImage' => $preview,
+            'extends' => $input->extends,
+            'runtime' => 'blade',
+            'presets' => [[
+                'key' => 'default',
+                'name' => 'Default',
+                'description' => 'Default theme preset.',
+                'previewImage' => $preview,
+                'values' => [],
+            ]],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+        $path = $directory . '/theme.json';
+        $handle = @fopen($path, 'x');
+        throw_if($handle === false, RuntimeException::class, sprintf('Cannot create local theme manifest [%s]: it already exists or is not writable.', $path));
+
+        try {
+            throw_if(fwrite($handle, $contents) !== strlen($contents), RuntimeException::class, sprintf('Cannot write local theme manifest [%s].', $path));
+        } finally {
+            fclose($handle);
+        }
+
     }
 
     /**

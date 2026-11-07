@@ -6,6 +6,7 @@ use Capell\Frontend\Actions\BuildStaticErrorPageDiagnosticsAction;
 use Capell\Frontend\Actions\ResolveStaticErrorPageAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Capell\Frontend\Tests\Support\ResolveStaticErrorPageTestStore;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -31,7 +32,7 @@ afterEach(function (): void {
 
 it('returns the static html for a matching manifest entry', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -55,8 +56,8 @@ it('returns the static html for a matching manifest entry', function (): void {
 
 it('chooses the longest matching path prefix', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('error/https.example.test/root/index.html', '<h1>root</h1>');
-    $this->store->put('error/https.example.test/shop/index.html', '<h1>shop</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/root/index.html', '<h1>root</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/shop/index.html', '<h1>shop</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -90,7 +91,7 @@ it('chooses the longest matching path prefix', function (): void {
 
 it('returns null for a wrong status', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -112,7 +113,7 @@ it('returns null for a wrong status', function (): void {
 
 it('returns null for a wrong host', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -175,7 +176,7 @@ it('returns null when the manifest entry file is missing on disk', function (): 
 
 it('records the rejecting predicate at debug level when the host does not match', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -241,7 +242,7 @@ it('records file_missing when the matched entry has no file on disk', function (
 
 it('logs nothing on the happy path', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+    PublishesStaticArtefacts::page($this->store, 'error/https.example.test/404/index.html', '<h1>Not found</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
 
@@ -265,8 +266,8 @@ it('logs nothing on the happy path', function (): void {
 
 it('rejects deployment leftovers and the original static writer replacing a regenerated route without port ownership', function (): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('legacy.html', '<h1>WRONG OWNER from port 8443</h1>');
-    $this->store->put('current.html', '<h1>Current owner</h1>');
+    PublishesStaticArtefacts::page($this->store, 'legacy.html', '<h1>WRONG OWNER from port 8443</h1>');
+    PublishesStaticArtefacts::page($this->store, 'current.html', '<h1>Current owner</h1>');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
     $store = resolve(ErrorPageManifestStore::class);
@@ -302,7 +303,7 @@ it('rejects deployment leftovers and the original static writer replacing a rege
 
 it('rejects static entries without a recorded mount', function (mixed $path): void {
     $this->store = makeStaticErrorPageStore();
-    $this->store->put('unsafe.html', 'WRONG MOUNT');
+    PublishesStaticArtefacts::page($this->store, 'unsafe.html', 'WRONG MOUNT');
 
     app()->instance(StaticErrorPageStore::class, $this->store);
     resolve(ErrorPageManifestStore::class)->replaceSite(1, [[

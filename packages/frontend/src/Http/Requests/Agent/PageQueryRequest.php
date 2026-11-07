@@ -22,7 +22,8 @@ final class PageQueryRequest extends FormRequest
             'filter' => ['sometimes', 'array', 'max:10'],
             'filter.*' => ['array', 'max:8'],
             'sort' => ['sometimes', 'string', 'max:100', 'regex:/^-?[a-zA-Z0-9_-]+$/'],
-            'page' => ['sometimes', 'array:size,number'],
+            'page' => ['sometimes', 'array:size,number,cursor'],
+            'page.cursor' => ['sometimes', 'string', 'max:2048'],
             'page.size' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'page.number' => ['sometimes', 'integer', 'min:1', 'max:1000'],
         ];
@@ -38,6 +39,16 @@ final class PageQueryRequest extends FormRequest
             page: $this->integer('page.number', 1),
             languageId: $languageId,
             publicUrlRequired: true,
+            cursor: $this->cursor(),
         );
+    }
+
+    /**
+     * The sealed cursor, opened (and, when it does not open, ignored) by the
+     * query for its own context.
+     */
+    private function cursor(): ?string
+    {
+        return $this->has('page.cursor') ? $this->string('page.cursor')->toString() : null;
     }
 }

@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Support\TableName;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(TableName::resolve('public_read_eligibility_state'), function (Blueprint $table): void {
+            $table->unsignedInteger('id')->primary();
+            $table->string('revision', 64);
+            // A digest of the stored rules this revision was advanced under; the reconciler advances past a mismatch.
+            $table->string('fingerprint', 64)->nullable();
+            // Set when an advance fails, so the unknown state survives a cache clear.
+            $table->string('unknown_token', 64)->nullable();
+            $table->timestamp('updated_at')->nullable();
+        });
+        DB::table(TableName::resolve('public_read_eligibility_state'))->insert([
+            'id' => 1,
+            'revision' => (string) Str::ulid(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(TableName::resolve('public_read_eligibility_state'));
+    }
+};

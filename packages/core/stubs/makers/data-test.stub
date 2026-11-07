@@ -1,0 +1,11 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Data\{{ class }}Data;
+
+require_once dirname(__DIR__, 3) . '/app/Data/{{ class }}Data.php';
+
+it('creates the {{ class }} data object', function (): void {
+    expect(new {{ class }}Data)->toBeInstanceOf({{ class }}Data::class);
+});

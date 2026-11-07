@@ -5,8 +5,8 @@ A typical local package lives in the consuming app's configured package path, su
 For a new package, start with the scaffold command:
 
 ```bash
-php artisan capell:make-extension vendor/example --profile=minimal --path=packages
-php artisan capell:make-extension vendor/example-tools --profile=full --path=packages
+php artisan capell:make:extension vendor/example --profile=minimal --path=packages
+php artisan capell:make:extension vendor/example-tools --profile=full --path=packages
 ```
 
 ```text
@@ -150,7 +150,7 @@ Keep `extra.laravel.providers` to the package bootstrap provider only, and never
 
 Use `dependencies.requires` for packages that must be installed before this package can work. Keep it honest: a package that registers an admin page, an Extensions page action, a Filament resource, or admin translations must require `capell-app/admin`. Use `dependencies.supports` for support packages that should be pulled into an install only when their own requirements are already selected or installed. Support packages that should not appear as standalone product choices should set `"visibility": "support"`; the installer can still add them through `dependencies.supports`.
 
-The command map is lifecycle metadata. Capell reads install, after-install, setup, upgrade, demo, and faker command keys where those workflows apply. It also reads `commands.doctor`: `capell:doctor` runs each installed package's declared doctor command as part of its report. Package *health checks* are separate, and come from the top-level `healthChecks` manifest list rather than the command map.
+The command map is lifecycle metadata. Capell reads install, after-install, setup, upgrade, demo, and faker command keys where those workflows apply. It also reads `commands.doctor`: `capell:doctor` runs each installed package's declared doctor command as part of its report. Package _health checks_ are separate, and come from the top-level `healthChecks` manifest list rather than the command map.
 
 Composer presence makes a package available. `capell_extensions.status = enabled` makes it active. Optional packages must not register runtime providers unless enabled.
 

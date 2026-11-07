@@ -22,6 +22,7 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 
 it('registers and retrieves hooks; handles collisions', function (): void {
@@ -551,4 +552,24 @@ it('leaves ordinary contributions on the existing render path while capturing fr
 
     expect($captured)->toStartWith('<span>ordinary</span>')
         ->and($fragments->references())->toHaveCount(1);
+});
+
+it('suppresses managed metadata when a head fragment is rehydrated', function (): void {
+    $fragments = new RenderHookFragmentRegistry;
+    app()->instance(RenderHookFragmentRegistry::class, $fragments);
+    $registry = new RenderHookRegistry;
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        location: RenderHookLocation::HeadClose,
+        blade: '<meta name="robots" content="noindex"><meta property="og:title" content="Fragment"><link rel="author" href="/author">',
+        owner: 'vendor/example',
+        key: 'head-fragment',
+        fragment: true,
+    ));
+    $fragments->beginCapture();
+    $captured = $registry->renderAll(RenderHookLocation::HeadClose);
+    $fragments->endCapture();
+    $cache = $fragments->prepareCache($captured, static fn (string $html): string => $html);
+    Log::shouldReceive('warning')->once()->withArgs(fn (string $message, array $context): bool => str_contains($message, 'metadata') && str_ends_with($context['hook'], ':vendor/example:head-fragment'));
+    $rendered = $fragments->renderCached($cache, $registry, static fn (): string => '');
+    expect($rendered)->not->toContain('robots')->not->toContain('og:title')->toContain('<link rel="author" href="/author">');
 });

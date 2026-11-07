@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Extenders\{{ class }}Extender;
+use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
+use Capell\Admin\Enums\PageTranslationSchemaHookEnum;
+use Filament\Schemas\Schema;
+
+require_once dirname(__DIR__, 3) . '/app/Extenders/{{ class }}Extender.php';
+
+it('is resolved through the page schema extender tag', function (): void {
+    app()->tag([{{ class }}Extender::class], PageSchemaExtender::TAG);
+
+    $resolved = collect(app()->tagged(PageSchemaExtender::TAG))
+        ->filter(static fn (object $extender): bool => $extender instanceof {{ class }}Extender);
+
+    expect($resolved)->toHaveCount(1);
+});
+
+it('contributes only at its own hook position', function (): void {
+    $extender = new {{ class }}Extender;
+    $schema = new Schema;
+    $ownHook = PageTranslationSchemaHookEnum::{{ hook }};
+    $otherHook = collect(PageTranslationSchemaHookEnum::cases())
+        ->first(static fn (PageTranslationSchemaHookEnum $hook): bool => $hook !== $ownHook);
+
+    expect($extender->extendTranslationComponentsForHook($schema, $ownHook))->toBeArray()
+        ->and($extender->extendTranslationComponentsForHook($schema, $otherHook))->toBe([]);
+});

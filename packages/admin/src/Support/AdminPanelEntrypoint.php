@@ -6,6 +6,9 @@ namespace Capell\Admin\Support;
 
 final class AdminPanelEntrypoint
 {
+    /** The id of the panel serving the Capell admin entrypoint, which serves Capell's own admin routes. */
+    public const string PANEL = 'admin';
+
     public static function domain(): ?string
     {
         $domain = config('capell-admin.domain');

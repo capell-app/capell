@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Actions\PublicRead\PublishPublicArtefactAction;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -11,6 +12,8 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
+use Capell\Core\Support\PublicRead\PublicArtefactPermit;
+use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Enums\ErrorPageStatusEnum;
 use Capell\Frontend\Enums\FrontendRenderAudience;
@@ -62,7 +65,10 @@ final class GenerateErrorPageCacheAction
         $fallbackEntries = [];
         $logoUrl = $this->logoUrl($site);
 
-        $site->siteDomains->each(function (SiteDomain $siteDomain) use ($page, $site, $store, $logoUrl, &$entries, &$fallbackEntries): void {
+        // The rules these pages are rendered under; checked again as each is written.
+        $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp((int) $site->getKey());
+
+        $site->siteDomains->each(function (SiteDomain $siteDomain) use ($page, $site, $store, $builtUnder, $logoUrl, &$entries, &$fallbackEntries): void {
             $language = $siteDomain->language ?? $site->language;
 
             if (! $language instanceof Language) {
@@ -77,7 +83,15 @@ final class GenerateErrorPageCacheAction
                 $html = $this->renderHtml($site, $page, $siteDomain, $language, $copyForStatus);
                 $path = $this->pathResolver->pathForDomainAndStatus($siteDomain, $status->value);
 
-                $store->put($path, $html);
+                // Served without Laravel: written only if the public-read rules
+                // it was rendered under still hold (else Laravel renders it).
+                if (! PublishPublicArtefactAction::run($store, $site->id, $builtUnder, [], static function (PublicArtefactPermit $permit) use ($store, $path, $html): bool {
+                    $store->put($permit, $path, $html);
+
+                    return true;
+                })) {
+                    continue;
+                }
 
                 $entries[] = [
                     'scheme' => $siteDomain->getAttributes()['scheme'] ?? null,
