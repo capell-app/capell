@@ -37,9 +37,6 @@ Route::get('/_capell/screenshots/auth-probe', static function (Request $request)
 Route::get('/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()))
     ->middleware('web');
 
-Route::get('/admin/screenshot-fixtures/page-building-blocks-editor', static fn (): RedirectResponse => redirect()->to(PageBuildingBlocksFixture::editUrl()))
-    ->middleware('web');
-
 Route::get('/screenshot-fixtures/page-history', static fn (): RedirectResponse => redirect()->to(PageHistoryFixture::editUrl()))
     ->middleware('web');
 

@@ -23,6 +23,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\SecurityAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionDependencyGraphFilamentWidget;
@@ -183,6 +184,7 @@ it('registers the built-in dashboard widgets for each dashboard', function (): v
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
         NeedsAttentionFilamentWidget::class,
+        SecurityAttentionFilamentWidget::class,
         ListPagesFilamentWidget::class,
         RecentActivityFilamentWidget::class,
         SiteStatsOverviewFilamentWidget::class,

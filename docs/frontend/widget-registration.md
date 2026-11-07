@@ -26,6 +26,10 @@ public function boot(LayoutWidgetRegistry $widgets): void
 
 `LayoutWidgetRegistry::register($name, LayoutWidgetTarget::FrontendBlade, $component)` still works for simple widgets. New package code should prefer definitions because the rendering component, resource groups, presentation defaults, and interaction defaults stay in one place.
 
+## Render A Widget From An Application
+
+A definition alone does not render. A public Blade widget also needs a renderable of type `layout-widget`, and a widget record whose `component` is that key. Follow [Build your first page type](../getting-started/build-your-first-page-type.md#5-add-a-public-widget) for a complete example.
+
 ## Inertia Widgets
 
 Inertia widgets use the same registry and definition shape, but they target `LayoutWidgetTarget::FrontendInertia` through `LayoutWidgetDefinitionData::frontendInertia()`.

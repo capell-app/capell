@@ -34,6 +34,7 @@ Site Health is the sidebar entry point for operational checks. Enabled extension
 - **Site monitor**: inspect public URL checks, certificate and domain expiry, and open incidents.
 - **Media Health**: investigate missing or unhealthy media.
 - **System Health**: review setup, alerts, content integrity, migrations, configuration drift, cache and asset-build widgets.
+- **Security**: review security weaknesses, evidence and approved automatic fixes in the Security group.
 - **Queue Health**: inspect pending work and failed background jobs.
 
 If an operator can access a focused page but lacks permission for the overview, its navigation link remains available independently.
