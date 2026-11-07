@@ -10,6 +10,27 @@ Set a downtime budget from repeated evidence rather than an estimate.
 
 Two disposable rehearsal destinations, immutable authorised source fixtures, a full backup/restore route and a timing recorder. Keep external payments and fulfilment in sandbox mode.
 
+## Check the current inventory before writing
+
+Read the source counts again immediately before the rehearsal. A site can gain
+articles, menu items and staff roles after its migration plan was approved. Keep
+the original counts alongside the new inventory and resolve every new role's
+permissions before accepting the new baseline. A successful preview is evidence
+of discovery; it does not prove an import or authorise a changed access policy.
+
+Keep the local rehearsal database on an isolated server if the privilege
+inspector requires server-wide metadata access. Give that server only the
+approved fixture and synthetic identities. An inspector account with global
+`SELECT` on a shared server can read unrelated databases; a database name alone
+does not restrict that grant. Bootstrap schema changes separately from the
+restricted import writer. Do not give the writer schema-wide or global write
+privileges to make a privilege check pass.
+
+Quoted media filenames can contain spaces and parentheses. Resolve their full
+paths before copying files or accepting a missing-media report. Preserve the
+original URL in public content while mapping the decoded local path to Media.
+Keep the source disk read-only during conversion.
+
 ## Procedure and exact commands
 
 Run the entire operation twice from fresh starting states. Within each rehearsal repeat the import unchanged to prove no-op behaviour. Time freeze, final copy, migrations, import, cache rebuild, reconciliation and smoke checks separately. Test session logout and token preservation.

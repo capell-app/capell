@@ -412,7 +412,7 @@ final class ResolveFrontendResourcePlanAction
         if ($resource->source instanceof PublicResourceSourceData) {
             $url = $this->url->asset($resource->source->path);
             $sourceKind = FrontendResourceSourceKind::PublicPath;
-            $localPath = public_path(ltrim($resource->source->path, '/'));
+            $localPath = public_path(ltrim(substr($resource->source->path, 0, strcspn($resource->source->path, '?#')), '/'));
         } elseif ($resource->source instanceof ExternalResourceSourceData) {
             $url = $resource->source->httpsUrl;
             $integrity = $resource->source->integrity;
