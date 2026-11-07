@@ -8,6 +8,7 @@ use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Closure;
+use Filament\PanelProvider;
 use Illuminate\Support\Collection;
 
 use function Laravel\Prompts\confirm;
@@ -70,7 +71,12 @@ final class FilamentAdminInstallPreflight
 
     private function hasPanelProvider(): bool
     {
-        return $this->panelProviderPaths() !== [];
+        // A package can register the panel, and scaffolding a second one would give the panel id two owners.
+        if ($this->panelProviderPaths() !== []) {
+            return true;
+        }
+
+        return app()->getProviders(PanelProvider::class) !== [];
     }
 
     /**
