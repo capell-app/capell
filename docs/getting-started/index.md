@@ -37,6 +37,11 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 
 | I need to...                       | Read                                                      |
 | ---------------------------------- | --------------------------------------------------------- |
+| Build a client site                | [Build a client site](build-a-client-site.md)             |
+| Add a page type and widget         | [Build your first page type](build-your-first-page-type.md) |
+| Move from WordPress                | [Coming from WordPress](coming-from-wordpress.md)         |
+| Move from Statamic                 | [Coming from Statamic](coming-from-statamic.md)           |
+| Deploy on Deployer, Forge or Ploi  | [Deploy recipes](../operations/deploy-recipes.md)         |
 | Build interactive page experiences | [Capell Interactions](capell-interactions.md)             |
 | Build with Inertia                 | [Capell Inertia runtime](inertia-runtime.md)              |
 | Render widgets through Inertia     | [Inertia widgets](inertia-widgets.md)                     |
