@@ -89,6 +89,21 @@ They are framework regression evidence; the site's installation, MariaDB
 coexistence and screenshot verification remain **not yet verified**. Use a
 release containing the reviewed fixes before treating this as a rehearsal gate.
 
+## Check authentication-log integrations
+
+Set the intended audit-table alias before the first native audit migration.
+When Login Audit adopts an existing authentication log, use its native model so
+its privacy observers run. Custom device-recognition listeners must query the
+retained keyed IP and user-agent hashes; the native schema removes plaintext IP.
+Keep the host's notification templates and staff-only delivery rules explicit.
+
+Changing an alias after a partial install does not replay migration records that
+ran against the previous table. Review the actual table and migration history
+before resuming; changing configuration alone does not complete the conversion.
+Local migration tests have verified row identity, hash backfill, device recognition
+and logout completion. The complete MariaDB site rehearsal remains **not yet
+verified**.
+
 ## Roll back
 
 Before any content import, restore the destination backup and naming configuration together. Changing config alone does not rename populated tables.
