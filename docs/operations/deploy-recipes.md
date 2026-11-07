@@ -21,7 +21,7 @@ task('capell:upgrade', fn () => run('cd {{release_path}} && {{bin/php}} artisan 
 task('capell:refresh', fn () => run('cd {{release_path}} && {{bin/php}} artisan capell:runtime-refresh --no-interaction'));
 
 before('deploy:symlink', 'capell:upgrade');
-before('deploy:symlink', 'capell:refresh');
+after('capell:upgrade', 'capell:refresh');
 ```
 
 Reload PHP-FPM after `deploy:symlink`.

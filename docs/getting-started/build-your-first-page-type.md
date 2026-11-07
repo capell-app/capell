@@ -74,6 +74,8 @@ final class ServicePageConfigurator extends DefaultPageConfigurator
 Register it in the `boot()` method of `app/Providers/AppServiceProvider.php`, beside the case study configurator:
 
 ```php
+use App\Filament\Configurators\Pages\ServicePageConfigurator;
+
 CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::configurator(
     class: ServicePageConfigurator::class, group: 'Pages', name: 'Service', owner: 'app',
 ));
