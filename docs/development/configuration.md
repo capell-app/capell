@@ -44,6 +44,10 @@ table-name keys, `capell.database.external_tables.media`,
 and `capell.database.external_tables.snapshots` configure their respective external
 package tables. These names do not inherit the Capell table prefix or aliases.
 
+`capell.database.adopted_tables` (empty by default) lists logical table names whose existing host table is
+deliberately adopted, such as `login_audit` aliased to `authentication_log`. The installer then does not
+report that table as a collision. Only list a table whose package migrations adopt an existing table.
+
 A prefix may contain letters, numbers and underscores, must not start with a number, and
 must leave the longest Capell table name within 63 characters (the PostgreSQL identifier
 cap). Capell never takes over a table it did not create: an upgrade or migration that

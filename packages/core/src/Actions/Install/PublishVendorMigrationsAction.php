@@ -252,8 +252,27 @@ final class PublishVendorMigrationsAction
         }
     }
 
+    /**
+     * Voyager ships its own create_settings_table migration. A matching name does not prove the
+     * Spatie settings table exists when a configured table name separates the two.
+     */
+    private function sharedNameTargetIsMissing(string $name): bool
+    {
+        if ($name !== 'create_settings_table') {
+            return false;
+        }
+
+        $table = config('settings.repositories.database.table');
+
+        return is_string($table) && $table !== 'settings' && ! Schema::hasTable($table);
+    }
+
     private function migrationHasRun(string $name): bool
     {
+        if ($this->sharedNameTargetIsMissing($name)) {
+            return false;
+        }
+
         foreach ($this->matchingMigrationPaths($name) as $migrationPath) {
             if ($this->migrationFileHasRun($migrationPath)) {
                 return true;
@@ -278,6 +297,10 @@ final class PublishVendorMigrationsAction
 
     private function nonCanonicalMigrationHasRun(string $name, string $targetName): bool
     {
+        if ($this->sharedNameTargetIsMissing($name)) {
+            return false;
+        }
+
         foreach ($this->matchingMigrationPaths($name) as $migrationPath) {
             if (basename($migrationPath) === $targetName) {
                 continue;

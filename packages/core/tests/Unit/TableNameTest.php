@@ -156,3 +156,35 @@ it('keeps legacy index and foreign-key names by default and derives custom names
     expect(TableName::index('pages', 'created_by', 'foreign'))->toBe('content_pages_created_by_foreign')
         ->and(TableName::namedIndex('pages', 'legacy_lookup'))->toBe('content_pages_legacy_lookup');
 });
+
+it('does not report a table the host explicitly adopts as a collision', function (): void {
+    config()->set('capell.database.external_tables.media', 'adopted_media_library');
+    // A host table that predates Capell has no Capell migration record.
+    app()->instance('capell.table-name.ledger', new class
+    {
+        public function repositoryExists(): bool
+        {
+            return true;
+        }
+
+        /** @return list<string> */
+        public function getRan(): array
+        {
+            return [];
+        }
+    });
+    Schema::create('adopted_media_library', function ($table): void {
+        $table->id();
+    });
+
+    $collisions = static fn (): array => array_map(
+        static fn (TableCollisionData $collision): string => $collision->table,
+        FindTableCollisionsAction::run([]),
+    );
+
+    expect($collisions())->toContain('adopted_media_library');
+
+    config()->set('capell.database.adopted_tables', ['media']);
+
+    expect($collisions())->not->toContain('adopted_media_library');
+});
