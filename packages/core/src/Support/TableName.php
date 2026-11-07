@@ -28,12 +28,6 @@ final class TableName
 
     private const string LEDGER_FILES_BINDING = 'capell.table-name.ledger-files';
 
-    /** @var array<string, string> Original source SHA-256 for supported historical schema transitions. */
-    private const array LEGACY_MIGRATION_SHA256 = [
-        '2026_05_10_190832_15_create_asset_relations_table' => '70d0ee9797dd00936cf83dd4b1cca7cecc3be28bdeccb01b1196db50fca922a5',
-        '2026_06_25_000003_create_page_content_snapshots_table' => '6959976c64f124c9dd89df4a4fb6534dfa39776ba44de72aebc582e62d37b114',
-    ];
-
     /**
      * Runs a callback reading the migration ledger from another repository (the table-shape probe's scratch database).
      *
@@ -186,8 +180,8 @@ final class TableName
         }
 
         $sources = self::migrationSources($migration);
-        $legacy = self::legacyMigration($migration);
-        if ($sources === [] && $legacy === null) {
+        $history = TableShape::historyFor($migration);
+        if ($sources === [] && $history['names'] === [] && $history['sha256'] === []) {
             return false;
         }
 
@@ -202,16 +196,9 @@ final class TableName
             }
 
             $effective = self::effectiveMigration($recorded, $connection);
-            if ($legacy !== null) {
-                if ($recorded === $legacy && $effective === null) {
-                    return true;
-                }
-
-                $historicalHash = self::LEGACY_MIGRATION_SHA256[$legacy] ?? null;
-                $effectiveHash = $effective === null ? false : hash_file('sha256', $effective);
-                if ($historicalHash !== null && is_string($effectiveHash) && hash_equals($historicalHash, $effectiveHash)) {
-                    return true;
-                }
+            // Shipped bytes stay authentic after a later release changes or retires the source.
+            if ($effective === null ? in_array($recorded, $history['names'], true) : self::isShipped($effective, $history['sha256'])) {
+                return true;
             }
 
             foreach ($sources as $source) {
@@ -226,15 +213,12 @@ final class TableName
         return false;
     }
 
-    private static function legacyMigration(string $migration): ?string
+    /** @param  list<string>  $hashes */
+    private static function isShipped(string $path, array $hashes): bool
     {
-        foreach (array_keys(self::LEGACY_MIGRATION_SHA256) as $canonical) {
-            if (self::withoutTimestamp($canonical) === self::withoutTimestamp($migration)) {
-                return $canonical;
-            }
-        }
+        $hash = hash_file('sha256', $path);
 
-        return null;
+        return is_string($hash) && in_array($hash, $hashes, true);
     }
 
     private static function ledger(?string $connection): MigrationRepositoryInterface

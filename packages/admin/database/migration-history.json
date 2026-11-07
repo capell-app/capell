@@ -1,0 +1,228 @@
+{
+    "create_admin_transfer_origins_table": {
+        "names": [
+            "2026_11_04_000001_create_admin_transfer_origins_table"
+        ],
+        "sha256": [
+            "6704360bedd60ffd4d107202256200232b9da1f7d18657a447e4a66ac76dbbba"
+        ]
+    },
+    "create_admin_upload_grants_table": {
+        "names": [
+            "2026_10_24_000001_create_admin_upload_grants_table"
+        ],
+        "sha256": [
+            "b716c16fcc416c7854b9fe7e11120a72eb43e5caec9e63a85b3802b2eada4101",
+            "e3e4f9e043451f3fb6929ba12fdeb7eb8178d463736abfebe37d7f52ca3125d1"
+        ]
+    },
+    "create_ai_generation_histories_table": {
+        "names": [
+            "2025_12_26_000000_create_ai_generation_histories_table"
+        ],
+        "sha256": [
+            "4ac7bd10dd88c95887405d50da25fd68ee44296503c7a3d3f0369946c436bd28",
+            "6a7fbf1e8902dbc5aa363cd28820df9290357b5a5100c1bb672458fff9766cfd"
+        ]
+    },
+    "create_content_descriptions_table": {
+        "names": [
+            "2023_02_01_000011_create_content_descriptions_table"
+        ],
+        "sha256": [
+            "f4ba73a2d27ba4b74e1e057ad7967555028bb07d64a61dfae615e3556fbed4bf"
+        ]
+    },
+    "create_content_types_table": {
+        "names": [
+            "2023_02_01_000009_create_content_types_table"
+        ],
+        "sha256": [
+            "cb20ea3cf2ea6eea9c15e912daf09ff92fe111b153dc59d2a4b93d14c5712322"
+        ]
+    },
+    "create_contentables_table": {
+        "names": [
+            "2023_02_01_000012_create_contentables_table"
+        ],
+        "sha256": [
+            "07050c9923150469e6c69904945587e686dbbb75227b27f64231416d1ddb2ba9"
+        ]
+    },
+    "create_contents_table": {
+        "names": [
+            "2023_02_01_000010_create_contents_table"
+        ],
+        "sha256": [
+            "e8cc9f7a3d07e2bc7102360af249381afaae6797ada7a1b5ed0131d748004dd5"
+        ]
+    },
+    "create_languages_table": {
+        "names": [
+            "2023_02_01_000000_create_languages_table"
+        ],
+        "sha256": [
+            "8e1a422d91f4ac5f87fa38306e4e452ee6a8c62b48e775f77235d91c111252e0"
+        ]
+    },
+    "create_layout_widgets_table": {
+        "names": [
+            "2023_02_01_000016_create_layout_widgets_table"
+        ],
+        "sha256": [
+            "0cd2ffebeee3d9f9ec083e2383d1142ad8b5056c3c812d51b0565e6f8bc41778"
+        ]
+    },
+    "create_layouts_table": {
+        "names": [
+            "2023_02_01_000008_create_layouts_table"
+        ],
+        "sha256": [
+            "8301f4e173edf015fa023ae0d95b15c1dd7db205143a40f568e8af9dcfaebe5c"
+        ]
+    },
+    "create_mediables_table": {
+        "names": [
+            "2023_02_01_000017_create_mediables_table"
+        ],
+        "sha256": [
+            "00a78eccb1f2fe1cccdd427697340897db045c4f1fa62fe52c953e08ef77a6bf"
+        ]
+    },
+    "create_page_descriptions_table": {
+        "names": [
+            "2023_02_01_000020_create_page_descriptions_table"
+        ],
+        "sha256": [
+            "a0f75913c761425e8dd37b77dcff7842767c3cb12c3f3d0a5b3af9065ac7f9ef"
+        ]
+    },
+    "create_page_types_table": {
+        "names": [
+            "2023_02_01_000018_create_page_types_table"
+        ],
+        "sha256": [
+            "e47eab98f24a4131a58cb8ea4eac82fb58dff2142b524e54f850acc2b0fb2c6a"
+        ]
+    },
+    "create_page_urls_table": {
+        "names": [
+            "2023_02_01_000021_create_page_urls_table"
+        ],
+        "sha256": [
+            "daea4ef464e23130117ad3aea3b7d77f966832f8a7a404c413aba93d57db4068"
+        ]
+    },
+    "create_pages_table": {
+        "names": [
+            "2023_02_01_000019_create_pages_table"
+        ],
+        "sha256": [
+            "9b602d0d17ead83861eb3f0b20f963963ffbabf4e635f2a94e49da5ecac7ef8d"
+        ]
+    },
+    "create_site_descriptions_table": {
+        "names": [
+            "2023_02_01_000004_create_site_descriptions_table"
+        ],
+        "sha256": [
+            "fda3a153041d37f677965ed93963bbeff935f0ea981ac27b3e46e10d327a5e84"
+        ]
+    },
+    "create_site_domains_table": {
+        "names": [
+            "2023_02_01_000005_create_site_domains_table"
+        ],
+        "sha256": [
+            "8bbddf66db750dc3e5a041be13f8300d04723bde3f6a8f11f9ed30b04d621c5c"
+        ]
+    },
+    "create_site_media_table": {
+        "names": [
+            "2023_02_01_000006_create_site_media_table"
+        ],
+        "sha256": [
+            "2726fba6a7fb474a4ef0e8dc090c4cb6e555d8bfc61228677d0f676292811c11"
+        ]
+    },
+    "create_site_related_table": {
+        "names": [
+            "2023_02_01_000007_create_site_related_table"
+        ],
+        "sha256": [
+            "5d6617ee67b157ed1d602c74cbfd0edf5a24bab0d22c9b85bd1e33a4129f55c7"
+        ]
+    },
+    "create_site_types_table": {
+        "names": [
+            "2023_02_01_000002_create_site_types_table"
+        ],
+        "sha256": [
+            "0c1a69bd7d5d8ceabc959f184ef5b4b957740657fa506cabb1c358f75a49823c"
+        ]
+    },
+    "create_sites_table": {
+        "names": [
+            "2023_02_01_000003_create_sites_table"
+        ],
+        "sha256": [
+            "71d294eb1dbec8578cacde8c2f092ee543f6eff3a90f87500467749e95adcc30"
+        ]
+    },
+    "create_themes_table": {
+        "names": [
+            "2023_02_01_000001_create_themes_table"
+        ],
+        "sha256": [
+            "37995158d62cbf25bd889a29116a3c72b05e7ef54cf6eb5a3296ba437f669085"
+        ]
+    },
+    "create_widget_contents_table": {
+        "names": [
+            "2023_02_01_000022_create_widget_contents_table"
+        ],
+        "sha256": [
+            "1fecef5179e477073b332ec0274df12628ea7069442fab6ae339a7b23288b4c3"
+        ]
+    },
+    "create_widget_descriptions_table": {
+        "names": [
+            "2023_02_01_000015_create_widget_descriptions_table"
+        ],
+        "sha256": [
+            "b94099029ba95b8fe3c3ca5bf4f3ae30205fa109b0dd1ca84c852b745258dce3"
+        ]
+    },
+    "create_widget_media_table": {
+        "names": [
+            "2023_02_01_000023_create_widget_media_table"
+        ],
+        "sha256": [
+            "5ea12ade983aaa55f89217e82db33a342d21d7b559380a5cff8628de94528731"
+        ]
+    },
+    "create_widget_pages_table": {
+        "names": [
+            "2023_02_01_000024_create_widget_pages_table"
+        ],
+        "sha256": [
+            "113a0e156e2c7614602c2dab3ff07bf40475c00de082cef75fccf201d393d01b"
+        ]
+    },
+    "create_widget_types_table": {
+        "names": [
+            "2023_02_01_000013_create_widget_types_table"
+        ],
+        "sha256": [
+            "c6c30fcb19031a8428ccbed8c01f461e9f9640ff9b39655d01a985c16c902d0c"
+        ]
+    },
+    "create_widgets_table": {
+        "names": [
+            "2023_02_01_000014_create_widgets_table"
+        ],
+        "sha256": [
+            "a6c40a37af38786e4f48077e9bc134ab555ac9fb4b8bad4a95c414294ec61619"
+        ]
+    }
+}

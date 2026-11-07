@@ -119,6 +119,38 @@ final class TableShape
         return array_values(array_unique($sources));
     }
 
+    /**
+     * Filenames and bytes this migration has shipped under, from each package's generated history.
+     *
+     * @return array{names: list<string>, sha256: list<string>}
+     */
+    public static function historyFor(string $migration): array
+    {
+        $name = self::withoutTimestamp($migration);
+        $names = [];
+        $hashes = [];
+        foreach (self::directories() as $directory) {
+            $path = dirname($directory) . '/migration-history.json';
+            if (! is_file($path)) {
+                continue;
+            }
+
+            if (is_link($path)) {
+                continue;
+            }
+
+            $contents = file_get_contents($path);
+            $history = is_string($contents) ? json_decode($contents, true) : null;
+            $entry = is_array($history) ? ($history[$name] ?? null) : null;
+            if (is_array($entry)) {
+                array_push($names, ...array_values((array) ($entry['names'] ?? [])));
+                array_push($hashes, ...array_values((array) ($entry['sha256'] ?? [])));
+            }
+        }
+
+        return ['names' => $names, 'sha256' => $hashes];
+    }
+
     /** The migration that creates a base table, or the historic one for a renamed table. */
     public static function migrationFor(string $baseTable): ?string
     {

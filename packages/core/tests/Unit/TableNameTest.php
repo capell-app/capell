@@ -18,6 +18,7 @@ use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\DatabaseMigrationRepository;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 it('keeps base table names by default', function (): void {
@@ -277,6 +278,31 @@ PHP);
             unlink($source);
             unlink($target);
             rmdir($directory);
+        }
+    });
+
+    it('authenticates a retained publication whose shipped source later changed', function (bool $genuine): void {
+        $recorded = '2037_01_01_000002_create_page_role_restrictions_table';
+        $published = database_path('migrations/' . $recorded . '.php');
+        $shipped = (string) file_get_contents(__DIR__ . '/../fixtures/table-naming/legacy/2026_05_10_190832_20_create_page_role_restrictions_table.php.stub');
+        file_put_contents($published, $genuine ? $shipped : $shipped . "\n// host edit\n");
+        DB::table('migrations')->insert(['migration' => $recorded, 'batch' => 1]);
+
+        try {
+            expect(TableName::migrationRecorded('2026_05_10_190832_20_create_page_role_restrictions_table'))->toBe($genuine);
+        } finally {
+            File::delete($published);
+        }
+    })->with(['genuine shipped bytes' => [true], 'edited bytes' => [false]]);
+
+    it('records the bytes of every current foundation create migration', function (): void {
+        $root = dirname(__DIR__, 4);
+        foreach (['admin', 'core', 'frontend', 'installer', 'marketplace'] as $package) {
+            foreach (glob($root . '/packages/' . $package . '/database/migrations/*create_*.php') ?: [] as $path) {
+                $history = json_decode((string) file_get_contents($root . '/packages/' . $package . '/database/migration-history.json'), true, flags: JSON_THROW_ON_ERROR);
+                $name = (string) preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}(?:_\d{2})?_/', '', basename($path, '.php'));
+                expect(in_array(hash_file('sha256', $path), $history[$name]['sha256'] ?? [], true))->toBeTrue('Run composer migrations:history for ' . basename($path));
+            }
         }
     });
 
