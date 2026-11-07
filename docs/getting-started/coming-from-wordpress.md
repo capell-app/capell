@@ -18,9 +18,24 @@ Capell is a Laravel application you own, so most WordPress ideas map to Laravel 
 For a site with a **Service** post type and a `price` custom field:
 
 1. Create the page type and field by following [Build your first page type](build-your-first-page-type.md).
-2. Create one page per post in Admin, or preview the WXR export with the paid [WordPress Importer](../packages/README.md), which keeps permalinks, taxonomy, authors, media references and shortcodes as metadata for mapping.
-3. Replace each shortcode with a widget or Blade component.
-4. Keep old addresses as page URLs or redirects, then check each one anonymously.
+2. To keep old addresses, install URL Manager before you import. Without it the import still succeeds, but it creates no redirects and old addresses return 404:
+
+   ```bash
+   composer require capell-app/url-manager
+   php artisan capell:package-cache:clear
+   php artisan capell:extension-install capell-app/url-manager
+   ```
+
+3. Create one page per post in Admin, or import the WXR export with the paid [WordPress Importer](../packages/README.md). Run it first without `--execute` to preview, then with the target IDs. `--type-id` must be a blueprint of type `page`:
+
+   ```bash
+   php artisan wordpress-importer:import site.xml
+   php artisan wordpress-importer:import site.xml --execute --site-id=1 --layout-id=1 --type-id=2 --actor-id=1
+   ```
+
+   Imported pages get an address from their title, so `/services/brand-sprint/` becomes `/brand-sprint`, and URL Manager adds a 301 from the old address.
+4. Replace each shortcode with a widget or Blade component.
+5. Request each old address anonymously and check it redirects to the new page.
 
 ## Next
 
