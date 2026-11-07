@@ -478,6 +478,11 @@ final class RunCapellUpgradeAction
                 $io->line('Skipped optimize:clear; Testbench package manifests are shared across parallel tests');
             } else {
                 $passed = $this->clearCache($io, 'optimize:clear');
+
+                // optimize:clear runs clear-compiled, which deletes the runtime role's generated
+                // packages and services manifests but keeps its providers manifest. Rebuild the
+                // set, as the installer does, or the doctor reports an incomplete provider graph.
+                $passed = $this->clearCache($io, 'capell:package-cache') && $passed;
             }
 
             return $passed;

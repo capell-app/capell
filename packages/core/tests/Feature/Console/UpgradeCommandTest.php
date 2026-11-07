@@ -40,6 +40,33 @@ beforeEach(function (): void {
     Artisan::command('capell:test-failing-upgrade', fn (): int => Command::FAILURE)->describe('stub');
 });
 
+it('rebuilds the package cache after optimize:clear so the runtime role manifests stay complete', function (): void {
+    // The Testbench skeleton skips optimize:clear; a bootstrap path of its own makes the clear real.
+    app()->useBootstrapPath(sys_get_temp_dir() . '/capell-upgrade-cache-' . bin2hex(random_bytes(4)));
+    $calls = [];
+    Artisan::command('optimize:clear', function () use (&$calls): int {
+        $calls[] = 'optimize:clear';
+
+        return Command::SUCCESS;
+    })->describe('stub');
+    Artisan::command('capell:package-cache', function () use (&$calls): int {
+        $calls[] = 'capell:package-cache';
+
+        return Command::SUCCESS;
+    })->describe('stub');
+
+    artisanCommand('capell:upgrade', ['--force' => true])->assertSuccessful();
+
+    expect($calls)->toBe(['optimize:clear', 'capell:package-cache']);
+});
+
+it('fails the upgrade when the package cache cannot be rebuilt after optimize:clear', function (): void {
+    app()->useBootstrapPath(sys_get_temp_dir() . '/capell-upgrade-cache-' . bin2hex(random_bytes(4)));
+    Artisan::command('capell:package-cache', fn (): int => Command::FAILURE)->describe('stub');
+
+    artisanCommand('capell:upgrade', ['--force' => true])->assertFailed();
+});
+
 it('runs the full pipeline and records state in the log', function (): void {
     artisanCommand('capell:upgrade', ['--force' => true, '--no-clear-cache' => true])->assertSuccessful();
 
