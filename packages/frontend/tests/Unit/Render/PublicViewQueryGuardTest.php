@@ -57,10 +57,14 @@ it('reports the blade view that executed a public render query', function (): vo
     File::ensureDirectoryExists($viewDirectory);
     File::put($viewPath, '@php(DB::select("select 1 as blade_guard_probe"))');
 
-    expect(fn () => resolve(PublicViewQueryGuard::class)->guard(
-        new FrontendRenderContextData(null, null, null, null, null),
-        fn (): string => View::make('query-guard.origin')->render(),
-    ))->toThrow(RuntimeException::class, $viewPath);
+    try {
+        expect(fn () => resolve(PublicViewQueryGuard::class)->guard(
+            new FrontendRenderContextData(null, null, null, null, null),
+            fn (): string => View::make('query-guard.origin')->render(),
+        ))->toThrow(RuntimeException::class, $viewPath);
+    } finally {
+        File::deleteDirectory($viewDirectory);
+    }
 });
 
 it('can log public blade rendering queries without blocking the response', function (): void {
