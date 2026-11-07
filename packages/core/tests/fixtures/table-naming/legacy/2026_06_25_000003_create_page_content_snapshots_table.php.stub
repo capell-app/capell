@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::hasTable('page_content_snapshots')) {
+            return;
+        }
+
+        Schema::create('page_content_snapshots', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('page_id')->constrained('pages')->cascadeOnDelete();
+            $table->foreignId('translation_id')->nullable()->constrained('translations')->nullOnDelete();
+            $table->foreignId('language_id')->nullable()->constrained('languages')->nullOnDelete();
+            $table->timestamp('taken_at')->index();
+            $table->string('reason');
+            $table->string('content_structure_before')->nullable();
+            $table->longText('content_blob')->nullable();
+            $table->foreignId('blueprint_id_before')->nullable()->constrained('blueprints')->nullOnDelete();
+            $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+
+            $table->index(['page_id', 'translation_id', 'taken_at'], 'page_content_snapshots_lookup_index');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('page_content_snapshots');
+    }
+};

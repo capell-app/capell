@@ -31,8 +31,8 @@ it('activates actual harness contributions in the selected role and restores the
     ], JSON_THROW_ON_ERROR));
     file_put_contents($directory . '/capell.json', json_encode(capellManifestV3Array(
         name: 'test/harness-runtime-readiness',
-        namespace: 'Vendor\\ExtensionConformance\\RuntimeReadiness',
         surfaces: ['admin', 'frontend'],
+        namespace: 'Vendor\\ExtensionConformance\\RuntimeReadiness',
         providers: [
             'runtime' => [HarnessRuntimeProvider::class],
             'admin' => [HarnessAdminProvider::class],

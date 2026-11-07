@@ -11,10 +11,23 @@ use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\ColumnDefinition;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Fluent;
+
+beforeEach(function (): void {
+    $this->migrationDirectoryPreviousPath = database_path();
+    $this->migrationDirectoryRoot = sys_get_temp_dir() . '/capell-migration-sources-' . bin2hex(random_bytes(8));
+    mkdir($this->migrationDirectoryRoot . '/migrations', 0755, true);
+    app()->useDatabasePath($this->migrationDirectoryRoot);
+});
+
+afterEach(function (): void {
+    app()->useDatabasePath($this->migrationDirectoryPreviousPath);
+    (new Filesystem)->deleteDirectory($this->migrationDirectoryRoot);
+});
 
 it('creates and drops the resolved page table', function (): void {
     $previous = DB::getDefaultConnection();
@@ -106,6 +119,7 @@ it('runs registered core migrations on an isolated database', function (array $d
         $permissionsMigration->up();
         $repository = resolve('migrator')->getRepository();
         $repository->createRepository();
+        copy(dirname(__DIR__, 4) . '/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub', database_path('migrations/2026_05_10_190824_create_permission_tables.php'));
         $repository->log('2026_05_10_190824_create_permission_tables', 1);
         $exit = Artisan::call('migrate', [
             '--path' => realpath(__DIR__ . '/../../database/migrations'),
@@ -170,6 +184,7 @@ it('skips a guarded owned table recorded under a different migration timestamp',
         DB::table('blueprints')->insert(['id' => 7]);
         $repository = resolve('migrator')->getRepository();
         $repository->createRepository();
+        copy(__DIR__ . '/../../database/migrations/2026_05_10_190832_03_create_blueprints_table.php', database_path('migrations/2026_01_01_000000_create_blueprints_table.php'));
         $repository->log('2026_01_01_000000_create_blueprints_table', 1);
         $migration = require __DIR__ . '/../../database/migrations/2026_05_10_190832_03_create_blueprints_table.php';
         expect(collect(FindTableCollisionsAction::run([]))->pluck('table')->all())->not->toContain('blueprints');
@@ -497,6 +512,7 @@ it('derives the media collection index from the external media table name', func
         Schema::table('media', fn (Blueprint $table) => $table->index(['model_type', 'model_id', 'collection_name', 'order_column'], 'media_collection_name_index'));
         $repository = resolve('migrator')->getRepository();
         $repository->createRepository();
+        copy(dirname(__DIR__, 4) . '/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub', database_path('migrations/2026_05_10_190826_create_media_table.php'));
         $repository->log('2026_05_10_190826_create_media_table', 1);
         $migration = require __DIR__ . '/../../database/migrations/2026_05_10_190832_17_add_collection_index_to_media_table.php';
         $migration->up();
@@ -552,3 +568,49 @@ it('replaces a colliding existing alias when a prefix is selected', function ():
             'capell.database.table_aliases.pages' => 'cms_proof_pages',
         ]);
 });
+
+it('cleans up retained historical snapshots only when the effective source is authentic', function (bool $retimestamped, bool $genuine): void {
+    $previous = DB::getDefaultConnection();
+    config()->set('database.connections.table_naming_test', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
+    config()->set('capell.database.table_aliases', ['page_content_snapshots' => 'owned_snapshots']);
+    DB::setDefaultConnection('table_naming_test');
+    $canonical = '2026_06_25_000003_create_page_content_snapshots_table';
+    $recorded = $retimestamped ? '2038_01_01_000001_create_page_content_snapshots_table' : $canonical;
+    $published = database_path('migrations/' . $recorded . '.php');
+    if ($genuine) {
+        copy(__DIR__ . '/../fixtures/table-naming/legacy/' . $canonical . '.php.stub', $published);
+    } else {
+        file_put_contents($published, '<?php return new stdClass;');
+    }
+
+    try {
+        $repository = resolve('migrator')->getRepository();
+        $repository->createRepository();
+        $repository->log($recorded, 1);
+        Schema::create('owned_snapshots', fn (Blueprint $table) => $table->id());
+        Schema::create('page_content_snapshots', fn (Blueprint $table) => $table->id());
+        DB::table('page_content_snapshots')->insert(['id' => 73]);
+        $migration = require __DIR__ . '/../../database/migrations/2026_06_26_000005_drop_legacy_page_content_snapshots_table.php';
+
+        expect(TableName::migrationRecorded($canonical))->toBe($genuine);
+        if ($genuine) {
+            $migration->up();
+            expect(Schema::hasTable('owned_snapshots'))->toBeFalse();
+        } else {
+            expect(function () use ($migration): void {
+                $migration->up();
+            })->toThrow(ForeignTableException::class)
+                ->and(Schema::hasTable('owned_snapshots'))->toBeTrue();
+        }
+
+        expect(DB::table('page_content_snapshots')->where('id', 73)->exists())->toBeTrue();
+    } finally {
+        DB::setDefaultConnection($previous);
+        DB::purge('table_naming_test');
+    }
+})->with([
+    'retained original' => [false, true],
+    'retimestamped original' => [true, true],
+    'foreign canonical' => [false, false],
+    'foreign retimestamped' => [true, false],
+]);

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
+use Capell\Core\Exceptions\ForeignTableException;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Database\Schema\Blueprint;
@@ -10,6 +11,18 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+
+beforeEach(function (): void {
+    $this->migrationDirectoryPreviousPath = database_path();
+    $this->migrationDirectoryRoot = sys_get_temp_dir() . '/capell-migration-sources-' . bin2hex(random_bytes(8));
+    mkdir($this->migrationDirectoryRoot . '/migrations', 0755, true);
+    app()->useDatabasePath($this->migrationDirectoryRoot);
+});
+
+afterEach(function (): void {
+    app()->useDatabasePath($this->migrationDirectoryPreviousPath);
+    (new Filesystem)->deleteDirectory($this->migrationDirectoryRoot);
+});
 
 it('upgrades the schema and records the migration while a dry run preserves both', function (bool $dryRun): void {
     $migration = '2026_08_09_000001_add_port_to_site_domains_table';
@@ -63,14 +76,43 @@ it('records the canonical create migration on upgrade when its table already exi
     $original = DB::table('migrations')->whereIn('migration', [$canonical, $older])->get();
     DB::table('migrations')->whereIn('migration', [$canonical, $older])->delete();
     DB::table('migrations')->insert(['migration' => $older, 'batch' => 1]);
+    File::copy(dirname(__DIR__, 4) . '/database/migrations/' . $canonical . '.php', database_path('migrations/' . $older . '.php'));
 
     try {
         expect(Schema::hasTable('page_role_restrictions'))->toBeTrue()
-            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeFalse();
+            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeFalse()
+            ->and(File::get(database_path('migrations/' . $older . '.php')))->toBe(File::get(dirname(__DIR__, 4) . '/database/migrations/' . $canonical . '.php'));
         $result = RunDatabaseMigrationsAction::run();
         expect($result->exitCode)->toBe(0)
             ->and(Schema::hasTable('page_role_restrictions'))->toBeTrue()
-            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeTrue();
+            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeTrue()
+            ->and(DB::table('migrations')->where('migration', $older)->exists())->toBeTrue()
+            ->and(File::exists(database_path('migrations/' . $older . '.php')))->toBeFalse();
+    } finally {
+        DB::table('migrations')->whereIn('migration', [$canonical, $older])->delete();
+        foreach ($original as $row) {
+            DB::table('migrations')->insert((array) $row);
+        }
+    }
+});
+
+it('refuses canonical ownership and preserves an older publication with foreign source bytes', function (): void {
+    $canonical = '2026_05_10_190832_20_create_page_role_restrictions_table';
+    $older = '2026_01_01_000000_create_page_role_restrictions_table';
+    $original = DB::table('migrations')->whereIn('migration', [$canonical, $older])->get();
+    DB::table('migrations')->whereIn('migration', [$canonical, $older])->delete();
+    DB::table('migrations')->insert(['migration' => $older, 'batch' => 1]);
+    $published = database_path('migrations/' . $older . '.php');
+    $foreign = '<?php return new stdClass;';
+    File::put($published, $foreign);
+
+    try {
+        expect(function (): void {
+            RunDatabaseMigrationsAction::run();
+        })->toThrow(ForeignTableException::class)
+            ->and(DB::table('migrations')->where('migration', $canonical)->exists())->toBeFalse()
+            ->and(File::get($published))->toBe($foreign)
+            ->and(Schema::hasTable('page_role_restrictions'))->toBeTrue();
     } finally {
         DB::table('migrations')->whereIn('migration', [$canonical, $older])->delete();
         foreach ($original as $row) {

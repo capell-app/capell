@@ -26,9 +26,12 @@ final class TableName
 
     private const string LEDGER_BINDING = 'capell.table-name.ledger';
 
-    /** @var array<string, string> Original source SHA-256 for supported historical table renames. */
+    private const string LEDGER_FILES_BINDING = 'capell.table-name.ledger-files';
+
+    /** @var array<string, string> Original source SHA-256 for supported historical schema transitions. */
     private const array LEGACY_MIGRATION_SHA256 = [
         '2026_05_10_190832_15_create_asset_relations_table' => '70d0ee9797dd00936cf83dd4b1cca7cecc3be28bdeccb01b1196db50fca922a5',
+        '2026_06_25_000003_create_page_content_snapshots_table' => '6959976c64f124c9dd89df4a4fb6534dfa39776ba44de72aebc582e62d37b114',
     ];
 
     /**
@@ -37,18 +40,34 @@ final class TableName
      * @template T
      *
      * @param  callable(): T  $callback
+     * @param  list<string>  $migrationFiles  Registered source files explicitly executed by a scratch probe.
      * @return T
      */
-    public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback): mixed
+    public static function usingLedger(MigrationRepositoryInterface $ledger, callable $callback, array $migrationFiles = []): mixed
     {
+        foreach ($migrationFiles as $path) {
+            $known = array_any(self::migrationSources(basename($path, '.php')), fn (string $source): bool => realpath($path) !== false && realpath($source) === realpath($path));
+            throw_unless($known, RuntimeException::class, 'Scratch migration source is not registered: ' . $path);
+        }
+
         $app = app();
+        $currentFiles = $app->bound(self::LEDGER_FILES_BINDING) ? $app->make(self::LEDGER_FILES_BINDING) : null;
+        $previousFiles = is_array($currentFiles) ? $currentFiles : null;
         $current = $app->bound(self::LEDGER_BINDING) ? $app->make(self::LEDGER_BINDING) : null;
         $previous = $current instanceof MigrationRepositoryInterface ? $current : null;
         $app->instance(self::LEDGER_BINDING, $ledger);
+        $app->instance(self::LEDGER_FILES_BINDING, $migrationFiles === [] ? null : $migrationFiles);
 
         try {
             return $callback();
         } finally {
+            if ($previousFiles === null) {
+                $app->forgetInstance(self::LEDGER_FILES_BINDING);
+                unset($app[self::LEDGER_FILES_BINDING]);
+            } else {
+                $app->instance(self::LEDGER_FILES_BINDING, $previousFiles);
+            }
+
             if (! $previous instanceof MigrationRepositoryInterface) {
                 $app->forgetInstance(self::LEDGER_BINDING);
                 unset($app[self::LEDGER_BINDING]);
@@ -182,7 +201,7 @@ final class TableName
                 continue;
             }
 
-            $effective = self::effectiveMigration($recorded);
+            $effective = self::effectiveMigration($recorded, $connection);
             if ($legacy !== null) {
                 if ($recorded === $legacy && $effective === null) {
                     return true;
@@ -209,7 +228,7 @@ final class TableName
 
     private static function legacyMigration(string $migration): ?string
     {
-        foreach (TableShape::LEGACY_TABLES as [, $canonical]) {
+        foreach (array_keys(self::LEGACY_MIGRATION_SHA256) as $canonical) {
             if (self::withoutTimestamp($canonical) === self::withoutTimestamp($migration)) {
                 return $canonical;
             }
@@ -264,9 +283,14 @@ final class TableName
         return array_values(array_unique($sources));
     }
 
-    private static function effectiveMigration(string $recorded): ?string
+    private static function effectiveMigration(string $recorded, ?string $connection): ?string
     {
         $migrator = resolve('migrator');
+        $files = $connection === null && app()->bound(self::LEDGER_FILES_BINDING) ? resolve(self::LEDGER_FILES_BINDING) : null;
+        if (is_array($files)) {
+            return $migrator->getMigrationFiles($files)[$recorded] ?? null;
+        }
+
         // Match Laravel's execution order: the host directory is last and wins duplicate names.
         $files = $migrator->getMigrationFiles([...$migrator->paths(), database_path('migrations')]);
 

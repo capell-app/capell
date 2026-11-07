@@ -24,8 +24,9 @@ class RunDatabaseMigrationsAction
             return new MigrationRunResult(0, '[dry-run] would run: php artisan migrate --force --path=packages/core/database/migrations --realpath');
         }
 
-        $this->removePublishedCreateMigrationsForExistingTables();
+        // Preserve verified ownership before removing the published file that proves it.
         $this->markSourceCreateMigrationsLoggedForExistingTables();
+        $this->removePublishedCreateMigrationsForExistingTables();
 
         $options = $this->migrationCommandOptions();
 

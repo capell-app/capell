@@ -420,7 +420,7 @@ final class TableShape
                 return Schema::hasTable($table)
                     ? ['shape' => self::describe($table), 'failure' => null]
                     : ['shape' => null, 'failure' => 'the migrations that define this table produce no table on SQLite'];
-            });
+            }, $files);
         } catch (Throwable $throwable) {
             return ['shape' => null, 'failure' => sprintf('migration %s cannot run on SQLite (%s), so the table cannot be compared', $current, $throwable->getMessage())];
         } finally {
