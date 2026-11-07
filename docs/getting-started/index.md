@@ -17,6 +17,7 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 
 | I need to...                | Read                                      |
 | --------------------------- | ----------------------------------------- |
+| Start a new project         | [Starter kit](install.md#new-project-from-the-starter-kit) |
 | Try a disposable app        | [Quickstart](quickstart.md)               |
 | Choose an install path      | [Install matrix](install-matrix.md)       |
 | Install into a Laravel app  | [Install guide](install.md)               |

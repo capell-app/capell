@@ -4,9 +4,23 @@ This guide installs the current 1.x Capell foundation into a Laravel application
 
 [![Capell guided installer showing environment and package checks](../images/generated/package-surfaces/install-guide-page.png)](../images/generated/package-surfaces/install-guide-page.png)
 
-Use the [Quickstart](quickstart.md) for a disposable demo. For an existing application, start at [Existing Laravel applications](#existing-laravel-applications).
+Starting a new project? Use the [starter kit](#new-project-from-the-starter-kit). Use the [Quickstart](quickstart.md) for a disposable demo. For an existing application, start at [Existing Laravel applications](#existing-laravel-applications).
 
 Working locally? Start with [Mac and Windows local development](local-development.md) for Docker setup and links to the container recipe.
+
+## New project from the starter kit
+
+The [starter kit](https://github.com/capell-app/starter-kit) is a complete Laravel application with Core, Admin and Frontend already installed. It needs PHP 8.4+, Composer, SQLite and the [Laravel installer](https://laravel.com/docs/installation), with no Node build or queue worker.
+
+```bash
+laravel new my-studio --using=capell-app/starter-kit
+cd my-studio
+php artisan serve
+```
+
+Open `http://localhost:8000` for the site and `http://localhost:8000/admin` for Admin. Keep port 8000 free, because the site is bound to `APP_URL`. Sign in as `admin@example.test` with the random password saved in `storage/app/private/starter-admin-password`, then store it securely and delete that file.
+
+To add Capell to an application you already run, continue below.
 
 ## Requirements
 
