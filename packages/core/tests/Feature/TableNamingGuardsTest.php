@@ -17,9 +17,22 @@ use Capell\Core\Support\Migration\TableShape;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+
+beforeEach(function (): void {
+    $this->migrationDirectoryPreviousPath = database_path();
+    $this->migrationDirectoryRoot = sys_get_temp_dir() . '/capell-migration-sources-' . bin2hex(random_bytes(8));
+    mkdir($this->migrationDirectoryRoot . '/migrations', 0755, true);
+    app()->useDatabasePath($this->migrationDirectoryRoot);
+});
+
+afterEach(function (): void {
+    app()->useDatabasePath($this->migrationDirectoryPreviousPath);
+    (new Filesystem)->deleteDirectory($this->migrationDirectoryRoot);
+});
 
 beforeEach(function (): void {
     $this->previousConnection = DB::getDefaultConnection();
@@ -40,6 +53,7 @@ it('lets a migration create an absent table and skips an owned one', function ()
     Schema::create('pages', fn (Blueprint $table) => $table->id());
     $repository = resolve('migrator')->getRepository();
     $repository->createRepository();
+    copy(__DIR__ . '/../../database/migrations/2026_05_10_190832_12_create_pages_table.php', database_path('migrations/2026_01_01_000000_create_pages_table.php'));
     $repository->log('2026_01_01_000000_create_pages_table', 1);
 
     expect(AssertTableOwnershipAction::run('pages', '2026_05_10_190832_12_create_pages_table'))->toBeTrue();
@@ -77,6 +91,7 @@ it('still adopts a recorded table during an upgrade', function (): void {
     Schema::create('pages', fn (Blueprint $table) => $table->id());
     $repository = resolve('migrator')->getRepository();
     $repository->createRepository();
+    copy(__DIR__ . '/../../database/migrations/2026_05_10_190832_12_create_pages_table.php', database_path('migrations/2025_01_01_000000_create_pages_table.php'));
     $repository->log('2025_01_01_000000_create_pages_table', 1);
 
     expect(CoreSchemaMigrations::createsExistingTable('2026_05_10_190832_12_create_pages_table'))->toBeTrue();
@@ -357,6 +372,7 @@ it('finds migrations of installed packages in a vendor layout, not only the mono
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -440,4 +456,24 @@ it('counts tables from registered packages when validating a prefix, even with n
 
     expect(fn (): array => ResolveTableCollisionsAction::run([], 'cms_', []))->toThrow(RuntimeException::class, 'too long');
     expect(ResolveTableCollisionsAction::run([], 'c_', []))->toBe(['capell.database.table_prefix' => 'c_']);
+});
+
+it('keeps scratch ownership on its selected registered sources while refusing a foreign host shadow', function (): void {
+    $create = '2026_05_10_190832_12_create_pages_table';
+    $alter = '2026_06_25_000007_add_content_structure_override_to_pages_table';
+    createRealCapellTable($create);
+    $repository = resolve('migrator')->getRepository();
+    $repository->createRepository();
+    $repository->log($create, 1);
+    (require __DIR__ . '/../../database/migrations/' . $alter . '.php')->up();
+    $repository->log($alter, 1);
+    $foreign = database_path('migrations/' . $create . '.php');
+    file_put_contents($foreign, '<?php return new stdClass;');
+
+    expect(TableName::migrationRecorded($create))->toBeFalse()
+        ->and(TableShape::differences('pages', $create))->toBe([])
+        ->and(TableName::migrationRecorded($create))->toBeFalse();
+    expect(fn (): bool => TableName::usingLedger($repository, fn (): bool => true, [$foreign]))
+        ->toThrow(RuntimeException::class, 'Scratch migration source is not registered');
+    expect(TableName::migrationRecorded($create))->toBeFalse();
 });

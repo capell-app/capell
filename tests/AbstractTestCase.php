@@ -14,6 +14,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Media;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Tests\Fixtures\Components\Headers\CustomHeader as FakeCustomHeader;
 use Capell\Tests\Fixtures\Models\User;
@@ -316,6 +317,19 @@ abstract class AbstractTestCase extends TestCase
      */
     protected function defineDatabaseMigrations(): void
     {
+        // These customised first-party fixtures are sources, rather than published vendor copies.
+        // Register on every application, including cases reusing an already migrated database.
+        $application = $this->app;
+        throw_unless($application instanceof Application, RuntimeException::class, 'The test application has not booted.');
+        $application->afterResolving(MigrationRootRegistry::class, static function (MigrationRootRegistry $registry): void {
+            $registry->register('capell-tests/vendor-fixtures', __DIR__ . '/database/migrations', [
+                '2025_07_20_161855_create_media_table' => 'media',
+                '2025_07_20_161852_create_permission_tables' => ['permissions', 'roles', 'model_has_permissions', 'model_has_roles', 'role_has_permissions'],
+                '2025_08_02_100000_create_activity_log_table' => 'activity_log',
+                '2025_11_20_000000_create_settings_table' => 'settings',
+            ]);
+        });
+
         if (RefreshDatabaseState::$migrated) {
             return;
         }

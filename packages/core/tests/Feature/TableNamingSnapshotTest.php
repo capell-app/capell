@@ -3,11 +3,24 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 // Fixtures were generated from the pinned origin/main migration files and Blueprint macros.
+beforeEach(function (): void {
+    $this->migrationDirectoryPreviousPath = database_path();
+    $this->migrationDirectoryRoot = sys_get_temp_dir() . '/capell-migration-sources-' . bin2hex(random_bytes(8));
+    mkdir($this->migrationDirectoryRoot . '/migrations', 0755, true);
+    app()->useDatabasePath($this->migrationDirectoryRoot);
+});
+
+afterEach(function (): void {
+    app()->useDatabasePath($this->migrationDirectoryPreviousPath);
+    (new Filesystem)->deleteDirectory($this->migrationDirectoryRoot);
+});
+
 it('preserves main migration index and foreign-key names with the default table configuration', function (string $prefix, string $snapshot): void {
     $previous = DB::getDefaultConnection();
     config()->set('database.connections.naming_snapshot', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => $prefix, 'prefix_indexes' => false, 'foreign_key_constraints' => false]);
@@ -22,6 +35,7 @@ it('preserves main migration index and foreign-key names with the default table 
         (require dirname(__DIR__, 4) . '/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub')->up();
         $repository = resolve('migrator')->getRepository();
         $repository->createRepository();
+        copy(dirname(__DIR__, 4) . '/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub', database_path('migrations/2026_05_10_190824_create_permission_tables.php'));
         $repository->log('2026_05_10_190824_create_permission_tables', 1);
         $exit = Artisan::call('migrate', ['--path' => realpath(__DIR__ . '/../../database/migrations'), '--realpath' => true, '--force' => true]);
         expect($exit)->toBe(0);

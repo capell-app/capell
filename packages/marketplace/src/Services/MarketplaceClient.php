@@ -23,6 +23,7 @@ use Capell\Marketplace\Exceptions\MarketplaceCatalogueException;
 use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Exceptions\PurchaseRequiredException;
 use Capell\Marketplace\Models\MarketplaceInstance;
+use Capell\Marketplace\Support\DomainProof\DomainProofChallengeStore;
 use Capell\Marketplace\Support\MarketplaceApprovalUrl;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Illuminate\Http\Client\ConnectionException;
@@ -65,11 +66,11 @@ final class MarketplaceClient
      */
     public function exchangeAccountConnectionCode(array $payload): array
     {
-        return $this->postJsonData(
+        return $this->withDomainProof($this->postJsonData(
             '/marketplace/connections/exchange',
             $payload,
             'Marketplace did not return connected account data.',
-        );
+        ));
     }
 
     /**
@@ -84,6 +85,8 @@ final class MarketplaceClient
             $this->installFlowPayload($payload, $path),
             'Marketplace did not return install flow data.',
         );
+
+        $data = $this->withDomainProof($data);
 
         $approvalUrl = $data['approval_url'] ?? null;
 
@@ -101,11 +104,11 @@ final class MarketplaceClient
     {
         $path = '/marketplace/install-flows/exchange';
 
-        return $this->postJsonData(
+        return $this->withDomainProof($this->postJsonData(
             $path,
             $this->installFlowPayload($payload, $path),
             'Marketplace did not return install flow exchange data.',
-        );
+        ));
     }
 
     /** @param array<string, mixed> $payload */
@@ -135,7 +138,7 @@ final class MarketplaceClient
         }
 
         $this->validateHeartbeatResponseData($responseData, $response);
-        $responseData = $this->verifiedHeartbeatResponseData($responseData);
+        $responseData = $this->withDomainProof($this->verifiedHeartbeatResponseData($responseData));
 
         return HeartbeatResultData::fromApiResponse($responseData);
     }
@@ -1123,6 +1126,24 @@ final class MarketplaceClient
         }
 
         return array_values(array_filter($values, is_array(...)));
+    }
+
+    /**
+     * capell.app may include a single-use token for this site to serve from
+     * its own host, which proves the site controls that host. Store it and
+     * keep it out of the data callers see.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withDomainProof(array $data): array
+    {
+        if (array_key_exists('domain_proof', $data)) {
+            resolve(DomainProofChallengeStore::class)->rememberFromResponse($data['domain_proof']);
+            unset($data['domain_proof']);
+        }
+
+        return $data;
     }
 
     private function responseFailureDetails(Response $response): string
