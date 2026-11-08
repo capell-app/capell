@@ -20,10 +20,16 @@ class UrlFactory extends Factory
 {
     protected $model = PageUrl::class;
 
+    /**
+     * Enabled URLs are unique per site and language, and Faker slugs repeat
+     * eventually, so every generated path ends in a process-wide sequence.
+     */
+    private static int $urlSequence = 0;
+
     public function definition(): array
     {
         return [
-            'url' => '/' . $this->faker->slug() . '/' . $this->faker->slug(),
+            'url' => '/' . $this->faker->slug() . '/' . $this->uniqueSlug(),
             'language_id' => fn () => Language::query()->value('id') ?? Language::factory(),
             'site_id' => fn (array $attributes) => Site::factory(['language_id' => $attributes['language_id']])
                 ->has(SiteDomain::factory()->state([
@@ -46,7 +52,7 @@ class UrlFactory extends Factory
     {
         return $this->state([
             'type' => UrlTypeEnum::Redirect,
-            'url' => $this->faker->url(),
+            'url' => $this->faker->url() . '?n=' . ++self::$urlSequence,
         ]);
     }
 
@@ -54,7 +60,7 @@ class UrlFactory extends Factory
     {
         return $this->state([
             'type' => UrlTypeEnum::Alias,
-            'url' => $this->faker->slug(),
+            'url' => $this->uniqueSlug(),
         ]);
     }
 
@@ -82,13 +88,18 @@ class UrlFactory extends Factory
             'pageable_type' => null,
             'pageable_id' => null,
             'status_code' => 301,
-            'url' => '/' . $this->faker->slug(),
-            'target_url' => '/' . $this->faker->slug(),
+            'url' => '/' . $this->uniqueSlug(),
+            'target_url' => '/' . $this->uniqueSlug(),
         ]);
     }
 
     public function site(Site $site): static
     {
         return $this->set('site_id', $site);
+    }
+
+    private function uniqueSlug(): string
+    {
+        return $this->faker->slug() . '-' . ++self::$urlSequence;
     }
 }

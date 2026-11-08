@@ -30,6 +30,13 @@ class PageFactory extends Factory
     protected $model = Page::class;
 
     /**
+     * Page names seed canonical URL slugs, and a site cannot hold two enabled
+     * identical URLs. Random words alone repeat eventually, so every name in
+     * the process also carries a sequence number.
+     */
+    private static int $nameSequence = 0;
+
+    /**
      * Define the model's default state.
      */
     public function definition(): array
@@ -40,6 +47,7 @@ class PageFactory extends Factory
                 $this->faker->word(),
                 $this->faker->word(),
                 $this->faker->word(),
+                ++self::$nameSequence,
             ])),
             'layout_id' => Layout::factory(),
             'blueprint_id' => function (): int {
