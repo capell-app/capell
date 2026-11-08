@@ -50,7 +50,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             ->hasCommand(MarketplaceDoctorCommand::class)
             ->hasCommand(MarketplaceHeartbeatCommand::class)
             ->hasCommand(MarketplaceExtensionsLifecycleQaCommand::class)
-            ->hasRoute('marketplace')
+            ->hasRoutes(['marketplace', 'domain-proof'])
             ->hasViews(self::$name)
             ->hasTranslations()
             ->hasMigrations([
