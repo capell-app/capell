@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
 use Capell\Admin\Data\Extensions\ExtensionPackageUninstallResultData;
 use Capell\Admin\Data\Extensions\ExtensionRemovalRequestData;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionRemovalRouter;
 use Capell\Core\Actions\DeleteExtensionDataAction;
 use Capell\Core\Actions\RemovePackageAction;
@@ -34,8 +35,11 @@ final class DeleteExtensionAction
             ]))
             ->modalDescription(__('capell-admin::generic.delete_extension_description'))
             ->modalSubmitActionLabel(__('capell-admin::button.delete'))
+            ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
             ->visible(fn (array $record): bool => ExtensionRecord::canDelete($record))
             ->action(function (array $record, Component $livewire): void {
+                abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
                 $package = ExtensionRecord::resolvePackage($record);

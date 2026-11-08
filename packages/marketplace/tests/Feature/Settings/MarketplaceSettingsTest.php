@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Settings\MarketplaceSettings;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Actions\Action;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -15,6 +17,8 @@ function grantMarketplaceOwnerSettingsAccess(): void
     Permission::findOrCreate('View:ExtensionsPage', 'web');
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo('View:ExtensionsPage');
+    Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web');
+    test()->authenticatedUser()->givePermissionTo(ExtensionsPage::MANAGE_PERMISSION);
 }
 
 it('keeps owner contact settings inside the authenticated marketplace admin surface', function (): void {
@@ -88,3 +92,25 @@ it('persists explicit opt-in and allows the owner to revoke it', function (): vo
 
     expect(resolve(MarketplaceSettings::class)->marketing_notifications_enabled)->toBeFalse();
 });
+
+it('refuses owner contact settings to a user who can view but not manage extensions', function (string $permission): void {
+    Permission::findOrCreate($permission, 'web');
+    test()->actingAsUser();
+    test()->authenticatedUser()->givePermissionTo($permission);
+
+    $component = Livewire::test(MarketplacePage::class)
+        ->assertSuccessful()
+        ->assertActionHidden('ownerContactSettings')
+        ->assertActionExists('ownerContactSettings', fn (Action $action): bool => ! $action->isAuthorized());
+
+    $component
+        ->call('mountAction', 'ownerContactSettings')
+        ->set('mountedActions.0.data.owner_email', 'forged@example.test')
+        ->call('callMountedAction')
+        ->assertNotNotified(__('capell-marketplace::settings.settings_saved'));
+
+    expect(resolve(MarketplaceSettings::class)->owner_email)->toBeNull();
+})->with([
+    'marketplace viewer' => ['View:MarketplacePage'],
+    'extensions viewer' => ['View:ExtensionsPage'],
+]);

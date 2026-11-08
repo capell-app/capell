@@ -24,11 +24,14 @@ final class InstallExtensionAction
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->color('primary')
             ->button()
+            ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
             ->visible(fn (array $record): bool => ExtensionsPage::canManageExtensions()
                 && ($record['installed'] ?? false) === false
                 && ($record['core'] ?? false) === false
                 && ExtensionRecord::canInstall($record))
             ->action(function (array $record, Component $livewire): void {
+                abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
                 $package = ExtensionRecord::resolvePackage($record);

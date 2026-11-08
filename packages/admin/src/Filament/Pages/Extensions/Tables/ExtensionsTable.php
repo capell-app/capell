@@ -21,6 +21,7 @@ use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -58,11 +59,7 @@ class ExtensionsTable implements TableConfigurator
                 recordsPerPage: $recordsPerPage,
             ))
             ->defaultSortOptionLabel(__('capell-admin::filter.sort_latest_activity'))
-            ->contentGrid([
-                'md' => 2,
-                'xl' => 3,
-            ])
-            ->recordClasses('capell-extension-card-record')
+            ->recordClasses('capell-extension-row-record')
             ->columns(resolve(AdminZoneRegistry::class)->resolve(
                 AdminZone::ExtensionsDashboardTableColumns,
                 AdminZoneContextData::extensionsTable($livewire, AdminZone::ExtensionsDashboardTableColumns),
@@ -83,8 +80,8 @@ class ExtensionsTable implements TableConfigurator
             ->emptyStateActions(resolve(ExtensionsPageActionRegistry::class)->tableActions(resolve(ExtensionsPage::class)))
             ->selectable(false)
             ->columnManager(false)
-            ->defaultPaginationPageOption(12)
-            ->paginationPageOptions([12, 24, 48, 'all'])
+            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions([25, 50, 100, 'all'])
             ->recordActions(resolve(AdminZoneRegistry::class)->resolve(
                 AdminZone::ExtensionsDashboardTableRecordActions,
                 AdminZoneContextData::extensionsTable($livewire, AdminZone::ExtensionsDashboardTableRecordActions),
@@ -94,8 +91,8 @@ class ExtensionsTable implements TableConfigurator
     /** @return array<int, mixed> */
     public static function defaultTableColumns(): array
     {
-        /** @var view-string $extensionCardView */
-        $extensionCardView = 'capell-admin::filament.pages.extensions.extension-card';
+        /** @var view-string $extensionRowView */
+        $extensionRowView = 'capell-admin::filament.pages.extensions.extension-row';
 
         return [
             TextColumn::make('name')
@@ -104,7 +101,7 @@ class ExtensionsTable implements TableConfigurator
                 ->extraAttributes(['style' => 'display: none']),
             IdentifierColumn::make('id')
                 ->hidden(),
-            LayoutView::make($extensionCardView),
+            LayoutView::make($extensionRowView),
         ];
     }
 
@@ -146,54 +143,63 @@ class ExtensionsTable implements TableConfigurator
         ];
     }
 
-    /** @return array<int, mixed> */
+    /**
+     * The row keeps at most one visible command (install, for an extension that
+     * is not installed yet); everything else an operator can do to an
+     * installed extension lives in a single Manage menu, with removal behind a
+     * confirmation.
+     *
+     * @return array<int, mixed>
+     */
     public static function defaultTableActions(): array
     {
         return [
-            Action::make('viewExtensionDetails')
-                ->label(__('capell-admin::button.view_details'))
-                ->icon(Heroicon::OutlinedQuestionMarkCircle)
-                ->color('gray')
-                ->extraAttributes(['class' => 'capell-extension-card-details-action'])
-                ->slideOver()
-                ->modalSubmitAction(false)
-                ->modalCancelActionLabel(__('capell-admin::button.close'))
-                ->modalHeading(fn (array $record): string => (string) ($record['label'] ?? $record['packageName'] ?? __('capell-admin::button.view_details')))
-                ->modalContent(fn (array $record): View => view(
-                    'capell-admin::filament.pages.extensions.extension-details',
-                    ['record' => $record],
-                )),
-            Action::make('manageExtension')
-                ->label(__('capell-admin::button.edit'))
-                ->tooltip(__('capell-admin::button.manage_extension'))
-                ->icon(Heroicon::OutlinedPencilSquare)
-                ->color('gray')
-                ->button()
-                ->slideOver()
-                ->modalSubmitActionLabel(__('capell-admin::button.settings.save'))
-                ->modalCancelActionLabel(__('capell-admin::button.cancel'))
-                ->modalWidth(Width::ScreenLarge)
-                ->modalHeading(fn (?array $record): string => self::managementHeading($record ?? []))
-                ->schema(fn (?array $record, Schema $schema): array => self::managementSchema($record ?? [], $schema))
-                ->fillForm(fn (?array $record): array => self::managementFormData($record ?? []))
-                ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
-                ->action(function (array $record, array $data): void {
-                    self::saveManagementSurface($record, $data);
-                })
-                ->visible(fn (array $record): bool => ExtensionsPage::canManageExtensions()
-                    && self::getPrimaryManagementSurface($record) !== null),
-            Action::make('openExtension')
-                ->label(__('capell-admin::button.edit'))
-                ->icon(Heroicon::OutlinedPencilSquare)
-                ->color('gray')
-                ->button()
-                ->url(fn (array $record): ?string => self::getPrimaryUrl($record))
-                ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) === null
-                    && self::getPrimaryUrl($record) !== null),
             InstallExtensionAction::make(),
-            EnableExtensionAction::make(),
-            UninstallExtensionAction::make(),
-            DeleteExtensionAction::make(),
+            ActionGroup::make([
+                Action::make('manageExtension')
+                    ->label(__('capell-admin::button.manage_extension'))
+                    ->icon(Heroicon::OutlinedCog6Tooth)
+                    ->slideOver()
+                    ->modalSubmitActionLabel(__('capell-admin::button.settings.save'))
+                    ->modalCancelActionLabel(__('capell-admin::button.cancel'))
+                    ->modalWidth(Width::ScreenLarge)
+                    ->modalHeading(fn (?array $record): string => self::managementHeading($record ?? []))
+                    ->schema(fn (?array $record, Schema $schema): array => self::managementSchema($record ?? [], $schema))
+                    ->fillForm(fn (?array $record): array => self::managementFormData($record ?? []))
+                    ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
+                    ->action(function (array $record, array $data): void {
+                        self::saveManagementSurface($record, $data);
+                    })
+                    ->visible(fn (array $record): bool => ExtensionsPage::canManageExtensions()
+                        && self::getPrimaryManagementSurface($record) !== null),
+                Action::make('openExtension')
+                    ->label(__('capell-admin::button.manage_extension'))
+                    ->icon(Heroicon::OutlinedCog6Tooth)
+                    ->url(fn (array $record): ?string => self::getPrimaryUrl($record))
+                    ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) === null
+                        && self::getPrimaryUrl($record) !== null),
+                Action::make('viewExtensionDetails')
+                    ->label(__('capell-admin::button.view_details'))
+                    ->icon(Heroicon::OutlinedInformationCircle)
+                    ->slideOver()
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('capell-admin::button.close'))
+                    ->modalHeading(fn (array $record): string => (string) ($record['label'] ?? $record['packageName'] ?? __('capell-admin::button.view_details')))
+                    ->modalContent(fn (array $record): View => view(
+                        'capell-admin::filament.pages.extensions.extension-details',
+                        ['record' => $record],
+                    )),
+                EnableExtensionAction::make(),
+                UninstallExtensionAction::make(),
+                DeleteExtensionAction::make(),
+            ])
+                ->label(__('capell-admin::button.manage_extension_menu'))
+                ->tooltip(fn (array $record): string => __('capell-admin::button.manage_extension_menu_label', [
+                    'extension' => ExtensionRecord::label($record),
+                ]))
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
         ];
     }
 

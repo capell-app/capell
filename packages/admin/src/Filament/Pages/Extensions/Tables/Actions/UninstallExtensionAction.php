@@ -9,6 +9,7 @@ use Capell\Admin\Data\Extensions\ExtensionPackageUninstallResultData;
 use Capell\Admin\Data\Extensions\ExtensionRemovalRequestData;
 use Capell\Admin\Data\Extensions\ExtensionUninstallAvailabilityData;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionRemovalRouter;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
@@ -44,8 +45,11 @@ final class UninstallExtensionAction
                 ? __('filament-actions::modal.actions.cancel.label')
                 : __('capell-admin::button.close'))
             ->schema(fn (array $record): array => self::schema($record))
+            ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
             ->visible(fn (array $record): bool => ExtensionRecord::canShowUninstallAction($record))
             ->action(function (array $record, array $data, Component $livewire): void {
+                abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
                 $availability = ExtensionRecord::resolveUninstallAvailability($record);
