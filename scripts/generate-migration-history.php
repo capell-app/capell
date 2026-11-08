@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Records the bytes of every create migration Capell has shipped, so ownership checks can
  * authenticate a retained publication after its source changes. Existing entries are kept.
  * Bytes from rewritten history survive only in those entries, so never regenerate from empty.
- * Run after adding or editing a create migration; TableNameMigrationHistoryTest detects drift.
+ * Run after adding or editing a create migration; TableNameTest detects drift.
  */
 $root = dirname(__DIR__);
 chdir($root);
