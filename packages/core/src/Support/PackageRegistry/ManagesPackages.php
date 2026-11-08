@@ -45,6 +45,8 @@ trait ManagesPackages
 
     private ?ExtensionLifecycleRepository $extensionLifecycleRepository = null;
 
+    private bool $persistedExtensionCacheRemovalDeferred = false;
+
     public function flushRuntimeState(): void
     {
         $this->installedExtensionNamesCache = null;
@@ -593,9 +595,17 @@ trait ManagesPackages
      */
     public function clearExtensionCache(): void
     {
-        $this->removeCacheKey(CacheEnum::ExtensionInstalledNames->value);
-        $this->removeCacheKey(CacheEnum::ExtensionPackages->value);
         $this->resetExtensionCacheState();
+
+        // A provider can be quarantined while providers are still registering, before the
+        // deferred cache binding exists. Forget the persisted keys once the cache resolves.
+        if (! app()->bound('cache')) {
+            $this->deferPersistedExtensionCacheRemoval();
+
+            return;
+        }
+
+        $this->removePersistedExtensionCacheKeys();
     }
 
     /** @internal Install, enable and explicit runtime refresh only. */
@@ -639,6 +649,30 @@ trait ManagesPackages
         $this->installedExtensionNamesCache = $names;
 
         return $names;
+    }
+
+    private function deferPersistedExtensionCacheRemoval(): void
+    {
+        if ($this->persistedExtensionCacheRemovalDeferred) {
+            return;
+        }
+
+        $this->persistedExtensionCacheRemovalDeferred = true;
+
+        app()->afterResolving('cache', function (): void {
+            if (! $this->persistedExtensionCacheRemovalDeferred) {
+                return;
+            }
+
+            $this->persistedExtensionCacheRemovalDeferred = false;
+            $this->removePersistedExtensionCacheKeys();
+        });
+    }
+
+    private function removePersistedExtensionCacheKeys(): void
+    {
+        $this->removeCacheKey(CacheEnum::ExtensionInstalledNames->value);
+        $this->removeCacheKey(CacheEnum::ExtensionPackages->value);
     }
 
     private function resetExtensionCacheState(): void
