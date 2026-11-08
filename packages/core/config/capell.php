@@ -20,6 +20,7 @@ return [
         'table_prefix' => '',
         // Map a Capell base table name to its complete database table name.
         'table_aliases' => [],
+        'adopted_tables' => [],
         // Tables owned by external packages that do not expose table-name config.
         'external_tables' => [
             'media' => 'media',

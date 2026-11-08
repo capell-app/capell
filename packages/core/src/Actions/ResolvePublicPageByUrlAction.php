@@ -13,6 +13,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Url\UrlPathNormalizer;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -89,7 +90,7 @@ class ResolvePublicPageByUrlAction
             return '/';
         }
 
-        return '/' . trim($url, '/');
+        return UrlPathNormalizer::canonicalEncoding('/' . trim($url, '/'));
     }
 
     private function resolvePageUrl(Site $site, Language $language, string $url): ?PageUrl

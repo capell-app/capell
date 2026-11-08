@@ -345,3 +345,18 @@ it('reads each vite manifest once per request however many resources use it', fu
         File::deleteDirectory(public_path($buildDirectory));
     }
 });
+
+it('keeps public asset version markers out of the local filesystem path', function (string $path, string $filename): void {
+    $resource = FrontendResourceData::classicScript(
+        handle: 'capell-app/gallery:versioned',
+        package: 'capell-app/gallery',
+        source: new PublicResourceSourceData($path),
+    );
+    $plan = ResolveFrontendResourcePlanAction::run([new FrontendResourceContributionData($resource)]);
+
+    expect($plan->headResources[0]->url)->toEndWith('/' . ltrim($path, '/'))
+        ->and($plan->headResources[0]->localPath)->toBe(public_path($filename));
+})->with([
+    'query and fragment' => ['vendor/gallery/library.js?id=abc123#bundle', 'vendor/gallery/library.js'],
+    'colon in local filename' => ['/theme:dark.css?v=1', 'theme:dark.css'],
+]);
