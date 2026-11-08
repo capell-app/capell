@@ -1,0 +1,102 @@
+{
+    "create_marketplace_account_connection_sessions_table": {
+        "names": [
+            "2026_05_09_000002_create_marketplace_account_connection_sessions_table",
+            "2026_05_10_190837_07_create_marketplace_account_connection_sessions_table"
+        ],
+        "sha256": [
+            "10ee88abf265d0e5c96d10549b9e5da7855f6791fd5c32d51cc4a0a2c951d525",
+            "29d8950ba7517d52a0725f8cc742c87a29ca813e65be45fd5216d3c1a427e74f",
+            "ae2a76b918acf386805cba8accdaeb9a8fdc4a62c811121ec1fefa65c8dfb8f6"
+        ]
+    },
+    "create_marketplace_connection_domains_table": {
+        "names": [
+            "2026_05_09_000003_create_marketplace_connection_domains_table",
+            "2026_05_10_190837_08_create_marketplace_connection_domains_table"
+        ],
+        "sha256": [
+            "c72bcc648dfd419ec86c1ef5fe6ef43c29d36cdd2fc565ac57bc5c4faada8c3d"
+        ]
+    },
+    "create_marketplace_install_attempt_events_table": {
+        "names": [
+            "2026_05_25_000004_create_marketplace_install_attempt_events_table"
+        ],
+        "sha256": [
+            "788bf2fadebd439d96f68b246cf119a14b3812feb17dae72b9e6c3b857004d32",
+            "ee953e10c017fd3140a8bff7d235fef1e3922266203245ede1f8b04f852a9120"
+        ]
+    },
+    "create_marketplace_install_attempts_table": {
+        "names": [
+            "2026_05_10_190837_09_create_marketplace_install_attempts_table"
+        ],
+        "sha256": [
+            "139d6a6cc55e8a032c59c83b4194571e68c32922024aecd1e55ebc08a90a5b67",
+            "740eb4d8212c8ed19ff3f2ef8b0aca18b0acdaff90b42d15f7e9c689b92f47c8"
+        ]
+    },
+    "create_marketplace_install_flow_sessions_table": {
+        "names": [
+            "2026_05_25_000001_create_marketplace_install_flow_sessions_table"
+        ],
+        "sha256": [
+            "b38f25553168054a5e9e385f369662b1155c497dda0d873d87112ef54eccd472",
+            "f484cccff44ec21fb336cd3245be74cc135e26fd92dc88f3605a41e4f6145cea"
+        ]
+    },
+    "create_marketplace_install_intents_table": {
+        "names": [
+            "2026_05_07_000000_create_marketplace_install_intents_table",
+            "2026_05_10_190837_05_create_marketplace_install_intents_table"
+        ],
+        "sha256": [
+            "0033de188452cd4b9cd671cd795ede5e9e6ddc6846d2f12e0af8892d996aedac",
+            "006281b5bf7bd8aae2702c060945c54b99e7d1f3ea7f99474f5df2e21b2a187b"
+        ]
+    },
+    "create_marketplace_instances_table": {
+        "names": [
+            "2026_04_28_000011_create_marketplace_instances_table",
+            "2026_05_10_190837_01_create_marketplace_instances_table"
+        ],
+        "sha256": [
+            "0b9476c51fd777a2a5d78802e2fb99798f366360788183967acaabfec8d1b0c5",
+            "21bcf3ba09473419bce7b6463835f5a6b55003aa628e30e37f60a1ddaaacb1c6",
+            "3ae0fca06cfe930f724a1657736b1fc684ca9a065cc4e22fd7bc256824d3d8a6",
+            "868d95e88b67fc1e68ee4c3e3d5752c86680f479d21efdf417fff19766dc3742",
+            "b38b3efbb2c5a9f69384b0a2a319bd5a5a6be448738fa06d5f9ad9c609cc428a"
+        ]
+    },
+    "create_marketplace_registration_sessions_table": {
+        "names": [
+            "2026_05_01_040000_create_marketplace_registration_sessions_table",
+            "2026_05_10_190837_04_create_marketplace_registration_sessions_table"
+        ],
+        "sha256": [
+            "01a31a34507ccaec79cd21861027a725e5c66e2a65350c4e9b4928c3a9e9e46d",
+            "205d2e193ca7e36404aa92911027035fa6ea78bca4c0e960e504bde147a32af4"
+        ]
+    },
+    "create_marketplace_update_advisory_snapshots_table": {
+        "names": [
+            "2026_05_01_000001_create_marketplace_update_advisory_snapshots_table",
+            "2026_05_10_190837_02_create_marketplace_update_advisory_snapshots_table"
+        ],
+        "sha256": [
+            "69d7966b4ff3d3c659bd2e79e99af13c7ff63e26f25b1136628ce02b15a5ed6a",
+            "a6ff7131b1c8563d0f401eb721709415381a81ad79a871edb8c1487989a68915"
+        ]
+    },
+    "create_marketplace_update_notice_dismissals_table": {
+        "names": [
+            "2026_05_01_000002_create_marketplace_update_notice_dismissals_table",
+            "2026_05_10_190837_03_create_marketplace_update_notice_dismissals_table"
+        ],
+        "sha256": [
+            "8b489bbcce52202c71ef5acefe074588b2c4d429cd50a3e2a086b406f93e90d4",
+            "fdf171c89b1c76f8306357309d43b5450dba7e347633d72a131cc48953aa6a9a"
+        ]
+    }
+}

@@ -159,9 +159,16 @@ it('recognises the lifecycle footprint recorded under a different timestamp', fu
     $repository->createRepository();
     $repository->log('2026_01_01_000000_create_capell_extensions_table', 1);
 
-    expect($repository->getRan())->not->toContain('2026_05_10_190832_24_create_capell_extensions_table')
-        ->and(resolve(CapellRuntimeSchemaContract::class)->hasFootprint())->toBeTrue()
-        ->and(ResolveCapellInstallationStateAction::run(coreRecorded: false))->toBe(CapellInstallationState::Partial);
+    $published = database_path('migrations/2026_01_01_000000_create_capell_extensions_table.php');
+    copy(__DIR__ . '/../../database/migrations/2026_05_10_190832_24_create_capell_extensions_table.php', $published);
+
+    try {
+        expect($repository->getRan())->not->toContain('2026_05_10_190832_24_create_capell_extensions_table')
+            ->and(resolve(CapellRuntimeSchemaContract::class)->hasFootprint())->toBeTrue()
+            ->and(ResolveCapellInstallationStateAction::run(coreRecorded: false))->toBe(CapellInstallationState::Partial);
+    } finally {
+        unlink($published);
+    }
 });
 
 it('accepts explicit aliases and prefixes without collisions', function (): void {
