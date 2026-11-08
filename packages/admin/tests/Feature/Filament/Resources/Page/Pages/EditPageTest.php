@@ -2116,3 +2116,27 @@ it('refuses a scratch draft whose blocks an HTML editor cannot hold and leaves t
     expect($component->instance()->data['name'])->toBe('Saved name')
         ->and(data_get($component->instance()->data, $path))->toBe(data_get($before, $path));
 });
+
+it('opens the Versions and Activity tabs from the edit screen tab link', function (string $relationManager): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $page->load(['translations', 'pageUrls']);
+    $page->save();
+
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
+    $key = array_search($relationManager, $component->instance()->getRelationManagers(), true);
+
+    expect($key)->not->toBeFalse();
+
+    // The tab link editors follow is ?relation=<key>; it must load the tab, not an error.
+    get(PageResource::getUrl('edit', ['record' => $page]) . '?relation=' . $key)
+        ->assertSuccessful();
+
+    $component->set('activeRelationManager', (string) $key)->assertSuccessful();
+
+    Livewire::test($relationManager, ['ownerRecord' => $page, 'pageClass' => EditPage::class])
+        ->call('loadTable')
+        ->assertSuccessful();
+})->with([
+    'versions' => EventSourcedHistoryRelationManager::class,
+    'activity' => ActivityHistoryRelationManager::class,
+]);

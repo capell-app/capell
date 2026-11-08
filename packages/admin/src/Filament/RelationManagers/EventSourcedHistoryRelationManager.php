@@ -10,6 +10,7 @@ use Capell\Admin\Enums\RollbackDirection;
 use Capell\Admin\Support\Activity\ActivityChangeDetailsPresenter;
 use Capell\Admin\Support\EventSourcing\RollbackChangeSetMapper;
 use Capell\Core\EventSourcing\Contracts\EventSourced;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
 use Capell\Core\EventSourcing\Rollback\Actions\BuildRollbackPreviewAction;
@@ -76,25 +77,25 @@ final class EventSourcedHistoryRelationManager extends RelationManager
                     // Render a translated label from the structured columns
                     // rather than the English string the core projector bakes
                     // into `summary`, so non-English admins see localised text.
-                    ->state(fn (PageRevision $record): string => $record->is_rollback
-                        ? __('capell-admin::event-sourcing.rollback_summary', ['version' => $record->version])
-                        : __('capell-admin::event-sourcing.change_revision'))
+                    ->state(fn (PageRevision $record): string => $this->summaryFor($record))
                     ->wrap(),
                 TextColumn::make('actor.name')
                     ->label(__('capell-admin::event-sourcing.changed_by'))
                     // Null actor = console / unauthenticated save.
-                    ->placeholder(__('capell-admin::event-sourcing.system_actor'))
+                    ->default(fn (PageRevision $record): string => $this->unattributedActorFor($record->versionSource()))
                     ->tooltip(fn (PageRevision $record): ?string => $record->actor === null
-                        ? (string) __('capell-admin::event-sourcing.system_actor_help')
+                        ? $this->unattributedActorHelpFor($record->versionSource())
                         : null),
                 // Edit vs Restore, at a glance — clearer than a bare checkmark.
                 TextColumn::make('type')
                     ->label(__('capell-admin::event-sourcing.type'))
-                    ->state(fn (PageRevision $record): string => $record->is_rollback
-                        ? (string) __('capell-admin::event-sourcing.type_restore')
-                        : (string) __('capell-admin::event-sourcing.type_edit'))
+                    ->state(fn (PageRevision $record): string => $this->typeFor($record->versionSource()))
                     ->badge()
-                    ->color(fn (PageRevision $record): string => $record->is_rollback ? 'info' : 'gray'),
+                    ->color(fn (PageRevision $record): string => match ($record->versionSource()) {
+                        PageVersionSource::Rollback => 'info',
+                        PageVersionSource::Publish => 'success',
+                        PageVersionSource::Edit, PageVersionSource::Import => 'gray',
+                    }),
                 TextColumn::make('occurred_at')
                     ->label(__('capell-admin::event-sourcing.occurred_at'))
                     // Editors think "yesterday", not timestamps; exact time on hover.
@@ -150,6 +151,43 @@ final class EventSourcedHistoryRelationManager extends RelationManager
         }
 
         return resolve(RollbackService::class)->activeContentVersion($page->aggregateUuid());
+    }
+
+    private function summaryFor(PageRevision $record): string
+    {
+        if ($record->is_rollback) {
+            return (string) __('capell-admin::event-sourcing.rollback_summary', ['version' => $record->version]);
+        }
+
+        return $record->label ?? (string) __('capell-admin::event-sourcing.change_revision');
+    }
+
+    private function typeFor(PageVersionSource $source): string
+    {
+        return (string) match ($source) {
+            PageVersionSource::Edit => __('capell-admin::event-sourcing.type_edit'),
+            PageVersionSource::Rollback => __('capell-admin::event-sourcing.type_restore'),
+            PageVersionSource::Import => __('capell-admin::event-sourcing.type_import'),
+            PageVersionSource::Publish => __('capell-admin::event-sourcing.type_publish'),
+        };
+    }
+
+    private function unattributedActorFor(PageVersionSource $source): string
+    {
+        return (string) match ($source) {
+            PageVersionSource::Import => __('capell-admin::event-sourcing.import_actor'),
+            PageVersionSource::Publish => __('capell-admin::event-sourcing.publish_actor'),
+            PageVersionSource::Edit, PageVersionSource::Rollback => __('capell-admin::event-sourcing.system_actor'),
+        };
+    }
+
+    private function unattributedActorHelpFor(PageVersionSource $source): string
+    {
+        return (string) match ($source) {
+            PageVersionSource::Import => __('capell-admin::event-sourcing.import_actor_help'),
+            PageVersionSource::Publish => __('capell-admin::event-sourcing.publish_actor_help'),
+            PageVersionSource::Edit, PageVersionSource::Rollback => __('capell-admin::event-sourcing.system_actor_help'),
+        };
     }
 
     private function directionFor(PageRevision $record, int $activeContentVersion): RollbackDirection

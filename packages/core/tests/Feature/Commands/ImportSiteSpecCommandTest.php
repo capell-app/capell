@@ -8,9 +8,11 @@ use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecNavigationData;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
@@ -334,6 +336,33 @@ it('preserves explicitly reviewed legacy null publication decisions during repai
         artisanCommand('capell:site-spec-import', ['spec' => $path])->assertSuccessful();
         expect($about->fresh()->visible_from)->toBeNull()
             ->and(Page::query()->whereKey($about->id)->publishedDate()->exists())->toBeTrue();
+    } finally {
+        unlink($path);
+    }
+});
+
+it('labels the page versions an import creates as imported in the single versions store', function (): void {
+    $payload = importSiteSpecPayload();
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    $path = writeSiteSpec($payload);
+
+    try {
+        $site = BuildSiteFromSpecFileAction::run($path);
+        $home = $site->pages()->where('name', 'Home')->firstOrFail();
+
+        $revisions = PageRevision::query()->where('page_uuid', $home->uuid)->get();
+
+        expect($revisions)->not->toBeEmpty()
+            ->and($revisions->every(fn (PageRevision $revision): bool => $revision->versionSource() === PageVersionSource::Import))->toBeTrue();
+
+        // Provenance is scoped to the import: a later ordinary save is an edit.
+        $home->load(['translations', 'pageUrls']);
+        $home->save();
+
+        expect(PageRevision::query()->where('page_uuid', $home->uuid)->orderByDesc('version')->firstOrFail()->versionSource())
+            ->toBe(PageVersionSource::Edit);
     } finally {
         unlink($path);
     }
