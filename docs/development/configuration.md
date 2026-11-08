@@ -44,6 +44,10 @@ table-name keys, `capell.database.external_tables.media`,
 and `capell.database.external_tables.snapshots` configure their respective external
 package tables. These names do not inherit the Capell table prefix or aliases.
 
+`capell.database.adopted_tables` (empty by default) lists logical table names whose existing host table is
+deliberately adopted, such as `login_audit` aliased to `authentication_log`. The installer then does not
+report that table as a collision. Only list a table whose package migrations adopt an existing table.
+
 A prefix may contain letters, numbers and underscores, must not start with a number, and
 must leave the longest Capell table name within 63 characters (the PostgreSQL identifier
 cap). Capell never takes over a table it did not create: an upgrade or migration that
@@ -171,6 +175,7 @@ Source: `packages/admin/config/capell-admin.php`
 | `CAPELL_ADMIN_SECURITY_HEADERS_ENABLED`                         | `true`                                 | Adds admin response security headers                                                                                                 |
 | `CAPELL_ADMIN_AGENT_TOOL_INVOCATIONS_PER_MINUTE`                | `30`                                   | Admin agent tool invocations each signed-in user may make per minute before receiving 429                                          |
 | `CAPELL_AUTO_TRANSLATE_LANGUAGE_TEXT`                           | `true`                                 | Shows the auto-translate action on language repeater tabs                                                                            |
+| `CAPELL_TRANSLATION_TABS_ORIENTATION`                           | `horizontal`                           | Default tab layout (`horizontal` or `vertical`) for translation tabs; config key `capell-admin.translation_tabs_orientation`           |
 | `CAPELL_SHOW_CONFIGURATOR_TYPE_HINT`                            | `false`                                | Allows developer-only configurator class path hints in blueprint selectors when the admin setting also enables them                  |
 | `CAPELL_LAYOUT_BUILDER_DEFAULT_EDITOR_MODE`                     | `content_first`                        | Default Layout Builder editor mode                                                                                                   |
 | `CAPELL_LAYOUT_BUILDER_PREVIEW_MATCH_FRONTEND_CONTAINER_LAYOUT` | `true`                                 | Keeps admin layout previews aligned with frontend container behaviour                                                                |

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import repeaterTabs from '../../resources/js/components/repeater-tabs.js'
 
-function fixture(t, direction = 'ltr') {
+function fixture(t, direction = 'ltr', orientation = 'horizontal') {
     const previousDocument = globalThis.document
     const document = { activeElement: null, body: {} }
     globalThis.document = document
@@ -10,6 +10,8 @@ function fixture(t, direction = 'ltr') {
         globalThis.document = previousDocument
     })
     const tablist = {
+        getAttribute: (name) =>
+            name === 'aria-orientation' ? orientation : null,
         querySelectorAll: () => tabs,
         contains: (element) => tabs.includes(element),
         ownerDocument: {
@@ -42,6 +44,20 @@ function fixture(t, direction = 'ltr') {
     tabs[0].focus()
     return { component, tabs, document, key, tablist }
 }
+
+test('up and down arrows move focus only when the tabs are vertical', (t) => {
+    const vertical = fixture(t, 'ltr', 'vertical')
+    assert.equal(vertical.key('ArrowDown'), true)
+    assert.equal(vertical.document.activeElement, vertical.tabs[1])
+    assert.equal(vertical.key('ArrowUp'), true)
+    assert.equal(vertical.document.activeElement, vertical.tabs[0])
+})
+
+test('up and down arrows are left alone when the tabs are horizontal', (t) => {
+    const { document, tabs, key } = fixture(t)
+    assert.equal(key('ArrowDown'), false)
+    assert.equal(document.activeElement, tabs[0])
+})
 
 test('arrows wrap focus while selection waits for Enter or Space', (t) => {
     const { component, tabs, document, key } = fixture(t)

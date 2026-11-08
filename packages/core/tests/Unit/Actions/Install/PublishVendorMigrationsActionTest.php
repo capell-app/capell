@@ -294,6 +294,21 @@ it('removes a pending canonical vendor migration when a non-canonical one alread
     });
 });
 
+it('keeps the Spatie settings migration when only a same-named Voyager settings migration ran', function (): void {
+    withIsolatedVendorMigrationFiles('create_settings_table', function (string $migrationDirectory): void {
+        config()->set('settings.repositories.database.table', 'capell_test_spatie_settings');
+        $voyagerMigrationPath = $migrationDirectory . '/2016_10_21_190000_create_settings_table.php';
+        $canonicalMigrationPath = $migrationDirectory . '/2026_05_10_190823_create_settings_table.php';
+        File::put($voyagerMigrationPath, "<?php\n\ndeclare(strict_types=1);\n");
+        File::put($canonicalMigrationPath, "<?php\n\ndeclare(strict_types=1);\n");
+        DB::table('migrations')->insert(['migration' => '2016_10_21_190000_create_settings_table', 'batch' => 1]);
+
+        PublishVendorMigrationsAction::run(new NullProgressReporter);
+
+        expect(File::exists($canonicalMigrationPath))->toBeTrue();
+    });
+});
+
 it('publishes host activity log column migrations when the base activity log migration already exists', function (): void {
     $originalBasePath = app()->basePath();
     $originalDatabasePath = app()->databasePath();

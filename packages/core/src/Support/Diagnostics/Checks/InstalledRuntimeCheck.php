@@ -21,6 +21,8 @@ final class InstalledRuntimeCheck implements DoctorCheck
     {
         $failures = $this->runtime->failures();
         $requirements = array_map(fn (PackageRequirementData $requirement): array => $requirement->toArray(), FindUnmetPackageRequirementsAction::run());
+        // A package whose requirement is missing is skipped at runtime: its providers do not boot.
+        $skipped = array_values(array_unique(array_column($requirements, 'package')));
         $passed = $failures === [] && $requirements === [];
         $messages = [];
         if ($failures !== []) {
@@ -32,6 +34,10 @@ final class InstalledRuntimeCheck implements DoctorCheck
                 fn (array $requirement): string => $requirement['package'] . ' -> ' . $requirement['requirement'],
                 $requirements,
             ))]);
+        }
+
+        if ($skipped !== []) {
+            $messages[] = __('capell-core::package-requirements.diagnostic_skipped', ['packages' => implode(', ', $skipped)]);
         }
 
         $remediation = [];
@@ -50,7 +56,7 @@ final class InstalledRuntimeCheck implements DoctorCheck
             remediation: $passed ? null : implode(' ', $remediation),
             id: 'core.packages.installed-runtime',
             severity: DoctorCheckSeverity::Critical,
-            evidence: ['failures' => $failures, 'requirements' => $requirements],
+            evidence: ['failures' => $failures, 'requirements' => $requirements, 'skipped' => $skipped],
         );
     }
 }

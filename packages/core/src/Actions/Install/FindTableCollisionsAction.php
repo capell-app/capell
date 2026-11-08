@@ -24,8 +24,10 @@ final class FindTableCollisionsAction
      */
     public function handle(array $packages): array
     {
-        return array_values(array_filter($this->planned($packages), static function (TableCollisionData $table): bool {
-            if (! Schema::hasTable($table->table)) {
+        $adopted = config()->array('capell.database.adopted_tables', []);
+
+        return array_values(array_filter($this->planned($packages), static function (TableCollisionData $table) use ($adopted): bool {
+            if (! Schema::hasTable($table->table) || in_array($table->name, $adopted, true)) {
                 return false;
             }
 

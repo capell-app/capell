@@ -9,6 +9,7 @@ use Capell\Admin\Actions\GetFlatComponentKeysAction;
 use Capell\Admin\Actions\MutateContentPresenterAction;
 use Capell\Admin\Actions\PrepareTranslationRelationshipDataForSaveAction;
 use Capell\Admin\Actions\RestoreDeletedTranslationForLanguageAction;
+use Capell\Admin\Enums\TranslationTabsOrientation;
 use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Admin\Support\Filament\RecoverableSchemaComponents;
@@ -89,6 +90,7 @@ class TranslationsRepeater extends RepeaterTabs
                     return false;
                 },
             )
+            ->orientation(fn (): TranslationTabsOrientation => TranslationTabsOrientation::configured())
             ->minItems($this->getMinItemsClosure())
             ->rules([
                 $this->getRulesClosure(),

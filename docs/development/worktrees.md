@@ -30,23 +30,17 @@ This decides how you provision `vendor/`, and getting it wrong costs you a sessi
 
 ## Docker worktrees
 
-`scripts/init-worktree.sh` builds `vendor/` out of **host-absolute** symlinks into the
-primary checkout (`/Users/...` on macOS). The container never sees those paths:
-`docker-compose.yml` bind-mounts the worktree at `/home/capell/current`, and it does not
-mount the primary checkout at all. Every symlinked package therefore dangles inside the
-container.
+Earlier versions of `scripts/init-worktree.sh` built `vendor/` from **host-absolute**
+symlinks into the primary checkout. The container bind-mounts the worktree at
+`/home/capell/current` and does not mount the primary checkout, so every symlinked
+package dangled inside it, and PHP reported a fatal on the first `require` of a dangling
+path (`require(/Users/.../vendor/symfony/deprecation-contracts/function.php): Failed to
+open stream`) before a single test ran. The script no longer creates symlinks, so that
+layout cannot occur from a fresh run. `scripts/check-vendor-integrity.php` refuses a
+leftover one.
 
-PHP does not report that as a missing package. It reports a fatal on the first `require`
-of a dangling path, before a single test runs:
-
-```
-require(/Users/.../vendor/symfony/deprecation-contracts/function.php): Failed to open stream
-```
-
-which reads like a corrupt install rather than a wrong-tree layout. That misdiagnosis cost
-one agent session 6 of its 21 commands.
-
-Do this instead, in the worktree:
+For tooling run through `./capell`, the normal route is still a real install in the
+worktree:
 
 ```bash
 ./capell up
@@ -58,11 +52,6 @@ is isolated from the primary checkout's. The install is a real, self-contained `
 that resolves inside the container, and with a warm Composer cache it is not slow — a
 measured cold-worktree run on 2026-08-19 took **41 seconds**, plus a few seconds for
 `./capell up`.
-
-`scripts/init-worktree.sh` now detects this repo's Docker harness and refuses to run,
-naming that remedy, rather than leaving a `vendor/` that only works on the host. Pass
-`--host-only` to override it if you really do run PHP on the host and never through
-`./capell`.
 
 Remember to `./capell down` when the worktree is idle. Parallel worktree stacks compound.
 
@@ -78,8 +67,10 @@ and about 1.5 GB. Run this instead:
 bash scripts/init-worktree.sh --host-only
 ```
 
-It completes in under ten seconds, uses about 75 MB, verifies itself, and refuses to
-leave a broken `vendor/` behind. Pass `--force` to rebuild an existing one.
+It clones the primary's `vendor/` into the worktree (copy-on-write on APFS, so it takes
+seconds and almost no extra disk), verifies itself, and refuses to leave a broken
+`vendor/` behind. Pass `--force` to rebuild an existing one. `--host-only` is accepted for
+older callers and has no effect.
 
 ### Do not symlink vendor/ yourself
 
@@ -93,52 +84,29 @@ tree. Your worktree's edits are invisible, and the suite passes while exercising
 completely different code. On a shared checkout it is worse: you are testing another
 session's uncommitted work.
 
-`scripts/init-worktree.sh` avoids this by keeping the parts that determine `$baseDir`
-real, and sharing only what is safe to share:
+`scripts/init-worktree.sh` avoids this by giving the worktree a real, owned `vendor/`:
 
-| Path                                                                                                       | Treatment | Why                                                                                           |
-| ---------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------- |
-| `vendor/composer/`, `vendor/autoload.php`                                                                  | real copy | `$baseDir` must resolve to this worktree                                                      |
-| `vendor/bin/`                                                                                              | real copy | binary proxies must point at this worktree's autoloader                                       |
-| `vendor/<vendor>/<package>/`                                                                               | symlink   | third-party code, identical in both trees                                                     |
-| `pestphp/pest`, `phpunit/phpunit`, `laravel/pint`, `phpstan/phpstan`, `rector/rector`, `brianium/paratest` | real copy | their bin scripts walk `__DIR__` upward to find an autoloader, and would find the primary one |
+| Path                                       | Treatment | Why                                                         |
+| ------------------------------------------ | --------- | ----------------------------------------------------------- |
+| `vendor/composer/`, `vendor/autoload.php`  | real copy | `$baseDir` must resolve to this worktree                    |
+| `vendor/bin/`                              | real copy | binary proxies must point at this worktree's autoloader     |
+| `vendor/<vendor>/<package>/`               | real copy | copy-on-write clone, so no package is a link into another checkout |
 
-### Known limitation — verify before trusting a full-suite run
+### Snapshot, not a live view
 
 The provisioner regenerates the copied autoloader from the worktree's manifest,
-including development source mappings. The primary vendor metadata may predate
-a new fixture namespace or package source path. Copying it without regeneration
-can pass a single Core-class probe while leaving those newer classes unavailable.
-Autoload regeneration disables Composer scripts and plugins and writes only the
-owned loader; it does not install or update shared dependencies.
+including development source mappings. Autoload regeneration disables Composer scripts
+and plugins and writes only the owned loader.
 
-The script fixes the common failure, not every one. Because third-party packages are
-symlinked, any code that walks upward from inside `vendor/` — `dirname(__DIR__, N)`, or a
-Composer `ClassLoader` re-registered at runtime — resolves into the **primary checkout**,
-and can pull `Capell\*` classes from there.
+Because every package is a real tree inside the worktree, code that walks upward from
+inside `vendor/` and Pest's architecture presets (which exclude the checkout's `vendor/`)
+behave as they do in a normal install. The copy is a snapshot of the primary's
+`vendor/` at provisioning time: when the primary's dependencies change, re-run
+`bash scripts/init-worktree.sh --force` in each worktree rather than expecting it to follow.
 
-Most suites are unaffected. The core `Unit/Support` suite is not: running it before
-another suite has been observed to load `Capell\Admin\*` from the primary tree, so the
-later tests silently exercise the wrong code. Confirmed 2026-07-23 by printing
-`ReflectionClass::getFileName()` mid-run.
-
-Practical rule: use the script for fast, targeted runs, and check that the classes you
-changed resolve inside the worktree before believing a result. If you need an
-authoritative full-suite run, do a real `composer install` in the worktree.
-
-Pest's architecture presets also follow symlinks before excluding the checkout's
-`vendor/` directory, so external dependency roots can be mistaken for application
-source. This can fatally load optional integrations such as Symfony Serializer's
-`SerializerPass` without its optional `PriorityTaggedServiceTrait`. Use an independent
-vendor tree for authoritative architecture gates. A process-only bootstrap restoring
-the intended vendor exclusion is a diagnostic workaround, not clean-vendor evidence.
-
-Do not run `composer test` in a hybrid worktree. Its `clear` step runs
-`testbench package:purge-skeleton` and removes
-`vendor/orchestra/testbench-core/laravel/{vendor,database/migrations}`;
-`testbench-core` is a symlink there, so the removal mutates the primary checkout's
-skeleton. Run `vendor/bin/pest <paths>` instead. `scripts/check-vendor-integrity.php`
-(run first by `clear`) refuses a full suite on a hybrid vendor for the same reason.
+`scripts/check-vendor-integrity.php` (run first by `composer clear` and by the Pest
+bootstrap) fails when `vendor/` or any `vendor/<vendor>/<package>` resolves outside the
+checkout, so a legacy symlinked layout is refused instead of silently testing stale code.
 
 ### Verifying
 
@@ -151,13 +119,12 @@ php -r 'require "vendor/autoload.php"; echo (new ReflectionClass("Capell\Core\En
 The path must be inside your worktree. If it points at the primary checkout, delete
 `vendor/` and start again — every green test you have seen is meaningless.
 
-### Never mutate dependencies from a hybrid worktree
+### Dependency changes
 
-Composer scripts such as `composer test:unit` are safe. Dependency-mutating commands
-such as `install`, `require`, `update`, and `remove` are not: the hybrid `vendor/`
-contains symlinks into the primary checkout. Manage dependencies in the primary
-checkout, then re-run `scripts/init-worktree.sh --host-only --force` in each owned
-host worktree. The force option replaces that worktree's vendor layout.
+The worktree's `vendor/` is its own copy, so Composer commands here cannot write through
+into the primary checkout. They will, however, diverge from the primary's lock unless that
+is intended; manage dependencies in the primary, then re-run
+`scripts/init-worktree.sh --force` here.
 
 ## Node dependencies
 

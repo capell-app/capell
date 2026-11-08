@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\EventSourcing\Aggregates;
 
 use Capell\Core\EventSourcing\Exceptions\InvalidAggregateTransition;
+use Capell\Core\EventSourcing\Support\PageVersionContext;
 use Illuminate\Support\Facades\Auth;
 use Spatie\EventSourcing\AggregateRoots\AggregateRoot;
 
@@ -23,6 +24,10 @@ use Spatie\EventSourcing\AggregateRoots\AggregateRoot;
 abstract class CapellAggregateRoot extends AggregateRoot
 {
     public const string META_ACTOR_ID = 'actor_id';
+
+    public const string META_VERSION_SOURCE = 'version_source';
+
+    public const string META_VERSION_LABEL = 'version_label';
 
     /**
      * Record a full serialised state revision of the aggregate.
@@ -53,8 +58,13 @@ abstract class CapellAggregateRoot extends AggregateRoot
     protected function actorMetaData(): array
     {
         $actorId = Auth::id();
+        $context = resolve(PageVersionContext::class);
 
-        return $actorId === null ? [] : [self::META_ACTOR_ID => $actorId];
+        return array_filter([
+            self::META_ACTOR_ID => $actorId,
+            self::META_VERSION_SOURCE => $context->source()?->value,
+            self::META_VERSION_LABEL => $context->label(),
+        ], static fn (mixed $value): bool => $value !== null);
     }
 
     /**

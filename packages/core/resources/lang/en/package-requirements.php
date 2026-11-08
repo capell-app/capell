@@ -12,5 +12,6 @@ return [
     'upgrade_dry_run' => 'Package [:package] requires [:requirement], which would be installed or enabled during a non-interactive upgrade.',
     'runtime_skipped' => 'Skipping installed runtime for package [:package]: required package [:requirement] is not installed/enabled or its runtime is blocked by another requirement.',
     'diagnostic_failed' => 'Installed runtime is blocked by unmet package requirements: :requirements.',
+    'diagnostic_skipped' => 'Skipped packages, whose runtime is not booted until their requirements are enabled: :packages.',
     'diagnostic_remediation' => 'Install and enable each named requirement, or run php artisan capell:upgrade --force --no-interaction to reconcile available first-party requirements. Retry in a fresh application and reload retained workers.',
 ];

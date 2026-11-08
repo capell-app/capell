@@ -17,6 +17,7 @@ use Capell\Core\EventSourcing\Rollback\Validators\PageReferentialIntegrityRollba
 use Capell\Core\EventSourcing\Rollback\Validators\PageUrlUniquenessRollbackValidator;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
+use Capell\Core\EventSourcing\Support\PageVersionContext;
 use Capell\Core\Models\Page;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -40,6 +41,7 @@ final readonly class EventSourcingBootstrapper
         $this->app->singleton(EventSourcedRegistry::class);
         $this->app->singleton(RollbackValidatorRegistry::class);
         $this->app->singleton(StateDiffer::class);
+        $this->app->scoped(PageVersionContext::class);
 
         if (! $this->app instanceof CachesConfiguration || ! $this->app->configurationIsCached()) {
             $providerFile = new ReflectionClass(EventSourcingServiceProvider::class)->getFileName();

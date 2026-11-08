@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\RelationManagers\EventSourcedHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
+use Capell\Core\EventSourcing\Actions\RecordPageVersionAction;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\EventSourcing\Events\PageRolledBack;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
+use Capell\Core\EventSourcing\Rollback\Actions\CompareWithPreviousVersionAction;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
+use Capell\Core\EventSourcing\Support\PageVersionContext;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -52,7 +59,7 @@ it('renders a translated change label instead of the projector english string', 
         'pageClass' => EditPage::class,
     ])
         ->assertSuccessful()
-        ->assertSee(__('capell-admin::event-sourcing.change_revision'))
+        ->assertSee(__('capell-admin::event-sourcing.first_version'))
         ->assertDontSee('Revision recorded');
 });
 
@@ -275,4 +282,232 @@ it('hides the restore action from users without rollback permission', function (
         'pageClass' => EditPage::class,
     ])
         ->assertActionHidden(TestAction::make('rollback')->table($firstRevision));
+});
+
+it('says a version came from a seed or import instead of an anonymous system actor', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+
+    auth()->logout();
+    resolve(PageVersionContext::class)->run(PageVersionSource::Import, null, function () use ($page): void {
+        recordPageRevisionForRm($page);
+    });
+    test()->actingAsAdmin();
+
+    expect(PageRevision::query()->where('page_uuid', $page->uuid)->whereNull('actor_id')->where('source', PageVersionSource::Import->value)->exists())->toBeTrue();
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.import_actor'))
+        ->assertSee(__('capell-admin::event-sourcing.type_import'));
+});
+
+it('shows the label a package gave a published version', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    RecordPageVersionAction::run($page->fresh(['translations', 'pageUrls']), PageVersionSource::Publish, 'Spring campaign');
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee('Spring campaign')
+        ->assertSee(__('capell-admin::event-sourcing.type_publish'));
+});
+
+it('summarises and shows exactly what each version changed', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Opening times', 'content' => '<p>Open daily.</p>']);
+    recordPageRevisionForRm($page);
+    $first = resolve(RollbackService::class)->currentVersion($page->uuid);
+
+    $translation->forceFill(['title' => 'Winter opening times'])->save();
+    recordPageRevisionForRm($page);
+    $second = resolve(RollbackService::class)->currentVersion($page->uuid);
+
+    $comparison = CompareWithPreviousVersionAction::run($page->fresh(), $second);
+    $translationChange = collect($comparison->fields)->firstWhere('path', 'translations');
+
+    expect($comparison->previousVersion)->toBe($first)
+        ->and(collect($comparison->fields)->pluck('path')->all())->toBe(['translations'])
+        ->and(json_encode($translationChange->before))->toContain('Opening times')->not->toContain('Winter opening times')
+        ->and(json_encode($translationChange->after))->toContain('Winter opening times')
+        ->and(json_encode($translationChange->after))->toContain('Open daily.')
+        ->and(CompareWithPreviousVersionAction::run($page->fresh(), $first)->previousVersion)->toBeNull();
+
+    $secondRevision = PageRevision::query()->where('page_uuid', $page->uuid)->where('version', $second)->firstOrFail();
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.changed_fields', ['fields' => 'Title']))
+        ->mountAction(TestAction::make('compare')->table($secondRevision))
+        ->assertMountedActionModalSee(['Opening times', 'Winter opening times', __('capell-admin::event-sourcing.compare_before'), __('capell-admin::event-sourcing.compare_after')]);
+});
+
+it('keeps the version diff from editors without restore permission and refuses a forged restore', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Kept', 'content' => '<p>kept</p>', 'meta' => ['description' => 'Public summary']]);
+    recordPageRevisionForRm($page);
+    $target = PageRevision::query()->where('page_uuid', $page->uuid)->orderByDesc('version')->firstOrFail();
+    $translation->forceFill(['title' => 'Latest', 'meta' => ['description' => 'Restricted launch note']])->save();
+    recordPageRevisionForRm($page);
+    $latest = PageRevision::query()->where('page_uuid', $page->uuid)->orderByDesc('version')->firstOrFail();
+
+    test()->actingAsUser();
+
+    $component = Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertActionHidden(TestAction::make('compare')->table($latest))
+        ->assertActionHidden(TestAction::make('rollback')->table($target))
+        ->assertSee(__('capell-admin::event-sourcing.change_revision'))
+        ->assertDontSee(__('capell-admin::event-sourcing.changed_fields', ['fields' => 'Title']))
+        ->assertDontSee('Restricted launch note')
+        ->assertDontSee('Public summary');
+
+    // A forged request skips the hidden buttons, so the server-side checks must refuse it on their own.
+    $table = $component->instance()->getTable();
+
+    expect($table->getAction('compare')?->record($latest)->isAuthorized())->toBeFalse()
+        ->and($table->getAction('rollback')?->record($target)->isAuthorized())->toBeFalse()
+        ->and($translation->fresh()->title)->toBe('Latest')
+        ->and(PageRevision::query()->where('page_uuid', $page->uuid)->where('is_rollback', true)->exists())->toBeFalse();
+});
+
+it('keeps the timeline loading when a version has no readable stored state', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+
+    // An index row whose events are missing, as after a partial copy of history.
+    $orphan = PageRevision::query()->create([
+        'page_uuid' => $page->uuid,
+        'version' => 1,
+        'summary' => 'Revision recorded',
+        'is_rollback' => false,
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.change_revision'))
+        ->assertActionHidden(TestAction::make('compare')->table($orphan));
+});
+
+it('reads each version from the event store once, however often a long history renders', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Version 0', 'content' => '<p>0</p>']);
+    recordPageRevisionForRm($page);
+
+    foreach (range(1, 21) as $edit) {
+        $translation->forceFill(['title' => 'Version ' . $edit])->save();
+        recordPageRevisionForRm($page);
+    }
+
+    expect(PageRevision::query()->where('page_uuid', $page->uuid)->count())->toBeGreaterThanOrEqual(22);
+
+    $storedEventReads = 0;
+    DB::listen(function ($query) use (&$storedEventReads): void {
+        if (str_contains((string) $query->sql, 'stored_events')) {
+            $storedEventReads++;
+        }
+    });
+
+    $component = Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])->assertSuccessful();
+
+    $firstRender = $storedEventReads;
+    $storedEventReads = 0;
+
+    $component->call('$refresh')->assertSuccessful();
+
+    // The first render reads each listed version's state; later renders reuse the
+    // cached summaries and only ask for the head version.
+    expect($firstRender)->toBeGreaterThan(0)
+        ->and($storedEventReads)->toBeLessThanOrEqual(4);
+});
+
+it('degrades only the version whose stored event can no longer be read', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Readable', 'content' => '<p>readable</p>']);
+    recordPageRevisionForRm($page);
+    $translation->forceFill(['title' => 'Broken'])->save();
+    recordPageRevisionForRm($page);
+    $translation->forceFill(['title' => 'Latest'])->save();
+    recordPageRevisionForRm($page);
+
+    $revisions = PageRevision::query()->where('page_uuid', $page->uuid)->orderBy('version')->get();
+    $first = $revisions->firstOrFail();
+    $broken = $revisions->values()->get(1);
+    $latest = $revisions->last();
+
+    throw_unless($broken instanceof PageRevision && $latest instanceof PageRevision, RuntimeException::class, 'Expected three versions.');
+
+    // An event class removed by an uninstalled package, so the payload no longer deserialises.
+    DB::table('stored_events')
+        ->where('aggregate_uuid', $page->uuid)
+        ->where('aggregate_version', $broken->version)
+        ->update(['event_class' => 'Capell\\Removed\\Package\\PageEvent']);
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords($revisions)
+        ->assertActionVisible(TestAction::make('compare')->table($first))
+        ->assertActionHidden(TestAction::make('compare')->table($broken))
+        ->assertActionHidden(TestAction::make('compare')->table($latest))
+        ->assertSee(__('capell-admin::event-sourcing.change_revision'));
+});
+
+it('still summarises versions when the cache store is unavailable', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Before outage', 'content' => '<p>same</p>']);
+    recordPageRevisionForRm($page);
+    $translation->forceFill(['title' => 'During outage'])->save();
+    recordPageRevisionForRm($page);
+
+    // A store that is down: every read and write throws, as a lost Redis connection would.
+    Cache::extend('unavailable', fn (): Repository => new Repository(new class extends ArrayStore
+    {
+        #[Override]
+        public function get($key): mixed
+        {
+            throw new RuntimeException('Cache store unavailable');
+        }
+
+        #[Override]
+        public function forever($key, $value): bool
+        {
+            throw new RuntimeException('Cache store unavailable');
+        }
+    }));
+    config()->set('cache.stores.unavailable', ['driver' => 'unavailable']);
+    config()->set('cache.default', 'unavailable');
+    Cache::forgetDriver('unavailable');
+    Cache::setDefaultDriver('unavailable');
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.changed_fields', ['fields' => 'Title']))
+        ->assertSee(__('capell-admin::event-sourcing.first_version'));
 });

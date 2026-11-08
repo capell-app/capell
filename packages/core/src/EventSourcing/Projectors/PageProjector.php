@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\EventSourcing\Projectors;
 
 use Capell\Core\EventSourcing\Aggregates\CapellAggregateRoot;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\EventSourcing\Enums\PageWorkflowStatus;
 use Capell\Core\EventSourcing\Events\PageApproved;
 use Capell\Core\EventSourcing\Events\PageArchived;
@@ -135,6 +136,8 @@ final class PageProjector extends Projector
                 'actor_id' => $this->actorId($event),
                 'summary' => $summary,
                 'is_rollback' => $isRollback,
+                'source' => $this->versionSource($event, $isRollback)->value,
+                'label' => $this->versionLabel($event),
                 'occurred_at' => $event->createdAt() ?? CarbonImmutable::now(),
             ],
         );
@@ -174,6 +177,26 @@ final class PageProjector extends Projector
         Page::query()
             ->where('uuid', $event->aggregateRootUuid())
             ->update(['visible_until' => $event->createdAt() ?? CarbonImmutable::now()]);
+    }
+
+    private function versionSource(ShouldBeStored $event, bool $isRollback): PageVersionSource
+    {
+        // A rollback is always a rollback, even when it runs inside an import
+        // or publish flow; otherwise the recorded provenance wins.
+        if ($isRollback) {
+            return PageVersionSource::Rollback;
+        }
+
+        $stored = $event->metaData()[CapellAggregateRoot::META_VERSION_SOURCE] ?? null;
+
+        return PageVersionSource::forStored(is_string($stored) ? $stored : null, isRollback: false);
+    }
+
+    private function versionLabel(ShouldBeStored $event): ?string
+    {
+        $label = $event->metaData()[CapellAggregateRoot::META_VERSION_LABEL] ?? null;
+
+        return is_string($label) && trim($label) !== '' ? mb_substr(trim($label), 0, 255) : null;
     }
 
     private function actorId(ShouldBeStored $event): ?int

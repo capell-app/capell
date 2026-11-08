@@ -559,3 +559,29 @@ PHP);
         expect(TableName::migrationRecorded($migration))->toBeFalse();
     });
 });
+
+it('does not report a table the host explicitly adopts as a collision', function (): void {
+    config()->set('capell.database.external_tables.media', 'adopted_media_library');
+    // A host table that predates Capell has no Capell migration record.
+    config()->set('database.connections.adoption_ledger', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
+
+    $ledger = new DatabaseMigrationRepository(DB::getFacadeRoot(), 'migrations');
+    $ledger->setSource('adoption_ledger');
+    $ledger->createRepository();
+
+    app()->instance('capell.table-name.ledger', $ledger);
+    Schema::create('adopted_media_library', function ($table): void {
+        $table->id();
+    });
+
+    $collisions = static fn (): array => array_map(
+        static fn (TableCollisionData $collision): string => $collision->table,
+        FindTableCollisionsAction::run([]),
+    );
+
+    expect($collisions())->toContain('adopted_media_library');
+
+    config()->set('capell.database.adopted_tables', ['media']);
+
+    expect($collisions())->not->toContain('adopted_media_library');
+});

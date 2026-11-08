@@ -9,19 +9,19 @@
 # Capell\* class then loads from the primary tree — your worktree edits are
 # invisible and the suite "passes" while testing entirely different code.
 #
-# This script builds a hybrid instead:
+# This script builds an owned vendor/ instead:
 #
 #   vendor/composer/     real copy  -> $baseDir resolves to THIS worktree
 #   vendor/autoload.php  real copy
 #   vendor/bin/          real copy
-#   vendor/<pkg>/<name>  symlink    -> shared, read-only, third-party code
-#   REAL_PACKAGES        real copy  -> Testbench and tools that need local state
-#                                      or whose bin scripts walk __DIR__ up
-#                                      to find autoload.php
+#   vendor/<pkg>/<name>  real copy  -> every package is a copy-on-write clone
 #
-# Testbench must be copied: its skeleton creates a vendor link and mutable files.
-# Sharing that package lets another worktree redirect the primary skeleton.
-# Test processes use disposable, isolated skeleton copies as well.
+# Nothing in vendor/ points at the primary checkout, so a later change to the
+# primary's vendor/ cannot leave this worktree with stale or wrong dependencies,
+# and Testbench's skeleton (which creates a vendor link and mutable files) stays
+# private. Test processes use disposable, isolated skeleton copies as well.
+# scripts/check-vendor-integrity.php refuses any package symlinked into another
+# checkout.
 #
 # It then verifies the result and refuses to leave a poisoned vendor/ behind.
 #
@@ -30,12 +30,9 @@
 # rather than a symlink, because npm ci deletes the directory before installing
 # and would take the primary checkout's copy with it.
 #
-# It is HOST-ONLY. The symlinks it creates are host-absolute, so the result
-# cannot resolve inside this repo's Docker container, which mounts the worktree
-# at /home/capell/current and does not mount the primary checkout. If you run
-# tooling through ./capell, run a real `./capell composer install` instead; this
-# script refuses to build a container-unusable vendor/ unless you pass
-# --host-only.
+# The result holds no host-absolute links into the primary checkout, so it does
+# not depend on the primary being mounted. --host-only is accepted for older
+# callers and has no effect.
 #
 # Usage:  bash scripts/init-worktree.sh [--force] [--host-only]
 
@@ -78,47 +75,6 @@ fi
 
 cd "$WORKTREE_ROOT"
 
-# ---------------------------------------------------------------------------
-# Docker. The hybrid vendor/ is built from HOST-ABSOLUTE symlinks pointing at
-# the primary checkout (/Users/... on macOS). The container bind-mounts this
-# worktree at a different path entirely (/home/capell/current), and nothing
-# mounts the primary checkout, so every one of those symlinks dangles inside
-# the container. PHP does not report a missing symlink target as a missing
-# package: it reports a fatal on the first require of a dangling path, e.g.
-#
-#   require(.../symfony/deprecation-contracts/function.php): Failed to open stream
-#
-# which reads like a corrupt install rather than a wrong-tree layout, and it
-# happens before a single test runs. Refuse up front, while vendor/ does not
-# exist yet, rather than build something that only works on the host.
-# ---------------------------------------------------------------------------
-if [ "$HOST_ONLY" -ne 1 ] && [ -f docker-compose.yml ] && grep -q '\./\?:/home/capell/current' docker-compose.yml; then
-    cat >&2 <<'EOF'
-REFUSING: this repository runs its PHP tooling inside Docker.
-
-scripts/init-worktree.sh builds vendor/ from host-absolute symlinks into the
-primary checkout. The container mounts this worktree at /home/capell/current
-and does not mount the primary checkout at all, so those symlinks dangle and
-PHP fails with a "Failed to open stream" fatal on the first require — before
-any test runs.
-
-Do this instead, in this worktree — all three steps:
-
-    ./capell up -d
-    ./capell composer install
-    npm ci --no-audit --no-fund
-
-That is a real, self-contained vendor/ that works in the container. With a warm
-Composer cache it takes well under two minutes. The npm step is not optional:
-this refusal exits before the script's own node_modules/ step, and `composer preflight`
-refuses to start without node_modules/ (prettier/eslint stages).
-
-If you genuinely intend to run PHP on the HOST and never in the container,
-re-run with --host-only. The resulting vendor/ will NOT work under ./capell.
-EOF
-    exit 1
-fi
-
 if [ -e vendor ]; then
     if [ "$FORCE" -eq 1 ]; then
         rm -rf vendor
@@ -127,19 +83,6 @@ if [ -e vendor ]; then
         exit 1
     fi
 fi
-
-# Packages whose bin scripts resolve their own autoloader by walking __DIR__
-# upward. If these are symlinks, they find the PRIMARY autoloader and you get
-# "Cannot redeclare class ComposerAutoloaderInit..." or a silent wrong-tree run.
-REAL_PACKAGES=(
-    orchestra/testbench-core
-    pestphp/pest
-    phpunit/phpunit
-    laravel/pint
-    phpstan/phpstan
-    rector/rector
-    brianium/paratest
-)
 
 echo "Primary : $PRIMARY_ROOT"
 echo "Worktree: $WORKTREE_ROOT"
@@ -159,7 +102,20 @@ for vendor_file in "$PRIMARY_ROOT"/vendor/* "$PRIMARY_ROOT"/vendor/.[!.]* "$PRIM
     cp "$vendor_file" "vendor/$(basename "$vendor_file")"
 done
 
-linked=0
+# Third-party packages are real trees owned by this worktree, never symlinks into
+# the primary checkout. A symlink goes stale or wrong the moment the primary's
+# vendor/ moves on (a missing class mid-run), and Pest's architecture presets
+# follow it out of vendor/ and treat dependency code as application source.
+# On APFS `cp -Rc` clones the blocks, so this costs seconds and almost no disk;
+# elsewhere it falls back to a plain copy.
+clone_flag=-Rc
+probe_dir=$(mktemp -d)
+if ! cp -Rc "$PRIMARY_ROOT/vendor/composer" "$probe_dir/probe" 2>/dev/null; then
+    clone_flag=-R
+fi
+rm -rf "$probe_dir"
+
+copied=0
 for vendor_dir in "$PRIMARY_ROOT"/vendor/*/; do
     vendor_name=$(basename "$vendor_dir")
     case "$vendor_name" in composer | bin) continue ;; esac
@@ -168,19 +124,9 @@ for vendor_dir in "$PRIMARY_ROOT"/vendor/*/; do
     for package_dir in "$vendor_dir"*/; do
         [ -d "$package_dir" ] || continue
         package_name=$(basename "$package_dir")
-        [ "$vendor_name/$package_name" != "orchestra/testbench-core" ] || continue
-        ln -s "$package_dir" "vendor/$vendor_name/$package_name"
-        linked=$((linked + 1))
-    done
-done
-
-copied=0
-for package in "${REAL_PACKAGES[@]}"; do
-    if [ -d "$PRIMARY_ROOT/vendor/$package" ]; then
-        rm -rf "vendor/$package"
-        cp -R "$PRIMARY_ROOT/vendor/$package" "vendor/$package"
+        cp "$clone_flag" "${package_dir%/}" "vendor/$vendor_name/$package_name"
         copied=$((copied + 1))
-    fi
+    done
 done
 
 # A copied skeleton may contain a link created by an earlier worktree. Remove
@@ -189,7 +135,7 @@ if [ -L vendor/orchestra/testbench-core/laravel/vendor ]; then
     rm vendor/orchestra/testbench-core/laravel/vendor
 fi
 
-echo "Linked $linked packages, copied $copied tool packages ($(du -sh vendor | cut -f1))."
+echo "Copied $copied packages ($(du -sh vendor | cut -f1))."
 
 # Copied metadata can predate this checkout's manifest. Regenerate only the
 # owned loader; disabled scripts/plugins cannot mutate shared dependencies.
@@ -270,8 +216,7 @@ esac
 # without node_modules/ fails the entire preflight before a single PHP stage
 # runs — the error names npm but reads like the worktree itself is broken.
 #
-# This is deliberately NOT a symlink. vendor/ can share packages because they
-# are only ever read; node_modules is different. `npm ci` DELETES the directory
+# This is deliberately NOT a symlink. `npm ci` DELETES the directory
 # before it installs, so one npm command in one worktree would wipe the primary
 # checkout's node_modules out from under every other session using it. Node
 # also resolves symlinks to their realpath, so tools would load their own
@@ -298,9 +243,9 @@ fi
 
 cat <<'EOF'
 
-Done. This vendor/ is HOST-ONLY: its package symlinks are host-absolute and do
-not resolve inside the ./capell container. Run `./capell composer install` in
-this worktree if you need to run tooling in Docker.
+Done. This vendor/ is owned by this worktree: every package is a copy-on-write
+clone, so nothing in it points at the primary checkout and the primary's later
+vendor changes cannot reach it.
 
 Remember that this repo's tooling needs an explicit memory limit:
 
@@ -308,25 +253,16 @@ Remember that this repo's tooling needs an explicit memory limit:
   php -d memory_limit=1G vendor/bin/pest --compact --configuration=phpunit.xml <path>
   php -d memory_limit=2G vendor/bin/phpstan analyse --no-progress <path>
 
-Parts of vendor/ are shared with the primary checkout. Composer scripts are safe,
-but never run composer install/require/update/remove from this worktree — dependency
-mutations can write through the shared package symlinks.
+The vendor/ copy is a snapshot of the primary at provisioning time. After the
+primary's dependencies change, re-run `bash scripts/init-worktree.sh --force`
+here.
 
 node_modules/ is a copy-on-write clone, not a symlink, so npm is safe here: an
 npm install or npm ci in this worktree cannot reach the primary checkout.
 
-KNOWN LIMITATION — read before trusting a full-suite run.
-Third-party packages are symlinked, so any code that walks upward from inside
-vendor/ (dirname(__DIR__, N), a re-registered Composer ClassLoader) lands in the
-PRIMARY checkout, not this worktree. Most suites are unaffected, but some — the
-core Unit/Support suite is one — end up loading Capell classes from the primary
-tree, which silently tests the wrong code.
-
-Use this setup for fast, targeted runs, and confirm the classes you care about
-resolve here before believing a result:
+Confirm the classes you changed resolve inside this worktree before believing a
+result:
 
   php -r 'require "vendor/autoload.php";
     echo (new ReflectionClass("Your\\Changed\\Class"))->getFileName(), PHP_EOL;'
-
-For an authoritative full-suite run, do a real composer install in this worktree.
 EOF

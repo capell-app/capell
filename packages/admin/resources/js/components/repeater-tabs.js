@@ -41,6 +41,16 @@ export default function capellRepeaterTabs({ activeTab }) {
                     event.preventDefault()
                     this.focusTab(current + (this.isRtl() ? -1 : 1))
                     break
+                case 'ArrowUp':
+                    if (!this.isVertical()) break
+                    event.preventDefault()
+                    this.focusTab(current - 1)
+                    break
+                case 'ArrowDown':
+                    if (!this.isVertical()) break
+                    event.preventDefault()
+                    this.focusTab(current + 1)
+                    break
                 case 'Home':
                     event.preventDefault()
                     this.focusTab(0)
@@ -55,6 +65,13 @@ export default function capellRepeaterTabs({ activeTab }) {
                     this.activate(Number(event.target.dataset.tabIndex))
                     break
             }
+        },
+
+        isVertical() {
+            return (
+                this.$refs.tablist.getAttribute('aria-orientation') ===
+                'vertical'
+            )
         },
 
         isRtl() {
