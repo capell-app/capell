@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Spatie\EventSourcing\StoredEvents\Models\EloquentStoredEvent;
 use Spatie\EventSourcing\StoredEvents\Repositories\StoredEventRepository;
+use Spatie\EventSourcing\StoredEvents\ShouldBeStored;
+use Throwable;
 
 /**
  * The reusable rollback engine: reconstitute an aggregate's state at a chosen
@@ -132,7 +134,7 @@ final class RollbackService
                 ->orderByDesc('aggregate_version')
                 ->cursor() as $record
         ) {
-            $event = $record->toStoredEvent()->event;
+            $event = $this->eventFrom($record);
 
             if ($event instanceof CarriesAggregateState) {
                 $state = $event->state();
@@ -149,6 +151,23 @@ final class RollbackService
         }
 
         return $state;
+    }
+
+    /**
+     * What one version changed: its state compared with the state-bearing
+     * version before it. The first version compares with nothing, so all of
+     * its content is reported as added. Read-only.
+     */
+    public function compareWithPrevious(string $uuid, int $version): VersionComparisonData
+    {
+        $state = $this->targetStateAt($uuid, $version);
+        [$previousVersion, $previousState] = $this->stateBefore($uuid, $version);
+
+        return new VersionComparisonData(
+            version: $version,
+            previousVersion: $previousVersion,
+            fields: $this->differ->diff($previousState, $state),
+        );
     }
 
     public function currentVersion(string $uuid): int
@@ -186,11 +205,44 @@ final class RollbackService
             return $headVersion;
         }
 
-        $event = $record->toStoredEvent()->event;
+        try {
+            $event = $this->eventFrom($record);
+        } catch (EventSourcingException) {
+            // An unreadable head event cannot say it was a rollback; treat the
+            // head as live rather than failing every caller.
+            return $headVersion;
+        }
 
         return $event instanceof CarriesRollbackOrigin
             ? $event->rolledBackToVersion()
             : $headVersion;
+    }
+
+    /**
+     * The newest state-bearing event strictly before a version.
+     *
+     * @return array{0: int|null, 1: array<string, mixed>}
+     */
+    private function stateBefore(string $uuid, int $version): array
+    {
+        /** @var class-string<EloquentStoredEvent> $storedEventModel */
+        $storedEventModel = config('event-sourcing.stored_event_model', EloquentStoredEvent::class);
+
+        foreach (
+            $storedEventModel::query()
+                ->where('aggregate_uuid', $uuid)
+                ->where('aggregate_version', '<', $version)
+                ->orderByDesc('aggregate_version')
+                ->cursor() as $record
+        ) {
+            $event = $this->eventFrom($record);
+
+            if ($event instanceof CarriesAggregateState) {
+                return [(int) $record->getAttribute('aggregate_version'), $event->state()];
+            }
+        }
+
+        return [null, []];
     }
 
     /**
@@ -208,5 +260,23 @@ final class RollbackService
         }
 
         return $issues;
+    }
+
+    /**
+     * Deserialises one stored event. A payload that no longer decodes, or an
+     * event class that no longer exists, surfaces as EventSourcingException so
+     * callers can degrade for that version instead of failing outright.
+     */
+    private function eventFrom(EloquentStoredEvent $record): ShouldBeStored
+    {
+        try {
+            $event = $record->toStoredEvent()->event;
+        } catch (Throwable $throwable) {
+            throw new EventSourcingException(sprintf('Stored event %s could not be read.', (string) $record->getKey()), (int) $throwable->getCode(), previous: $throwable);
+        }
+
+        throw_unless($event instanceof ShouldBeStored, EventSourcingException::class, sprintf('Stored event %s has no event.', (string) $record->getKey()));
+
+        return $event;
     }
 }
