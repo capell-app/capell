@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Spatie\EventSourcing\StoredEvents\Models\EloquentStoredEvent;
 use Spatie\EventSourcing\StoredEvents\Repositories\StoredEventRepository;
+use Spatie\EventSourcing\StoredEvents\ShouldBeStored;
+use Throwable;
 
 /**
  * The reusable rollback engine: reconstitute an aggregate's state at a chosen
@@ -132,7 +134,7 @@ final class RollbackService
                 ->orderByDesc('aggregate_version')
                 ->cursor() as $record
         ) {
-            $event = $record->toStoredEvent()->event;
+            $event = $this->eventFrom($record);
 
             if ($event instanceof CarriesAggregateState) {
                 $state = $event->state();
@@ -203,7 +205,13 @@ final class RollbackService
             return $headVersion;
         }
 
-        $event = $record->toStoredEvent()->event;
+        try {
+            $event = $this->eventFrom($record);
+        } catch (EventSourcingException) {
+            // An unreadable head event cannot say it was a rollback; treat the
+            // head as live rather than failing every caller.
+            return $headVersion;
+        }
 
         return $event instanceof CarriesRollbackOrigin
             ? $event->rolledBackToVersion()
@@ -227,7 +235,7 @@ final class RollbackService
                 ->orderByDesc('aggregate_version')
                 ->cursor() as $record
         ) {
-            $event = $record->toStoredEvent()->event;
+            $event = $this->eventFrom($record);
 
             if ($event instanceof CarriesAggregateState) {
                 return [(int) $record->getAttribute('aggregate_version'), $event->state()];
@@ -252,5 +260,23 @@ final class RollbackService
         }
 
         return $issues;
+    }
+
+    /**
+     * Deserialises one stored event. A payload that no longer decodes, or an
+     * event class that no longer exists, surfaces as EventSourcingException so
+     * callers can degrade for that version instead of failing outright.
+     */
+    private function eventFrom(EloquentStoredEvent $record): ShouldBeStored
+    {
+        try {
+            $event = $record->toStoredEvent()->event;
+        } catch (Throwable $throwable) {
+            throw new EventSourcingException(sprintf('Stored event %s could not be read.', (string) $record->getKey()), (int) $throwable->getCode(), previous: $throwable);
+        }
+
+        throw_unless($event instanceof ShouldBeStored, EventSourcingException::class, sprintf('Stored event %s has no event.', (string) $record->getKey()));
+
+        return $event;
     }
 }

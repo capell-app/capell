@@ -40,12 +40,10 @@ final class PageVersionChangeSummary
     }
 
     /**
-     * @param  list<ActivityFieldDiffData>  $fieldDiffs
+     * @param  list<string>  $names
      */
-    public function summary(array $fieldDiffs): string
+    public function summaryForNames(array $names): string
     {
-        $names = $this->fieldNames($fieldDiffs);
-
         if ($names === []) {
             return (string) __('capell-admin::event-sourcing.change_revision');
         }

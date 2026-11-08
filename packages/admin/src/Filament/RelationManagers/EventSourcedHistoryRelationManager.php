@@ -29,6 +29,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 use LogicException;
 use Override;
@@ -173,17 +174,62 @@ final class EventSourcedHistoryRelationManager extends RelationManager
             return $record->label;
         }
 
-        // A version whose stored state cannot be read must not break the whole
-        // timeline; it keeps the generic label and its Changes panel says why.
-        try {
-            if ($this->comparison($record)->previousVersion === null) {
-                return (string) __('capell-admin::event-sourcing.first_version');
-            }
-
-            return resolve(PageVersionChangeSummary::class)->summary($this->comparisonFieldDiffs($record));
-        } catch (EventSourcingException) {
+        // Field names are part of the restricted diff, so only people who may
+        // restore see them; everyone else reads the generic label.
+        if (! $this->canRestoreVersions()) {
             return (string) __('capell-admin::event-sourcing.change_revision');
         }
+
+        $changedFields = $this->changedFieldsFor($record);
+
+        if ($changedFields === null) {
+            return (string) __('capell-admin::event-sourcing.change_revision');
+        }
+
+        if ($changedFields['first']) {
+            return (string) __('capell-admin::event-sourcing.first_version');
+        }
+
+        return resolve(PageVersionChangeSummary::class)->summaryForNames($changedFields['fields']);
+    }
+
+    /**
+     * The changed field names of one version. A version never changes once
+     * recorded, so the result is cached per revision row: a long history
+     * rebuilds each version's state once, not on every render. Returns null
+     * for a version whose stored events cannot be read, which degrades that
+     * row alone and is not cached, so a repaired history recovers.
+     *
+     * @return array{first: bool, fields: list<string>}|null
+     */
+    private function changedFieldsFor(PageRevision $record): ?array
+    {
+        $key = sprintf('capell:page-version-changes:%s:%d', $record->page_uuid, $record->getKey());
+
+        /** @var array{first: bool, fields: list<string>}|null $cached */
+        $cached = Cache::get($key);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        try {
+            $changedFields = [
+                'first' => $this->comparison($record)->previousVersion === null,
+                'fields' => resolve(PageVersionChangeSummary::class)->fieldNames($this->comparisonFieldDiffs($record)),
+            ];
+        } catch (EventSourcingException) {
+            return null;
+        }
+
+        Cache::forever($key, $changedFields);
+
+        return $changedFields;
+    }
+
+    private function canRestoreVersions(): bool
+    {
+        return auth()->user()?->can(CapellPermission::RollbackPage->name()) === true;
     }
 
     /**
@@ -211,27 +257,31 @@ final class EventSourcedHistoryRelationManager extends RelationManager
             ->label(__('capell-admin::event-sourcing.compare_action'))
             ->icon(Heroicon::OutlinedArrowsRightLeft)
             ->color('gray')
-            ->visible(fn (PageRevision $record): bool => $this->hasReadableComparison($record))
+            // The diff exposes every stored field, including ones a viewer may
+            // not edit, so it sits behind the same permission as the restore
+            // preview that showed it before.
+            ->visible(fn (PageRevision $record): bool => $this->canRestoreVersions() && $this->hasReadableComparison($record))
+            ->authorize(fn (): bool => $this->canRestoreVersions())
             ->slideOver()
             ->modalHeading(fn (PageRevision $record): string => __('capell-admin::event-sourcing.compare_heading', ['version' => $record->version]))
             ->modalDescription(__('capell-admin::event-sourcing.compare_description'))
             ->modalSubmitAction(false)
             ->modalCancelActionLabel(__('capell-admin::event-sourcing.compare_close'))
-            ->modalContent(fn (PageRevision $record): HtmlString => new HtmlString(view('capell-admin::event-sourcing.version-comparison', [
-                'fieldDiffs' => $this->comparisonFieldDiffs($record),
-                'isFirstVersion' => $this->comparison($record)->previousVersion === null,
-            ])->render()));
+            ->modalContent(function (PageRevision $record): HtmlString {
+                try {
+                    return new HtmlString(view('capell-admin::event-sourcing.version-comparison', [
+                        'fieldDiffs' => $this->comparisonFieldDiffs($record),
+                        'isFirstVersion' => $this->comparison($record)->previousVersion === null,
+                    ])->render());
+                } catch (EventSourcingException) {
+                    return new HtmlString(e(__('capell-admin::event-sourcing.compare_unreadable')));
+                }
+            });
     }
 
     private function hasReadableComparison(PageRevision $record): bool
     {
-        try {
-            $this->comparison($record);
-
-            return true;
-        } catch (EventSourcingException) {
-            return false;
-        }
+        return $this->changedFieldsFor($record) !== null;
     }
 
     private function eventSourcedOwner(): Model&EventSourced
@@ -313,7 +363,12 @@ final class EventSourcedHistoryRelationManager extends RelationManager
                 }
 
                 $direction = $this->directionFor($record, $activeContentVersion);
-                $preview = BuildRollbackPreviewAction::run($page, $record->version);
+
+                try {
+                    $preview = BuildRollbackPreviewAction::run($page, $record->version);
+                } catch (EventSourcingException) {
+                    return new HtmlString(e(__('capell-admin::event-sourcing.restore_unreadable')));
+                }
 
                 $changeSet = resolve(RollbackChangeSetMapper::class)->toChangeSet(
                     $preview,
@@ -344,7 +399,17 @@ final class EventSourcedHistoryRelationManager extends RelationManager
                 // Re-check before applying so a blocked or no-op restore never
                 // records a pointless PageRolledBack event — the modal may have
                 // been open while the page changed underneath it.
-                $preview = BuildRollbackPreviewAction::run($page, $record->version);
+                try {
+                    $preview = BuildRollbackPreviewAction::run($page, $record->version);
+                } catch (EventSourcingException) {
+                    Notification::make()
+                        ->danger()
+                        ->title(__('capell-admin::event-sourcing.rollback_blocked'))
+                        ->body(__('capell-admin::event-sourcing.restore_unreadable'))
+                        ->send();
+
+                    return;
+                }
 
                 if ($preview->isBlocked()) {
                     Notification::make()

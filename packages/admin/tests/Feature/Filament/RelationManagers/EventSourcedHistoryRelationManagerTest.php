@@ -347,14 +347,15 @@ it('summarises and shows exactly what each version changed', function (): void {
         ->assertMountedActionModalSee(['Opening times', 'Winter opening times', __('capell-admin::event-sourcing.compare_before'), __('capell-admin::event-sourcing.compare_after')]);
 });
 
-it('lets editors without restore permission read changes but refuses a forged restore', function (): void {
+it('keeps the version diff from editors without restore permission and refuses a forged restore', function (): void {
     $page = Page::factory()->createOne();
     $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
-        ->create(['title' => 'Kept', 'content' => '<p>kept</p>']);
+        ->create(['title' => 'Kept', 'content' => '<p>kept</p>', 'meta' => ['description' => 'Public summary']]);
     recordPageRevisionForRm($page);
     $target = PageRevision::query()->where('page_uuid', $page->uuid)->orderByDesc('version')->firstOrFail();
-    $translation->forceFill(['title' => 'Latest'])->save();
+    $translation->forceFill(['title' => 'Latest', 'meta' => ['description' => 'Restricted launch note']])->save();
     recordPageRevisionForRm($page);
+    $latest = PageRevision::query()->where('page_uuid', $page->uuid)->orderByDesc('version')->firstOrFail();
 
     test()->actingAsUser();
 
@@ -362,16 +363,20 @@ it('lets editors without restore permission read changes but refuses a forged re
         'ownerRecord' => $page,
         'pageClass' => EditPage::class,
     ])
-        ->assertActionVisible(TestAction::make('compare')->table($target))
-        ->assertActionHidden(TestAction::make('rollback')->table($target));
+        ->assertSuccessful()
+        ->assertActionHidden(TestAction::make('compare')->table($latest))
+        ->assertActionHidden(TestAction::make('rollback')->table($target))
+        ->assertSee(__('capell-admin::event-sourcing.change_revision'))
+        ->assertDontSee(__('capell-admin::event-sourcing.changed_fields', ['fields' => 'Title']))
+        ->assertDontSee('Restricted launch note')
+        ->assertDontSee('Public summary');
 
-    // A forged request skips the hidden button, so the server-side check must refuse it on its own.
-    $restore = $component->instance()->getTable()->getAction('rollback');
+    // A forged request skips the hidden buttons, so the server-side checks must refuse it on their own.
+    $table = $component->instance()->getTable();
 
-    expect($restore)->not->toBeNull()
-        ->and($restore->record($target)->isAuthorized())->toBeFalse();
-
-    expect($translation->fresh()->title)->toBe('Latest')
+    expect($table->getAction('compare')?->record($latest)->isAuthorized())->toBeFalse()
+        ->and($table->getAction('rollback')?->record($target)->isAuthorized())->toBeFalse()
+        ->and($translation->fresh()->title)->toBe('Latest')
         ->and(PageRevision::query()->where('page_uuid', $page->uuid)->where('is_rollback', true)->exists())->toBeFalse();
 });
 
@@ -394,4 +399,75 @@ it('keeps the timeline loading when a version has no readable stored state', fun
         ->assertSuccessful()
         ->assertSee(__('capell-admin::event-sourcing.change_revision'))
         ->assertActionHidden(TestAction::make('compare')->table($orphan));
+});
+
+it('reads each version from the event store once, however often a long history renders', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Version 0', 'content' => '<p>0</p>']);
+    recordPageRevisionForRm($page);
+
+    foreach (range(1, 21) as $edit) {
+        $translation->forceFill(['title' => 'Version ' . $edit])->save();
+        recordPageRevisionForRm($page);
+    }
+
+    expect(PageRevision::query()->where('page_uuid', $page->uuid)->count())->toBeGreaterThanOrEqual(22);
+
+    $storedEventReads = 0;
+    DB::listen(function ($query) use (&$storedEventReads): void {
+        if (str_contains((string) $query->sql, 'stored_events')) {
+            $storedEventReads++;
+        }
+    });
+
+    $component = Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])->assertSuccessful();
+
+    $firstRender = $storedEventReads;
+    $storedEventReads = 0;
+
+    $component->call('$refresh')->assertSuccessful();
+
+    // The first render reads each listed version's state; later renders reuse the
+    // cached summaries and only ask for the head version.
+    expect($firstRender)->toBeGreaterThan(0)
+        ->and($storedEventReads)->toBeLessThanOrEqual(4);
+});
+
+it('degrades only the version whose stored event can no longer be read', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Readable', 'content' => '<p>readable</p>']);
+    recordPageRevisionForRm($page);
+    $translation->forceFill(['title' => 'Broken'])->save();
+    recordPageRevisionForRm($page);
+    $translation->forceFill(['title' => 'Latest'])->save();
+    recordPageRevisionForRm($page);
+
+    $revisions = PageRevision::query()->where('page_uuid', $page->uuid)->orderBy('version')->get();
+    $first = $revisions->firstOrFail();
+    $broken = $revisions->values()->get(1);
+    $latest = $revisions->last();
+
+    throw_unless($broken instanceof PageRevision && $latest instanceof PageRevision, RuntimeException::class, 'Expected three versions.');
+
+    // An event class removed by an uninstalled package, so the payload no longer deserialises.
+    DB::table('stored_events')
+        ->where('aggregate_uuid', $page->uuid)
+        ->where('aggregate_version', $broken->version)
+        ->update(['event_class' => 'Capell\\Removed\\Package\\PageEvent']);
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords($revisions)
+        ->assertActionVisible(TestAction::make('compare')->table($first))
+        ->assertActionHidden(TestAction::make('compare')->table($broken))
+        ->assertActionHidden(TestAction::make('compare')->table($latest))
+        ->assertSee(__('capell-admin::event-sourcing.change_revision'));
 });
