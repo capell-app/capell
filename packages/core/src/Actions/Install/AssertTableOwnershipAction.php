@@ -38,7 +38,9 @@ final class AssertTableOwnershipAction
     {
         $physical = $configKey === null ? TableName::resolve($table) : $table;
 
-        if (! Schema::connection($connection)->hasTable($physical)) {
+        // Without an explicit connection keep the facade's builder, which callers may scope.
+        $schema = $connection === null ? Schema::getFacadeRoot() : Schema::connection($connection);
+        if (! $schema->hasTable($physical)) {
             return false;
         }
 
