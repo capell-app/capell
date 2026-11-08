@@ -22,7 +22,7 @@ class UrlFactory extends Factory
 
     /**
      * Enabled URLs are unique per site and language, and Faker slugs repeat
-     * eventually, so every generated path ends in a process-wide sequence.
+     * eventually, so every generated path starts with a process-wide sequence token.
      */
     private static int $urlSequence = 0;
 
@@ -100,6 +100,6 @@ class UrlFactory extends Factory
 
     private function uniqueSlug(): string
     {
-        return $this->faker->slug() . '-' . ++self::$urlSequence;
+        return 'u' . ++self::$urlSequence . '-' . $this->faker->slug();
     }
 }

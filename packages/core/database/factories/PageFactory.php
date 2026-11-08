@@ -32,7 +32,8 @@ class PageFactory extends Factory
     /**
      * Page names seed canonical URL slugs, and a site cannot hold two enabled
      * identical URLs. Random words alone repeat eventually, so every name in
-     * the process also carries a sequence number.
+     * the process also starts with a sequence token. It leads, never trails,
+     * because duplicating a page reads a trailing number as a copy counter.
      */
     private static int $nameSequence = 0;
 
@@ -44,10 +45,10 @@ class PageFactory extends Factory
         return [
             'uuid' => fn (): string => Str::uuid()->toString(),
             'name' => fn (): string => ucfirst(implode(' ', [
+                'p' . ++self::$nameSequence,
                 $this->faker->word(),
                 $this->faker->word(),
                 $this->faker->word(),
-                ++self::$nameSequence,
             ])),
             'layout_id' => Layout::factory(),
             'blueprint_id' => function (): int {
