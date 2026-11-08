@@ -345,24 +345,36 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         );
     }
 
+    /**
+     * Warming is a best-effort cache fill. A failure here (the queue, the local
+     * package state or the version probe) must never stop the admin screen from
+     * rendering or leave the browser waiting for results that will not arrive:
+     * the catalogue request that follows reports its own unavailable state.
+     */
     public function queueDefaultWarm(?string $lockedKind = null, bool $includeLocalExtensionState = true): bool
     {
-        $compatibilityVersions = $this->detectedCompatibilityVersions();
-        $includeLocalExtensionState = $this->canExposeLocalExtensionState($includeLocalExtensionState);
+        try {
+            $compatibilityVersions = $this->detectedCompatibilityVersions();
+            $includeLocalExtensionState = $this->canExposeLocalExtensionState($includeLocalExtensionState);
 
-        return QueueMarketplaceCatalogueWarmAction::run(new MarketplaceCatalogueQueryData(
-            kind: $this->lockedMarketplaceKind($lockedKind) ?? '',
-            sort: MarketplaceClient::DEFAULT_EXTENSION_SORT,
-            capellVersion: $compatibilityVersions['capell'],
-            laravelVersion: $compatibilityVersions['laravel'],
-            livewireVersion: $compatibilityVersions['livewire'],
-            filamentVersion: $compatibilityVersions['filament'],
-            installedStatus: $includeLocalExtensionState ? 'available' : '',
-            installedComposerNames: $includeLocalExtensionState ? $this->localStateSnapshot()->downloadedComposerNames : [],
-            page: 1,
-            perPage: self::DEFAULT_TABLE_PAGE_OPTION,
-            includeMarketplaceContext: $includeLocalExtensionState,
-        ));
+            return QueueMarketplaceCatalogueWarmAction::run(new MarketplaceCatalogueQueryData(
+                kind: $this->lockedMarketplaceKind($lockedKind) ?? '',
+                sort: MarketplaceClient::DEFAULT_EXTENSION_SORT,
+                capellVersion: $compatibilityVersions['capell'],
+                laravelVersion: $compatibilityVersions['laravel'],
+                livewireVersion: $compatibilityVersions['livewire'],
+                filamentVersion: $compatibilityVersions['filament'],
+                installedStatus: $includeLocalExtensionState ? 'available' : '',
+                installedComposerNames: $includeLocalExtensionState ? $this->localStateSnapshot()->downloadedComposerNames : [],
+                page: 1,
+                perPage: self::DEFAULT_TABLE_PAGE_OPTION,
+                includeMarketplaceContext: $includeLocalExtensionState,
+            ));
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return false;
+        }
     }
 
     public function marketplaceBrowseUnavailable(): bool

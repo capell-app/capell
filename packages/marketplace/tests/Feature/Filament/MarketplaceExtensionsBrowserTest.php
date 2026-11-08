@@ -10,6 +10,7 @@ use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Actions\QueryMarketplaceInstallProgressAction;
+use Capell\Marketplace\Actions\QueueMarketplaceCatalogueWarmAction;
 use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
@@ -31,6 +32,7 @@ use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
+use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
@@ -94,6 +96,34 @@ it('waits to render the marketplace table until results have been fetched', func
         ->assertSee('cursor-not-allowed', false)
         ->assertSee(__('capell-marketplace::marketplace.selection.install_button_disabled_tooltip'), false)
         ->assertSee(__('capell-marketplace::marketplace.filters.empty_heading'));
+});
+
+it('stops waiting and shows the unavailable catalogue state when warming the catalogue fails', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+
+    app()->bind(QueueMarketplaceCatalogueWarmAction::class, static fn (): never => throw new RuntimeException('Queue connection refused.'));
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response(['message' => 'Unavailable'], 503),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->assertSet('marketplaceResultsFetched', false)
+        ->call('loadMarketplaceResults')
+        ->assertSuccessful()
+        ->assertSet('marketplaceResultsFetched', true)
+        ->assertDontSee(__('capell-marketplace::marketplace.filters.loading_description'))
+        ->assertSee(__('capell-marketplace::marketplace.filters.unavailable_heading'))
+        ->assertSee(__('capell-marketplace::marketplace.filters.retry'));
+});
+
+it('opens the marketplace page when warming the catalogue fails', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+
+    app()->bind(QueueMarketplaceCatalogueWarmAction::class, static fn (): never => throw new RuntimeException('Queue connection refused.'));
+
+    Livewire::test(MarketplacePage::class)
+        ->assertSuccessful();
 });
 
 it('rejects direct marketplace browser requests without marketplace page access', function (): void {

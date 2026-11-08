@@ -16,6 +16,7 @@ use Capell\Marketplace\Filament\Settings\MarketplaceSettingsSchema;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Settings\MarketplaceSettings;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Notifications\Notification;
@@ -95,7 +96,11 @@ final class MarketplacePage extends Page implements HasActions
     }
 
     /**
-     * @return array<int, Action>
+     * One primary action (connect, when there is no account yet); everything
+     * else is a secondary destination or an occasional task, so it sits in a
+     * single menu rather than competing for attention.
+     *
+     * @return array<int, Action|ActionGroup>
      */
     #[Override]
     protected function getHeaderActions(): array
@@ -103,40 +108,51 @@ final class MarketplacePage extends Page implements HasActions
         $connection = $this->marketplaceConnection();
 
         return [
-            Action::make('ownerContactSettings')
-                ->label(__('capell-marketplace::settings.title'))
-                ->icon(Heroicon::OutlinedCog6Tooth)
-                ->slideOver()
-                ->modalWidth(Width::ScreenLarge)
-                ->modalHeading(__('capell-marketplace::settings.title'))
-                ->modalDescription(__('capell-marketplace::settings.owner_contact_description'))
-                ->schema(fn (Schema $schema): array => MarketplaceSettingsSchema::make($schema))
-                ->fillForm(fn (): array => resolve(MarketplaceSettings::class)->toArray())
-                ->action(function (array $data): void {
-                    UpdateMarketplaceSettingsAction::run($data);
-
-                    Notification::make('marketplace-settings-saved')
-                        ->title(__('capell-marketplace::settings.settings_saved'))
-                        ->success()
-                        ->send();
-                }),
-            Action::make('extensions')
-                ->label((string) __('capell-marketplace::marketplace.operations.extensions'))
-                ->icon(ExtensionsPage::getNavigationIcon())
-                ->color('gray')
-                ->url(ExtensionsPage::getUrl()),
-            Action::make('packageOperations')
-                ->label(MarketplacePackageOperationsPage::getNavigationLabel())
-                ->icon(MarketplacePackageOperationsPage::getNavigationIcon())
-                ->color('gray')
-                ->url(MarketplacePackageOperationsPage::getUrl()),
-            Action::make('purchases')
-                ->label(MarketplacePurchasesPage::getNavigationLabel())
-                ->icon(MarketplacePurchasesPage::getNavigationIcon())
-                ->color('gray')
-                ->url(MarketplacePurchasesPage::getUrl()),
             ConnectMarketplaceAccountAction::make($connection),
-            RunMarketplaceHeartbeatAction::make($connection),
+            ActionGroup::make([
+                Action::make('ownerContactSettings')
+                    ->label(__('capell-marketplace::settings.title'))
+                    ->icon(Heroicon::OutlinedCog6Tooth)
+                    ->slideOver()
+                    ->modalWidth(Width::ScreenLarge)
+                    ->modalHeading(__('capell-marketplace::settings.title'))
+                    ->modalDescription(__('capell-marketplace::settings.owner_contact_description'))
+                    ->visible(fn (): bool => ExtensionsPage::canManageExtensions())
+                    ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
+                    ->schema(fn (Schema $schema): array => MarketplaceSettingsSchema::make($schema))
+                    ->fillForm(fn (): array => resolve(MarketplaceSettings::class)->toArray())
+                    ->action(function (array $data): void {
+                        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
+                        UpdateMarketplaceSettingsAction::run($data);
+
+                        Notification::make('marketplace-settings-saved')
+                            ->title(__('capell-marketplace::settings.settings_saved'))
+                            ->success()
+                            ->send();
+                    }),
+                RunMarketplaceHeartbeatAction::make($connection),
+                Action::make('extensions')
+                    ->label((string) __('capell-marketplace::marketplace.operations.extensions'))
+                    ->icon(ExtensionsPage::getNavigationIcon())
+                    ->visible(fn (): bool => ExtensionsPage::canAccess())
+                    ->url(ExtensionsPage::getUrl()),
+                Action::make('packageOperations')
+                    ->label(MarketplacePackageOperationsPage::getNavigationLabel())
+                    ->icon(MarketplacePackageOperationsPage::getNavigationIcon())
+                    ->visible(fn (): bool => MarketplacePackageOperationsPage::canAccess())
+                    ->url(MarketplacePackageOperationsPage::getUrl()),
+                Action::make('purchases')
+                    ->label(MarketplacePurchasesPage::getNavigationLabel())
+                    ->icon(MarketplacePurchasesPage::getNavigationIcon())
+                    ->visible(fn (): bool => MarketplacePurchasesPage::canAccess())
+                    ->url(MarketplacePurchasesPage::getUrl()),
+            ])
+                ->label(__('capell-marketplace::marketplace.page.more_actions'))
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->tooltip(__('capell-marketplace::marketplace.page.more_actions'))
+                ->color('gray')
+                ->button(),
         ];
     }
 }

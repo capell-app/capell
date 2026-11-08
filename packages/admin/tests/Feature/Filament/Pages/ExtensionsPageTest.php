@@ -55,6 +55,7 @@ use Capell\Tests\Fixtures\Filament\Pages\ExampleExtensionPage;
 use Capell\Tests\Fixtures\Filament\Pages\PlainRegisteredExtensionPage;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\Column;
@@ -94,6 +95,16 @@ function grantExtensionsPageManagementAccess(): void
 
     Permission::create(['name' => ExtensionsPage::MANAGE_PERMISSION, 'guard_name' => 'web']);
     test()->authenticatedUser()->givePermissionTo(ExtensionsPage::MANAGE_PERMISSION);
+}
+
+/** @return array{available: bool, installed: bool, enabled: bool} */
+function extensionLifecycleState(string $packageName): array
+{
+    return [
+        'available' => CapellCore::hasPackage($packageName),
+        'installed' => CapellCore::isPackageInstalled($packageName),
+        'enabled' => CapellCore::isPackageEnabled($packageName),
+    ];
 }
 
 function restorePageNavigation(string $page): void
@@ -460,8 +471,8 @@ it('lists editable extension management entries from registered pages', function
 
     Livewire::test(InstalledExtensionsFilamentWidget::class)
         ->assertSuccessful()
-        ->assertSeeHtml('capell-extension-card-record')
-        ->assertSeeHtml('z-index: 0;')
+        ->assertSeeHtml('capell-extension-row-record')
+        ->assertSeeHtml('data-extension-row="vendor/local-extension"')
         ->assertSee('Local Extension')
         ->assertSee('Local extension description')
         ->assertSee('1.2.3')
@@ -1764,6 +1775,62 @@ it('refuses to save extension settings from the table for a view-only user', fun
         ->assertTableActionHidden('manageExtension', record: 'vendor/settings-extension');
 });
 
+it('refuses every extension lifecycle action to a view-only user, whichever way it is called', function (string $actionName, bool $installed): void {
+    grantExtensionsPageViewOnlyAccess();
+    fakeExtensionsPageComposerAvailability();
+
+    CapellCore::registerPackage(
+        name: 'vendor/local-extension',
+        path: extensionPackagePath(),
+        version: '1.2.3',
+    );
+
+    if ($installed) {
+        CapellCore::markPackageInstalled('vendor/local-extension');
+    }
+
+    if ($actionName === 'enableExtension') {
+        DisablePackageAction::run(CapellCore::getPackage('vendor/local-extension'));
+    }
+
+    Permission::create(['name' => 'View:UpgradePage', 'guard_name' => 'web']);
+    test()->authenticatedUser()->givePermissionTo('View:UpgradePage');
+    CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', true);
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    $stateBefore = extensionLifecycleState('vendor/local-extension');
+
+    $component = Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->assertTableActionHidden($actionName, record: 'vendor/local-extension')
+        // The server-side gate must hold on its own, so a later change to the
+        // action's visibility cannot reopen it.
+        ->assertTableActionExists($actionName, fn (Action $action): bool => ! $action->isAuthorized(), record: 'vendor/local-extension');
+
+    // A forged Livewire request mounts and runs the action by name, skipping
+    // the rendered buttons entirely.
+    $component
+        ->call('mountAction', $actionName, [], ['table' => true, 'recordKey' => 'vendor/local-extension'])
+        ->call('callMountedAction')
+        ->assertNotDispatched('refresh-sidebar')
+        ->assertNoRedirect();
+
+    expect(extensionLifecycleState('vendor/local-extension'))->toBe($stateBefore);
+})->with([
+    'install' => ['installExtension', false],
+    'enable' => ['enableExtension', true],
+    'uninstall' => ['uninstallExtension', true],
+    'delete' => ['deleteExtension', false],
+    'manage settings' => ['manageExtension', true],
+]);
+
 it('refuses to save extension settings from the extensions page for a view-only user', function (): void {
     grantExtensionsPageViewOnlyAccess();
     registerSettingsExtensionForPermissionTests();
@@ -2099,11 +2166,63 @@ it('explains why an installed extension needs attention and stays quiet about no
 });
 
 it('does not display an urgent health badge for an advisory without an action', function (): void {
-    $html = view('capell-admin::filament.pages.extensions.extension-card', [
-        'record' => ['label' => 'Advisory', 'packageName' => 'vendor/advisory', 'healthState' => 'warning', 'needsAttention' => false],
+    $html = view('capell-admin::filament.pages.extensions.extension-row', [
+        'record' => ['label' => 'Advisory', 'packageName' => 'vendor/advisory', 'installed' => true, 'healthState' => 'warning', 'needsAttention' => false],
     ])->render();
 
-    expect($html)->not->toContain('bg-danger-500/95');
+    expect(domElement(domXPath($html), '//*[@data-extension-row]')->getAttribute('data-extension-status'))->toBe('active')
+        ->and($html)->not->toContain('data-extension-attention');
+});
+
+it('gives each extension row one status, most urgent first, and keeps updates separate from faults', function (array $record, string $status, bool $showsUpdate): void {
+    $html = view('capell-admin::filament.pages.extensions.extension-row', [
+        'record' => ['label' => 'Example', 'packageName' => 'vendor/example', 'version' => '1.0.0', ...$record],
+    ])->render();
+    $page = domXPath($html);
+
+    expect(domElement($page, '//*[@data-extension-row]')->getAttribute('data-extension-status'))->toBe($status)
+        ->and(domCount($page, '//*[@data-extension-status-badge]'))->toBe(1)
+        ->and(domElement($page, '//*[@data-extension-status-badge]')->textContent)->toContain(match ($status) {
+            'not_installed' => __('capell-admin::generic.extension_status_not_installed'),
+            'blocked' => __('capell-admin::generic.extension_status_blocked'),
+            'needs_attention' => __('capell-admin::generic.extension_status_needs_attention'),
+            'disabled' => __('capell-admin::generic.extension_status_disabled'),
+            default => __('capell-admin::generic.extension_status_active'),
+        })
+        ->and(domCount($page, '//*[@data-extension-update-badge]'))->toBe($showsUpdate ? 1 : 0);
+})->with([
+    'not installed' => [['installed' => false], 'not_installed', false],
+    'blocked outranks attention' => [['installed' => true, 'blocked' => true, 'needsAttention' => true], 'blocked', false],
+    'needs attention' => [['installed' => true, 'needsAttention' => true, 'attentionReasons' => ['Run the migrations.']], 'needs_attention', false],
+    'disabled' => [['installed' => true, 'enabled' => false], 'disabled', false],
+    'update only is still active' => [['installed' => true, 'updateAvailable' => true, 'latestVersion' => '1.1.0'], 'active', true],
+]);
+
+it('puts every installed extension command in one Manage menu', function (): void {
+    grantExtensionsPageManagementAccess();
+    fakeExtensionsPageComposerAvailability();
+    Permission::create(['name' => 'View:UpgradePage', 'guard_name' => 'web']);
+    test()->authenticatedUser()->givePermissionTo('View:UpgradePage');
+
+    CapellCore::registerPackage(name: 'vendor/local-extension', path: extensionPackagePath(), version: '1.2.3');
+    CapellCore::markPackageInstalled('vendor/local-extension');
+    CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
+
+    $table = Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->assertTableActionVisible('uninstallExtension', record: 'vendor/local-extension')
+        ->instance()
+        ->getTable();
+
+    $topLevel = collect($table->getRecordActions())
+        ->map(fn (mixed $action): string => $action instanceof ActionGroup ? 'group' : $action->getName())
+        ->values()
+        ->all();
+    $group = collect($table->getRecordActions())->first(fn (mixed $action): bool => $action instanceof ActionGroup);
+
+    expect($topLevel)->toBe(['installExtension', 'group'])
+        ->and($group->getLabel())->toBe(__('capell-admin::button.manage_extension_menu'))
+        ->and(array_keys($group->getFlatActions()))->toContain('manageExtension', 'openExtension', 'viewExtensionDetails', 'enableExtension', 'uninstallExtension', 'deleteExtension');
 });
 
 it('explains a domain mismatch and how to restore the extension in its details', function (): void {

@@ -105,6 +105,8 @@ return [
     'insert_template' => 'Insert template',
     'manage_site_permissions' => 'Manage site permissions',
     'manage_extension' => 'Settings',
+    'manage_extension_menu' => 'Manage',
+    'manage_extension_menu_label' => 'Manage :extension',
     'open_extension' => 'Open',
     'move_down' => 'Move down',
     'move_asset' => 'Move :asset',

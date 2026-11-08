@@ -365,6 +365,10 @@ function extensionTableForBehaviorTest(ExtensionTableBehaviorLivewire|ExtensionT
 function extensionTableActionsForBehaviorTest(ExtensionTableBehaviorLivewire $livewire): array
 {
     return collect(extensionTableForBehaviorTest($livewire)->getRecordActions())
+        // Each action is exercised on its own, outside the row's Manage menu.
+        ->flatMap(fn (mixed $action): array => $action instanceof ActionGroup
+            ? array_map(fn (Action $groupedAction): Action => $groupedAction->group(null), array_values($action->getFlatActions()))
+            : [$action])
         ->filter(fn (mixed $action): bool => $action instanceof Action)
         ->mapWithKeys(fn (mixed $action): array => [$action->getName() => $action])
         ->all();
