@@ -33,8 +33,20 @@
         ! $enabled => ['disabled', 'gray'],
         default => ['active', 'success'],
     };
+    $statusLabel = match ($statusKey) {
+        'not_installed' => __('capell-admin::generic.extension_status_not_installed'),
+        'blocked' => __('capell-admin::generic.extension_status_blocked'),
+        'needs_attention' => __('capell-admin::generic.extension_status_needs_attention'),
+        'disabled' => __('capell-admin::generic.extension_status_disabled'),
+        default => __('capell-admin::generic.extension_status_active'),
+    };
 
     $maturity = in_array($record['maturity'] ?? null, ['stable', 'beta', 'labs'], true) ? $record['maturity'] : 'labs';
+    $maturityLabel = match ($maturity) {
+        'beta' => __('capell-admin::marketplace.release_status.beta'),
+        'stable' => __('capell-admin::marketplace.release_status.stable'),
+        default => __('capell-admin::marketplace.release_status.labs'),
+    };
     $maturityColor = match ($maturity) {
         'stable' => 'success',
         'beta' => 'warning',
@@ -103,7 +115,7 @@
                 size="sm"
                 data-extension-status-badge
             >
-                {{ __('capell-admin::generic.extension_status_' . $statusKey) }}
+                {{ $statusLabel }}
             </x-filament::badge>
 
             @if ($maturity !== 'stable')
@@ -115,7 +127,7 @@
                     <span class="sr-only"
                         >{{ __('capell-admin::marketplace.release_status.label') }}:</span
                     >
-                    {{ __('capell-admin::marketplace.release_status.' . $maturity) }}
+                    {{ $maturityLabel }}
                 </x-filament::badge>
             @endif
 
