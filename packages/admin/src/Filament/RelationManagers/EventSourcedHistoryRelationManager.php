@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 use LogicException;
 use Override;
+use Throwable;
 
 /**
  * Generic event-sourcing history timeline + bidirectional restore. Attaches to
@@ -204,12 +205,18 @@ final class EventSourcedHistoryRelationManager extends RelationManager
      */
     private function changedFieldsFor(PageRevision $record): ?array
     {
-        $key = sprintf('capell:page-version-changes:%s:%d', $record->page_uuid, $record->getKey());
+        $key = sprintf('capell:page-version-changes:%s:%d:%d', $record->page_uuid, $record->getKey(), $record->version);
 
-        /** @var array{first: bool, fields: list<string>}|null $cached */
-        $cached = Cache::get($key);
+        // The cache only saves work: when the store is unavailable the summary
+        // is computed uncached rather than failing the tab.
+        try {
+            $cached = Cache::get($key);
+        } catch (Throwable) {
+            $cached = null;
+        }
 
         if (is_array($cached)) {
+            /** @var array{first: bool, fields: list<string>} $cached */
             return $cached;
         }
 
@@ -222,7 +229,11 @@ final class EventSourcedHistoryRelationManager extends RelationManager
             return null;
         }
 
-        Cache::forever($key, $changedFields);
+        try {
+            Cache::forever($key, $changedFields);
+        } catch (Throwable) {
+            // Uncached is still correct; the next render computes it again.
+        }
 
         return $changedFields;
     }

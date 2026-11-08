@@ -17,6 +17,9 @@ use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -470,4 +473,41 @@ it('degrades only the version whose stored event can no longer be read', functio
         ->assertActionHidden(TestAction::make('compare')->table($broken))
         ->assertActionHidden(TestAction::make('compare')->table($latest))
         ->assertSee(__('capell-admin::event-sourcing.change_revision'));
+});
+
+it('still summarises versions when the cache store is unavailable', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Before outage', 'content' => '<p>same</p>']);
+    recordPageRevisionForRm($page);
+    $translation->forceFill(['title' => 'During outage'])->save();
+    recordPageRevisionForRm($page);
+
+    // A store that is down: every read and write throws, as a lost Redis connection would.
+    Cache::extend('unavailable', fn (): Repository => new Repository(new class extends ArrayStore
+    {
+        #[Override]
+        public function get($key): mixed
+        {
+            throw new RuntimeException('Cache store unavailable');
+        }
+
+        #[Override]
+        public function forever($key, $value): bool
+        {
+            throw new RuntimeException('Cache store unavailable');
+        }
+    }));
+    config()->set('cache.stores.unavailable', ['driver' => 'unavailable']);
+    config()->set('cache.default', 'unavailable');
+    Cache::forgetDriver('unavailable');
+    Cache::setDefaultDriver('unavailable');
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.changed_fields', ['fields' => 'Title']))
+        ->assertSee(__('capell-admin::event-sourcing.first_version'));
 });
