@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\RelationManagers\EventSourcedHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
+use Capell\Core\EventSourcing\Actions\RecordPageVersionAction;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\EventSourcing\Events\PageRolledBack;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
+use Capell\Core\EventSourcing\Support\PageVersionContext;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
@@ -275,4 +278,37 @@ it('hides the restore action from users without rollback permission', function (
         'pageClass' => EditPage::class,
     ])
         ->assertActionHidden(TestAction::make('rollback')->table($firstRevision));
+});
+
+it('says a version came from a seed or import instead of an anonymous system actor', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+
+    auth()->logout();
+    resolve(PageVersionContext::class)->run(PageVersionSource::Import, null, function () use ($page): void {
+        recordPageRevisionForRm($page);
+    });
+    test()->actingAsAdmin();
+
+    expect(PageRevision::query()->where('page_uuid', $page->uuid)->whereNull('actor_id')->where('source', PageVersionSource::Import->value)->exists())->toBeTrue();
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.import_actor'))
+        ->assertSee(__('capell-admin::event-sourcing.type_import'));
+});
+
+it('shows the label a package gave a published version', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    RecordPageVersionAction::run($page->fresh(['translations', 'pageUrls']), PageVersionSource::Publish, 'Spring campaign');
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee('Spring campaign')
+        ->assertSee(__('capell-admin::event-sourcing.type_publish'));
 });

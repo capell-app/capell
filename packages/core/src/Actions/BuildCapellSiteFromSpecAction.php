@@ -7,9 +7,14 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Events\SiteSpecPrivacyRepairing;
+use Capell\Core\EventSourcing\Actions\RecordPageVersionAction;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
+use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
+use Capell\Core\EventSourcing\Support\PageVersionContext;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\PageCreator;
@@ -33,6 +38,48 @@ final class BuildCapellSiteFromSpecAction
 
     /** @param list<string> $keepPublished */
     public function handle(CapellSiteSpecData $spec, bool $repairPrivate = false, array $keepPublished = [], bool $auditPrivate = false): Site
+    {
+        // Versions created by an import are labelled as such in page history.
+        return resolve(PageVersionContext::class)->run(
+            PageVersionSource::Import,
+            null,
+            function () use ($spec, $repairPrivate, $keepPublished, $auditPrivate): Site {
+                $site = $this->build($spec, $repairPrivate, $keepPublished, $auditPrivate);
+
+                if (! $auditPrivate) {
+                    $this->recordImportedVersions($site);
+                }
+
+                return $site;
+            },
+        );
+    }
+
+    /**
+     * Imported pages are created before their translations, so no save records
+     * a complete version. Give every imported page without one its first
+     * version, so editors can always return to what the import produced.
+     */
+    private function recordImportedVersions(Site $site): void
+    {
+        if (! resolve(EventSourcedRegistry::class)->isRegistered(Page::class)) {
+            return;
+        }
+
+        $site->pages()
+            ->whereNotIn('uuid', PageRevision::query()->select('page_uuid'))
+            ->with(['translations', 'pageUrls'])
+            ->each(static function (Page $page): void {
+                if ($page->translations->isNotEmpty()) {
+                    RecordPageVersionAction::run($page, PageVersionSource::Import);
+                }
+            });
+    }
+
+    /**
+     * @param  list<string>  $keepPublished
+     */
+    private function build(CapellSiteSpecData $spec, bool $repairPrivate, array $keepPublished, bool $auditPrivate): Site
     {
         throw_if(($repairPrivate || $auditPrivate) && $spec->initialVisibility !== 'private', RuntimeException::class, 'Privacy audit and repair require the original private spec.');
         $hash = $this->canonicalHash($spec);

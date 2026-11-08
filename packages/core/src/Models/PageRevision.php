@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models;
 
 use Capell\Core\Concerns\HasCapellTable;
+use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +23,8 @@ use Override;
  * @property int|null $actor_id
  * @property string $summary
  * @property bool $is_rollback
+ * @property string|null $source
+ * @property string|null $label
  * @property CarbonImmutable $occurred_at
  */
 class PageRevision extends Model
@@ -37,6 +40,8 @@ class PageRevision extends Model
         'actor_id',
         'summary',
         'is_rollback',
+        'source',
+        'label',
         'occurred_at',
     ];
 
@@ -54,6 +59,15 @@ class PageRevision extends Model
         $userModel = config('auth.providers.users.model');
 
         return $this->belongsTo($userModel, 'actor_id');
+    }
+
+    /**
+     * Where this version came from. Rows indexed before provenance was stored
+     * have no source and resolve to Edit or Rollback.
+     */
+    public function versionSource(): PageVersionSource
+    {
+        return PageVersionSource::forStored($this->source, $this->is_rollback);
     }
 
     #[Override]
