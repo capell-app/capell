@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Url;
 
 final class UrlPathNormalizer
 {
-    private const LITERAL_PATH_CHARACTERS = [
+    private const array LITERAL_PATH_CHARACTERS = [
         '%3A' => ':', '%40' => '@', '%21' => '!', '%24' => '$', '%26' => '&', '%27' => "'",
         '%28' => '(', '%29' => ')', '%2A' => '*', '%2B' => '+', '%2C' => ',', '%3B' => ';', '%3D' => '=',
     ];
