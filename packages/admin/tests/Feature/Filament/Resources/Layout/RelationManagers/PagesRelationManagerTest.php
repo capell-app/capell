@@ -107,7 +107,7 @@ it('can search pages for a layout', function (): void {
         'pageClass' => EditLayout::class,
     ])
         ->assertSuccessful()
-        ->searchTable($page->getKey())
+        ->searchTable($page->name)
         ->assertCountTableRecords(1)
         ->assertCanSeeTableRecords([$page]);
 });

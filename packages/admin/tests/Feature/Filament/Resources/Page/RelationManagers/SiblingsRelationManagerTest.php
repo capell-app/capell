@@ -74,7 +74,7 @@ it('can search sibling pages', function (): void {
         'pageClass' => EditPage::class,
     ])
         ->assertSuccessful()
-        ->searchTable($searchPage->getKey())
+        ->searchTable($searchPage->name)
         ->assertCountTableRecords(1)
         ->assertCanSeeTableRecords([$searchPage]);
 });
