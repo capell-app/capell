@@ -50,7 +50,7 @@ it('can search child pages', function (): void {
         'pageClass' => EditPage::class,
     ])
         ->assertSuccessful()
-        ->searchTable($childPage->getKey())
+        ->searchTable($childPage->name)
         ->assertCountTableRecords(1)
         ->assertCanSeeTableRecords([$childPage]);
 });
