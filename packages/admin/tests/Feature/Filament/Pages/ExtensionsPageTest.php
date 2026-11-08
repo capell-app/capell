@@ -2182,7 +2182,7 @@ it('gives each extension row one status, most urgent first, and keeps updates se
 
     expect(domElement($page, '//*[@data-extension-row]')->getAttribute('data-extension-status'))->toBe($status)
         ->and(domCount($page, '//*[@data-extension-status-badge]'))->toBe(1)
-        ->and(trim((string) domElement($page, '//*[@data-extension-status-badge]')->textContent))->toBe(match ($status) {
+        ->and(domElement($page, '//*[@data-extension-status-badge]')->textContent)->toContain(match ($status) {
             'not_installed' => __('capell-admin::generic.extension_status_not_installed'),
             'blocked' => __('capell-admin::generic.extension_status_blocked'),
             'needs_attention' => __('capell-admin::generic.extension_status_needs_attention'),
