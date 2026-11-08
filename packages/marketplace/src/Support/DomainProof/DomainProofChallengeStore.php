@@ -11,7 +11,8 @@ use Throwable;
 /**
  * Holds the single-use tokens capell.app sends this site so it can prove it
  * controls what its own host serves. Only tokens received from capell.app over
- * this site's own authenticated requests are stored, each for at most
+ * this site's own authenticated requests are stored, each bound to the host
+ * capell.app will fetch it from and kept for at most
  * {@see self::MAX_TTL_SECONDS}. Answering for a token reveals nothing else.
  */
 final class DomainProofChallengeStore
@@ -31,8 +32,9 @@ final class DomainProofChallengeStore
 
         $token = $domainProof['token'] ?? null;
         $expiresAt = $domainProof['expires_at'] ?? null;
+        $host = $this->normaliseHost($domainProof['host'] ?? null);
 
-        if (! is_string($token) || preg_match('/\A' . self::TOKEN_PATTERN . '\z/', $token) !== 1 || ! is_string($expiresAt)) {
+        if (! is_string($token) || preg_match('/\A' . self::TOKEN_PATTERN . '\z/', $token) !== 1 || ! is_string($expiresAt) || $host === null) {
             return;
         }
 
@@ -46,13 +48,31 @@ final class DomainProofChallengeStore
             return;
         }
 
-        Cache::put($this->key($token), true, $seconds);
+        Cache::put($this->key($token), $host, $seconds);
     }
 
-    public function holds(string $token): bool
+    /** Whether this token was sent for the host the request arrived on. */
+    public function holds(string $token, string $requestHost): bool
     {
-        return preg_match('/\A' . self::TOKEN_PATTERN . '\z/', $token) === 1
-            && Cache::get($this->key($token)) === true;
+        if (preg_match('/\A' . self::TOKEN_PATTERN . '\z/', $token) !== 1) {
+            return false;
+        }
+
+        $host = Cache::get($this->key($token));
+        $requestHost = $this->normaliseHost($requestHost);
+
+        return is_string($host) && $requestHost !== null && hash_equals($host, $requestHost);
+    }
+
+    private function normaliseHost(mixed $host): ?string
+    {
+        if (! is_string($host)) {
+            return null;
+        }
+
+        $host = strtolower(rtrim(trim($host), '.'));
+
+        return $host !== '' && strlen($host) <= 253 && preg_match('/\A[a-z0-9.-]+\z/', $host) === 1 ? $host : null;
     }
 
     private function key(string $token): string

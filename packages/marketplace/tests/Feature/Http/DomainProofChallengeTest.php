@@ -27,6 +27,7 @@ it('serves a proof token capell.app sent in a heartbeat, and only that token', f
     $token = Str::random(64);
     Http::fake(['https://marketplace.test/api/instances/heartbeat' => Http::response(domainProofHeartbeatResponse([
         'token' => $token,
+        'host' => 'localhost',
         'path' => '/.well-known/capell-domain-proof/' . $token,
         'expires_at' => now()->addMinutes(15)->toIso8601String(),
     ]))]);
@@ -46,6 +47,7 @@ it('answers without a session or the admin stack, so a public fetch can read it'
     $token = Str::random(64);
     Http::fake(['https://marketplace.test/api/instances/heartbeat' => Http::response(domainProofHeartbeatResponse([
         'token' => $token,
+        'host' => 'localhost',
         'expires_at' => now()->addMinutes(15)->toIso8601String(),
     ]))]);
     resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-123']);
@@ -55,10 +57,36 @@ it('answers without a session or the admin stack, so a public fetch can read it'
     expect($response->baseResponse->headers->getCookies())->toBe([]);
 });
 
+it('serves a token only on the host capell.app sent it for', function (): void {
+    $token = Str::random(64);
+    Http::fake(['https://marketplace.test/api/instances/heartbeat' => Http::response(domainProofHeartbeatResponse([
+        'token' => $token,
+        'host' => 'shop.example.org',
+        'expires_at' => now()->addMinutes(15)->toIso8601String(),
+    ]))]);
+    resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-123']);
+
+    $this->get('http://other.example.net/.well-known/capell-domain-proof/' . $token)->assertNotFound();
+    $this->get('http://localhost/.well-known/capell-domain-proof/' . $token)->assertNotFound();
+    $this->get('http://SHOP.example.org/.well-known/capell-domain-proof/' . $token)->assertOk();
+});
+
+it('ignores a proof token without a host', function (): void {
+    $token = Str::random(64);
+    Http::fake(['https://marketplace.test/api/instances/heartbeat' => Http::response(domainProofHeartbeatResponse([
+        'token' => $token,
+        'expires_at' => now()->addMinutes(15)->toIso8601String(),
+    ]))]);
+    resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-123']);
+
+    $this->get('/.well-known/capell-domain-proof/' . $token)->assertNotFound();
+});
+
 it('forgets a proof token once it expires', function (): void {
     $token = Str::random(64);
     Http::fake(['https://marketplace.test/api/instances/heartbeat' => Http::response(domainProofHeartbeatResponse([
         'token' => $token,
+        'host' => 'localhost',
         'expires_at' => now()->addMinutes(2)->toIso8601String(),
     ]))]);
     resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-123']);
@@ -77,10 +105,10 @@ it('ignores malformed, expired or over-long proof tokens', function (array $doma
     expect($result->instanceId)->toBe('instance-123');
     $this->get('/.well-known/capell-domain-proof/' . rawurlencode($token))->assertNotFound();
 })->with([
-    'short token' => [['token' => 'abc', 'expires_at' => now()->addMinutes(5)->toIso8601String()]],
-    'path characters' => [['token' => str_repeat('a', 40) . '../x', 'expires_at' => now()->addMinutes(5)->toIso8601String()]],
-    'already expired' => [['token' => str_repeat('b', 64), 'expires_at' => now()->subMinute()->toIso8601String()]],
-    'no expiry' => [['token' => str_repeat('c', 64)]],
+    'short token' => [['host' => 'localhost', 'token' => 'abc', 'expires_at' => now()->addMinutes(5)->toIso8601String()]],
+    'path characters' => [['host' => 'localhost', 'token' => str_repeat('a', 40) . '../x', 'expires_at' => now()->addMinutes(5)->toIso8601String()]],
+    'already expired' => [['host' => 'localhost', 'token' => str_repeat('b', 64), 'expires_at' => now()->subMinute()->toIso8601String()]],
+    'no expiry' => [['host' => 'localhost', 'token' => str_repeat('c', 64)]],
 ]);
 
 it('stores a proof token from both exchanges and keeps it out of the returned data', function (string $path, string $method): void {
@@ -89,7 +117,7 @@ it('stores a proof token from both exchanges and keeps it out of the returned da
     Http::fake(['https://capell.test/api/v1/' . $path => Http::response(['data' => [
         'instance_id' => '00000000-0000-4000-8000-000000000123',
         'flow_id' => 'mif_123',
-        'domain_proof' => ['token' => $token, 'expires_at' => now()->addMinutes(15)->toIso8601String()],
+        'domain_proof' => ['token' => $token, 'host' => 'localhost', 'expires_at' => now()->addMinutes(15)->toIso8601String()],
     ]])]);
 
     $data = resolve(MarketplaceClient::class)->{$method}([
