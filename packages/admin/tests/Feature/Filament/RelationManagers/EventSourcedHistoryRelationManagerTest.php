@@ -8,6 +8,7 @@ use Capell\Core\EventSourcing\Actions\RecordPageVersionAction;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\EventSourcing\Events\PageRolledBack;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
+use Capell\Core\EventSourcing\Rollback\Actions\CompareWithPreviousVersionAction;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Capell\Core\EventSourcing\Support\PageVersionContext;
 use Capell\Core\Models\Language;
@@ -55,7 +56,7 @@ it('renders a translated change label instead of the projector english string', 
         'pageClass' => EditPage::class,
     ])
         ->assertSuccessful()
-        ->assertSee(__('capell-admin::event-sourcing.change_revision'))
+        ->assertSee(__('capell-admin::event-sourcing.first_version'))
         ->assertDontSee('Revision recorded');
 });
 
@@ -311,4 +312,86 @@ it('shows the label a package gave a published version', function (): void {
         ->assertSuccessful()
         ->assertSee('Spring campaign')
         ->assertSee(__('capell-admin::event-sourcing.type_publish'));
+});
+
+it('summarises and shows exactly what each version changed', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Opening times', 'content' => '<p>Open daily.</p>']);
+    recordPageRevisionForRm($page);
+    $first = resolve(RollbackService::class)->currentVersion($page->uuid);
+
+    $translation->forceFill(['title' => 'Winter opening times'])->save();
+    recordPageRevisionForRm($page);
+    $second = resolve(RollbackService::class)->currentVersion($page->uuid);
+
+    $comparison = CompareWithPreviousVersionAction::run($page->fresh(), $second);
+    $translationChange = collect($comparison->fields)->firstWhere('path', 'translations');
+
+    expect($comparison->previousVersion)->toBe($first)
+        ->and(collect($comparison->fields)->pluck('path')->all())->toBe(['translations'])
+        ->and(json_encode($translationChange->before))->toContain('Opening times')->not->toContain('Winter opening times')
+        ->and(json_encode($translationChange->after))->toContain('Winter opening times')
+        ->and(json_encode($translationChange->after))->toContain('Open daily.')
+        ->and(CompareWithPreviousVersionAction::run($page->fresh(), $first)->previousVersion)->toBeNull();
+
+    $secondRevision = PageRevision::query()->where('page_uuid', $page->uuid)->where('version', $second)->firstOrFail();
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.changed_fields', ['fields' => 'Title']))
+        ->mountAction(TestAction::make('compare')->table($secondRevision))
+        ->assertMountedActionModalSee(['Opening times', 'Winter opening times', __('capell-admin::event-sourcing.compare_before'), __('capell-admin::event-sourcing.compare_after')]);
+});
+
+it('lets editors without restore permission read changes but refuses a forged restore', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->createOne())
+        ->create(['title' => 'Kept', 'content' => '<p>kept</p>']);
+    recordPageRevisionForRm($page);
+    $target = PageRevision::query()->where('page_uuid', $page->uuid)->orderByDesc('version')->firstOrFail();
+    $translation->forceFill(['title' => 'Latest'])->save();
+    recordPageRevisionForRm($page);
+
+    test()->actingAsUser();
+
+    $component = Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertActionVisible(TestAction::make('compare')->table($target))
+        ->assertActionHidden(TestAction::make('rollback')->table($target));
+
+    // A forged request skips the hidden button, so the server-side check must refuse it on its own.
+    $restore = $component->instance()->getTable()->getAction('rollback');
+
+    expect($restore)->not->toBeNull()
+        ->and($restore->record($target)->isAuthorized())->toBeFalse();
+
+    expect($translation->fresh()->title)->toBe('Latest')
+        ->and(PageRevision::query()->where('page_uuid', $page->uuid)->where('is_rollback', true)->exists())->toBeFalse();
+});
+
+it('keeps the timeline loading when a version has no readable stored state', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+
+    // An index row whose events are missing, as after a partial copy of history.
+    $orphan = PageRevision::query()->create([
+        'page_uuid' => $page->uuid,
+        'version' => 1,
+        'summary' => 'Revision recorded',
+        'is_rollback' => false,
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::test(EventSourcedHistoryRelationManager::class, [
+        'ownerRecord' => $page,
+        'pageClass' => EditPage::class,
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::event-sourcing.change_revision'))
+        ->assertActionHidden(TestAction::make('compare')->table($orphan));
 });

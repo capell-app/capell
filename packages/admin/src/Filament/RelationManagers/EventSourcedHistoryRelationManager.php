@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\RelationManagers;
 
 use BackedEnum;
+use Capell\Admin\Data\Activity\ActivityFieldDiffData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\RollbackDirection;
 use Capell\Admin\Support\Activity\ActivityChangeDetailsPresenter;
+use Capell\Admin\Support\EventSourcing\PageVersionChangeSummary;
 use Capell\Admin\Support\EventSourcing\RollbackChangeSetMapper;
 use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
+use Capell\Core\EventSourcing\Exceptions\EventSourcingException;
 use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
 use Capell\Core\EventSourcing\Rollback\Actions\BuildRollbackPreviewAction;
+use Capell\Core\EventSourcing\Rollback\Actions\CompareWithPreviousVersionAction;
 use Capell\Core\EventSourcing\Rollback\RollbackIssueData;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
+use Capell\Core\EventSourcing\Rollback\VersionComparisonData;
 use Capell\Core\Models\PageRevision;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -25,6 +30,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use LogicException;
 use Override;
 
 /**
@@ -45,6 +51,9 @@ final class EventSourcedHistoryRelationManager extends RelationManager
     protected static string $relationship = 'pageRevisions';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedClock;
+
+    /** @var array<int, VersionComparisonData> */
+    private array $comparisons = [];
 
     #[Override]
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
@@ -119,6 +128,7 @@ final class EventSourcedHistoryRelationManager extends RelationManager
             ->emptyStateHeading(__('capell-admin::event-sourcing.empty_heading'))
             ->emptyStateDescription(__('capell-admin::event-sourcing.empty_description'))
             ->recordActions([
+                $this->compareAction(),
                 $this->rollbackAction($headVersion, $activeContentVersion),
             ]);
     }
@@ -159,7 +169,78 @@ final class EventSourcedHistoryRelationManager extends RelationManager
             return (string) __('capell-admin::event-sourcing.rollback_summary', ['version' => $record->version]);
         }
 
-        return $record->label ?? (string) __('capell-admin::event-sourcing.change_revision');
+        if ($record->label !== null) {
+            return $record->label;
+        }
+
+        // A version whose stored state cannot be read must not break the whole
+        // timeline; it keeps the generic label and its Changes panel says why.
+        try {
+            if ($this->comparison($record)->previousVersion === null) {
+                return (string) __('capell-admin::event-sourcing.first_version');
+            }
+
+            return resolve(PageVersionChangeSummary::class)->summary($this->comparisonFieldDiffs($record));
+        } catch (EventSourcingException) {
+            return (string) __('capell-admin::event-sourcing.change_revision');
+        }
+    }
+
+    /**
+     * What a version changed compared with the one before it, memoised per
+     * request because the summary column and the Changes panel both use it.
+     */
+    private function comparison(PageRevision $record): VersionComparisonData
+    {
+        return $this->comparisons[$record->version] ??= CompareWithPreviousVersionAction::run($this->eventSourcedOwner(), $record->version);
+    }
+
+    /**
+     * @return list<ActivityFieldDiffData>
+     */
+    private function comparisonFieldDiffs(PageRevision $record): array
+    {
+        return resolve(ActivityChangeDetailsPresenter::class)->fields(
+            resolve(RollbackChangeSetMapper::class)->comparisonToChangeSet($this->comparison($record), '', ''),
+        );
+    }
+
+    private function compareAction(): Action
+    {
+        return Action::make('compare')
+            ->label(__('capell-admin::event-sourcing.compare_action'))
+            ->icon(Heroicon::OutlinedArrowsRightLeft)
+            ->color('gray')
+            ->visible(fn (PageRevision $record): bool => $this->hasReadableComparison($record))
+            ->slideOver()
+            ->modalHeading(fn (PageRevision $record): string => __('capell-admin::event-sourcing.compare_heading', ['version' => $record->version]))
+            ->modalDescription(__('capell-admin::event-sourcing.compare_description'))
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel(__('capell-admin::event-sourcing.compare_close'))
+            ->modalContent(fn (PageRevision $record): HtmlString => new HtmlString(view('capell-admin::event-sourcing.version-comparison', [
+                'fieldDiffs' => $this->comparisonFieldDiffs($record),
+                'isFirstVersion' => $this->comparison($record)->previousVersion === null,
+            ])->render()));
+    }
+
+    private function hasReadableComparison(PageRevision $record): bool
+    {
+        try {
+            $this->comparison($record);
+
+            return true;
+        } catch (EventSourcingException) {
+            return false;
+        }
+    }
+
+    private function eventSourcedOwner(): Model&EventSourced
+    {
+        $page = $this->getOwnerRecord();
+
+        throw_unless($page instanceof EventSourced, LogicException::class, 'The Versions tab needs an event-sourced record.');
+
+        return $page;
     }
 
     private function typeFor(PageVersionSource $source): string

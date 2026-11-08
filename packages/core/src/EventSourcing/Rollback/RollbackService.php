@@ -151,6 +151,23 @@ final class RollbackService
         return $state;
     }
 
+    /**
+     * What one version changed: its state compared with the state-bearing
+     * version before it. The first version compares with nothing, so all of
+     * its content is reported as added. Read-only.
+     */
+    public function compareWithPrevious(string $uuid, int $version): VersionComparisonData
+    {
+        $state = $this->targetStateAt($uuid, $version);
+        [$previousVersion, $previousState] = $this->stateBefore($uuid, $version);
+
+        return new VersionComparisonData(
+            version: $version,
+            previousVersion: $previousVersion,
+            fields: $this->differ->diff($previousState, $state),
+        );
+    }
+
     public function currentVersion(string $uuid): int
     {
         return $this->storedEventRepository->getLatestAggregateVersion($uuid);
@@ -191,6 +208,33 @@ final class RollbackService
         return $event instanceof CarriesRollbackOrigin
             ? $event->rolledBackToVersion()
             : $headVersion;
+    }
+
+    /**
+     * The newest state-bearing event strictly before a version.
+     *
+     * @return array{0: int|null, 1: array<string, mixed>}
+     */
+    private function stateBefore(string $uuid, int $version): array
+    {
+        /** @var class-string<EloquentStoredEvent> $storedEventModel */
+        $storedEventModel = config('event-sourcing.stored_event_model', EloquentStoredEvent::class);
+
+        foreach (
+            $storedEventModel::query()
+                ->where('aggregate_uuid', $uuid)
+                ->where('aggregate_version', '<', $version)
+                ->orderByDesc('aggregate_version')
+                ->cursor() as $record
+        ) {
+            $event = $record->toStoredEvent()->event;
+
+            if ($event instanceof CarriesAggregateState) {
+                return [(int) $record->getAttribute('aggregate_version'), $event->state()];
+            }
+        }
+
+        return [null, []];
     }
 
     /**
