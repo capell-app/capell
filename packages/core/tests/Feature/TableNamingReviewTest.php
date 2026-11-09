@@ -160,6 +160,7 @@ it('recognises the lifecycle footprint recorded under a different timestamp', fu
     $repository->log('2026_01_01_000000_create_capell_extensions_table', 1);
 
     $published = database_path('migrations/2026_01_01_000000_create_capell_extensions_table.php');
+    File::ensureDirectoryExists(dirname($published));
     copy(__DIR__ . '/../../database/migrations/2026_05_10_190832_24_create_capell_extensions_table.php', $published);
 
     try {
