@@ -10,13 +10,13 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Enums\CacheEnum;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Facades\Schema;
 
 class SiteLoader
 {
@@ -56,7 +56,8 @@ class SiteLoader
      */
     public static function getSites(): Collection
     {
-        if (! Schema::hasTable((new Site)->getTable())) {
+        // The request's shared schema probe; a probe that fails still throws.
+        if (! resolve(RuntimeSchemaState::class)->hasTableOrFail((new Site)->getTable())) {
             return (new Site)->newCollection();
         }
 

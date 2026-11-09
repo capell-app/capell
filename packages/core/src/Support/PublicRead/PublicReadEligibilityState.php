@@ -35,6 +35,15 @@ final class PublicReadEligibilityState
     /** @var array<int, true> */
     private array $scheduled = [];
 
+    /**
+     * This request's next transition per site ('site:<id>', or '*' for every site), with the
+     * revision and moment it was read under. The binding is scoped, so it
+     * never outlives the request or job (Octane flushes scoped instances).
+     *
+     * @var array<string, array{revision: string, after: CarbonImmutable, next: CarbonImmutable|null}>
+     */
+    private array $transitions = [];
+
     public function __construct(
         private readonly PublicPageReadEligibilityRegistry $registry,
         private readonly PublicReadEligibilityRevision $revision,
@@ -57,7 +66,7 @@ final class PublicReadEligibilityState
 
         resolve(PublicReadResponseStamps::class)->record($siteId);
 
-        return $this->stampFor($this->revision->current(), $siteId);
+        return $this->stampFor($this->revision->current(), $siteId, fresh: false);
     }
 
     /**
@@ -72,7 +81,7 @@ final class PublicReadEligibilityState
 
         resolve(PublicReadResponseStamps::class)->record($siteId);
 
-        return $this->stampFor($this->revision->fresh(), $siteId);
+        return $this->stampFor($this->revision->fresh(), $siteId, fresh: true);
     }
 
     /**
@@ -102,14 +111,14 @@ final class PublicReadEligibilityState
      * site's pages, so a schedule on one site never bounds copies of another.
      * With null it is the next transition on any site.
      */
-    private function stampFor(?string $revision, ?int $siteId): ?PublicReadStampData
+    private function stampFor(?string $revision, ?int $siteId, bool $fresh): ?PublicReadStampData
     {
         if ($revision === null) {
             return null;
         }
 
         $now = CarbonImmutable::now();
-        $validUntil = $this->registry->nextTransitionAfter($now, $siteId);
+        $validUntil = $this->nextTransitionAfter($revision, $now, $siteId, $fresh);
 
         // A schedule that cannot be read answers "now": everything built now
         // is already expired (deny), and there is no future moment to clean
@@ -119,6 +128,35 @@ final class PublicReadEligibilityState
         }
 
         return new PublicReadStampData($revision, $validUntil);
+    }
+
+    /**
+     * The registry's next transition, read once per site and revision in this
+     * request. A remembered answer is reused only while it still describes
+     * $now: it was read under the same revision, at or before $now, and its
+     * transition (when there is one) is still ahead. A transition already
+     * reached, or a failed read (which answers its own "now"), is read again,
+     * so a remembered answer can never extend validity past a transition or
+     * turn a failure into an allow. A fresh stamp always reads again: it
+     * fences a generation against changes made meanwhile.
+     */
+    private function nextTransitionAfter(string $revision, CarbonImmutable $now, ?int $siteId, bool $fresh): ?CarbonImmutable
+    {
+        $key = $siteId === null ? '*' : 'site:' . $siteId;
+        $known = $this->transitions[$key] ?? null;
+
+        if (! $fresh
+            && $known !== null
+            && $known['revision'] === $revision
+            && $known['after']->lessThanOrEqualTo($now)
+            && (! $known['next'] instanceof CarbonImmutable || $known['next']->greaterThan($now))) {
+            return $known['next'];
+        }
+
+        $next = $this->registry->nextTransitionAfter($now, $siteId);
+        $this->transitions[$key] = ['revision' => $revision, 'after' => $now, 'next' => $next];
+
+        return $next;
     }
 
     /**

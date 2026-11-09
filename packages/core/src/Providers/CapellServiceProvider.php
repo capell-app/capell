@@ -89,6 +89,7 @@ use Capell\Core\Enums\AssetEnum;
 use Capell\Core\Enums\ComponentTypeEnum;
 use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
+use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Events\PublicReadEligibilityChanged;
@@ -254,6 +255,7 @@ use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
@@ -296,6 +298,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->registerSettingsSchemaRegistry();
         $this->bindManagers();
         $this->app->scoped(RuntimeSchemaState::class);
+        // A schema read before migrations ran in this process describes the old
+        // schema; forget it, as the installer forgets its own table state.
+        Event::listen([DatabaseSchemaChanged::class, MigrationsEnded::class], static function (): void {
+            if (app()->resolved(RuntimeSchemaState::class)) {
+                resolve(RuntimeSchemaState::class)->flush();
+            }
+        });
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);

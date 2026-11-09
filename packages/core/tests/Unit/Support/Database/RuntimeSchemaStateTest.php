@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\SchemaProbeResult;
+use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Exceptions\SchemaProbeFailedException;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Tests\Support\SchemaDiagnosticRecorder;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 
@@ -200,3 +204,96 @@ it('primes table state for repeated runtime schema checks', function (): void {
         ->and($schema->hasTable('users'))->toBeTrue()
         ->and($schema->hasTable('missing_runtime_schema_state_test_table'))->toBeFalse();
 });
+
+/** @return list<string> the statements $run executed */
+function runtimeSchemaQueries(Closure $run): array
+{
+    $queries = [];
+    DB::listen(static function (QueryExecuted $query) use (&$queries): void {
+        $queries[] = $query->sql;
+    });
+    $run();
+
+    return $queries;
+}
+
+it('answers every present table from one listing of the connection', function (): void {
+    $tables = ['runtime_listed_one', 'runtime_listed_two', 'runtime_listed_three'];
+
+    foreach ($tables as $table) {
+        Schema::create($table, fn (Blueprint $blueprint) => $blueprint->id());
+    }
+
+    $probe = static function (array $names): array {
+        $state = new RuntimeSchemaState;
+        $answers = [];
+        $queries = runtimeSchemaQueries(function () use ($state, $names, &$answers): void {
+            foreach ($names as $name) {
+                $answers[$name] = $state->tableResult($name);
+            }
+        });
+
+        return [$answers, $queries];
+    };
+
+    [, $oneTable] = $probe([$tables[0]]);
+    [$answers, $threeTables] = $probe($tables);
+
+    // The work is the listing, whatever the number of tables it answers.
+    expect($answers)->each->toBe(SchemaProbeResult::Present)
+        ->and($threeTables)->toHaveCount(count($oneTable))
+        ->and(implode("\n", $threeTables))->not->toContain('runtime_listed_');
+});
+
+it('probes a table missing from the listing itself, so one created after the listing is found', function (): void {
+    $state = new RuntimeSchemaState;
+
+    expect($state->hasTable('users'))->toBeTrue();
+
+    Schema::create('runtime_created_after_listing', fn (Blueprint $blueprint) => $blueprint->id());
+
+    expect($state->hasTable('runtime_created_after_listing'))->toBeTrue()
+        ->and($state->hasTable('runtime_never_created'))->toBeFalse();
+});
+
+it('lists the tables again after a table is forgotten or refreshed', function (string $operation): void {
+    Schema::create('runtime_listed_then_dropped', fn (Blueprint $blueprint) => $blueprint->id());
+    $state = new RuntimeSchemaState;
+
+    expect($state->hasTable('runtime_listed_then_dropped'))->toBeTrue();
+
+    Schema::drop('runtime_listed_then_dropped');
+
+    if ($operation === 'forget') {
+        $state->forgetTable('runtime_listed_then_dropped');
+        expect($state->hasTable('runtime_listed_then_dropped'))->toBeFalse();
+    } else {
+        expect($state->refreshTable('runtime_listed_then_dropped'))->toBeFalse();
+    }
+
+    // A table dropped after the first listing is never reported from it again.
+    expect($state->tableResult('runtime_listed_then_dropped'))->toBe(SchemaProbeResult::Absent);
+})->with(['forget', 'refresh']);
+
+it('probes each table itself when the listing cannot be read', function (): void {
+    Schema::shouldReceive('getCurrentSchemaName')->andThrow(new RuntimeException('listing unavailable'));
+    Schema::shouldReceive('hasTable')->with('capell_extensions')->andReturnTrue();
+    Schema::shouldReceive('hasTable')->with('missing_runtime_table')->andReturnFalse();
+
+    $state = new RuntimeSchemaState;
+
+    expect($state->tableResult('capell_extensions'))->toBe(SchemaProbeResult::Present)
+        ->and($state->tableResult('missing_runtime_table'))->toBe(SchemaProbeResult::Absent)
+        ->and($this->schemaDiagnostics->events())->toBe([]);
+});
+
+it('forgets what it read once migrations have run in the same process', function (string $event): void {
+    $state = resolve(RuntimeSchemaState::class);
+
+    expect($state->hasTable('runtime_migrated_later'))->toBeFalse();
+
+    Schema::create('runtime_migrated_later', fn (Blueprint $blueprint) => $blueprint->id());
+    event($event === 'migrations' ? new MigrationsEnded('up') : new DatabaseSchemaChanged);
+
+    expect($state->hasTable('runtime_migrated_later'))->toBeTrue();
+})->with(['migrations', 'schema change']);
