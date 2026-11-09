@@ -1182,7 +1182,7 @@ final class InstalledPanelRuntime
         $class = $this->actionCode($route)[0];
         if ($class === LivewirePageController::class) {
             $component = $route->getAction('livewire_component');
-            $class = $component === null ? null : (is_object($component) ? $component::class : resolve('livewire.factory')->resolveComponentClass($component));
+            $class = LivewireRouteComponentClass::of($component);
         }
 
         return $class !== null && is_subclass_of($class, BasePage::class) ? $class : null;
@@ -1200,7 +1200,7 @@ final class InstalledPanelRuntime
                 return false;
             }
 
-            $class = is_object($component) ? $component::class : resolve('livewire.factory')->resolveComponentClass($component);
+            $class = LivewireRouteComponentClass::of($component);
         }
 
         if ($file === null && $class !== null && class_exists($class)) {
