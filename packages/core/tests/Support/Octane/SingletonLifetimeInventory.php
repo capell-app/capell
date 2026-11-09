@@ -25,6 +25,7 @@ use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
 use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Support\LivewireRouteComponentClass;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
@@ -257,6 +258,7 @@ final class SingletonLifetimeInventory
             HasModelRelations::class => 'This trait provides a deliberate boot registry shared by every operation.',
             PublicRenderDataScope::class => 'Render-local data set only inside during(), which restores the previous value in finally, so nothing outlives a public render or crosses requests.',
             StaticPageArtifactStore::class => 'Ownership lock files this process holds, set only while their flock is held and removed in finally, so a nested write re-enters its own lock and nothing outlives the write.',
+            LivewireRouteComponentClass::class => 'Caches the class name of a compiled Livewire route component by its source path, so a process stops redeclaring the same anonymous class. An entry is reused only while the class is still declared and the source and compiled file modification times are unchanged; the name depends on that file alone, never on a request, tenant or user, so it carries no operation data and a changed file is recompiled.',
             ExtensionQuarantine::class => 'The missing-table flag only suppresses repeated warnings for the process lifetime and carries no operation data.',
             ExtensibleModel::class => 'Extension fillable and cast declarations are deliberate model boot registries.',
             ManifestLoader::class => 'Registered manifest autoload paths are process boot metadata and prevent duplicate Composer loaders.',
