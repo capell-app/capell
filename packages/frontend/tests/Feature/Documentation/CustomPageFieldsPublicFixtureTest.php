@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Models\Page;
+use Capell\Frontend\Contracts\AdminAccessCheckerInterface;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Contracts\View\Factory;
 use Workbench\App\Support\CaseStudyRenderDataContributor;
 use Workbench\App\Support\CustomPageFieldsFixture;
@@ -16,7 +18,16 @@ beforeEach(function (): void {
     CustomPageFieldsFixture::initialize('http://127.0.0.1:8197');
 });
 
-it('serves escaped client data through the anonymous standard public route', function (): void {
+it('serves escaped client data through the standard public route without admin access', function (bool $authenticated): void {
+    if ($authenticated) {
+        $user = User::factory()->createOne();
+        $this->actingAs($user);
+        $this->assertAuthenticatedAs($user);
+        expect(resolve(AdminAccessCheckerInterface::class)->isAdmin($user))->toBeFalse();
+    } else {
+        $this->assertGuest();
+    }
+
     $page = CustomPageFieldsFixture::page('public');
     $page->update(['meta' => ['case_study' => ['client_name' => '<script>alert(1)</script>'], 'editorial' => ['reference' => 'PRIVATE-REVIEW']]]);
 
@@ -27,8 +38,9 @@ it('serves escaped client data through the anonymous standard public route', fun
         ->assertDontSee('PRIVATE-REVIEW', false)
         ->assertDontSee('meta.case_study', false)
         ->assertDontSee('data-capell-authoring', false)
+        ->assertDontSee('data-capell-editor', false)
         ->assertDontSee(base_path(), false);
-});
+})->with(['guest' => [false], 'authenticated non-admin' => [true]]);
 
 it('omits an empty client and declares the page dependency in hydrated public data', function (): void {
     $page = CustomPageFieldsFixture::page('public');
