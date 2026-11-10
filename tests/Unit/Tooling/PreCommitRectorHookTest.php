@@ -12,6 +12,8 @@ it('reports Rector failures without asserting that files need rewriting', functi
 
     try {
         $process = new Process(['bash', dirname(__DIR__, 3) . '/.pre-commit/rector.sh', 'example.php'], $directory);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe(1)

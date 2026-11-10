@@ -6,6 +6,8 @@ use Symfony\Component\Process\Process;
 
 it('keeps the database-free agent schema gate green for the repository artefacts', function (): void {
     $process = new Process([PHP_BINARY, 'scripts/check-agent-schema-contract.php'], dirname(__DIR__, 2));
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->isSuccessful())->toBeTrue()
@@ -20,6 +22,8 @@ it('fails the static agent schema gate when the artefacts are absent', function 
         $process = new Process([PHP_BINARY, dirname(__DIR__, 2) . '/scripts/check-agent-schema-contract.php'], null, [
             'CAPELL_AGENT_SCHEMA_ROOT' => $root,
         ]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe(1)

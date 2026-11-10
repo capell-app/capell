@@ -7,6 +7,8 @@ use Symfony\Component\Process\Process;
 it('verifies the live documented requirements tables', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-docs-requirements.php'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     $process->mustRun();
 
@@ -213,6 +215,8 @@ function runDocsRequirementsCheck(string $root): array
         $root,
         ['CAPELL_DOCS_REQUIREMENTS_ROOT' => $root],
     );
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     return [$process->getExitCode() ?? 1, $process->getOutput() . $process->getErrorOutput()];

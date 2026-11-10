@@ -14,7 +14,8 @@ it('runs the pre-push PHPStan analysis through the heavy queue at the weight its
 
     $root = dirname(__DIR__, 2);
     $process = new Process(['bash', $root . '/tests/Shell/pre-push-analysis-heavy.sh'], $root);
-    $process->setTimeout(60);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())

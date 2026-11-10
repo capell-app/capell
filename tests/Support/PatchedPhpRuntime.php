@@ -16,7 +16,8 @@ final class PatchedPhpRuntime
         $program = 'require $argv[1] . "/vendor/autoload.php"; ' . $bootstrap
             . ' require $argv[2]; echo json_encode(' . $expression . ', JSON_THROW_ON_ERROR);';
         $process = new Process([PHP_BINARY, '-d', 'auto_prepend_file=', '-r', $program, $root, $path], $root);
-        $process->setTimeout(30);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);

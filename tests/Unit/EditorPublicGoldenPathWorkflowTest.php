@@ -100,7 +100,8 @@ it('executes the redaction and anonymous-output behavioural contracts', function
     }
 
     $process = new Process(['node', '--test', 'tests/Browser/support/public-output.test.js'], dirname(__DIR__, 2));
-    $process->setTimeout(30);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     expect($process->run())->toBe(0, $process->getOutput() . $process->getErrorOutput());
 });

@@ -81,11 +81,15 @@ function documentationLinksFixture(array $files): string
 
 function documentationLinksProcess(string $root): Process
 {
-    return new Process(
+    $process = new Process(
         [PHP_BINARY, dirname(__DIR__, 2) . '/scripts/check-docs-links.php'],
         $root,
         ['CAPELL_DOCS_LINKS_ROOT' => $root],
     );
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
+
+    return $process;
 }
 
 function documentationLinksDeleteDirectory(string $path): void

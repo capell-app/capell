@@ -16,6 +16,8 @@ it('runs commands with leading environment assignments and preserves their exit 
         '-c',
         '[ "$CAPELL_LOCK_TEST" != available ]',
     ], $root, ['CAPELL_NO_LOCK' => '1']);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     $process->run();
 

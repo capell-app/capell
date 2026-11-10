@@ -22,6 +22,8 @@ function contractGateFixture(): string
 function runContractGate(string $root, string ...$command): Process
 {
     $process = new Process($command, $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     return $process;

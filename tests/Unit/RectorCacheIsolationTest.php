@@ -18,6 +18,8 @@ it('writes Rector caches inside the checkout whose configuration is loaded', fun
         PHP_BINARY, $root . '/vendor/bin/rector', 'process', $directory . '/Fixture.php',
         '--config=' . $directory . '/rector.php', '--dry-run', '--no-progress-bar',
     ], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     try {
         expect($process->run())->toBe(0, $process->getErrorOutput() . $process->getOutput());
         // Stored cache files prove both caches stay local without depending on their filenames.

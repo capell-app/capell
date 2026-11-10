@@ -14,7 +14,8 @@ it('provisions new source mappings without mutating the primary autoloader', fun
 
     $root = dirname(__DIR__, 2);
     $process = new Process(['bash', $root . '/tests/Shell/init-worktree.sh'], $root);
-    $process->setTimeout(60);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())

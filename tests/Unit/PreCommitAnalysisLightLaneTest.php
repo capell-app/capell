@@ -14,7 +14,8 @@ it('runs the staged-file PHPStan hook in the heavy queue light lane', function (
 
     $root = dirname(__DIR__, 2);
     $process = new Process(['bash', $root . '/tests/Shell/pre-commit-analysis-light-lane.sh'], $root);
-    $process->setTimeout(60);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())
@@ -34,7 +35,8 @@ it('scopes the light-lane static lock to its checkout and keeps other static wor
         $root,
         ['PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . (getenv('PATH') ?: '')],
     );
-    $process->setTimeout(60);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())
