@@ -20,6 +20,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -60,33 +61,62 @@ final class ResolveFirstRunStateAction
 
         return new FirstRunStateData(true, [
             $this->task('site', true, $siteUrl),
-            $this->task('homepage', $this->editedByPerson($home), $homeUrl),
-            $this->task('logo', Media::query()
+            $this->task('homepage', $this->editedByPerson($access, $home), $homeUrl),
+            $this->task('logo', $access->query(Media::class)
                 ->where('model_type', (new Site)->getMorphClass())
                 ->where('model_id', $siteId)
                 ->where('collection_name', MediaCollectionEnum::Logo->value)
                 ->exists(), $siteUrl),
-            $this->task('address', $this->hasPublicAddress($siteId), $siteUrl),
+            $this->task('address', $this->hasPublicAddress($access, $siteId), $siteUrl),
             $this->task('publish', false, $homeUrl),
         ]);
     }
 
     private function task(string $key, bool $complete, ?string $url): FirstRunTaskData
     {
+        [$title, $consequence, $actionLabel] = match ($key) {
+            'site' => [
+                (string) __('capell-admin::dashboard.first_run_task_site_title'),
+                (string) __('capell-admin::dashboard.first_run_task_site_consequence'),
+                (string) __('capell-admin::dashboard.first_run_task_site_action'),
+            ],
+            'homepage' => [
+                (string) __('capell-admin::dashboard.first_run_task_homepage_title'),
+                (string) __('capell-admin::dashboard.first_run_task_homepage_consequence'),
+                (string) __('capell-admin::dashboard.first_run_task_homepage_action'),
+            ],
+            'logo' => [
+                (string) __('capell-admin::dashboard.first_run_task_logo_title'),
+                (string) __('capell-admin::dashboard.first_run_task_logo_consequence'),
+                (string) __('capell-admin::dashboard.first_run_task_logo_action'),
+            ],
+            'address' => [
+                (string) __('capell-admin::dashboard.first_run_task_address_title'),
+                (string) __('capell-admin::dashboard.first_run_task_address_consequence'),
+                (string) __('capell-admin::dashboard.first_run_task_address_action'),
+            ],
+            'publish' => [
+                (string) __('capell-admin::dashboard.first_run_task_publish_title'),
+                (string) __('capell-admin::dashboard.first_run_task_publish_consequence'),
+                (string) __('capell-admin::dashboard.first_run_task_publish_action'),
+            ],
+            default => throw new InvalidArgumentException('Unknown first-run task: ' . $key),
+        };
+
         return new FirstRunTaskData(
             key: $key,
-            title: (string) __('capell-admin::dashboard.first_run_task_' . $key . '_title'),
-            consequence: (string) __('capell-admin::dashboard.first_run_task_' . $key . '_consequence'),
-            actionLabel: (string) __('capell-admin::dashboard.first_run_task_' . $key . '_action'),
+            title: $title,
+            consequence: $consequence,
+            actionLabel: $actionLabel,
             complete: $complete,
             url: $url,
         );
     }
 
     /** A person has saved the page; imports, seeding and console runs have no actor. */
-    private function editedByPerson(Page $home): bool
+    private function editedByPerson(SiteAccess $access, Page $home): bool
     {
-        return PageRevision::query()
+        return $access->query(PageRevision::class)
             ->where('page_uuid', $home->uuid)
             ->whereNotNull('actor_id')
             ->where('is_rollback', false)
@@ -94,9 +124,9 @@ final class ResolveFirstRunStateAction
             ->exists();
     }
 
-    private function hasPublicAddress(int $siteId): bool
+    private function hasPublicAddress(SiteAccess $access, int $siteId): bool
     {
-        return SiteDomain::query()
+        return $access->query(SiteDomain::class)
             ->where('site_id', $siteId)
             ->where('status', true)
             ->pluck('domain')
