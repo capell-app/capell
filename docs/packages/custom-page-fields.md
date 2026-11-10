@@ -69,7 +69,7 @@ Here the relative path is inside `TranslationsRepeater`, so it writes **Translat
 return [Text::make(__('capell-extension-cookbook::admin.schema.help'))];
 ```
 
-The [source class](https://github.com/capell-app/capell-packages/blob/00507db557838d94c633691872644db9f7a97300/packages/extension-cookbook/src/Filament/Extenders/ExtensionCookbookPageSchemaExtender.php) implements the same `PageSchemaExtender` contract as the walkthrough. Its presentation-only note can coexist with your persisted field; it does not own or save your client value.
+The [source class](https://github.com/capell-app/capell-packages/blob/00507db557838d94c633691872644db9f7a97300/packages/extension-cookbook/src/Filament/Extenders/ExtensionCookbookPageSchemaExtender.php) implements the same `PageSchemaExtender` contract as the walkthrough. A [frozen copy of that contribution](../../workbench/fixtures/extension-cookbook/ExtensionCookbookPageSchemaExtender.php) is also included with the walkthrough fixture. Its presentation-only note can coexist with your persisted field; it does not own or save your client value.
 
 SEO Suite's [page schema extender](https://github.com/capell-app/capell-packages/blob/00507db557838d94c633691872644db9f7a97300/packages/seo-suite/src/Filament/Extenders/Page/PageSeoSettingsTabExtender.php) illustrates extension-owned page editor contributions. Check the installed package's version and registration before copying its implementation.
 
