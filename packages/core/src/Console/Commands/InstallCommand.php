@@ -189,22 +189,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private bool $failureExplained = false;
 
-    #[Override]
-    public function error($string, $verbosity = null): void
-    {
-        $this->failureExplained = true;
-
-        parent::error($string, $verbosity);
-    }
-
-    #[Override]
-    public function warn($string, $verbosity = null): void
-    {
-        $this->failureExplained = true;
-
-        parent::warn($string, $verbosity);
-    }
-
     public function handle(): int
     {
         $this->failureExplained = false;
@@ -232,6 +216,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         } while ($this->restartReview);
 
         if ($result !== CommandAlias::SUCCESS && ! $this->failureExplained) {
+            $this->newLine();
             $this->error(__('capell-core::install.failure.unexplained'));
             $this->line(__('capell-core::install.failure.next_action'));
         }

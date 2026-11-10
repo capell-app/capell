@@ -552,7 +552,7 @@ it('says nothing was changed and how to continue when fresh install confirmation
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'no')
         ->expectsOutputToContain('Your data has not been changed')
-        ->expectsOutputToContain('without --fresh')
+        ->expectsOutputToContain('decline the fresh install')
         ->assertExitCode(Command::FAILURE);
 });
 
@@ -718,7 +718,7 @@ it('never exits with a failure without telling the developer what to do next', f
     Artisan::registerCommand(new SilentFailureInstallCommand);
 
     artisanCommand('capell:install', ['--no-interaction' => true])
-        ->expectsOutputToContain('stopped without giving a reason')
+        ->expectsOutputToContain('stopped before it finished')
         ->expectsOutputToContain('php artisan capell:doctor')
         ->assertExitCode(Command::FAILURE);
 });
