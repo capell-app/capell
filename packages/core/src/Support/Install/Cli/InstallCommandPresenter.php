@@ -94,13 +94,11 @@ final class InstallCommandPresenter
         $message = trim($throwable->getMessage());
 
         $output->newLine();
-        $output->writeln('<error>Capell installation failed.</error>');
-
-        if ($message !== '') {
-            $output->writeln($message);
-        }
-
-        $output->writeln('Set CAPELL_INSTALL_DEBUG=1 for step-level diagnostics. Review the failed step before continuing.');
+        $output->writeln('<error>' . __('capell-core::install.failure.title') . '</error>');
+        $output->writeln($message !== ''
+            ? OutputFormatter::escape($message)
+            : OutputFormatter::escape(__('capell-core::install.failure.no_detail', ['exception' => $throwable::class])));
+        $output->writeln(OutputFormatter::escape(__('capell-core::install.failure.next_action')));
     }
 
     private function outputTips(InstallHandoffData $handoff, OutputStyle $output): void

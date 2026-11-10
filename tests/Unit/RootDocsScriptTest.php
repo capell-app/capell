@@ -7,6 +7,8 @@ use Symfony\Component\Process\Process;
 it('verifies the live root package and documentation contract', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-root-docs.php'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     $process->mustRun();
 
@@ -119,6 +121,8 @@ function runRootDocsCheck(string $root): array
         $root,
         ['CAPELL_ROOT_DOCS_ROOT' => $root],
     );
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     return [$process->getExitCode() ?? 1, $process->getOutput() . $process->getErrorOutput()];

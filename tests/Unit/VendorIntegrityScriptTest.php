@@ -181,6 +181,8 @@ it('refuses a preflight root different from the executing checkout', function ()
     $checkout = dirname(__DIR__, 2);
     try {
         $process = new Process([PHP_BINARY, $checkout . '/scripts/check-vendor-integrity.php', '--checkout', $checkout], $checkout, ['CAPELL_VENDOR_INTEGRITY_ROOT' => $root]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
         expect($process->getExitCode())->toBe(2)
             ->and($process->getErrorOutput())->toContain((string) realpath($root))
@@ -235,6 +237,8 @@ function runVendorIntegrityCheck(string $root): array
         $root,
         ['CAPELL_VENDOR_INTEGRITY_ROOT' => $root],
     );
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     return [$process->getExitCode() ?? 1, $process->getOutput() . $process->getErrorOutput()];

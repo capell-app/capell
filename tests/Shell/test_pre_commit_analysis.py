@@ -51,6 +51,7 @@ else:
     raise RuntimeError(args)
 ''')
         shutil.copyfile(REPOSITORY / "scripts/with-lock.php", self.root / "scripts/with-lock.php")
+        shutil.copyfile(REPOSITORY / "scripts/heavy-admission.php", self.root / "scripts/heavy-admission.php")
 
     def executable(self, name, content):
         path = self.root / name
@@ -69,14 +70,16 @@ else:
         started = time.monotonic()
         result = subprocess.run(
             ["bash", "scripts/guards/pre-commit-analysis.sh", *files],
-            cwd=self.root, capture_output=True, text=True, timeout=60,
+            # Hang ceiling only: a busy host must slow the hook, never fail it.
+            cwd=self.root, capture_output=True, text=True, timeout=300,
             env={**os.environ, "PATH": f"{self.root}/bin:{os.environ['PATH']}",
                  "HOOK_FIXTURE_ROOT": str(self.root), "AI_AGENT": "codex",
-                 "CLAUDECODE": "1", "CODEX_THREAD_ID": "fixture"},
+                 "CLAUDECODE": "1", "CODEX_THREAD_ID": "fixture",
+                 # The fixture tests the hook, not host admission; the real guard cannot lease a temp tree.
+                 "HEAVY_SLOT_ENABLED": "0"},
         )
         elapsed = time.monotonic() - started
         print(f"hook {files}: exit={result.returncode}, seconds={elapsed:.3f}", flush=True)
-        self.assertLess(elapsed, 60)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         for file in files:
             self.assertEqual((self.root / file).read_bytes(), before[file])

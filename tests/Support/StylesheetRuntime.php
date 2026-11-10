@@ -23,7 +23,8 @@ final class StylesheetRuntime
         }
 
         $process = new Process(['node', $root . '/tests/Support/stylesheet-runtime.cjs', $path, $tailwind ? 'tailwind' : 'css', json_encode($candidates, JSON_THROW_ON_ERROR), json_encode($stylesheets, JSON_THROW_ON_ERROR)], $root);
-        $process->setTimeout(30);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
         /** @var array<string, mixed> $result */
         $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);

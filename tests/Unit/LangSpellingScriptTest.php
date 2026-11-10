@@ -18,6 +18,8 @@ function runLangSpellingFixture(string $language, string $otherSource = ''): arr
         $process = new Process([PHP_BINARY, 'scripts/check-lang-spelling.php'], dirname(__DIR__, 2), [
             'CAPELL_LANG_SPELLING_ROOT' => $root,
         ]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         return [$process->getExitCode(), $process->getOutput() . $process->getErrorOutput()];

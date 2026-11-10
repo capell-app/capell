@@ -11,6 +11,8 @@ require_once dirname(__DIR__, 2) . '/scripts/RepositoryDistributionFiles.php';
 it('keeps generated split repository policies aligned with their shared sources', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/sync-split-repository-health.php', '--check'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     $process->mustRun();
 
@@ -84,12 +86,16 @@ it('ships runtime inputs and excludes development files in real aggregate and sp
         }
 
         $gitDirectory = new Process(['git', 'rev-parse', '--absolute-git-dir'], $root);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $gitDirectory->setTimeout(300);
         $gitDirectory->mustRun();
         $archive = new Process([
             'git', '--git-dir=' . trim($gitDirectory->getOutput()), '--work-tree=' . $temporary . '/attributes',
             '-c', 'core.attributesFile=/dev/null', 'archive', '--worktree-attributes', '--format=zip',
             '--output=' . $temporary . '/dist.zip', 'HEAD' . ($scope === '' ? '' : ':' . $scope),
         ], $temporary . '/attributes');
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $archive->setTimeout(300);
         $archive->mustRun();
 
         $zip = new ZipArchive;

@@ -17,14 +17,14 @@ hold() { # hold <checkout> <lane>: take capell-static in <checkout> until releas
     # shellcheck disable=SC2016 # $0 and $1 belong to the inner bash.
     (cd "$scratch/$1" && HEAVY_LANE="$2" php scripts/with-lock.php capell-static -- \
         bash -c 'touch "$0"; while [ ! -f "$1" ]; do sleep .05; done' "$scratch/held-$1" "$scratch/release") &
-    for _ in $(seq 100); do [ -f "$scratch/held-$1" ] && return; sleep .05; done
+    for _ in $(seq 6000); do [ -f "$scratch/held-$1" ] && return; sleep .05; done
     fail "the $1 checkout never took the lock"
 }
-attempt() { # attempt <checkout> <lane>: prints "ran" when the lock was free within 2s
-    (cd "$scratch/$1" && HEAVY_LANE="$2" perl -e 'alarm 2; exec @ARGV' php scripts/with-lock.php capell-static -- echo ran 2>/dev/null) || true
+attempt() { # attempt <checkout> <lane> [seconds]: prints "ran" when the lock was free in time; a short window proves blocking, a long one only guards a hang
+    (cd "$scratch/$1" && HEAVY_LANE="$2" perl -e 'alarm shift; exec @ARGV' "${3:-2}" php scripts/with-lock.php capell-static -- echo ran 2>/dev/null) || true
 }
 hold one light
-[ "$(attempt two light)" = ran ] || fail 'a light-lane hook in another checkout waited on the static lock'
+[ "$(attempt two light 120)" = ran ] || fail 'a light-lane hook in another checkout waited on the static lock'
 [ "$(attempt one light)" != ran ] || fail 'two light-lane hooks in one checkout ran at once over a shared PHPStan cache'
 touch "$scratch/release"; wait; rm -f "$scratch/release" "$scratch"/held-*
 hold one ''

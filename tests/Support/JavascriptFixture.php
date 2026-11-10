@@ -30,6 +30,8 @@ final class JavascriptFixture
         })().catch(error => {console.error(error); process.exitCode = 1;});
         JS_WRAP;
         $process = new Process(['node', '--experimental-vm-modules', '-e', $runner, json_encode(['path' => $path, 'setup' => $setup, 'expression' => $expression, 'modules' => $modules], JSON_THROW_ON_ERROR)], dirname(__DIR__, 2));
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         return json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);

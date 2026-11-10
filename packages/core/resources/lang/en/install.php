@@ -50,6 +50,18 @@ return [
         'profile_change' => 'Save non-secret settings as profile :name after confirmation',
         'profile_name' => 'Name this installation profile',
     ],
+    'failure' => [
+        'title' => 'Capell installation failed.',
+        'no_detail' => 'The installer stopped on :exception without giving a reason.',
+        'unexplained' => 'Capell installation stopped before it finished.',
+        'next_action' => 'Run `php artisan capell:doctor` to see which install step is incomplete, then fix it and rerun `php artisan capell:install`. For step-by-step detail, rerun with CAPELL_INSTALL_DEBUG=1.',
+        'cancelled' => 'Your data has not been changed.',
+        'cancelled_next' => 'To keep your existing data, rerun `php artisan capell:install` and decline the fresh install or reinstall prompt.',
+        'panel_declined_next' => 'Nothing was installed. Install Filament with `php artisan filament:install --panels`, then rerun `php artisan capell:install`.',
+        'preflight_no_detail' => 'The Filament admin panel could not be prepared. Run `php artisan filament:install --panels`, then rerun `php artisan capell:install`.',
+        'package_selection_no_detail' => 'The packages to install could not be resolved. Check the --packages option and that each package is installed with Composer, then rerun `php artisan capell:install`.',
+        'table_names_no_detail' => 'The database table names could not be chosen. Pass --table-alias or --table-prefix, then rerun `php artisan capell:install`.',
+    ],
     'command' => [
         'not_found' => "Artisan command ':command' is not registered in the running application or a fresh process. Check that its package is installed and its console provider is enabled.",
         'failed' => "Artisan command ':command' failed with exit code :exit_code.",
@@ -241,15 +253,19 @@ return [
             ],
             'first_page_editable' => [
                 'label' => 'Your site',
-                'detail' => 'Your homepage is live at :url. Edit it under Admin → Pages.',
+                'detail' => 'Your homepage is published at :url. Edit it under Admin → Pages.',
             ],
             'first_page_unverified' => [
                 'label' => 'Your site',
-                'detail' => 'A page exists but could not be opened for editing. Check :url, then open Admin → Pages.',
+                'detail' => 'Your homepage is published but Admin could not open it for editing. Check :url, then open Admin → Pages.',
+            ],
+            'first_page_draft' => [
+                'label' => 'Your site',
+                'detail' => 'Your homepage exists but is not published, so :url will not show it yet. Publish it under Admin → Pages.',
             ],
             'first_page_missing' => [
                 'label' => 'Your site',
-                'detail' => 'No site or page yet. Create a site under Admin → Sites, then add its first page under Admin → Pages.',
+                'detail' => 'No site or homepage yet. Create a site under Admin → Sites, then add its homepage under Admin → Pages.',
             ],
             'first_page_demo' => [
                 'label' => 'Your site',

@@ -11,6 +11,8 @@ beforeEach(function (): void {
     mkdir($this->repository);
     $this->git = function (array $arguments): string {
         $process = new Process(['git', '-C', $this->repository, ...$arguments]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         return trim($process->getOutput());

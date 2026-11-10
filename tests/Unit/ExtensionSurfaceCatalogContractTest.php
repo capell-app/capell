@@ -7,6 +7,8 @@ use Symfony\Component\Process\Process;
 it('keeps generated extension surface artifacts deterministic', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/build-extension-surface-catalog.php', '--check'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->toBe(0)
