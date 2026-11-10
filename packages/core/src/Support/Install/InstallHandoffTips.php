@@ -145,13 +145,14 @@ final class InstallHandoffTips
      */
     private function firstPageTip(InstallHandoffFactsData $facts): ?array
     {
-        if ($facts->demoContent && $facts->firstPageStatus !== 'missing') {
+        if ($facts->demoContent && in_array($facts->firstPageStatus, ['editable', 'present_unverified'], true)) {
             return $this->tip(self::KEY_FIRST_PAGE, 'first_page_demo', ['url' => $facts->publicUrl]);
         }
 
         return match ($facts->firstPageStatus) {
             'editable' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_editable', ['url' => $facts->publicUrl]),
             'present_unverified' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_unverified', ['url' => $facts->publicUrl]),
+            'draft' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_draft', ['url' => $facts->publicUrl]),
             'missing' => $this->tip(self::KEY_FIRST_PAGE, 'first_page_missing'),
             default => null,
         };
@@ -218,6 +219,7 @@ final class InstallHandoffTips
             'sign_in_no_admin' => [__('capell-core::install.handoff.tips.sign_in_no_admin.label'), __('capell-core::install.handoff.tips.sign_in_no_admin.detail', $replace)],
             'first_page_editable' => [__('capell-core::install.handoff.tips.first_page_editable.label'), __('capell-core::install.handoff.tips.first_page_editable.detail', $replace)],
             'first_page_unverified' => [__('capell-core::install.handoff.tips.first_page_unverified.label'), __('capell-core::install.handoff.tips.first_page_unverified.detail', $replace)],
+            'first_page_draft' => [__('capell-core::install.handoff.tips.first_page_draft.label'), __('capell-core::install.handoff.tips.first_page_draft.detail', $replace)],
             'first_page_missing' => [__('capell-core::install.handoff.tips.first_page_missing.label'), __('capell-core::install.handoff.tips.first_page_missing.detail', $replace)],
             'first_page_demo' => [__('capell-core::install.handoff.tips.first_page_demo.label'), __('capell-core::install.handoff.tips.first_page_demo.detail', $replace)],
             'theme' => [__('capell-core::install.handoff.tips.theme.label'), __('capell-core::install.handoff.tips.theme.detail', $replace)],

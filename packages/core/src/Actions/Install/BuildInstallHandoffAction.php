@@ -59,7 +59,7 @@ final class BuildInstallHandoffAction
             ->all());
         $safeAdminUrl = $this->safeHttpUrl($adminUrl);
         $safePublicUrl = $this->safeHttpUrl($inputData->siteUrl) ?? '';
-        $safeFirstPageStatus = in_array($firstPageStatus, ['editable', 'present_unverified', 'missing'], true)
+        $safeFirstPageStatus = in_array($firstPageStatus, ['editable', 'present_unverified', 'draft', 'missing'], true)
             ? $firstPageStatus
             : 'unavailable';
 

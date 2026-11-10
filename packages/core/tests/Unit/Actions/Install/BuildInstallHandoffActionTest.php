@@ -71,7 +71,7 @@ it('builds a stable redacted install handoff without account or telemetry requir
             [
                 'key' => 'first_page',
                 'label' => 'Your site',
-                'detail' => 'Your homepage is live at https://example.test/. Edit it under Admin → Pages.',
+                'detail' => 'Your homepage is published at https://example.test/. Edit it under Admin → Pages.',
             ],
         ],
         'warningCount' => 1,
