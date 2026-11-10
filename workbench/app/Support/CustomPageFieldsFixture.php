@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Workbench\App\Support;
 
 use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
+use Capell\Admin\Filament\RelationManagers\ActivityHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
@@ -13,18 +14,37 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\ExtensionCookbook\Filament\Extenders\ExtensionCookbookPageSchemaExtender;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Workbench\App\Support\Schemas\CaseStudyPageSchemaExtender;
-use Workbench\App\Support\Schemas\FocusCustomPageFieldsScreenshot;
 
 final class CustomPageFieldsFixture
 {
+    private const array Scenarios = ['editor', 'validation', 'reopened', 'public'];
+
+    public static function configureActivityColumnManager(): void
+    {
+        Table::configureUsing(static function (Table $table): void {
+            $livewire = $table->getLivewire();
+
+            if (! $livewire instanceof ActivityHistoryRelationManager) {
+                return;
+            }
+
+            $table->columnManager(static function () use ($livewire): ?bool {
+                $record = $livewire->getOwnerRecord();
+
+                return $record instanceof Page && self::isScenarioPage($record) ? false : null;
+            });
+        });
+    }
+
     public static function registerSchemaExtenders(): void
     {
         require_once __DIR__ . '/../../fixtures/extension-cookbook/ExtensionCookbookPageSchemaExtender.php';
-        app()->tag([CaseStudyPageSchemaExtender::class, ExtensionCookbookPageSchemaExtender::class, FocusCustomPageFieldsScreenshot::class], PageSchemaExtender::TAG);
+        app()->tag([CaseStudyPageSchemaExtender::class, ExtensionCookbookPageSchemaExtender::class], PageSchemaExtender::TAG);
     }
 
     public static function initialize(string $frontendOrigin): void
@@ -60,7 +80,7 @@ final class CustomPageFieldsFixture
                 'meta' => ['layout_file' => 'custom-page-fields::case-study', 'master_file' => 'custom-page-fields::empty'],
             ])->save();
 
-            foreach (['editor', 'validation', 'reopened', 'public'] as $scenario) {
+            foreach (self::Scenarios as $scenario) {
                 $page = Page::query()->firstOrNew(['name' => self::pageName($scenario)]);
                 $page->fill([
                     'site_id' => $site->getKey(),
@@ -98,9 +118,15 @@ final class CustomPageFieldsFixture
 
     public static function page(string $scenario): Page
     {
-        throw_unless(in_array($scenario, ['editor', 'validation', 'reopened', 'public'], true), RuntimeException::class, 'Unknown custom-field screenshot scenario.');
+        throw_unless(in_array($scenario, self::Scenarios, true), RuntimeException::class, 'Unknown custom-field screenshot scenario.');
 
         return Page::query()->where('name', self::pageName($scenario))->firstOrFail();
+    }
+
+    private static function isScenarioPage(Page $page): bool
+    {
+        return in_array($page->name, array_map(self::pageName(...), self::Scenarios), true)
+            && $page->blueprint?->key === 'case-study';
     }
 
     private static function pageName(string $scenario): string

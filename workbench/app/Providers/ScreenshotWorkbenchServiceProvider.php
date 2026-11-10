@@ -35,6 +35,7 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             Config::set('database.connections.sqlite.database', $database);
             Config::set('database.connections.sqlite.url');
             CustomPageFieldsFixture::registerSchemaExtenders();
+            CustomPageFieldsFixture::configureActivityColumnManager();
             $this->app->tag([CaseStudyRenderDataContributor::class], PublicRenderDataContributor::TAG);
         }
 

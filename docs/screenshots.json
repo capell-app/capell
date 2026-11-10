@@ -1136,7 +1136,7 @@
                     "block": "center"
                 }
             ],
-            "notes": "Loads the pinned real Extension Cookbook schema extender as a source fixture alongside the app extender. This is not an installed package. Focused screenshot records omit unrelated relation tables through the schema extender contract; runner diagnostics remain strict."
+            "notes": "Loads the pinned real Extension Cookbook schema extender as a source fixture alongside the app extender. This is not an installed package. Only the Activity column chooser is disabled for these exact screenshot records; all relation tables and strict runner diagnostics remain."
         },
         {
             "package": "documentation",
@@ -1183,7 +1183,7 @@
                     "block": "center"
                 }
             ],
-            "notes": " Focused screenshot records omit unrelated relation tables through the schema extender contract; runner diagnostics remain strict."
+            "notes": "Only the Activity column chooser is disabled for these exact screenshot records; all relation tables and strict runner diagnostics remain."
         },
         {
             "package": "documentation",
@@ -1242,7 +1242,7 @@
                     "block": "center"
                 }
             ],
-            "notes": " Focused screenshot records omit unrelated relation tables through the schema extender contract; runner diagnostics remain strict."
+            "notes": "Only the Activity column chooser is disabled for these exact screenshot records; all relation tables and strict runner diagnostics remain."
         },
         {
             "package": "documentation",

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\RelationManagers\ActivityHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Core\Models\Page;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -14,6 +15,7 @@ uses(CreatesAdminUser::class)->group('admin');
 
 beforeEach(function (): void {
     CustomPageFieldsFixture::registerSchemaExtenders();
+    CustomPageFieldsFixture::configureActivityColumnManager();
     resolve(Translator::class)->addNamespace('capell-extension-cookbook', dirname(__DIR__, 5) . '/workbench/fixtures/extension-cookbook/lang');
     resolve(Translator::class)->addNamespace('custom-page-fields', dirname(__DIR__, 5) . '/workbench/lang/custom-page-fields');
     resolve(Factory::class)->addNamespace('custom-page-fields', dirname(__DIR__, 5) . '/workbench/resources/views/custom-page-fields');
@@ -66,4 +68,26 @@ it('reopens saved records without resetting their values', function (): void {
     $this->get('/screenshot-fixtures/custom-page-fields/editor')->assertRedirect(CustomPageFieldsFixture::editUrl('editor'));
 
     expect(data_get($page->refresh()->meta, 'case_study.client_name'))->toBe('Retained change');
+});
+
+it('keeps Activity rows while disabling its column chooser only for the exact screenshot records', function (): void {
+    test()->actingAsAdmin();
+    $fixture = CustomPageFieldsFixture::page('editor');
+    $activity = activity()->performedOn($fixture)->event('updated')->log('Fixture activity remains visible');
+    $focused = Livewire::test(ActivityHistoryRelationManager::class, [
+        'ownerRecord' => $fixture,
+        'pageClass' => EditPage::class,
+    ])->assertSuccessful()->assertCanSeeTableRecords([$activity]);
+
+    expect($focused->instance()->getTable()->hasColumnManager())->toBeFalse();
+
+    $ordinary = Page::factory()->site($fixture->site)->layout($fixture->layout)->type($fixture->blueprint)->withTranslations()->createOne([
+        'name' => 'Case study custom fields - outside-scenario',
+    ]);
+    $standard = Livewire::test(ActivityHistoryRelationManager::class, [
+        'ownerRecord' => $ordinary,
+        'pageClass' => EditPage::class,
+    ])->assertSuccessful();
+
+    expect($standard->instance()->getTable()->hasColumnManager())->toBeTrue();
 });
