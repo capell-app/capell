@@ -12,33 +12,40 @@ Then reload PHP-FPM, and [refresh public HTML](deploy-and-cache-refresh.md#refre
 
 `capell:upgrade` runs migrations and upgrade steps. `capell:runtime-refresh` rebuilds caches, warms pages, runs Doctor and restarts queues. Run `capell:upgrade --dry-run` first when you want to review the plan.
 
+If `composer install --no-dev` stops with `Class "Laravel\Boost\BoostServiceProvider" not found`, the directory was last installed with development packages. Delete the generated caches, then run the three commands above again from the start:
+
+```bash
+rm -rf bootstrap/cache/capell-runtime bootstrap/cache/packages.php bootstrap/cache/services.php
+```
+
+A release directory built from a clean checkout does not have these files.
+
 ## Deployer
 
-Share `storage` and `.env` between releases, then add these tasks after `deploy:vendors` and before `deploy:symlink`:
+The task order was checked against Deployer 8 and its `laravel` recipe. No deploy was run. Share `storage` and `.env` between releases, then add these tasks, which run before `deploy:symlink`:
 
 ```php
 task('capell:upgrade', fn () => run('cd {{release_path}} && {{bin/php}} artisan capell:upgrade --force --no-interaction'));
 task('capell:refresh', fn () => run('cd {{release_path}} && {{bin/php}} artisan capell:runtime-refresh --no-interaction'));
+task('artisan:migrate', fn () => null);
 
 before('deploy:symlink', 'capell:upgrade');
 after('capell:upgrade', 'capell:refresh');
 ```
 
-Reload PHP-FPM after `deploy:symlink`.
+The `laravel` recipe would run `artisan:migrate` before `capell:upgrade`, so the empty `artisan:migrate` task above leaves migrations to `capell:upgrade`. Reload PHP-FPM after `deploy:symlink`.
 
 ## Forge and Ploi
 
-Put this in the site's deploy script. Keep the host's generated PHP-FPM reload line after it:
+Open the site's deploy script. Keep the lines your host generated to enter the site directory and pull the branch, and keep its PHP-FPM reload line at the end. Replace the host's Composer, migrate and cache lines with these, using the host's PHP and Composer variables if your script has them:
 
 ```bash
-cd "$SITE_PATH"
-git pull origin main
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 php artisan capell:upgrade --force --no-interaction
 php artisan capell:runtime-refresh --no-interaction
 ```
 
-Set `SITE_PATH` to the site directory, or use your host's own path variable.
+Do not leave the host's own `php artisan migrate --force` or `php artisan optimize` lines after these.
 
 ## Check the deploy
 
