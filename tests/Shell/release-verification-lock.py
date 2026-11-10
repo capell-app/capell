@@ -51,16 +51,33 @@ class ReleaseVerificationLockTest(unittest.TestCase):
         # behind, or blocking, real host-wide heavy work.
         # The load cap is host-wide, so a busy host (or an admitted `heavy run`
         # parent) must not queue these children: lift the cap for this pool only.
+        # Memory admission reads the host kernel too: under macOS warn pressure the
+        # guard admits one run per 10 s even into a private pool, so the many
+        # wrapper launches here would queue past the caller's timeout. Inject
+        # normal readings so only this fixture's own lock decides who waits.
         self.environment = dict(os.environ, CAPELL_RELEASE_VERIFICATION_LOCK_PATH=str(self.path),
-                                HEAVY_SLOT_ROOT=str(self.root / 'heavy-slots'), HEAVY_MAX_LOAD='1000000')
+                                HEAVY_SLOT_ROOT=str(self.root / 'heavy-slots'), HEAVY_MAX_LOAD='1000000',
+                                HEAVY_VM_PRESSURE_LEVEL='1', HEAVY_MEMORY_FREE_PERCENT='100',
+                                HEAVY_SWAP_USED_PERCENT='0')
         # Admission and gate state inherited from a parent `heavy run`, a release
         # or the host shell describes the real pool and lock, not this fixture.
         for name in ['CAPELL_RELEASE_VERIFICATION_OWNER', 'CAPELL_NO_RELEASE_LOCK', 'COMPOSER', 'COMPOSER_VENDOR_DIR',
                      'HEAVY_SLOT_OWNER', 'HEAVY_SLOT_ENABLED', 'HEAVY_SLOT_GUARD', 'CAPELL_HEAVY_ADMITTED',
-                     'CAPELL_NO_LOCK', 'CAPELL_HEAVY_WEIGHT', 'CAPELL_HEAVY_LABEL']:
+                     'CAPELL_NO_LOCK', 'CAPELL_HEAVY_WEIGHT', 'CAPELL_HEAVY_LABEL', 'HEAVY_SWAP_USED_FILE',
+                     'HEAVY_MIN_FREE_PCT', 'HEAVY_MIN_FREE_PERCENT', 'HEAVY_MAX_SWAP_PERCENT', 'HEAVY_MEMORY_FILE']:
             self.environment.pop(name, None)
         self.php = shutil.which('php')
         self.assertIsNotNone(self.php)
+
+    def test_admission_ignores_host_memory_pressure(self):
+        for name, value in {'HEAVY_VM_PRESSURE_LEVEL': '1', 'HEAVY_MEMORY_FREE_PERCENT': '100',
+                            'HEAVY_SWAP_USED_PERCENT': '0'}.items():
+            self.assertEqual(self.environment.get(name), value, name)
+        started = time.monotonic()
+        for _ in range(3):
+            output, error = self.helper().communicate(timeout=10)
+            self.assertEqual(output, 'ran\n', error)
+        self.assertLess(time.monotonic() - started, 10)
 
     def start(self, command, cwd=None, **environment):
         child = subprocess.Popen(command, cwd=cwd or ROOT, env={**self.environment, **environment},
