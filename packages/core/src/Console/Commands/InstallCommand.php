@@ -371,7 +371,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             inputData: $inputData,
             result: $result,
             adminUrl: $this->installAdminUrl(),
-            firstPageStatus: ResolveInstallFirstPageStatusAction::run(),
+            firstPageStatus: ResolveInstallFirstPageStatusAction::run($inputData->siteUrl),
             warnings: array_values(array_unique($this->manualInstallChanges)),
             adminEmail: $inputData->newUser?->email,
         );

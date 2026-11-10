@@ -225,3 +225,35 @@ it('treats an install that chose a new administrator as a new account even when 
 
     expect($tips[0]['detail'])->toBe('https://example.test/admin');
 });
+
+it('does not claim demo content is seeded when the first page state is unknown or missing', function (string $status): void {
+    $tips = (new InstallHandoffTips)->build(
+        inputData: installTipsInput(['demoContent' => true]),
+        selectedPackages: ['capell-app/admin'],
+        completed: true,
+        needsFrontendBuild: false,
+        adminUrl: 'https://example.test/admin',
+        adminEmail: null,
+        publicUrl: 'https://example.test/',
+        firstPageStatus: $status,
+    );
+
+    expect(implode(' ', array_column($tips, 'detail')))->not->toContain('Demo content is seeded');
+})->with(['unavailable', 'missing', 'draft']);
+
+it('says a draft homepage is not published yet', function (): void {
+    $tips = (new InstallHandoffTips)->build(
+        inputData: installTipsInput(),
+        selectedPackages: ['capell-app/admin'],
+        completed: true,
+        needsFrontendBuild: false,
+        adminUrl: 'https://example.test/admin',
+        adminEmail: null,
+        publicUrl: 'https://example.test/',
+        firstPageStatus: 'draft',
+    );
+
+    expect($tips[1]['key'])->toBe('first_page')
+        ->and($tips[1]['detail'])->toContain('not published')
+        ->and($tips[1]['detail'])->not->toContain('is published at');
+});

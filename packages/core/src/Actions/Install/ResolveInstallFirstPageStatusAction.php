@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Enums\PublishStatusEnum;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -13,29 +16,44 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 /**
- * Describes the first page an install can hand off to: `editable` when a page
- * exists and Admin can open it, `present_unverified` when a page exists without
- * an edit URL, `missing` when there is no page or no pages table yet, and
- * `unavailable` when the state cannot be read.
+ * Describes the homepage of the site that was just installed: `editable` when it is
+ * published and Admin can open it, `present_unverified` when it is published without an
+ * edit URL, `draft` when it exists but is not live, `missing` when that site has no
+ * homepage (or there is no site or pages table yet), and `unavailable` when the state
+ * cannot be read or the install address does not match a site.
  *
- * @method static string run()
+ * @method static string run(?string $siteUrl = null)
  */
 final class ResolveInstallFirstPageStatusAction
 {
     use AsFake;
     use AsObject;
 
-    public function handle(): string
+    public function handle(?string $siteUrl = null): string
     {
         try {
-            if (! Schema::hasTable(TableName::resolve('pages'))) {
+            if (! Schema::hasTable(TableName::resolve('pages')) || ! Schema::hasTable(TableName::resolve('sites'))) {
                 return 'missing';
             }
 
-            $page = Page::query()->with('blueprint')->first();
+            $siteId = $this->siteId($siteUrl);
+
+            if ($siteId === false) {
+                return 'missing';
+            }
+
+            if ($siteId === null) {
+                return 'unavailable';
+            }
+
+            $page = Page::query()->with('blueprint')->where('site_id', $siteId)->homePage()->first();
 
             if (! $page instanceof Page) {
                 return 'missing';
+            }
+
+            if ($page->publishStatus !== PublishStatusEnum::published) {
+                return 'draft';
             }
 
             return GetEditPageResourceUrlAction::run($page) !== null
@@ -44,5 +62,27 @@ final class ResolveInstallFirstPageStatusAction
         } catch (Throwable) {
             return 'unavailable';
         }
+    }
+
+    /**
+     * @return int|false|null the installed site's id, false when no site exists, null when it cannot be identified
+     */
+    private function siteId(?string $siteUrl): int|false|null
+    {
+        if (! Site::query()->exists()) {
+            return false;
+        }
+
+        $host = is_string($siteUrl) ? parse_url($siteUrl, PHP_URL_HOST) : null;
+
+        if (is_string($host) && $host !== '') {
+            $siteIds = SiteDomain::query()->where('domain', strtolower($host))->pluck('site_id')->unique();
+
+            return $siteIds->count() === 1 ? (int) $siteIds->first() : null;
+        }
+
+        $siteIds = Site::query()->pluck('id');
+
+        return $siteIds->count() === 1 ? (int) $siteIds->first() : null;
     }
 }

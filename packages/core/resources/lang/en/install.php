@@ -239,15 +239,19 @@ return [
             ],
             'first_page_editable' => [
                 'label' => 'Your site',
-                'detail' => 'Your homepage is live at :url. Edit it under Admin → Pages.',
+                'detail' => 'Your homepage is published at :url. Edit it under Admin → Pages.',
             ],
             'first_page_unverified' => [
                 'label' => 'Your site',
-                'detail' => 'A page exists but could not be opened for editing. Check :url, then open Admin → Pages.',
+                'detail' => 'Your homepage is published but Admin could not open it for editing. Check :url, then open Admin → Pages.',
+            ],
+            'first_page_draft' => [
+                'label' => 'Your site',
+                'detail' => 'Your homepage exists but is not published, so :url will not show it yet. Publish it under Admin → Pages.',
             ],
             'first_page_missing' => [
                 'label' => 'Your site',
-                'detail' => 'No site or page yet. Create a site under Admin → Sites, then add its first page under Admin → Pages.',
+                'detail' => 'No site or homepage yet. Create a site under Admin → Sites, then add its homepage under Admin → Pages.',
             ],
             'first_page_demo' => [
                 'label' => 'Your site',
