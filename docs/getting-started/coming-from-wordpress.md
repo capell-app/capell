@@ -18,7 +18,7 @@ Capell is a Laravel application you own, so most WordPress ideas map to Laravel 
 For a site with a **Service** post type and a `price` custom field:
 
 1. Create the page type and field by following [Build your first page type](build-your-first-page-type.md).
-2. To keep old addresses, install URL Manager before you import. Without it the import still succeeds, but it creates no redirects and old addresses return 404:
+2. To keep old addresses, install URL Manager before you import. It is a paid package, so you need the Composer repository and credential described in [Paid package access](install.md#paid-package-access) before `composer require` can find it. Without it the import still succeeds, but it creates no redirects and old addresses return 404:
 
    ```bash
    composer require capell-app/url-manager

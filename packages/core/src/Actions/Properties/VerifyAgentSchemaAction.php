@@ -49,7 +49,7 @@ final class VerifyAgentSchemaAction
 
         $vocabulary = json_decode(File::get(__DIR__ . '/../../../resources/agent-schema/schemaorg-terms.json'), true, flags: JSON_THROW_ON_ERROR);
         $terms = array_fill_keys($vocabulary['terms'], true);
-        foreach (PropertyDefinition::query()->with('propertySet')->cursor() as $definition) {
+        foreach (PropertyDefinition::query()->with('propertySet')->lazy() as $definition) {
             $semantic = $definition->semantic;
             if ($semantic !== null && (! str_starts_with($semantic, 'schema:') || ! isset($terms[substr($semantic, 7)]))) {
                 $fail('semantic', (string) $definition->id, 'Unknown schema.org term: ' . $semantic);
