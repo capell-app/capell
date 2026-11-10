@@ -74,9 +74,10 @@ final class RuntimeRolePackageManifest extends PackageManifest
                 )->build();
                 $this->invalidateOpcache($this->sourceManifestPath);
                 $this->identity->record($this->sourceIdentityPath(), $snapshot);
-            } catch (Throwable $throwable) {
-                // A read-only bootstrap/cache can still boot from an existing source manifest.
-                throw_unless(is_file($this->sourceManifestPath), $throwable);
+            } catch (Throwable) {
+                // A read-only bootstrap/cache cannot hold the rebuilt source manifest, and the
+                // existing one is known to be stale: derive the current manifest in memory.
+                return $this->manifest = $this->filterManifest($this->buildInMemory());
             }
         }
 
@@ -84,6 +85,22 @@ final class RuntimeRolePackageManifest extends PackageManifest
         $this->persistRuntimeManifest($manifest, $snapshot);
 
         return $this->manifest = $manifest;
+    }
+
+    /** @return array<string, mixed> */
+    private function buildInMemory(): array
+    {
+        // A unique temporary path keeps opcache from serving an earlier manifest.
+        $temporary = sys_get_temp_dir() . '/capell-package-manifest-' . bin2hex(random_bytes(8)) . '.php';
+
+        try {
+            new PackageManifest($this->files, $this->basePath, $temporary)->build();
+            $manifest = $this->files->getRequire($temporary);
+        } finally {
+            $this->files->delete($temporary);
+        }
+
+        return is_array($manifest) ? $manifest : [];
     }
 
     private function runtimeIdentityPath(): string

@@ -12,7 +12,7 @@ Then reload PHP-FPM, and [refresh public HTML](deploy-and-cache-refresh.md#refre
 
 `capell:upgrade` runs migrations and upgrade steps. `capell:runtime-refresh` rebuilds caches, warms pages, runs Doctor and restarts queues. Run `capell:upgrade --dry-run` first when you want to review the plan.
 
-Capell checks `vendor/composer/installed.json` when it boots, so a runtime cache written before the last `composer install` is rebuilt rather than trusted. Installing with `--no-dev` over a tree that had development packages therefore does not need the caches deleted by hand, provided PHP-FPM is reloaded after the install. `capell:runtime-refresh` still regenerates the full runtime caches.
+Capell records the content of `vendor/composer/installed.json` with each runtime cache and rebuilds any cache whose recorded install set no longer matches, so a cache written before the last `composer install` is not trusted. Installing with `--no-dev` over a tree that had development packages therefore does not need the caches deleted by hand, provided PHP-FPM is reloaded after the install. `capell:runtime-refresh` still regenerates the full runtime caches.
 
 ## Deployer
 

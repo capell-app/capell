@@ -40,6 +40,10 @@ final class BuildRuntimeRoleProviderManifestsAction
                 $this->application->basePath(),
                 $sourcePackagesPath,
             )->build();
+            if (function_exists('opcache_invalidate')) {
+                @opcache_invalidate($sourcePackagesPath, true);
+            }
+
             $identity->record($this->paths->sourceInstallIdentity(), $snapshot);
         }
 
@@ -60,7 +64,9 @@ final class BuildRuntimeRoleProviderManifestsAction
             $this->writePhpArray($this->paths->packages($role), $packages);
             $this->writePhpArray($this->paths->providers($role), $providers);
             $this->writePhpArray($this->paths->services($role), $this->compileServices($allProviders));
-            $identity->record($this->paths->installIdentity($role), $snapshot);
+            if ($sourcePackages !== []) {
+                $identity->record($this->paths->installIdentity($role), $snapshot);
+            }
         }
 
         $this->writePhpArray($this->paths->metadata(), [
@@ -232,5 +238,9 @@ final class BuildRuntimeRoleProviderManifestsAction
             $path,
             '<?php return ' . var_export($value, return: true) . ';' . PHP_EOL,
         );
+
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($path, true);
+        }
     }
 }
