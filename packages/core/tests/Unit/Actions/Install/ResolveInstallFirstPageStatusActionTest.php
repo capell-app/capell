@@ -39,7 +39,7 @@ it('reports an unverified first page when the page exists but has no edit URL', 
 
 function installedSiteWithDomain(string $host): SiteDomain
 {
-    return SiteDomain::factory()->state(['domain' => $host])->create();
+    return SiteDomain::factory()->state(['domain' => $host, 'path' => null])->create();
 }
 
 it('ignores a homepage that belongs to another site', function (): void {
@@ -82,4 +82,15 @@ it('cannot verify the first page when the install address matches no site', func
     Page::factory()->home()->site($domain->site_id)->create();
 
     expect(ResolveInstallFirstPageStatusAction::run('https://elsewhere.example.test'))->toBe('unavailable');
+});
+
+it('finds the installed site when several sites share the install host under different paths', function (): void {
+    $root = SiteDomain::factory()->state(['domain' => 'shared.example.test', 'path' => null])->create();
+    $mounted = SiteDomain::factory()->state(['domain' => 'shared.example.test', 'path' => '/services'])->create();
+    Page::factory()->home()->site($mounted->site_id)->create();
+    GetEditPageResourceUrlAction::mock()->shouldReceive('handle')->once()->andReturn('https://shared.example.test/admin/pages/1/edit');
+
+    expect(ResolveInstallFirstPageStatusAction::run('https://shared.example.test'))->toBe('missing')
+        ->and($root->site_id)->not->toBe($mounted->site_id)
+        ->and(ResolveInstallFirstPageStatusAction::run('https://shared.example.test/services'))->toBe('editable');
 });

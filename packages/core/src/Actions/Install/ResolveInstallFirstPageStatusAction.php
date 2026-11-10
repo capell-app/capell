@@ -76,7 +76,13 @@ final class ResolveInstallFirstPageStatusAction
         $host = is_string($siteUrl) ? parse_url($siteUrl, PHP_URL_HOST) : null;
 
         if (is_string($host) && $host !== '') {
-            $siteIds = SiteDomain::query()->where('domain', strtolower($host))->pluck('site_id')->unique();
+            $path = trim((string) parse_url((string) $siteUrl, PHP_URL_PATH), '/');
+            $siteIds = SiteDomain::query()
+                ->where('domain', strtolower($host))
+                ->get(['site_id', 'path'])
+                ->filter(fn (SiteDomain $domain): bool => trim((string) $domain->path, '/') === $path)
+                ->pluck('site_id')
+                ->unique();
 
             return $siteIds->count() === 1 ? (int) $siteIds->first() : null;
         }
