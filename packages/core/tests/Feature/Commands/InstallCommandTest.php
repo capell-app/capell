@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\BuildInstallRunResultAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
+use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
@@ -23,6 +24,7 @@ use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
+use Capell\Core\Tests\Feature\Commands\Fixtures\SilentFailureInstallCommand;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Tests\Fixtures\Models\User;
@@ -517,6 +519,43 @@ it('includes an explicitly requested asset build in a plan without applying it',
     expect($fake->callCount)->toBe(0);
 });
 
+it('names the exception and the next safe action when an install failure has no message', function (): void {
+    setupInstallTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    $fake->throwable = new RuntimeException('');
+
+    artisanCommand('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('Capell installation failed.')
+        ->expectsOutputToContain(RuntimeException::class)
+        ->expectsOutputToContain('php artisan capell:doctor')
+        ->assertExitCode(Command::FAILURE);
+});
+
+it('says nothing was changed and how to continue when fresh install confirmation is declined', function (): void {
+    setupInstallTest();
+    bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--fresh' => true,
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'no')
+        ->expectsOutputToContain('Your data has not been changed')
+        ->expectsOutputToContain('without --fresh')
+        ->assertExitCode(Command::FAILURE);
+});
+
 it('renders install failures once and exits cleanly', function (): void {
     setupInstallTest();
     createTestUser();
@@ -668,6 +707,38 @@ it('exits when filament installation is declined for the admin package', functio
     ])
         ->expectsConfirmation('Create the required Filament admin panel during installation?', 'no')
         ->expectsOutput('Filament must be installed before installing the Capell admin package.')
+        ->expectsOutputToContain('filament:install --panels')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($fake->callCount)->toBe(0);
+});
+
+it('never exits with a failure without telling the developer what to do next', function (): void {
+    setupInstallTest();
+    Artisan::registerCommand(new SilentFailureInstallCommand);
+
+    artisanCommand('capell:install', ['--no-interaction' => true])
+        ->expectsOutputToContain('stopped without giving a reason')
+        ->expectsOutputToContain('php artisan capell:doctor')
+        ->assertExitCode(Command::FAILURE);
+});
+
+it('explains a Filament panel setup failure that has no message', function (): void {
+    setupInstallTest(['capell-app/admin']);
+    createTestUser();
+    unlink(base_path('app/Providers/Filament/AdminPanelProvider.php'));
+    $fake = bindFakeRunInstallAction();
+    InstallFilamentPanelAction::mock()->shouldReceive('handle')->andThrow(new RuntimeException(''));
+
+    artisanCommand('capell:install', [
+        '--packages' => 'capell-app/admin',
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('The Filament admin panel could not be prepared.')
         ->assertExitCode(Command::FAILURE);
 
     expect($fake->callCount)->toBe(0);
