@@ -187,8 +187,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     /** @var list<string>|null */
     private ?array $cacheChoices = null;
 
+    private bool $failureExplained = false;
+
     public function handle(): int
     {
+        $this->failureExplained = false;
         $this->toolingChoice = null;
         $this->buildAssetsChoice = null;
         $this->removeInstallerChoice = null;
@@ -211,6 +214,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $this->restartReview = false;
             $result = $this->runWizard();
         } while ($this->restartReview);
+
+        if ($result !== CommandAlias::SUCCESS && ! $this->failureExplained) {
+            $this->newLine();
+            $this->error(__('capell-core::install.failure.unexplained'));
+            $this->line(__('capell-core::install.failure.next_action'));
+        }
 
         return $result;
     }
@@ -419,7 +428,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     }
 
     /** @phpstan-impure Collects answers and mutates pending choices when the review is edited. */
-    private function runWizard(): int
+    protected function runWizard(): int
     {
         $this->resolvedSiteUrl = null;
         $this->configureHomepage = false;
@@ -529,6 +538,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             && ! confirm(label: __('capell-core::install.review.panel_label'), default: true, hint: __('capell-core::install.review.panel_hint'))
         ) {
             $this->error('Filament must be installed before installing the Capell admin package.');
+            $this->line(__('capell-core::install.failure.panel_declined_next'));
 
             return CommandAlias::FAILURE;
         }
@@ -720,7 +730,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         try {
             $tableChanges = $this->chooseCollisionTableNames(array_values(array_unique([...$packages->keys()->all(), ...$installTimePackageNames, ...$themeExtraPackages])));
         } catch (RuntimeException $runtimeException) {
-            $this->error($runtimeException->getMessage());
+            $this->error(trim($runtimeException->getMessage()) !== '' ? $runtimeException->getMessage() : __('capell-core::install.failure.table_names_no_detail'));
 
             return CommandAlias::FAILURE;
         }
@@ -789,7 +799,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
             reporter: $reporter,
             writeError: function (string $message): void {
-                $this->error($message);
+                $this->error(trim($message) !== '' ? $message : __('capell-core::install.failure.preflight_no_detail'));
             },
         )) {
             $this->logInstallDebug('filament admin panel check failed');
@@ -1183,6 +1193,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $this->logInstallDebug('install orchestration finished');
         } catch (Throwable $throwable) {
             report($throwable);
+            $this->failureExplained = true;
             resolve(InstallCommandPresenter::class)->renderFailure($throwable, $this->getOutput());
             $this->logInstallDebug('install action failed', [
                 'exception' => $throwable::class,
@@ -1329,7 +1340,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $this->logInstallDebug('resolving selected packages');
             $packages = $this->getSelectedPackages();
         } catch (InvalidArgumentException $invalidArgumentException) {
-            $this->error($invalidArgumentException->getMessage());
+            $this->error(trim($invalidArgumentException->getMessage()) !== '' ? $invalidArgumentException->getMessage() : __('capell-core::install.failure.package_selection_no_detail'));
             $this->logInstallDebug('package selection failed', [
                 'message' => $invalidArgumentException->getMessage(),
             ]);
@@ -1396,6 +1407,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->warn('Fresh install cancelled.');
+        $this->line(__('capell-core::install.failure.cancelled'));
+        $this->line(__('capell-core::install.failure.cancelled_next'));
 
         return false;
     }
