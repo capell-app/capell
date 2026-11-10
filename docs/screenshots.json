@@ -1099,6 +1099,176 @@
                 "packages/marketplace/src/Filament/Pages/MarketplacePurchasesPage.php"
             ],
             "notes": "The purchases page displays the heartbeat action without connecting a real account."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage",
+            "scenario": "admin-form",
+            "docsPage": "docs/getting-started/add-a-custom-page-field.md",
+            "colorSchemes": [
+                "light"
+            ],
+            "required": true,
+            "id": "custom-page-fields-editor",
+            "title": "Case study fields alongside the real Extension Cookbook schema contribution.",
+            "url": "/screenshot-fixtures/custom-page-fields/editor",
+            "waitFor": "input[id$='meta.case_study.client_name']",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Case study')"
+                }
+            ],
+            "output": "docs/images/generated/admin/custom-page-fields-editor.png",
+            "capture": {
+                "fullPage": false
+            },
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": "text=Reference entry fields are package-owned; this note is presentation-only."
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "input[id$='meta.case_study.client_name']",
+                    "block": "center"
+                }
+            ],
+            "notes": "Loads the pinned real Extension Cookbook schema extender as a source fixture alongside the app extender. This is not an installed package."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage",
+            "scenario": "admin-form",
+            "docsPage": "docs/getting-started/add-a-custom-page-field.md",
+            "colorSchemes": [
+                "light"
+            ],
+            "required": true,
+            "id": "custom-page-fields-validation",
+            "title": "Client name validation on the real page editor.",
+            "url": "/screenshot-fixtures/custom-page-fields/validation",
+            "waitFor": "input[id$='meta.case_study.client_name']",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Case study')"
+                }
+            ],
+            "output": "docs/images/generated/admin/custom-page-fields-validation.png",
+            "capture": {
+                "fullPage": false
+            },
+            "interactions": [
+                {
+                    "type": "fill",
+                    "selector": "input[id$='meta.case_study.client_name']",
+                    "value": " "
+                },
+                {
+                    "type": "click",
+                    "selector": "button[type='submit']:has-text('Save')"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-fo-field-wrp-error-message:has-text('required')"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "input[id$='meta.case_study.client_name']",
+                    "block": "center"
+                }
+            ]
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage",
+            "scenario": "admin-form",
+            "docsPage": "docs/getting-started/add-a-custom-page-field.md",
+            "colorSchemes": [
+                "light"
+            ],
+            "required": true,
+            "id": "custom-page-fields-reopened",
+            "title": "Saved Client name after reopening the real page editor.",
+            "url": "/screenshot-fixtures/custom-page-fields/reopened",
+            "waitFor": "input[id$='meta.case_study.client_name']",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Case study')"
+                }
+            ],
+            "output": "docs/images/generated/admin/custom-page-fields-reopened.png",
+            "capture": {
+                "fullPage": false
+            },
+            "interactions": [
+                {
+                    "type": "fill",
+                    "selector": "input[id$='meta.case_study.client_name']",
+                    "value": "Field Notes Studio"
+                },
+                {
+                    "type": "click",
+                    "selector": "button[type='submit']:has-text('Save')"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-no-notification:has-text('Saved')"
+                },
+                {
+                    "type": "click",
+                    "selector": "nav.fi-breadcrumbs a[href$='/pages']"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-ta-row:has-text('Case study custom fields - reopened')"
+                },
+                {
+                    "type": "click",
+                    "selector": ".fi-ta-row:has-text('Case study custom fields - reopened') a[href$='/edit']"
+                },
+                {
+                    "type": "click",
+                    "selector": "button[role='tab']:has-text('Case study')"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "input[id$='meta.case_study.client_name']"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "input[id$='meta.case_study.client_name']",
+                    "block": "center"
+                }
+            ]
+        },
+        {
+            "package": "documentation",
+            "surface": "frontend",
+            "targetType": "frontend-url",
+            "target": null,
+            "scenario": "frontend-page",
+            "docsPage": "docs/getting-started/add-a-custom-page-field.md",
+            "colorSchemes": [
+                "light"
+            ],
+            "required": true,
+            "id": "custom-page-fields-public",
+            "title": "Client name rendered by the standard anonymous page route.",
+            "url": "/custom-page-fields-public",
+            "waitFor": ".client:has-text('Field Notes Studio')",
+            "output": "docs/images/generated/package-surfaces/custom-page-fields-public.png",
+            "capture": {
+                "fullPage": true
+            }
         }
     ]
 }

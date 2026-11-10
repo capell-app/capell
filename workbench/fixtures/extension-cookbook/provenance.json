@@ -1,0 +1,17 @@
+{
+    "repository": "https://github.com/capell-app/capell-packages",
+    "commit": "00507db557838d94c633691872644db9f7a97300",
+    "purpose": "Pinned real extension schema contribution loaded into the screenshot fixture, not an installed package.",
+    "files": [
+        {
+            "source": "packages/extension-cookbook/src/Filament/Extenders/ExtensionCookbookPageSchemaExtender.php",
+            "fixture": "ExtensionCookbookPageSchemaExtender.php",
+            "sha256": "f38867482b36847e222ba74e6e94b504f9be9e5c16b4eabc2d0a128c9dad377e"
+        },
+        {
+            "source": "packages/extension-cookbook/resources/lang/en/admin.php",
+            "fixture": "lang/en/admin.php",
+            "sha256": "d16b218d564f95f53ba04a18f558a12183b1b4ccb7d3dc57bb9dd68c2d5ddbd8"
+        }
+    ]
+}
