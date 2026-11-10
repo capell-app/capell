@@ -17,6 +17,7 @@ use Illuminate\Foundation\Bootstrap\RegisterFacades;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Date;
 
 require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
@@ -25,6 +26,7 @@ $fixtureState = $argv[2] ?? null;
 $useStaleGeneratedManifests = $fixtureState === 'stale';
 $useCustomProviders = $fixtureState === 'custom';
 $useResolvedApplication = $fixtureState === 'resolved';
+$useRemovedDevPackage = $fixtureState === 'dev-package-removed';
 $basePath = sys_get_temp_dir() . '/capell-runtime-role-boot-' . bin2hex(random_bytes(6));
 $files = new Filesystem;
 $files->ensureDirectoryExists($basePath . '/bootstrap/cache');
@@ -69,6 +71,39 @@ if ($useStaleGeneratedManifests) {
             ],
         ], true) . ';',
     );
+}
+
+if ($useRemovedDevPackage) {
+    // Caches generated while a dev-only package was installed, followed by
+    // `composer install --no-dev`, which rewrites installed.json without it.
+    $devProviders = [...$providers, 'Laravel\\Boost\\BoostServiceProvider'];
+    $devPackages = [
+        'laravel/boost' => ['providers' => ['Laravel\\Boost\\BoostServiceProvider']],
+        'vendor/live-runtime-package' => ['providers' => $providers],
+    ];
+    $generated = [
+        $basePath . '/bootstrap/cache/packages.php' => $devPackages,
+        $basePath . '/bootstrap/cache/capell-runtime/public/packages.php' => $devPackages,
+        $basePath . '/bootstrap/cache/capell-runtime/public/services.php' => [
+            'providers' => $devProviders,
+            'eager' => $devProviders,
+            'deferred' => [],
+            'when' => [],
+        ],
+    ];
+    $files->ensureDirectoryExists($basePath . '/bootstrap/cache/capell-runtime/public');
+    foreach ($generated as $path => $contents) {
+        $files->put($path, '<?php return ' . var_export($contents, true) . ';');
+        touch($path, Date::now()->subMinutes(1)->getTimestamp());
+    }
+
+    $files->ensureDirectoryExists($basePath . '/vendor/composer');
+    $files->put($basePath . '/vendor/composer/installed.json', json_encode([
+        'packages' => [[
+            'name' => 'vendor/live-runtime-package',
+            'extra' => ['laravel' => ['providers' => $providers]],
+        ]],
+    ], JSON_THROW_ON_ERROR));
 }
 
 try {
@@ -122,6 +157,7 @@ try {
         'package_manifest' => $application->make(PackageManifest::class)::class,
         'configured_provider_count' => is_array($configuredProviders) ? count($configuredProviders) : null,
         'configured_provider_unique_count' => is_array($configuredProviders) ? count(array_unique($configuredProviders)) : null,
+        'services_providers' => is_array($servicesManifest['providers'] ?? null) ? $servicesManifest['providers'] : [],
         'services_provider_count' => is_array($servicesManifest['providers'] ?? null) ? count($servicesManifest['providers']) : null,
         'services_provider_unique_count' => is_array($servicesManifest['providers'] ?? null) ? count(array_unique($servicesManifest['providers'])) : null,
     ], JSON_THROW_ON_ERROR);
