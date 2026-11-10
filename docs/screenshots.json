@@ -1136,7 +1136,7 @@
                     "block": "center"
                 }
             ],
-            "notes": "Loads the pinned real Extension Cookbook schema extender as a source fixture alongside the app extender. This is not an installed package."
+            "notes": "Loads the pinned real Extension Cookbook schema extender as a source fixture alongside the app extender. This is not an installed package. Focused screenshot records omit unrelated relation tables through the schema extender contract; runner diagnostics remain strict."
         },
         {
             "package": "documentation",
@@ -1182,7 +1182,8 @@
                     "selector": "input[id$='meta.case_study.client_name']",
                     "block": "center"
                 }
-            ]
+            ],
+            "notes": " Focused screenshot records omit unrelated relation tables through the schema extender contract; runner diagnostics remain strict."
         },
         {
             "package": "documentation",
@@ -1225,15 +1226,7 @@
                 },
                 {
                     "type": "click",
-                    "selector": "nav.fi-breadcrumbs a[href$='/pages']"
-                },
-                {
-                    "type": "waitFor",
-                    "selector": ".fi-ta-row:has-text('Case study custom fields - reopened')"
-                },
-                {
-                    "type": "click",
-                    "selector": ".fi-ta-row:has-text('Case study custom fields - reopened') a[href$='/edit']"
+                    "selector": "nav.fi-breadcrumbs a:has-text('Case study custom fields - reopened'):visible"
                 },
                 {
                     "type": "click",
@@ -1248,7 +1241,8 @@
                     "selector": "input[id$='meta.case_study.client_name']",
                     "block": "center"
                 }
-            ]
+            ],
+            "notes": " Focused screenshot records omit unrelated relation tables through the schema extender contract; runner diagnostics remain strict."
         },
         {
             "package": "documentation",

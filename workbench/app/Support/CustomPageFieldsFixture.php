@@ -17,13 +17,14 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Workbench\App\Support\Schemas\CaseStudyPageSchemaExtender;
+use Workbench\App\Support\Schemas\FocusCustomPageFieldsScreenshot;
 
 final class CustomPageFieldsFixture
 {
     public static function registerSchemaExtenders(): void
     {
         require_once __DIR__ . '/../../fixtures/extension-cookbook/ExtensionCookbookPageSchemaExtender.php';
-        app()->tag([CaseStudyPageSchemaExtender::class, ExtensionCookbookPageSchemaExtender::class], PageSchemaExtender::TAG);
+        app()->tag([CaseStudyPageSchemaExtender::class, ExtensionCookbookPageSchemaExtender::class, FocusCustomPageFieldsScreenshot::class], PageSchemaExtender::TAG);
     }
 
     public static function initialize(string $frontendOrigin): void
