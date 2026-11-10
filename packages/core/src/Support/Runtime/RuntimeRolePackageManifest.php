@@ -14,6 +14,8 @@ final class RuntimeRolePackageManifest extends PackageManifest
 {
     private readonly string $runtimeManifestPath;
 
+    private readonly ComposerInstallIdentity $identity;
+
     public function __construct(
         Filesystem $files,
         string $basePath,
@@ -24,21 +26,24 @@ final class RuntimeRolePackageManifest extends PackageManifest
     ) {
         parent::__construct($files, $basePath, $manifestPath);
         $this->runtimeManifestPath = $manifestPath;
+        $this->identity = new ComposerInstallIdentity($files, $basePath);
     }
 
     #[Override]
     public function build(): void
     {
-        $sourceManifest = new PackageManifest(
+        $snapshot = $this->identity->snapshot();
+
+        new PackageManifest(
             $this->files,
             $this->basePath,
             $this->sourceManifestPath,
-        );
-        $sourceManifest->build();
+        )->build();
         $this->invalidateOpcache($this->sourceManifestPath);
+        $this->identity->record($this->sourceIdentityPath(), $snapshot);
 
         $this->manifest = $this->filteredSourceManifest();
-        $this->persistRuntimeManifest($this->manifest);
+        $this->persistRuntimeManifest($this->manifest, $snapshot);
     }
 
     /** @return array<string, mixed> */
@@ -49,7 +54,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
             return $this->manifest;
         }
 
-        if ($this->isFresh($this->runtimeManifestPath)) {
+        if (is_file($this->runtimeManifestPath) && $this->identity->matches($this->runtimeIdentityPath())) {
             $manifest = $this->files->getRequire($this->runtimeManifestPath);
 
             if (is_array($manifest)) {
@@ -57,7 +62,10 @@ final class RuntimeRolePackageManifest extends PackageManifest
             }
         }
 
-        if (! $this->isFresh($this->sourceManifestPath)) {
+        // Taken before any rebuild so a change made meanwhile is caught on the next boot.
+        $snapshot = $this->identity->snapshot();
+
+        if (! is_file($this->sourceManifestPath) || ! $this->identity->matches($this->sourceIdentityPath())) {
             try {
                 new PackageManifest(
                     $this->files,
@@ -65,6 +73,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
                     $this->sourceManifestPath,
                 )->build();
                 $this->invalidateOpcache($this->sourceManifestPath);
+                $this->identity->record($this->sourceIdentityPath(), $snapshot);
             } catch (Throwable $throwable) {
                 // A read-only bootstrap/cache can still boot from an existing source manifest.
                 throw_unless(is_file($this->sourceManifestPath), $throwable);
@@ -72,39 +81,26 @@ final class RuntimeRolePackageManifest extends PackageManifest
         }
 
         $manifest = $this->filteredSourceManifest();
-        $this->persistRuntimeManifest($manifest);
+        $this->persistRuntimeManifest($manifest, $snapshot);
 
         return $this->manifest = $manifest;
     }
 
-    /**
-     * A generated manifest is only trusted while it is at least as new as the
-     * Composer install set it was derived from. Composer rewrites
-     * vendor/composer/installed.json on every install or removal, so a cache
-     * written before that (for example over a dev-installed tree that has since
-     * been installed with --no-dev) can name providers that no longer exist.
-     * Two stat calls per boot; the manifest is only read when it is current.
-     */
-    private function isFresh(string $path): bool
+    private function runtimeIdentityPath(): string
     {
-        if (! is_file($path)) {
-            return false;
-        }
-
-        $installed = $this->basePath . '/vendor/composer/installed.json';
-
-        if (! is_file($installed)) {
-            return true;
-        }
-
-        clearstatcache(false, $path);
-        clearstatcache(false, $installed);
-
-        return filemtime($path) >= filemtime($installed);
+        return dirname($this->runtimeManifestPath) . '/install-identity.php';
     }
 
-    /** @param array<string, mixed> $manifest */
-    private function persistRuntimeManifest(array $manifest): void
+    private function sourceIdentityPath(): string
+    {
+        return dirname($this->sourceManifestPath) . '/capell-runtime/source-install-identity.php';
+    }
+
+    /**
+     * @param  array<string, mixed>  $manifest
+     * @param  array{sha256: string, size: int, mtime: int, generated_at: int}|null  $snapshot
+     */
+    private function persistRuntimeManifest(array $manifest, ?array $snapshot): void
     {
         // An empty manifest may come from a half-written installed.json; never trust it for later boots.
         if ($manifest === []) {
@@ -118,6 +114,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
                 '<?php return ' . var_export($manifest, return: true) . ';' . PHP_EOL,
             );
             $this->invalidateOpcache($this->runtimeManifestPath);
+            $this->identity->record($this->runtimeIdentityPath(), $snapshot);
         } catch (Throwable) {
             // A read-only bootstrap/cache must still boot from the in-memory manifest.
         }

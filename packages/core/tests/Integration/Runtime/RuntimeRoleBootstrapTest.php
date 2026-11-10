@@ -52,14 +52,18 @@ it('re-filters stale generated manifests before public provider registration', f
         ->not->toContain(AuthoringRuntimeRoleProvider::class);
 });
 
-it('boots after a dev-only package disappears from the Composer install set', function (): void {
-    $result = bootRuntimeRoleFixture('public', 'dev-package-removed');
+it('boots after a dev-only package disappears from the Composer install set', function (string $state): void {
+    $result = bootRuntimeRoleFixture('public', $state);
 
     expect($result['loaded_providers'])
         ->toContain(FrontendPreviewRuntimeRoleProvider::class)
         ->not->toContain('Laravel\\Boost\\BoostServiceProvider')
         ->and($result['services_providers'])->not->toContain('Laravel\\Boost\\BoostServiceProvider');
-});
+})->with([
+    'identity never recorded' => 'dev-package-removed',
+    'mtime older than the cache (preserved by rsync)' => 'dev-package-removed-preserved-mtime',
+    'rewritten in the same second and size' => 'dev-package-removed-same-second',
+]);
 
 it('preserves and filters ApplicationBuilder providers when the bootstrap manifest is empty', function (): void {
     $combined = bootRuntimeRoleFixture('combined', 'custom');

@@ -46,6 +46,16 @@ final readonly class RuntimeRoleCachePaths
         return $this->roleDirectory($role) . '/events.php';
     }
 
+    public function installIdentity(RuntimeRole $role): string
+    {
+        return $this->roleDirectory($role) . '/install-identity.php';
+    }
+
+    public function sourceInstallIdentity(): string
+    {
+        return $this->directory() . '/source-install-identity.php';
+    }
+
     public function metadata(): string
     {
         return $this->directory() . '/manifest.php';

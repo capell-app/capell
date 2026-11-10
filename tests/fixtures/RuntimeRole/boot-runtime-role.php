@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Runtime\ComposerInstallIdentity;
 use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Tests\Fixtures\RuntimeRole\Filament\AuthoringRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\FrontendPreviewRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\RuntimeRoleOrderingProvider;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -17,7 +19,6 @@ use Illuminate\Foundation\Bootstrap\RegisterFacades;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Env;
-use Illuminate\Support\Facades\Date;
 
 require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
@@ -26,7 +27,7 @@ $fixtureState = $argv[2] ?? null;
 $useStaleGeneratedManifests = $fixtureState === 'stale';
 $useCustomProviders = $fixtureState === 'custom';
 $useResolvedApplication = $fixtureState === 'resolved';
-$useRemovedDevPackage = $fixtureState === 'dev-package-removed';
+$useRemovedDevPackage = str_starts_with((string) $fixtureState, 'dev-package-removed');
 $basePath = sys_get_temp_dir() . '/capell-runtime-role-boot-' . bin2hex(random_bytes(6));
 $files = new Filesystem;
 $files->ensureDirectoryExists($basePath . '/bootstrap/cache');
@@ -76,11 +77,31 @@ if ($useStaleGeneratedManifests) {
 if ($useRemovedDevPackage) {
     // Caches generated while a dev-only package was installed, followed by
     // `composer install --no-dev`, which rewrites installed.json without it.
+    // Variants: the cache identity was never recorded, the rewrite preserved an
+    // old mtime (rsync/artifact unpack), or it landed in the same second and size.
     $devProviders = [...$providers, 'Laravel\\Boost\\BoostServiceProvider'];
     $devPackages = [
         'laravel/boost' => ['providers' => ['Laravel\\Boost\\BoostServiceProvider']],
         'vendor/live-runtime-package' => ['providers' => $providers],
     ];
+    $installedPath = $basePath . '/vendor/composer/installed.json';
+    $installedJson = static fn (array $packages): string => json_encode(['packages' => $packages], JSON_THROW_ON_ERROR);
+    $livePackage = [
+        'name' => 'vendor/live-runtime-package',
+        'extra' => ['laravel' => ['providers' => $providers]],
+    ];
+    $devPackage = [
+        'name' => 'laravel/boost',
+        'extra' => ['laravel' => ['providers' => ['Laravel\\Boost\\BoostServiceProvider']]],
+    ];
+    $files->ensureDirectoryExists($basePath . '/vendor/composer');
+    $files->ensureDirectoryExists($basePath . '/bootstrap/cache/capell-runtime/public');
+    $files->put($installedPath, $installedJson([$livePackage, $devPackage]));
+    $installedMtime = $fixtureState === 'dev-package-removed-same-second' ? CarbonImmutable::now()->getTimestamp() : CarbonImmutable::now()->subHours(1)->getTimestamp();
+    touch($installedPath, $installedMtime);
+
+    $identity = new ComposerInstallIdentity($files, $basePath);
+    $snapshot = $identity->snapshot();
     $generated = [
         $basePath . '/bootstrap/cache/packages.php' => $devPackages,
         $basePath . '/bootstrap/cache/capell-runtime/public/packages.php' => $devPackages,
@@ -91,19 +112,30 @@ if ($useRemovedDevPackage) {
             'when' => [],
         ],
     ];
-    $files->ensureDirectoryExists($basePath . '/bootstrap/cache/capell-runtime/public');
     foreach ($generated as $path => $contents) {
         $files->put($path, '<?php return ' . var_export($contents, true) . ';');
-        touch($path, Date::now()->subMinutes(1)->getTimestamp());
+        touch($path, CarbonImmutable::now()->getTimestamp());
     }
 
-    $files->ensureDirectoryExists($basePath . '/vendor/composer');
-    $files->put($basePath . '/vendor/composer/installed.json', json_encode([
-        'packages' => [[
-            'name' => 'vendor/live-runtime-package',
-            'extra' => ['laravel' => ['providers' => $providers]],
-        ]],
-    ], JSON_THROW_ON_ERROR));
+    if ($fixtureState !== 'dev-package-removed') {
+        $identity->record($basePath . '/bootstrap/cache/capell-runtime/source-install-identity.php', $snapshot);
+        $identity->record($basePath . '/bootstrap/cache/capell-runtime/public/install-identity.php', $snapshot);
+    }
+
+    // composer install --no-dev: the dev package leaves installed.json.
+    $removed = $installedJson([$livePackage]);
+    $current = $installedJson([$livePackage, $devPackage]);
+
+    if ($fixtureState === 'dev-package-removed-same-second') {
+        // Same byte length and same mtime second as the recorded install set.
+        $removed = str_pad($removed, strlen($current));
+        $files->put($installedPath, $removed);
+        touch($installedPath, $installedMtime);
+    } else {
+        $files->put($installedPath, $removed);
+        // Preserved (or older) mtime: the caches are newer than installed.json.
+        touch($installedPath, CarbonImmutable::now()->subHours(2)->getTimestamp());
+    }
 }
 
 try {
