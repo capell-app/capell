@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
+use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Tests\Fixtures\RuntimeRole\Filament\AuthoringRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\FrontendPreviewRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\RuntimeRoleOrderingProvider;
+use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
 it('selects role-specific provider graphs before Laravel registers providers', function (): void {
@@ -50,6 +53,60 @@ it('re-filters stale generated manifests before public provider registration', f
     expect($result['loaded_providers'])
         ->toContain(FrontendPreviewRuntimeRoleProvider::class)
         ->not->toContain(AuthoringRuntimeRoleProvider::class);
+});
+
+it('boots after a dev-only package disappears from the Composer install set', function (string $state): void {
+    $result = bootRuntimeRoleFixture('public', $state);
+
+    expect($result['loaded_providers'])
+        ->toContain(FrontendPreviewRuntimeRoleProvider::class)
+        ->not->toContain('Laravel\\Boost\\BoostServiceProvider')
+        ->and($result['services_providers'])->not->toContain('Laravel\\Boost\\BoostServiceProvider');
+})->with([
+    'identity never recorded' => 'dev-package-removed',
+    'mtime older than the cache (preserved by rsync)' => 'dev-package-removed-preserved-mtime',
+    'rewritten in the same second and size' => 'dev-package-removed-same-second',
+]);
+
+it('derives the package manifest in memory when a stale cache cannot be rewritten', function (): void {
+    $base = sys_get_temp_dir() . '/capell-readonly-manifest-' . bin2hex(random_bytes(6));
+    $cache = $base . '/bootstrap/cache';
+    $files = new Filesystem;
+    $files->ensureDirectoryExists($cache . '/capell-runtime/public');
+    $files->ensureDirectoryExists($base . '/vendor/composer');
+
+    $stale = '<?php return ' . var_export(['laravel/boost' => ['providers' => ['Laravel\\Boost\\BoostServiceProvider']]], true) . ';';
+    $files->put($cache . '/packages.php', $stale);
+    $files->put($cache . '/capell-runtime/public/packages.php', $stale);
+    $files->put($base . '/vendor/composer/installed.json', json_encode(['packages' => [[
+        'name' => 'vendor/live',
+        'extra' => ['laravel' => ['providers' => ['Vendor\\Live\\LiveServiceProvider']]],
+    ]]], JSON_THROW_ON_ERROR));
+
+    foreach ([$cache . '/capell-runtime/public', $cache . '/capell-runtime', $cache] as $directory) {
+        chmod($directory, 0555);
+    }
+
+    try {
+        $manifest = new RuntimeRolePackageManifest(
+            $files,
+            $base,
+            $cache . '/capell-runtime/public/packages.php',
+            $cache . '/packages.php',
+            RuntimeRole::Public,
+            new RuntimeRoleProviderPolicy,
+        );
+
+        expect($manifest->providers())
+            ->toContain('Vendor\\Live\\LiveServiceProvider')
+            ->not->toContain('Laravel\\Boost\\BoostServiceProvider');
+    } finally {
+        foreach ([$cache, $cache . '/capell-runtime', $cache . '/capell-runtime/public'] as $directory) {
+            chmod($directory, 0755);
+        }
+
+        $files->deleteDirectory($base);
+    }
 });
 
 it('preserves and filters ApplicationBuilder providers when the bootstrap manifest is empty', function (): void {
