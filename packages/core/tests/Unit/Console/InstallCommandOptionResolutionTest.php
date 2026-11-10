@@ -16,6 +16,7 @@ use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Core\Support\Install\InstallSiteName;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
@@ -521,7 +522,7 @@ it('asks for the first site URL and preserves its port and path', function (): v
     try {
         expect(callInstallCommandMethod(installCommandForOptions([], true), 'resolveSiteUrl'))
             ->toBe('https://example.test:8443/blog');
-        Prompt::assertStrippedOutputContains('What is the URL of your first site?');
+        Prompt::assertStrippedOutputContains("What is the site's address?");
     } finally {
         $fallback->setValue(null, $previousFallback);
     }
@@ -601,59 +602,25 @@ it('rejects site addresses that cannot be persisted as a site origin and path', 
         ->toThrow(InvalidArgumentException::class, 'absolute HTTP or HTTPS');
 })->with(['example.test/blog', 'ftp://example.test/blog', 'https://', 'https://example.test:99999', 'https://invalid host.test']);
 
-it('defaults the basic review to confirm all and honours Cancel', function (array $keys, bool $expected): void {
+it('ends the default install with the single install confirmation and honours No', function (array $keys, bool $expected): void {
     $command = installCommandForOptions([], true);
     new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
-    $input = new InstallInputData(siteUrl: 'https://operator:secret@example.test/path?token=private', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
     $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
     $previousFallback = $fallback->getValue();
     Prompt::fake($keys);
     $fallback->setValue(null, false);
     try {
         expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBe($expected);
-        Prompt::assertStrippedOutputContains('Confirm your installation settings');
-        Prompt::assertStrippedOutputContains('https://example.test/path');
-        Prompt::assertStrippedOutputDoesntContain('secret');
-        Prompt::assertStrippedOutputDoesntContain('private');
+        Prompt::assertStrippedOutputContains('Install Capell with these settings?');
+        Prompt::assertStrippedOutputDoesntContain('Confirm your installation settings');
     } finally {
         $fallback->setValue(null, $previousFallback);
     }
-})->with(['Enter confirms all' => [[Key::ENTER], true], 'Cancel' => [[Key::CTRL_A, Key::ENTER], false]]);
-
-it('requires one review change at a time rather than discarding unchecked choices', function (): void {
-    $command = installCommandForOptions([], true);
-    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
-    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
-    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
-    $previousFallback = $fallback->getValue();
-    Prompt::fake([Key::SPACE, Key::DOWN, Key::SPACE, Key::ENTER, Key::CTRL_A, Key::CTRL_A, Key::ENTER]);
-    $fallback->setValue(null, false);
-    try {
-        expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBeFalse();
-        Prompt::assertStrippedOutputContains('Untick one item at a time');
-    } finally {
-        $fallback->setValue(null, $previousFallback);
-    }
-});
+})->with(['Enter confirms' => [[Key::ENTER], true], 'No cancels' => [['n', Key::ENTER], false]]);
 
 it('keeps explicitly empty package selections out of the basic defaults', function (): void {
     expect(callInstallCommandMethod(installCommandForOptions(['--packages' => ''], true), 'usesBasicInstall'))->toBeFalse();
-});
-
-it('preserves pending package downloads when editing the site address', function (): void {
-    $command = installCommandForOptions([], true);
-    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
-    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false, extraPackages: ['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation']);
-    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
-    $previousFallback = $fallback->getValue();
-    Prompt::fake([Key::SPACE, Key::ENTER, 'https://changed.test', Key::ENTER]);
-    $fallback->setValue(null, false);
-    try {
-        expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBeTrue()
-            ->and(explode(',', $command->option('packages')))->toBe(['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation']);
-    } finally {
-        $fallback->setValue(null, $previousFallback);
-    }
 });
 
 it('restores the saved site URL and downloads missing profile packages through Composer', function (): void {
@@ -664,3 +631,41 @@ it('restores the saved site URL and downloads missing profile packages through C
         ->and($command->option('packages'))->toBe('capell-app/admin')
         ->and(callInstallCommandMethod($command, 'installTimePackageNamesFromSelection'))->toContain('vendor/not-yet-downloaded');
 });
+
+it('asks the interactive default install for the site name and offers the application name', function (): void {
+    config(['app.name' => 'Acme Publishing']);
+    $command = installCommandForOptions([], true);
+    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake([Key::ENTER]);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod($command, 'resolveSiteName'))->toBe('Acme Publishing');
+        Prompt::assertStrippedOutputContains('What is the site called?');
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+});
+
+it('offers Capell as the site name in a stock Laravel app', function (): void {
+    config(['app.name' => 'Laravel']);
+
+    expect(InstallSiteName::fallback())->toBe('Capell');
+});
+
+it('uses an explicit site name and leaves plan and unattended runs free of name prompts', function (): void {
+    $basic = installCommandForOptions(['--site-name' => '  Hartley Dental  '], true);
+    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($basic, true);
+
+    expect(callInstallCommandMethod($basic, 'resolveSiteName'))->toBe('Hartley Dental')
+        ->and(callInstallCommandMethod(installCommandForOptions([], false), 'resolveSiteName'))->toBeNull()
+        ->and(callInstallCommandMethod(installCommandForOptions(['--plan' => true], true), 'resolveSiteName'))->toBeNull();
+});
+
+it('rejects site names that cannot be stored', function (string $name, string $message): void {
+    expect(fn (): mixed => callInstallCommandMethod(installCommandForOptions(['--site-name' => $name]), 'resolveSiteName'))
+        ->toThrow(InvalidArgumentException::class, $message);
+})->with([
+    'too long' => [str_repeat('a', 256), '255 characters or fewer'],
+]);
