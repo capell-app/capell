@@ -93,7 +93,7 @@ afterEach(function (): void {
     DemoPackageAction::resetProcessFactory();
 });
 
-function makeInstallInputData(array $packages, bool $demoContent = false, bool $seedDefaultData = true): InstallInputData
+function makeInstallInputData(array $packages, bool $demoContent = false, bool $seedDefaultData = true, ?string $siteName = null): InstallInputData
 {
     return new InstallInputData(
         siteUrl: 'https://example.com',
@@ -104,6 +104,7 @@ function makeInstallInputData(array $packages, bool $demoContent = false, bool $
         generateSitemap: false,
         generateStaticSite: false,
         seedDefaultData: $seedDefaultData,
+        siteName: $siteName,
     );
 }
 
@@ -424,6 +425,25 @@ it('keeps custom app names as the default install site name', function (): void 
         [
             'package' => 'test',
             'arguments' => ['--sites' => ['Acme Publishing']],
+        ],
+    ]);
+});
+
+it('creates the first site with the name asked during install rather than the application name', function (): void {
+    Storage::fake();
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem);
+    config()->set('app.name', 'Acme Publishing');
+
+    CapellCore::registerPackage(name: 'test');
+    CapellCore::getPackage('test')->setupAction = LifecycleRecorderAction::class;
+    CapellCore::getPackage('test')->setupParams = ['sites'];
+
+    InstallPackagesAction::run(makeInstallInputData(packages: ['test'], seedDefaultData: true, siteName: 'Hartley Dental'), null, new NullProgressReporter);
+
+    expect(LifecycleRecorderAction::$calls)->toBe([
+        [
+            'package' => 'test',
+            'arguments' => ['--sites' => ['Hartley Dental']],
         ],
     ]);
 });

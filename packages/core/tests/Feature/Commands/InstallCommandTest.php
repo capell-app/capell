@@ -20,6 +20,7 @@ use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\RemembersInstallPatchDecision;
+use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
@@ -2595,7 +2596,7 @@ it('asks for package selection during interactive fresh demo installs', function
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
-        ->expectsQuestion('What is the URL of your first site?', 'https://demo.example.test')
+        ->expectsQuestion("What is the site's address?", 'https://demo.example.test')
         ->expectsQuestion('What core Capell packages should be installed?', [
             'capell-app/admin',
             'capell-app/frontend',
@@ -2661,7 +2662,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
-        ->expectsQuestion('What is the URL of your first site?', 'https://demo.example.test')
+        ->expectsQuestion("What is the site's address?", 'https://demo.example.test')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->assertExitCode(Command::SUCCESS);
 
@@ -3252,96 +3253,217 @@ it('leaves application files and install actions untouched when the final review
     }
 });
 
-it('offers one confirmation for non destructive basics without the detailed questionnaire', function (array $choice, int $calls): void {
-    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
-    $fake = bindFakeRunInstallAction();
-    $existing = createTestUser();
-
-    $command = artisanCommand('capell:install', [
-        '--url' => 'https://example.test:8443/blog',
-        '--user' => $existing->email,
-    ])->expectsQuestion('Confirm your installation settings', $choice);
-    if ($calls > 0) {
-        $command->expectsConfirmation('Install dependencies and build frontend assets now?', 'no');
-    }
-
-    $command->assertSuccessful()->run();
-
-    expect($fake->callCount)->toBe($calls);
-    if ($calls > 0) {
-        expect($fake->capturedInput->freshInstall)->toBeFalse()
-            ->and($fake->capturedInput->demoContent)->toBeFalse()
-            ->and($fake->capturedInput->installWelcomeRoute)->toBeFalse()
-            ->and($fake->capturedInput->installDeveloperTooling)->toBeFalse()
-            ->and($fake->capturedInput->seedDatabase)->toBeFalse()
-            ->and($fake->capturedInput->packages)->toContain('capell-app/admin', 'capell-app/frontend');
-    }
-})->with(['confirm settings' => [['site', 'packages', 'administrator', 'customise'], 1], 'cancel' => [[], 0]]);
-
-it('offers to build frontend assets after installation and records the outcome', function (bool $build): void {
-    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
-    bindFakeRunInstallAction();
-    $existing = createTestUser();
-    $handoffPath = sys_get_temp_dir() . '/capell-installer-handoff-' . bin2hex(random_bytes(6)) . '.json';
-    $buildCalled = false;
+function bindInstallCommandFrontendBuild(int $exitCode = 0): object
+{
+    markInstallTestPackageAsFrontend('capell-app/frontend');
+    $build = new class
+    {
+        public int $calls = 0;
+    };
     $kernel = resolve(Kernel::class);
     $artisan = new ReflectionMethod($kernel, 'getArtisan')->invoke($kernel);
-    $artisan->add(new ClosureCommand('capell:frontend-after-install {--apply}', function () use (&$buildCalled): int {
-        $buildCalled = true;
+    $artisan->add(new ClosureCommand('capell:frontend-after-install {--apply}', function () use ($build, $exitCode): int {
+        $build->calls++;
 
-        return 0;
+        return $exitCode;
     }));
+
+    return $build;
+}
+
+it('asks six questions on the default path, installs the suite with its free extensions and builds the frontend without a further prompt', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace'], foundationThemeAvailable: true);
+    CapellCore::getPackage('capell-app/marketplace')->requirements = ['capell-app/admin', 'capell-app/core'];
+    configureInstallSuiteForTest(demo: true);
+    $fake = bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+
+    artisanCommand('capell:install')
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('What is the site called?', 'Hartley Dental')
+        ->expectsQuestion("What is the site's address?", 'https://hartley.test')
+        ->expectsQuestion('Start with sample content so you can see how pages work?', 'no')
+        ->expectsQuestion('Name', 'Ben')
+        ->expectsQuestion('Email', 'ben@example.test')
+        ->expectsQuestion('Password', 'a-long-private-password')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->assertSuccessful();
+
+    expect($fake->callCount)->toBe(1)
+        ->and($build->calls)->toBe(1)
+        ->and($fake->capturedInput->siteName)->toBe('Hartley Dental')
+        ->and($fake->capturedInput->demoContent)->toBeFalse()
+        ->and($fake->capturedInput->packages)->toContain('capell-app/admin', 'capell-app/frontend')
+        ->and($fake->capturedInput->extraPackages)->toContain('capell-app/form-builder')
+        ->and($fake->capturedInput->extraPackages)->not->toContain('capell-app/newsletter')
+        ->and($fake->capturedInput->installDeveloperTooling)->toBeFalse()
+        ->and($fake->capturedInput->installWelcomeRoute)->toBeFalse();
+});
+
+it('starts with sample content when the first-time developer keeps the default answer', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    configureInstallSuiteForTest(demo: true);
+    $fake = bindFakeRunInstallAction();
+    bindInstallCommandFrontendBuild();
+
+    artisanCommand('capell:install', ['--url' => 'https://hartley.test', '--site-name' => 'Hartley Dental'])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('Start with sample content so you can see how pages work?', 'yes')
+        ->expectsQuestion('Name', 'Ben')
+        ->expectsQuestion('Email', 'ben@example.test')
+        ->expectsQuestion('Password', 'a-long-private-password')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->assertSuccessful();
+
+    expect($fake->capturedInput->demoContent)->toBeTrue()
+        ->and($fake->capturedInput->siteName)->toBe('Hartley Dental')
+        ->and($fake->capturedInput->demoSites)->toBe(['Hartley Dental'])
+        ->and($fake->capturedInput->demoLanguages)->toBe([config('app.locale', 'en')]);
+});
+
+it('installs nothing when the single confirmation is declined', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    configureInstallSuiteForTest();
+    $fake = bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', ['--url' => 'https://hartley.test', '--user' => $existing->email, '--site-name' => 'Hartley Dental'])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('Start with sample content so you can see how pages work?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'no')
+        ->expectsOutput('Installation cancelled. No installation changes were applied.')
+        ->assertSuccessful();
+
+    expect($fake->callCount)->toBe(0)
+        ->and($build->calls)->toBe(0);
+});
+
+it('installs only Core, Admin, Frontend and the default theme with --minimal and asks just the site questions', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace'], foundationThemeAvailable: true);
+    configureInstallSuiteForTest(demo: true);
+    $fake = bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', ['--minimal' => true, '--user' => $existing->email])
+        ->expectsQuestion('What is the site called?', 'Hartley Dental')
+        ->expectsQuestion("What is the site's address?", 'https://hartley.test')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->doesntExpectOutputToContain('What are you building?')
+        ->doesntExpectOutputToContain('sample content')
+        ->assertSuccessful();
+
+    expect($fake->capturedInput->packages)->toEqualCanonicalizing(['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation'])
+        ->and($fake->capturedInput->extraPackages)->toBe([])
+        ->and($fake->capturedInput->demoContent)->toBeFalse()
+        ->and($fake->capturedInput->selectedThemeKey)->toBe(ThemePackageCandidates::FOUNDATION_KEY)
+        ->and($fake->capturedInput->installWelcomeRoute)->toBeFalse()
+        ->and($fake->capturedInput->installDeveloperTooling)->toBeFalse()
+        ->and($fake->capturedInput->siteName)->toBe('Hartley Dental')
+        ->and($build->calls)->toBe(1);
+});
+
+it('completes --minimal without a single question when every answer is supplied', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--minimal' => true,
+        '--url' => 'https://hartley.test',
+        '--user' => $existing->email,
+        '--site-name' => 'Hartley Dental',
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    expect($fake->capturedInput->packages)->toEqualCanonicalizing(['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation'])
+        ->and($fake->capturedInput->siteName)->toBe('Hartley Dental')
+        ->and($fake->capturedInput->demoContent)->toBeFalse()
+        ->and($build->calls)->toBe(1);
+});
+
+it('skips the frontend build when --no-frontend-build is passed and leaves the build tip in the handoff', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+    $handoffPath = sys_get_temp_dir() . '/capell-installer-handoff-' . bin2hex(random_bytes(6)) . '.json';
 
     try {
         artisanCommand('capell:install', [
-            '--url' => 'https://example.test',
+            '--minimal' => true,
+            '--url' => 'https://hartley.test',
             '--user' => $existing->email,
+            '--no-frontend-build' => true,
             '--handoff-json' => $handoffPath,
-        ])
-            ->expectsQuestion('Confirm your installation settings', ['site', 'packages', 'administrator', 'customise'])
-            ->expectsConfirmation('Install dependencies and build frontend assets now?', $build ? 'yes' : 'no')
-            ->assertSuccessful()
-            ->run();
+            '--no-interaction' => true,
+        ])->assertSuccessful();
 
         $handoff = json_decode((string) file_get_contents($handoffPath), true, flags: JSON_THROW_ON_ERROR);
-        expect($buildCalled)->toBe($build);
-        expect(collect($handoff['tips'])->pluck('key')->contains('frontend_build'))->toBe(! $build);
+        expect($build->calls)->toBe(0)
+            ->and(collect($handoff['tips'])->pluck('key')->contains('frontend_build'))->toBeTrue();
     } finally {
         if (is_file($handoffPath)) {
             unlink($handoffPath);
         }
     }
-})->with(['build now' => [true], 'build later' => [false]]);
+});
+
+it('keeps --minimal free of tooling, homepage and installer prompts when another option leaves the default flow', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', ['--minimal' => true, '--seed' => true, '--url' => 'https://hartley.test', '--user' => $existing->email, '--site-name' => 'Hartley Dental'])
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->assertSuccessful();
+
+    expect($fake->capturedInput->installDeveloperTooling)->toBeFalse()
+        ->and($fake->capturedInput->installWelcomeRoute)->toBeFalse();
+});
+
+it('does not build the frontend when --no-frontend-build overrides --build-assets', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', ['--minimal' => true, '--build-assets' => true, '--no-frontend-build' => true, '--url' => 'https://hartley.test', '--user' => $existing->email, '--no-interaction' => true])
+        ->assertSuccessful();
+
+    expect($build->calls)->toBe(0);
+});
+
+it('refuses --minimal combined with options that choose packages, content or tooling', function (string $option, mixed $value): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', ['--minimal' => true, $option => $value, '--no-interaction' => true])
+        ->expectsOutputToContain($option)
+        ->assertFailed();
+
+    expect($fake->callCount)->toBe(0);
+})->with([
+    'packages' => ['--packages', 'capell-app/admin'],
+    'all packages' => ['--all-packages', true],
+    'demo' => ['--demo', true],
+    'customise' => ['--customise', true],
+    'developer tooling' => ['--developer-tooling', true],
+]);
 
 it('reports a frontend build failure without claiming a completed handoff', function (): void {
     setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
     bindFakeRunInstallAction();
+    markInstallTestPackageAsFrontend('capell-app/frontend');
     $existing = createTestUser();
     registerInstallTestFrontendCommand(1);
 
-    artisanCommand('capell:install', ['--url' => 'https://example.test', '--user' => $existing->email])
-        ->expectsQuestion('Confirm your installation settings', ['site', 'packages', 'administrator', 'customise'])
-        ->expectsConfirmation('Install dependencies and build frontend assets now?', 'yes')
+    artisanCommand('capell:install', ['--minimal' => true, '--url' => 'https://example.test', '--user' => $existing->email, '--no-interaction' => true])
         ->expectsOutputToContain('Retry only frontend preparation and assets')
         ->assertFailed();
-});
-
-it('returns edited basic settings to the review and cancels before saving a profile or APP_URL', function (): void {
-    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
-    $fake = bindFakeRunInstallAction();
-    $existing = createTestUser();
-    $envBefore = is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null;
-    $profileBefore = is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null;
-
-    artisanCommand('capell:install', ['--url' => 'https://original.test', '--user' => $existing->email, '--update-app-url' => true, '--save-profile' => 'cancelled-owned-test'])
-        ->expectsQuestion('Confirm your installation settings', ['packages', 'administrator', 'customise'])
-        ->expectsQuestion('What is the URL of your first site?', 'https://edited.test:8443/blog')
-        ->expectsQuestion('Confirm your installation settings', [])
-        ->assertSuccessful();
-
-    expect($fake->callCount)->toBe(0)
-        ->and(is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null)->toBe($envBefore)
-        ->and(is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null)->toBe($profileBefore);
 });
 
 it('keeps APP_URL and profile exports untouched when Composer preflight refuses a download', function (): void {
