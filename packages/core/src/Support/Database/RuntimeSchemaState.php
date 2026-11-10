@@ -24,6 +24,15 @@ final class RuntimeSchemaState
     /** @var array<string, Throwable> */
     private array $columnFailures = [];
 
+    /**
+     * The connection's tables, listed once and keyed by exact name. Null
+     * until first needed; false when the listing could not be read, so every
+     * table is then probed on its own.
+     *
+     * @var array<string, true>|false|null
+     */
+    private array|false|null $tableListing = null;
+
     public function hasTable(string $table, bool $refresh = false): bool
     {
         return $this->tableResult($table, $refresh)->exists();
@@ -32,7 +41,7 @@ final class RuntimeSchemaState
     public function tableResult(string $table, bool $refresh = false): SchemaProbeResult
     {
         if ($refresh || ! array_key_exists($table, $this->tables)) {
-            $this->tables[$table] = $this->probeTable($table);
+            $this->tables[$table] = $this->probeTable($table, $refresh);
         }
 
         return $this->tables[$table];
@@ -100,6 +109,8 @@ final class RuntimeSchemaState
 
     public function refreshTable(string $table): bool
     {
+        $this->tableListing = null;
+
         return $this->hasTable($table, refresh: true);
     }
 
@@ -114,11 +125,13 @@ final class RuntimeSchemaState
         $this->columns = [];
         $this->tableFailures = [];
         $this->columnFailures = [];
+        $this->tableListing = null;
     }
 
     public function forgetTable(string $table): void
     {
         unset($this->tables[$table], $this->tableFailures[$table]);
+        $this->tableListing = null;
 
         foreach (array_keys($this->columns) as $key) {
             if (str_starts_with($key, $table . '.')) {
@@ -135,8 +148,21 @@ final class RuntimeSchemaState
         unset($this->columns[$key], $this->columnFailures[$key]);
     }
 
-    private function probeTable(string $table): SchemaProbeResult
+    /**
+     * One listing of the connection's tables answers every table it names, so
+     * the packages that each gate on their own table share a single query.
+     * Only presence is taken from it: a table missing from the listing is
+     * probed on its own, so one created after the listing was read is still
+     * found. A refresh always probes the table itself.
+     */
+    private function probeTable(string $table, bool $refresh = false): SchemaProbeResult
     {
+        if (! $refresh && $this->listedTable($table)) {
+            unset($this->tableFailures[$table]);
+
+            return SchemaProbeResult::Present;
+        }
+
         try {
             unset($this->tableFailures[$table]);
 
@@ -183,6 +209,58 @@ final class RuntimeSchemaState
             'exception' => $throwable::class,
             'reason' => $throwable->getMessage(),
         ]);
+    }
+
+    private function listedTable(string $table): bool
+    {
+        // A schema-qualified name names another schema than the one listed.
+        if (str_contains($table, '.')) {
+            return false;
+        }
+
+        if ($this->tableListing === null) {
+            $this->tableListing = $this->readTableListing();
+        }
+
+        if ($this->tableListing === false) {
+            return false;
+        }
+
+        try {
+            $prefix = Schema::getConnection()->getTablePrefix();
+        } catch (Throwable) {
+            return false;
+        }
+
+        return isset($this->tableListing[$prefix . $table]);
+    }
+
+    /**
+     * Lists the tables of the schema Schema::hasTable() looks in. Names are
+     * matched exactly, so a spelling the database might fold differently is
+     * probed directly instead. A listing that cannot be read is not a probe
+     * failure: each table is then probed directly, which reports its own
+     * failure.
+     *
+     * @return array<string, true>|false
+     */
+    private function readTableListing(): array|false
+    {
+        try {
+            $names = Schema::getTableListing(Schema::getCurrentSchemaName(), schemaQualified: false);
+        } catch (Throwable) {
+            return false;
+        }
+
+        $listing = [];
+
+        foreach ($names as $name) {
+            if (is_string($name)) {
+                $listing[$name] = true;
+            }
+        }
+
+        return $listing;
     }
 
     private function columnKey(string $table, string $column): string
