@@ -9,6 +9,8 @@ the `Update Changelog` workflow.
 
 ### Added
 
+- Documented website-specific page fields with a Client name walkthrough, extension examples, storage and lifecycle comparisons, and reproducible screenshot fixtures.
+
 - Added a short install-shaped "What next" list to the `capell:install` handoff (sign-in, first page, theme, content packages or the pending asset build), exported as `tips` in the JSON handoff.
 - Added a simple CLI installation flow with one confirmation for foundation defaults, editable customisation, reusable profiles, optional application URL updates and frontend dependency builds.
 - Added fail-closed Project Build target compatibility verification and a consumer-owned package installation boundary for applying signed manifests in exact release order.

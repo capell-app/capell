@@ -6,6 +6,8 @@ Use container tags for focused contributors and `AdminBridgeRegistrar` when one 
 
 If you are not sure which runtime you are changing, start with [Package authoring jobs](package-authoring-jobs.md) and [Extension surface vocabulary](extension-surface-vocabulary.md). Those pages define the package surfaces and install-impact terms used by this chooser.
 
+Adding a website-specific page field? Start with the [Client name walkthrough](../getting-started/add-a-custom-page-field.md) and [custom-field decision guide](custom-page-fields.md) to choose the editor and storage together.
+
 ## Core And Package Runtime
 
 | Need                                   | Use                                                                  | Owner                 |

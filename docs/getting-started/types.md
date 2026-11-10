@@ -10,17 +10,17 @@ Each blueprint appears on the **Blueprints** screen with a name, a short descrip
 
 The database stores reusable behaviour in `blueprints` and related layout and package records. Some compatibility APIs still use type terminology, but in the product and current docs clearer names help people choose the right thing:
 
-| Product name    | Developer/API term           | What it means                                                                     |
-| --------------- | ---------------------------- | --------------------------------------------------------------------------------- |
-| Site blueprint  | Site blueprint               | The high-level setup for a site: domains, languages, pages, settings, theme.      |
-| Page template   | Page blueprint               | The rules for a page URL: editor fields, rendering, listing, sitemap, cache.      |
-| Visual theme    | Theme blueprint              | The visual system: typography, colour, spacing, components, and artwork style.    |
-| Layout recipe   | Layout                       | The page composition shell used by one or many pages.                             |
-| Page section    | Content Sections section     | A ready-made content band, such as a hero, FAQ or pricing table. Needs the optional Content Sections package. |
+| Product name    | Developer/API term           | What it means                                                                                                                 |
+| --------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Site blueprint  | Site blueprint               | The high-level setup for a site: domains, languages, pages, settings, theme.                                                  |
+| Page template   | Page blueprint               | The rules for a page URL: editor fields, rendering, listing, sitemap, cache.                                                  |
+| Visual theme    | Theme blueprint              | The visual system: typography, colour, spacing, components, and artwork style.                                                |
+| Layout recipe   | Layout                       | The page composition shell used by one or many pages.                                                                         |
+| Page section    | Content Sections section     | A ready-made content band, such as a hero, FAQ or pricing table. Needs the optional Content Sections package.                 |
 | Widget          | Layout Builder layout widget | A reusable component placed in a layout area, such as breadcrumbs or latest pages. Needs the optional Layout Builder package. |
-| Content block   | Block Library block          | A typed, reorderable unit in a page body. Block types come from the optional Block Library package. |
-| Starter example | Demo package content         | Seeded pages, layouts, widgets, images, and copy for learning or previews.        |
-| Visual style    | Artwork or demo variation    | A design treatment applied to the same content model.                             |
+| Content block   | Block Library block          | A typed, reorderable unit in a page body. Block types come from the optional Block Library package.                           |
+| Starter example | Demo package content         | Seeded pages, layouts, widgets, images, and copy for learning or previews.                                                    |
+| Visual style    | Artwork or demo variation    | A design treatment applied to the same content model.                                                                         |
 
 That vocabulary keeps the editor-facing model simple without hiding the fact that developers still register real Capell extension points underneath.
 
@@ -78,6 +78,8 @@ Choosing or creating a blueprint changes the editing experience and the runtime 
 The page create form is the clearest first example. Changing the page blueprint can change the editor fields and page behaviour. Changing the layout controls the frontend composition used by that page.
 
 Blueprint-specific fields can also appear in expandable sections or package-provided areas. A standard page might show summary and CTA fields. A specialist page blueprint can expose richer structured fields through its configurator or package extenders.
+
+For an end-to-end example, [add Client name to a case-study page](add-a-custom-page-field.md). The [custom-field decision guide](../packages/custom-page-fields.md) separates editor configuration from metadata, typed properties and related-model storage.
 
 ## Blueprint Configuration
 

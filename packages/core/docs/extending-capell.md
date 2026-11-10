@@ -24,6 +24,8 @@ Capell is designed to be extended without modifying its core source code. This d
 
 ## Which extension point do I use?
 
+For a website-specific field, follow [Add Client name to a page](../../../docs/getting-started/add-a-custom-page-field.md), then [compare the supported storage and editor approaches](../../../docs/packages/custom-page-fields.md). Registering a page subject alone does not add a field.
+
 Capell offers several extension mechanisms. Pick by what you're extending:
 
 | I want to…                                                         | Use                                                                    | Section                                                                                       |
@@ -200,6 +202,8 @@ Create a class implementing `PageSchemaExtender` and tag it with `PageSchemaExte
 ```php
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\FormBuilder;
 
 use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
@@ -207,39 +211,46 @@ use Capell\Admin\Enums\PageTranslationSchemaHookEnum;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 
-class CustomPageSchemaExtender implements PageSchemaExtender
+final class CustomPageSchemaExtender implements PageSchemaExtender
 {
+    #[Override]
     public function extendTranslationComponentsForHook(
         Schema $schema,
         PageTranslationSchemaHookEnum $hook
     ): array {
         return match ($hook) {
             PageTranslationSchemaHookEnum::AfterTitle => [
-                TextInput::make('subtitle')
-                    ->label('Subtitle')
+                TextInput::make('meta.custom.subtitle')
+                    ->label(__('my-site.subtitle'))
                     ->maxLength(255),
             ],
             default => [],
         };
     }
 
+    #[Override]
     public function extendSidebarComponents(Schema $schema): array
     {
         return [];
     }
 
+    #[Override]
     public function extendRelationManagers(Model $record, array $relationManagers): array
     {
         return $relationManagers;
     }
 
+    #[Override]
     public function extendTabs(Schema $schema, array $tabs): array
     {
         return $tabs;
     }
 }
 ```
+
+Define `subtitle` in your application's `lang/en/my-site.php`. The `meta.custom.subtitle` path above is inside the translations repeater, so it persists in **Translation.meta**. A top-level tab/sidebar using the same path writes **Page.meta**. A bare arbitrary input name does not add a persisted column. Scope the extender to the intended blueprint/site; the [complete walkthrough](../../../docs/getting-started/add-a-custom-page-field.md) demonstrates that check.
 
 Use page sidebar components only for lightweight context that should sit beside the editor. Put larger editorial controls into translation hooks such as `AfterTitle` or into a full edit tab with `extendTabs()`.
 
@@ -410,7 +421,7 @@ public function register(): void
 }
 ```
 
-Any Capell code that resolves the model via `app(Page::class)` will receive an instance of `MyExtendedPage`. This includes Filament resources, loaders, and actions that explicitly resolve through the container.
+Capell code that resolves the model via `app(Page::class)` receives an instance of `MyExtendedPage`. This does not redirect static calls such as `Page::query()` or automatically add custom columns to revision, import or API contracts. Inspect the owning paths before relying on model replacement; the [custom-field guide](../../../docs/packages/custom-page-fields.md#advanced-model-customisation) explains the limits and alternatives.
 
 > Previous versions used `CapellCore::registerModel(ModelEnum::Page, MyExtendedPage::class)`. That API has been removed. Container bindings are the replacement.
 
