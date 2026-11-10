@@ -8,7 +8,11 @@ php artisan capell:upgrade --force --no-interaction
 php artisan capell:runtime-refresh --no-interaction
 ```
 
-If `composer install --no-dev` stops with `Class "Laravel\Boost\BoostServiceProvider" not found`, the directory was last installed with development packages. Delete the generated caches, then run the command again:
+Then reload PHP-FPM, and [refresh public HTML](deploy-and-cache-refresh.md#refresh-public-html-in-the-right-order) if HTML Cache is installed.
+
+`capell:upgrade` runs migrations and upgrade steps. `capell:runtime-refresh` rebuilds caches, warms pages, runs Doctor and restarts queues. Run `capell:upgrade --dry-run` first when you want to review the plan.
+
+If `composer install --no-dev` stops with `Class "Laravel\Boost\BoostServiceProvider" not found`, the directory was last installed with development packages. Delete the generated caches, then run the three commands above again from the start:
 
 ```bash
 rm -rf bootstrap/cache/capell-runtime bootstrap/cache/packages.php bootstrap/cache/services.php
@@ -16,23 +20,20 @@ rm -rf bootstrap/cache/capell-runtime bootstrap/cache/packages.php bootstrap/cac
 
 A release directory built from a clean checkout does not have these files.
 
-Then reload PHP-FPM, and [refresh public HTML](deploy-and-cache-refresh.md#refresh-public-html-in-the-right-order) if HTML Cache is installed.
-
-`capell:upgrade` runs migrations and upgrade steps. `capell:runtime-refresh` rebuilds caches, warms pages, runs Doctor and restarts queues. Run `capell:upgrade --dry-run` first when you want to review the plan.
-
 ## Deployer
 
-These tasks were loaded with Deployer 8 and its `laravel` recipe. Share `storage` and `.env` between releases, then add these tasks, which run before `deploy:symlink`:
+The task order was checked against Deployer 8 and its `laravel` recipe. No deploy was run. Share `storage` and `.env` between releases, then add these tasks, which run before `deploy:symlink`:
 
 ```php
 task('capell:upgrade', fn () => run('cd {{release_path}} && {{bin/php}} artisan capell:upgrade --force --no-interaction'));
 task('capell:refresh', fn () => run('cd {{release_path}} && {{bin/php}} artisan capell:runtime-refresh --no-interaction'));
+task('artisan:migrate', fn () => null);
 
 before('deploy:symlink', 'capell:upgrade');
 after('capell:upgrade', 'capell:refresh');
 ```
 
-The `laravel` recipe also runs `artisan:optimize` and `artisan:migrate` earlier in the release. `capell:upgrade` then finds the migrations already applied and runs its own steps. Reload PHP-FPM after `deploy:symlink`.
+The `laravel` recipe would run `artisan:migrate` before `capell:upgrade`, so the empty `artisan:migrate` task above leaves migrations to `capell:upgrade`. Reload PHP-FPM after `deploy:symlink`.
 
 ## Forge and Ploi
 
