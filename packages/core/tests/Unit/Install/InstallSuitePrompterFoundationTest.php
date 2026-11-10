@@ -62,7 +62,8 @@ it('asks only what you are building in the compact form, defaults to the marketi
         $selection = resolve(InstallSuitePrompter::class)->prompt(compact: true);
 
         expect($selection?->packages)->toContain('capell-app/admin', 'capell-app/frontend', 'vendor/free-forms')
-            ->and($selection?->packages)->not->toContain('vendor/licensed', 'vendor/extra')
+            ->and($selection?->packages)->not->toContain('vendor/licensed')
+            ->and($selection?->packages)->not->toContain('vendor/extra')
             ->and($selection?->demo)->toBeTrue();
         Prompt::assertStrippedOutputContains('Marketing site');
         Prompt::assertStrippedOutputDoesntContain("I'll choose my own packages");
