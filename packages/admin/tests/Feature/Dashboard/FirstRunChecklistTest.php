@@ -6,6 +6,7 @@ use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\CompositionDashboard;
@@ -206,4 +207,24 @@ it('treats a robots noindex homepage as not yet public', function (): void {
     $home->forceFill(['visible_from' => now()->subDay(), 'meta' => ['robots' => 'noindex,nofollow']])->saveQuietly();
 
     expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue();
+});
+
+it('ticks the homepage task after the homepage is saved as a draft through the admin editor', function (): void {
+    $this->actingAsAdmin();
+    [$site] = firstRunSite();
+    Page::query()->where('site_id', $site->id)->forceDelete();
+    $home = Page::factory()->home()->site($site)->withTranslations()->createOne(['visible_from' => PublishSentinel::draftValue()]);
+
+    expect(firstRunTaskStates()['homepage'])->toBeFalse();
+
+    Livewire::test(EditPage::class, ['record' => $home->getRouteKey()])
+        ->fillForm(['name' => 'Our new homepage'])
+        ->call('saveAsDraft')
+        ->assertHasNoFormErrors();
+
+    expect($home->refresh()->name)->toBe('Our new homepage');
+
+    app()->forgetScopedInstances();
+
+    expect(firstRunTaskStates()['homepage'])->toBeTrue();
 });
