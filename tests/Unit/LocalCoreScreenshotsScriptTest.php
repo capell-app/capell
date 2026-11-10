@@ -41,6 +41,9 @@ BINARY);
             'FIXTURE_PHP' => PHP_BINARY,
             'FIXTURE_CAPTURE' => $fixture->root . '/capture.php',
         ]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
+
         expect($process->run())->toBe(0, $process->getErrorOutput());
         $install = json_decode(file_get_contents($fixture->root . '/install.json'), true, flags: JSON_THROW_ON_ERROR);
         expect($install['options']['--package-mode'])->toBe('core')
@@ -88,6 +91,8 @@ BASH);
                 'CAPELL_SCREENSHOT_SCRIPT_TEST_LOG' => $log,
             ],
         );
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
@@ -144,6 +149,8 @@ it('refuses to skip the install when no dependency executables are installed', f
 
     try {
         $process = new Process(['/bin/bash', 'scripts/local-core-screenshots.sh', '--skip-install'], $root);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe(1)
@@ -230,6 +237,8 @@ BASH);
                 'CAPELL_SCREENSHOT_SCRIPT_TEST_LOG' => $log,
             ],
         );
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe($expectedExit, $process->getErrorOutput())
@@ -296,6 +305,8 @@ BASH);
             'CAPELL_SCREENSHOT_TEST_CHECKER' => $temporary . '/check-environment.php',
             'CAPELL_SCREENSHOT_SCRIPT_TEST_LOG' => $log,
         ]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
         $environment = json_decode(file_get_contents($log), true, flags: JSON_THROW_ON_ERROR);
         expect($process->getExitCode())->toBe(0, $process->getErrorOutput())

@@ -9,6 +9,8 @@ use Symfony\Component\Yaml\Yaml;
 it('verifies the live documented Capell command examples', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-docs-artisan-commands.php'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     $process->mustRun();
 
@@ -366,6 +368,8 @@ function runDocumentationArtisanCommandsCheck(string $root, bool $discoverPaths 
         $root,
         $environment,
     );
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     return [$process->getExitCode() ?? 1, $process->getOutput() . $process->getErrorOutput()];

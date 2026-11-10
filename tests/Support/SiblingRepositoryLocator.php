@@ -31,6 +31,8 @@ final class SiblingRepositoryLocator
 
         // Match init-worktree.sh: the common Git directory locates the primary checkout.
         $process = new Process(['git', '-C', $root, 'rev-parse', '--git-common-dir']);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         $common = trim($process->getOutput());

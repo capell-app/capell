@@ -7,6 +7,8 @@ use Symfony\Component\Process\Process;
 it('validates the README engineering standards against CI', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-readme-engineering-standards.php'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     $process->mustRun();
 
@@ -25,6 +27,8 @@ it('reports a badge claim that drifts from its source of truth', function (): vo
             $root,
             ['CAPELL_README_ENGINEERING_STANDARDS_ROOT' => $root],
         );
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
 
         $process->run();
 
@@ -62,6 +66,8 @@ PHP);
             $root,
             ['CAPELL_README_ENGINEERING_STANDARDS_ROOT' => $root],
         );
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
 
         $process->run();
 

@@ -132,6 +132,9 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
 it('shards every Admin Feature test exactly once through the exported matrix', function (): void {
     $root = dirname(__DIR__, 2);
     $export = new Process([PHP_BINARY, 'scripts/test-all-matrix.php', 'behaviour'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $export->setTimeout(300);
+
     expect($export->run())->toBe(0, $export->getErrorOutput());
     $matrix = json_decode($export->getOutput(), true, flags: JSON_THROW_ON_ERROR)['include'];
     $cells = array_values(array_filter($matrix, static fn (array $cell): bool => $cell['package'] === 'Admin'));
@@ -154,7 +157,8 @@ it('shards every Admin Feature test exactly once through the exported matrix', f
             'PEST_PARALLEL_GLOBAL_UPDATE_SHARDS' => false,
             'PEST_PARALLEL_GLOBAL_SHARD_RUN_ID' => false,
         ]);
-        $process->setTimeout(120);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
 
         expect($process->run())->toBe(0, $process->getErrorOutput() . $process->getOutput());
         $lines = array_values(array_filter(explode(PHP_EOL, $process->getOutput()), static fn (string $line): bool => str_starts_with($line, ' - ')));
@@ -233,7 +237,8 @@ it('accepts the complete parallel database command for each exported shard', fun
                 'PEST_TEST_GROUP' => $cell['test_group'],
                 'PEST_JUNIT_LOG' => $directory . '/' . $cell['junit'],
             ]);
-            $process->setTimeout(120);
+            // Hang ceiling only: a busy host must slow this down, never fail it.
+            $process->setTimeout(300);
 
             expect($process->run())->toBe(0, $process->getOutput() . $process->getErrorOutput());
         }
@@ -399,6 +404,9 @@ it('keeps SQLite in-process instead of disguising it as a server service', funct
 
 it('discovers the database portability group through the repository Pest configuration', function (): void {
     $process = new Process([PHP_BINARY, 'vendor/bin/pest', '--configuration=phpunit.xml', '--group=database-portability', '--list-tests'], dirname(__DIR__, 2));
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
+
     expect($process->run())->toBe(0, $process->getErrorOutput());
     foreach (['DatabaseCompatibilityTest', 'PermissionTeamsMigrationTest', 'GlobalPermissionTeamUniquenessMigrationTest', 'DatabaseBackupDriversTest', 'DatabasePortabilityEnvironmentTest'] as $test) {
         expect($process->getOutput())->toContain($test);

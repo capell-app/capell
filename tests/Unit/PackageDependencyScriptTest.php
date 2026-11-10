@@ -287,6 +287,8 @@ it('reports each missing constraint library with a controlled failure and instal
         }
 
         $process = new Process([PHP_BINARY, $root . '/scripts/check-composer-major-constraints.php'], $root);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe(2)

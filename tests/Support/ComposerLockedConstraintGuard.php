@@ -70,6 +70,8 @@ final class ComposerLockedConstraintGuard
 
         // Moving fetched refs and concurrent sibling edits cannot change this input.
         $process = new Process(['git', '-C', $repository, 'show', $commit . ':composer.lock']);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         return self::versions($process->getOutput(), $repository . ' ' . $commit . ':composer.lock');

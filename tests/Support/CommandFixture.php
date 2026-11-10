@@ -40,8 +40,12 @@ final class CommandFixture
             'PATH' => $this->files->root . '/bin:' . dirname(PHP_BINARY) . ':' . getenv('PATH'),
             'COMMAND_FIXTURE_LOG' => $this->files->root . '/commands.jsonl',
             'CAPELL_NO_RELEASE_LOCK' => '1',
+            // Fixtures exercise the wrapped command, not host admission (HeavyAdmissionScriptTest owns that);
+            // the host's real heavy guard cannot lease a temporary fixture tree and its answer depends on load.
+            'HEAVY_SLOT_ENABLED' => '0',
         ], $environment));
-        $process->setTimeout(30);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         return $process;

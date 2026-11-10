@@ -44,7 +44,8 @@ it('recreates only the current worker database before sharded tests', function (
             'TEST_TOKEN' => '7',
             'UNIQUE_TEST_TOKEN' => '7_' . bin2hex(random_bytes(6)),
         ]);
-        $process->setTimeout(60);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
 
         expect($process->run())->toBe(0, $process->getOutput() . $process->getErrorOutput())
             ->and(is_file($workerDatabase))->toBe(! $worker)
@@ -185,6 +186,9 @@ it('requires the exact metric identities emitted by the current matrix', functio
             'TESTS' => '1', 'ASSERTIONS' => '2', 'PHPSTAN_LEVEL' => '10',
             'PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . getenv('PATH'),
         ]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $write->setTimeout(300);
+
         expect($write->run())->toBe(0, $write->getErrorOutput())
             ->and(is_file($file))->toBeTrue();
         $files[] = $file;

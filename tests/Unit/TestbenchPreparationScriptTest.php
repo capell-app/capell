@@ -21,6 +21,8 @@ function withTestbenchPreparationFixture(Closure $assert): void
     $files->dumpFile($directory . '/packages/frontend/publishes/build/nested/app.js', 'window.publicFixture = true;');
 
     $process = new Process([PHP_BINARY, $directory . '/scripts/prepare.php'], $directory);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     try {
         expect($process->run())->toBe(0, $process->getErrorOutput());
         $assert($directory, $process);

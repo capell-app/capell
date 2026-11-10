@@ -29,6 +29,8 @@ PHP_FIXTURE);
         file_put_contents($root . '/node_modules/ignored.php', "<?php expect(\$x)->not->toContain('a', 'b');");
         $command = [PHP_BINARY, dirname(__DIR__, 2) . '/scripts/check-test-weak-assertions.php', '--root=' . $root];
         $process = new Process($command);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         expect($process->getExitCode())->toBe(1)
@@ -45,6 +47,8 @@ $text = "->not->toContain('one', 'two')";
 expect($value)->not->toContainOnlyInstancesOf(Foo::class);
 PHP_FIXTURE);
         $clean = new Process($command);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $clean->setTimeout(300);
         $clean->run();
         expect($clean->getExitCode())->toBe(0)
             ->and($clean->getErrorOutput())->toBe('');

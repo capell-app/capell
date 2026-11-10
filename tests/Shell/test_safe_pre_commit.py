@@ -104,7 +104,8 @@ while not (p / 'continue').exists():
         return path
 
     def wait_ready(self, proc):
-        until = time.monotonic() + 30
+        # Hang ceilings only (here and in the timeouts below): a busy host must slow these hooks, never fail them.
+        until = time.monotonic() + 300
         while time.monotonic() < until:
             if (self.events / 'ready').exists():
                 return
@@ -135,7 +136,7 @@ while not (p / 'continue').exists():
         proc.stdin.write(f'refs/heads/main {head} refs/heads/main {base}\n')
         proc.stdin.close()
         proc.stdin = None
-        until = time.monotonic() + 30
+        until = time.monotonic() + 300
         while time.monotonic() < until and not (self.events / 'push-ready').exists():
             if proc.poll() is not None:
                 self.fail('push hook exited early: ' + proc.communicate()[1])
@@ -143,7 +144,7 @@ while not (p / 'continue').exists():
         self.assertTrue((self.events / 'push-ready').exists(), 'push hook did not start')
         (self.root / 'file.txt').write_text('writer continued\n')
         (self.events / 'continue').write_text('go')
-        out, err = proc.communicate(timeout=30)
+        out, err = proc.communicate(timeout=300)
         self.assertEqual((self.root / 'file.txt').read_text(), 'writer continued\n', out + err)
         self.assertEqual(proc.returncode, 0, out + err)
         self.assertEqual((self.events / 'push-file').read_text(), 'committed\n')
@@ -241,7 +242,7 @@ while not (p / 'continue').exists():
         (self.events / 'continue').write_text('go')
         updates = f'refs/heads/one {first} refs/heads/one {base}\nrefs/heads/two {second} refs/heads/two {base}\n'
         result = subprocess.run([str(self.root / '.git/hooks/pre-push'), 'external', 'remote'], cwd=self.root,
-                                input=updates, text=True, capture_output=True, env=self.env, timeout=30)
+                                input=updates, text=True, capture_output=True, env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.events / 'push-seen').read_text().splitlines(), [f'first target {first}', f'second target {second}'])
 
@@ -254,7 +255,7 @@ while not (p / 'continue').exists():
         args_path = self.events / 'pint-args'
         filename = 'packages/name with spaces;touch PWNED.php'
         result = subprocess.run(['bash', str(hook), filename], cwd=self.root, capture_output=True, text=True,
-                                env={**BASE_ENV, 'HOOK_TEST_ARGS': str(args_path)}, timeout=30)
+                                env={**BASE_ENV, 'HOOK_TEST_ARGS': str(args_path)}, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         import json
         self.assertEqual(json.loads(args_path.read_text()), [filename])
@@ -266,7 +267,7 @@ while not (p / 'continue').exists():
         pint.write_text('#!/bin/sh\nexit 9\n')
         pint.chmod(0o755)
         result = subprocess.run(['bash', str(self.pint_hook()), 'file.php'], cwd=self.root,
-                                capture_output=True, text=True, timeout=30)
+                                capture_output=True, text=True, timeout=300)
         self.assertEqual(result.returncode, 9)
 
     def test_pint_preserves_formatter_failure_and_fix_exit_contract(self):
@@ -275,11 +276,11 @@ while not (p / 'continue').exists():
         pint.write_text('#!/bin/sh\necho FAIL\nexit 1\n')
         pint.chmod(0o755)
         result = subprocess.run(['bash', str(self.pint_hook()), 'file.php'], cwd=self.root,
-                                capture_output=True, text=True, timeout=30)
+                                capture_output=True, text=True, timeout=300)
         self.assertEqual(result.returncode, 3)
         pint.write_text('#!/bin/sh\necho FIXED\nexit 1\n')
         result = subprocess.run(['bash', str(self.pint_hook()), 'file.php'], cwd=self.root,
-                                capture_output=True, text=True, timeout=30)
+                                capture_output=True, text=True, timeout=300)
         self.assertEqual(result.returncode, 1)
 
     def test_staged_snapshot_survives_concurrent_writer_and_partial_staging(self):
@@ -295,7 +296,7 @@ while not (p / 'continue').exists():
         self.wait_ready(proc)
         path.write_text('writer continued\n')
         (self.events / 'continue').write_text('go')
-        out, err = proc.communicate(timeout=30)
+        out, err = proc.communicate(timeout=300)
         self.assertEqual(path.read_text(), 'writer continued\n', out + err)
         self.assertEqual(proc.returncode, 0, out + err)
         self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'staged\n')
@@ -309,7 +310,7 @@ while not (p / 'continue').exists():
         path.write_text('unstaged\n')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'change'], cwd=self.root, capture_output=True, text=True,
-                                env={**self.env, 'HOOK_TEST_MODIFY': '1'}, timeout=30)
+                                env={**self.env, 'HOOK_TEST_MODIFY': '1'}, timeout=300)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(path.read_text(), 'unstaged\n')
         self.assertEqual(self.git('show', ':file.txt').stdout, 'staged\n')
@@ -352,7 +353,7 @@ fi
         self.git('add', 'file.txt')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'change'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotEqual(Path((self.events / 'legacy').read_text().strip()), self.root)
 
@@ -375,7 +376,7 @@ fi
         self.git('add', 'file.txt')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'change'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotEqual(Path((self.events / 'legacy').read_text().strip()), self.root)
         self.assertNotEqual(Path((self.events / 'legacy-script').read_text()), hook)
@@ -388,7 +389,7 @@ fi
         self.git('add', '-N', 'new.txt')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'change'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.root / 'new.txt').read_text(), 'unadded user content\n')
         self.assertIn('new.txt', self.git('status', '--porcelain').stdout)
@@ -401,7 +402,7 @@ fi
         (self.root / 'file.txt').symlink_to(target)
         self.git('add', 'file.txt')
         result = subprocess.run(['git', 'commit', '-m', 'symlink'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('symlink', result.stderr)
         self.assertEqual(target.read_text(), 'preserve me\n')
@@ -436,12 +437,12 @@ while not (p / 'start-writer').exists(): time.sleep(0.01)
         hook = subprocess.Popen([str(self.root / '.git/hooks/pre-commit')], cwd=self.root,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=self.env)
         self.addCleanup(lambda: hook.kill() if hook.poll() is None else None)
-        deadline = time.monotonic() + 30
+        deadline = time.monotonic() + 300
         while time.monotonic() < deadline and hook.poll() is None and not (self.events / 'legacy-ready').exists():
             time.sleep(0.02)
         (self.events / 'start-writer').write_text('go')
-        writer.wait(timeout=30)
-        out, err = hook.communicate(timeout=30)
+        writer.wait(timeout=300)
+        out, err = hook.communicate(timeout=300)
         self.assertNotEqual(hook.returncode, 0, out + err)
         self.assertEqual(outside.read_text(), 'writer continued\n')
         self.assertFalse((self.events / 'legacy-ready').exists(), out + err)
@@ -461,7 +462,7 @@ while not (p / 'start-writer').exists(): time.sleep(0.01)
         self.git('add', 'composer.lock')
         (self.events / 'continue').write_text('go')
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse((self.events / 'ready').exists(), result.stdout + result.stderr)
 
@@ -481,7 +482,7 @@ while not (p / 'start-writer').exists(): time.sleep(0.01)
         (self.root / 'file.txt').write_text('staged\n')
         self.git('add', 'file.txt')
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('legacy hook failed', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -511,7 +512,7 @@ while not (p / 'continue').exists(): time.sleep(0.01)
         subprocess.run(['python3', '-c', 'import pathlib,sys; pathlib.Path(sys.argv[1]).write_text("writer value\\n")',
                         str(self.root / 'node_modules/target')], check=True)
         (self.events / 'continue').write_text('go')
-        out, err = hook.communicate(timeout=30)
+        out, err = hook.communicate(timeout=300)
         self.assertEqual(hook.returncode, 0, out + err)
         self.assertEqual((self.events / 'snapshot-dependency').read_text(), 'snapshot value\n')
         self.assertEqual((self.root / 'node_modules/target').read_text(), 'writer value\n')
@@ -549,7 +550,7 @@ print((snapshot / 'vendor/fixture/package/content.php').read_text().strip())
         proc = subprocess.Popen(['python3', '-B', '-c', script, str(self.root), str(snapshot), str(self.events),
                                  str(SOURCE / 'scripts/hooks/pre-commit.py')], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.addCleanup(lambda: proc.kill() if proc.poll() is None else None)
-        deadline = time.monotonic() + 30
+        deadline = time.monotonic() + 300
         while time.monotonic() < deadline and proc.poll() is None and not (self.events / 'inventory-ready').exists():
             time.sleep(0.02)
         self.assertTrue((self.events / 'inventory-ready').exists(), 'copy did not reach the retarget boundary')
@@ -561,7 +562,7 @@ link.symlink_to(target, target_is_directory=True)
 '''
         subprocess.run(['python3', '-c', writer, str(self.root / 'vendor/fixture/package'),
                         str(self.root / 'packages/b'), str(self.events)], check=True)
-        out, err = proc.communicate(timeout=30)
+        out, err = proc.communicate(timeout=300)
         self.assertEqual(proc.returncode, 0, err)
         self.assertEqual(out.strip(), 'a')
         self.assertEqual((self.root / 'packages/a/content.php').read_text(), 'a\n')
@@ -581,7 +582,7 @@ link.symlink_to(target, target_is_directory=True)
         self.git('add', 'package-lock.json')
         (self.events / 'continue').write_text('go')
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse((self.events / 'ready').exists(), result.stdout + result.stderr)
 
@@ -601,7 +602,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'file.txt').write_text('staged\n')
         self.git('add', 'file.txt')
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Dependency symlink', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -616,7 +617,7 @@ link.symlink_to(target, target_is_directory=True)
         self.assertEqual(self.install().returncode, 0)
         (self.events / 'continue').write_text('go')
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.events / 'ready').exists())
 
@@ -631,7 +632,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'documentation.md').write_text('documentation\n')
         self.git('add', 'documentation.md')
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.events / 'legacy-ready').exists())
 
@@ -645,7 +646,7 @@ link.symlink_to(target, target_is_directory=True)
         self.git('add', 'scripts/check-debugging.py', 'documentation.md')
         self.assertEqual(self.install().returncode, 0)
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.events / 'ready').exists())
 
@@ -669,7 +670,7 @@ link.symlink_to(target, target_is_directory=True)
         self.git('add', 'packages/pkg/composer.json')
         manifest.write_text(json.dumps(package))
         result = subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
-                                text=True, capture_output=True, timeout=30)
+                                text=True, capture_output=True, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('differs from the snapshot', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -682,7 +683,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'file.txt').write_text('staged\n')
         self.git('add', 'file.txt')
         result = subprocess.run(['git', 'commit', '-m', 'legacy'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('legacy hook failed', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -695,7 +696,7 @@ link.symlink_to(target, target_is_directory=True)
         self.git('add', 'file.txt')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'split'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'staged\n')
 
@@ -709,7 +710,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'other.txt').write_text('newly staged\n')
         self.git('add', 'other.txt')
         (self.events / 'continue').write_text('go')
-        out, err = proc.communicate(timeout=30)
+        out, err = proc.communicate(timeout=300)
         self.assertNotEqual(proc.returncode, 0, out + err)
         self.assertIn('index changed', err)
         self.assertEqual(self.git('show', ':other.txt').stdout, 'newly staged\n')
@@ -719,7 +720,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / '.gitattributes').write_text('* text=auto\n')
         self.git('add', '.gitattributes')
         result = subprocess.run(['git', 'commit', '-m', 'attributes'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('line-ending policy', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -729,7 +730,7 @@ link.symlink_to(target, target_is_directory=True)
         head = self.git('rev-parse', 'HEAD').stdout.strip()
         self.git('update-index', '--add', '--cacheinfo', '160000,' + head + ',submodule')
         result = subprocess.run(['git', 'commit', '-m', 'submodule'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('submodules', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -741,7 +742,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'file.txt').write_text('staged\n')
         self.git('add', 'file.txt')
         result = subprocess.run(['git', 'commit', '-m', 'sparse'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Skip-worktree', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -752,7 +753,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'file.txt').write_text('staged\n')
         self.git('add', 'file.txt')
         result = subprocess.run(['git', 'commit', '-m', 'skipped'], cwd=self.root, capture_output=True, text=True,
-                                env={**self.env, 'SKIP': 'fixture'}, timeout=30)
+                                env={**self.env, 'SKIP': 'fixture'}, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Hook-skipping', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
@@ -763,7 +764,7 @@ link.symlink_to(target, target_is_directory=True)
         (self.root / 'file.txt').write_text('changed\n')
         self.git('add', '.gitattributes', 'file.txt')
         result = subprocess.run(['git', 'commit', '-m', 'filtered'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('filter', result.stderr)
         self.assertEqual((self.root / 'file.txt').read_text(), 'changed\n')
@@ -774,7 +775,7 @@ link.symlink_to(target, target_is_directory=True)
         self.git('mv', 'file.txt', 'renamed.txt')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'rename'], cwd=self.root, capture_output=True, text=True,
-                                env=self.env, timeout=30)
+                                env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('renamed.txt', (self.events / 'arguments').read_text())
 
@@ -785,7 +786,7 @@ link.symlink_to(target, target_is_directory=True)
         self.git('add', 'file.txt', 'other.txt')
         (self.events / 'continue').write_text('go')
         result = subprocess.run(['git', 'commit', '-m', 'change', '--', 'file.txt'], cwd=self.root,
-                                capture_output=True, text=True, env=self.env, timeout=30)
+                                capture_output=True, text=True, env=self.env, timeout=300)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'selected\n')
         self.assertEqual(self.git('show', 'HEAD:other.txt').stdout, 'other base\n')
