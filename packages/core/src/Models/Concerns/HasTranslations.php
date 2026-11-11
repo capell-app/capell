@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models\Concerns;
 
+use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\TranslationResolutionData;
@@ -126,10 +127,10 @@ trait HasTranslations
             return $translations->first();
         }
 
-        $order = Language::query()->ordered()->pluck('id')->flip();
+        $order = ResolveLanguageFallbackChainAction::make()->languageOrder();
 
         return $translations
-            ->sortBy(fn (Translation $translation): int => (int) ($order[$translation->language_id] ?? PHP_INT_MAX))
+            ->sortBy(fn (Translation $translation): int => $order[(int) $translation->language_id] ?? PHP_INT_MAX)
             ->first();
     }
 
@@ -156,7 +157,9 @@ trait HasTranslations
             return $this->language_id === null ? null : (int) $this->language_id;
         }
 
-        $siteId = $this->getAttribute('site_id');
+        // Models without a site (Media) have no site_id column; strict models throw on a
+        // missing attribute, so read only what the row carries.
+        $siteId = $this->getAttributes()['site_id'] ?? null;
 
         if ($siteId === null) {
             return null;

@@ -6,6 +6,7 @@ use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
@@ -307,4 +308,33 @@ it('reads a model title again without querying once it has been resolved', funct
     }
 
     expect($first)->toBe('Hello')->and($second)->toBe('Hello')->and($queries)->toBe([]);
+});
+
+it('orders the translations of a model without a site from cached language order', function (): void {
+    $german = Language::factory()->german()->createOne(['order' => 2]);
+    $french = Language::factory()->french()->createOne(['order' => 1]);
+    $media = Media::factory()->model(translationFallbackPage())->createOne();
+    Translation::factory()->translatable($media)->language($german)->createOne(['title' => 'Hallo']);
+    Translation::factory()->translatable($media)->language($french)->createOne(['title' => 'Bonjour']);
+    $fresh = static fn (): Media => Media::query()->with('translations')->whereKey($media->getKey())->firstOrFail();
+    $warm = $fresh()->title;
+    $second = $fresh();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $title = $second->title;
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    expect($warm)->toBe('Bonjour')->and($title)->toBe('Bonjour')->and($queries)->toBe([]);
+
+    // Reordering languages flushes the cached order through LanguageObserver.
+    $german->update(['order' => 0]);
+
+    expect($fresh()->title)->toBe('Hallo');
 });
