@@ -100,6 +100,7 @@ use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\HeadMetadataRegistry;
+use Capell\Frontend\Support\Render\PublicBladeSourceGuard;
 use Capell\Frontend\Support\Render\PublicRenderDataScope;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -163,6 +164,7 @@ final class SingletonLifetimeInventory
             ExtensionOrderingAudit::class => self::boot('Ordering audit sources are package boot registrations and collect diagnostics from boot registries.'),
             PresentationPresetRegistry::class => self::boot('Presentation presets are package boot registrations.'),
             PublicationReadinessRegistry::class => self::boot('Publication readiness contributors are package boot registrations; explicit clear is reserved for test/runtime reset boundaries.'),
+            PublicBladeSourceGuard::class => self::boot('Public view roots are registered by providers at boot; the guard only reads them afterwards.'),
             VendorAssetConditionRegistry::class => self::boot('Vendor asset conditions are package boot registrations.'),
             ThemeRegistry::class => self::boot('Themes are package boot registrations.'),
             PagePresentationRegistry::class => self::boot('Page presentation definitions are package boot registrations.'),
