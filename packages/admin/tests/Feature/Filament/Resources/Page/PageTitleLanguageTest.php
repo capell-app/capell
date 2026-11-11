@@ -75,5 +75,41 @@ it('lists pages with their default-language translation when no language filter 
     $listed = collect($records->items())->firstWhere('id', $page->getKey());
 
     expect($listed)->toBeInstanceOf(Page::class)
-        ->and($listed->translation?->title)->toBe('Page in English');
+        ->and($listed->title)->toBe('Page in English');
+});
+
+/**
+ * A site whose default language (German) is not the installation default (English),
+ * with the page's English row written first.
+ *
+ * @return array{Site, Page, Language, Language}
+ */
+function siteDefaultTitleFixture(): array
+{
+    $english = Language::factory()->english()->createOne(['default' => true]);
+    $german = Language::factory()->german()->createOne(['default' => false]);
+    $site = Site::factory()->language($german)->createOne();
+    $page = Page::factory()->site($site)->createOne(['name' => 'Page record name']);
+    $page->translations()->forceDelete();
+    Translation::factory()->translatable($page)->language($english)->createOne(['title' => 'Page in English']);
+    Translation::factory()->translatable($page)->language($german)->createOne(['title' => 'Seite auf Deutsch']);
+
+    return [$site, $page, $english, $german];
+}
+
+it('shows each page in its own site default language when no language filter is set', function (): void {
+    [, $page] = siteDefaultTitleFixture();
+
+    Livewire::test(ListPages::class)
+        ->toggleAllTableColumns()
+        ->assertTableColumnStateSet('translation.title', 'Seite auf Deutsch', $page);
+});
+
+it('shows the filtered language title when a language filter is set', function (): void {
+    [, $page, $english] = siteDefaultTitleFixture();
+
+    Livewire::test(ListPages::class)
+        ->toggleAllTableColumns()
+        ->filterTable('filter', ['language_id' => $english->getKey()])
+        ->assertTableColumnStateSet('translation.title', 'Page in English', $page);
 });
