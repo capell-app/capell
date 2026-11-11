@@ -134,3 +134,26 @@ it('does not serve the fallback language under the source slug once the page is 
     $this->get($frenchDomain->full_url . '/about')
         ->assertDontSeeText('English about marker body');
 });
+
+it('marks a fallback-served page in the head: served language, noindex, canonical and no alternate', function (): void {
+    [$site, $english, , $englishDomain, $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    $german = Language::factory()->german()->createOne();
+    SiteDomain::factory()->site($site)->language($german)->createOne([
+        'domain' => 'fallback.example.test', 'scheme' => 'http', 'port' => 8124, 'path' => '/de',
+    ]);
+    translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$german, 'ueber', 'Deutsche Seite'],
+    ]);
+
+    $response = $this->get($frenchDomain->full_url . '/about')
+        ->assertOk()
+        ->assertSeeText('English about marker body')
+        ->assertSee('lang="en"', false)
+        ->assertDontSee('lang="fr"', false);
+
+    expect(translationFallbackRobots($response))->toContain('noindex')
+        ->and(translationFallbackCanonical($response))->toBe($englishDomain->full_url . '/about')
+        ->and(translationFallbackHreflangs($response))->toContain('en', 'de')
+        ->and(translationFallbackHreflangs($response))->not->toContain('fr');
+});

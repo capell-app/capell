@@ -1,6 +1,7 @@
 @php
     use Capell\Core\Models\Language;
     use Capell\Core\Support\Locale\HtmlLanguageAttribute;
+    use Capell\Frontend\Actions\ResolveDocumentLanguageAction;
     use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
@@ -8,7 +9,11 @@
     use Capell\Frontend\Support\Render\HeadMetadataCollector;
     use Capell\Frontend\Support\Security\JsonLdScriptSanitizer;
 
-    $documentLanguage = ($language ?? null) instanceof Language ? $language : Frontend::language();
+    // A page served from a fallback language is written in that language.
+    $documentLanguage = ResolveDocumentLanguageAction::run(
+        Frontend::page(),
+        ($language ?? null) instanceof Language ? $language : Frontend::language(),
+    );
     $documentLanguageCode = HtmlLanguageAttribute::forLanguage($documentLanguage);
     $documentDirection = $documentLanguage?->direction() ?? Language::directionForCode(app()->getLocale());
 

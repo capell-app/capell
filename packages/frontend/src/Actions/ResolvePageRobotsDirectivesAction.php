@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Models\Language;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -23,16 +24,25 @@ final class ResolvePageRobotsDirectivesAction
     public function handle(Pageable $page, ?Language $language = null): array
     {
         $translation = $page->relationLoaded('translation') ? $page->translation : null;
+        $fallback = [];
 
-        if ($language instanceof Language && $translation?->language_id !== $language->id) {
-            $translation = $page->relationLoaded('translations')
+        if ($language instanceof Language) {
+            $resolution = TranslationResolutionData::forLoaded($page, $language);
+            $translation = $resolution?->translation ?? ($page->relationLoaded('translations')
                 ? $page->translations->firstWhere('language_id', $language->id)
-                : null;
+                : null);
+
+            // Content served from a fallback language duplicates the source page under
+            // another language's URL; it is not a translation search engines should index.
+            if ($resolution?->isFallback() === true) {
+                $fallback = ['noindex'];
+            }
         }
 
         return $this->normalize([
             ...$this->rawDirectives(data_get($page->meta, 'robots', [])),
             ...$this->rawDirectives($translation?->getMeta('robots') ?? []),
+            ...$fallback,
         ]);
     }
 
