@@ -56,16 +56,12 @@ it('nulls dangling media references before adding the foreign key and is reversi
         ->and($danglingTerm->fresh()?->media_id)->toBeNull()
         ->and($kept->fresh()?->media_id)->toBe($trashed->id)
         ->and(hasMediaForeignKey('page_property_values'))->toBeTrue()
-        ->and(hasMediaForeignKey('term_property_values'))->toBeTrue()
-        ->and(Schema::hasIndex(TableName::resolve('page_property_values'), ['media_id']))->toBeTrue()
-        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), ['media_id']))->toBeTrue();
+        ->and(hasMediaForeignKey('term_property_values'))->toBeTrue();
 });
 
-it('indexes media_id but leaves a media table Capell did not record creating unconstrained', function (): void {
+it('leaves a media table Capell did not record creating unconstrained instead of failing the upgrade', function (): void {
     $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_11_11_000010_add_media_foreign_key_to_property_values_tables.php';
     $migration->down();
-
-    expect(Schema::hasIndex(TableName::resolve('page_property_values'), TableName::index('page_property_values', 'media_id', 'index')))->toBeFalse();
 
     DB::table((string) config('database.migrations.table', 'migrations'))
         ->where('migration', 'like', '%create_media_table%')
@@ -74,9 +70,26 @@ it('indexes media_id but leaves a media table Capell did not record creating unc
     $migration->up();
 
     expect(hasMediaForeignKey('page_property_values'))->toBeFalse()
-        ->and(hasMediaForeignKey('term_property_values'))->toBeFalse()
-        ->and(Schema::hasIndex(TableName::resolve('page_property_values'), ['media_id']))->toBeTrue()
-        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), ['media_id']))->toBeTrue();
+        ->and(hasMediaForeignKey('term_property_values'))->toBeFalse();
+});
+
+it('indexes media_id on every property values table and removes only its own index on rollback', function (): void {
+    $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_11_11_000011_add_media_id_index_to_property_values_tables.php';
+    $indexName = static fn (string $table): string => TableName::index($table, 'media_id', 'index');
+
+    expect(Schema::hasIndex(TableName::resolve('page_property_values'), $indexName('page_property_values')))->toBeTrue()
+        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), $indexName('term_property_values')))->toBeTrue();
+
+    $migration->down();
+
+    expect(Schema::hasIndex(TableName::resolve('page_property_values'), $indexName('page_property_values')))->toBeFalse()
+        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), $indexName('term_property_values')))->toBeFalse();
+
+    $migration->up();
+    $migration->up();
+
+    expect(Schema::hasIndex(TableName::resolve('page_property_values'), $indexName('page_property_values')))->toBeTrue()
+        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), $indexName('term_property_values')))->toBeTrue();
 });
 
 it('skips the reference index upgrade when no property value holds a reference', function (): void {
