@@ -10,6 +10,7 @@ use Capell\Frontend\Support\Cache\CdnPurgeBuffer;
 use Capell\Frontend\Support\Cache\FragmentCache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 final class InvalidateFrontendSurrogateKeysAction
 {
@@ -27,10 +28,25 @@ final class InvalidateFrontendSurrogateKeysAction
 
         $fragmentCache = resolve(FragmentCache::class);
 
+        $failure = null;
+
+        // One failed token write must not leave the remaining keys or the CDN purge undone.
         foreach ($surrogateKeys as $surrogateKey) {
-            $fragmentCache->invalidateBySurrogateKey($surrogateKey);
+            try {
+                $fragmentCache->invalidateBySurrogateKey($surrogateKey);
+            } catch (Throwable $exception) {
+                $failure ??= $exception;
+            }
         }
 
+        $this->purgeCdn($surrogateKeys, $awaitCdn);
+
+        throw_if($failure instanceof Throwable, $failure);
+    }
+
+    /** @param  array<int, string>  $surrogateKeys */
+    private function purgeCdn(array $surrogateKeys, bool $awaitCdn): void
+    {
         if (! PurgeCdnCacheJob::hasConfiguredProvider()) {
             return;
         }

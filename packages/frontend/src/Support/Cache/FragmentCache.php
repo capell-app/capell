@@ -9,7 +9,6 @@ use Closure;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
 use RuntimeException;
-use stdClass;
 use Throwable;
 use UnexpectedValueException;
 
@@ -30,38 +29,47 @@ final class FragmentCache
         int $ttlSeconds = self::DEFAULT_TTL,
         array $surrogateKeys = [],
     ): mixed {
-        $namespace = $this->namespace();
-        $origin = CacheOrigin::discriminator();
-        // Keep standard-port keys byte-identical. A separate physical prefix
-        // prevents arbitrary logical keys from aliasing non-standard variants.
-        $cacheKey = $origin === ''
-            ? 'fragment:' . $namespace . ':value:' . $key
-            : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
-
-        if ($surrogateKeys === []) {
-            return $this->cache->remember($cacheKey, $ttlSeconds, $callback);
-        }
-
-        $missing = new stdClass;
-        $result = $this->cache->get($cacheKey, $missing);
-        if ($result !== $missing) {
-            $surrogateMap = $this->surrogateMap($this->mapKey($namespace));
-            if ($this->hasSurrogateMembership($surrogateMap, $cacheKey, $surrogateKeys)) {
-                return $result;
-            }
-
-        } else {
-            $result = $callback();
-        }
-
-        $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
-
-        return $result;
+        return $this->rememberVersioned($this->namespace(), $key, CacheOrigin::discriminator(), $callback, $ttlSeconds, $surrogateKeys);
     }
 
     public function invalidateBySurrogateKey(string $surrogateKey): void
     {
-        $mapKey = $this->mapKey($this->namespace());
+        $namespace = $this->namespace();
+
+        // Entries published by this version are validated against a per-surrogate
+        // token, so rotating it makes every dependent entry (and any render still
+        // in flight) unservable in one write, with no lock and no enumeration.
+        throw_unless(
+            $this->cache->put($this->tokenKey($namespace, $this->surrogateId($surrogateKey)), $this->newToken(), self::METADATA_TTL),
+            RuntimeException::class,
+            'Unable to rotate the fragment surrogate token.',
+        );
+
+        $this->purgeLegacySurrogateMap($namespace, $surrogateKey);
+    }
+
+    public function flush(): void
+    {
+        $namespace = $this->namespace();
+        // No lock is needed because the new namespace makes late old-namespace writes unreachable.
+        $replacement = bin2hex(random_bytes(16));
+        throw_unless(
+            $this->cache->put(self::NAMESPACE_KEY, $replacement, self::METADATA_TTL)
+            && $this->cache->get(self::NAMESPACE_KEY) === $replacement,
+            RuntimeException::class,
+            'Unable to rotate the fragment cache namespace.',
+        );
+        $this->cache->forget($this->mapKey($namespace));
+    }
+
+    /**
+     * Entries written by a node still running the previous release live under
+     * unversioned keys and are enumerated by a locked surrogate map. Keep purging
+     * them until every node serves the versioned format.
+     */
+    private function purgeLegacySurrogateMap(string $namespace, string $surrogateKey): void
+    {
+        $mapKey = $this->mapKey($namespace);
         $fragmentKeys = [];
         if (! $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $surrogateKey, &$fragmentKeys): void {
             $surrogateMap = $this->surrogateMap($mapKey);
@@ -100,20 +108,6 @@ final class FragmentCache
         }
     }
 
-    public function flush(): void
-    {
-        $namespace = $this->namespace();
-        // No lock is needed because the new namespace makes late old-namespace writes unreachable.
-        $replacement = bin2hex(random_bytes(16));
-        throw_unless(
-            $this->cache->put(self::NAMESPACE_KEY, $replacement, self::METADATA_TTL)
-            && $this->cache->get(self::NAMESPACE_KEY) === $replacement,
-            RuntimeException::class,
-            'Unable to rotate the fragment cache namespace.',
-        );
-        $this->cache->forget($this->mapKey($namespace));
-    }
-
     private function namespace(): string
     {
         $namespace = $this->cache->remember(self::NAMESPACE_KEY, self::METADATA_TTL, static fn (): string => bin2hex(random_bytes(16)));
@@ -124,60 +118,118 @@ final class FragmentCache
     }
 
     /**
-     * Publish a rendered surrogate-bearing fragment by updating its membership
-     * before writing the value under the shared map lock. A failed map write
-     * therefore cannot leave a value that surrogate invalidation cannot find.
+     * Versioned, compare-and-set publication. The entry records the surrogate
+     * tokens it was rendered against; a hit is valid only while every recorded
+     * token is unchanged, and a render publishes only if no token moved while it
+     * ran. A hit must own every surrogate the caller declares.
      *
      * @param  list<string>  $surrogateKeys
      */
-    private function publishTrackedFragment(string $namespace, string $fragmentKey, mixed &$result, int $ttlSeconds, array $surrogateKeys, stdClass $missing): void
+    private function rememberVersioned(string $namespace, string $key, string $origin, callable $callback, int $ttlSeconds, array $surrogateKeys): mixed
     {
-        $mapKey = $this->mapKey($namespace);
-        $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $fragmentKey, &$result, $ttlSeconds, $surrogateKeys, $missing): void {
-            $existing = $this->cache->get($fragmentKey, $missing);
-            $newFragment = $existing === $missing;
-            if (! $newFragment) {
-                $result = $existing;
-            }
+        $cacheKey = $origin === ''
+            ? 'fragment:' . $namespace . ':v2:value:' . $key
+            : 'fragment:' . $namespace . ':v2:origin-value:' . hash('sha256', serialize([$key, $origin]));
 
-            try {
-                $surrogateMap = $this->surrogateMap($mapKey);
-                if (! $this->hasSurrogateMembership($surrogateMap, $fragmentKey, $surrogateKeys)) {
-                    $this->registerSurrogateKeys($mapKey, $fragmentKey, $surrogateKeys, $surrogateMap);
-                }
-
-                if ($newFragment) {
-                    throw_unless($this->cache->put($fragmentKey, $result, $ttlSeconds), RuntimeException::class, 'Unable to store the fragment value.');
-                }
-            } catch (Throwable) {
-                // Do not turn a cache publication failure into a render failure.
-            }
-        });
-    }
-
-    /**
-     * @param  list<string>  $surrogateKeys
-     * @param  array<array-key, list<string>>  $surrogateMap
-     */
-    private function registerSurrogateKeys(string $mapKey, string $fragmentKey, array $surrogateKeys, array $surrogateMap): void
-    {
+        $wanted = [];
         foreach ($surrogateKeys as $surrogate) {
-            if (! isset($surrogateMap[$surrogate])) {
-                $surrogateMap[$surrogate] = [];
-            }
+            $wanted[$this->surrogateId((string) $surrogate)] = true;
+        }
 
-            if (! in_array($fragmentKey, $surrogateMap[$surrogate], true)) {
-                $surrogateMap[$surrogate][] = $fragmentKey;
+        $entry = $this->cache->get($cacheKey);
+
+        if (is_array($entry) && ($entry['v'] ?? null) === 2 && array_key_exists('value', $entry) && is_array($entry['tokens'] ?? null)) {
+            $recorded = $entry['tokens'];
+
+            // Fail closed: a malformed envelope, or one that does not own every
+            // surrogate the caller declares, is a miss and is re-rendered.
+            if (array_all($recorded, static fn (mixed $token, mixed $id): bool => is_string($token) && is_string($id))
+                && array_diff_key($wanted, $recorded) === []
+                && $this->readTokens($namespace, array_keys($recorded)) === $recorded) {
+                return $entry['value'];
             }
         }
 
-        throw_unless($this->cache->put($mapKey, $surrogateMap, self::METADATA_TTL), RuntimeException::class, 'Unable to update the fragment surrogate map.');
+        $ids = array_keys($wanted);
+        $tokens = $this->ensureTokens($namespace, $ids);
+        $result = $callback();
+
+        if ($tokens !== null) {
+            $this->publish($namespace, $cacheKey, $result, $tokens, $ttlSeconds);
+        }
+
+        return $result;
     }
 
-    /** @param list<string> $surrogateKeys */
-    private function hasSurrogateMembership(array $surrogateMap, string $fragmentKey, array $surrogateKeys): bool
+    /** @param array<string, string> $tokens */
+    private function publish(string $namespace, string $cacheKey, mixed $value, array $tokens, int $ttlSeconds): void
     {
-        return array_all($surrogateKeys, fn (string $surrogate): bool => in_array($fragmentKey, $surrogateMap[$surrogate] ?? [], true));
+        try {
+            // Compare: a purge that ran meanwhile rotated at least one token.
+            if ($this->readTokens($namespace, array_keys($tokens)) === $tokens) {
+                $this->cache->put($cacheKey, ['v' => 2, 'value' => $value, 'tokens' => $tokens], $ttlSeconds);
+            }
+        } catch (Throwable) {
+            // Do not turn a cache publication failure into a render failure.
+        }
+    }
+
+    /**
+     * @param  list<string>  $ids
+     * @return array<string, string>|null
+     */
+    private function ensureTokens(string $namespace, array $ids): ?array
+    {
+        try {
+            foreach ($ids as $id) {
+                // add() never overwrites, so concurrent first renders agree on one token.
+                $this->cache->add($this->tokenKey($namespace, $id), $this->newToken(), self::METADATA_TTL);
+            }
+
+            return $this->readTokens($namespace, $ids);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<string>  $ids
+     * @return array<string, string>|null
+     */
+    private function readTokens(string $namespace, array $ids): ?array
+    {
+        $keys = [];
+        foreach ($ids as $id) {
+            $keys[(string) $id] = $this->tokenKey($namespace, (string) $id);
+        }
+
+        $current = $this->cache->many(array_values($keys));
+        $tokens = [];
+
+        foreach ($keys as $id => $tokenKey) {
+            if (! is_string($current[$tokenKey] ?? null)) {
+                return null;
+            }
+
+            $tokens[$id] = $current[$tokenKey];
+        }
+
+        return $tokens;
+    }
+
+    private function surrogateId(string $surrogate): string
+    {
+        return 'v2:surrogate:' . hash('sha256', $surrogate);
+    }
+
+    private function tokenKey(string $namespace, string $id): string
+    {
+        return 'fragment:' . $namespace . ':' . $id;
+    }
+
+    private function newToken(): string
+    {
+        return bin2hex(random_bytes(16));
     }
 
     private function withSurrogateMapLock(string $mapKey, Closure $callback): bool

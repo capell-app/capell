@@ -66,22 +66,21 @@ final class CategoryObserver
 - **Numeric surrogate keys work too** — string keys such as `'42'` and `'0'` retain their associations when the cache stores them as integer array keys.
 - **Directive supports nesting** — `@cache` blocks can be nested; the directive uses an internal stack to manage `@endcache` pairing.
 - **Default TTL is 1 hour** — if you omit the second argument, fragments cache for 3600 seconds.
-- **Fragment metadata expires after 30 days** — namespaces and surrogate maps have bounded lifetimes. Namespace expiry safely regenerates fragments, including entries with a longer requested TTL.
-- **Flush is fragment-scoped** — rotating a fragment namespace works with tagging and non-tagging stores and preserves unrelated application keys. Previously cached values expire at their original TTL; the old surrogate index is removed immediately. Invalidation also removes the fragment from every surrogate association.
+- **Fragment metadata expires after 30 days** — namespaces and surrogate tokens have bounded lifetimes. Namespace expiry, or a missing token, safely regenerates fragments, including entries with a longer requested TTL.
+- **Flush is fragment-scoped** — rotating a fragment namespace works with tagging and non-tagging stores and preserves unrelated application keys. Previously cached values expire at their original TTL; a purge rotates the surrogate's token, so every dependent entry stops being served immediately. A hit must own every surrogate it declares; a value rendered without one of them is re-rendered.
 
 ## Origin identity and invalidation
 
 Core cache keys and fragments use `Capell\Core\Support\Cache\CacheOrigin::discriminator()`.
 It casts the effective request port to an integer. An absent port, 80, or 443
-adds no discriminator, regardless of the perceived scheme, retaining the literal
-legacy key. Every other port adds the effective scheme and integer port. Request
+adds no discriminator, regardless of the perceived scheme, using the plain logical key. Every other port adds the effective scheme and integer port. Request
 accessors honour trusted proxy configuration; without a request, both caches use
 `app.url`, including in CLI and queue contexts. Companion HTML-cache identity
 must implement this identical rule.
 
 Non-standard fragment values use a separate `origin-value` prefix and a SHA-256
-hash of the logical key and discriminator together. Standard values retain the
-`value` prefix and unchanged logical key; arbitrary caller keys cannot enter the
+hash of the logical key and discriminator together. Standard values use the
+versioned `v2:value` prefix and unchanged logical key; arbitrary caller keys cannot enter the
 non-standard prefix.
 
 Bulk invalidation is intentionally origin-wide. Core tag flushes, fallback
@@ -91,14 +90,18 @@ This safe over-invalidation avoids stale content; exact Core key removal remains
 origin-specific. Shared-store entries outside the affected tag, namespace or
 pattern are preserved.
 
-Surrogate membership still uses a non-atomic read/modify/write map. The injected
-`Illuminate\Contracts\Cache\Repository` and its `Store` guarantee neither an
-atomic map update nor locks (locking is a separate optional `LockProvider`
-contract). Interleaved writes for two port variants can lose one membership;
-a subsequent surrogate purge can leave that value until TTL expiry or namespace
-rotation. A deterministic characterisation test pins this pre-existing limitation.
-Fixing it for every supported repository requires a separate coordination design;
-this identity change does not provide that guarantee.
+Fragments are stored as versioned envelopes that record the per-surrogate
+tokens they were rendered against. A hit is valid only while every recorded token
+is unchanged, a purge rotates a token, and a render publishes only if no token
+moved while it ran. This needs no lock and no shared map, so interleaved writes
+for two port variants cannot lose a purge. A hit reads the namespace, the entry
+and one token per recorded surrogate.
+
+Rolling deploys: purges also clear the previous release's unversioned surrogate
+map, so a new node still purges values written by an old node. An old node's purge
+cannot rotate versioned tokens, so run `FragmentCache::flush()` (or rotate the
+`fragment:namespace` key) once after a release switch or rollback has drained the
+old workers.
 
 ## Public deferred fragments
 

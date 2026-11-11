@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Tests\Fixtures;
 
-use Closure;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Override;
@@ -16,8 +15,6 @@ final class FragmentCacheTestStore extends ArrayStore
 
     public int $putCalls = 0;
 
-    public bool $failMapWrites = false;
-
     public bool $failFragmentWrites = false;
 
     public ?string $namespaceWriteFailure = null;
@@ -25,8 +22,6 @@ final class FragmentCacheTestStore extends ArrayStore
     public ?string $fragmentDeletionFailure = null;
 
     public bool $failLocks = false;
-
-    public ?Closure $beforeMapWrite = null;
 
     #[Override]
     public function lock($name, $seconds = 0, $owner = null)
@@ -47,18 +42,6 @@ final class FragmentCacheTestStore extends ArrayStore
             throw_if($this->namespaceWriteFailure === 'throw', RuntimeException::class, 'Namespace write failed.');
 
             return $this->namespaceWriteFailure === 'unacknowledged';
-        }
-
-        if (is_string($key) && str_ends_with($key, ':surrogate:map')) {
-            if ($this->beforeMapWrite instanceof Closure) {
-                $callback = $this->beforeMapWrite;
-                $this->beforeMapWrite = null;
-                $callback();
-            }
-
-            if ($this->failMapWrites) {
-                return false;
-            }
         }
 
         if (is_string($key) && $this->failFragmentWrites && $this->isFragmentValueKey($key)) {

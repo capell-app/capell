@@ -471,7 +471,10 @@ it('makes confidential fragments unreachable despite failed deletion or surrogat
     $fragments->remember('private', static fn (): string => 'CONFIDENTIAL fragment', surrogateKeys: ['site-' . $site->id]);
     $fragments->remember('untagged', static fn (): string => 'CONFIDENTIAL untagged');
 
-    $legacyKeys = $repository->get('fragment:legacy:surrogate:map')['site-' . $site->id];
+    $retainedKey = array_values(array_filter(
+        array_keys($store->all()),
+        static fn (string $key): bool => str_contains($key, ':v2:') && str_contains($key, 'value:') && ($store->all()[$key]['value']['value'] ?? null) === 'CONFIDENTIAL fragment',
+    ))[0];
 
     expect($fragments->remember('private', static fn (): string => 'unexpected'))->toBe('CONFIDENTIAL fragment');
     $store->fragmentDeletionFailure = $failure === 'lock' ? null : $failure;
@@ -482,7 +485,7 @@ it('makes confidential fragments unreachable despite failed deletion or surrogat
     expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
         // The retained bytes are deliberately inaccessible through every reader,
         // including fragments without surrogate membership.
-        ->and($repository->get($legacyKeys[0]))->toBe('CONFIDENTIAL fragment')
+        ->and($repository->get($retainedKey)['value'])->toBe('CONFIDENTIAL fragment')
         ->and($fragments->remember('private', static fn (): string => 'safe'))->toBe('safe')
         ->and($fragments->remember('untagged', static fn (): string => 'safe untagged'))->toBe('safe untagged');
 })->with(['return-false', 'throw', 'lock']);
@@ -525,11 +528,13 @@ it('cannot republish a pre-repair fragment into the active namespace after repai
 
     $fragments = new FragmentCache($repository);
     app()->instance(FragmentCache::class, $fragments);
-    $store->beforeMapWrite = static function () use ($spec): void {
-        BuildCapellSiteFromSpecAction::run($spec, true);
-    };
 
-    $fragments->remember('in-flight', static fn (): string => 'CONFIDENTIAL in flight', surrogateKeys: ['site-' . $site->id]);
+    // The repair completes while this fragment is still being rendered.
+    $fragments->remember('in-flight', static function () use ($spec): string {
+        BuildCapellSiteFromSpecAction::run($spec, true);
+
+        return 'CONFIDENTIAL in flight';
+    }, surrogateKeys: ['site-' . $site->id]);
 
     expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
         ->and($fragments->remember('in-flight', static fn (): string => 'safe'))->toBe('safe');
