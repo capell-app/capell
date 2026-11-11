@@ -10,6 +10,7 @@ use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\BuildInstallReviewAction;
 use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
 use Capell\Core\Actions\Install\DetectInitialInstallationAction;
+use Capell\Core\Actions\Install\EnsureDatabaseExistsAction;
 use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\IsPrivateSiteSpecFileAction;
 use Capell\Core\Actions\Install\MakeInstallProgressReporterAction;
@@ -495,6 +496,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 $noSideEffects,
             ),
         );
+
+        // A fresh SQLite project has no database file until the installer creates it, and the wizard reads from it.
+        if (! $planOnly && ! $noSideEffects) {
+            EnsureDatabaseExistsAction::run($this->installReporter());
+        }
 
         if ($noSideEffects && ! $planOnly) {
             $this->info('Skipping all side effects (--no-side-effects).');

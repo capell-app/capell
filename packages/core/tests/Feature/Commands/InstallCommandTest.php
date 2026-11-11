@@ -3761,6 +3761,70 @@ it('offers individual names for foreign tables in an interactive install', funct
     }
 });
 
+it('creates a missing SQLite database file before the wizard reads from it', function (): void {
+    setupInstallTest(['capell-app/core']);
+    bindFakeRunInstallAction();
+    $original = config('database.default');
+    $path = storage_path('framework/testing/capell-fresh-install-' . bin2hex(random_bytes(4)) . '.sqlite');
+    config([
+        'database.default' => 'fresh-sqlite',
+        'database.connections.fresh-sqlite' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true],
+    ]);
+
+    try {
+        artisanCommand('capell:install', [
+            '--package-mode' => 'custom',
+            '--packages' => 'capell-app/core',
+            '--url' => 'https://hartley.test',
+            '--name' => 'Ben',
+            '--email' => 'ben@example.test',
+            '--password' => 'a-long-private-password',
+            '--no-seed-default-data' => true,
+            '--no-interaction' => true,
+        ])->run();
+
+        expect(is_file($path))->toBeTrue();
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('fresh-sqlite');
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+});
+
+it('plans an install on a fresh SQLite project without creating or reading the database file', function (): void {
+    setupInstallTest(['capell-app/core']);
+    $fake = bindFakeRunInstallAction();
+    $original = config('database.default');
+    $path = storage_path('framework/testing/capell-plan-install-' . bin2hex(random_bytes(4)) . '.sqlite');
+    config([
+        'database.default' => 'fresh-sqlite',
+        'database.connections.fresh-sqlite' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true],
+    ]);
+
+    try {
+        artisanCommand('capell:install', [
+            '--package-mode' => 'custom',
+            '--packages' => 'capell-app/core',
+            '--url' => 'https://hartley.test',
+            '--name' => 'Ben',
+            '--email' => 'ben@example.test',
+            '--password' => 'a-long-private-password',
+            '--plan' => true,
+            '--no-interaction' => true,
+        ])
+            ->expectsOutputToContain('The database file will be created at ' . $path)
+            ->assertSuccessful();
+
+        expect(is_file($path))->toBeFalse()
+            ->and($fake->callCount)->toBe(0);
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('fresh-sqlite');
+    }
+});
+
 it('asks for the site name in the detailed --customise questionnaire and applies it', function (): void {
     setupInstallTest(['capell-app/core'], foundationThemeAvailable: true);
     $fake = bindFakeRunInstallAction();
