@@ -3754,3 +3754,35 @@ it('offers individual names for foreign tables in an interactive install', funct
         }
     }
 });
+
+it('creates a missing SQLite database file before the wizard reads from it', function (): void {
+    setupInstallTest(['capell-app/core']);
+    bindFakeRunInstallAction();
+    $original = config('database.default');
+    $path = storage_path('framework/testing/capell-fresh-install-' . bin2hex(random_bytes(4)) . '.sqlite');
+    config([
+        'database.default' => 'fresh-sqlite',
+        'database.connections.fresh-sqlite' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true],
+    ]);
+
+    try {
+        artisanCommand('capell:install', [
+            '--package-mode' => 'custom',
+            '--packages' => 'capell-app/core',
+            '--url' => 'https://hartley.test',
+            '--name' => 'Ben',
+            '--email' => 'ben@example.test',
+            '--password' => 'a-long-private-password',
+            '--no-seed-default-data' => true,
+            '--no-interaction' => true,
+        ])->run();
+
+        expect(is_file($path))->toBeTrue();
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('fresh-sqlite');
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+});
