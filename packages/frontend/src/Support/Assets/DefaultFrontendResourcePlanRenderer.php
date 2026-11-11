@@ -16,6 +16,7 @@ use Capell\Frontend\Enums\FetchPriority;
 use Capell\Frontend\Enums\FrontendResourceHintAs;
 use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\ReferrerPolicy;
+use Capell\Frontend\Support\Loader\PageCachePolicy;
 use Illuminate\Foundation\Vite;
 
 final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanRenderer
@@ -27,9 +28,36 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
 
     public function render(FrontendResourcePlanData $plan, FrontendResourceContextData $context): RenderedFrontendResourcesData
     {
-        $head = array_map($this->renderResource(...), $plan->headResources);
+        // HTML that may be cached or exported is replayed to many visitors, so
+        // a per-response nonce would be stale. Such pages carry no nonces; each
+        // inline script and style is authorised by a content hash instead.
+        $useNonce = ! PageCachePolicy::shouldCache($context->page);
+        $scriptHashes = [];
+        $styleHashes = [];
+        $renderResource = function (ResolvedFrontendResourceData $resource) use ($useNonce, &$scriptHashes, &$styleHashes): string {
+            $html = $this->renderResource($resource, $useNonce);
+            $inline = $this->inlineContent($resource);
+
+            if ($inline !== null) {
+                $hash = "'sha256-" . base64_encode(hash('sha256', $inline, true)) . "'";
+
+                if ($resource->kind === FrontendResourceKind::InlineStyle) {
+                    $styleHashes[$hash] = $hash;
+                } else {
+                    $scriptHashes[$hash] = $hash;
+                }
+            }
+
+            return $html;
+        };
+        $head = array_map($renderResource, $plan->headResources);
         $hints = array_map($this->renderHint(...), $plan->hints);
-        $bodyEnd = array_map($this->renderResource(...), $plan->bodyEndResources);
+        $bodyEnd = array_map($renderResource, $plan->bodyEndResources);
+        $recovery = $this->requiresStylesheetRecovery($plan) ? $this->stylesheetRecovery->cspHashSource() : null;
+
+        if ($recovery !== null) {
+            $scriptHashes[$recovery] = $recovery;
+        }
 
         return new RenderedFrontendResourcesData(
             headHtml: implode(PHP_EOL, array_filter([
@@ -39,13 +67,24 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
             ])),
             bodyEndHtml: implode(PHP_EOL, array_filter($bodyEnd)),
             lazyRuntimePayload: array_map($this->activationPayload(...), $plan->lazyActivationGraphs),
+            scriptHashSources: array_values($scriptHashes),
+            styleHashSources: array_values($styleHashes),
         );
     }
 
-    private function renderResource(ResolvedFrontendResourceData $resource): string
+    private function inlineContent(ResolvedFrontendResourceData $resource): ?string
+    {
+        return match ($resource->kind) {
+            FrontendResourceKind::InlineStyle => $this->escapeClosingTag((string) $resource->content, 'style'),
+            FrontendResourceKind::InlineScript => $this->escapeClosingTag((string) $resource->content, 'script'),
+            default => null,
+        };
+    }
+
+    private function renderResource(ResolvedFrontendResourceData $resource, bool $useNonce): string
     {
         $attributes = $this->securityAttributes($resource);
-        $nonce = $this->vite->cspNonce();
+        $nonce = $useNonce ? $this->vite->cspNonce() : null;
         $nonceAttribute = is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
         return match ($resource->kind) {
