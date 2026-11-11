@@ -29,6 +29,9 @@ final class InvalidateDueScheduledPublicationCachesAction
 
     private const int CHECKPOINT_OVERLAP_SECONDS = 5;
 
+    /** An idle tick leaves a checkpoint this recent untouched; older ones advance so the scan window stays small. */
+    private const int IDLE_CHECKPOINT_MAX_AGE_SECONDS = 600;
+
     public function handle(?CarbonImmutable $until = null): int
     {
         $until ??= CarbonImmutable::now();
@@ -65,11 +68,31 @@ final class InvalidateDueScheduledPublicationCachesAction
                 }
             });
 
+        if ($invalidated === 0 && $this->storedCheckpointIsRecent($settings->scheduled_publication_invalidation_checkpoint, $until)) {
+            // Nothing was due and the stored checkpoint still bounds the next scan, so skip the write and cache flush.
+            return 0;
+        }
+
         PersistScheduledPublicationInvalidationCheckpointAction::run(
             $until->toIso8601String(),
         );
 
         return $invalidated;
+    }
+
+    private function storedCheckpointIsRecent(?string $checkpoint, CarbonImmutable $until): bool
+    {
+        if ($checkpoint === null || ! CarbonImmutable::hasFormat($checkpoint, DateTimeInterface::ATOM)) {
+            return false;
+        }
+
+        $stored = CarbonImmutable::createFromFormat(DateTimeInterface::ATOM, $checkpoint);
+
+        if (! $stored instanceof CarbonImmutable || $stored->format(DateTimeInterface::ATOM) !== $checkpoint || $stored->greaterThan($until)) {
+            return false;
+        }
+
+        return $until->getTimestamp() - $stored->getTimestamp() < self::IDLE_CHECKPOINT_MAX_AGE_SECONDS;
     }
 
     private function checkpoint(?string $checkpoint, CarbonImmutable $until): CarbonImmutable
