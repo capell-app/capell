@@ -145,13 +145,25 @@ it('applies separate dependency commands generates the input manifest and builds
 
 it('installs declared dependencies before building when the plan has nothing to add and node_modules is missing', function (): void {
     File::put($this->viteConfigPath, viteConfigWithCapellInputs());
-    expect(is_dir(base_path('node_modules')))->toBeFalse();
+    $modules = base_path('node_modules');
+    $parked = $modules . '.parked-by-test';
+    $hadModules = file_exists($modules) || is_link($modules);
+    if ($hadModules) {
+        rename($modules, $parked);
+    }
+
     Process::fake(fn () => Process::result(output: 'process output'));
 
-    $exit = Artisan::call('capell:frontend-after-install', [
-        '--no-interaction' => true,
-        '--apply' => true,
-    ]);
+    try {
+        $exit = Artisan::call('capell:frontend-after-install', [
+            '--no-interaction' => true,
+            '--apply' => true,
+        ]);
+    } finally {
+        if ($hadModules) {
+            rename($parked, $modules);
+        }
+    }
 
     expect($exit)->toBe(0);
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'install'] && $process->path === base_path());
