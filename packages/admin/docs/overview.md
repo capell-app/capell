@@ -42,14 +42,6 @@ Select any screenshot to open the full-resolution image.
 | **Media library**                                                                                                                                                                                                                                                                                                                                                                                                                                                            | **Site Health**                                                                                                                                                                                                                                                                                                                                   |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/admin-media-list-dark.png"><img src="images/screenshots/admin-media-list.png" alt="Media library with file details, owners, and usage links"></picture><br>[Light](images/screenshots/admin-media-list.png) · [Dark](images/screenshots/admin-media-list-dark.png)                                                                                                                          | <picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/site-health-page-dark.png"><img src="images/screenshots/site-health-page.png" alt="Site Health page with public delivery and cache checks"></picture><br>[Light](images/screenshots/site-health-page.png) · [Dark](images/screenshots/site-health-page-dark.png) |
 
-### First-run dashboard
-
-Until a site's home page is public, the dashboard leads with a checklist of what to do before launch. Each step says what it changes and links to where you do it.
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/admin-dashboard-first-run-dark.png"><img src="images/screenshots/admin-dashboard-first-run.png" alt="Admin dashboard showing the first-run checklist before the site is published"></picture>
-
-[Light](images/screenshots/admin-dashboard-first-run.png) · [Dark](images/screenshots/admin-dashboard-first-run-dark.png) · [Mobile](images/screenshots/admin-dashboard-first-run-mobile.png) · [Mobile dark](images/screenshots/admin-dashboard-first-run-mobile-dark.png)
-
 ### Site metrics
 
 [![Site metrics page showing four compact stat cards with daily sparklines](images/screenshots/site-admin-metrics-page.png)](images/screenshots/site-admin-metrics-page.png)
