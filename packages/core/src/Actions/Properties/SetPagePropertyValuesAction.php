@@ -13,6 +13,7 @@ use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Support\Properties\PropertyValueValidator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -61,7 +62,7 @@ final class SetPagePropertyValuesAction
             $uniqueValuesSeen = [];
 
             foreach ($values as $value) {
-                $definition = $this->validator->validate($page, $value, $effectiveDefinitions);
+                $definition = $this->validator->validate($page, $value, $effectiveDefinitions, $this->leavesStoredValueUnchanged($page, $value, $effectiveDefinitions));
                 $this->assertNotRepeatedInWrite($definition, $value, $uniqueValuesSeen);
 
                 if (! $viaPromotedFieldSync && $definition->promotedField !== null) {
@@ -103,6 +104,31 @@ final class SetPagePropertyValuesAction
 
             PageSavedAction::run($page, ['_property_keys' => array_keys($touchedDefinitionIds)]);
         });
+    }
+
+    /**
+     * @param  Collection<int, EffectivePropertyDefinitionData>  $effectiveDefinitions
+     */
+    private function leavesStoredValueUnchanged(Page $page, PropertyValueData $value, Collection $effectiveDefinitions): bool
+    {
+        $definition = $effectiveDefinitions->first(
+            static fn (EffectivePropertyDefinitionData $candidate): bool => $candidate->key === $value->propertyKey,
+        );
+
+        if (! $definition instanceof EffectivePropertyDefinitionData) {
+            return false;
+        }
+
+        $stored = PagePropertyValue::query()
+            ->where('site_id', $page->site_id)
+            ->where('page_id', $page->id)
+            ->where('property_definition_id', $definition->definitionId)
+            ->where('translation_id', $value->translationId)
+            ->where('position', $value->position)
+            ->first();
+
+        return $stored instanceof PagePropertyValue
+            && PropertyValueData::fromPageValue($stored, $definition->key, $definition->type)->toColumns() === $value->toColumns();
     }
 
     /**

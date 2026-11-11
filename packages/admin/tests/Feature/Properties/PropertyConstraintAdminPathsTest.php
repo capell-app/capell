@@ -20,6 +20,7 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -173,14 +174,22 @@ it('keeps property rules, which every site shares, away from site-scoped adminis
         ->assertTableActionHidden('propertyRules', Blueprint::query()->findOrFail($page->blueprint_id));
 });
 
-it('checks only the promoted fields an editor changes, so an older value does not block an unrelated edit', function (): void {
+it('enforces an unchanged over-limit promoted value where developers work and only reports it in production', function (): void {
     test()->actingAsAdmin();
     $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
     $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
     PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
     $validator = resolve(PropertyConstraintPageAuthoringValidator::class);
 
+    expect(fn () => $validator->validate(['name' => 'An established page name'], $page))
+        ->toThrow(ValidationException::class);
+
+    app()->detectEnvironment(fn (): string => 'production');
+    $log = Log::spy();
+
     $validator->validate(['name' => 'An established page name'], $page);
+
+    $log->shouldHaveReceived('warning')->once();
 
     expect(fn () => $validator->validate(['name' => 'Another far too long name'], $page))
         ->toThrow(ValidationException::class);

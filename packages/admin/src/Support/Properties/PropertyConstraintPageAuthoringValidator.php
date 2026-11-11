@@ -66,18 +66,22 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
 
             $value = SyncPromotedFieldValuesAction::coerce($definition, $rawValue);
 
-            if (! $scopeChanged && $record instanceof Page
-                && $value === SyncPromotedFieldValuesAction::coerce($definition, data_get($record, $field))) {
-                continue;
-            }
+            $unchanged = ! $scopeChanged && $record instanceof Page
+                && $value === SyncPromotedFieldValuesAction::coerce($definition, data_get($record, $field));
 
-            $this->validator->assertConstraints(
+            $arguments = [
                 $definition,
                 $value,
                 (int) $subject->site_id,
                 $record instanceof Page ? (int) $record->getKey() : null,
                 'data.' . $field,
-            );
+            ];
+
+            if ($unchanged) {
+                $this->validator->assertOrReportUntouchedConstraints(...$arguments);
+            } else {
+                $this->validator->assertConstraints(...$arguments);
+            }
         }
     }
 

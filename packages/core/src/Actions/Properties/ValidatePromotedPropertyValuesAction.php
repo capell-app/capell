@@ -20,10 +20,11 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * only synced after the save, and a page save is not transactional, so a rule
  * failure found then would leave the field saved and its property stale.
  *
- * Only fields that are changing are checked ({@see PromotedFieldChanges}): a
- * rule added later never blocks an unrelated save of an older page, while a
- * move to another blueprint or site checks every promoted field against the
- * rules that will then apply.
+ * Changing fields are always enforced ({@see PromotedFieldChanges}), as is
+ * every promoted field on a move to another blueprint or site. A field this
+ * save leaves as it was is enforced where developers work and only reported
+ * in production, so a rule added later never blocks an unrelated production
+ * save of an older page.
  *
  * @method static void run(Page $page)
  */
@@ -51,23 +52,25 @@ final class ValidatePromotedPropertyValuesAction
         foreach ($promoted as $definition) {
             $field = (string) $definition->promotedField;
 
-            if (! PromotedFieldChanges::changingBeforeSave($page, $field)) {
-                continue;
-            }
-
             $rawValue = data_get($page, $field);
 
             if ($rawValue === null) {
                 continue;
             }
 
-            $this->validator->assertConstraints(
+            $arguments = [
                 $definition,
                 SyncPromotedFieldValuesAction::coerce($definition, $rawValue),
                 (int) $page->site_id,
                 $page->exists ? (int) $page->getKey() : null,
                 $definition->key,
-            );
+            ];
+
+            if (PromotedFieldChanges::changingBeforeSave($page, $field)) {
+                $this->validator->assertConstraints(...$arguments);
+            } else {
+                $this->validator->assertOrReportUntouchedConstraints(...$arguments);
+            }
         }
     }
 }
