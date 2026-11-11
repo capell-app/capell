@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Contracts\StepProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallSiteUrl;
@@ -20,6 +21,10 @@ final class ReportInstallFailureAction
     /** @param list<string> $completedSteps */
     public function handle(InstallInputData $input, array $completedSteps, string $failedStep, ProgressReporter $reporter, bool $frontendExpected = false): void
     {
+        if ($reporter instanceof StepProgressReporter) {
+            $reporter->abandon();
+        }
+
         $reporter->error(__('capell-core::install.recovery.failed', ['step' => $failedStep]));
         $reporter->report(__('capell-core::install.recovery.completed', ['count' => count($completedSteps), 'steps' => implode(', ', $completedSteps)]));
         if ($failedStep === InstallPlan::STEP_REBUILD_RESOURCES) {

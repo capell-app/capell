@@ -379,6 +379,8 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 
 Use `php artisan capell:install --help` for the authoritative option list in the installed release.
 
+The install shows a progress bar across its steps. In CI, pipes and `--no-interaction` runs it prints one plain line per step instead, with no terminal control codes. The run ends with a summary of 60 lines or fewer: what was installed, the site and Admin addresses, any warnings and the next steps. If a step fails, the output names that step and prints the command that resumes the install. Add `-v` for the detailed install log and the full handoff.
+
 A successful run also prints a `Capell Install Handoff` with the selected packages, verified outcomes, safe Admin/public URLs, first-page state, warnings, a short **What next** list and one next action. The list is shaped by the install: where to sign in and with which account (never the password), how to edit or create the first page, which theme is active, and which installed content packages still need their first record. Until frontend assets are built, it shows the build command instead. For release automation, pass `--handoff-json=storage/app/capell-install-handoff.json`; the JSON uses the same versioned, redacted contract and does not connect a Capell account or submit a telemetry identity.
 
 ## Themes and frontend assets

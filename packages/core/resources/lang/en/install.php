@@ -27,6 +27,12 @@ return [
         'alias_label' => 'New table name for :table',
     ],
     'starter_user_exists' => 'Skipped starter user :email because the account already exists.',
+    'progress' => [
+        'label' => 'Installing Capell',
+        'step' => '[:position/:total] :label',
+        'last_output' => 'Last output before the failure:',
+        'stopped_at' => 'Installation stopped at ":step" (:key).',
+    ],
     'recovery' => [
         'failed' => 'Installation stopped at :step.',
         'completed' => ':count steps completed: :steps',
@@ -225,6 +231,21 @@ return [
         'completed_title' => 'Installation complete',
         'incomplete_title' => 'Installation needs attention',
         'warnings_title' => 'Items to review',
+        'summary' => [
+            'installed' => 'Installed',
+            'site' => 'Site',
+            'admin' => 'Admin',
+            'home_page' => 'Home page',
+            'checks' => 'Checks',
+            'checks_value' => 'Migrations :migrations, setup :setup, doctor :doctor',
+            'warnings' => 'Warnings',
+            'warnings_value' => ':count. List them with :command',
+            'more_packages' => '+:count more',
+            'more_warnings' => '…and :count more. List them with :command',
+            'unavailable' => 'Unavailable',
+            'none' => 'None',
+            'full_log' => 'Run capell:install again with -v for the full install log.',
+        ],
         'title' => 'Next steps',
         'tips' => [
             'review' => [
