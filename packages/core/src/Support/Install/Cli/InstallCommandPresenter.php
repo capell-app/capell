@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install\Cli;
 
+use Capell\Core\Actions\Install\BuildInstallSummaryLinesAction;
 use Capell\Core\Data\Install\InstallHandoffData;
+use Capell\Core\Data\Install\InstallStoppedStepData;
+use Capell\Core\Support\Install\InstallRunState;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -89,6 +92,15 @@ final class InstallCommandPresenter
         }
     }
 
+    public function outputSummary(InstallHandoffData $handoff, bool $wroteJson, OutputStyle $output): void
+    {
+        $output->newLine();
+
+        foreach (BuildInstallSummaryLinesAction::run($handoff, $wroteJson) as $line) {
+            $output->writeln($line);
+        }
+    }
+
     public function renderFailure(Throwable $throwable, OutputStyle $output): void
     {
         $message = trim($throwable->getMessage());
@@ -98,6 +110,13 @@ final class InstallCommandPresenter
         $output->writeln($message !== ''
             ? OutputFormatter::escape($message)
             : OutputFormatter::escape(__('capell-core::install.failure.no_detail', ['exception' => $throwable::class])));
+        $stopped = InstallRunState::stoppedStep();
+
+        if ($stopped instanceof InstallStoppedStepData) {
+            $output->writeln(OutputFormatter::escape(__('capell-core::install.progress.stopped_at', ['step' => $stopped->label, 'key' => $stopped->key])));
+            $output->writeln(OutputFormatter::escape(__('capell-core::health.install_lifecycle.stopped_remediation', ['command' => $stopped->resumeCommand])));
+        }
+
         $output->writeln(OutputFormatter::escape(__('capell-core::install.failure.next_action')));
     }
 

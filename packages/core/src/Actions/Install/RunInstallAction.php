@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Contracts\StepProgressReporter;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallPlan;
@@ -34,7 +35,12 @@ class RunInstallAction
         $completedSteps = [];
 
         while (($step = collect($plan)->first(fn (array $step): bool => ! in_array($step['key'], $completedSteps, true))) !== null) {
-            $reporter->step(sprintf('[%d/%d] %s', count($completedSteps) + 1, count($plan), $step['label']));
+            if ($reporter instanceof StepProgressReporter) {
+                $reporter->advance(count($completedSteps) + 1, count($plan), $step['label']);
+            } else {
+                $reporter->step(sprintf('[%d/%d] %s', count($completedSteps) + 1, count($plan), $step['label']));
+            }
+
             try {
                 $executor->execute($step['key'], $state);
             } catch (Throwable $failure) {
@@ -48,6 +54,10 @@ class RunInstallAction
             if (InstallPlan::isPackageRequireStep($step['key']) || $step['key'] === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {
                 $plan = InstallPlan::refreshPackageSteps($inputData, $plan, $completedSteps);
             }
+        }
+
+        if ($reporter instanceof StepProgressReporter) {
+            $reporter->finish();
         }
 
         $this->completedResult = BuildInstallRunResultAction::run($inputData, $completedSteps, $state->doctorWarnings);

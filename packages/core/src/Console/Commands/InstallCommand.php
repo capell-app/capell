@@ -10,6 +10,7 @@ use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\BuildInstallReviewAction;
 use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
 use Capell\Core\Actions\Install\FindTableCollisionsAction;
+use Capell\Core\Actions\Install\MakeInstallProgressReporterAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\ResolveInstallFirstPageStatusAction;
@@ -27,6 +28,7 @@ use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
 use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Contracts\StepProgressReporter;
 use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
@@ -47,7 +49,6 @@ use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
 use Capell\Core\Support\Install\Cli\InstallSuitePrompter;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
-use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
@@ -196,9 +197,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private bool $failureExplained = false;
 
+    private ?ProgressReporter $installReporter = null;
+
     public function handle(): int
     {
         $this->failureExplained = false;
+        $this->installReporter = null;
         $this->toolingChoice = null;
         $this->buildAssetsChoice = null;
         $this->removeInstallerChoice = null;
@@ -276,7 +280,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->line(__('capell-core::install.review.build_assets'));
 
         try {
-            BuildInstallFrontendAssetsAction::run(new ConsoleProgressReporter($this), frontendExpected: $this->orchestratedFrontendExpected);
+            BuildInstallFrontendAssetsAction::run($this->installReporter(), frontendExpected: $this->orchestratedFrontendExpected);
             $this->info('Production build completed successfully.');
         } catch (RuntimeException $runtimeException) {
             $this->error(__('capell-core::install.recovery.build_failed'));
@@ -349,7 +353,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->logInstallDebug('running filament upgrade');
-        RunArtisanCommandAction::run('filament:upgrade', reporter: new ConsoleProgressReporter($this), silent: true);
+        RunArtisanCommandAction::run('filament:upgrade', reporter: $this->installReporter(), silent: true);
         $this->logInstallDebug('filament upgrade finished');
     }
 
@@ -397,12 +401,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             WriteInstallHandoffAction::run($handoff, $handoffPath);
         }
 
-        resolve(InstallCommandPresenter::class)->outputHandoff(
-            $handoff,
-            is_string($handoffJson) && trim($handoffJson) !== '',
-            $this->getOutput(),
-            $this->outputComponents(),
-        );
+        $wroteJson = is_string($handoffJson) && trim($handoffJson) !== '';
+
+        if ($this->output->isVerbose()) {
+            resolve(InstallCommandPresenter::class)->outputHandoff($handoff, $wroteJson, $this->getOutput(), $this->outputComponents());
+
+            return;
+        }
+
+        resolve(InstallCommandPresenter::class)->outputSummary($handoff, $wroteJson, $this->getOutput());
     }
 
     protected function shouldInstallAllPackages(): bool
@@ -521,7 +528,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 cachesToClear: [],
                 generateSitemap: false,
                 generateStaticSite: false,
-            ), new ConsoleProgressReporter($this));
+            ), $this->installReporter());
         }
 
         if ($this->basicInstall) {
@@ -542,7 +549,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return CommandAlias::FAILURE;
         }
 
-        $reporter = new ConsoleProgressReporter($this);
+        $reporter = $this->installReporter();
 
         if (! $planOnly && $packages->has('capell-app/admin')
             && ! resolve(FilamentAdminInstallPreflight::class)->hasInstalledPanelProvider()
@@ -1215,6 +1222,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return CommandAlias::SUCCESS;
     }
 
+    private function installReporter(): ProgressReporter
+    {
+        return $this->installReporter ??= MakeInstallProgressReporterAction::run($this, $this->input->isInteractive());
+    }
+
     /** @param array<string> $cachesToClear */
     private function runInstallOrchestration(
         InstallInputData $inputData,
@@ -1245,6 +1257,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         } catch (Throwable $throwable) {
             report($throwable);
             $this->failureExplained = true;
+            if ($reporter instanceof StepProgressReporter) {
+                $reporter->abandon();
+            }
+
             resolve(InstallCommandPresenter::class)->renderFailure($throwable, $this->getOutput());
             $this->logInstallDebug('install action failed', [
                 'exception' => $throwable::class,
