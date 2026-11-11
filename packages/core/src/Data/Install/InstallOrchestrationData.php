@@ -14,5 +14,7 @@ final class InstallOrchestrationData extends Data
         public readonly bool $removeInstaller,
         /** @var array<string> */
         public readonly array $cachesToClear,
+        public readonly ?string $resumeCommand = null,
+        public readonly bool $passwordOmitted = false,
     ) {}
 }

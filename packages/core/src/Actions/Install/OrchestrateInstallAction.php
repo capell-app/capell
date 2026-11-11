@@ -37,7 +37,9 @@ final class OrchestrateInstallAction
 
         $host->prepareApplication($inputData, $reporter);
 
-        $result = $this->runInstall->runWithResult($inputData, $reporter);
+        $result = $orchestration->resumeCommand === null
+            ? $this->runInstall->runWithResult($inputData, $reporter)
+            : $this->runInstall->runWithResult($inputData, $reporter, $orchestration->resumeCommand, $orchestration->passwordOmitted);
         // Required packages and panel scaffolding can register patches only
         // during installation. Complete them before the final asset build.
         $host->prepareApplication($inputData, $reporter);

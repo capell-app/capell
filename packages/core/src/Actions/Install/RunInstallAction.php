@@ -22,6 +22,10 @@ class RunInstallAction
 
     private ?InstallRunResultData $completedResult = null;
 
+    private ?string $resumeCommand = null;
+
+    private bool $passwordOmitted = false;
+
     public function handle(InstallInputData $inputData, ProgressReporter $reporter): void
     {
         $this->completedResult = null;
@@ -29,7 +33,7 @@ class RunInstallAction
         InstallRunState::clearStoppedStep();
         $reporter->step('Starting installation…');
 
-        $state = new InstallRunState($inputData, $reporter);
+        $state = new InstallRunState($inputData, $reporter, resumeCommand: $this->resumeCommand, passwordOmitted: $this->passwordOmitted);
         $executor = resolve(InstallStepExecutor::class);
         $plan = InstallPlan::build($inputData);
         $completedSteps = [];
@@ -63,10 +67,17 @@ class RunInstallAction
         $this->completedResult = BuildInstallRunResultAction::run($inputData, $completedSteps, $state->doctorWarnings);
     }
 
-    public function runWithResult(InstallInputData $inputData, ProgressReporter $reporter): InstallRunResultData
+    public function runWithResult(InstallInputData $inputData, ProgressReporter $reporter, ?string $resumeCommand = null, bool $passwordOmitted = false): InstallRunResultData
     {
         $this->completedResult = null;
-        $this->handle($inputData, $reporter);
+        $this->resumeCommand = $resumeCommand;
+        $this->passwordOmitted = $passwordOmitted;
+        try {
+            $this->handle($inputData, $reporter);
+        } finally {
+            $this->resumeCommand = null;
+            $this->passwordOmitted = false;
+        }
 
         // Existing custom handle implementations retain their result fallback.
         return $this->completedResult ?? BuildInstallRunResultAction::run($inputData);

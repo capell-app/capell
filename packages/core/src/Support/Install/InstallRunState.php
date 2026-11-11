@@ -41,6 +41,8 @@ final class InstallRunState
         public readonly ProgressReporter $reporter,
         private ?int $resolvedUserId = null,
         private bool $packageMetadataRefreshed = false,
+        public readonly ?string $resumeCommand = null,
+        public readonly bool $passwordOmitted = false,
     ) {}
 
     public static function rememberInitialInstallation(bool $initial): void
