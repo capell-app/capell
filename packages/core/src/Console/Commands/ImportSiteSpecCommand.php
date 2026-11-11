@@ -92,7 +92,7 @@ final class ImportSiteSpecCommand extends Command
     private function planOrApply(string $path, bool $planOnly, ?string $siteOption): int
     {
         if ($this->option('audit-private') || $this->option('repair-private') || $this->option('keep-published') !== []) {
-            $this->components->error((string) __('capell::message.site_spec_options_conflict'));
+            $this->components->error((string) __('capell-core::message.site_spec_options_conflict'));
 
             return CommandAlias::FAILURE;
         }
@@ -102,7 +102,7 @@ final class ImportSiteSpecCommand extends Command
             $site = $siteOption === null ? null : Site::query()->find($siteOption);
 
             if ($siteOption !== null && ! $site instanceof Site) {
-                $this->components->error((string) __('capell::message.site_spec_site_not_found', ['id' => $siteOption]));
+                $this->components->error((string) __('capell-core::message.site_spec_site_not_found', ['id' => $siteOption]));
 
                 return CommandAlias::FAILURE;
             }
@@ -113,7 +113,7 @@ final class ImportSiteSpecCommand extends Command
                 $site ??= Site::query()->where('meta->site_spec_applied_hash', $hash)->orWhere('meta->site_spec_hash', $hash)->first();
                 $plan = PlanSiteSpecAction::run($spec, $site);
                 $this->renderPlan($plan);
-                $this->components->info((string) __('capell::message.site_spec_plan_summary', $this->planCounts($plan)));
+                $this->components->info((string) __('capell-core::message.site_spec_plan_summary', $this->planCounts($plan)));
 
                 return CommandAlias::SUCCESS;
             }
@@ -137,7 +137,7 @@ final class ImportSiteSpecCommand extends Command
         }
 
         $this->renderPlan($plan);
-        $this->components->info((string) __('capell::message.site_spec_apply_complete', ['name' => $site->name, 'id' => $site->getKey(), ...$this->planCounts($plan)]));
+        $this->components->info((string) __('capell-core::message.site_spec_apply_complete', ['name' => $site->name, 'id' => $site->getKey(), ...$this->planCounts($plan)]));
 
         return CommandAlias::SUCCESS;
     }
@@ -145,20 +145,20 @@ final class ImportSiteSpecCommand extends Command
     private function renderPlan(SiteSpecPlanData $plan): void
     {
         $this->table(['Kind', 'Key', 'Action', 'Changes'], array_map(
-            static fn (SiteSpecPlanItemData $item): array => [$item->kind, $item->key, $item->action->value, implode(', ', $item->changes) . ($item->note === null ? '' : ' (' . __('capell::message.site_spec_plan_note_' . $item->note) . ')')],
+            static fn (SiteSpecPlanItemData $item): array => [$item->kind, $item->key, $item->action->value, implode(', ', $item->changes) . ($item->note === null ? '' : ' (' . __('capell-core::message.site_spec_plan_note_live_page_held') . ')')],
             $plan->items,
         ));
 
         if ($plan->appliers !== []) {
-            $this->components->warn((string) __('capell::message.site_spec_plan_appliers', ['appliers' => implode(', ', $plan->appliers)]));
+            $this->components->warn((string) __('capell-core::message.site_spec_plan_appliers', ['appliers' => implode(', ', $plan->appliers)]));
         }
 
         if ($plan->packagePartsHeld) {
-            $this->components->warn((string) __('capell::message.site_spec_plan_parts_held'));
+            $this->components->warn((string) __('capell-core::message.site_spec_plan_parts_held'));
         }
 
         if (! $plan->hasChanges()) {
-            $this->components->info((string) __('capell::message.site_spec_plan_nothing'));
+            $this->components->info((string) __('capell-core::message.site_spec_plan_nothing'));
         }
     }
 
