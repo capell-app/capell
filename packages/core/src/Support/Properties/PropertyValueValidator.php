@@ -175,7 +175,10 @@ final class PropertyValueValidator
             ->first();
 
         return $stored instanceof PagePropertyValue
-            && PropertyValueData::fromPageValue($stored, $definition->key, $definition->type)->toColumns() === $value->toColumns();
+            && PropertyValueEquality::sameColumns(
+                PropertyValueData::fromPageValue($stored, $definition->key, $definition->type)->toColumns(),
+                $value->toColumns(),
+            );
     }
 
     /**

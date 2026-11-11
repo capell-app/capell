@@ -164,12 +164,22 @@ final class SetPagePropertyValuesAction
             ->where($column, $held)
             ->exists();
 
-        $seen[$identity] ??= false;
+        $repeatedInWrite = array_key_exists($identity, $seen);
 
-        // A repeat that was already stored before this write, at an entry the
-        // write leaves as it was, follows the same environment rule as any
-        // other unchanged value: enforced outside production, reported in it.
-        if (! $seen[$identity] && $storedElsewhere && $untouched && ! PropertyValueValidator::enforcesUntouchedValues()) {
+        if (! $repeatedInWrite && ! $storedElsewhere) {
+            $seen[$identity] = $untouched;
+
+            return;
+        }
+
+        // A repeat made only of entries this write leaves as they were (one
+        // already stored elsewhere on the page, or every earlier occurrence in
+        // this write unchanged too) predates the write, so it follows the
+        // rule for unchanged values: enforced outside production, reported in
+        // it. A repeat this write introduces is always refused.
+        $preExisting = $untouched && (! $repeatedInWrite || $seen[$identity]);
+
+        if ($preExisting && ! PropertyValueValidator::enforcesUntouchedValues()) {
             Log::warning('An unchanged property value repeats another entry on the same page; the save was not blocked.', [
                 'property' => $definition->key,
                 'site_id' => $page->site_id,
@@ -180,14 +190,10 @@ final class SetPagePropertyValuesAction
             return;
         }
 
-        if ($seen[$identity] || $storedElsewhere) {
-            throw ValidationException::withMessages([
-                $value->propertyKey => __('capell-core::properties.constraints.repeated_in_page', [
-                    'property' => Str::headline($definition->key),
-                ]),
-            ]);
-        }
-
-        $seen[$identity] = true;
+        throw ValidationException::withMessages([
+            $value->propertyKey => __('capell-core::properties.constraints.repeated_in_page', [
+                'property' => Str::headline($definition->key),
+            ]),
+        ]);
     }
 }

@@ -80,10 +80,11 @@ final class ValidatePromotedPropertyValuesAction
                 self::ERROR_KEY_PREFIX . $definition->key,
             ];
 
-            if (PromotedFieldChanges::changingBeforeSave($page, $definition)) {
+            // An unchanged value is enforced outside production. In production
+            // it is left to the sync after the save, which reports it once and
+            // does not copy it into the property.
+            if (PromotedFieldChanges::changingBeforeSave($page, $definition) || PropertyValueValidator::enforcesUntouchedValues()) {
                 $this->validator->assertConstraints(...$arguments);
-            } else {
-                $this->validator->assertOrReportUntouchedConstraints(...$arguments);
             }
         }
     }

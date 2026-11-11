@@ -27,8 +27,10 @@ final class PromotedFieldChanges
 
     public static function sameValue(EffectivePropertyDefinitionData $definition, mixed $value, mixed $other): bool
     {
-        return SyncPromotedFieldValuesAction::coerce($definition, $value)
-            === SyncPromotedFieldValuesAction::coerce($definition, $other);
+        return PropertyValueEquality::sameValue(
+            SyncPromotedFieldValuesAction::coerce($definition, $value),
+            SyncPromotedFieldValuesAction::coerce($definition, $other),
+        );
     }
 
     /**

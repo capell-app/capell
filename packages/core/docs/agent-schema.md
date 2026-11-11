@@ -96,11 +96,15 @@ unless `app()->isProduction()`):
 - In production it is reported and the save goes through, so a rule added later
   never blocks an unrelated edit. The page editor shows a warning naming the
   field and the broken rule, and the save logs one warning per breach with
-  identifiers only, never the value. The same rule covers an agent preview of
+  identifiers only, never the value; the promoted property keeps its last
+  value that met the rules. The same rule covers an agent preview of
   an unchanged value, a value repeated at a stored entry the write leaves in
   place, and values a revision rollback restores (a refusal rolls the whole
   restore back). The promoted property is not re-synced until someone
   corrects the field.
+
+These checks run in the page observer, so a save that skips model events
+(`saveQuietly()`, `withoutEvents()`, raw queries) skips them too.
 
 Page saves only look further when the blueprint has a promoted field whose
 property carries rules, and a property write only looks up the stored value for

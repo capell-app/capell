@@ -22,6 +22,7 @@ use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
+use Capell\Core\Support\Properties\PropertyValueValidator;
 use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -596,13 +597,18 @@ it('checks restored property values when a page is rolled back, enforcing outsid
     propertyWriteErrors($page, 'code', PropertyType::Text, 'AUTUMN');
     $serializer = resolve(PageStateSerializer::class);
     $snapshot = $serializer->capture($page->refresh());
+    $page->forceFill(['name' => 'Renamed since'])->save();
     propertyWriteErrors($page, 'code', PropertyType::Text, 'WINTER');
     propertyWriteErrors($sibling, 'code', PropertyType::Text, 'AUTUMN');
     $code = static fn (): ?string => PagePropertyValue::query()->where('page_id', $page->id)->value('value_text');
+    $page->refresh();
 
-    expect(fn () => $serializer->restore($page->refresh(), $snapshot))
+    expect(fn () => $serializer->restore($page, $snapshot))
         ->toThrow(ValidationException::class, 'Another page on this site already uses this Code. Enter a different value.')
-        ->and($code())->toBe('WINTER');
+        ->and($code())->toBe('WINTER')
+        // The refused restore leaves no forced attributes on the page in memory.
+        ->and($page->name)->toBe('Renamed since')
+        ->and($page->isDirty())->toBeFalse();
 
     app()->detectEnvironment(static fn (): string => 'production');
     $log = Log::spy();
@@ -679,4 +685,85 @@ it('reports rather than refuses a repeat already stored on the page in productio
 
     expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 2)]))
         ->toThrow(ValidationException::class);
+});
+
+it('reports rather than refuses resending a repeat that was already stored, in production, and enforces it elsewhere', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'codes',
+        'type' => PropertyType::Text,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    $both = [
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 1),
+    ];
+    SetPagePropertyValuesAction::run($page, $both);
+    $definition->forceFill(['constraints' => PropertyConstraintsData::fromStored(['unique_per_site' => true])])->save();
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, $both))
+        ->toThrow(ValidationException::class, 'Codes must be different in each entry. Remove the repeated value.');
+
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+    SetPagePropertyValuesAction::run($page, $both);
+
+    $log->shouldHaveReceived('warning')->once();
+
+    // A repeat the write introduces is refused in production too.
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 1),
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 2),
+    ]))->toThrow(ValidationException::class);
+});
+
+it('checks a rolled-back snapshot for a unique value repeated across the page entries', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'codes',
+        'type' => PropertyType::Text,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 1),
+    ]);
+    $serializer = resolve(PageStateSerializer::class);
+    $snapshot = $serializer->capture($page->refresh());
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'ONE', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'TWO', position: 1),
+    ]);
+    $definition->forceFill(['constraints' => PropertyConstraintsData::fromStored(['unique_per_site' => true])])->save();
+    $codes = static fn (): array => PagePropertyValue::query()->where('page_id', $page->id)->orderBy('position')->pluck('value_text')->all();
+
+    expect(fn () => $serializer->restore($page->refresh(), $snapshot))
+        ->toThrow(ValidationException::class, 'Codes must be different in each entry. Remove the repeated value.')
+        ->and($codes())->toBe(['ONE', 'TWO']);
+
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+    $serializer->restore($page->refresh(), $snapshot);
+
+    $log->shouldHaveReceived('warning')->once();
+    expect($codes())->toBe(['SAME', 'SAME']);
+});
+
+it('treats a number sent as 5.50 over a stored 5.5 as unchanged', function (): void {
+    $page = Page::factory()->create();
+    $definition = constrainedProperty($page, PropertyType::Number, ['max' => 100], 'rating');
+    SetPagePropertyValuesAction::run($page, [new PropertyValueData('rating', PropertyType::Number, 5.5)]);
+    $effective = ResolveEffectiveDefinitionsAction::run($page)->firstOrFail(static fn ($candidate): bool => $candidate->definitionId === $definition->id);
+    $validator = resolve(PropertyValueValidator::class);
+
+    expect($validator->isStoredUnchanged($page, $effective, new PropertyValueData('rating', PropertyType::Number, '5.50')))->toBeTrue()
+        ->and($validator->isStoredUnchanged($page, $effective, new PropertyValueData('rating', PropertyType::Number, '5.51')))->toBeFalse()
+        ->and($validator->isStoredUnchanged($page, $effective, new PropertyValueData('rating', PropertyType::Number, '5.50', position: 1)))->toBeFalse();
 });
