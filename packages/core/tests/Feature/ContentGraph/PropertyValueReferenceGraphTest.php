@@ -16,6 +16,7 @@ use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\ContentGraphEdge;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
@@ -24,6 +25,7 @@ use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Eloquent\Model;
@@ -324,4 +326,65 @@ it('keeps graph internals out of the public schema and drops trashed media from 
     $media->delete();
 
     expect((string) BuildPageSchemaGraphAction::run($page->fresh())?->toJsonLdScript())->not->toContain($media->getFullUrl());
+});
+
+it('treats a value whose definition the blueprint no longer attaches as a weak reference', function (): void {
+    $page = Page::factory()->create();
+    $media = Media::factory()->model($page)->create();
+    $detached = PropertyDefinition::factory()->create(['type' => PropertyType::Media, 'requirement' => PropertyRequirement::Publish]);
+    pagePropertyValue($page, $detached, ['media_id' => $media->id]);
+
+    expect(propertyReferenceEdge(BuildContentGraphForModelAction::run($page)->edges, Media::class, $media->id)?->strength)
+        ->toBe(ContentGraphEdgeStrength::Weak);
+});
+
+it('re-indexes owners when a property definition is deleted with its values', function (): void {
+    $this->withoutDefer();
+    $page = Page::factory()->create();
+    $media = Media::factory()->model(Page::factory()->create())->create();
+    $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::Publish]]);
+    pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id]);
+    $term = Term::factory()->create();
+    TermPropertyValue::factory()->create(['term_id' => $term->id, 'property_definition_id' => $definitions['hero']->id, 'value_text' => null, 'media_id' => $media->id]);
+
+    expect(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull()
+        ->and(storedPropertyReference($term, Media::class, $media->id))->not->toBeNull();
+
+    $definitions['hero']->delete();
+
+    expect(storedPropertyReference($page, Media::class, $media->id))->toBeNull()
+        ->and(storedPropertyReference($term, Media::class, $media->id))->toBeNull()
+        ->and(HasRetainedDeletionDependenciesAction::run($media))->toBeFalse();
+});
+
+it('re-indexes the page when a translation and its localised values are deleted', function (): void {
+    $this->withoutDefer();
+    $page = Page::factory()->create();
+    $translation = Translation::factory()->translatable($page)->language(Language::factory()->create())->create();
+    $media = Media::factory()->model(Page::factory()->create())->create();
+    $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::None]]);
+    pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id, 'translation_id' => $translation->id]);
+
+    expect(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull();
+
+    $translation->forceDelete();
+
+    expect(storedPropertyReference($page, Media::class, $media->id))->toBeNull();
+});
+
+it('ignores a stored property edge whose value was removed without model events', function (): void {
+    $this->withoutDefer();
+    $page = Page::factory()->create();
+    $media = Media::factory()->model(Page::factory()->create())->create();
+    $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::Publish]]);
+    pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id]);
+
+    expect(HasRetainedDeletionDependenciesAction::run($media))->toBeTrue()
+        ->and(BuildContentImpactPreviewAction::run($media)->strongCount)->toBe(1);
+
+    PagePropertyValue::query()->where('page_id', $page->id)->delete();
+
+    expect(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull()
+        ->and(HasRetainedDeletionDependenciesAction::run($media))->toBeFalse()
+        ->and(BuildContentImpactPreviewAction::run($media)->strongCount)->toBe(0);
 });

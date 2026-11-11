@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Media\CountOmittedMediaUsageAction;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Enums\PropertyType;
+use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
@@ -30,6 +31,7 @@ function mediaUsedOnlyByProperty(Page $page, PropertyRequirement $requirement = 
 {
     $media = CapellMedia::factory()->model(Page::factory()->create())->createOne(['name' => $name, 'file_name' => 'property.jpg']);
     $definition = PropertyDefinition::factory()->create(['type' => PropertyType::Media, 'requirement' => $requirement]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $definition->property_set_id]);
 
     PagePropertyValue::factory()->create([
         'site_id' => $page->site_id,
@@ -111,4 +113,15 @@ it('blocks deleting media that a publish-required property relies on', function 
         ->and($blocked->blockingCount)->toBe(1)
         ->and($warned->allowed)->toBeTrue()
         ->and($warned->warningCount)->toBe(1);
+});
+
+it('lists trashed pages whose properties still use a media item so the count and list agree', function (): void {
+    $page = Page::factory()->create(['name' => 'Retired catalogue']);
+    $media = mediaUsedOnlyByProperty($page);
+    $page->delete();
+
+    $items = collect(BuildMediaUsageItemsAction::run($media))->where('label', __('capell-admin::media.used_in_property'));
+
+    expect($items->pluck('title')->all())->toBe(['Retired catalogue'])
+        ->and(CountOmittedMediaUsageAction::run($media))->toBe(0);
 });

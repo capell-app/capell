@@ -108,6 +108,36 @@ abstract class PropertyValueContentGraphExtractor implements ContentGraphExtract
     }
 
     /**
+     * Whether the owner still holds a property value pointing at the target. Value rows can vanish
+     * without model events (database cascades, bulk deletes), so a stored edge is confirmed here
+     * before it is allowed to retain or describe a dependency.
+     *
+     * @param  class-string<Model>  $targetType
+     */
+    public function stillReferences(int $ownerId, string $targetType, int $targetId): bool
+    {
+        $columns = array_keys(array_filter(
+            $this->referenceColumns(),
+            static fn (string $referencedType): bool => is_a($targetType, $referencedType, true),
+        ));
+
+        if ($columns === []) {
+            return false;
+        }
+
+        $valueModel = $this->valueModel();
+
+        return $valueModel::query()
+            ->where($this->ownerColumn(), $ownerId)
+            ->where(function (Builder $query) use ($columns, $targetId): void {
+                foreach ($columns as $column) {
+                    $query->orWhere($column, $targetId);
+                }
+            })
+            ->exists();
+    }
+
+    /**
      * The requirement each referenced definition carries for this owner.
      *
      * @param  array<int, PropertyDefinition>  $definitions
