@@ -109,8 +109,8 @@ final class InstallStepExecutor
             InstallRunState::recordStoppedStep(new InstallStoppedStepData(
                 key: $stepKey,
                 label: InstallPlan::labelForStep(InstallPlan::build($state->inputData), $stepKey),
-                resumeCommand: BuildInstallResumeCommandAction::run($state->inputData),
-                passwordOmitted: BuildInstallResumeCommandAction::omitsPassword(),
+                resumeCommand: $state->resumeCommand ?? BuildInstallResumeCommandAction::run($state->inputData),
+                passwordOmitted: $state->passwordOmitted,
             ));
         } catch (Throwable $throwable) {
             // Recording is diagnostic only; it must not replace the step failure.

@@ -6,7 +6,6 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallSiteUrl;
-use Illuminate\Support\Facades\Request;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -28,62 +27,38 @@ final class BuildInstallResumeCommandAction
     ];
 
     private const array FLAG_OPTIONS = [
-        '--no-interaction', '-n', '--customise', '--build-assets', '--update-app-url', '--demo', '--minimal',
+        '--no-interaction', '--customise', '--build-assets', '--update-app-url', '--demo', '--minimal',
         '--no-frontend-build', '--publish', '--allow-demo-credentials', '--all-packages', '--remove-installer', '--seed',
         '--no-seed-default-data', '--role-users', '--clear-cache', '--generate-sitemap', '--install-welcome-route',
         '--developer-tooling', '--no-boost-install', '--production',
     ];
 
     /**
-     * Whether the console run passed --password, which the resume command cannot replay.
+     * Replay only reviewed options from the install command's parsed input. Non-console runs
+     * fall back to the packages and address recorded in their input.
      *
-     * @param  list<string>|null  $argv
+     * @param  array<string, mixed>|null  $options
      */
-    public static function omitsPassword(?array $argv = null): bool
+    public function handle(InstallInputData $input, ?array $options = null): string
     {
-        $consoleArguments = Request::server('argv');
-        $argv ??= is_array($consoleArguments) ? array_values(array_map(strval(...), $consoleArguments)) : [];
-        $position = array_search('capell:install', $argv, true);
+        if ($options !== null) {
+            $arguments = [];
+            foreach (self::FLAG_OPTIONS as $option) {
+                if (($options[ltrim($option, '-')] ?? false) === true) {
+                    $arguments[] = $option;
+                }
+            }
 
-        if ($position === false) {
-            return false;
-        }
-
-        return array_any(array_slice($argv, $position + 1), fn (string $argument): bool => strtok($argument, '=') === '--password');
-    }
-
-    /**
-     * The command that reruns the installer the way the stopped run was started, so every choice
-     * (theme, site name, seed flags, table names) carries over. A run that did not start from the
-     * console falls back to the packages and address recorded in its input.
-     *
-     * @param  list<string>|null  $argv
-     */
-    public function handle(InstallInputData $input, ?array $argv = null): string
-    {
-        $consoleArguments = Request::server('argv');
-        $argv ??= is_array($consoleArguments) ? array_values(array_map(strval(...), $consoleArguments)) : [];
-        $position = array_search('capell:install', $argv, true);
-
-        if ($position !== false) {
-            $options = [];
-            $arguments = array_slice($argv, $position + 1);
-
-            foreach ($arguments as $index => $argument) {
-                $name = strtok($argument, '=');
-
-                if (in_array($name, self::FLAG_OPTIONS, true) && ! str_contains($argument, '=')) {
-                    $options[] = $argument;
-                } elseif (in_array($name, self::VALUE_OPTIONS, true)) {
-                    $value = str_contains($argument, '=') ? substr($argument, strlen($name) + 1) : ($arguments[$index + 1] ?? null);
-
-                    if (is_string($value) && ! $this->carriesCredentials($name, $value)) {
-                        $options[] = $name . '=' . $value;
+            foreach (self::VALUE_OPTIONS as $option) {
+                $value = $options[ltrim($option, '-')] ?? null;
+                foreach (is_array($value) ? $value : [$value] as $entry) {
+                    if (is_string($entry) && ! $this->carriesCredentials($option, $entry)) {
+                        $arguments[] = $option . '=' . $entry;
                     }
                 }
             }
 
-            return trim('php artisan capell:install ' . implode(' ', array_map(escapeshellarg(...), $options)));
+            return trim('php artisan capell:install ' . implode(' ', array_map(escapeshellarg(...), $arguments)));
         }
 
         $urlOption = InstallSiteUrl::validationError($input->siteUrl) === null

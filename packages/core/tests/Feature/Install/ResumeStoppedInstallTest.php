@@ -16,6 +16,8 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
@@ -100,11 +102,6 @@ it('lets the doctor resume a stopped install with the options the first run used
         '--packages' => 'capell-app/core',
         '--user' => $author->email,
     ];
-    request()->server->set('argv', ['artisan', 'capell:install', ...array_map(
-        static fn (string $name, mixed $value): string => $value === true ? $name : $name . '=' . $value,
-        array_keys($firstRun),
-        $firstRun,
-    )]);
 
     // 1. The install stops for real at the cache-clearing step.
     ClearCachesAction::mock()->shouldReceive('handle')->andThrow(new RuntimeException('Cache store is unreachable.'));
@@ -138,7 +135,7 @@ it('lets the doctor resume a stopped install with the options the first run used
         ->and($inputs[0]['seedDefaultData'])->toBeFalse();
 });
 
-it('reminds the doctor user to re-enter the password the stopped run was given', function (): void {
+it('records the parsed password omission for stopped installs', function (string $command, bool $hasPassword): void {
     CapellExtension::query()->where('composer_name', 'capell-app/core')->delete();
     CapellCore::clearExtensionCache();
     InstallRunState::clearStoppedStep();
@@ -154,25 +151,42 @@ it('reminds the doctor user to re-enter the password the stopped run was given',
         '--name' => 'Resume Admin',
         '--email' => 'resume-admin@example.test',
     ];
-    // The console argv carries the secret; it must influence the hint but never reach the output.
-    request()->server->set('argv', ['artisan', 'capell:install', '--password=Sup3r-secret-pw', ...array_map(
-        static fn (string $name, mixed $value): string => $value === true ? $name : $name . '=' . $value,
-        array_keys($firstRun),
-        $firstRun,
-    )]);
+    if (! $hasPassword) {
+        unset($firstRun['--name'], $firstRun['--email']);
+        $firstRun['--user'] = User::factory()->createOne()->email;
+    }
+
     ClearCachesAction::mock()->shouldReceive('handle')->andThrow(new RuntimeException('Cache store is unreachable.'));
 
-    Artisan::call('capell:install', [...$firstRun, '--password' => 'Sup3r-secret-pw']);
-    $output = Artisan::output();
+    $options = [...$firstRun, ...($hasPassword ? ['--password' => 'Sup3r-secret-pw'] : [])];
+    if ($command === 'capell:install') {
+        $exit = Artisan::call($command, $options);
+        $output = Artisan::output();
+    } else {
+        $buffer = new BufferedOutput;
+        $input = new ArrayInput(['command' => $command, ...$options]);
+        $input->setInteractive(false);
+        $exit = Artisan::handle($input, $buffer);
+        $output = $buffer->fetch();
+    }
+
     $check = resolve(InstallLifecycleCheck::class)->check();
 
-    expect($check->remediation)->toContain('--password=<value>')
-        ->and($check->remediation)->toContain('never saved')
-        ->and($output)->toContain('--password=<value>')
+    expect($exit)->not->toBe(0)
+        ->and(InstallRunState::stoppedStep()?->passwordOmitted)->toBe($hasPassword)
+        ->and(str_contains((string) $check->remediation, '--password=<value>'))->toBe($hasPassword)
+        ->and(str_contains($output, '--password=<value>'))->toBe($hasPassword)
+        ->and(str_contains((string) $check->remediation, 'never saved'))->toBe($hasPassword)
         ->and($output)->not->toContain('Sup3r-secret-pw')
         ->and((string) $check->remediation)->not->toContain('Sup3r-secret-pw')
-        ->and(json_encode($check->evidence))->not->toContain('Sup3r-secret-pw');
-});
+        ->and(json_encode($check->evidence))->not->toContain('Sup3r-secret-pw')
+        ->and(json_encode(InstallRunState::stoppedStep()?->toArray()))->not->toContain('Sup3r-secret-pw');
+})->with([
+    'Artisan call with password' => ['capell:install', true],
+    'Artisan call without password' => ['capell:install', false],
+    'abbreviated command with password' => ['capell:inst', true],
+    'abbreviated command without password' => ['capell:inst', false],
+]);
 
 it('is not affected by a panel provider another test left in the shared skeleton', function (): void {
     // A unique name never collides with the fixtures other tests write (the preflight globs *PanelProvider.php).

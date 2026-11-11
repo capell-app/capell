@@ -25,28 +25,34 @@ function resumeInput(): InstallInputData
 
 it('replays the original install options so every earlier choice carries over', function (): void {
     $command = BuildInstallResumeCommandAction::run(resumeInput(), [
-        'artisan', 'capell:install', '--theme=bold', '--site-name=My Site', '--no-seed-default-data', '--table-prefix=cms_',
+        'theme' => 'bold', 'site-name' => 'My Site', 'no-seed-default-data' => true, 'table-prefix' => 'cms_',
     ]);
 
-    expect($command)->toBe("php artisan capell:install '--theme=bold' '--site-name=My Site' '--no-seed-default-data' '--table-prefix=cms_'");
+    expect($command)->toBe("php artisan capell:install '--no-seed-default-data' '--site-name=My Site' '--table-prefix=cms_' '--theme=bold'");
 });
 
 it('replays the preset and publish choices so a stopped preset install resumes the same way', function (): void {
     $command = BuildInstallResumeCommandAction::run(resumeInput(), [
-        'artisan', 'capell:install', '--preset=marketing', '--publish', '--site-name=My Site', '--no-interaction',
+        'preset' => 'marketing', 'publish' => true, 'site-name' => 'My Site', 'no-interaction' => true,
     ]);
 
-    expect($command)->toBe("php artisan capell:install '--preset=marketing' '--publish' '--site-name=My Site' '--no-interaction'");
+    expect($command)->toBe("php artisan capell:install '--no-interaction' '--publish' '--site-name=My Site' '--preset=marketing'");
+});
+
+it('replays every parsed table alias', function (): void {
+    expect(BuildInstallResumeCommandAction::run(resumeInput(), ['table-alias' => ['pages=cms_pages', 'sites=cms_sites']]))
+        ->toBe("php artisan capell:install '--table-alias=pages=cms_pages' '--table-alias=sites=cms_sites'");
 });
 
 it('replays only allowlisted options and never a secret of any kind', function (): void {
     $command = BuildInstallResumeCommandAction::run(resumeInput(), [
-        'artisan', 'capell:install', '--fresh=force', '--plan', '--password', 'hunter2', '--role-user-password=hunter3', '--email=a@example.com',
-        '--license-key=LIC-123', '--api-token', 'tok-456', '--token=tok-789', '--db-password=dbpass', '--database=prod', '--marketplace-key=mk-1',
-        '--url=https://user:secret@example.com', '--handoff-json=/tmp/h.json', 'positional-secret', '--theme', 'bold',
+        'fresh' => 'force', 'plan' => true, 'password' => 'hunter2', 'role-user-password' => 'hunter3',
+        'email' => 'a@example.com', 'license-key' => 'LIC-123', 'api-token' => 'tok-456',
+        'token' => 'tok-789', 'db-password' => 'dbpass', 'database' => 'prod', 'marketplace-key' => 'mk-1',
+        'url' => 'https://user:secret@example.com', 'handoff-json' => '/tmp/h.json', 'theme' => 'bold',
     ]);
 
-    expect($command)->toBe("php artisan capell:install '--email=a@example.com' '--theme=bold'")
+    expect($command)->toBe("php artisan capell:install '--theme=bold' '--email=a@example.com'")
         ->and($command)->not->toContain('hunter')
         ->and($command)->not->toContain('LIC-')
         ->and($command)->not->toContain('tok-')
@@ -55,16 +61,16 @@ it('replays only allowlisted options and never a secret of any kind', function (
 });
 
 it('drops a url that carries credentials or a query string', function (): void {
-    expect(BuildInstallResumeCommandAction::run(resumeInput(), ['artisan', 'capell:install', '--url=https://example.com/?key=abc']))
+    expect(BuildInstallResumeCommandAction::run(resumeInput(), ['url' => 'https://example.com/?key=abc']))
         ->toBe('php artisan capell:install');
 });
 
 it('resumes an interactive install with the bare command', function (): void {
-    expect(BuildInstallResumeCommandAction::run(resumeInput(), ['artisan', 'capell:install']))->toBe('php artisan capell:install');
+    expect(BuildInstallResumeCommandAction::run(resumeInput(), []))->toBe('php artisan capell:install');
 });
 
 it('falls back to the recorded packages and address when the run did not start from the console', function (): void {
-    $command = BuildInstallResumeCommandAction::run(resumeInput(), ['vendor/bin/pest']);
+    $command = BuildInstallResumeCommandAction::run(resumeInput());
 
     expect($command)->toBe("php artisan capell:install --no-interaction --url='https://example.com' --packages='capell-app/admin'");
 });
@@ -90,12 +96,3 @@ it("forgets the previous run's stopped step when a new install run starts", func
 
     InstallRunState::clearStoppedStep();
 });
-
-it('reports when the console run passed a password the resume command cannot replay', function (array $argv, bool $expected): void {
-    expect(BuildInstallResumeCommandAction::omitsPassword($argv))->toBe($expected);
-})->with([
-    'separate value' => [['artisan', 'capell:install', '--password', 'hunter2'], true],
-    'inline value' => [['artisan', 'capell:install', '--password=hunter2'], true],
-    'no password' => [['artisan', 'capell:install', '--theme=bold'], false],
-    'a password before the command name is not ours' => [['artisan', '--password=x', 'other:command'], false],
-]);

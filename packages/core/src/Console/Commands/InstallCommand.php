@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\Install\BuildAndAnnounceInstallSpecAction;
 use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
+use Capell\Core\Actions\Install\BuildInstallResumeCommandAction;
 use Capell\Core\Actions\Install\BuildInstallReviewAction;
 use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
 use Capell\Core\Actions\Install\DetectInitialInstallationAction;
@@ -1291,6 +1292,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                     runNpmBuild: $runNpmBuild,
                     removeInstaller: $removeInstallerPackage,
                     cachesToClear: $cachesToClear,
+                    resumeCommand: BuildInstallResumeCommandAction::run($inputData, $this->options()),
+                    passwordOmitted: $this->option('password') !== null,
                 ),
                 $reporter,
                 $this,
