@@ -140,6 +140,10 @@ return [
         'enabled' => env('CAPELL_FRONTEND_STYLESHEET_RECOVERY_ENABLED', true),
         'fallback_url' => env('CAPELL_FRONTEND_STYLESHEET_FALLBACK_URL', '/vendor/capell-frontend/capell-frontend.css'),
         'runtime_url' => env('CAPELL_FRONTEND_STYLESHEET_RECOVERY_RUNTIME_URL', '/vendor/capell-frontend/stylesheet-recovery.js'),
+        // Inline the runtime so the head has no blocking request for it. Needs the
+        // hash from StylesheetRecoveryRenderer::cspHashSource() in script-src when a
+        // script-src policy is enforced; set false to keep the external script.
+        'inline' => env('CAPELL_FRONTEND_STYLESHEET_RECOVERY_INLINE', true),
     ],
 
     'tailwind' => [
