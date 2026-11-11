@@ -14,11 +14,14 @@ use Throwable;
  * quarantined set is read once per boot cycle rather than once per package;
  * quarantine writes call forget() so the next decision reads the new state, and
  * Octane flushes it between operations so one worker never serves a stale set.
+ * An unreadable store denies without being remembered: a fresh SQLite install
+ * boots before the installer creates the database, and the same process must
+ * activate the packages it installs once the store can be read.
  */
 final class ExtensionQuarantineGate implements Resettable
 {
-    /** @var array<string, true>|false|null Null: not read yet. False: the store could not be read. */
-    private array|false|null $quarantined = null;
+    /** @var array<string, true>|null Null: not read yet, or the last read failed. */
+    private ?array $quarantined = null;
 
     public function allows(string $package): bool
     {
@@ -30,11 +33,11 @@ final class ExtensionQuarantineGate implements Resettable
             try {
                 $this->quarantined = ExtensionQuarantine::quarantinedNames();
             } catch (Throwable) {
-                $this->quarantined = false;
+                return false;
             }
         }
 
-        return $this->quarantined !== false && ! isset($this->quarantined[$package]);
+        return ! isset($this->quarantined[$package]);
     }
 
     public function forget(): void
