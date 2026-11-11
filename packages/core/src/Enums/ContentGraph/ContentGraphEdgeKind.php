@@ -19,4 +19,5 @@ enum ContentGraphEdgeKind: string
     case RedirectsToUrl = 'redirects_to_url';
     case DescribesPage = 'describes_page';
     case FoundOnPage = 'found_on_page';
+    case ReferencedByProperty = 'referenced_by_property';
 }

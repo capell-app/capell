@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 it('leaves published migration duplicates for the migrate command to handle', function (): void {
-    foreach (['settings', 'permissions', 'activity_log', 'media', 'languages', 'users'] as $table) {
+    // Media goes last: dropping languages cascades through translations into property values, whose
+    // media_id foreign key SQLite must still be able to resolve.
+    foreach (['settings', 'permissions', 'activity_log', 'languages', 'users', 'media'] as $table) {
         if (Schema::hasTable($table)) {
             Schema::drop($table);
         }
@@ -127,7 +129,7 @@ it('leaves published migration duplicates for the migrate command to handle', fu
 
         File::deleteDirectory($packagePath);
 
-        foreach (['settings', 'permissions', 'activity_log', 'media', 'languages', 'users'] as $table) {
+        foreach (['settings', 'permissions', 'activity_log', 'languages', 'users', 'media'] as $table) {
             if (Schema::hasTable($table)) {
                 Schema::drop($table);
             }
