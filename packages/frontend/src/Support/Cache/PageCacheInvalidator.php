@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
-use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Actions\Translations\ResolveLanguagesFallingBackToAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Blueprint;
@@ -44,7 +43,6 @@ final class PageCacheInvalidator
      */
     public function planForPage(Model&Pageable $model, array $changedLanguageIds = []): CacheInvalidationPlanData
     {
-        $siteId = (int) $model->getAttribute('site_id');
         $type = $model::class;
         $id = (int) $model->getKey();
         $rules = [];
@@ -57,32 +55,33 @@ final class PageCacheInvalidator
         // it guarantees it here rather than trusting every caller to remember.
         $model->loadMissing('translations');
 
-        // The translations loaded here are the ones left after the change, so a deleted
-        // page (its translations are deleted with it) or a deleted translation would drop
-        // out. A deleted page is retired in every language; otherwise the languages it
-        // lives in plus those of the changed translation. Each also reaches the languages
-        // falling back to it: those render this content too.
-        $allLanguageIds = $this->allLanguageIds();
-        $ownLanguageIds = $this->isDeleted($model)
-            ? $allLanguageIds
-            : [
-                ...$model->translations->map(fn (Model $translation): int => (int) $translation->getAttribute('language_id'))->all(),
-                ...$changedLanguageIds,
-            ];
-
-        $languageIds = collect($ownLanguageIds)
+        // What loads now is the state after the change. The languages, site and blueprint
+        // the old content was cached under come from the pre-change snapshot (a deleted
+        // page's translations, recorded before they were deleted) and from the changed
+        // translation. Each language also reaches the languages falling back to it: those
+        // render this content too.
+        $snapshots = resolve(PreChangeInvalidationSnapshots::class);
+        $languageIds = collect([
+            ...$model->translations->map(fn (Model $translation): int => (int) $translation->getAttribute('language_id'))->all(),
+            ...$snapshots->languages($model),
+            ...$changedLanguageIds,
+        ])
             ->flatMap(fn (int $languageId): array => [$languageId, ...ResolveLanguagesFallingBackToAction::run($languageId)])
             ->unique()
-            ->values();
+            ->values()
+            ->all();
+        $siteIds = $this->ids([$model->getAttribute('site_id'), ...$snapshots->originalIds($model, 'site_id')]);
 
-        $languageIds->each(function (int $languageId) use (&$rules, $type, $id, $siteId): void {
-            $rules[] = CacheInvalidationRule::pageModel($type, $id, $siteId, $languageId);
-            $rules[] = CacheInvalidationRule::pageListing($siteId, $languageId);
-            $rules[] = CacheInvalidationRule::publicRenderData($type, $id, $siteId, $languageId);
-        });
+        foreach ($siteIds as $siteId) {
+            foreach ($languageIds as $languageId) {
+                $rules[] = CacheInvalidationRule::pageModel($type, $id, $siteId, $languageId);
+                $rules[] = CacheInvalidationRule::pageListing($siteId, $languageId);
+                $rules[] = CacheInvalidationRule::publicRenderData($type, $id, $siteId, $languageId);
+            }
+        }
 
         if ($model instanceof Page) {
-            $rules = [...$rules, ...$this->siteEntryPageRules($model, $siteId, $allLanguageIds)];
+            $rules = [...$rules, ...$this->siteEntryPageRules($model, $siteIds, $languageIds, $snapshots)];
         }
 
         return new CacheInvalidationPlanData($rules);
@@ -93,34 +92,31 @@ final class PageCacheInvalidator
      * language, and a language without its own is served another language's through the
      * fallback chain. Which page answers can change with any create, edit or delete of a
      * page of that blueprint type, so the entries for its type before and after the change
-     * are forgotten in every language, whatever translations remain. Plain key deletes:
-     * ordinary invalidation stays best effort.
+     * are forgotten for the languages it was and is in. Plain key deletes: ordinary
+     * invalidation stays best effort.
      *
+     * @param  list<int>  $siteIds
      * @param  list<int>  $languageIds
      * @return list<CacheInvalidationRule>
      */
-    private function siteEntryPageRules(Page $page, int $siteId, array $languageIds): array
+    private function siteEntryPageRules(Page $page, array $siteIds, array $languageIds, PreChangeInvalidationSnapshots $snapshots): array
     {
-        $types = $this->blueprintKeys($page);
+        $types = $this->blueprintKeys($page, $snapshots);
 
         if ($types === [] || $languageIds === []) {
             return [];
         }
 
-        $siteIds = array_values(array_unique(array_filter([
-            $siteId,
-            $page->wasChanged('site_id') ? (int) ($page->getPrevious()['site_id'] ?? 0) : 0,
-        ])));
         $rules = [];
 
-        foreach ($siteIds as $entrySiteId) {
+        foreach ($siteIds as $siteId) {
             foreach ($languageIds as $languageId) {
                 foreach ($types as $type) {
-                    $rules[] = CacheInvalidationRule::forgetKey(CacheEnum::systemPage($type, $entrySiteId, $languageId));
+                    $rules[] = CacheInvalidationRule::forgetKey(CacheEnum::systemPage($type, $siteId, $languageId));
                 }
 
                 if (in_array(self::HOME_BLUEPRINT_KEY, $types, true)) {
-                    $rules[] = CacheInvalidationRule::forgetKey(CacheEnum::homePage($entrySiteId, $languageId));
+                    $rules[] = CacheInvalidationRule::forgetKey(CacheEnum::homePage($siteId, $languageId));
                 }
             }
         }
@@ -134,13 +130,9 @@ final class PageCacheInvalidator
      *
      * @return list<string>
      */
-    private function blueprintKeys(Page $page): array
+    private function blueprintKeys(Page $page, PreChangeInvalidationSnapshots $snapshots): array
     {
-        $blueprintIds = array_values(array_unique(array_map(intval(...), array_filter([
-            $page->getAttribute('blueprint_id'),
-            $page->wasChanged('blueprint_id') ? $page->getPrevious()['blueprint_id'] ?? null : null,
-        ], static fn (mixed $id): bool => $id !== null))));
-
+        $blueprintIds = $this->ids([$page->getAttribute('blueprint_id'), ...$snapshots->originalIds($page, 'blueprint_id')]);
         $keys = [];
         $loaded = $page->relationLoaded('blueprint') ? $page->getRelation('blueprint') : null;
 
@@ -157,22 +149,19 @@ final class PageCacheInvalidator
     }
 
     /**
-     * Every language, enabled or not, from the cached language map: a superset of any
-     * site's languages at no query, and it still covers a language disabled in this change.
-     *
+     * @param  array<int, mixed>  $values
      * @return list<int>
      */
-    private function allLanguageIds(): array
+    private function ids(array $values): array
     {
-        return array_keys(ResolveLanguageFallbackChainAction::make()->languageMap());
-    }
+        $ids = [];
 
-    private function isDeleted(Model $model): bool
-    {
-        if (! $model->exists) {
-            return true;
+        foreach ($values as $value) {
+            if (is_numeric($value) && (int) $value > 0) {
+                $ids[] = (int) $value;
+            }
         }
 
-        return method_exists($model, 'trashed') && $model->trashed();
+        return array_values(array_unique($ids));
     }
 }

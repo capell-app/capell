@@ -50,6 +50,9 @@ final class CacheInvalidationRegistry
                 $this->executor->execute(new CacheInvalidationPlanData([CacheInvalidationRule::flushFrontendTag()]));
             }
         });
+
+        // The pre-change state has now been invalidated; a later change records its own.
+        resolve(PreChangeInvalidationSnapshots::class)->forget($model);
     }
 
     public function planForModel(string $modelClass): CacheInvalidationPlanData
@@ -142,15 +145,18 @@ final class CacheInvalidationRegistry
         ]));
     }
 
-    /** @return list<int> */
+    /**
+     * The changed translation's language now, and the languages it was in before the
+     * change, recorded before it was written.
+     *
+     * @return list<int>
+     */
     private function translationLanguageIds(Translation $translation): array
     {
-        $previous = $translation->wasChanged('language_id') ? ($translation->getPrevious()['language_id'] ?? null) : null;
-
-        return array_values(array_unique(array_map(intval(...), array_filter(
-            [$translation->getAttribute('language_id'), $previous, $translation->getOriginal('language_id')],
-            static fn (mixed $id): bool => $id !== null,
-        ))));
+        return array_values(array_unique([
+            (int) $translation->getAttribute('language_id'),
+            ...resolve(PreChangeInvalidationSnapshots::class)->languages($translation),
+        ]));
     }
 
     private function isSiteLogoMedia(Media $media): bool

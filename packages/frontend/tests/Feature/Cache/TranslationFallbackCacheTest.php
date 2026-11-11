@@ -293,3 +293,46 @@ it('plans a page change from its loaded blueprint without querying blueprints', 
     expect($queries)->toBe([])
         ->and($keys)->toContain(CacheEnum::systemPage(PageTypeEnum::NotFound->value, $site->id, $english->getKey()));
 });
+
+it('forgets the old system page when a page leaves its blueprint type in a transaction that saves it again', function (): void {
+    [$site, $english] = fallbackCacheSite();
+    $notFound = Blueprint::factory()->page()->createOne(['key' => PageTypeEnum::NotFound->value]);
+    $standard = Blueprint::factory()->page()->createOne(['key' => 'standard-page']);
+    $page = Page::factory()->site($site)->type($notFound)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations($english, ['title' => 'Not found'], slug: 'not-found')
+        ->createOne();
+
+    expect(PageLoader::getSystemPage($site, $english, PageTypeEnum::NotFound->value))->not->toBeNull();
+
+    // After commit the model only remembers its last save, which did not touch the blueprint.
+    DB::transaction(function () use ($page, $standard): void {
+        $page->update(['blueprint_id' => $standard->getKey()]);
+        $page->update(['name' => 'Renamed']);
+    });
+
+    expect(PageLoader::getSystemPage($site, $english, PageTypeEnum::NotFound->value))->toBeNull();
+});
+
+it('forgets the old language entries when a translation moves language in a transaction that saves it again', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $german = Language::factory()->german()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french, $german])->createOne();
+    $site->load('siteDomains');
+
+    $blueprint = Blueprint::factory()->page()->createOne(['key' => PageTypeEnum::NotFound->value]);
+    $page = Page::factory()->site($site)->type($blueprint)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations([$english, $french], slug: 'not-found')
+        ->createOne();
+    $translation = $page->translations()->where('language_id', $french->getKey())->sole();
+    $translation->update(['title' => 'Page introuvable']);
+
+    expect(PageLoader::getSystemPage($site, $french, PageTypeEnum::NotFound->value)?->translation?->title)->toBe('Page introuvable');
+
+    DB::transaction(function () use ($translation, $german): void {
+        $translation->update(['language_id' => $german->getKey()]);
+        $translation->update(['title' => 'Seite nicht gefunden']);
+    });
+
+    expect(PageLoader::getSystemPage($site, $french, PageTypeEnum::NotFound->value))->toBeNull();
+});

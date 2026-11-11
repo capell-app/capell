@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Bootstrap;
 
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
@@ -13,6 +14,7 @@ use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PropertyDefinition;
@@ -32,6 +34,7 @@ use Capell\Frontend\Listeners\RemediatePrivateSiteSpecOutput;
 use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
 use Capell\Frontend\Support\Agent\AgentPropertyCacheObserver;
 use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
+use Capell\Frontend\Support\Cache\PreChangeInvalidationObserver;
 use Capell\Frontend\Support\PublicRead\FrontendPublicReadWithdrawalSteps;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Illuminate\Database\Eloquent\Model;
@@ -43,6 +46,9 @@ final class FrontendEventBootstrapper
 
     /** @var array<class-string<Model>, true> */
     private array $observedCacheModels = [];
+
+    /** @var array<class-string<Model>, true> */
+    private array $observedPreChangeModels = [];
 
     public function boot(): void
     {
@@ -120,6 +126,21 @@ final class FrontendEventBootstrapper
 
             $model::observe(FrontendCacheInvalidationObserver::class);
             $this->observedCacheModels[$model] = true;
+        }
+
+        // Pages and translations record what an update or delete removes before it is
+        // written, so after-commit invalidation plans from the old state.
+        foreach (array_unique([Page::class, Translation::class, ...$models]) as $model) {
+            if (isset($this->observedPreChangeModels[$model])) {
+                continue;
+            }
+
+            if ($model !== Translation::class && ! is_a($model, Pageable::class, true)) {
+                continue;
+            }
+
+            $model::observe(PreChangeInvalidationObserver::class);
+            $this->observedPreChangeModels[$model] = true;
         }
     }
 }
