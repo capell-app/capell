@@ -6,21 +6,23 @@ Use container tags for focused contributors and `AdminBridgeRegistrar` when one 
 
 If you are not sure which runtime you are changing, start with [Package authoring jobs](package-authoring-jobs.md) and [Extension surface vocabulary](extension-surface-vocabulary.md). Those pages define the package surfaces and install-impact terms used by this chooser.
 
+Adding a website-specific page field? Start with the [Client name walkthrough](../getting-started/add-a-custom-page-field.md) and [custom-field decision guide](custom-page-fields.md) to choose the editor and storage together.
+
 ## Core And Package Runtime
 
-| Need                                   | Use                                                                  | Owner                 |
-| -------------------------------------- | -------------------------------------------------------------------- | --------------------- |
-| Register a page subject type           | `CapellCore::registerPageType(new PageTypeData(...))`                | Core                  |
-| Replace a core model implementation    | Laravel container binding for the model class                        | Core                  |
-| Register renderable definitions        | `RenderableRegistry::register(...)`                                  | Core                  |
-| Register link picker/search options    | `LinkableContentRegistry::register(...)`                             | Core                  |
-| Register content graph extractors      | `ContentGraphRegistry::register(...)` or `ContentGraphRegistry::TAG` | Core                  |
-| Add package settings                   | Provider `surface()` or `AdminBridgeRegistrar`                       | Core/Admin            |
-| Add package settings migrations        | `database/settings/*` plus package install/setup registration        | Core                  |
-| Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                              | Core                  |
-| Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                        | Core/Frontend         |
-| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                         | Static export package |
-| Extend ownership/export mapping        | `OwnershipMap::register(...)`                                        | Migration Assistant   |
+| Need                                   | Use                                                                           | Owner                 |
+| -------------------------------------- | ----------------------------------------------------------------------------- | --------------------- |
+| Register a page subject type           | `BlueprintSubjectRegistry::register(new BlueprintSubjectDescriptorData(...))` | Core                  |
+| Replace a core model implementation    | Laravel container binding for the model class                                 | Core                  |
+| Register renderable definitions        | `RenderableRegistry::register(...)`                                           | Core                  |
+| Register link picker/search options    | `LinkableContentRegistry::register(...)`                                      | Core                  |
+| Register content graph extractors      | `ContentGraphRegistry::register(...)` or `ContentGraphRegistry::TAG`          | Core                  |
+| Add package settings                   | Provider `surface()` or `AdminBridgeRegistrar`                                | Core/Admin            |
+| Add package settings migrations        | `database/settings/*` plus package install/setup registration                 | Core                  |
+| Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                                       | Core                  |
+| Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                                 | Core/Frontend         |
+| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                                  | Static export package |
+| Extend ownership/export mapping        | `OwnershipMap::register(...)`                                                 | Migration Assistant   |
 
 ## Admin Runtime
 

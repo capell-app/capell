@@ -120,6 +120,9 @@ it('records a transition once even when a lost marker queued it twice', function
 
 it('waits for its transition when the queue delivers it early, without using up its attempts', function (): void {
     transitionJobQueue();
+    // The job reads the clock for its wait, and the queue reads it again for the release time. If a second
+    // ticks between the two, the release lands a second after the transition and the next worker finds nothing.
+    $this->freezeTime();
     $transition = CarbonImmutable::now()->addMinutes(20)->startOfSecond();
     $recorded = transitionJobRecorded();
 

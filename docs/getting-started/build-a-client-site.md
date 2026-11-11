@@ -26,15 +26,15 @@ Colours are authored directly in `public/css/starter.css`. Change the variables 
 
 ```css
 :root {
-  --paper: #f3f0e8;
-  --ink: #183c35;
-  --accent: #ffb4a2;
+    --paper: #f3f0e8;
+    --ink: #183c35;
+    --accent: #ffb4a2;
 }
 ```
 
 ## 3. Add a page type
 
-Follow [Build your first page type](build-your-first-page-type.md). It adds a **Service** page with its own editor field and public output.
+Follow [Build your first page type](build-your-first-page-type.md). It explains the existing case-study example and links to the complete custom-field workflow.
 
 ## 4. Edit and check the public page
 
@@ -42,7 +42,7 @@ Follow [Build your first page type](build-your-first-page-type.md). It adds a **
 2. Open its address in a private browser window, or request it with no session:
 
 ```bash
-curl -s http://localhost:8000/services/brand-sprint
+curl -s http://localhost:8000/work/field-notes
 ```
 
 The anonymous response is the proof. Admin showing the change only proves the save.

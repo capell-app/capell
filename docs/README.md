@@ -16,6 +16,8 @@ For a local Docker environment, see [Mac and Windows local development](getting-
 | Operate a production site     | [Going live](operations/going-live.md)                                  | [Operations](operations/index.md), then [back up the site](operations/backups.md) and follow the [upgrade runbook](operations/upgrading.md)      |
 | Maintain the Capell host repo | [Development](development/index.md)                                     | [Local development](development/local-development.md), then [CI and test shards](development/ci.md)                                              |
 
+Add website-specific fields through the extension contracts. [Add Client name to a case-study page](getting-started/add-a-custom-page-field.md), then [choose among the supported extension approaches](packages/custom-page-fields.md).
+
 ## Visual Tour
 
 Use these pages to see a workflow before reading its implementation details.

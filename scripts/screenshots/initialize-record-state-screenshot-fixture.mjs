@@ -89,6 +89,20 @@ export function commandsForEntries(entries, frontendOrigin = null) {
         commands.push(frontendSeedCommand(frontendOrigin))
     }
 
+    if (entries.some((entry) => entry.id.startsWith('custom-page-fields-'))) {
+        const origin = new URL(frontendOrigin)
+        if (
+            !['127.0.0.1', 'localhost', '::1', '[::1]'].includes(
+                origin.hostname,
+            )
+        ) {
+            throw new Error('Custom-field screenshots require a local origin.')
+        }
+        commands.push(
+            `Workbench\\App\\Support\\CustomPageFieldsFixture::initialize(${JSON.stringify(origin.origin)});`,
+        )
+    }
+
     if (hasSiteAdminMetricsSeed(entries)) {
         commands.push(
             'Workbench\\App\\Support\\SiteAdminMetricsScreenshotFixture::initialize();',
