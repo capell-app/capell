@@ -13,6 +13,7 @@ final class CapellSiteSpecPageData extends Data
      * @param  array<int, CapellSiteSpecSectionData>  $sections
      * @param  array<string, mixed>  $visibility
      * @param  array<string, mixed>  $meta
+     * @param  array<string, mixed>  $properties  Typed property values keyed by property key (or `set.key`); a value is a scalar or `{value, currency?, unit?}`.
      */
     public function __construct(
         public readonly string $name,
@@ -27,12 +28,13 @@ final class CapellSiteSpecPageData extends Data
         public readonly array $sections = [],
         public readonly array $visibility = [],
         public readonly array $meta = [],
+        public readonly array $properties = [],
     ) {}
 
     /** @return array<string, array<int, string>> */
     public static function rules(): array
     {
-        return ['visibility' => ['sometimes', 'array'], 'meta' => ['sometimes', 'array']];
+        return ['visibility' => ['sometimes', 'array'], 'meta' => ['sometimes', 'array'], 'properties' => ['sometimes', 'array']];
     }
 
     public function resolvedUrl(): string

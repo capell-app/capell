@@ -40,6 +40,7 @@ use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidget;
 use Capell\Admin\Contracts\EnumPresentationContributor;
+use Capell\Admin\Contracts\Extenders\PageAuthoringValidator;
 use Capell\Admin\Contracts\Extenders\PageEditExtender;
 use Capell\Admin\Contracts\Extenders\PageExportExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
@@ -229,6 +230,7 @@ use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
 use Capell\Admin\Support\PaletteRequestState;
+use Capell\Admin\Support\Properties\PropertyConstraintPageAuthoringValidator;
 use Capell\Admin\Support\ProvenanceRouteCollection;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
@@ -660,6 +662,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
         $this->app->tag([], PageExportExtender::TAG);
+        $this->app->tag([PropertyConstraintPageAuthoringValidator::class], PageAuthoringValidator::TAG);
 
         $this->app->tag([AdminDashboardSettingsContributor::class], DashboardSettingsContributor::TAG);
         $this->app->tag([ExtensionHealthSiteHealthWidget::class], SiteHealthWidget::TAG);
