@@ -15,6 +15,7 @@ use Capell\Frontend\Support\Cache\FragmentCache;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
     CarbonImmutable::setTestNow('2026-07-23 12:00:00');
@@ -344,3 +345,12 @@ function readScheduledPublicationFragment(Page $page): mixed
         static fn (): string => 'regenerated',
     );
 }
+
+it('has standalone indexes so the site-less scheduled scan can use an index', function (): void {
+    $indexed = collect(Schema::getIndexes((new Page)->getTable()))
+        ->filter(fn (array $index): bool => count($index['columns']) === 1)
+        ->map(fn (array $index): string => $index['columns'][0])
+        ->all();
+
+    expect($indexed)->toContain('visible_from')->toContain('visible_until');
+});

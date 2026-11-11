@@ -767,6 +767,8 @@
             "pages_site_id_visible_from_index",
             "pages_site_id_visible_until_index",
             "pages_uuid_index",
+            "pages_visible_from_index",
+            "pages_visible_until_index",
             "primary"
         ],
         "foreign_keys": [
