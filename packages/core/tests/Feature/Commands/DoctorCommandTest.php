@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
+use Capell\Core\Actions\Diagnostics\ResolvePendingMigrationsAction;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
 use Capell\Core\Data\Install\ArtisanCommandResultData;
+use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -24,6 +27,7 @@ use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -33,6 +37,12 @@ use Symfony\Component\Console\Command\Command;
 
 function seedHealthyDoctorInstall(): void
 {
+    // The Testbench harness ships migrations of its own that it never runs; a healthy install has none pending.
+    $migrations = resolve(Migrator::class)->getRepository();
+    foreach (ResolvePendingMigrationsAction::run() as $migration) {
+        $migrations->log($migration, $migrations->getNextBatchNumber());
+    }
+
     config()->set('queue.connections.database.retry_after', 900);
 
     // A stale capell-runtime manifest set (e.g. left behind by a killed
@@ -91,8 +101,8 @@ it('accepts complete schema while the installer has not yet marked core installe
     $normalReport = BuildDoctorReportAction::run();
     $installReport = BuildDoctorReportAction::run(installSummary: true, includePackageDoctors: false);
 
-    expect($normalReport->checks->firstWhere('id', 'core.schema.required')?->passed)->toBeFalse()
-        ->and($installReport->checks->firstWhere('id', 'core.schema.required')?->passed)->toBeTrue();
+    expect($normalReport->checks->firstWhere('id', 'core.install.lifecycle')?->passed)->toBeFalse()
+        ->and($installReport->checks->firstWhere('id', 'core.install.lifecycle')?->passed)->toBeTrue();
 });
 
 afterEach(function (): void {
@@ -103,6 +113,7 @@ afterEach(function (): void {
     // failed assertion (which skips any in-test cleanup) doesn't leak them.
     foreach ([
         'test-package-doctor',
+        'test-warning-package-doctor',
         'test-failing-package-doctor',
         'throwing-doctor',
         'invalid-json-doctor',
@@ -182,11 +193,12 @@ it('lists the skipped packages once each, separately from the unmet requirement 
         ->and($healthy?->message)->not->toContain('Skipped packages');
 });
 
-it('reports required tables as present', function (): void {
+it('reports migrations and the install lifecycle as healthy', function (): void {
     seedHealthyDoctorInstall();
 
     artisanCommand('capell:doctor')
-        ->expectsOutputToContain('Required tables exist')
+        ->expectsOutputToContain('Migrations are up to date')
+        ->expectsOutputToContain('Installation is complete')
         ->assertExitCode(Command::SUCCESS);
 });
 
@@ -199,7 +211,7 @@ it('allows the install summary to validate required tables before the final core
         '--install-summary' => true,
         '--skip-package-doctors' => true,
     ])
-        ->expectsOutputToContain('Required tables exist')
+        ->expectsOutputToContain('Installation is complete')
         ->assertExitCode(Command::SUCCESS);
 
     artisanCommand('capell:doctor')
@@ -476,6 +488,93 @@ it('merges installed package doctor checks into the install summary', function (
         ->and($report->passed())->toBeTrue();
 });
 
+it('stops the doctor for a failure a package doctor reports even when it declares only a warning', function (): void {
+    seedHealthyDoctorInstall();
+    CapellCore::forcePackageInstalled('capell-app/demo-kit', false);
+
+    Artisan::command('capell:test-warning-package-doctor {--json}', function (): int {
+        $this->line(json_encode([
+            'status' => 'passed',
+            'checks' => [
+                [
+                    'id' => 'test-warning-package.health',
+                    'severity' => 'warning',
+                    'label' => 'Package-owned doctor check',
+                    'passed' => false,
+                    'message' => 'Package doctor found a problem.',
+                    'remediation' => 'Fix the package.',
+                    'evidence' => [],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        return Command::SUCCESS;
+    });
+
+    $packagePath = storage_path('framework/testing/test-warning-package-doctor');
+    File::ensureDirectoryExists($packagePath);
+    File::put($packagePath . '/capell.json', json_encode([
+        'manifest-version' => 3,
+        'name' => 'capell-app/test-warning-package-doctor',
+        'slug' => 'test-warning-package-doctor',
+        'displayName' => 'Test Package Doctor',
+        'kind' => 'package',
+        'capellApiVersion' => '^1.0',
+        'version' => '1.x-dev',
+        'description' => null,
+        'product' => ['group' => 'Testing', 'tier' => 'free', 'bundle' => null],
+        'surfaces' => [],
+        'dependencies' => ['requires' => [], 'supports' => [], 'conflicts' => []],
+        'providers' => ['metadata' => [], 'install' => [], 'runtime' => [], 'admin' => [], 'frontend' => []],
+        'contributes' => [],
+        'database' => ['migrations' => false, 'settings' => false, 'requiredTables' => []],
+        'commands' => [
+            'install' => null,
+            'setup' => null,
+            'demo' => null,
+            'doctor' => 'capell:test-warning-package-doctor',
+        ],
+        'settings' => [],
+        'permissions' => [],
+        'capabilities' => [],
+        'performance' => [
+            'frontendRenderBudgetMs' => 20,
+            'adminQueryBudget' => 40,
+            'cacheTags' => [],
+            'cacheSafety' => [
+                'cacheable' => false,
+                'variesBy' => [],
+                'sensitiveOutput' => false,
+                'invalidationSources' => [],
+                'queueInvalidation' => false,
+            ],
+        ],
+        'healthChecks' => [],
+        'commercial' => [
+            'proposedLicense' => 'free',
+            'requestedCertification' => 'first-party',
+            'supportPolicy' => 'capell-first-party',
+            'privateDocsRequested' => false,
+        ],
+        'marketplace' => ['summary' => null, 'screenshots' => [], 'categories' => []],
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+    CapellCore::registerPackage('capell-app/test-warning-package-doctor', path: $packagePath);
+    CapellCore::forcePackageInstalled('capell-app/test-warning-package-doctor');
+    VerifyInstalledExtensionAction::shouldRun()->andReturnUsing(
+        static fn (string $composerName): ExtensionVerificationReportData => new ExtensionVerificationReportData($composerName, null, null, null, true, [], [], CarbonImmutable::now()),
+    );
+
+    $report = BuildDoctorReportAction::run(installSummary: true);
+    $check = $report->checks->firstWhere('id', 'test-warning-package.health');
+    $exitCode = Artisan::call('capell:doctor', ['--install-summary' => true, '--json' => true]);
+
+    expect($check?->outcome())->toBe(DoctorCheckOutcome::Failed)
+        ->and($check?->severity)->toBe(DoctorCheckSeverity::Critical)
+        ->and($report->passed())->toBeFalse()
+        ->and($exitCode)->toBe(Command::FAILURE);
+});
+
 it('can skip package doctor checks for installer health gates', function (): void {
     seedHealthyDoctorInstall();
     CapellCore::forcePackageInstalled('capell-app/demo-kit', false);
@@ -639,7 +738,7 @@ it('does not recursively merge the core doctor into the install summary', functi
     $report = BuildDoctorReportAction::run(installSummary: true);
     $labels = $report->checks->pluck('label')->all();
 
-    expect(array_count_values($labels)['Required tables exist'] ?? 0)->toBe(1)
+    expect(array_count_values($labels)['Installation is complete'] ?? 0)->toBe(1)
         ->and($report->passed())->toBeTrue();
 });
 

@@ -166,7 +166,7 @@ it('hides every management action from a user who cannot update the page', funct
         ->assertActionHidden('revertToDraft');
 });
 
-it('refreshes the existing panel when its parent saves and publishes without a reload', function (): void {
+it('refreshes the existing panel when its parent saves and then publishes from the panel without a reload', function (): void {
     test()->actingAsAdmin();
     $site = Site::factory()->hasSiteDomains()->create();
     $page = Page::factory()->site($site)->home()->create([
@@ -190,10 +190,11 @@ it('refreshes the existing panel when its parent saves and publishes without a r
         ->assertHasNoFormErrors()
         ->assertDispatched('page-editor-saved', pageId: (int) $page->getKey());
 
-    expect($page->refresh()->publishVisibilityState()->value)->toBe('published');
+    expect($page->refresh()->publishVisibilityState()->value)->toBe('draft');
     $panel->dispatch('page-editor-saved', pageId: (int) $page->getKey())
         ->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'))
-        ->assertDontSee('Visible now');
+        ->callAction('publishNow');
+    expect($page->refresh()->publishVisibilityState()->value)->toBe('published');
     expect($panel->instance()->getId())->toBe($componentId)
         ->and($panel->instance()->viewData->isLive())->toBeTrue()
         ->and($panel->instance()->readiness->publicEligible)->toBeTrue();

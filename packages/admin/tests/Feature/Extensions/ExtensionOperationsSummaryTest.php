@@ -335,7 +335,8 @@ it('alerts when an installed extension record no longer has a composer package m
         ->and($summary->blockedCount)->toBe(1)
         ->and($summary->installedCount)->toBe(1)
         ->and($summary->availableCount)->toBe(0)
-        ->and($alert?->message)->toContain('current registry has no manifest');
+        ->and($alert?->message)->toContain('no longer includes it')
+        ->not->toContain('manifest')->not->toContain('Composer drift');
 
     $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
     expect($html)->toContain('Check the Composer installation')->not->toContain('Check its licence and activation in Marketplace');
@@ -415,7 +416,7 @@ it('alerts when a registered installed extension is missing from composer availa
         ->and($alert?->category)->toBe(ExtensionHealthAlertCategory::Package->value)
         ->and($summary->needsAttentionCount)->toBe(1)
         ->and($summary->availableCount)->toBe(0)
-        ->and($alert?->message)->toContain('the registry manifest exists, but Composer does not expose the package');
+        ->and($alert?->message)->toContain('its code is missing from this site');
 });
 
 it('does not attempt to restore composer drift while building dashboard summaries', function (): void {
@@ -508,10 +509,10 @@ it('alerts when composer exposes a different extension version than the capell r
 
     expect($package)->not->toBeNull()
         ->and($package->needsAttention)->toBeTrue()
-        ->and($alert?->message)->toContain('different package version');
+        ->and($alert?->message)->toContain('different from the version Capell last recorded');
 
     $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
-    expect($html)->toContain('different package version', 'Composer')->not->toContain('Check its licence and activation in Marketplace');
+    expect($html)->toContain('different from the version Capell last recorded', 'Ask a developer')->not->toContain('Check its licence and activation in Marketplace');
 });
 
 it('records successful composer drift repair metadata and clears extension caches', function (): void {

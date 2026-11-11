@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Install;
 
+use Capell\Core\Data\Diagnostics\DoctorWarningSummaryData;
 use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallHandoffTips;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -19,7 +21,10 @@ final class BuildInstallHandoffAction
 
     private const string INSTALL_DOCS_URL = 'https://docs.capell.app/getting-started/install/';
 
-    public function __construct(private readonly InstallHandoffTips $tips) {}
+    public function __construct(
+        private readonly InstallHandoffTips $tips,
+        private readonly InstallRecommendationRepository $presets,
+    ) {}
 
     /**
      * @param  list<string>  $warnings
@@ -48,7 +53,7 @@ final class BuildInstallHandoffAction
 
         $nonDoctorWarningCount = count(array_unique($warnings));
         foreach ($result->doctorWarnings as $warning) {
-            $warnings[] = $warning['message'] . ' Run php artisan capell:doctor for details.';
+            $warnings[] = $warning['message'] . ' ' . __('capell-core::health.doctor.handoff_pointer', ['command' => DoctorWarningSummaryData::LIST_COMMAND]);
         }
 
         $selectedPackages = array_values(collect($result->selectedPackages)
@@ -59,7 +64,7 @@ final class BuildInstallHandoffAction
             ->all());
         $safeAdminUrl = $this->safeHttpUrl($adminUrl);
         $safePublicUrl = $this->safeHttpUrl($inputData->siteUrl) ?? '';
-        $safeFirstPageStatus = in_array($firstPageStatus, ['editable', 'present_unverified', 'missing'], true)
+        $safeFirstPageStatus = in_array($firstPageStatus, ['editable', 'present_unverified', 'draft', 'missing'], true)
             ? $firstPageStatus
             : 'unavailable';
 
@@ -114,7 +119,21 @@ final class BuildInstallHandoffAction
                 firstPageStatus: $safeFirstPageStatus,
             ),
             warningCount: $nonDoctorWarningCount + array_sum(array_column($result->doctorWarnings, 'count')),
+            preset: $this->preset($inputData),
         );
+    }
+
+    /** @return array{key: string, label: string}|null */
+    private function preset(InstallInputData $inputData): ?array
+    {
+        if ($inputData->presetKey === null || $inputData->presetKey === '') {
+            return null;
+        }
+
+        return [
+            'key' => $inputData->presetKey,
+            'label' => $this->presets->find($inputData->presetKey)->label ?? $inputData->presetKey,
+        ];
     }
 
     private function safeHttpUrl(?string $url): ?string

@@ -100,6 +100,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidge
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
@@ -1218,6 +1219,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 AnalyticsRecentActivityFilamentWidget::class,
                 CapellAccountFilamentWidget::class,
                 CapellInfoFilamentWidget::class,
+                FirstRunChecklistFilamentWidget::class,
                 NeedsAttentionFilamentWidget::class,
                 ListPagesFilamentWidget::class,
                 RecentActivityFilamentWidget::class,

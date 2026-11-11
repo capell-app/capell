@@ -13,6 +13,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\Cli\FilamentAdminInstallPreflight;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\MissingSqliteDatabase;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
@@ -135,7 +136,7 @@ final class BuildInstallReviewAction
         $items = [
             'summary' => __('capell-core::install.review.summary_counts', ['downloads' => count($downloads), 'packages' => $packages->count()]),
             'site' => $input->siteUrl,
-            'database' => $connection . ' / ' . $database . ' — ' . ($input->freshInstall ? __('capell-core::install.review.database_fresh') : __('capell-core::install.review.database_migrate')),
+            'database' => $connection . ' / ' . $database . ' — ' . $this->databaseAction($input),
             'packages' => implode(', ', $packageLabels) ?: $none,
             'dependencies' => implode(', ', $dependencyLabels) ?: $none,
             'downloads' => $downloads === [] ? $none : implode(', ', $downloadLabels) . ' — ' . __('capell-core::install.review.composer_dependencies'),
@@ -177,11 +178,22 @@ final class BuildInstallReviewAction
         ]);
     }
 
+    private function databaseAction(InstallInputData $input): string
+    {
+        $missing = MissingSqliteDatabase::path();
+
+        if ($missing !== null) {
+            return (string) __('capell-core::install.review.database_will_be_created', ['path' => $missing]);
+        }
+
+        return (string) ($input->freshInstall ? __('capell-core::install.review.database_fresh') : __('capell-core::install.review.database_migrate'));
+    }
+
     private function administrator(InstallInputData $input): string
     {
         if ($input->newUser instanceof NewUserData) {
             $existing = false;
-            if (! $input->freshInstall) {
+            if (! $input->freshInstall && MissingSqliteDatabase::path() === null) {
                 /** @var class-string<Model> $model */
                 $model = config('auth.providers.users.model');
                 $instance = new $model;

@@ -46,7 +46,7 @@ final class InstalledPanelRuntimeGuestPageTest extends AdminTestCase
 
         $result = resolve(AdminRouteOwnershipCheck::class)->check();
         $this->assertFalse($result->passed);
-        $this->assertSame(DoctorCheckSeverity::Warning, $result->severity);
+        $this->assertSame(DoctorCheckSeverity::Critical, $result->severity);
         $this->assertSame($pages, $result->evidence['pages_requiring_guest_declaration']);
         foreach ($pages as $page) {
             $this->assertStringContainsString($page, $result->message);

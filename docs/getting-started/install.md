@@ -111,19 +111,57 @@ Do not run `filament:install --panels` first. The Installer requires and configu
 php artisan capell:install
 ```
 
-The default interactive flow installs the basic Admin/Frontend foundation and default
-theme. It asks for the site address and missing administrator details, then offers
-**Confirm all basics and install**, **Customise settings**, or **Cancel**. The basic
-flow keeps existing data and homepage routes, skips demo/application seeders and
-installer removal, and refreshes Capell caches without clearing application data.
-Existing installations do not offer a database reset in this flow.
+The default interactive flow asks six questions, each with a default:
 
-Customisation lets you change the site or administrator, choose packages and a theme,
-opt into frontend dependency installation/building, choose whether to update `APP_URL`,
-or save a reusable profile. Changes return to the review with previous answers retained.
-Choose the full questionnaire or pass `--customise` for every setting. Explicit package,
-profile, demo, fresh-install and other advanced flags retain their detailed flow;
-`--fresh` always requires its destructive confirmation unless explicitly forced.
+1. **What are you building?** Choose the closest site type. It sets the packages, the starter theme and the free extensions that suit it (Marketing site is the default).
+2. **What is the site called?** Defaults to `APP_NAME`.
+3. **What is the site's address?** Defaults to `APP_URL`.
+4. **Who is the first administrator?** Name, email and password, or an existing user.
+5. **Start with sample content so you can see how pages work?** Defaults to yes. You can replace or delete the sample pages in the admin. An installation that already has sites does not ask this question and adds no sample content.
+6. **Install Capell with these settings?** Nothing is installed until you confirm.
+
+The flow keeps existing data and homepage routes, skips application seeders and
+installer removal, refreshes Capell caches without clearing application data, and
+installs frontend dependencies and builds the assets at the end, so `php artisan serve`
+needs no second Capell command. Pass `--no-frontend-build` to skip that build. Flag-driven
+and non-interactive runs (`--no-interaction`, CI) build the frontend by default too; only the
+detailed `--customise` questionnaire asks first. Existing installations do not offer a
+database reset in this flow.
+
+For the smallest working site, pass `--minimal`. It installs Core, Admin, Frontend and
+the default theme only, with no sample content, Marketplace, welcome route or developer
+tooling, and asks just the site name, address and administrator questions. It cannot be
+combined with options that choose packages, content or tooling. Pass `--site-name=...` to
+answer the site name without a prompt. The detailed `--customise` questionnaire and the
+browser installer ask for the site name as well, defaulting to `APP_NAME`.
+
+To skip the "What are you building?" question, pass `--preset=<name>`. A preset is one of
+the site types the installer offers (`blog`, `marketing`, `docs`, `client` or `headless`,
+plus any you configure under `capell.install.recommendations`). It installs that site type's
+packages, its free recommended extensions and its starter theme, and starts with sample
+content when the site type does. An unknown name stops the install before anything changes
+and lists the valid names. `--packages`, `--package-mode`, `--theme` and `--demo` still
+override the preset, and it cannot be combined with `--minimal`, `--recommendation` or
+`--profile`.
+
+Pass `--publish` on a first install to publish draft pages once everything else is in
+place, so the public site is live as soon as the install finishes. It runs after the
+optional `--spec` import, so an imported site is published with the rest. It only touches
+draft pages: pages that are already live or scheduled are left alone. It is refused before
+anything changes on an installation that already exists, so editors' drafts are never
+published, and for a `--spec` that imports as private, because a private import keeps its
+first page as "Coming soon". If a page cannot be published the install reports which, and
+you publish it from the admin.
+
+```bash
+php artisan capell:install --preset=marketing --publish
+```
+
+Pass `--customise` for the detailed questionnaire: choose packages, extensions and a
+theme, opt into frontend dependency installation/building, choose whether to update
+`APP_URL`, or save a reusable profile. Explicit package, profile, demo, fresh-install and
+other advanced flags retain their detailed flow; `--fresh` always requires its
+destructive confirmation unless explicitly forced.
 
 When the first-site URL differs from `APP_URL`, the review shows that the application
 URL will remain unchanged. Opt into `--update-app-url` or its customisation choice to
@@ -335,6 +373,11 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 
 | Option                             | Purpose                                                           |
 | ---------------------------------- | ----------------------------------------------------------------- |
+| `--minimal`                        | Install Core, Admin, Frontend and the default theme only          |
+| `--preset=name`                    | Install a site type's packages, theme and sample content          |
+| `--publish`                        | Publish the new site's draft pages at the end of the install      |
+| `--site-name=name`                 | Name the first site without a prompt (defaults to `APP_NAME`)     |
+| `--no-frontend-build`              | Skip the frontend dependency install and build at the end         |
 | `--customise`                      | Open the full installation questionnaire                          |
 | `--build-assets`                   | Install frontend dependencies and build with the detected manager |
 | `--update-app-url`                 | Update APP_URL to the reviewed site URL after confirmation        |
@@ -362,6 +405,8 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 | `--production`                     | Force unattended production-safe mode and refuse `--fresh`        |
 
 Use `php artisan capell:install --help` for the authoritative option list in the installed release.
+
+The install shows a progress bar across its steps. In CI, pipes and `--no-interaction` runs it prints one plain line per step instead, with no terminal control codes. The run ends with a summary of 60 lines or fewer: what was installed, the site and Admin addresses, any warnings and the next steps. If a step fails, the output names that step and prints the command that resumes the install. Add `-v` for the detailed install log and the full handoff.
 
 A successful run also prints a `Capell Install Handoff` with the selected packages, verified outcomes, safe Admin/public URLs, first-page state, warnings, a short **What next** list and one next action. The list is shaped by the install: where to sign in and with which account (never the password), how to edit or create the first page, which theme is active, and which installed content packages still need their first record. Until frontend assets are built, it shows the build command instead. For release automation, pass `--handoff-json=storage/app/capell-install-handoff.json`; the JSON uses the same versioned, redacted contract and does not connect a Capell account or submit a telemetry identity.
 
@@ -461,16 +506,16 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 
 ## Troubleshooting
 
-| Symptom                                         | First action                                                                                      |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                                 |
-| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                            |
+| Symptom                                         | First action                                                                                         |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                                    |
+| Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                               |
 | Frontend CSS is missing                         | Follow the [frontend asset recovery steps](#recover-missing-frontend-css) and verify the styled page |
-| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                               |
-| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)                   |
-| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)                     |
-| PHP reports `Allowed memory size ... exhausted` | Reopen the installer, identify the failing step in its report, and report it as a batching defect |
-| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                                    |
+| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                                  |
+| A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)                      |
+| Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)                        |
+| PHP reports `Allowed memory size ... exhausted` | Reopen the installer, identify the failing step in its report, and report it as a batching defect    |
+| Install health remains red                      | Run the printed `Fix:` command and `php artisan capell:doctor`                                       |
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.
 

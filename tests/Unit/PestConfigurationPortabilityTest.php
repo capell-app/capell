@@ -19,6 +19,8 @@ it('discovers package tests with their package group on this filesystem', functi
 
     expect($test)->not->toBeNull();
     $process = new Process([PHP_BINARY, 'vendor/bin/pest', $test, '--configuration=phpunit.xml', '--list-groups'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
 
     // Duplicate case-only registrations break discovery on case-sensitive hosts.
     expect($process->run())->toBe(0, $process->getErrorOutput())

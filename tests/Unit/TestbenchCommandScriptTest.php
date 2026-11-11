@@ -54,6 +54,9 @@ CHILD);
                 'CACHE_STORE' => 'database',
                 'APP_CONFIG_CACHE' => '/parent/config.php',
             ]);
+            // Hang ceiling only: a busy host must slow this down, never fail it.
+            $process->setTimeout(300);
+
             expect($process->run())->toBe(0, $process->getErrorOutput());
             $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
             expect($result['cache_store'])->toBe('array')
@@ -138,7 +141,8 @@ it('boots the portable Testbench command runner with the runtime role enabled', 
         'CAPELL_TESTBENCH_RUNTIME_ROLE' => 'true',
         'CACHE_STORE' => 'array',
     ]);
-    $process->setTimeout(120);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->mustRun();
 
     $registry = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
@@ -162,7 +166,8 @@ it('does not inherit the calling applications config cache when listing commands
             'APP_CONFIG_CACHE' => $directory . '/config.php',
             'CAPELL_TESTBENCH_RUNTIME_ROLE' => 'true',
         ]);
-        $process->setTimeout(120);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         $registry = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);

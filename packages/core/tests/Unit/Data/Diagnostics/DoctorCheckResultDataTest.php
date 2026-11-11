@@ -33,6 +33,7 @@ it('serializes stable diagnostic identity severity and evidence independently of
         ->and($renamed->toArray())->toBe([
             'id' => 'core.schema.required',
             'severity' => 'critical',
+            'outcome' => 'failed',
             'label' => 'Runtime database contract',
             'passed' => false,
             'message' => 'A table is missing.',

@@ -432,7 +432,10 @@ final class RestoreBackupAction
                 continue;
             }
 
-            if (($check['passed'] ?? true) !== false) {
+            // A warning does not stop the restored site working, so only failed checks are reported.
+            $outcome = $check['outcome'] ?? (($check['passed'] ?? true) === false ? 'failed' : 'passed');
+
+            if ($outcome !== 'failed') {
                 continue;
             }
 

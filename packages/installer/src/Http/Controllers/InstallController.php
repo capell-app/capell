@@ -455,7 +455,7 @@ final class InstallController
             adminUrl: $adminUrl,
             adminEmail: is_string($adminEmail) ? $adminEmail : null,
             publicUrl: $siteUrl,
-            firstPageStatus: ResolveInstallFirstPageStatusAction::run(),
+            firstPageStatus: ResolveInstallFirstPageStatusAction::run($siteUrl),
             demoContent: ($successSummary['demoContent'] ?? false) === true,
             existingAccount: $existingAccount,
             selectedThemeKey: is_string($themeKey) ? $themeKey : null,

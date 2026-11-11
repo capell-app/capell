@@ -57,7 +57,7 @@ final readonly class AdminRouteOwnershipCheck implements DoctorCheck
             message: $passed ? __('capell-admin::message.route_ownership_check_ok') : implode(' ', $messages),
             remediation: $passed ? null : implode(' ', $remediation),
             id: 'admin.routes.ownership',
-            severity: $unrecorded !== [] || $refused !== [] ? DoctorCheckSeverity::Critical : DoctorCheckSeverity::Warning,
+            severity: $passed ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Critical,
             evidence: ['unrecorded' => count($unrecorded), 'refused' => $refused, 'collisions' => $collisions, 'pages_requiring_guest_declaration' => $pages],
         );
     }

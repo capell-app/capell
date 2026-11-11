@@ -12,6 +12,7 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\InstallSiteName;
 use Capell\Core\Support\Install\PackageDemoLifecycle;
 use Capell\Core\Support\Install\PackageLifecycleSteps;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
@@ -257,7 +258,7 @@ final class InstallPackagesAction
             'url' => $inputData->siteUrl,
             'initial-installation' => $inputData->initialInstallation,
             'languages' => $inputData->demoContent ? $inputData->demoLanguages : $inputData->languages,
-            'sites' => $inputData->demoContent ? $inputData->demoSites : [$this->defaultSiteName()],
+            'sites' => $inputData->demoContent ? $inputData->demoSites : [$inputData->siteName ?? InstallSiteName::fallback()],
             'user' => $user?->getAuthIdentifier() !== null ? (string) $user->getAuthIdentifier() : null,
             'assets' => $inputData->assets,
             'theme' => $inputData->selectedThemeKey,
@@ -329,22 +330,5 @@ final class InstallPackagesAction
         }
 
         return $result;
-    }
-
-    private function defaultSiteName(): string
-    {
-        $appName = config('app.name');
-
-        if (! is_string($appName)) {
-            return 'Capell';
-        }
-
-        $appName = trim($appName);
-
-        if ($appName === '' || $appName === 'Laravel') {
-            return 'Capell';
-        }
-
-        return $appName;
     }
 }

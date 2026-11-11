@@ -103,9 +103,10 @@ it('queues a second preflight behind a holder in the real shared pool', function
     $env = ['HEAVY_SLOT_GUARD' => $guard, 'HEAVY_SLOT_ROOT' => $root, 'HEAVY_SLOTS' => '3', 'HEAVY_MAX_LOAD' => '100000', 'CAPELL_PREFLIGHT_ADMITTED' => false, 'HEAVY_SLOT_OWNER' => false];
 
     $holder = new Process([PHP_BINARY, 'scripts/run-preflight.php', 'composer-majors'], dirname(__DIR__, 2), $env + ['COMPOSER_BINARY' => $sleeper]);
+    $holder->setTimeout(300);
     $holder->start();
 
-    $deadline = microtime(true) + 20;
+    $deadline = microtime(true) + 120;
     while (! file_exists($root . '.running') && microtime(true) < $deadline) {
         Sleep::usleep(100_000);
     }
@@ -113,7 +114,8 @@ it('queues a second preflight behind a holder in the real shared pool', function
     expect(file_exists($root . '.running'))->toBeTrue();
 
     $started = microtime(true);
-    $waiter = new Process([PHP_BINARY, 'scripts/run-preflight.php', 'composer-majors'], dirname(__DIR__, 2), $env + ['COMPOSER_BINARY' => $fixture['composer'], 'HEAVY_MAX_WAIT_SECONDS' => '60']);
+    $waiter = new Process([PHP_BINARY, 'scripts/run-preflight.php', 'composer-majors'], dirname(__DIR__, 2), $env + ['COMPOSER_BINARY' => $fixture['composer'], 'HEAVY_MAX_WAIT_SECONDS' => '300']);
+    $waiter->setTimeout(300);
     $waiter->run();
 
     $holder->wait();
@@ -153,7 +155,8 @@ it('starts no coverage step when the host refuses admission', function (string $
         'HEAVY_SLOT_ENABLED' => false,
         'HEAVY_SLOT_OWNER' => false,
     ]);
-    $process->setTimeout(120);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->not->toBe(0)

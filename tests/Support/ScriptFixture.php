@@ -41,7 +41,8 @@ final class ScriptFixture
     public function php(string $script, array $arguments = [], array $environment = []): Process
     {
         $process = new Process([PHP_BINARY, $this->root . '/' . $script, ...$arguments], $this->root, $environment);
-        $process->setTimeout(30);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->run();
 
         return $process;

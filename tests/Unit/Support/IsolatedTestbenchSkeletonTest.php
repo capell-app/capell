@@ -16,6 +16,8 @@ it('prepares and reuses a process skeleton and removes it on shutdown', function
         echo json_encode([$first, $second, is_dir($first . '/bootstrap'), is_dir($first . '/vendor'), is_dir($first . '/storage/app/public'), json_decode(file_get_contents($first . '/.capell-skeleton'), true)]);
         CODE;
     $process = new Process([PHP_BINARY, '-r', $code, $checkout], $checkout, ['CAPELL_TESTBENCH_SKELETON_ROOT' => $root]);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     try {
         $process->run();
         expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());
@@ -39,6 +41,8 @@ it('boots from a base path without symlink components so release-root guards acc
         echo json_encode([$base, realpath($base)]);
         CODE;
     $process = new Process([PHP_BINARY, '-r', $code, $checkout], $checkout, ['CAPELL_TESTBENCH_SKELETON_ROOT' => $root]);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     try {
         $process->run();
         expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());

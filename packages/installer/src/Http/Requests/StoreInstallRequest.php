@@ -6,7 +6,9 @@ namespace Capell\Installer\Http\Requests;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
+use Capell\Core\Support\Install\InstallSiteName;
 use Capell\Installer\Support\InstallerOptions;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Override;
@@ -38,6 +40,13 @@ final class StoreInstallRequest extends FormRequest
             'review_token' => ['nullable', 'string'],
             'installation_confirmed' => ['nullable', 'boolean'],
             'site_url' => ['required', 'url'],
+            'site_name' => ['nullable', 'string', function (string $attribute, mixed $value, Closure $fail): void {
+                $error = is_string($value) && trim($value) !== '' ? InstallSiteName::validationError($value) : null;
+
+                if ($error !== null) {
+                    $fail($error);
+                }
+            }],
             'language' => ['required', 'string', Rule::in(array_merge(array_keys($options->languageOptions()), ['__custom']))],
             'custom_language_code' => [
                 Rule::requiredIf(($input['language'] ?? null) === '__custom'),

@@ -56,6 +56,8 @@ it('applies Rector transformations only in the full preflight', function (bool $
         'CAPELL_PREFLIGHT_MANIFEST' => dirname(__DIR__, 2) . '/composer.json',
         'CAPELL_PREFLIGHT_FIXTURE' => $fixture,
     ]);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     try {
         expect($process->run())->toBe(0, $process->getErrorOutput())
             ->and($process->getOutput())->toContain('PASS rector')

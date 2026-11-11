@@ -11,6 +11,8 @@ require_once dirname(__DIR__, 2) . '/scripts/check-stable-extension-api.php';
 it('keeps the active public-release baseline current', function (): void {
     $root = dirname(__DIR__, 2);
     $process = new Process([PHP_BINARY, 'scripts/check-stable-extension-api.php', '--check'], $root);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     $output = $process->getOutput();

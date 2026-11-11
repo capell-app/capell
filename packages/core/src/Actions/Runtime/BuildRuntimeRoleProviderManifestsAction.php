@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Runtime;
 
 use Capell\Core\Enums\RuntimeRole;
+use Capell\Core\Support\Runtime\ComposerInstallIdentity;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Illuminate\Filesystem\Filesystem;
@@ -30,13 +31,20 @@ final class BuildRuntimeRoleProviderManifestsAction
     public function handle(): void
     {
         $sourcePackagesPath = $this->application->bootstrapPath('cache/packages.php');
+        $identity = new ComposerInstallIdentity($this->files, $this->application->basePath());
+        $snapshot = $identity->snapshot();
 
-        if (! is_file($sourcePackagesPath)) {
+        if (! is_file($sourcePackagesPath) || ! $identity->matches($this->paths->sourceInstallIdentity())) {
             new PackageManifest(
                 $this->files,
                 $this->application->basePath(),
                 $sourcePackagesPath,
             )->build();
+            if (function_exists('opcache_invalidate')) {
+                @opcache_invalidate($sourcePackagesPath, true);
+            }
+
+            $identity->record($this->paths->sourceInstallIdentity(), $snapshot);
         }
 
         $sourcePackages = $this->requireArray($sourcePackagesPath);
@@ -56,6 +64,9 @@ final class BuildRuntimeRoleProviderManifestsAction
             $this->writePhpArray($this->paths->packages($role), $packages);
             $this->writePhpArray($this->paths->providers($role), $providers);
             $this->writePhpArray($this->paths->services($role), $this->compileServices($allProviders));
+            if ($sourcePackages !== []) {
+                $identity->record($this->paths->installIdentity($role), $snapshot);
+            }
         }
 
         $this->writePhpArray($this->paths->metadata(), [
@@ -227,5 +238,9 @@ final class BuildRuntimeRoleProviderManifestsAction
             $path,
             '<?php return ' . var_export($value, return: true) . ';' . PHP_EOL,
         );
+
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($path, true);
+        }
     }
 }

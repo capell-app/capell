@@ -91,6 +91,24 @@ it('denies non-core packages when the quarantine store cannot be read', function
     expect($result->passed)->toBeFalse()->and($result->message)->toContain(__('capell-core::extensions.quarantine.unavailable'));
 });
 
+it('reads the quarantine store again once it becomes available instead of denying for the rest of the process', function (): void {
+    // A fresh SQLite install boots before the installer creates the database file, so the first read fails.
+    $store = new stdClass;
+    $store->available = false;
+    DB::listen(static function (QueryExecuted $query) use ($store): void {
+        $statement = strtolower($query->sql . ' ' . implode(' ', array_map(static fn (mixed $binding): string => is_scalar($binding) ? (string) $binding : '', $query->bindings)));
+        throw_if($store->available !== true && str_contains($statement, 'capell_extension_quarantines'), RuntimeException::class, 'unavailable');
+    });
+    $gate = resolve(ExtensionQuarantineGate::class);
+    $gate->forget();
+
+    expect($gate->allows('vendor/example'))->toBeFalse();
+
+    $store->available = true;
+
+    expect($gate->allows('vendor/example'))->toBeTrue();
+});
+
 it('fails closed when the quarantine query fails after the table is found', function (): void {
     DB::listen(static function (QueryExecuted $query): void {
         throw_if(str_contains(strtolower($query->sql), 'capell_extension_quarantines') && str_starts_with(strtolower(ltrim($query->sql)), 'select'), RuntimeException::class, 'quarantine query failed');

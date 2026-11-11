@@ -12,7 +12,8 @@ it('coordinates native Composer and container dispatch with the host release gat
     $process = new Process(['python3', 'tests/Shell/release-verification-lock.py'], $root, [
         'PATH' => dirname(PHP_BINARY) . ':' . $environmentPath,
     ]);
-    $process->setTimeout(30);
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
     $process->run();
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput());

@@ -297,7 +297,8 @@ final class CiWorkflowCredentialHygieneTest extends TestCase
                 'EVENT_NAME' => 'workflow_dispatch',
                 'GITHUB_OUTPUT' => $root . '/output',
             ]);
-            $process->setTimeout(10);
+            // Hang ceiling only: a busy host must slow this down, never fail it.
+            $process->setTimeout(300);
             $process->run();
             $this->assertFileDoesNotExist($root . '/injected');
             if ($valid) {

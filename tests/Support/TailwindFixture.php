@@ -38,6 +38,8 @@ const {Scanner} = require('@tailwindcss/oxide');
 })().catch(error => {console.error(error); process.exitCode = 1;});
 JS;
         $process = new Process(['node', '-e', $runner, $path], $root);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
         $process->mustRun();
 
         return $process->getOutput();

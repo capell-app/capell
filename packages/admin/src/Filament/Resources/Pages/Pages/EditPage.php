@@ -133,8 +133,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Locked]
     public ?string $scratchDraftRevision = null;
 
-    protected bool $savingAsDraft = false;
-
     /** @var list<string> */
     protected $listeners = [
         'auditRestored',
@@ -404,13 +402,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             return;
         }
 
-        $this->savingAsDraft = true;
-
-        try {
-            $this->save(shouldRedirect: false);
-        } finally {
-            $this->savingAsDraft = false;
-        }
+        $this->save(shouldRedirect: false);
     }
 
     /**
@@ -649,13 +641,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
         unset($data['translations']);
 
-        // When "Save and Publish" is clicked on a pending (draft) page, clear the
-        // far-future visible_from sentinel so the page becomes live immediately.
-        // Skip this when saveAsDraft() is the caller — that path preserves draft state.
-        if ($this->record->isPending() && ! $this->savingAsDraft) {
-            $data['visible_from'] = null;
-        }
-
         return $data;
     }
 
@@ -752,7 +737,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     protected function getPositionedFormActions(): array
     {
         return array_values([
-            $this->getSaveAndPublishFormAction(),
+            $this->getPageSaveFormAction(),
             ...$this->getPageEditExtenderFormActions(),
             $this->getCancelFormAction(),
         ]);
@@ -764,7 +749,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     protected function getPositionedHeaderFormActions(): array
     {
         return array_values([
-            $this->getSaveAndPublishFormAction()
+            $this->getPageSaveFormAction()
                 ->submit(null)
                 ->action(function (): void {
                     $this->save();
@@ -774,12 +759,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         ]);
     }
 
-    protected function getSaveAndPublishFormAction(): Action
+    protected function getPageSaveFormAction(): Action
     {
         return $this->getSaveFormAction()
-            ->label(fn (): string => $this->isLivePublishedRecord()
-                ? __('capell-admin::button.save')
-                : __('capell-admin::button.save_and_publish'));
+            ->label(__('capell-admin::button.save'));
     }
 
     /**
@@ -813,7 +796,9 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 ->tooltip(__('capell-admin::button.save_as_draft_tooltip'))
                 ->icon('heroicon-o-document-text')
                 ->color('gray')
-                ->visible(fn (): bool => ! $this->isLivePublishedRecord())
+                // Without a workspace draft handler, a draft save is the same as the
+                // primary Save, so only offer the separate action when it does more.
+                ->visible(fn (): bool => $this->draftHandler() !== null && ! $this->isLivePublishedRecord())
                 ->action(function (): void {
                     $this->saveAsDraft();
                 }),

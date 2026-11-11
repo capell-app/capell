@@ -15,6 +15,7 @@ use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\Install\ArtisanCommandResultData;
+use Capell\Core\Data\Install\InstallStoppedStepData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
@@ -547,6 +548,23 @@ it('retains warning totals from the fresh doctor process', function (): void {
 
     expect($state->doctorWarnings)->toBe([['message' => '198 manifest contract warning(s).', 'count' => 198]])
         ->and(file_exists($reportPath))->toBeFalse()
+        ->and($processes->processes)->toHaveCount(1);
+});
+
+it('retains a warning outcome from the fresh doctor process as one warning', function (): void {
+    $processes = FakeProcessFactory::bind()->push(onRun: function ($process): void {
+        $argument = collect($process->command)->first(fn (string $value): bool => str_starts_with($value, '--report-json='));
+        file_put_contents(substr($argument, strlen('--report-json=')), json_encode(['checks' => [
+            ['passed' => false, 'severity' => 'warning', 'outcome' => 'warning', 'message' => 'Composer was not found.', 'evidence' => []],
+            ['passed' => true, 'severity' => 'critical', 'outcome' => 'passed', 'message' => 'Fine.', 'evidence' => []],
+        ]], JSON_THROW_ON_ERROR));
+    });
+    $lines = [];
+    $state = new InstallRunState(installStepExecutorInputData(), installStepExecutorReporter($lines));
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_RUN_DOCTOR_SUMMARY, $state);
+
+    expect($state->doctorWarnings)->toBe([['message' => 'Composer was not found.', 'count' => 1]])
         ->and($processes->processes)->toHaveCount(1);
 });
 
@@ -1238,4 +1256,36 @@ it('refreshes newly downloaded manifests even when an earlier download already r
 
     expect(CapellCore::getPackage($packageName)->path)->toBe($manifest->installPath)
         ->and($state->packageMetadataIsRefreshed())->toBeTrue();
+});
+
+it('records the step an install stopped at with the command that resumes it', function (): void {
+    InstallRunState::clearStoppedStep();
+    expectInstallStepExecutorNpmProcessCommand('npm install', installStepExecutorProcessResult(true));
+    $errorMessage = "Cannot find module '@rollup/rollup-linux-arm64-gnu'.";
+    expectInstallStepExecutorNpmProcessCommand('npm run build', installStepExecutorProcessResult(false, '', $errorMessage));
+    expectInstallStepExecutorNpmProcessCommand('npm install', installStepExecutorProcessResult(false, '', $errorMessage));
+    $lines = [];
+    $state = new InstallRunState(installStepExecutorInputData(), installStepExecutorReporter($lines));
+
+    expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_REBUILD_RESOURCES, $state))
+        ->toThrow(RuntimeException::class);
+
+    $stopped = InstallRunState::stoppedStep();
+
+    expect($stopped?->key)->toBe(InstallPlan::STEP_REBUILD_RESOURCES)
+        ->and($stopped?->label)->not->toBe('')
+        ->and($stopped?->resumeCommand)->toStartWith('php artisan capell:install --no-interaction')
+        ->and($stopped?->resumeCommand)->toContain("--url='https://example.com'");
+
+    InstallRunState::clearStoppedStep();
+});
+
+it('forgets a stopped step once the core lifecycle is marked installed', function (): void {
+    InstallRunState::recordStoppedStep(new InstallStoppedStepData('run-migrations-mid', 'Run migrations', 'php artisan capell:install --no-interaction'));
+    $lines = [];
+    $state = new InstallRunState(installStepExecutorInputData(), installStepExecutorReporter($lines));
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_MARK_CORE_INSTALLED, $state);
+
+    expect(InstallRunState::stoppedStep())->toBeNull();
 });

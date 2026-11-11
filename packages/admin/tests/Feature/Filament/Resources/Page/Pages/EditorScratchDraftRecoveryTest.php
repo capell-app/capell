@@ -365,6 +365,11 @@ it('sends the acknowledged form data with the editor saved event', function (): 
 });
 
 it('acknowledges the form when Filament mounts the save-as-draft action', function (): void {
+    app()->instance('capell.workspace.page-draft-handler', new class
+    {
+        public function saveAsDraft(EditPage $page): void {}
+    });
+
     $page = Page::factory()->withTranslations()->createOne(['visible_from' => PagePublishSentinel::draftValue()]);
     Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
         ->set('data.name', 'Draft acknowledgement')

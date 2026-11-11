@@ -1,0 +1,59 @@
+name: First page timing
+
+# Proves a fresh app built from this Core reaches its first page in under five minutes.
+# It runs in the merge queue and after merges to main rather than on every PR push: the run
+# installs a whole application, so it is too slow for the fast PR gate. A regression is
+# caught before it reaches main, and again on main for direct pushes. A nightly run covers
+# Packagist releases of the other packages, which change without a Core merge. Run it by hand with
+# workflow_dispatch, or locally with scripts/first-page-timing.sh.
+
+on:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  schedule:
+    # Nightly, off-peak UTC, so a Packages release that breaks first run is caught within a day.
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: first-page-timing-${{ github.event.merge_group.head_sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  first-page:
+    name: Fresh app reaches its first page in under 5 minutes
+    runs-on: ubuntu-latest
+    # A hang ceiling only. The 300 s budget is enforced by the script.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: dom, mbstring, intl, pdo_sqlite, sqlite3, zip, gd, bcmath, exif
+          tools: composer:v2
+          coverage: none
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        with:
+          node-version: '22.x'
+      - name: Check the timing script
+        run: bash tests/Shell/first-page-timing.sh
+      - name: Time the fresh app to its first page
+        run: bash scripts/first-page-timing.sh --workdir "$RUNNER_TEMP/first-page"
+      - name: Upload logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: first-page-timing-logs
+          path: ${{ runner.temp }}/first-page/logs
+          if-no-files-found: ignore
