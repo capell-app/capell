@@ -512,7 +512,7 @@ php artisan capell:doctor --warnings
 | Option                      | Use it for                                                                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--json`                    | Machine-readable report for monitoring or CI                                                                                               |
-| `--warnings`                | List only the checks that reported warnings                                                                                                |
+| `--warnings`                | List only the checks that reported warnings (ignored by `--json`, which always carries every check)                                       |
 | `--install-summary`         | The installer-focused summary, including package-owned checks                                                                              |
 | `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                                                                       |
 | `--connection=`             | Verify against an existing database connection instead of the default                                                                      |
