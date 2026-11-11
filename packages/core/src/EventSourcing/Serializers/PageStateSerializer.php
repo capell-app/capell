@@ -17,6 +17,7 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Properties\PropertyValueEquality;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -27,6 +28,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use LogicException;
+use Throwable;
 
 /**
  * Captures and restores the full owned state of a Page aggregate: page
@@ -162,12 +164,12 @@ final class PageStateSerializer implements EventSourcedStateSerializer
 
         try {
             $this->restoreInTransaction($page, $state);
-        } catch (ValidationException $validationException) {
+        } catch (Throwable $throwable) {
             // The transaction rolled back; drop the attributes forced onto the
             // in-memory page so callers do not see state that was never saved.
             $page->refresh();
 
-            throw $validationException;
+            throw $throwable;
         }
     }
 
@@ -450,7 +452,7 @@ final class PageStateSerializer implements EventSourcedStateSerializer
             return;
         }
 
-        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', is_numeric($held) ? (string) (float) $held : (string) $held]);
+        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', PropertyValueEquality::identity($column, $held)]);
 
         if (! isset($seen[$identity])) {
             $seen[$identity] = true;

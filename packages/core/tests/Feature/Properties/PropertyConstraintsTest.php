@@ -767,3 +767,48 @@ it('treats a number sent as 5.50 over a stored 5.5 as unchanged', function (): v
         ->and($validator->isStoredUnchanged($page, $effective, new PropertyValueData('rating', PropertyType::Number, '5.51')))->toBeFalse()
         ->and($validator->isStoredUnchanged($page, $effective, new PropertyValueData('rating', PropertyType::Number, '5.50', position: 1)))->toBeFalse();
 });
+
+it('restores unique text values that only look alike as numbers', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'codes',
+        'type' => PropertyType::Text,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    $lookalikes = ['007', '7', '1.0', '1', '9007199254740993', '9007199254740992'];
+    SetPagePropertyValuesAction::run($page, array_map(
+        static fn (string $code, int $position): PropertyValueData => new PropertyValueData('codes', PropertyType::Text, $code, position: $position),
+        $lookalikes,
+        array_keys($lookalikes),
+    ));
+    $definition->forceFill(['constraints' => PropertyConstraintsData::fromStored(['unique_per_site' => true])])->save();
+    $serializer = resolve(PageStateSerializer::class);
+    $snapshot = $serializer->capture($page->refresh());
+    SetPagePropertyValuesAction::run($page, [new PropertyValueData('codes', PropertyType::Text, 'OTHER')]);
+    $log = Log::spy();
+
+    $serializer->restore($page->refresh(), $snapshot);
+
+    $log->shouldNotHaveReceived('warning');
+    expect(PagePropertyValue::query()->where('page_id', $page->id)->orderBy('position')->pluck('value_text')->all())->toBe($lookalikes);
+});
+
+it('refuses one number written twice in a single write, however it is spelled', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->withConstraints(['unique_per_site' => true])->create([
+        'property_set_id' => $set->id,
+        'key' => 'sizes',
+        'type' => PropertyType::Number,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('sizes', PropertyType::Number, '5.5', position: 0),
+        new PropertyValueData('sizes', PropertyType::Number, '5.50', position: 1),
+    ]))->toThrow(ValidationException::class, 'Sizes must be different in each entry. Remove the repeated value.');
+});

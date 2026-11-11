@@ -201,6 +201,7 @@ use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
+use Capell\Core\Support\Properties\PropertyBreachReports;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityRevision;
 use Capell\Core\Support\PublicRead\PublicReadEligibilityState;
@@ -315,6 +316,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(SiteSpecApplierRegistry::class);
         $this->app->scoped(SiteSpecPresetRegistry::class);
         $this->app->scoped(PageUrlRewriteContext::class);
+        $this->app->scoped(PropertyBreachReports::class);
         $this->app->scoped(ResolvePublicPageableMorphTypesAction::class);
 
         config(['media-library.media_model' => Media::class]);

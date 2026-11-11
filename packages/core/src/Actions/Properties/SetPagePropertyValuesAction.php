@@ -12,6 +12,7 @@ use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Support\Properties\PropertyValueEquality;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -155,7 +156,7 @@ final class SetPagePropertyValuesAction
             return;
         }
 
-        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', (string) $held]);
+        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', PropertyValueEquality::identity($column, $held)]);
         $storedElsewhere = $definition->multiple && PagePropertyValue::query()
             ->where('page_id', $page->id)
             ->where('property_definition_id', $definition->definitionId)

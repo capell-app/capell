@@ -34,6 +34,19 @@ final class PropertyValueEquality
     }
 
     /**
+     * A stable identity for one stored column's value, for spotting a value
+     * repeated across a page's entries: numbers as numbers (`5.5` and `5.50`
+     * match), reference IDs as integers and text exactly as stored (`007` and
+     * `7` differ, as they do in the database).
+     */
+    public static function identity(string $column, mixed $value): string
+    {
+        $normalised = self::normaliseColumns([$column => $value])[$column];
+
+        return get_debug_type($normalised) . ':' . (is_scalar($normalised) ? var_export($normalised, true) : '');
+    }
+
+    /**
      * Compare two already-coerced scalar values of one property.
      */
     public static function sameValue(mixed $value, mixed $other): bool

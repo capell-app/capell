@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Pages\SavePageAuthoringAction;
 use Capell\Admin\Data\Agent\AgentAdminToolResultData;
+use Capell\Admin\Data\Pages\PageAuthoringInputData;
 use Capell\Admin\Filament\Resources\Blueprints\Pages\ManageBlueprints;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Support\Agent\AgentAdminConfirmationStore;
@@ -286,4 +288,22 @@ it('previews an agent write of an unchanged value by the same rule the write app
 
     expect($executed->mode)->toBe('executed')
         ->and(fn (): AgentAdminToolResultData => $preview('ANOTHER-LONG-CODE'))->toThrow(ValidationException::class);
+});
+
+it('logs an unchanged promoted breach once per save on the admin path, though the save is announced twice', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
+    $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
+    PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+
+    // The model save announces the page once; the admin authoring save announces it again.
+    $page->refresh()->order = 5;
+    $page->save();
+    SavePageAuthoringAction::run(new PageAuthoringInputData(page: $page, formData: ['name' => 'An established page name', 'order' => 5]));
+
+    $log->shouldHaveReceived('warning')
+        ->withArgs(static fn (string $message): bool => str_starts_with($message, 'A promoted page value breaks its property rules'))
+        ->once();
 });

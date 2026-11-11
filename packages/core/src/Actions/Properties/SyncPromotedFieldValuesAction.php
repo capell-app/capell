@@ -9,6 +9,7 @@ use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Support\Properties\PropertyBreachReports;
 use Capell\Core\Support\Properties\PropertyValueEquality;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Support\Facades\Log;
@@ -85,16 +86,12 @@ final class SyncPromotedFieldValuesAction
             // A value the save changes was checked before the row was written.
             // One it left as it was may predate a rule: outside production the
             // check before the write refused it, in production it is reported
-            // here, once per save. Sync a value only while it meets the rules,
+            // here, once per request. Sync a value only while it meets the rules,
             // so nothing can fail after the page is written; the property
             // keeps its last good value until the field is corrected.
             if ($definition->constraints instanceof PropertyConstraintsData
                 && ! $this->validator->passesConstraints($definition, $value->value, (int) $page->site_id, (int) $page->id)) {
-                Log::warning('A promoted page value breaks its property rules; the save was not blocked and the property was not updated.', [
-                    'property' => $definition->key,
-                    'site_id' => $page->site_id,
-                    'page_id' => $page->id,
-                ]);
+                $this->reportBreach($page, $definition, $value);
 
                 continue;
             }
@@ -113,5 +110,24 @@ final class SyncPromotedFieldValuesAction
         if ($values !== []) {
             SetPagePropertyValuesAction::run($page, $values, viaPromotedFieldSync: true);
         }
+    }
+
+    /**
+     * Logs an unchanged promoted value that breaks its rules, once per page,
+     * property and value in a request or job ({@see PropertyBreachReports}).
+     */
+    private function reportBreach(Page $page, EffectivePropertyDefinitionData $definition, PropertyValueData $value): void
+    {
+        $identity = PropertyValueEquality::identity('value_' . ($definition->type->isNumeric() ? 'number' : 'text'), $value->value);
+
+        if (! resolve(PropertyBreachReports::class)->first((int) $page->id, $definition->definitionId, $identity)) {
+            return;
+        }
+
+        Log::warning('A promoted page value breaks its property rules; the save was not blocked and the property was not updated.', [
+            'property' => $definition->key,
+            'site_id' => $page->site_id,
+            'page_id' => $page->id,
+        ]);
     }
 }
