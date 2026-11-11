@@ -121,8 +121,7 @@ final class FragmentCache
      * Versioned, compare-and-set publication. The entry records the surrogate
      * tokens it was rendered against; a hit is valid only while every recorded
      * token is unchanged, and a render publishes only if no token moved while it
-     * ran. A hit asking for surrogates the entry does not yet record extends the
-     * entry's ownership rather than replacing it.
+     * ran. A hit must own every surrogate the caller declares.
      *
      * @param  list<string>  $surrogateKeys
      */
@@ -134,21 +133,19 @@ final class FragmentCache
 
         $wanted = [];
         foreach ($surrogateKeys as $surrogate) {
-            $wanted[$this->surrogateId($surrogate)] = true;
+            $wanted[$this->surrogateId((string) $surrogate)] = true;
         }
 
         $entry = $this->cache->get($cacheKey);
 
         if (is_array($entry) && ($entry['v'] ?? null) === 2 && array_key_exists('value', $entry) && is_array($entry['tokens'] ?? null)) {
-            $recorded = array_filter($entry['tokens'], is_string(...));
+            $recorded = $entry['tokens'];
 
-            if ($this->readTokens($namespace, array_keys($recorded)) === $recorded) {
-                $missing = array_keys(array_diff_key($wanted, $recorded));
-
-                if ($missing !== []) {
-                    $this->extendEntry($namespace, $cacheKey, $entry['value'], $recorded, $missing, $ttlSeconds);
-                }
-
+            // Fail closed: a malformed envelope, or one that does not own every
+            // surrogate the caller declares, is a miss and is re-rendered.
+            if (array_all($recorded, static fn (mixed $token, mixed $id): bool => is_string($token) && is_string($id))
+                && array_diff_key($wanted, $recorded) === []
+                && $this->readTokens($namespace, array_keys($recorded)) === $recorded) {
                 return $entry['value'];
             }
         }
@@ -162,19 +159,6 @@ final class FragmentCache
         }
 
         return $result;
-    }
-
-    /**
-     * @param  array<string, string>  $recorded
-     * @param  list<string>  $missingIds
-     */
-    private function extendEntry(string $namespace, string $cacheKey, mixed $value, array $recorded, array $missingIds, int $ttlSeconds): void
-    {
-        $added = $this->ensureTokens($namespace, $missingIds);
-
-        if ($added !== null) {
-            $this->publish($namespace, $cacheKey, $value, $recorded + $added, $ttlSeconds);
-        }
     }
 
     /** @param array<string, string> $tokens */
