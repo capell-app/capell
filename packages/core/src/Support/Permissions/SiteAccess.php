@@ -23,6 +23,7 @@ use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Properties\PropertyMediaUsage;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -273,7 +274,11 @@ final readonly class SiteAccess
 
     public function trackedUsageCount(Media $media): int
     {
-        return $this->scopeAssetAttachments($media->assetRelations()->getQuery())->count();
+        return $this->scopeAssetAttachments($media->assetRelations()->getQuery())->count()
+            + PropertyMediaUsage::count(
+                $this->query(PagePropertyValue::class)->where('media_id', $media->getKey()),
+                $this->query(TermPropertyValue::class)->where('media_id', $media->getKey()),
+            );
     }
 
     private static function isGlobalActor(Authenticatable $actor): bool

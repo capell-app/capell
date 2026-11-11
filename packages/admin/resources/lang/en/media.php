@@ -110,6 +110,7 @@ return [
     'usage_show_all' => 'Show all tracked references',
     'usage_heading' => 'Used by',
     'used_on' => 'Used on',
+    'used_in_property' => 'Used in a property of',
     'upload_files' => 'Upload files',
     'upload_files_success' => '{0} No files uploaded.|{1} Uploaded :count file.|[2,*] Uploaded :count files.',
     'upload_file_outcome' => ':name: :reason',

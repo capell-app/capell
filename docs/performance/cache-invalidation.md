@@ -182,6 +182,8 @@ Core registers `FoundOnPage` edges for pages embedded in another page's composed
 
 The `__capell` envelope is system state and is never scanned. Self-references and non-numeric values are ignored, traversal is bounded (depth 64, 10,000 nodes), and the edges register with `Weak` strength so embeds inform invalidation and impact previews without blocking deletes.
 
+Core also registers `ReferencedByProperty` edges from a page or term to every media item, page and term its structured property values point at (`media_id`, `referenced_page_id`, and `term_id` or `referenced_term_id`). An edge is `Strong` when the property must be filled before the page can publish, so deleting that target is blocked; any other property reference is `Weak` and deleting it shows a warning. The edges are refreshed whenever a property value is saved or deleted. Permanently deleting a media item clears the property values that pointed at it, and the database foreign key does the same for direct deletes; a trashed media item stays referenced so restoring it brings the values back.
+
 If your widget stores embedded pages under different keys, register your own extractor — tag it with `ContentGraphRegistry::TAG` or declare a `content-graph` manifest contribution — and emit `FoundOnPage` edges with the embedding page as the **source** and the embedded page as the **target**. The dependent-page walk follows edges from target to source, so that direction is what makes an embedded-page edit reach the embedding page. See the [extension point API reference](../packages/extension-point-api-reference.md).
 
 ## Related

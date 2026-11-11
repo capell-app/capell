@@ -8,8 +8,13 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\Term;
+use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Resource;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -67,7 +72,51 @@ final class BuildMediaUsageItemsAction
             );
         }
 
+        $remaining = $showAll ? null : max(0, self::DEFAULT_LIMIT - $relations->count());
+
+        foreach ($this->propertyOwners($media, $remaining) as $propertyOwner) {
+            $items[] = $this->usageItem(
+                label: (string) __('capell-admin::media.used_in_property'),
+                model: $propertyOwner,
+            );
+        }
+
         return $items;
+    }
+
+    /**
+     * Pages, then terms, the actor can see whose property values point at the media item.
+     *
+     * @return list<Page|Term>
+     */
+    private function propertyOwners(Media $media, ?int $limit): array
+    {
+        if ($limit === 0) {
+            return [];
+        }
+
+        $access = SiteAccess::current();
+        $pages = $access->query(Page::class)
+            ->whereIn('id', $access->query(PagePropertyValue::class)->where('media_id', $media->getKey())->select('page_id'))
+            ->orderBy('id')
+            ->when($limit !== null, fn (Builder $query): Builder => $query->limit((int) $limit))
+            ->get()
+            ->all();
+
+        $remaining = $limit === null ? null : $limit - count($pages);
+
+        if ($remaining === 0) {
+            return array_values($pages);
+        }
+
+        $terms = $access->query(Term::class)
+            ->whereIn('id', $access->query(TermPropertyValue::class)->where('media_id', $media->getKey())->select('term_id'))
+            ->orderBy('id')
+            ->when($remaining !== null, fn (Builder $query): Builder => $query->limit((int) $remaining))
+            ->get()
+            ->all();
+
+        return [...array_values($pages), ...array_values($terms)];
     }
 
     /**
