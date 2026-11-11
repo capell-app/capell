@@ -6,8 +6,10 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use Capell\Admin\Actions\Dashboard\RestoreFirstRunChecklistAction;
+use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Data\Dashboard\DashboardFilterStateData;
 use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
 use Capell\Admin\Enums\DashboardDateRangeEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
@@ -101,6 +103,9 @@ class CapellDashboard extends Dashboard
 
         RestoreFirstRunChecklistAction::run($actor);
         resolve(AdminDashboardDataRequestCache::class)->forgetFirstRunState($actor);
+
+        // Drop the flag so a reload or a shared link does not restore the list again.
+        $this->redirect(self::getUrl());
     }
 
     public function filtersForm(Schema $schema): Schema
@@ -269,8 +274,11 @@ class CapellDashboard extends Dashboard
                 ->columnSpanFull();
         }
 
-        if ($performance === [] && ! $this->isFirstRun() && $this->hasViewableAnalyticsWidget()) {
-            $performance[] = Text::make(__('capell-admin::dashboard.analytics_no_visits_yet'));
+        $analyticsNotice = $performance === [] && ! $this->isFirstRun() && $this->hasViewableAnalyticsWidget()
+            ? $this->analyticsNotice()
+            : null;
+        if ($analyticsNotice !== null) {
+            $performance[] = Text::make($analyticsNotice);
         }
 
         if ($performance !== []) {
@@ -362,6 +370,8 @@ class CapellDashboard extends Dashboard
         // The account and framework cards repeat the user menu and add nothing for editors.
         return array_values(array_filter($this->configuredDashboardFilamentWidgets(array_values(array_unique([
             ...($this->workFirstEnabled() ? [...$this->defaultWorkFirstWidgets(), ContentStatusWidget::class, RecentlyUpdatedWidget::class] : []),
+            // While a site is being set up the standard dashboard leads with recent updates too.
+            ...(! $this->workFirstEnabled() && $this->isFirstRun() ? [RecentlyUpdatedWidget::class] : []),
             ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main),
             ...($this->workFirstEnabled() ? [] : CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::MarketingStudio)),
         ], SORT_REGULAR))), fn (string|WidgetConfiguration $widget): bool => ! $this->isWelcomeWidget($widget)));
@@ -391,7 +401,7 @@ class CapellDashboard extends Dashboard
         }
 
         $work = [
-            ...$this->getWidgetsSchemaComponents([RecentlyUpdatedWidget::class], ['dashboardSize' => 'wide']),
+            ...$this->getWidgetsSchemaComponents(in_array(RecentlyUpdatedWidget::class, $present, true) ? [RecentlyUpdatedWidget::class] : [], ['dashboardSize' => 'wide']),
             ...$this->getWidgetsSchemaComponents(in_array(NeedsAttentionFilamentWidget::class, $present, true) ? [NeedsAttentionFilamentWidget::class] : []),
         ];
         if ($work !== []) {
@@ -413,16 +423,36 @@ class CapellDashboard extends Dashboard
      */
     protected function analyticsReportsData(): bool
     {
+        return $this->analyticsSnapshot()?->hasRecordedVisits() ?? false;
+    }
+
+    /**
+     * The one sentence shown in place of hidden visit panels: why there is
+     * nothing to show for the selected period, without implying zero visits
+     * when the source could not report.
+     */
+    protected function analyticsNotice(): ?string
+    {
+        return match ($this->analyticsSnapshot()?->availability) {
+            DashboardAnalyticsAvailabilityEnum::Available => (string) __('capell-admin::dashboard.analytics_no_visits_yet'),
+            DashboardAnalyticsAvailabilityEnum::Unavailable => (string) __('capell-admin::dashboard.analytics_unavailable_description'),
+            DashboardAnalyticsAvailabilityEnum::NotConfigured => (string) __('capell-admin::dashboard.analytics_not_configured_description'),
+            null => null,
+        };
+    }
+
+    /** The snapshot for the period, site and language the dashboard filters select. */
+    protected function analyticsSnapshot(): ?DashboardAnalyticsSnapshotData
+    {
         $actor = auth()->user();
         if (! $actor instanceof Authenticatable) {
-            return false;
+            return null;
         }
 
         $filters = DashboardFilterStateData::fromFilters(is_array($this->filters) ? $this->filters : []);
 
         return resolve(AdminDashboardDataRequestCache::class)
-            ->analyticsSnapshot($actor, DashboardDateRangeEnum::ThisYear->value, $filters->siteId, $filters->language)
-            ->hasRecordedVisits();
+            ->analyticsSnapshot($actor, $filters->period->value, $filters->siteId, $filters->language);
     }
 
     protected function hasViewableAnalyticsWidget(): bool

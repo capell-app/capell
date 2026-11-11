@@ -195,13 +195,16 @@ function compositionRegionWidgetClasses(mixed $component): array
     return $classes;
 }
 
-it('is not first-run while another accessible site has a public homepage', function (): void {
+it('is not first-run once every accessible site with a homepage is live', function (): void {
     $this->actingAsAdmin();
-    firstRunSite();
     $live = Site::factory()->createOne();
     Page::factory()->home()->site($live)->createOne(['visible_from' => now()->subDay()]);
 
     expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse();
+
+    firstRunSite();
+
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue();
 });
 
 it('treats a robots noindex homepage as not yet public', function (): void {

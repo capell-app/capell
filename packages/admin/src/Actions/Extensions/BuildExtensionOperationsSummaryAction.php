@@ -791,7 +791,8 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         $lastRepairAttempt = ComposerDriftMetadata::lastRepairAttempt($extension);
-        $displayName = is_string($extension->name) && trim($extension->name) !== '' ? trim($extension->name) : $packageName;
+        // The message is for editors; the Composer package name stays in the developer detail.
+        $displayName = is_string($extension->name) && trim($extension->name) !== '' ? trim($extension->name) : (string) __('capell-admin::dashboard.extension_unnamed');
         $message = (string) __('capell-admin::dashboard.extension_composer_drift_message', [
             'package' => $displayName,
             'reason' => (string) __('capell-admin::dashboard.extension_composer_drift_reason_' . $reason),

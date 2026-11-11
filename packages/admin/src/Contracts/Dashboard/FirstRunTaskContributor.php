@@ -17,6 +17,10 @@ use Capell\Admin\Data\Dashboard\FirstRunTaskData;
  * already in use is skipped, and a contributor that throws is reported and
  * left out so the checklist still renders.
  *
+ * tasks() runs on every dashboard render while a site is being set up, so keep
+ * it to a few indexed queries for the context's site: no remote calls, no
+ * scans across sites and no work that grows with content volume.
+ *
  * @experimental
  */
 interface FirstRunTaskContributor

@@ -2,16 +2,18 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
 use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Actions\Publishing\TransitionPublicationAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
+use Capell\Core\Data\UpgradeContext;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Settings\FirstRunSettings;
+use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
+use Capell\Core\Support\Upgrade\RecordPublishedSitesUpgradeStep;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Auth\User;
 
@@ -25,11 +27,11 @@ beforeEach(function (): void {
     });
 });
 
-function firstRunMilestones(): FirstRunSettings
+function firstRunMilestones(): SitePublicationMilestones
 {
     app()->forgetInstance(FirstRunSettings::class);
 
-    return resolve(FirstRunSettings::class);
+    return resolve(SitePublicationMilestones::class);
 }
 
 function publishForFirstRun(Page $page, CarbonImmutable $now): void
@@ -42,50 +44,58 @@ function publishForFirstRun(Page $page, CarbonImmutable $now): void
     ));
 }
 
-it('starts a new install with no milestones recorded', function (): void {
-    $settings = firstRunMilestones();
+it('starts a new install with no site recorded as live', function (): void {
+    $site = Site::factory()->createOne();
 
-    expect($settings->setup_completed_at)->toBeNull()
-        ->and($settings->published_at)->toBeNull()
-        ->and($settings->suite_key)->toBeNull()
-        ->and($settings->business_type)->toBeNull()
-        ->and($settings->preset_key)->toBeNull();
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([])
+        ->and(firstRunMilestones()->hasPublished($site->id))->toBeFalse()
+        ->and(firstRunMilestones()->publishedAt($site->id))->toBeNull();
 });
 
-it('records guided setup once and keeps the first completion', function (): void {
-    $first = CarbonImmutable::parse('2026-11-01 09:00:00', 'UTC');
-
-    expect(CompleteGuidedSetupAction::run('dentist', ' family-practice ', $first))->toBeTrue()
-        ->and(CompleteGuidedSetupAction::run('bakery', 'bakery', $first->addDay()))->toBeFalse();
-
-    $settings = firstRunMilestones();
-
-    expect($settings->setup_completed_at?->equalTo($first))->toBeTrue()
-        ->and($settings->business_type)->toBe('dentist')
-        ->and($settings->preset_key)->toBe('family-practice');
-});
-
-it('records the first publication once and never moves it', function (): void {
+it('records each site once and never moves its first go-live time', function (): void {
     $first = CarbonImmutable::parse('2026-11-02 10:00:00', 'UTC');
 
-    expect(RecordSitePublishedAction::run($first))->toBeTrue()
-        ->and(RecordSitePublishedAction::run($first->addWeek()))->toBeFalse()
-        ->and(firstRunMilestones()->published_at?->equalTo($first))->toBeTrue();
+    expect(RecordSitePublishedAction::run(7, $first))->toBeTrue()
+        ->and(RecordSitePublishedAction::run(7, $first->addWeek()))->toBeFalse()
+        ->and(RecordSitePublishedAction::run(9, $first->addDay()))->toBeTrue()
+        ->and(RecordSitePublishedAction::run(0, $first))->toBeFalse();
+
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([7, 9])
+        ->and(firstRunMilestones()->publishedAt(7)?->equalTo($first))->toBeTrue()
+        ->and(firstRunMilestones()->publishedAt(9)?->equalTo($first->addDay()))->toBeTrue()
+        ->and(firstRunMilestones()->hasPublished(8))->toBeFalse();
 });
 
-it('records the site as published when its home page is made public', function (): void {
+it('records only the site whose home page is made public', function (): void {
     $now = CarbonImmutable::parse('2026-11-03 11:00:00', 'UTC');
     $site = Site::factory()->createOne();
+    $other = Site::factory()->createOne();
     $about = Page::factory()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
     $home = Page::factory()->home()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    Page::factory()->home()->site($other)->createOne(['visible_from' => PublishSentinel::draftValue()]);
 
     publishForFirstRun($about, $now);
 
-    expect(firstRunMilestones()->published_at)->toBeNull();
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([]);
 
     publishForFirstRun($home, $now);
 
-    expect(firstRunMilestones()->published_at?->equalTo($now))->toBeTrue();
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([$site->id])
+        ->and(firstRunMilestones()->publishedAt($site->id)?->equalTo($now))->toBeTrue()
+        ->and(firstRunMilestones()->hasPublished($other->id))->toBeFalse();
+});
+
+it('does not record a home page published but hidden from search engines', function (): void {
+    $now = CarbonImmutable::parse('2026-11-03 11:00:00', 'UTC');
+    $site = Site::factory()->createOne();
+    $home = Page::factory()->home()->site($site)->createOne([
+        'visible_from' => PublishSentinel::draftValue(),
+        'meta' => ['robots' => 'noindex'],
+    ]);
+
+    publishForFirstRun($home, $now);
+
+    expect(firstRunMilestones()->hasPublished($site->id))->toBeFalse();
 });
 
 it('does not record publication when the home page was already public', function (): void {
@@ -95,5 +105,33 @@ it('does not record publication when the home page was already public', function
 
     publishForFirstRun($home, $now);
 
-    expect(firstRunMilestones()->published_at)->toBeNull();
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([]);
+});
+
+it('records sites that were already live when the upgrade runs, and only those', function (): void {
+    $live = Site::factory()->createOne();
+    $draft = Site::factory()->createOne();
+    $hidden = Site::factory()->createOne();
+    Page::factory()->home()->site($live)->createOne(['visible_from' => now()->subMonth()]);
+    Page::factory()->home()->site($draft)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    Page::factory()->home()->site($hidden)->createOne(['visible_from' => now()->subMonth(), 'meta' => ['noindex' => true]]);
+    $step = new RecordPublishedSitesUpgradeStep;
+    $context = new UpgradeContext([], [], []);
+
+    expect($step->id())->toBe('core.record-published-sites')
+        ->and(collect(app()->tagged('capell.upgrade-steps'))->map(fn (object $tagged): string => $tagged::class)->all())->toContain(RecordPublishedSitesUpgradeStep::class)
+        ->and($step->shouldRun($context))->toBeTrue()
+        ->and($step->run($context))->toBeTrue()
+        ->and($step->run($context))->toBeTrue()
+        ->and($step->rollback($context))->toBeTrue();
+
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([$live->id])
+        // The draft and search-hidden sites have not gone live, so the step still has work to offer later.
+        ->and($step->shouldRun($context))->toBeTrue();
+
+    RecordSitePublishedAction::run($draft->id);
+    RecordSitePublishedAction::run($hidden->id);
+    app()->forgetInstance(FirstRunSettings::class);
+
+    expect($step->shouldRun($context))->toBeFalse();
 });

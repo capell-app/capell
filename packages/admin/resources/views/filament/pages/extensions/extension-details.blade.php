@@ -132,7 +132,7 @@
                     @if (is_string($alert['requiredAction'] ?? null) && trim($alert['requiredAction']) !== '')
                         <p class="mt-2 text-sm"><span class="font-semibold">{{ __('capell-admin::generic.extension_health_alert_required_action') }}:</span> {{ $alert['requiredAction'] }}</p>
                     @endif
-                    @if (is_string($alert['developerDetail'] ?? null) && trim($alert['developerDetail']) !== '')
+                    @if (is_string($alert['developerDetail'] ?? null) && trim($alert['developerDetail']) !== '' && \Capell\Admin\Filament\Pages\ExtensionsPage::canManageExtensions())
                         <details class="mt-2 text-sm">
                             <summary
                                 class="text-primary-600 dark:text-primary-400 cursor-pointer underline"

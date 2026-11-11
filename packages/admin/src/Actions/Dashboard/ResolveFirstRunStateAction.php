@@ -13,14 +13,13 @@ use Capell\Admin\Support\Dashboard\FirstRunTaskRegistry;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\MediaCollectionEnum;
-use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
-use Capell\Core\Settings\FirstRunSettings;
+use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -29,17 +28,17 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Spatie\LaravelSettings\Exceptions\MissingSettings;
 
 /**
  * Works out which first-run tasks this install has completed, from the data it
  * already holds, so the checklist ticks itself and can never be out of date.
  *
- * The install is in its first-run state until the home page of a site the actor
- * can access is public. Anything else (no site or home page yet, or a live
- * site) is not first-run, so established installs never see the checklist.
- * Once the site has been published the recorded milestone keeps it out of
- * first-run, even if the home page is unpublished again later.
+ * First run is per site. The checklist is about the first site the actor can
+ * access that has a home page and has never gone live; when the work-first
+ * dashboard is scoped to one site, it is about that site only. A site goes
+ * live the first time its home page is public (see SitePublicationMilestones)
+ * and stays live even if the home page is unpublished later. With no such
+ * site there is no first run.
  *
  * Packages add tasks through FirstRunTaskContributor; they sit before the
  * publish task, which always comes last.
@@ -54,20 +53,12 @@ final class ResolveFirstRunStateAction
 
     public function handle(Authenticatable $actor): FirstRunStateData
     {
-        if ($this->sitePublishedBefore()) {
+        $home = $this->homeOfSiteBeingSetUp($actor);
+        if (! $home instanceof Page) {
             return FirstRunStateData::notFirstRun();
         }
 
         $access = SiteAccess::forActor($actor);
-        $homes = $access->query(Page::class)->homePage()->orderBy('id')->get();
-
-        // First-run only while no accessible site has a public home page, so a
-        // live install with an unlaunched extra site never shows the checklist.
-        if ($homes->isEmpty() || $homes->contains(fn (Page $page): bool => $this->isPublic($page))) {
-            return FirstRunStateData::notFirstRun();
-        }
-
-        $home = $homes->firstOrFail();
         $siteId = (int) $home->site_id;
         $site = $access->query(Site::class)->whereKey($siteId)->first();
 
@@ -100,13 +91,33 @@ final class ResolveFirstRunStateAction
         );
     }
 
-    private function sitePublishedBefore(): bool
+    private function homeOfSiteBeingSetUp(Authenticatable $actor): ?Page
     {
-        try {
-            return resolve(FirstRunSettings::class)->published_at instanceof CarbonImmutable;
-        } catch (MissingSettings) {
-            return false;
+        $milestones = resolve(SitePublicationMilestones::class);
+        $published = $milestones->publishedSiteIds();
+        // Only the work-first dashboard has a site picker, so only its saved scope names a current site.
+        $scopedSiteId = $actor instanceof Model && config('capell-admin.dashboard.work_first.enabled', false) === true
+            ? resolve(AdminWorkspacePreferenceStore::class)->dashboardScope($actor)?->siteId
+            : null;
+
+        $homes = SiteAccess::forActor($actor)->query(Page::class)->homePage()
+            ->when($scopedSiteId !== null, fn (Builder $query): Builder => $query->where('site_id', $scopedSiteId))
+            ->when($published !== [], fn (Builder $query): Builder => $query->whereNotIn('site_id', $published))
+            ->orderBy('id')
+            ->get();
+
+        // A home page can go public without a publication transition (a scheduled
+        // time passing, a form save, an import); record those sites as they are seen.
+        $now = CarbonImmutable::now();
+        $live = [];
+        foreach ($homes as $home) {
+            if (SitePublicationMilestones::isPublicHome($home, $now)) {
+                $milestones->record((int) $home->site_id, $now);
+                $live[(int) $home->site_id] = true;
+            }
         }
+
+        return $homes->first(fn (Page $home): bool => ! isset($live[(int) $home->site_id]));
     }
 
     private function task(string $key, bool $complete, ?string $url): FirstRunTaskData
@@ -168,18 +179,6 @@ final class ResolveFirstRunStateAction
             ->where('status', true)
             ->pluck('domain')
             ->contains(fn (mixed $domain): bool => is_string($domain) && ! $this->isLocalHost($domain));
-    }
-
-    private function isPublic(Page $home): bool
-    {
-        if ($home->publishVisibilityState() !== PublishVisibilityStateEnum::published) {
-            return false;
-        }
-
-        $robots = data_get($home->meta, 'robots');
-
-        return ! filter_var(data_get($home->meta, 'noindex'), FILTER_VALIDATE_BOOL)
-            && (! is_string($robots) || ! str_contains(strtolower($robots), 'noindex'));
     }
 
     private function isLocalHost(string $host): bool

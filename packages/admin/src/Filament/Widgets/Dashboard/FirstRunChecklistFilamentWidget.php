@@ -9,6 +9,10 @@ use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Dashboard\FirstRunStateData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
+use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Core\Models\Site;
+use Capell\Core\Support\FirstRun\SitePublicationMilestones;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
@@ -42,6 +46,24 @@ final class FirstRunChecklistFilamentWidget extends Widget implements CapellFila
     public static function isFirstRun(): bool
     {
         return self::canViewCheck() && self::resolveState()->isFirstRun;
+    }
+
+    /**
+     * Whether the account menu should offer the hidden list again. Runs on every
+     * admin page, so it reads only this person's preference and the recorded
+     * go-live dates, never the checklist itself.
+     */
+    public static function canBeRestored(): bool
+    {
+        $actor = auth()->user();
+        if (! $actor instanceof Model || ! self::canViewCheck()
+            || ! resolve(AdminWorkspacePreferenceStore::class)->firstRunChecklistHidden($actor)) {
+            return false;
+        }
+
+        return SiteAccess::forActor($actor)->query(Site::class)
+            ->whereKeyNot(resolve(SitePublicationMilestones::class)->publishedSiteIds())
+            ->exists();
     }
 
     public function state(): FirstRunStateData

@@ -30,7 +30,7 @@
                                 @if ($alert->message !== '' && is_string($alert->requiredAction) && trim($alert->requiredAction) !== '' && $alert->developerDetail !== null)
                                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $alert->requiredAction }}</p>
                                 @endif
-                                @if (is_string($alert->developerDetail) && trim($alert->developerDetail) !== '')
+                                @if (is_string($alert->developerDetail) && trim($alert->developerDetail) !== '' && \Capell\Admin\Filament\Pages\ExtensionsPage::canManageExtensions())
                                     <details class="mt-1 text-sm">
                                         <summary
                                             class="text-primary-600 dark:text-primary-400 cursor-pointer underline"

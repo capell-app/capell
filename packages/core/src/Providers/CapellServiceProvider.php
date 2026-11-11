@@ -238,6 +238,7 @@ use Capell\Core\Support\TableName;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
+use Capell\Core\Support\Upgrade\RecordPublishedSitesUpgradeStep;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
@@ -464,6 +465,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         Event::listen(PublicationTransitioned::class, RecordSitePublishedOnHomePagePublication::class);
+        // Sites that were live before go-live dates were recorded.
+        $this->app->tag([RecordPublishedSitesUpgradeStep::class], 'capell.upgrade-steps');
 
         return $this;
     }

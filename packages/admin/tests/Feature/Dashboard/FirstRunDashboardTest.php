@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
 use Capell\Admin\Contracts\Dashboard\FirstRunTaskContributor;
+use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
@@ -21,9 +22,13 @@ use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Exceptions;
 use Livewire\Livewire;
 
@@ -132,16 +137,39 @@ it('offers the hidden checklist again under Help and brings it back from there',
 
     Livewire::withQueryParams([CapellDashboard::SHOW_FIRST_RUN_CHECKLIST_QUERY => '1'])
         ->test(CapellDashboard::class)
-        ->assertSeeLivewire(FirstRunChecklistFilamentWidget::class);
+        ->assertRedirect(CapellDashboard::getUrl());
 
     expect(resolve(AdminWorkspacePreferenceStore::class)->firstRunChecklistHidden($user->refresh()))->toBeFalse();
+
+    nextDashboardRequest();
+
+    expect(FirstRunChecklistFilamentWidget::canView())->toBeTrue()
+        ->and(CapellAdmin::getUserMenuItems($user->refresh()))->not->toHaveKey('first-run-checklist');
+});
+
+it('decides the Help item from the saved choice and go-live dates without building the checklist', function (): void {
+    $this->actingAsAdmin();
+    unpublishedDashboardSite();
+    $user = $this->authenticatedUser();
+    app()->tag([ContactFormFirstRunTaskContributor::class], FirstRunTaskContributor::TAG);
+    ContactFormFirstRunTaskContributor::$lastContext = null;
+    resolve(AdminWorkspacePreferenceStore::class)->setFirstRunChecklistHidden($user, true);
+    nextDashboardRequest();
+
+    // Building the checklist always asks contributors for tasks, so an untouched contributor proves it was not built.
+    expect(CapellAdmin::getUserMenuItems($user))->toHaveKey('first-run-checklist')
+        ->and(ContactFormFirstRunTaskContributor::$lastContext)->toBeNull();
+
+    ResolveFirstRunStateAction::run($user);
+
+    expect(ContactFormFirstRunTaskContributor::$lastContext)->not->toBeNull();
 });
 
 it('does not offer the Help item once the site is live', function (): void {
     $this->actingAsAdmin();
-    [, $home] = unpublishedDashboardSite();
+    [$site] = unpublishedDashboardSite();
     resolve(AdminWorkspacePreferenceStore::class)->setFirstRunChecklistHidden($this->authenticatedUser(), true);
-    $home->forceFill(['visible_from' => now()->subDay()])->saveQuietly();
+    RecordSitePublishedAction::run($site->id);
     nextDashboardRequest();
 
     expect(CapellAdmin::getUserMenuItems(auth()->user()))->not->toHaveKey('first-run-checklist');
@@ -149,16 +177,137 @@ it('does not offer the Help item once the site is live', function (): void {
 
 it('stays out of first run once the site has been published, even if the homepage is unpublished again', function (): void {
     $this->actingAsAdmin();
-    unpublishedDashboardSite();
+    [$site] = unpublishedDashboardSite();
 
     expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue();
 
-    RecordSitePublishedAction::run();
+    RecordSitePublishedAction::run($site->id);
     nextDashboardRequest();
 
     expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse()
         ->and(FirstRunChecklistFilamentWidget::canView())->toBeFalse();
 });
+
+it('records a home page that went public on its scheduled time and keeps the site live afterwards', function (): void {
+    $this->actingAsAdmin();
+    [$site, $home] = unpublishedDashboardSite();
+    $home->forceFill(['visible_from' => now()->addDay()])->saveQuietly();
+
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue()
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeFalse();
+
+    $this->travel(2)->days();
+    nextDashboardRequest();
+
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse()
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeTrue();
+
+    $home->forceFill(['visible_from' => PublishSentinel::draftValue()])->saveQuietly();
+    nextDashboardRequest();
+
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse();
+});
+
+it('records a home page made public by a direct save such as a form or an import', function (): void {
+    $this->actingAsAdmin();
+    [$site, $home] = unpublishedDashboardSite();
+    $home->visible_from = CarbonImmutable::now()->subMinute();
+    $home->save();
+    nextDashboardRequest();
+
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse()
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeTrue();
+});
+
+it('keeps showing the checklist for an unpublished site when another site is already live', function (): void {
+    $this->actingAsAdmin();
+    $live = Site::factory()->createOne();
+    Page::factory()->home()->site($live)->createOne(['visible_from' => now()->subMonth()]);
+    [$draft, $draftHome] = unpublishedDashboardSite();
+    app()->tag([ContactFormFirstRunTaskContributor::class], FirstRunTaskContributor::TAG);
+
+    $state = ResolveFirstRunStateAction::run(auth()->user());
+
+    expect($state->isFirstRun)->toBeTrue()
+        ->and(ContactFormFirstRunTaskContributor::$lastContext?->siteId)->toBe($draft->id)
+        ->and(ContactFormFirstRunTaskContributor::$lastContext?->homePageId)->toBe($draftHome->id)
+        ->and(resolve(SitePublicationMilestones::class)->publishedSiteIds())->toBe([$live->id]);
+});
+
+it('follows the site the work-first dashboard is scoped to', function (): void {
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    $this->actingAsAdmin();
+    $user = $this->authenticatedUser();
+    $live = Site::factory()->createOne();
+    Page::factory()->home()->site($live)->createOne(['visible_from' => now()->subMonth()]);
+    [$draft] = unpublishedDashboardSite();
+    $store = resolve(AdminWorkspacePreferenceStore::class);
+
+    $store->saveDashboardScope($user, new DashboardScopePreferenceData($live->id, null));
+
+    expect(ResolveFirstRunStateAction::run($user->refresh())->isFirstRun)->toBeFalse();
+
+    $store->saveDashboardScope($user, new DashboardScopePreferenceData($draft->id, null));
+
+    expect(ResolveFirstRunStateAction::run($user->refresh())->isFirstRun)->toBeTrue();
+});
+
+it('places recent updates only when the dashboard is configured with them', function (): void {
+    $this->actingAsAdmin();
+    unpublishedDashboardSite();
+    $dashboard = new CapellDashboard;
+
+    expect($dashboard->getWidgets())->toContain(RecentlyUpdatedWidget::class);
+
+    $regions = new ReflectionMethod(CapellDashboard::class, 'firstRunRegions')->invoke($dashboard, [FirstRunChecklistFilamentWidget::class, NeedsAttentionFilamentWidget::class]);
+    throw_unless(is_array($regions), LogicException::class);
+    $classes = [];
+    foreach ($regions as $region) {
+        $classes = [...$classes, ...firstRunRegionClasses($region)];
+    }
+
+    expect($classes)->toContain(FirstRunChecklistFilamentWidget::class)
+        ->and($classes)->toContain(NeedsAttentionFilamentWidget::class)
+        ->and($classes)->not->toContain(RecentlyUpdatedWidget::class);
+});
+
+it('keeps recent updates on the work-first layout once the site is live', function (): void {
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+
+    expect(RecentlyUpdatedWidget::canView())->toBeTrue();
+
+    RecordSitePublishedAction::run($site->id);
+    nextDashboardRequest();
+
+    expect(RecentlyUpdatedWidget::canView())->toBeFalse();
+
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+
+    expect(RecentlyUpdatedWidget::canView())->toBeTrue();
+});
+
+/** @return list<string> */
+function firstRunRegionClasses(mixed $node): array
+{
+    if ($node instanceof Filament\Schemas\Components\Livewire) {
+        return [$node->getComponent()];
+    }
+
+    if (! $node instanceof Component) {
+        return [];
+    }
+
+    $children = $node->getDefaultChildComponents();
+    $children = $children instanceof Schema ? $children->getComponents() : $children;
+
+    $classes = [];
+    foreach ($children as $child) {
+        $classes = [...$classes, ...firstRunRegionClasses($child)];
+    }
+
+    return $classes;
+}
 
 it('adds package tasks before Publish your site and ignores keys already in use', function (): void {
     $this->actingAsAdmin();

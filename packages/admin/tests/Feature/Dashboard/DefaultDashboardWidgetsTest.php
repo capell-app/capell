@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Feature\Dashboard;
 
 use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
+use Capell\Admin\Enums\DashboardDateRangeEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -40,6 +42,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\EmptyAnalyticsDataProvider;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\RecordedVisitsAnalyticsDataProvider;
 use Capell\Admin\Tests\Feature\Filament\Widgets\Fixtures\UngatedFixtureFilamentWidget;
 use Capell\Core\Models\Site;
@@ -303,11 +306,15 @@ it('composes performance summaries and additional dashboard panels', function ()
         ->not->toContain(CapellAccountFilamentWidget::class)->not->toContain(CapellInfoFilamentWidget::class);
 });
 
-it('shows one plain sentence instead of empty visit panels until visits are recorded', function (): void {
+it('shows one sentence that matches the analytics source instead of empty visit panels', function (DashboardAnalyticsAvailabilityEnum $availability, string $expected, array $absent): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
+    app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider($availability));
+    EmptyAnalyticsDataProvider::$periods = [];
+    $dashboard = new CapellDashboard;
+    $dashboard->filters = ['date_range' => DashboardDateRangeEnum::Last30Days->value];
 
-    $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
+    $components = $dashboard->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
 
     $performance = $components[0];
@@ -323,14 +330,24 @@ it('shows one plain sentence instead of empty visit panels until visits are reco
 
     expect($performance->getHeading())->toBe(__('capell-admin::dashboard.performance_heading'))
         ->and($children)->toHaveCount(1)
-        ->and($sentence->getContent())->toBe(__('capell-admin::dashboard.analytics_no_visits_yet'))
+        ->and($sentence->getContent())->toBe(__($expected))
+        ->and(EmptyAnalyticsDataProvider::$periods)->toContain(DashboardDateRangeEnum::Last30Days->value)
+        ->and(EmptyAnalyticsDataProvider::$periods)->not->toContain(DashboardDateRangeEnum::ThisYear->value)
         ->and($components)->toHaveCount(3);
+
+    foreach ($absent as $other) {
+        expect($sentence->getContent())->not->toBe(__($other));
+    }
 
     $rendered = [...defaultDashboardRegionWidgets($activity), ...defaultDashboardRegionWidgets($additional)];
     foreach ([AnalyticsOverviewFilamentWidget::class, AnalyticsTrendFilamentWidget::class, AnalyticsInsightsFilamentWidget::class] as $analyticsWidget) {
         expect($rendered)->not->toContain($analyticsWidget);
     }
-});
+})->with([
+    'connected, nothing counted' => [DashboardAnalyticsAvailabilityEnum::Available, 'capell-admin::dashboard.analytics_no_visits_yet', ['capell-admin::dashboard.analytics_unavailable_description', 'capell-admin::dashboard.analytics_not_configured_description']],
+    'could not load' => [DashboardAnalyticsAvailabilityEnum::Unavailable, 'capell-admin::dashboard.analytics_unavailable_description', ['capell-admin::dashboard.analytics_no_visits_yet', 'capell-admin::dashboard.analytics_not_configured_description']],
+    'not configured' => [DashboardAnalyticsAvailabilityEnum::NotConfigured, 'capell-admin::dashboard.analytics_not_configured_description', ['capell-admin::dashboard.analytics_no_visits_yet', 'capell-admin::dashboard.analytics_unavailable_description']],
+]);
 
 it('retains enabled marketing contributions in the specialist tools view', function (bool $enabled): void {
     test()->actingAsAdmin();

@@ -1265,8 +1265,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             icon: Heroicon::OutlinedQuestionMarkCircle,
             url: static fn (): string => CapellDashboard::getUrl([CapellDashboard::SHOW_FIRST_RUN_CHECKLIST_QUERY => '1']),
             visible: static fn (): bool => resolve(AdminInstallState::class)->installed()
-                && FirstRunChecklistFilamentWidget::isFirstRun()
-                && ! FirstRunChecklistFilamentWidget::canView(),
+                && FirstRunChecklistFilamentWidget::canBeRestored(),
             sort: 900,
             group: 'help',
         );
