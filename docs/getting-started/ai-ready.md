@@ -44,7 +44,7 @@ A page may also set typed property values with `properties`, keyed by the proper
 }
 ```
 
-Each value goes through the same property validator as the admin editor and the agent API, so a value that breaks a property rule (for example a format or a range) fails the import with an error naming the page and property, and no site is created.
+Each value goes through the same property validator as the admin editor and the agent API, so a value that breaks a property rule (for example a format or a range) fails the import with an error naming the page and property, and no site is created. That includes a page field promoted to a property, such as a name with a length rule. A text value can be at most 5,000 characters. A spec carries one language, so a property that varies by language is stored for that language.
 
 Optional packages own their records. For example, a navigation package registers a typed SiteSpec applier and receives the persisted site plus a page map inside the import transaction. Core therefore exposes a stable seam without importing package-specific models. AI generators remain commercial; deterministic import stays free.
 
