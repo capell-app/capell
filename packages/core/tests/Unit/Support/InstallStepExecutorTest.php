@@ -64,8 +64,16 @@ function installStepExecutorProcessResult(bool $wasSuccessful, string $output = 
 function expectInstallStepExecutorNpmProcessCommand(string $command, ProcessResult $result): void
 {
     $pendingProcess = Mockery::mock();
+    $pathedProcess = Mockery::mock();
 
-    Process::shouldReceive('timeout')
+    // npm must run in the application, not in the host process directory.
+    Process::shouldReceive('path')
+        ->with(base_path())
+        ->once()
+        ->ordered()
+        ->andReturn($pathedProcess);
+
+    $pathedProcess->shouldReceive('timeout')
         ->with(300)
         ->once()
         ->ordered()
@@ -358,7 +366,12 @@ it('applies the install url and cache lifecycle around successful step execution
         });
 
     $pendingProcess = Mockery::mock();
-    Process::shouldReceive('timeout')
+    $pathedProcess = Mockery::mock();
+    Process::shouldReceive('path')
+        ->with(base_path())
+        ->once()
+        ->andReturn($pathedProcess);
+    $pathedProcess->shouldReceive('timeout')
         ->with(300)
         ->once()
         ->andReturn($pendingProcess);

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data;
 
+use Capell\Core\Contracts\PublicRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Spatie\LaravelData\Data;
 
-class FrontendRuntimeManifestData extends Data
+class FrontendRuntimeManifestData extends Data implements PublicRenderData
 {
     /**
      * @param  array<string, bool>  $modules
