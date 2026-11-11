@@ -76,6 +76,7 @@ final class ResolveAgentPropertyDefinitionsAction
                     description: $definition->description,
                     unitConfig: $definition->unit_config,
                     position: $definition->position,
+                    constraints: $definition->constraints,
                 ));
                 $seenDefinitionIds->put($definition->id, true);
             }

@@ -165,6 +165,7 @@ final class ApplySiteSpecToSiteAction
 
         throw_unless($page instanceof Page, RuntimeException::class, sprintf('Site spec page [%s] did not resolve to a Capell page model.', $pageSpec->slug));
         SetupPageUrlsAction::run($page);
+        ApplySiteSpecPagePropertiesAction::run($page, $pageSpec->slug, $pageSpec->properties, (int) $language->getKey());
 
         return $page;
     }

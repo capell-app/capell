@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Core\EventSourcing\Serializers;
 
+use Capell\Core\Actions\Properties\BuildPropertyValidationRulesAction;
+use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
+use Capell\Core\Data\Properties\PropertyConstraintsData;
+use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\EventSourcing\Contracts\PageStateContributor;
 use Capell\Core\Models\Page;
@@ -12,11 +17,18 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Properties\PropertyValueEquality;
+use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use LogicException;
+use Throwable;
 
 /**
  * Captures and restores the full owned state of a Page aggregate: page
@@ -150,6 +162,22 @@ final class PageStateSerializer implements EventSourcedStateSerializer
     {
         $page = $this->asPage($model);
 
+        try {
+            $this->restoreInTransaction($page, $state);
+        } catch (Throwable $throwable) {
+            // The transaction rolled back; drop the attributes forced onto the
+            // in-memory page so callers do not see state that was never saved.
+            $page->refresh();
+
+            throw $throwable;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     */
+    private function restoreInTransaction(Page $page, array $state): void
+    {
         DB::transaction(function () use ($page, $state): void {
             Model::withoutEvents(function () use ($page, $state): void {
                 $this->restoreAttributes($page, $state['attributes'] ?? []);
@@ -329,10 +357,19 @@ final class PageStateSerializer implements EventSourcedStateSerializer
      * the target state exactly, byte-identical, the same guarantee the class
      * docblock promises for translation content.
      *
+     * Restored values are checked against the rules that apply now, before
+     * anything is written: a rollback can bring back a unique value another
+     * page has since taken, or one that breaks a rule added later. They follow
+     * the rule for unchanged values ({@see PropertyValueValidator::enforcesUntouchedValues()}):
+     * enforced outside production, reported in production. A refusal rolls
+     * the whole restore back.
+     *
      * @param  list<array<string, mixed>>  $propertyValues
      */
     private function restorePropertyValues(Page $page, array $propertyValues): void
     {
+        $this->assertRestorablePropertyValues($page, $propertyValues);
+
         $page->propertyValues()->delete();
 
         foreach ($propertyValues as $data) {
@@ -352,6 +389,90 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 'media_id' => $data['media_id'] ?? null,
             ]);
         }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $propertyValues
+     */
+    private function assertRestorablePropertyValues(Page $page, array $propertyValues): void
+    {
+        if ($propertyValues === []) {
+            return;
+        }
+
+        $definitions = ResolveEffectiveDefinitionsAction::run($page)
+            ->filter(static fn (EffectivePropertyDefinitionData $definition): bool => $definition->constraints instanceof PropertyConstraintsData)
+            ->keyBy('definitionId');
+
+        if ($definitions->isEmpty()) {
+            return;
+        }
+
+        $validator = resolve(PropertyValueValidator::class);
+        $seen = [];
+
+        foreach ($propertyValues as $data) {
+            $definition = $definitions->get((int) ($data['property_definition_id'] ?? 0));
+
+            if (! $definition instanceof EffectivePropertyDefinitionData) {
+                continue;
+            }
+
+            $row = (new PagePropertyValue)->forceFill(Arr::only($data, [
+                'translation_id', 'position', 'value_text', 'value_number', 'value_boolean', 'value_datetime',
+                'currency', 'unit', 'term_id', 'referenced_page_id', 'media_id',
+            ]));
+            $value = PropertyValueData::fromPageValue($row, $definition->key, $definition->type);
+
+            $validator->assertOrReportUntouchedConstraints(
+                $definition,
+                $value->value,
+                (int) $page->site_id,
+                (int) $page->id,
+                $definition->key,
+            );
+
+            $this->assertRestoredValueNotRepeated($page, $definition, $value, $seen);
+        }
+    }
+
+    /**
+     * A unique-per-site property cannot hold one value at two of the page's
+     * entries; a snapshot that does follows the same rule as every other
+     * restored value (enforced outside production, reported in it).
+     *
+     * @param  array<string, true>  $seen
+     */
+    private function assertRestoredValueNotRepeated(Page $page, EffectivePropertyDefinitionData $definition, PropertyValueData $value, array &$seen): void
+    {
+        $column = BuildPropertyValidationRulesAction::uniqueColumn($definition->type);
+        $held = $column === null ? null : $value->toColumns()[$column];
+
+        if ($definition->constraints?->uniquePerSite !== true || $held === null) {
+            return;
+        }
+
+        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', PropertyValueEquality::identity($column, $held)]);
+
+        if (! isset($seen[$identity])) {
+            $seen[$identity] = true;
+
+            return;
+        }
+
+        if (PropertyValueValidator::enforcesUntouchedValues()) {
+            throw ValidationException::withMessages([
+                $definition->key => __('capell-core::properties.constraints.repeated_in_page', [
+                    'property' => Str::headline($definition->key),
+                ]),
+            ]);
+        }
+
+        Log::warning('A restored property value repeats another entry on the same page; the restore was not blocked.', [
+            'property' => $definition->key,
+            'site_id' => $page->site_id,
+            'page_id' => $page->id,
+        ]);
     }
 
     /**
