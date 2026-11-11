@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data\Assets;
 
+use Capell\Core\Contracts\PublicRenderData;
 use Spatie\LaravelData\Data;
 
-final class FrontendResourcePlanData extends Data
+final class FrontendResourcePlanData extends Data implements PublicRenderData
 {
     /**
      * @param  array<int, ResolvedFrontendResourceData>  $headResources
