@@ -33,6 +33,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -42,6 +43,7 @@ use Illuminate\Foundation\Console\ClosureCommand;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +54,20 @@ use Symfony\Component\Console\Output\BufferedOutput;
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
 beforeEach(function (): void {
+    // The stock application files these tests write (panel provider, user model, routes, assets)
+    // live in a private tree, never in the shared Testbench skeleton that other install tests
+    // running in parallel workers also read.
+    $this->ownedPaths = new OwnedApplicationPaths(app());
+    foreach (['bootstrap/cache', 'config', 'database', 'storage/framework'] as $directory) {
+        File::ensureDirectoryExists($this->ownedPaths->root . '/' . $directory);
+    }
+
+    // Config captured these absolute paths from the skeleton when the application booted.
+    config([
+        'capell.install.welcome_routes_web_path' => $this->ownedPaths->root . '/routes/web.php',
+        'capell.install.welcome_env_path' => $this->ownedPaths->root . '/.env',
+    ]);
+
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
@@ -65,6 +81,7 @@ afterEach(function (): void {
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
     cleanupInstallTestApplicationFiles();
+    $this->ownedPaths->restore();
 });
 
 afterEach(function (): void {
