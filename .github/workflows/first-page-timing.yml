@@ -3,7 +3,8 @@ name: First page timing
 # Proves a fresh app built from this Core reaches its first page in under five minutes.
 # It runs in the merge queue and after merges to main rather than on every PR push: the run
 # installs a whole application, so it is too slow for the fast PR gate. A regression is
-# caught before it reaches main, and again on main for direct pushes. Run it by hand with
+# caught before it reaches main, and again on main for direct pushes. A nightly run covers
+# Packagist releases of the other packages, which change without a Core merge. Run it by hand with
 # workflow_dispatch, or locally with scripts/first-page-timing.sh.
 
 on:
@@ -11,6 +12,9 @@ on:
     types: [checks_requested]
   push:
     branches: [main]
+  schedule:
+    # Nightly, off-peak UTC, so a Packages release that breaks first run is caught within a day.
+    - cron: '23 3 * * *'
   workflow_dispatch:
 
 permissions:
