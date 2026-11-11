@@ -17,6 +17,16 @@ final class SiteSpecHasher
     public static function hash(CapellSiteSpecData $spec): string
     {
         $payload = $spec->toArray();
+
+        // A page without properties hashes exactly as it did before the
+        // `properties` field existed, so re-importing an older spec still
+        // finds its site instead of building a duplicate.
+        foreach ($payload['pages'] ?? [] as $index => $page) {
+            if (is_array($page) && ($page['properties'] ?? null) === []) {
+                unset($payload['pages'][$index]['properties']);
+            }
+        }
+
         $sort = function (array &$value) use (&$sort): void {
             foreach ($value as &$nested) {
                 if (is_array($nested)) {

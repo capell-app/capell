@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\ContentGraph\Extractors;
 
 use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
+use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
@@ -44,11 +45,14 @@ final class PagePropertyValueContentGraphExtractor extends PropertyValueContentG
         return $this->positiveKey($owner->getAttribute('site_id'));
     }
 
-    /** A blueprint attachment may raise a definition's requirement for this page. */
+    /**
+     * Only definitions the page's blueprint still attaches are enforced, with that attachment's
+     * requirement. A leftover value from a detached definition gates nothing, so it stays weak.
+     */
     #[Override]
     protected function requirements(Model $owner, array $definitions): array
     {
-        $requirements = parent::requirements($owner, $definitions);
+        $requirements = array_fill_keys(array_keys($definitions), PropertyRequirement::None);
 
         if (! $owner instanceof Page) {
             return $requirements;

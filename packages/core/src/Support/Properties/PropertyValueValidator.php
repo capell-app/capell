@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Properties;
 
+use Capell\Core\Actions\Properties\BuildPropertyValidationRulesAction;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
+use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
@@ -17,19 +20,37 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Validates one {@see PropertyValueData} against its resolved effective
- * definition: type match, currency/unit rules, localisation, and blueprint
- * attachment. Returns the matched definition so the caller does not have to
- * re-resolve it.
+ * definition: type match, currency/unit rules, localisation, blueprint
+ * attachment and the definition's declarative constraints. Returns the matched
+ * definition so the caller does not have to re-resolve it.
+ *
+ * Structural failures throw {@see PropertyValueValidationException}; a value
+ * that breaks one of the definition's constraints throws a
+ * {@see ValidationException} with editor-readable messages, so admin forms,
+ * the agent API and SiteSpec imports all report it as a field error.
  */
 final class PropertyValueValidator
 {
     /**
+     * Whether a value a write leaves unchanged must still pass its rules: in
+     * every environment except production, so developers and staging find
+     * over-limit data while production only reports it.
+     */
+    public static function enforcesUntouchedValues(): bool
+    {
+        return ! app()->isProduction();
+    }
+
+    /**
      * @param  Collection<int, EffectivePropertyDefinitionData>  $effectiveDefinitions
      */
-    public function validate(Page $page, PropertyValueData $value, Collection $effectiveDefinitions): EffectivePropertyDefinitionData
+    public function validate(Page $page, PropertyValueData $value, Collection $effectiveDefinitions, bool $untouched = false): EffectivePropertyDefinitionData
     {
         $definition = $effectiveDefinitions->first(
             static fn (EffectivePropertyDefinitionData $candidate): bool => $candidate->key === $value->propertyKey,
@@ -54,6 +75,12 @@ final class PropertyValueValidator
             }
         }
 
+        if ($untouched) {
+            $this->assertOrReportUntouchedConstraints($definition, $value->value, $page->site_id, $page->id, $value->propertyKey);
+        } else {
+            $this->assertConstraints($definition, $value->value, $page->site_id, $page->id, $value->propertyKey);
+        }
+
         if ($definition->localised) {
             if ($value->translationId === null) {
                 throw PropertyValueValidationException::localisedTranslationRequired($value->propertyKey);
@@ -67,6 +94,105 @@ final class PropertyValueValidator
         }
 
         return $definition;
+    }
+
+    /**
+     * Apply the definition's declarative constraints to one value, reporting
+     * any failure under `$errorKey`. The single entry point for constraint
+     * checks: write actions, admin form validation and agent previews all call
+     * this, so the rules and the messages are identical on every path.
+     *
+     * @throws ValidationException
+     */
+    public function assertConstraints(
+        EffectivePropertyDefinitionData $definition,
+        mixed $value,
+        int $siteId,
+        ?int $ignorePageId,
+        string $errorKey,
+    ): void {
+        $rules = BuildPropertyValidationRulesAction::run($definition, $siteId, $ignorePageId);
+
+        if ($rules === []) {
+            return;
+        }
+
+        $validator = Validator::make(['value' => $value], ['value' => $rules]);
+
+        if ($validator->fails()) {
+            throw ValidationException::withMessages([$errorKey => $validator->errors()->get('value')]);
+        }
+    }
+
+    /**
+     * Apply the constraints to a value this write leaves as it already was.
+     * Outside production ({@see self::enforcesUntouchedValues()}) it is
+     * enforced like any other value so over-limit data is found early; in
+     * production it is reported (a warning with identifiers only, never the
+     * value) and the save carries on, so a rule added later never blocks an
+     * unrelated save.
+     *
+     * @throws ValidationException
+     */
+    public function assertOrReportUntouchedConstraints(
+        EffectivePropertyDefinitionData $definition,
+        mixed $value,
+        int $siteId,
+        ?int $ignorePageId,
+        string $errorKey,
+    ): void {
+        try {
+            $this->assertConstraints($definition, $value, $siteId, $ignorePageId, $errorKey);
+        } catch (ValidationException $validationException) {
+            throw_if(self::enforcesUntouchedValues(), $validationException);
+
+            Log::warning('An unchanged property value breaks its constraints; the save was not blocked.', [
+                'property' => $definition->key,
+                'site_id' => $siteId,
+                'page_id' => $ignorePageId,
+            ]);
+        }
+    }
+
+    /**
+     * Whether the value is already stored exactly as given at its position and
+     * translation, so a write of it changes nothing and its rules follow
+     * {@see self::enforcesUntouchedValues()}. Only looked up for a definition
+     * that carries rules; without rules the answer does not matter.
+     */
+    public function isStoredUnchanged(Page $page, EffectivePropertyDefinitionData $definition, PropertyValueData $value): bool
+    {
+        if (! $definition->constraints instanceof PropertyConstraintsData || ! $page->exists) {
+            return false;
+        }
+
+        $stored = PagePropertyValue::query()
+            ->where('site_id', $page->site_id)
+            ->where('page_id', $page->id)
+            ->where('property_definition_id', $definition->definitionId)
+            ->where('translation_id', $value->translationId)
+            ->where('position', $value->position)
+            ->first();
+
+        return $stored instanceof PagePropertyValue
+            && PropertyValueEquality::sameColumns(
+                PropertyValueData::fromPageValue($stored, $definition->key, $definition->type)->toColumns(),
+                $value->toColumns(),
+            );
+    }
+
+    /**
+     * Whether one value meets the definition's constraints, without throwing.
+     */
+    public function passesConstraints(EffectivePropertyDefinitionData $definition, mixed $value, int $siteId, ?int $ignorePageId): bool
+    {
+        try {
+            $this->assertConstraints($definition, $value, $siteId, $ignorePageId, 'value');
+        } catch (ValidationException) {
+            return false;
+        }
+
+        return true;
     }
 
     private function assertType(EffectivePropertyDefinitionData $definition, PropertyValueData $value): void

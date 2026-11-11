@@ -108,6 +108,24 @@ it('enforces the page and total content limits', function (): void {
         ->and($result['errors'])->toHaveKeys(['pages', 'pages.0.sections.0.content']);
 });
 
+it('caps the length of a text property value, given bare or as a value object', function (): void {
+    $payload = validSiteSpecPayload();
+    $payload['pages'][0]['properties'] = [
+        'summary' => str_repeat('x', CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH + 1),
+        'code' => ['value' => str_repeat('x', CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH + 1)],
+        'note' => str_repeat('x', CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH),
+        'count' => 123456789,
+    ];
+
+    $result = ValidateSiteSpecAction::run($payload, ['default'], ['page'], ['content']);
+
+    expect($result['valid'])->toBeFalse()
+        ->and(array_keys($result['errors']))->toBe(['pages.0.properties.summary', 'pages.0.properties.code.value'])
+        ->and($result['errors']['pages.0.properties.summary'][0])->toContain((string) CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH)
+        ->and(CapellSiteSpecSchema::toArray()['properties']['pages']['items']['properties']['properties']['additionalProperties']['oneOf'][0]['maxLength'])
+        ->toBe(CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH);
+});
+
 it('rejects invalid or oversized package-owned SiteSpec data', function (): void {
     $payload = validSiteSpecPayload();
     $payload['packageData'] = ['Invalid Key' => ['value' => str_repeat('x', 200001)]];

@@ -47,6 +47,19 @@ final class CapellSiteSpecSchema
                             'title' => $nullableString, 'summary' => $nullableString, 'order' => ['type' => 'integer', 'default' => 0],
                             'meta' => ['type' => 'object'],
                         ]]], 'visibility' => ['type' => 'object'], 'meta' => ['type' => 'object'],
+                        'properties' => [
+                            'type' => 'object',
+                            'maxProperties' => CapellSiteSpecConstraints::MAX_PAGE_PROPERTIES,
+                            'additionalProperties' => [
+                                'oneOf' => [
+                                    ['type' => ['string', 'number', 'integer', 'boolean', 'null'], 'maxLength' => CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH],
+                                    ['type' => 'object', 'required' => ['value'], 'additionalProperties' => false, 'properties' => [
+                                        'value' => ['type' => ['string', 'number', 'integer', 'boolean', 'null'], 'maxLength' => CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH],
+                                        'currency' => $nullableString, 'unit' => $nullableString,
+                                    ]],
+                                ],
+                            ],
+                        ],
                     ],
                 ]],
                 'navigations' => [

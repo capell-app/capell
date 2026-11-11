@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Support\Security\PublicStructuredDataScrubber;
 use Capell\Frontend\Data\HeadMetadataData;
 use Capell\Frontend\Support\Render\HeadMetadataRegistry;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -14,7 +15,10 @@ final class BuildHeadMetadataAction
     use AsFake;
     use AsObject;
 
-    public function __construct(private readonly HeadMetadataRegistry $registry) {}
+    public function __construct(
+        private readonly HeadMetadataRegistry $registry,
+        private readonly PublicStructuredDataScrubber $scrubber,
+    ) {}
 
     /**
      * @param  array<int, string>  $robots
@@ -53,6 +57,14 @@ final class BuildHeadMetadataAction
         $graph = [$values['jsonld:WebSite'], $values['jsonld:WebPage']];
         unset($values['jsonld:WebSite'], $values['jsonld:WebPage']);
 
-        return new HeadMetadataData($values, $graph);
+        // Contributors assemble these values, so the leak policy runs here rather
+        // than trusting each one.
+        $meta = $this->scrubber->scrubMeta(array_filter($values, is_string(...)));
+        $graph = array_values(array_map(
+            fn (mixed $node): array => is_array($node) ? $this->scrubber->scrubGraph($node) : [],
+            $graph,
+        ));
+
+        return new HeadMetadataData($meta, array_values(array_filter($graph, static fn (array $node): bool => $node !== [])));
     }
 }
