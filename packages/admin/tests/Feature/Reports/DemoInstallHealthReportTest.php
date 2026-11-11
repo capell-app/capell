@@ -6,6 +6,7 @@ use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
+use Capell\Core\Actions\Diagnostics\ResolvePendingMigrationsAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\CapellInstallationState;
@@ -20,6 +21,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
@@ -99,12 +101,13 @@ it('reports missing event sourcing tables as a critical finding with remediation
 
     $snapshot = BuildDemoInstallHealthReportAction::run();
     $finding = collect($snapshot->findings)
-        ->firstWhere('id', 'core.schema.required');
+        ->firstWhere('id', 'core.migrations');
 
     expect($finding)->not->toBeNull()
         ->and($finding->severity)->toBe(ReportFindingSeverity::Critical)
         ->and($finding->description)->toContain('page_revisions')
-        ->and($finding->remediation)->toContain('php artisan migrate');
+        ->and($finding->remediation)->toContain('php artisan capell:install')
+        ->and($finding->remediation)->not->toContain('artisan migrate');
 });
 
 it('checks the configured event sourcing and revision table names', function (): void {
@@ -119,7 +122,7 @@ it('checks the configured event sourcing and revision table names', function ():
     try {
         $findings = collect(BuildDemoInstallHealthReportAction::run()->findings)->keyBy('id');
         expect($findings->has('core.schema.event-sourcing'))->toBeFalse()
-            ->and($findings->has('core.schema.required'))->toBeFalse();
+            ->and($findings->has('core.migrations'))->toBeFalse();
     } finally {
         Schema::rename('health_events', 'stored_events');
         Schema::rename('health_revisions', 'page_revisions');
@@ -216,6 +219,12 @@ it('returns the empty snapshot for a truly uninstalled app', function (): void {
 
 function demoInstallHealthSeedInstall(): void
 {
+    // The Testbench harness ships migrations of its own that it never runs; a healthy install has none pending.
+    $migrations = resolve(Migrator::class)->getRepository();
+    foreach (ResolvePendingMigrationsAction::run() as $migration) {
+        $migrations->log($migration, $migrations->getNextBatchNumber());
+    }
+
     // A stale capell-runtime manifest set (e.g. left behind by a killed
     // PackageCacheCommandTest run against the shared Testbench skeleton) makes
     // the doctor's RuntimeRoleCheck fail, which BuildDemoInstallHealthReportAction

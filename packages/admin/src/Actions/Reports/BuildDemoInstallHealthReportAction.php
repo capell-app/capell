@@ -21,7 +21,8 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
-use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
+use Capell\Core\Support\Diagnostics\Checks\InstallLifecycleCheck;
+use Capell\Core\Support\Diagnostics\Checks\MigrationsCheck;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\ConnectionResolverInterface;
@@ -38,7 +39,6 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
     public function __construct(
         private readonly RuntimeSchemaState $schemaState,
         private readonly ConnectionResolverInterface $connections,
-        private readonly CapellRuntimeSchemaContract $runtimeSchema,
     ) {}
 
     public function handle(): ReportSnapshotData
@@ -53,24 +53,20 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         }
 
         if ($installationState === CapellInstallationState::Partial) {
-            $missingTables = $this->runtimeSchema->missingTables();
+            $findings = [];
+
+            foreach ([resolve(MigrationsCheck::class), resolve(InstallLifecycleCheck::class)] as $check) {
+                $finding = $this->findingForFailedCheck($check->check());
+
+                if ($finding instanceof ReportFindingData) {
+                    $findings[] = $finding;
+                }
+            }
 
             return new ReportSnapshotData(
                 key: self::REPORT_KEY,
                 emptyState: __('capell-admin::reports.empty_state_demo_install_health'),
-                findings: [new ReportFindingData(
-                    severity: ReportFindingSeverity::Critical,
-                    title: 'Required tables exist',
-                    description: $missingTables !== []
-                        ? sprintf('Missing tables: %s.', implode(', ', $missingTables))
-                        : 'Core lifecycle state does not record a complete installation.',
-                    id: 'core.schema.required',
-                    remediation: 'Run php artisan migrate, then rerun the Capell installer if the Core lifecycle row is absent.',
-                    evidence: [
-                        'installation_state' => $installationState->value,
-                        'missing_tables' => $missingTables,
-                    ],
-                )],
+                findings: $findings,
             );
         }
 
