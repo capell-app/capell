@@ -199,7 +199,7 @@ unavailable package view directory is reported as unknown.
 
 The legacy asset manifest, Mix adapter, build-asset/npm vendor subtypes, loose resource builders, contributor contract, and renderer contract have been removed. Follow the [Frontend Resources upgrade guide](../../packages/frontend/docs/frontend-resources.md), add `capellViteInputs()` to the application Vite input array, run `php artisan capell:frontend-after-install`, and apply the reviewed plan explicitly.
 
-After upgrading Frontend, republish `capell-frontend-assets` (or the conventional `laravel-assets` tag) so `/vendor/capell-frontend/stylesheet-recovery.js` exists. Hosts that cache HTML across deployments must also adopt the [release-safe Vite asset contract](../../packages/frontend/docs/server-config.md#release-safe-vite-assets) before enabling long stale-serving windows.
+After upgrading Frontend, republish `capell-frontend-assets` (or the conventional `laravel-assets` tag) so `/vendor/capell-frontend/stylesheet-recovery.js` exists. The runtime is inlined by default; an enforced `script-src` must include `StylesheetRecoveryRenderer::cspHashSource()`, and an upgrade that changes the runtime changes that hash, so rebuild cached or exported HTML and update the hash together. Hosts that cache HTML across deployments must also adopt the [release-safe Vite asset contract](../../packages/frontend/docs/server-config.md#release-safe-vite-assets) before enabling long stale-serving windows.
 
 ![Capell upgrade page](../images/generated/admin/upgrade-page.png)
 

@@ -213,6 +213,7 @@ Source: `packages/frontend/config/capell-frontend.php`
 | `CAPELL_FRONTEND_STYLESHEET_RECOVERY_ENABLED`          | `true`                                           | Enables stable fallback and bounded retry for failed critical stylesheets         |
 | `CAPELL_FRONTEND_STYLESHEET_FALLBACK_URL`              | `/vendor/capell-frontend/capell-frontend.css`    | Stable local stylesheet used while the intended asset is unavailable              |
 | `CAPELL_FRONTEND_STYLESHEET_RECOVERY_RUNTIME_URL`      | `/vendor/capell-frontend/stylesheet-recovery.js` | Stable local URL for the recovery runtime                                         |
+| `CAPELL_FRONTEND_STYLESHEET_RECOVERY_INLINE`           | `true`                                           | Inlines the recovery runtime (authorise it in `script-src` by hash); `false` keeps the external script |
 | `CAPELL_HTML_CACHE`                                    | `true`                                           | Enables static HTML cache reads                                                   |
 | `CAPELL_WRITE_HTML_CACHE`                              | `true`                                           | Allows static HTML cache writes                                                   |
 | `CAPELL_PUBLIC_RENDER_DATA_CACHE`                      | `true`                                           | Caches hydrated public render payloads                                            |

@@ -90,6 +90,7 @@ it('inlines the stylesheet recovery runtime before the stylesheet without a nonc
 
     expect($rendered->headHtml)
         ->toContain('<script data-capell-stylesheet-recovery-runtime>')
+        ->toContain('link[data-capell-stylesheet-recovery]')
         ->not->toContain('recovery-nonce')
         ->not->toContain('src="/vendor/capell-frontend/stylesheet-recovery.js"')
         ->toContain('<link rel="stylesheet" href="https://cdn.example.com/build/assets/frontend-old.css"')
