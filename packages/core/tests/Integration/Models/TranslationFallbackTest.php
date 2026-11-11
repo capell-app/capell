@@ -352,3 +352,19 @@ it('ignores a language map cached in id order by an earlier release', function (
     expect(array_keys(ResolveLanguageFallbackChainAction::make()->languageOrder()))
         ->toBe([(int) $french->getKey(), (int) $german->getKey()]);
 });
+
+it('drops a language map cached by another request while the language change was uncommitted', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+
+    DB::transaction(function () use ($english, $french): void {
+        $french->update(['fallback_language_id' => $english->getKey()]);
+        // Another request reads the committed (old) state and caches it before this commits.
+        CapellCore::rememberCache(ResolveLanguageFallbackChainAction::CACHE_KEY, static fn (): array => [
+            (int) $english->getKey() => ['fallback' => null, 'enabled' => true],
+            (int) $french->getKey() => ['fallback' => null, 'enabled' => true],
+        ]);
+    });
+
+    expect(ResolveLanguageFallbackChainAction::run((int) $french->getKey()))->toBe([(int) $french->getKey(), (int) $english->getKey()]);
+});

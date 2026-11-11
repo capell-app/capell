@@ -40,6 +40,11 @@ class LanguageObserver
     {
         CapellCore::removeCacheKey(CacheEnum::LanguageLocales->value);
         CapellCore::removeCacheKey(ResolveLanguageFallbackChainAction::CACHE_KEY);
+        // Inside a transaction another request can cache the pre-commit map between the
+        // flush above and the commit, so the map is flushed again once the change commits.
+        $language->getConnection()->afterCommit(static function (): void {
+            CapellCore::removeCacheKey(ResolveLanguageFallbackChainAction::CACHE_KEY);
+        });
 
         CapellCoreHelper::flushCache([
             CacheEnum::HasDefaultLanguage,
