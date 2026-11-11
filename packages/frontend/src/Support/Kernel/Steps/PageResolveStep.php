@@ -67,6 +67,12 @@ final class PageResolveStep
             $work->request->attributes->set('_frontend_wildcard_attempted', true);
         }
 
+        if ($resolution->gone) {
+            $work->setError(['status' => 410, 'message' => 'Page removed']);
+
+            return $work;
+        }
+
         if ($resolution->shouldAbort404 || ! $resolution->page instanceof Pageable) {
             $this->set404($work);
 

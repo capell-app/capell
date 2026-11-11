@@ -23,5 +23,6 @@ final class PageResolutionData extends Data
         public readonly ?string $routeUri = null,
         public readonly ?string $pageQuery = null,
         public readonly ?RedirectResponse $redirect = null,
+        public readonly bool $gone = false,
     ) {}
 }

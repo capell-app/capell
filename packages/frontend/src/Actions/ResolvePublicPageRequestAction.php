@@ -12,6 +12,7 @@ use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\RedirectDecisionData;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -50,6 +51,16 @@ final class ResolvePublicPageRequestAction
 
         if ($wildcardResolution->page instanceof Pageable) {
             return $wildcardResolution;
+        }
+
+        if ($this->pointsAtTrashedPage($input->site, $input->language, $input->url)) {
+            $this->logger->info('[Frontend] URL belonged to a trashed page; answering 410');
+
+            return new PageResolutionData(
+                page: null,
+                attemptedWildcard: $wildcardResolution->attemptedWildcard,
+                gone: true,
+            );
         }
 
         if ($input->abortMissingForBot) {
@@ -148,6 +159,26 @@ final class ResolvePublicPageRequestAction
 
         // Site URL rewriting would duplicate a resolved mount or replace an external origin.
         return new RedirectResponse($targetUrl, $redirectDecision->statusCode);
+    }
+
+    /**
+     * A page's URLs are soft-deleted with it, so a trashed page leaves its
+     * URLs behind. Restoring the page restores them, which ends the 410.
+     */
+    private function pointsAtTrashedPage(Site $site, Language $language, string $url): bool
+    {
+        $normalizedUrl = $url === '' || $url === '/' ? '/' : '/' . trim($url, '/');
+
+        return PageUrl::onlyTrashed()
+            ->where('site_id', $site->getKey())
+            ->where('language_id', $language->getKey())
+            ->where('url', $normalizedUrl)
+            ->whereHasMorph(
+                'pageable',
+                [Page::class],
+                fn (BuilderContract $query): BuilderContract => $query->onlyTrashed()->where('site_id', $site->getKey()),
+            )
+            ->exists();
     }
 
     private function findPageUrl(Site $site, Language $language, string $url): ?PageUrl
