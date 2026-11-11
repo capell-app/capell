@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'language_fallback_cycle' => 'That language already falls back to this one, so choosing it would create a loop. Choose a language that does not lead back here.',
+    'language_fallback_self' => 'A language cannot fall back to itself. Choose a different language, or leave the fallback empty so untranslated pages show a not-found page.',
     'site_spec_private_audit_required' => 'Private import :id predates the privacy repair. Review the original spec and current publication decisions, then reimport with --repair-private and --keep-published for deliberate publications.',
     'site_domain_claim_conflict' => 'This origin is already assigned to another site. Ask a global administrator to configure shared domains.',
     'component_directory_failed' => 'Could not create component directory [:path]. Check directory permissions and retry.',
@@ -27,10 +29,16 @@ return [
     'redirect_source_must_start_with_slash' => 'The source URL must start with a slash.',
     'redirect_target_empty' => 'Enter a target URL.',
     'redirect_target_invalid' => 'Enter a valid relative URL or full http/https URL.',
+    'site_spec_apply_complete' => 'Applied the SiteSpec to ":name" (#:id): :created page(s) created, :updated updated, :skipped unchanged.',
     'site_spec_import_complete' => 'Imported site ":name" (#:id) with :pages page(s).',
     'site_spec_import_invalid_json' => 'The SiteSpec contains invalid JSON: :reason',
     'site_spec_import_path_required' => 'Provide a SiteSpec JSON file path.',
     'site_spec_import_validation_failed' => 'The SiteSpec failed validation.',
-    'language_fallback_self' => 'A language cannot fall back to itself. Choose a different language, or leave the fallback empty so untranslated pages show a not-found page.',
-    'language_fallback_cycle' => 'That language already falls back to this one, so choosing it would create a loop. Choose a language that does not lead back here.',
+    'site_spec_options_conflict' => 'Use --plan and --site on their own, without the privacy audit and repair options.',
+    'site_spec_plan_appliers' => 'These parts are applied by their own packages and are not previewed here: :appliers.',
+    'site_spec_plan_note_live_page_held' => 'live page left alone: a private spec cannot change it',
+    'site_spec_plan_parts_held' => 'Package-owned parts and media are left out, because this private spec would otherwise change live pages. Publish the site or use a public, acknowledged spec to apply them.',
+    'site_spec_plan_nothing' => 'Nothing to change: the site already matches this SiteSpec.',
+    'site_spec_plan_summary' => 'Plan: :created to create, :updated to update, :skipped unchanged. Nothing was written.',
+    'site_spec_site_not_found' => 'No site with the ID :id was found.',
 ];
