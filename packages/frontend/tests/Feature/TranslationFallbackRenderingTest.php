@@ -176,3 +176,24 @@ it('names the served language when the fallback page is reached through the requ
 
     expect(translationFallbackRobots($response))->toContain('noindex');
 });
+
+it('tries later fallback languages when an earlier one maps the path to a page translated in the requested language', function (): void {
+    [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: false);
+    $german = Language::factory()->german()->createOne(['fallback_language_id' => $english->getKey()]);
+    $french->update(['fallback_language_id' => $german->getKey()]);
+    SiteDomain::factory()->site($site)->language($german)->createOne([
+        'domain' => 'fallback.example.test', 'scheme' => 'http', 'port' => 8124, 'path' => '/de',
+    ]);
+    // German /kontakt belongs to a page that is translated into French under its own slug.
+    translationFallbackSitePage($site, [
+        [$german, 'kontakt', 'Deutsche Kontaktseite'],
+        [$french, 'contact', 'Page contact française'],
+    ]);
+    // English /kontakt is a different page with no French translation.
+    translationFallbackSitePage($site, [[$english, 'kontakt', 'English contact marker']]);
+
+    $this->get($frenchDomain->full_url . '/kontakt')
+        ->assertOk()
+        ->assertSeeText('English contact marker body')
+        ->assertDontSeeText('Deutsche Kontaktseite body');
+});

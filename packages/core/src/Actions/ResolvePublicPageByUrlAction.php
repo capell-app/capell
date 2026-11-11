@@ -155,7 +155,13 @@ class ResolvePublicPageByUrlAction
                 ->where('language_id', $language->getKey())
                 ->exists();
 
-            return $hasOwnTranslation ? null : $pageUrl;
+            // That page is served at its own requested-language URL, not this one; a later
+            // language in the chain may still map this path to an untranslated page.
+            if ($hasOwnTranslation) {
+                continue;
+            }
+
+            return $pageUrl;
         }
 
         return null;
