@@ -6,8 +6,11 @@ namespace Capell\Frontend\Support\Cache;
 
 use Capell\Core\Actions\Translations\ResolveLanguagesFallingBackToAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Page;
 use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
+use Capell\Frontend\Enums\CacheEnum;
 use Illuminate\Database\Eloquent\Model;
 
 final class PageCacheInvalidator
@@ -60,6 +63,51 @@ final class PageCacheInvalidator
             $rules[] = CacheInvalidationRule::publicRenderData($type, $id, $siteId, $languageId);
         });
 
+        if ($model instanceof Page) {
+            $rules = [...$rules, ...$this->systemPageRules($model, $siteId, $languageIds->all())];
+        }
+
         return new CacheInvalidationPlanData($rules);
+    }
+
+    /**
+     * System pages (404, error, maintenance) are cached per type, site and language, and
+     * a language without one of its own is served another language's through the fallback
+     * chain. A page create, edit or delete can change which page answers, so the entries
+     * for its blueprint type, before and after the change, are forgotten for every language
+     * it serves. Plain key deletes: ordinary invalidation stays best effort.
+     *
+     * @param  list<int>  $languageIds
+     * @return list<CacheInvalidationRule>
+     */
+    private function systemPageRules(Page $page, int $siteId, array $languageIds): array
+    {
+        $blueprintIds = array_values(array_unique(array_filter([
+            $page->getAttribute('blueprint_id'),
+            $page->wasChanged('blueprint_id') ? $page->getPrevious()['blueprint_id'] ?? null : null,
+        ], static fn (mixed $id): bool => $id !== null)));
+
+        if ($blueprintIds === [] || $languageIds === []) {
+            return [];
+        }
+
+        $siteIds = array_values(array_unique(array_filter([
+            $siteId,
+            $page->wasChanged('site_id') ? (int) ($page->getPrevious()['site_id'] ?? 0) : 0,
+        ])));
+
+        /** @var list<string> $types */
+        $types = Blueprint::query()->whereKey($blueprintIds)->pluck('key')->filter()->values()->all();
+        $rules = [];
+
+        foreach ($types as $type) {
+            foreach ($siteIds as $systemSiteId) {
+                foreach ($languageIds as $languageId) {
+                    $rules[] = CacheInvalidationRule::forgetKey(CacheEnum::systemPage($type, $systemSiteId, $languageId));
+                }
+            }
+        }
+
+        return $rules;
     }
 }

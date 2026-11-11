@@ -21,7 +21,9 @@ final class CacheInvalidationDependencyRegistry
         // A language's fallback chain decides which translation, system page and home
         // page every language renders, so a language change reaches all of them.
         Language::class => ['languages', 'page-*', 'site-*', 'system-page-*', 'homepage-*'],
-        Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*'],
+        // System pages (404, error, maintenance) are cached per type, site and language and
+        // may be served through a fallback, so any page change can alter which one applies.
+        Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*', 'system-page-*'],
         'Capell\Core\Models\Navigation' => ['navigation-*', 'site-navigations-*'],
         // Generated URLs embed the domain when use_site_domain_for_urls is on, so a
         // domain change leaves stale absolute URLs baked into cached pages.
