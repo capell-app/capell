@@ -23,7 +23,7 @@ final class CountOmittedMediaUsageAction
             return 0;
         }
 
-        $total = SiteAccess::current()->scopeAssetAttachments($media->assetRelations()->getQuery())->count();
+        $total = SiteAccess::current()->trackedUsageCount($media);
 
         return max(0, $total - BuildMediaUsageItemsAction::DEFAULT_LIMIT);
     }

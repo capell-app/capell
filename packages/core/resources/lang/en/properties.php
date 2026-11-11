@@ -84,4 +84,7 @@ return [
             'mime_type_invalid' => 'Enter a file type such as image/png, or image/* for any image.',
         ],
     ],
+    'upgrade' => [
+        'index_references' => 'Index the media, pages and terms that property values point at',
+    ],
 ];
