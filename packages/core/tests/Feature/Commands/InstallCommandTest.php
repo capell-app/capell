@@ -3786,3 +3786,35 @@ it('creates a missing SQLite database file before the wizard reads from it', fun
         }
     }
 });
+
+it('plans an install on a fresh SQLite project without creating or reading the database file', function (): void {
+    setupInstallTest(['capell-app/core']);
+    $fake = bindFakeRunInstallAction();
+    $original = config('database.default');
+    $path = storage_path('framework/testing/capell-plan-install-' . bin2hex(random_bytes(4)) . '.sqlite');
+    config([
+        'database.default' => 'fresh-sqlite',
+        'database.connections.fresh-sqlite' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true],
+    ]);
+
+    try {
+        artisanCommand('capell:install', [
+            '--package-mode' => 'custom',
+            '--packages' => 'capell-app/core',
+            '--url' => 'https://hartley.test',
+            '--name' => 'Ben',
+            '--email' => 'ben@example.test',
+            '--password' => 'a-long-private-password',
+            '--plan' => true,
+            '--no-interaction' => true,
+        ])
+            ->expectsOutputToContain('The database file will be created at ' . $path)
+            ->assertSuccessful();
+
+        expect(is_file($path))->toBeFalse()
+            ->and($fake->callCount)->toBe(0);
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('fresh-sqlite');
+    }
+});

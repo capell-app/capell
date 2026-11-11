@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\Install\TableCollisionData;
+use Capell\Core\Support\Install\MissingSqliteDatabase;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\TableName;
 use Composer\InstalledVersions;
@@ -24,6 +25,10 @@ final class FindTableCollisionsAction
      */
     public function handle(array $packages): array
     {
+        if (MissingSqliteDatabase::path() !== null) {
+            return [];
+        }
+
         $adopted = config()->array('capell.database.adopted_tables', []);
 
         return array_values(array_filter($this->planned($packages), static function (TableCollisionData $table) use ($adopted): bool {

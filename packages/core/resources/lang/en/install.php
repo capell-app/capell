@@ -211,6 +211,7 @@ return [
         'remove_installer' => 'Remove capell-app/installer with Composer',
         'tooling_selected' => 'Ensure Laravel Boost and Capell Agent Bridge are installed',
         'database_fresh' => 'DELETE ALL TABLES AND DATA, then reinstall',
+        'database_will_be_created' => 'The database file will be created at :path, then migrations are applied',
         'database_migrate' => 'Apply pending application and package migrations',
         'composer_dependencies' => 'Composer also resolves required dependencies; these may change composer.json and composer.lock',
         'site' => 'Site',
