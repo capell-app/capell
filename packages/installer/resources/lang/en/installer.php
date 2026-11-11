@@ -56,6 +56,7 @@ return [
     'field_existing_user' => 'Existing user',
     'field_language' => 'Primary language',
     'field_language_custom_option' => 'Add another language...',
+    'field_site_name' => 'Site name',
     'field_site_url' => 'Site URL',
     'field_theme' => 'Active theme',
     'field_user_email' => 'Email',

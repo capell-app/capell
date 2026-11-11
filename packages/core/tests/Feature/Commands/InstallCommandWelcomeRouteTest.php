@@ -262,6 +262,7 @@ it('passes the explicit welcome route install flag in non-interactive mode', fun
         '--theme' => 'none',
         '--install-welcome-route' => true,
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
     ])->assertExitCode(Command::SUCCESS);
 
     expect($fake->capturedInput->installWelcomeRoute)->toBeTrue();
@@ -303,6 +304,7 @@ PHP);
         '--theme' => 'none',
         '--install-welcome-route' => true,
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
     ])->assertExitCode(Command::SUCCESS);
 
     expect($fake->capturedInput->installWelcomeRoute)->toBeTrue();
@@ -345,6 +347,7 @@ PHP);
         '--theme' => 'none',
         '--install-welcome-route' => true,
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
     ])->assertExitCode(Command::SUCCESS);
 
     expect($fake->capturedInput->installWelcomeRoute)->toBeTrue();

@@ -277,6 +277,7 @@ it('passes the expected installer page data to the install view', function (): v
             'languages',
             'customLanguageSuggestions',
             'existingUsers',
+            'defaultSiteName',
             'defaultSiteUrl',
             'defaultLocale',
             'allPackageNames',
@@ -416,6 +417,49 @@ it('accepts package selection mode from web installer submissions', function ():
             return true;
         })
         ->once();
+});
+
+it('applies the submitted site name to the install', function (): void {
+    $spy = RunInstallAction::spy();
+
+    post(route('capell-installer.store'), installPostPayload(['site_name' => '  Hartley Dental  ']))->assertRedirect();
+
+    $spy->shouldHaveReceived('handle')
+        ->withArgs(function (InstallInputData $inputData): bool {
+            expect($inputData->siteName)->toBe('Hartley Dental');
+
+            return true;
+        })
+        ->once();
+});
+
+it('leaves the site name to the application name default when the form omits it', function (): void {
+    $spy = RunInstallAction::spy();
+
+    post(route('capell-installer.store'), installPostPayload(['site_name' => '']))->assertRedirect();
+
+    $spy->shouldHaveReceived('handle')
+        ->withArgs(function (InstallInputData $inputData): bool {
+            expect($inputData->siteName)->toBeNull();
+
+            return true;
+        })
+        ->once();
+});
+
+it('rejects a site name that is too long and says how to fix it', function (): void {
+    postJson(route('capell-installer.store'), installPostPayload(['site_name' => str_repeat('a', 256)]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['site_name' => (string) __('capell-core::install.site.name_too_long', ['max' => 255])]);
+});
+
+it('offers the site name field with the application name as its default', function (): void {
+    config(['app.name' => 'Hartley Dental']);
+
+    get(route('capell-installer.show'))
+        ->assertOk()
+        ->assertSee('name="site_name"', false)
+        ->assertViewHas('defaultSiteName', 'Hartley Dental');
 });
 
 it('allows custom web package selection to submit no selected packages', function (): void {
