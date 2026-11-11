@@ -1,0 +1,144 @@
+{
+    "key": "shop-front",
+    "label": "Shop front",
+    "description": "Home, Products, About, Visit us and Contact for a business that sells goods. Add the shop extension later to take orders online.",
+    "businessTypes": ["retail", "shop", "makers", "food"],
+    "suiteKeys": ["shop"],
+    "requiredExtensions": [],
+    "spec": {
+        "site": {
+            "name": "Your shop",
+            "description": "A shop front website that shows what you sell and how to find you."
+        },
+        "theme": {
+            "key": "default"
+        },
+        "language": {
+            "code": "en",
+            "name": "English",
+            "locale": "en_GB",
+            "flag": "gb",
+            "default": true
+        },
+        "pages": [
+            {
+                "name": "Home",
+                "slug": "home",
+                "title": "Welcome",
+                "description": "What you sell, what makes it worth buying here and where to start.",
+                "pageType": "page",
+                "order": 0,
+                "url": "/",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Welcome",
+                        "content": "<p>Tell visitors what you sell and why they should buy it from you, in their words rather than yours. Then send them to your products.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Start here",
+                        "content": "<p>Point to your best sellers, your newest arrivals or a gift guide so first-time visitors know where to look.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Products",
+                "slug": "products",
+                "title": "Products",
+                "description": "Browse what is for sale, with the details a customer needs to choose.",
+                "pageType": "page",
+                "order": 1,
+                "url": "/products",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Our range",
+                        "content": "<p>Group your products so customers can find what they want quickly, and say what is special about the range. Add each product with a clear photo, a price and what is included.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Delivery and returns",
+                        "content": "<p>Say how long delivery takes, what it costs and how customers can send something back. Clear answers here prevent most questions before they are asked.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "About",
+                "slug": "about",
+                "title": "About us",
+                "description": "Who makes or chooses what you sell, and why.",
+                "pageType": "page",
+                "order": 2,
+                "url": "/about",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Our story",
+                        "content": "<p>Explain where your products come from and why you sell them. Customers buy from people they trust, so say who you are and what you stand for.</p>",
+                        "order": 0
+                    }
+                ]
+            },
+            {
+                "name": "Visit us",
+                "slug": "visit-us",
+                "title": "Visit us",
+                "description": "Where the shop is, when it is open and how to get there.",
+                "pageType": "page",
+                "order": 3,
+                "url": "/visit-us",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Opening hours",
+                        "content": "<p>List your opening hours, including holidays and any days you are closed.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Finding the shop",
+                        "content": "<p>Add your address, parking and public transport details, and mention anything that helps first-time visitors, such as the colour of the door or the nearest landmark.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Contact",
+                "slug": "contact",
+                "title": "Contact us",
+                "description": "How to reach the shop with a question about an order or a product.",
+                "pageType": "page",
+                "order": 4,
+                "url": "/contact",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Get in touch",
+                        "content": "<p>Give the best way to reach you about an order, a product or a return, and say how quickly you usually reply.</p>",
+                        "order": 0
+                    }
+                ]
+            }
+        ],
+        "navigations": [
+            {
+                "key": "main",
+                "name": "Main navigation",
+                "pageSlugs": [
+                    "home",
+                    "products",
+                    "about",
+                    "visit-us",
+                    "contact"
+                ]
+            }
+        ],
+        "initialVisibility": "private",
+        "acknowledgePublic": false
+    }
+}

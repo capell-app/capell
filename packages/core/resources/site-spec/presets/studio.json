@@ -1,0 +1,144 @@
+{
+    "key": "studio",
+    "label": "Studio",
+    "description": "Home, Work, Services, About and Contact for a creative or design studio that wins work by showing it.",
+    "businessTypes": [
+        "studio",
+        "design",
+        "creative",
+        "photography",
+        "architecture"
+    ],
+    "suiteKeys": [],
+    "requiredExtensions": [],
+    "spec": {
+        "site": {
+            "name": "Your studio",
+            "description": "A studio website that leads with the work and makes it easy to start a project."
+        },
+        "theme": {
+            "key": "default"
+        },
+        "language": {
+            "code": "en",
+            "name": "English",
+            "locale": "en_GB",
+            "flag": "gb",
+            "default": true
+        },
+        "pages": [
+            {
+                "name": "Home",
+                "slug": "home",
+                "title": "Welcome",
+                "description": "A short introduction to the studio and a way into its work.",
+                "pageType": "page",
+                "order": 0,
+                "url": "/",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Welcome",
+                        "content": "<p>Introduce the studio in a sentence: what you make, who for and the style people will recognise. Then lead visitors to your work.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Recent work",
+                        "content": "<p>Show two or three of your best recent projects here, each with a line on the brief and what you delivered.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Work",
+                "slug": "work",
+                "title": "Our work",
+                "description": "Selected projects with the brief, the approach and the result.",
+                "pageType": "page",
+                "order": 1,
+                "url": "/work",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Selected projects",
+                        "content": "<p>Add each project with an image, the client or brief, what you did and what changed as a result. A few well-explained projects persuade more than a long list.</p>",
+                        "order": 0
+                    }
+                ]
+            },
+            {
+                "name": "Services",
+                "slug": "services",
+                "title": "Services",
+                "description": "What the studio does and how projects run.",
+                "pageType": "page",
+                "order": 2,
+                "url": "/services",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "What we do",
+                        "content": "<p>List the kinds of project you take on and what each one includes, so a visitor can see quickly whether you are the right fit.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "How a project runs",
+                        "content": "<p>Walk through the stages from first conversation to delivery, with rough timings, so clients know what to expect.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "About",
+                "slug": "about",
+                "title": "About the studio",
+                "description": "The people, the approach and what the studio believes in.",
+                "pageType": "page",
+                "order": 3,
+                "url": "/about",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "The people",
+                        "content": "<p>Introduce the people who will work on a client's project, with a line about what each of them does best.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "How we think",
+                        "content": "<p>Describe the approach that shapes your work, in terms a client would use rather than industry jargon.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Contact",
+                "slug": "contact",
+                "title": "Contact",
+                "description": "How to start a project or ask a question.",
+                "pageType": "page",
+                "order": 4,
+                "url": "/contact",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Start a project",
+                        "content": "<p>Tell people what to include when they get in touch, such as the brief, the timescale and a rough budget, and how soon you will reply.</p>",
+                        "order": 0
+                    }
+                ]
+            }
+        ],
+        "navigations": [
+            {
+                "key": "main",
+                "name": "Main navigation",
+                "pageSlugs": ["home", "work", "services", "about", "contact"]
+            }
+        ],
+        "initialVisibility": "private",
+        "acknowledgePublic": false
+    }
+}
