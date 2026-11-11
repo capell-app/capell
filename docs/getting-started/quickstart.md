@@ -113,7 +113,7 @@ _Your first check: Pages opens with its normal styling and the seeded records ar
 Demo content lets you inspect the workspace. Create your own saved page for this check; leave any read-only demo records alone.
 
 1. Select the intended site, open **Pages**, and create a page using the [first-page guide](create-your-first-page.md). Choose a suitable page type, title and slug, then add a short paragraph and **Save as draft**.
-2. Follow [Preview and publish](create-your-first-page.md#preview-and-publish): check the signed draft preview, inspect the Publish panel and its blockers, then **Save and Publish**. Saving a draft or scheduling it for later does not make it public now.
+2. Follow [Preview and publish](create-your-first-page.md#preview-and-publish): check the signed draft preview, inspect the Publish panel and its blockers, then **Publish now**. Saving a draft or scheduling it for later does not make it public now.
 3. Open the page's canonical public URL in a private browser window with no Admin session. Your paragraph should appear at the ordinary site URL; the signed preview is a separate check.
 4. Edit one sentence on the published page and **Save**. Reload its public URL, then open the page's **History** tab and inspect the before/after change. Preview a rollback and cancel unless you deliberately want to apply it.
 

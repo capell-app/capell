@@ -139,7 +139,7 @@ On an already published page, the save action is labelled **Save**. If workflow 
 
 1. Open your saved draft for editing from **Pages**. Choose **Preview draft** to open its signed preview in another tab. When editing an existing published page, use the preview action your configured workflow provides and remember that **Save** can update the live page. Check the text, links, and any image. This preview lets you review unpublished content; it does not make the page public.
 2. Return to the editor and inspect the **Publish** panel. For an immediate first publication, review its URL and publishing blockers, and avoid a deliberate future **Visible from** or expired **Visible until** date. A saved draft is expected to remain unavailable until you publish it.
-3. Choose **Save and Publish** on the draft editor, or the **Publish** action provided by your workflow. Resolve any validation or approval message rather than assuming the save made the page live.
+3. Choose **Publish now** in the Publish panel on the draft editor, or the publish action provided by your workflow. **Save** keeps a draft as a draft. Resolve any validation or approval message rather than assuming the save made the page live.
 4. Copy the canonical public URL for the page and open it in a private browser window with no Admin session. Use the ordinary site URL, not the signed preview link. For a top-level page with slug `about`, this is normally the selected site’s domain followed by `/about`.
 5. Confirm that the page loads and shows the text you just wrote, plus the image if you attached one. Reload after any later change to prove it reaches visitors.
 
