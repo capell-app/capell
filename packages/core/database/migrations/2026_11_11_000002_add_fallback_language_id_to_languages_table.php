@@ -42,12 +42,16 @@ return new class extends Migration
             return;
         }
 
-        Schema::table($table, function (Blueprint $blueprint): void {
-            // SQLite can only drop a foreign key by its column list; other drivers
-            // take the (possibly hashed) constraint name the up() migration used.
-            $blueprint->dropForeign(Schema::getConnection()->getDriverName() === 'sqlite'
-                ? ['fallback_language_id']
-                : TableName::index('languages', 'fallback_language_id', 'foreign'));
+        // Read the key's real name from the schema: a table prefix can push it past the
+        // conventional length, and SQLite reports no name, so it is dropped by column list.
+        $foreignKey = collect(Schema::getForeignKeys($table))
+            ->first(static fn (array $key): bool => $key['columns'] === ['fallback_language_id']);
+
+        Schema::table($table, function (Blueprint $blueprint) use ($foreignKey): void {
+            if ($foreignKey !== null) {
+                $blueprint->dropForeign($foreignKey['name'] ?? ['fallback_language_id']);
+            }
+
             $blueprint->dropColumn('fallback_language_id');
         });
     }

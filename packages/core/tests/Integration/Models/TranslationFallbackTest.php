@@ -11,7 +11,9 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 function translationFallbackPage(): Page
@@ -367,4 +369,17 @@ it('drops a language map cached by another request while the language change was
     });
 
     expect(ResolveLanguageFallbackChainAction::run((int) $french->getKey()))->toBe([(int) $french->getKey(), (int) $english->getKey()]);
+});
+
+it('rolls the fallback column back and forward again without inspecting the driver', function (): void {
+    $table = TableName::resolve('languages');
+    $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_11_11_000002_add_fallback_language_id_to_languages_table.php';
+
+    expect(Schema::hasColumn($table, 'fallback_language_id'))->toBeTrue();
+
+    $migration->down();
+    expect(Schema::hasColumn($table, 'fallback_language_id'))->toBeFalse();
+
+    $migration->up();
+    expect(Schema::hasColumn($table, 'fallback_language_id'))->toBeTrue();
 });
