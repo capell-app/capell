@@ -40,6 +40,16 @@ done
 # Orchestra skeleton, which ships no Vite config at all, so create one that
 # already references capellViteInputs and the install step short-circuits
 # instead of trying to rewrite it.
+# The skeleton has no vendor/capell-app tree, yet the generated Vite config and
+# the frontend Tailwind input import package resources from it. Link each
+# repository package there so those imports resolve to this checkout's sources.
+SKELETON_CAPELL_VENDOR="${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/vendor/capell-app"
+mkdir -p "${SKELETON_CAPELL_VENDOR}"
+for package_directory in "${REPOSITORY_ROOT}"/packages/*/; do
+    package_name="$(basename "${package_directory}")"
+    ln -sfn "${package_directory%/}" "${SKELETON_CAPELL_VENDOR}/${package_name}"
+done
+
 cat > "${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/vite.config.js" <<'VITE_CONFIG'
 import { capellViteInputs } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js';
 

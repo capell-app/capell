@@ -24,6 +24,23 @@
             ]
         },
         {
+            "id": "marketplace-extensions-page-mobile",
+            "title": "Extensions page marketplace status at mobile width.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "ExtensionsPage",
+            "scenario": "admin-index",
+            "url": "/extensions",
+            "waitFor": "table",
+            "viewport": "mobile",
+            "required": true,
+            "notes": "Captures the Extensions catalogue table at mobile width so the triage list is checked responsively.",
+            "covers": [
+                "packages/marketplace/src/Filament/Support/MarketplaceCatalogueTable.php"
+            ]
+        },
+        {
             "id": "marketplace-operator-action-error-notification",
             "title": "Marketplace operator action failure notification.",
             "package": "marketplace",
