@@ -10,6 +10,7 @@ use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallHandoffTips;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -20,7 +21,10 @@ final class BuildInstallHandoffAction
 
     private const string INSTALL_DOCS_URL = 'https://docs.capell.app/getting-started/install/';
 
-    public function __construct(private readonly InstallHandoffTips $tips) {}
+    public function __construct(
+        private readonly InstallHandoffTips $tips,
+        private readonly InstallRecommendationRepository $presets,
+    ) {}
 
     /**
      * @param  list<string>  $warnings
@@ -115,7 +119,21 @@ final class BuildInstallHandoffAction
                 firstPageStatus: $safeFirstPageStatus,
             ),
             warningCount: $nonDoctorWarningCount + array_sum(array_column($result->doctorWarnings, 'count')),
+            preset: $this->preset($inputData),
         );
+    }
+
+    /** @return array{key: string, label: string}|null */
+    private function preset(InstallInputData $inputData): ?array
+    {
+        if ($inputData->presetKey === null || $inputData->presetKey === '') {
+            return null;
+        }
+
+        return [
+            'key' => $inputData->presetKey,
+            'label' => $this->presets->find($inputData->presetKey)->label ?? $inputData->presetKey,
+        ];
     }
 
     private function safeHttpUrl(?string $url): ?string

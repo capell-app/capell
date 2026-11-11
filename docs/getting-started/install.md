@@ -132,6 +132,28 @@ tooling, and asks just the site name, address and administrator questions. It ca
 combined with options that choose packages, content or tooling. Pass `--site-name=...` to
 answer the site name without a prompt.
 
+To skip the "What are you building?" question, pass `--preset=<name>`. A preset is one of
+the site types the installer offers (`blog`, `marketing`, `docs`, `client` or `headless`,
+plus any you configure under `capell.install.recommendations`). It installs that site type's
+packages, its free recommended extensions and its starter theme, and starts with sample
+content when the site type does. An unknown name stops the install before anything changes
+and lists the valid names. `--packages`, `--package-mode`, `--theme` and `--demo` still
+override the preset, and it cannot be combined with `--minimal`, `--recommendation` or
+`--profile`.
+
+Pass `--publish` on a first install to publish draft pages once everything else is in
+place, so the public site is live as soon as the install finishes. It runs after the
+optional `--spec` import, so an imported site is published with the rest. It only touches
+draft pages: pages that are already live or scheduled are left alone. It is refused before
+anything changes on an installation that already exists, so editors' drafts are never
+published, and for a `--spec` that imports as private, because a private import keeps its
+first page as "Coming soon". If a page cannot be published the install reports which, and
+you publish it from the admin.
+
+```bash
+php artisan capell:install --preset=marketing --publish
+```
+
 Pass `--customise` for the detailed questionnaire: choose packages, extensions and a
 theme, opt into frontend dependency installation/building, choose whether to update
 `APP_URL`, or save a reusable profile. Explicit package, profile, demo, fresh-install and
@@ -349,6 +371,8 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 | Option                             | Purpose                                                           |
 | ---------------------------------- | ----------------------------------------------------------------- |
 | `--minimal`                        | Install Core, Admin, Frontend and the default theme only          |
+| `--preset=name`                    | Install a site type's packages, theme and sample content          |
+| `--publish`                        | Publish the new site's draft pages at the end of the install      |
 | `--site-name=name`                 | Name the first site without a prompt (defaults to `APP_NAME`)     |
 | `--no-frontend-build`              | Skip the frontend dependency install and build at the end         |
 | `--customise`                      | Open the full installation questionnaire                          |

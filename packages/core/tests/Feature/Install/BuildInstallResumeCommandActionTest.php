@@ -31,6 +31,14 @@ it('replays the original install options so every earlier choice carries over', 
     expect($command)->toBe("php artisan capell:install '--theme=bold' '--site-name=My Site' '--no-seed-default-data' '--table-prefix=cms_'");
 });
 
+it('replays the preset and publish choices so a stopped preset install resumes the same way', function (): void {
+    $command = BuildInstallResumeCommandAction::run(resumeInput(), [
+        'artisan', 'capell:install', '--preset=marketing', '--publish', '--site-name=My Site', '--no-interaction',
+    ]);
+
+    expect($command)->toBe("php artisan capell:install '--preset=marketing' '--publish' '--site-name=My Site' '--no-interaction'");
+});
+
 it('replays only allowlisted options and never a secret of any kind', function (): void {
     $command = BuildInstallResumeCommandAction::run(resumeInput(), [
         'artisan', 'capell:install', '--fresh=force', '--plan', '--password', 'hunter2', '--role-user-password=hunter3', '--email=a@example.com',

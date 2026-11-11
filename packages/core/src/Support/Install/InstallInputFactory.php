@@ -137,6 +137,8 @@ final class InstallInputFactory
         ?string $selectedThemeKey = null,
         array $extraPackages = [],
         ?string $siteName = null,
+        ?string $presetKey = null,
+        bool $publish = false,
     ): InstallInputData {
         return new InstallInputData(
             siteUrl: $siteUrl,
@@ -162,6 +164,8 @@ final class InstallInputFactory
             seedDatabase: $seedDatabase,
             initialInstallation: DetectInitialInstallationAction::run(),
             siteName: $siteName,
+            presetKey: $presetKey,
+            publish: $publish,
         );
     }
 

@@ -49,5 +49,7 @@ final class InstallInputData extends Data
         public readonly bool $seedDatabase = false,
         public readonly bool $initialInstallation = false,
         public readonly ?string $siteName = null,
+        public readonly ?string $presetKey = null,
+        public readonly bool $publish = false,
     ) {}
 }

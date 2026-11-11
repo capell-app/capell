@@ -47,6 +47,7 @@ final class BuildInstallSummaryLinesAction
         $lines = [
             '<fg=blue;options=bold>' . $this->escape($title) . '</>',
             '',
+            ...$this->presetLines($handoff),
             ...$this->installedLines($handoff),
             $this->row(__('capell-core::install.handoff.summary.site'), $handoff->urls['public'] !== '' ? $handoff->urls['public'] : __('capell-core::install.handoff.summary.unavailable')),
             $this->row(__('capell-core::install.handoff.summary.admin'), $handoff->urls['admin'] ?? __('capell-core::install.handoff.summary.unavailable')),
@@ -67,6 +68,18 @@ final class BuildInstallSummaryLinesAction
         }
 
         return $lines;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function presetLines(InstallHandoffData $handoff): array
+    {
+        if ($handoff->preset === null) {
+            return [];
+        }
+
+        return [$this->row(__('capell-core::install.handoff.summary.preset'), $handoff->preset['label'])];
     }
 
     /**

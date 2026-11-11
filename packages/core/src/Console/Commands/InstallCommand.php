@@ -9,11 +9,15 @@ use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\BuildInstallReviewAction;
 use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
+use Capell\Core\Actions\Install\DetectInitialInstallationAction;
 use Capell\Core\Actions\Install\FindTableCollisionsAction;
+use Capell\Core\Actions\Install\IsPrivateSiteSpecFileAction;
 use Capell\Core\Actions\Install\MakeInstallProgressReporterAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
+use Capell\Core\Actions\Install\PublishInstalledSiteAction;
 use Capell\Core\Actions\Install\ResolveInstallFirstPageStatusAction;
+use Capell\Core\Actions\Install\ResolveInstallPresetAction;
 use Capell\Core\Actions\Install\ResolveTableCollisionsAction;
 use Capell\Core\Actions\Install\RunArtisanCommandAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
@@ -34,10 +38,12 @@ use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\Install\InstallStepData;
+use Capell\Core\Data\Install\InstallSuiteSelectionData;
 use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Exceptions\UnknownInstallPreset;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Filesystem\AbsolutePath;
@@ -57,6 +63,7 @@ use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallSiteName;
 use Capell\Core\Support\Install\InstallSiteUrl;
 use Capell\Core\Support\Install\RemembersInstallPatchDecision;
@@ -65,6 +72,8 @@ use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -98,6 +107,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--update-app-url : Set APP_URL to the reviewed site address after confirmation}
         {--demo}
         {--minimal : Install Core, Admin, Frontend and the default theme only, with no sample content, Marketplace or developer tooling}
+        {--preset= : Start from a site type: its packages, theme and sample content (for example marketing, blog or docs)}
+        {--publish : Publish the draft pages of the new site at the end of the install}
         {--site-name= : Name of the first site (defaults to APP_NAME)}
         {--no-frontend-build : Skip installing frontend dependencies and building assets at the end of the default install}
         {--allow-demo-credentials : Explicitly allow the known demo administrator credentials in production}
@@ -173,6 +184,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private ?string $siteName = null;
 
+    private ?string $presetKey = null;
+
     /** Whether the chosen suite starts with sample content; null when it has no preference. */
     private ?bool $sampleContentDefault = null;
 
@@ -217,6 +230,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->suiteDownloadPackages = [];
         $this->suiteThemeKey = null;
         $this->siteName = null;
+        $this->presetKey = null;
         $this->sampleContentDefault = null;
         $this->manualInstallChanges = [];
 
@@ -374,6 +388,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             is_string($specOption) ? $specOption : null,
             $this->orchestratedSeedDefaultData,
         );
+
+        if ($inputData->publish) {
+            $this->publishInstalledSite($inputData);
+        }
 
         $frontendSelected = in_array('capell-app/frontend', $result->selectedPackages, true)
             || in_array(InstallPlan::packageAfterInstallStepKey('capell-app/frontend'), $result->completedSteps, true);
@@ -976,7 +994,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     {
         $conflicts = [];
 
-        foreach (['customise', 'demo', 'packages', 'package-mode', 'all-packages', 'profile', 'recommendation', 'recommendation-action', 'developer-tooling', 'install-welcome-route'] as $option) {
+        foreach (['customise', 'demo', 'packages', 'package-mode', 'all-packages', 'profile', 'preset', 'recommendation', 'recommendation-action', 'developer-tooling', 'install-welcome-route'] as $option) {
             if ($this->option($option) || $this->optionWasProvidedOnCommandLine($option)) {
                 $conflicts[] = '--' . $option;
             }
@@ -1322,6 +1340,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
             extraPackages: $extraPackages,
             siteName: $this->siteName,
+            presetKey: $this->presetKey,
+            publish: (bool) $this->option('publish'),
         );
     }
 
@@ -1356,6 +1376,16 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $recommendationExitCode = $this->applyInstallRecommendationDefaults();
         if ($recommendationExitCode !== null) {
             return $recommendationExitCode;
+        }
+
+        $presetExitCode = $this->applyInstallPresetDefaults();
+        if ($presetExitCode !== null) {
+            return $presetExitCode;
+        }
+
+        $publishExitCode = $this->validatePublishOption();
+        if ($publishExitCode !== null) {
+            return $publishExitCode;
         }
 
         $newUser = $this->userPrompter()->newUserFromOptions($this->option('name'), $this->option('email'), $this->option('password'));
@@ -1665,6 +1695,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $alreadyDecided = filled($this->option('packages')) || $this->installProfile instanceof InstallProfileData
             || $this->option('plan')
             || $this->shouldUseFreshDemoDefaults()
+            || filled($this->option('preset'))
             || filled($this->option('recommendation'))
             || filled($this->option('recommendation-action'))
             || $this->optionWasProvidedOnCommandLine('packages')
@@ -1685,14 +1716,26 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return;
         }
 
+        $this->applySuiteSelection($selection, $freshInstall);
+    }
+
+    /**
+     * Turn a suite selection, whether answered at the prompt or named with --preset, into the
+     * package, theme and sample-content settings the rest of the flow reads. Unregistered,
+     * non-core extensions cannot go through --packages, so they join the Composer downloads.
+     */
+    private function applySuiteSelection(InstallSuiteSelectionData $selection, bool $freshInstall, bool $withPackages = true): void
+    {
         $installable = fn (string $packageName): bool => CapellCore::hasPackage($packageName)
             || TrustedCorePackages::contains($packageName);
 
-        $this->suiteDownloadPackages = array_values(array_filter(
-            $selection->packages,
-            fn (string $packageName): bool => ! $installable($packageName),
-        ));
-        $this->input->setOption('packages', implode(',', array_values(array_filter($selection->packages, $installable))));
+        if ($withPackages) {
+            $this->suiteDownloadPackages = array_values(array_filter(
+                $selection->packages,
+                fn (string $packageName): bool => ! $installable($packageName),
+            ));
+            $this->input->setOption('packages', implode(',', array_values(array_filter($selection->packages, $installable))));
+        }
 
         $this->suiteThemeKey = $selection->theme;
 
@@ -1703,6 +1746,91 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         } elseif ($selection->demo !== null && ! $freshInstall && ! $this->optionWasProvidedOnCommandLine('demo')) {
             $this->input->setOption('demo', $selection->demo);
         }
+    }
+
+    /**
+     * --preset=<name> answers "What are you building?" without asking. It supplies the same
+     * packages, theme and sample-content default as that answer; --packages, --package-mode,
+     * --all-packages, --theme and --demo given on the command line still win.
+     */
+    private function applyInstallPresetDefaults(): ?int
+    {
+        $key = $this->option('preset');
+
+        if (! is_string($key) || trim($key) === '') {
+            return null;
+        }
+
+        $conflicts = array_values(array_filter(
+            ['profile', 'recommendation', 'recommendation-action'],
+            fn (string $option): bool => $this->option($option) || $this->optionWasProvidedOnCommandLine($option),
+        ));
+
+        if ($conflicts !== []) {
+            $options = implode(', ', array_map(fn (string $option): string => '--' . $option, $conflicts));
+            $this->error(__('capell-core::install.preset.conflict', ['options' => $options]));
+            $this->line(__('capell-core::install.preset.conflict_remove', ['options' => $options]));
+
+            return CommandAlias::FAILURE;
+        }
+
+        try {
+            $preset = ResolveInstallPresetAction::run($key);
+        } catch (UnknownInstallPreset $unknownInstallPreset) {
+            $this->error($unknownInstallPreset->getMessage());
+            $this->line($unknownInstallPreset->validKeys === []
+                ? __('capell-core::install.preset.none_available')
+                : __('capell-core::install.preset.valid', ['presets' => implode(', ', $unknownInstallPreset->validKeys)]));
+
+            return CommandAlias::FAILURE;
+        }
+
+        $this->presetKey = $preset->key;
+        [$freshInstall] = $this->freshInstallOptions();
+        $this->applySuiteSelection(
+            $preset->selection(),
+            $freshInstall,
+            withPackages: ! ($this->optionWasProvidedOnCommandLine('packages')
+                || $this->optionWasProvidedOnCommandLine('package-mode')
+                || $this->optionWasProvidedOnCommandLine('all-packages')),
+        );
+
+        return null;
+    }
+
+    /** Runs after the optional spec import, so the imported site's draft pages go live with the rest. */
+    private function publishInstalledSite(InstallInputData $inputData): void
+    {
+        /** @var class-string<Model&Authenticatable> $userModel */
+        $userModel = config('auth.providers.users.model');
+        $actor = $inputData->userId !== null
+            ? $userModel::query()->find($inputData->userId)
+            : $userModel::query()->where('email', $inputData->newUser?->email)->first();
+
+        throw_unless($actor instanceof Authenticatable, RuntimeException::class, (string) __('capell-core::install.publish.no_user'));
+
+        $result = PublishInstalledSiteAction::run($actor);
+        $this->line(__('capell-core::install.publish.done', ['count' => $result->published]));
+    }
+
+    /** A private site spec holds its first page back, so publishing it would only reveal "Coming soon". */
+    private function validatePublishOption(): ?int
+    {
+        if ($this->option('publish') && ! DetectInitialInstallationAction::run() && ! InstallRunState::hasPendingInitialInstallation()) {
+            $this->error(__('capell-core::install.publish.already_installed'));
+
+            return CommandAlias::FAILURE;
+        }
+
+        $spec = $this->option('spec');
+
+        if (! $this->option('publish') || ! is_string($spec) || $spec === '' || ! IsPrivateSiteSpecFileAction::run($spec)) {
+            return null;
+        }
+
+        $this->error(__('capell-core::install.publish.private_spec'));
+
+        return CommandAlias::FAILURE;
     }
 
     private function optionWasProvidedOnCommandLine(string $option): bool
