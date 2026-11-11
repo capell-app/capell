@@ -93,6 +93,7 @@ trait HasMigrations
             '2026_11_03_000001_add_node_columns_to_capell_security_remediation_runs_table',
             '2026_11_03_000001_create_capell_extension_quarantines_table',
             '2026_11_08_000001_add_source_to_page_revisions_table',
+            '2026_11_11_000001_add_standalone_visibility_indexes_to_pages_table',
         ];
     }
 
