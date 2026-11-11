@@ -9,3 +9,9 @@ includes:
     - ../vendor/larastan/larastan/extension.neon
     - ../vendor/pestphp/pest-plugin-phpstan/extension.neon
     - ../vendor/tomasvotruba/type-coverage/config/extension.neon
+
+services:
+    -
+        class: Capell\Core\PHPStan\PublicRenderDataModelRule
+        tags:
+            - phpstan.rules.rule
