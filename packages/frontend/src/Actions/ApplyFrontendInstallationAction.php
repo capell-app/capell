@@ -33,7 +33,7 @@ final class ApplyFrontendInstallationAction
     /** @param list<string> $command */
     private function runCommand(array $command, ?ProgressReporter $reporter, string $remediation): void
     {
-        $result = Process::timeout(self::PROCESS_TIMEOUT_SECONDS)->run($command);
+        $result = Process::path(base_path())->timeout(self::PROCESS_TIMEOUT_SECONDS)->run($command);
         foreach ([$result->output(), $result->errorOutput()] as $output) {
             if ($output !== '') {
                 $reporter?->report($output);

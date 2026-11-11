@@ -133,11 +133,14 @@ it('applies separate dependency commands generates the input manifest and builds
             ],
         ]);
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'install', 'swiper@^12.0.0']
-        && $process->timeout === 900);
+        && $process->timeout === 900
+        && $process->path === base_path());
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'install', '--save-dev', 'vite-plugin-example@^2.0.0']
-        && $process->timeout === 900);
+        && $process->timeout === 900
+        && $process->path === base_path());
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'run', 'build']
-        && $process->timeout === 900);
+        && $process->timeout === 900
+        && $process->path === base_path());
 });
 
 it('requires interactive confirmation before applying the printed plan', function (): void {
