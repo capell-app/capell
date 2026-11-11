@@ -98,15 +98,17 @@ final class PublicHtmlSanitizer
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
 
+        // Parse the fragment straight into <body>. Wrapping it in a <div> let an unbalanced closing tag
+        // (a stray </div>) close the wrapper early, silently dropping everything after it.
         $document->loadHTML(
-            '<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><div id="capell-sanitize-root">' . $html . '</div></body></html>',
+            '<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>' . $html . '</body></html>',
             LIBXML_HTML_NODEFDTD | LIBXML_NONET,
         );
 
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
-        $root = $document->getElementById('capell-sanitize-root');
+        $root = $document->getElementsByTagName('body')->item(0);
 
         if (! $root instanceof DOMElement) {
             return '';
