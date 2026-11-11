@@ -35,6 +35,41 @@
             "covers": ["packages/admin/src/Filament/Pages/CapellDashboard.php"]
         },
         {
+            "id": "admin-dashboard-first-run",
+            "title": "Admin dashboard before the first publish.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "CapellDashboard",
+            "output": "packages/admin/docs/images/screenshots/admin-dashboard-first-run.png",
+            "waitFor": "[data-first-run-task='publish']",
+            "colorSchemes": ["light", "dark"],
+            "required": false,
+            "explicitOnly": true,
+            "notes": "Shows the first-run checklist, which only appears while no site has a public home page. The install publishes its site, so this state is created by a fixture that is applied only to a run of first-run entries. Capture with --only admin-dashboard-first-run.",
+            "covers": [
+                "packages/admin/src/Filament/Widgets/Dashboard/FirstRunChecklistFilamentWidget.php"
+            ]
+        },
+        {
+            "id": "admin-dashboard-first-run-mobile",
+            "title": "Admin dashboard before the first publish at mobile width.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "CapellDashboard",
+            "viewport": "mobile",
+            "output": "packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile.png",
+            "waitFor": "[data-first-run-task='publish']",
+            "colorSchemes": ["light", "dark"],
+            "required": false,
+            "explicitOnly": true,
+            "notes": "The first-run checklist stacked for a phone. Capture with --only admin-dashboard-first-run-mobile.",
+            "covers": [
+                "packages/admin/src/Filament/Widgets/Dashboard/FirstRunChecklistFilamentWidget.php"
+            ]
+        },
+        {
             "id": "security-page",
             "title": "Security findings page.",
             "package": "admin",
