@@ -18,6 +18,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Data\PageResolutionData;
 use Capell\Frontend\Data\PublicPageResolutionInputData;
+use Capell\Frontend\Support\Cache\PublicUrlMissCache;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Capell\Frontend\Support\Logging\FrontendLogger;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
@@ -34,6 +35,12 @@ final class ResolvePublicPageRequestAction
 
     public function handle(PublicPageResolutionInputData $input): PageResolutionData
     {
+        $rememberable = $input->revisionPageId === null && ! $input->wildcardAlreadyAttempted;
+
+        if ($rememberable && PublicUrlMissCache::knowsMiss($input->site, $input->language, $input->url)) {
+            return $this->missingPage($input, attemptedWildcard: true);
+        }
+
         $pageUrl = $this->findPageUrl($input->site, $input->language, $input->url);
         $redirect = $this->resolveRedirect($input->site, $input->language, $input->url, $pageUrl);
 
@@ -63,13 +70,22 @@ final class ResolvePublicPageRequestAction
             );
         }
 
+        if ($rememberable) {
+            PublicUrlMissCache::rememberMiss($input->site, $input->language, $input->url);
+        }
+
+        return $this->missingPage($input, $wildcardResolution->attemptedWildcard);
+    }
+
+    private function missingPage(PublicPageResolutionInputData $input, bool $attemptedWildcard): PageResolutionData
+    {
         if ($input->abortMissingForBot) {
             $this->logger->info('[Frontend] Page not found for bot request; aborting 404');
 
             return new PageResolutionData(
                 page: null,
                 shouldAbort404: true,
-                attemptedWildcard: $wildcardResolution->attemptedWildcard,
+                attemptedWildcard: $attemptedWildcard,
             );
         }
 
@@ -83,13 +99,13 @@ final class ResolvePublicPageRequestAction
             return new PageResolutionData(
                 page: null,
                 shouldAbort404: true,
-                attemptedWildcard: $wildcardResolution->attemptedWildcard,
+                attemptedWildcard: $attemptedWildcard,
             );
         }
 
         return new PageResolutionData(
             page: $errorPage,
-            attemptedWildcard: $wildcardResolution->attemptedWildcard,
+            attemptedWildcard: $attemptedWildcard,
             isErrorPage: true,
         );
     }

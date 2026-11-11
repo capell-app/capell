@@ -14,6 +14,8 @@ use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
@@ -106,6 +108,7 @@ use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
+use Capell\Frontend\Support\Cache\PublicUrlMissCache;
 use Capell\Frontend\Support\Cache\Resolvers\MediaTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\PageableTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\SiteTranslationCacheDependencyResolver;
@@ -463,6 +466,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerSubscribers()
             ->bootstrapFrontendEvents()
             ->registerPublicViewQueryListener()
+            ->registerPublicUrlMissInvalidation()
             ->registerScheduledPublicationInvalidation()
             ->registerSettingsSchemas()
             ->registerAgentSchemaHook()
@@ -673,6 +677,19 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function bootstrapFrontendEvents(): self
     {
         $this->app->make(FrontendEventBootstrapper::class)->boot();
+
+        return $this;
+    }
+
+    private function registerPublicUrlMissInvalidation(): self
+    {
+        foreach ([Page::class, PageUrl::class] as $model) {
+            foreach (['saved', 'deleted', 'restored'] as $event) {
+                $model::{$event}(static function (): void {
+                    PublicUrlMissCache::invalidate();
+                });
+            }
+        }
 
         return $this;
     }
