@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Install;
 
+use Capell\Core\Data\Diagnostics\DoctorWarningSummaryData;
 use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
@@ -48,7 +49,7 @@ final class BuildInstallHandoffAction
 
         $nonDoctorWarningCount = count(array_unique($warnings));
         foreach ($result->doctorWarnings as $warning) {
-            $warnings[] = $warning['message'] . ' Run php artisan capell:doctor for details.';
+            $warnings[] = $warning['message'] . ' ' . __('capell-core::health.doctor.handoff_pointer', ['command' => DoctorWarningSummaryData::LIST_COMMAND]);
         }
 
         $selectedPackages = array_values(collect($result->selectedPackages)

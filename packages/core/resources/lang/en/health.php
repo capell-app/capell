@@ -27,6 +27,20 @@ return [
         'unrecorded' => 'The installation is incomplete, but the installer did not record which step stopped. Capell may be only partly set up.',
         'unrecorded_remediation' => 'Run php artisan capell:install to finish the installation. Add --plan first to see the steps.',
     ],
+    'doctor' => [
+        'warning_summary' => '{0} No checks reported warnings.|{1} :count check reported a warning. The site still works, but the warning is worth fixing. To list it, run: :command|[2,*] :count checks reported warnings. The site still works, but the warnings are worth fixing. To list them, run: :command',
+        'handoff_pointer' => 'To list the warnings, run: :command',
+        'all_passed' => 'All checks passed.',
+        'passed_with_warnings' => 'Checks passed with warnings. The site works; fix the warnings when you can.',
+        'failed' => 'One or more checks failed. See suggestions above.',
+        'no_warnings_to_list' => 'No checks reported warnings.',
+        'runtime_stage_passed' => 'All Capell Doctor checks passed.',
+        'runtime_stage_passed_with_warnings' => 'Capell Doctor passed with :count warning(s) that do not stop the site working. To list them, run: :command',
+        'runtime_stage_failed' => 'Failed checks: :checks.',
+        'theme_passed' => 'All theme checks passed.',
+        'theme_passed_with_warnings' => 'Theme checks passed with :count warning(s) that do not stop the theme working.',
+        'theme_failed' => 'One or more theme checks failed. See suggestions above.',
+    ],
     'cache' => [
         'enabled' => [
             'label' => 'Core cache enabled',

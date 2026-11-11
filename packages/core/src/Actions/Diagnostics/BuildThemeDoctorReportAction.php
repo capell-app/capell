@@ -40,10 +40,7 @@ final class BuildThemeDoctorReportAction
             $this->identified($this->checkRuntimeRegistry($theme, $themePath), 'theme.runtime.registered', DoctorCheckSeverity::Critical),
         ]);
 
-        return new DoctorReportData(
-            status: $checks->every(fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
-            checks: $checks->values(),
-        );
+        return DoctorReportData::fromChecks($checks);
     }
 
     private function identified(

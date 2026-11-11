@@ -12,8 +12,10 @@ use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
+use Capell\Core\Data\Diagnostics\DoctorWarningSummaryData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\Diagnostics\CapellInstallationState;
+use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
@@ -83,6 +85,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
         $demoFindings = [];
         $demoChecksPassed = 0;
+        $demoChecksWithWarnings = 0;
         $demoChecks = [
             $this->queueConnectionCheck(),
             $this->cacheStoreCheck(),
@@ -99,11 +102,18 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             } else {
                 $demoChecksPassed++;
             }
+
+            if ($demoCheck->isWarning()) {
+                $demoChecksWithWarnings++;
+            }
         }
 
         $checksPassed = $doctorChecks
-            ->filter(fn (DoctorCheckResultData $doctorCheck): bool => $doctorCheck->passed)
+            ->filter(fn (DoctorCheckResultData $doctorCheck): bool => $doctorCheck->outcome() === DoctorCheckOutcome::Passed)
             ->count() + $demoChecksPassed;
+        $checksWithWarnings = $doctorChecks
+            ->filter(fn (DoctorCheckResultData $doctorCheck): bool => $doctorCheck->isWarning())
+            ->count() + $demoChecksWithWarnings;
         $checksTotal = $doctorChecks->count() + count($demoChecks);
 
         return new ReportSnapshotData(
@@ -140,6 +150,13 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
                     value: sprintf('%d / %d', $checksPassed, $checksTotal),
                     description: __('capell-admin::reports.demo_install_health_metric_checks_passed_description'),
                 ),
+                new ReportMetricData(
+                    label: __('capell-admin::reports.demo_install_health_metric_checks_with_warnings'),
+                    value: $checksWithWarnings,
+                    description: __('capell-admin::reports.demo_install_health_metric_checks_with_warnings_description', [
+                        'command' => DoctorWarningSummaryData::LIST_COMMAND,
+                    ]),
+                ),
             ],
             findings: array_merge($doctorFindings, $demoFindings),
         );
@@ -147,7 +164,9 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
     private function findingForFailedCheck(DoctorCheckResultData $check): ?ReportFindingData
     {
-        if ($check->passed) {
+        $outcome = $check->outcome();
+
+        if ($outcome === DoctorCheckOutcome::Passed) {
             return null;
         }
 
@@ -160,10 +179,12 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         }
 
         return new ReportFindingData(
-            severity: match ($check->severity) {
-                DoctorCheckSeverity::Critical => ReportFindingSeverity::Critical,
-                DoctorCheckSeverity::Warning => ReportFindingSeverity::Warning,
-                DoctorCheckSeverity::Info => ReportFindingSeverity::Info,
+            // The outcome, not the declared severity, says whether the problem
+            // blocks the install: a warning stays a warning in the report.
+            severity: match (true) {
+                $outcome === DoctorCheckOutcome::Failed => ReportFindingSeverity::Critical,
+                $check->severity === DoctorCheckSeverity::Info => ReportFindingSeverity::Info,
+                default => ReportFindingSeverity::Warning,
             },
             title: $check->label,
             description: $description,

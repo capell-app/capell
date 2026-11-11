@@ -506,16 +506,22 @@ Runs Capell's health checks and reports what is wrong with an installation. This
 ```bash
 php artisan capell:doctor
 php artisan capell:doctor --json
+php artisan capell:doctor --warnings
 ```
 
 | Option                      | Use it for                                                                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--json`                    | Machine-readable report for monitoring or CI                                                                                               |
+| `--warnings`                | List only the checks that reported warnings                                                                                                |
 | `--install-summary`         | The installer-focused summary, including package-owned checks                                                                              |
 | `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                                                                       |
 | `--connection=`             | Verify against an existing database connection instead of the default                                                                      |
 | `--database=`               | Override that connection's database name or path for isolated verification                                                                 |
 | `--repair-page-url-domains` | **Writes data.** Creates or restores a site domain at a free address for each site and language whose page URLs have none, before checking |
+
+A check ends in one of three outcomes. A passed check is clean. A warning is a problem the site can run with, such as a missing optional binary or an extension manifest that does not meet the v3 contract. A failure is a problem that stops the site working. The summary shows how many checks reported warnings and the exact command to list them.
+
+Failures exit non-zero. Warnings alone exit `0`, so a warning never blocks a deploy or an install. The JSON report carries the same information: each check has an `outcome` (`passed`, `warning` or `failed`) and the report has a `warning_count`.
 
 Every option except `--repair-page-url-domains` is read-only. That one repairs records before reporting, so run the command without it first and read the result before letting it change anything.
 

@@ -6,7 +6,9 @@ namespace Capell\Core\Actions\RuntimeRefresh;
 
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
+use Capell\Core\Data\Diagnostics\DoctorWarningSummaryData;
 use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshStageResultData;
+use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -19,7 +21,7 @@ class RunRuntimeDoctorAction
     {
         $report = BuildDoctorReportAction::run();
         $failures = $report->checks
-            ->reject(fn (DoctorCheckResultData $check): bool => $check->passed)
+            ->filter(fn (DoctorCheckResultData $check): bool => $check->outcome() === DoctorCheckOutcome::Failed)
             ->map(fn (DoctorCheckResultData $check): string => $check->label)
             ->values()
             ->all();
@@ -28,9 +30,14 @@ class RunRuntimeDoctorAction
             key: 'doctor',
             label: 'Capell Doctor',
             passed: $report->passed(),
-            message: $report->passed()
-                ? 'All Capell Doctor checks passed.'
-                : sprintf('Failed checks: %s.', implode(', ', $failures)),
+            message: match (true) {
+                ! $report->passed() => (string) __('capell-core::health.doctor.runtime_stage_failed', ['checks' => implode(', ', $failures)]),
+                $report->warningCount() > 0 => (string) __('capell-core::health.doctor.runtime_stage_passed_with_warnings', [
+                    'count' => $report->warningCount(),
+                    'command' => DoctorWarningSummaryData::LIST_COMMAND,
+                ]),
+                default => (string) __('capell-core::health.doctor.runtime_stage_passed'),
+            },
         );
     }
 }

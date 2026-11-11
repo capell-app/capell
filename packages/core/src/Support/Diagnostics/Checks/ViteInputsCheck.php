@@ -18,7 +18,7 @@ final class ViteInputsCheck extends AbstractDoctorCheck
 
     protected function severity(): DoctorCheckSeverity
     {
-        return DoctorCheckSeverity::Warning;
+        return DoctorCheckSeverity::Critical;
     }
 
     protected function run(bool $installSummary): DoctorCheckResultData

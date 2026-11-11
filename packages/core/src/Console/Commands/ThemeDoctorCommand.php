@@ -8,6 +8,7 @@ use Capell\Core\Actions\Diagnostics\BuildThemeDoctorReportAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
@@ -59,31 +60,37 @@ final class ThemeDoctorCommand extends Command
         });
         $this->newLine();
 
-        $report->passed()
-            ? $this->info('All theme checks passed.')
-            : $this->error('One or more theme checks failed. See suggestions above.');
+        if (! $report->passed()) {
+            $this->error((string) __('capell-core::health.doctor.theme_failed'));
+
+            return;
+        }
+
+        $report->warningCount() > 0
+            ? $this->info((string) __('capell-core::health.doctor.theme_passed_with_warnings', ['count' => $report->warningCount()]))
+            : $this->info((string) __('capell-core::health.doctor.theme_passed'));
     }
 
     private function outputCheckResult(DoctorCheckResultData $check): void
     {
-        $icon = $check->passed
-            ? '<fg=green>✓</>'
-            : match ($check->severity) {
-                DoctorCheckSeverity::Info => '<fg=blue>i</>',
-                DoctorCheckSeverity::Warning => '<fg=yellow>!</>',
-                DoctorCheckSeverity::Critical => '<fg=red>✗</>',
-            };
+        $outcome = $check->outcome();
+        $icon = match (true) {
+            $outcome === DoctorCheckOutcome::Passed => '<fg=green>✓</>',
+            $outcome === DoctorCheckOutcome::Warning && $check->severity === DoctorCheckSeverity::Info => '<fg=blue>i</>',
+            $outcome === DoctorCheckOutcome::Warning => '<fg=yellow>!</>',
+            default => '<fg=red>✗</>',
+        };
+        $colour = match ($outcome) {
+            DoctorCheckOutcome::Passed => 'green',
+            DoctorCheckOutcome::Warning => $check->severity === DoctorCheckSeverity::Info ? 'blue' : 'yellow',
+            DoctorCheckOutcome::Failed => 'red',
+        };
         $this->components->twoColumnDetail(
             sprintf('%s %s', $icon, $check->label),
-            match (true) {
-                $check->passed => '<fg=green>' . $check->message . '</>',
-                $check->severity === DoctorCheckSeverity::Info => '<fg=blue>' . $check->message . '</>',
-                $check->severity === DoctorCheckSeverity::Warning => '<fg=yellow>' . $check->message . '</>',
-                default => '<fg=red>' . $check->message . '</>',
-            },
+            sprintf('<fg=%s>%s</>', $colour, $check->message),
         );
 
-        if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
+        if ($outcome !== DoctorCheckOutcome::Passed && $check->remediation !== null && $check->remediation !== '') {
             $this->line(sprintf('  <fg=yellow>Fix:</> %s', $check->remediation));
         }
     }

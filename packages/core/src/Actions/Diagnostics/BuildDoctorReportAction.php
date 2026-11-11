@@ -84,10 +84,7 @@ final class BuildDoctorReportAction
             $checks = $checks->merge($this->installedPackageDoctorChecks());
         }
 
-        return new DoctorReportData(
-            status: $checks->every(fn (DoctorCheckResultData $check): bool => $check->passed) ? 'passed' : 'failed',
-            checks: $checks->values(),
-        );
+        return DoctorReportData::fromChecks($checks);
     }
 
     /** @return Collection<int, DoctorCheckResultData> */
