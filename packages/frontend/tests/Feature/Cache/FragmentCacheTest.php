@@ -9,7 +9,6 @@ use Capell\Frontend\Tests\Fixtures\FragmentCacheTestStore;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\FileStore;
 use Illuminate\Cache\Repository;
-use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Sleep;
@@ -46,15 +45,17 @@ it('separates origin-bound fragments by port and invalidates every port through 
     }
 });
 
-it('reuses legacy fragment keys on explicit and implicit standard ports', function (string $origin): void {
+it('ignores unversioned legacy values and re-renders once on explicit and implicit standard ports', function (string $origin): void {
     $repository = new Repository(new ArrayStore);
     $repository->put('fragment:namespace', 'existing-namespace', 3600);
     $repository->put('fragment:existing-namespace:value:form', 'existing form', 3600);
 
     app()->instance('request', Request::create($origin));
 
-    expect(new FragmentCache($repository)->remember('form', static fn (): string => 'unexpected miss'))
-        ->toBe('existing form');
+    $fragments = new FragmentCache($repository);
+
+    expect($fragments->remember('form', static fn (): string => 'rendered'))->toBe('rendered')
+        ->and($fragments->remember('form', static fn (): string => 'unexpected miss'))->toBe('rendered');
 })->with(['http://cache.example.test', 'http://cache.example.test:80', 'https://cache.example.test', 'https://cache.example.test:443']);
 
 it('flushes only fragments including fragments without surrogate keys', function (bool $supportsTags): void {
@@ -121,7 +122,7 @@ it('invalidates numeric surrogate keys without losing other fragment ownership',
     }
 })->with(['taggable' => true, 'non-tagging' => false]);
 
-it('retains the literal pre-change fragment key across standard-port warm serve and purge', function (array|string|null $context, bool $trusted): void {
+it('keeps one fragment key across standard-port warm serve and purge', function (array|string|null $context, bool $trusted): void {
     $store = new ArrayStore;
     $repository = new Repository($store);
     $repository->put('fragment:namespace', 'fixed', 3600);
@@ -132,17 +133,16 @@ it('retains the literal pre-change fragment key across standard-port warm serve 
     CacheOriginContexts::bind($context, $trusted);
 
     expect($fragments->remember('public', static fn (): string => 'miss', surrogateKeys: ['page:2']))->toBe('warmed')
-        ->and($repository->get('fragment:fixed:value:public'))->toBe('warmed')
+        ->and($repository->get('fragment:fixed:v2:value:public')['value'])->toBe('warmed')
         ->and(array_values(array_filter(array_keys($store->all()), static fn (string $key): bool => str_contains($key, ':value:'))))
-        ->toBe(['fragment:fixed:value:public']);
+        ->toBe(['fragment:fixed:v2:value:public']);
     $fragments->remember('other', static fn (): string => 'keep', surrogateKeys: ['page:3']);
     $repository->put('unrelated', 'sentinel', 60);
 
     CacheOriginContexts::bind(null);
     $fragments->invalidateBySurrogateKey('page:1');
     CacheOriginContexts::bind($context, $trusted);
-    expect($repository->get('fragment:fixed:value:public'))->toBeNull()
-        ->and($fragments->remember('public', static fn (): string => 'refilled'))->toBe('refilled')
+    expect($fragments->remember('public', static fn (): string => 'refilled'))->toBe('refilled')
         ->and($fragments->remember('other', static fn (): string => 'miss'))->toBe('keep')
         ->and($repository->get('unrelated'))->toBe('sentinel');
     $fragments->invalidateBySurrogateKey('page:2');
@@ -195,14 +195,14 @@ it('cannot alias a caller-supplied standard-port fragment key or delete its valu
     $variantKey = array_values(array_filter(array_keys($store->all()), static fn (string $key): bool => ! str_contains($key, ':surrogate:') && $key !== 'fragment:namespace'))[0];
 
     CacheOriginContexts::bind('https://cache.example.test');
-    $logicalKeys = ['alias:origin:https:8443', substr($variantKey, strlen('fragment:fixed:value:'))];
+    $logicalKeys = ['alias:origin:https:8443', substr($variantKey, strlen('fragment:fixed:v2:value:'))];
     foreach ($logicalKeys as $logicalKey) {
         expect($fragments->remember($logicalKey, static fn (): string => 'unrelated standard', surrogateKeys: ['unrelated']))->toBe('unrelated standard');
     }
 
     $fragments->invalidateBySurrogateKey('target');
     foreach ($logicalKeys as $logicalKey) {
-        expect($repository->get('fragment:fixed:value:' . $logicalKey))->toBe('unrelated standard');
+        expect($repository->get('fragment:fixed:v2:value:' . $logicalKey)['value'])->toBe('unrelated standard');
     }
 
     CacheOriginContexts::bind('https://cache.example.test:8443');
@@ -253,60 +253,99 @@ it('serves a tracked cache hit without taking the surrogate lock or writing', fu
         ->and($store->putCalls)->toBe(0);
 });
 
-it('repairs missing surrogate membership for a tracked cache hit', function (): void {
-    $store = new FragmentCacheTestStore;
-    $repository = new Repository($store);
+it("extends a tracked entry's ownership when a hit names an additional surrogate", function (): void {
+    $repository = new Repository(new ArrayStore);
     $repository->put('fragment:namespace', 'fixed', 3600);
-    $repository->put('fragment:fixed:value:tracked', 'cached', 3600);
 
     $fragments = new FragmentCache($repository);
     CacheOriginContexts::bind('console');
-    $store->lockCalls = 0;
-    $store->putCalls = 0;
 
-    expect($fragments->remember('tracked', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))
-        ->toBe('cached')
-        ->and($store->lockCalls)->toBe(1)
-        ->and($store->putCalls)->toBe(1)
-        ->and($repository->get('fragment:fixed:surrogate:map'))
-        ->toBe(['page:1' => ['fragment:fixed:value:tracked']]);
+    $fragments->remember('tracked', static fn (): string => 'cached', surrogateKeys: ['page:1']);
+
+    expect($fragments->remember('tracked', static fn (): string => 'unexpected', surrogateKeys: ['page:2']))->toBe('cached');
+
+    $fragments->invalidateBySurrogateKey('page:1');
+    expect($fragments->remember('tracked', static fn (): string => 'fresh'))->toBe('fresh');
 });
 
-it('never serves a value republished into the old namespace after flush', function (): void {
+it('serves a tracked hit without reading or unserialising the legacy surrogate map', function (): void {
     $store = new FragmentCacheTestStore;
     $repository = new Repository($store);
+    $repository->put('fragment:namespace', 'fixed', 3600);
+    $repository->put('fragment:fixed:surrogate:map', ['page:1' => ['fragment:fixed:value:x']], 3600);
+
+    $fragments = new FragmentCache($repository);
+    CacheOriginContexts::bind('console');
+    $fragments->remember('tracked', static fn (): string => 'cached', surrogateKeys: ['page:1']);
+
+    // A map that would throw if read proves the hit path never touches it.
+    $repository->put('fragment:fixed:surrogate:map', 'not-an-array-map', 3600);
+    $store->putCalls = 0;
+
+    expect($fragments->remember('tracked', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('cached')
+        ->and($store->putCalls)->toBe(0)
+        ->and($store->lockCalls)->toBe(0);
+});
+
+it('does not serve an entry whose surrogate was purged after it was written', function (): void {
+    $repository = new Repository(new ArrayStore);
+    $fragments = new FragmentCache($repository);
+    CacheOriginContexts::bind('console');
+
+    $fragments->remember('page', static fn (): string => 'old', surrogateKeys: ['page:1']);
+    $fragments->invalidateBySurrogateKey('page:1');
+
+    expect($fragments->remember('page', static fn (): string => 'new', surrogateKeys: ['page:1']))->toBe('new')
+        ->and($fragments->remember('page', static fn (): string => 'unexpected', surrogateKeys: ['page:1']))->toBe('new');
+});
+
+it('never publishes a render that a purge overtook', function (): void {
+    $repository = new Repository(new ArrayStore);
+    $fragments = new FragmentCache($repository);
+    CacheOriginContexts::bind('console');
+
+    $rendered = $fragments->remember('page', function () use ($fragments): string {
+        $fragments->invalidateBySurrogateKey('page:1');
+
+        return 'rendered against old data';
+    }, surrogateKeys: ['page:1']);
+
+    expect($rendered)->toBe('rendered against old data')
+        ->and($fragments->remember('page', static fn (): string => 'fresh', surrogateKeys: ['page:1']))->toBe('fresh');
+});
+
+it('never serves a render published after a flush rotated the namespace', function (): void {
+    $repository = new Repository(new ArrayStore);
     $repository->put('fragment:namespace', 'old-namespace', 3600);
 
     $fragments = new FragmentCache($repository);
     CacheOriginContexts::bind('console');
-    $store->beforeMapWrite = $fragments->flush(...);
 
-    expect($fragments->remember('late', static fn (): string => 'old', surrogateKeys: ['late-page']))
-        ->toBe('old')
-        ->and($store->get('fragment:old-namespace:value:late'))->toBe('old')
-        ->and($store->get('fragment:old-namespace:surrogate:map'))->toBe([
-            'late-page' => ['fragment:old-namespace:value:late'],
-        ])
-        ->and($fragments->remember('late', static fn (): string => 'fresh'))->toBe('fresh');
+    $fragments->remember('late', function () use ($fragments): string {
+        $fragments->flush();
+
+        return 'old';
+    }, surrogateKeys: ['late-page']);
+
+    expect($fragments->remember('late', static fn (): string => 'fresh'))->toBe('fresh');
 });
 
-it('does not write a fragment when surrogate map publication fails', function (): void {
-    $store = new FragmentCacheTestStore;
-    $store->failMapWrites = true;
-
-    $repository = new Repository($store);
+it('still purges entries written under the previous unversioned format', function (): void {
+    $repository = new Repository(new ArrayStore);
     $repository->put('fragment:namespace', 'fixed', 3600);
+    $repository->put('fragment:fixed:value:legacy', 'legacy value', 3600);
+    $repository->put('fragment:fixed:surrogate:map', ['page:1' => ['fragment:fixed:value:legacy']], 3600);
 
     $fragments = new FragmentCache($repository);
     CacheOriginContexts::bind('console');
 
-    expect($fragments->remember('map-failure', static fn (): string => 'rendered', surrogateKeys: ['map-failure']))
-        ->toBe('rendered')
-        ->and($store->get('fragment:fixed:value:map-failure'))->toBeNull()
-        ->and($store->get('fragment:fixed:surrogate:map'))->toBeNull();
+    $fragments->invalidateBySurrogateKey('page:1');
+
+    expect($repository->get('fragment:fixed:value:legacy'))->toBeNull()
+        ->and($repository->get('fragment:fixed:surrogate:map'))->toBeNull();
 });
 
-it('leaves map membership when fragment value publication fails', function (): void {
+it('returns rendered content when the fragment value cannot be stored', function (): void {
     $store = new FragmentCacheTestStore;
     $store->failFragmentWrites = true;
 
@@ -316,27 +355,8 @@ it('leaves map membership when fragment value publication fails', function (): v
     $fragments = new FragmentCache($repository);
     CacheOriginContexts::bind('console');
 
-    expect($fragments->remember('value-failure', static fn (): string => 'rendered', surrogateKeys: ['value-failure']))
-        ->toBe('rendered')
-        ->and($store->get('fragment:fixed:value:value-failure'))->toBeNull()
-        ->and($store->get('fragment:fixed:surrogate:map'))->toBe([
-            'value-failure' => ['fragment:fixed:value:value-failure'],
-        ]);
-});
-
-it('returns rendered content without publishing when the surrogate lock fails', function (): void {
-    $store = Mockery::mock(ArrayStore::class)->makePartial();
-    $store->shouldReceive('lock')->once()->andThrow(new LockTimeoutException);
-    $store->put('fragment:namespace', 'fixed', 3600);
-    $repository = new Repository($store);
-    $fragments = new FragmentCache($repository);
-    CacheOriginContexts::bind('https://cache.example.test:8443');
-
-    expect($fragments->remember('locked', static fn (): string => 'rendered', surrogateKeys: ['lock-page']))
-        ->toBe('rendered')
-        ->and($store->get('fragment:fixed:origin-value:' . hash('sha256', serialize(['locked', 'https://cache.example.test:8443']))))
-        ->toBeNull()
-        ->and($store->get('fragment:fixed:surrogate:map'))->toBeNull();
+    expect($fragments->remember('value-failure', static fn (): string => 'rendered', surrogateKeys: ['value-failure']))->toBe('rendered')
+        ->and($store->get('fragment:fixed:v2:value:value-failure'))->toBeNull();
 });
 
 it('keeps surrogate coordination free of process-wide mutable state', function (): void {
