@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Support\CapellSiteSpecConstraints;
+use Closure;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\In;
@@ -110,6 +111,10 @@ final class ValidateSiteSpecAction
             'pages.*.visibility' => ['sometimes', 'array'],
             'pages.*.meta' => ['sometimes', 'array'],
             'pages.*.properties' => ['sometimes', 'array', 'max:' . CapellSiteSpecConstraints::MAX_PAGE_PROPERTIES],
+            'pages.*.properties.*' => [$this->propertyValueLength()],
+            'pages.*.properties.*.value' => [$this->propertyValueLength()],
+            'pages.*.properties.*.currency' => ['nullable', 'string', 'max:32'],
+            'pages.*.properties.*.unit' => ['nullable', 'string', 'max:32'],
             'navigations' => ['sometimes', 'array', 'max:' . CapellSiteSpecConstraints::MAX_NAVIGATIONS],
             'navigations.*' => ['array'],
             'navigations.*.key' => [...$slug, 'distinct'],
@@ -264,5 +269,18 @@ final class ValidateSiteSpecAction
         }
 
         return $length;
+    }
+
+    /**
+     * Caps a text property value, given bare or as `{value: ...}`. Numbers and
+     * booleans are left to the property's own type check.
+     */
+    private function propertyValueLength(): Closure
+    {
+        return static function (string $attribute, mixed $value, Closure $fail): void {
+            if (is_string($value) && mb_strlen($value) > CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH) {
+                $fail('validation.max.string')->translate(['max' => (string) CapellSiteSpecConstraints::MAX_PROPERTY_VALUE_LENGTH]);
+            }
+        };
     }
 }

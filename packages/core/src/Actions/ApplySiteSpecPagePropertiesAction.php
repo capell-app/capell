@@ -21,7 +21,11 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * as a validation error keyed `pages.<slug>.properties.<key>`, and the caller's
  * import transaction rolls back.
  *
- * @method static void run(Page $page, string $slug, array<string, mixed> $properties)
+ * A SiteSpec carries one language, so a localised value is written to the
+ * page's translation in that language (the site's default language when none
+ * is given).
+ *
+ * @method static void run(Page $page, string $slug, array<string, mixed> $properties, ?int $languageId = null)
  */
 final class ApplySiteSpecPagePropertiesAction
 {
@@ -31,14 +35,16 @@ final class ApplySiteSpecPagePropertiesAction
     /**
      * @param  array<string, mixed>  $properties
      */
-    public function handle(Page $page, string $slug, array $properties): void
+    public function handle(Page $page, string $slug, array $properties, ?int $languageId = null): void
     {
         if ($properties === []) {
             return;
         }
 
         $definitions = ResolveEffectiveDefinitionsAction::run($page);
-        $translationId = $page->translations()->orderBy('id')->value('id');
+        $translationId = $page->translations()
+            ->where('language_id', $languageId ?? $page->site?->language_id)
+            ->value('id');
         $values = [];
         $errorKeys = [];
 

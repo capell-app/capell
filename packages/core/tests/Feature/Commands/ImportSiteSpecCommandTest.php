@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\ApplySiteSpecPagePropertiesAction;
 use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
+use Capell\Core\Actions\Properties\PromoteBlueprintFieldAction;
 use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
@@ -14,18 +16,21 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\PendingCommand;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
@@ -486,4 +491,54 @@ it('keeps the import fingerprint of a spec without page properties unchanged', f
 
     expect($second->id)->toBe($first->id)
         ->and(Site::query()->count())->toBe(1);
+});
+
+it('writes an imported localised property value to the translation in the import language', function (): void {
+    $page = Page::factory()->create();
+    $other = Language::factory()->create();
+    $imported = Language::factory()->create();
+    Translation::factory()->translatable($page)->language($other)->create();
+    $importedTranslation = Translation::factory()->translatable($page)->language($imported)->create();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'tagline',
+        'type' => PropertyType::Text,
+        'localised' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+
+    ApplySiteSpecPagePropertiesAction::run($page, 'about', ['tagline' => 'Made to order'], (int) $imported->id);
+
+    expect(PagePropertyValue::query()->where('page_id', $page->id)->sole()->translation_id)->toBe($importedTranslation->id);
+});
+
+it('reports a promoted page field that breaks its property rule against the page properties, and creates no site', function (): void {
+    $siteCount = Site::query()->count();
+    $payload = importSiteSpecWithProperties([]);
+    $blueprint = Blueprint::query()->pageType()->where('key', 'default')->firstOrFail();
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->withConstraints(['max_length' => 3])->create([
+        'property_set_id' => $set->id,
+        'key' => 'display_name',
+        'type' => PropertyType::Text,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
+    PromoteBlueprintFieldAction::run($blueprint, $definition, 'name');
+    $path = writeSiteSpec($payload);
+
+    try {
+        BuildSiteFromSpecFileAction::run($path);
+        $this->fail('Expected the import to be refused.');
+    } catch (ValidationException $validationException) {
+        $keys = array_keys($validationException->errors());
+
+        expect($keys)->toHaveCount(1)
+            ->and($keys[0])->toMatch('/^pages\.[a-z0-9-]+\.properties\.display_name$/')
+            ->and($validationException->errors()[$keys[0]][0])->toBe('Display Name must be 3 characters or fewer. Shorten the text.');
+    } finally {
+        unlink($path);
+    }
+
+    expect(Site::query()->count())->toBe($siteCount);
 });

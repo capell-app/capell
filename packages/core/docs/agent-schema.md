@@ -79,10 +79,21 @@ the same editor-readable message on each path.
 
 Promoted fields are checked when they change: always on a new page, for every
 promoted field when the page moves to another blueprint or site, and otherwise
-only for fields whose value changes. The admin editor and page saves follow the
-same rule, so an older value that predates a rule never blocks an unrelated
+only for fields whose value changes. Page saves follow this rule in every
+environment, so an older value that predates a rule never blocks an unrelated
 edit or background save; the promoted property is simply not re-synced until
 someone corrects that field.
+
+The admin page editor also looks at saved values the form leaves unchanged,
+and what it does depends on the application environment
+(`PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues()`, true
+when `app()->environment(['local', 'testing'])`):
+
+- In `local` and `testing` it blocks the save with the field error, so a
+  developer sees a newly added rule's effect straight away.
+- In every other environment, production included, it lets the save through,
+  shows the editor a warning naming the field and the broken rule, and logs a
+  warning with the page ID, property key and field (never the value).
 
 Uniqueness is checked against live pages on the same site, and a value
 repeated across one page's entries in a single write is refused. A page in the

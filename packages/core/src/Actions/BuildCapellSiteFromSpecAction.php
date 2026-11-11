@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Events\SiteSpecPrivacyRepairing;
@@ -25,8 +27,10 @@ use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -130,17 +134,13 @@ final class BuildCapellSiteFromSpecAction
                 $pagesBySlug = [];
 
                 foreach ($this->orderedPages($spec) as $index => $page) {
-                    $createdPage = $creator->createPage(
-                        $this->pageData($page, $language, $index === 0, $spec->initialVisibility === 'public'),
-                        $site,
-                        collect([$language]),
-                    );
+                    $createdPage = $this->createPage($creator, $page, $site, $language, $index === 0, $spec->initialVisibility === 'public');
                     throw_unless($createdPage instanceof Page, RuntimeException::class, sprintf(
                         'Site spec page [%s] did not resolve to a Capell page model.',
                         $page->slug,
                     ));
                     SetupPageUrlsAction::run($createdPage);
-                    ApplySiteSpecPagePropertiesAction::run($createdPage, $page->slug, $page->properties);
+                    ApplySiteSpecPagePropertiesAction::run($createdPage, $page->slug, $page->properties, (int) $language->getKey());
                     $pagesBySlug[$page->slug] = $createdPage;
                 }
 
@@ -214,6 +214,30 @@ final class BuildCapellSiteFromSpecAction
             if (is_file($download->path)) {
                 unlink($download->path);
             }
+        }
+    }
+
+    /**
+     * Creates one spec page. A promoted field checked against its property's
+     * rules before the page row is written is reported against the page's
+     * `properties`, like every other property error in the import.
+     *
+     * @return Pageable<covariant Model>
+     */
+    private function createPage(PageCreator $creator, CapellSiteSpecPageData $page, Site $site, Language $language, bool $first, bool $public): Pageable
+    {
+        try {
+            return $creator->createPage($this->pageData($page, $language, $first, $public), $site, collect([$language]));
+        } catch (ValidationException $validationException) {
+            $errors = [];
+
+            foreach ($validationException->errors() as $key => $messages) {
+                $errors[str_starts_with((string) $key, ValidatePromotedPropertyValuesAction::ERROR_KEY_PREFIX)
+                    ? sprintf('pages.%s.%s', $page->slug, $key)
+                    : $key] = $messages;
+            }
+
+            throw ValidationException::withMessages($errors);
         }
     }
 

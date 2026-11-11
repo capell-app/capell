@@ -19,4 +19,6 @@ return [
     'allowed_taxonomies_help' => 'Editors can only choose terms from these taxonomies. Leave empty to allow any term on the site.',
     'allowed_mime_types_help' => 'For example image/png, or image/* for any image. Leave empty to allow any file type.',
     'dimensions_help' => 'In pixels. Images whose size is unknown are refused while a size rule is set.',
+    'untouched_breach_title' => 'Saved, but :field breaks a field rule',
+    'untouched_breach_body' => ':reason This value was already saved before the rule was added, so your changes went through. Correct it when you can; it must follow the rule the next time it is edited.',
 ];

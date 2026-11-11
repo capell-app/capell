@@ -20,6 +20,8 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -173,17 +175,71 @@ it('keeps property rules, which every site shares, away from site-scoped adminis
         ->assertTableActionHidden('propertyRules', Blueprint::query()->findOrFail($page->blueprint_id));
 });
 
-it('checks only the promoted fields an editor changes, so an older value does not block an unrelated edit', function (): void {
+it('blocks a saved value that breaks a newer rule in local and testing environments, even when the editor leaves it unchanged', function (): void {
     test()->actingAsAdmin();
     $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
     $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
     PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+
+    expect(PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues())->toBeTrue();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->fillForm(['name' => 'An established page name'])
+        ->call('save')
+        ->assertHasFormErrors(['name' => 'Display Name must be 12 characters or fewer. Shorten the text.']);
+
+    app()->detectEnvironment(static fn (): string => 'local');
+
+    expect(PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues())->toBeTrue()
+        ->and(fn () => resolve(PropertyConstraintPageAuthoringValidator::class)->validate(['name' => 'An established page name'], $page))
+        ->toThrow(ValidationException::class);
+});
+
+it('lets the save through in production when an unchanged saved value breaks a newer rule, then warns the editor and logs it', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
+    $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
+    PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
     $validator = resolve(PropertyConstraintPageAuthoringValidator::class);
 
-    $validator->validate(['name' => 'An established page name'], $page);
+    expect(PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues())->toBeFalse();
 
+    $validator->validate(['name' => 'An established page name', 'order' => 5], $page);
+
+    Notification::assertNotified(__('capell-admin::property_rules.untouched_breach_title', ['field' => 'Name']));
+    $log->shouldHaveReceived('warning')
+        ->withArgs(static fn (string $message, array $context): bool => $context === [
+            'page_id' => $page->id,
+            'property' => 'test.admin.display_name.display_name',
+            'field' => 'name',
+        ])
+        ->once();
+
+    // The page save behind the editor is not blocked by the untouched field either.
+    $page->order = 5;
+    $page->save();
+
+    expect($page->refresh()->order)->toBe(5)
+        ->and($page->name)->toBe('An established page name');
+
+    // A value the editor changes is still enforced in production.
     expect(fn () => $validator->validate(['name' => 'Another far too long name'], $page))
-        ->toThrow(ValidationException::class);
+        ->toThrow(ValidationException::class, 'Display Name must be 12 characters or fewer. Shorten the text.');
+});
+
+it('stays silent in production when an unchanged saved value meets its rules', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne(['name' => 'Short name']);
+    $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
+    PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+
+    resolve(PropertyConstraintPageAuthoringValidator::class)->validate(['name' => 'Short name'], $page);
+
+    $log->shouldNotHaveReceived('warning');
 });
 
 it('checks promoted fields against the blueprint the form moves the page to', function (): void {

@@ -160,7 +160,7 @@ final class UpdatePropertyDefinitionConstraintsAction
     private function compilablePattern(): Closure
     {
         return static function (string $attribute, mixed $value, Closure $fail): void {
-            if (! is_string($value) || @preg_match(BuildPropertyValidationRulesAction::compilePattern($value), '') === false) {
+            if (! is_string($value) || ! BuildPropertyValidationRulesAction::anchorsHold($value)) {
                 $fail(__('capell-core::properties.constraints.input.pattern_invalid'));
 
                 return;

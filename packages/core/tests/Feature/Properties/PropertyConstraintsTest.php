@@ -8,6 +8,7 @@ use Capell\Core\Actions\Properties\PromoteBlueprintFieldAction;
 use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
 use Capell\Core\Actions\Properties\SetPagePropertyValuesAction;
 use Capell\Core\Actions\Properties\UpdatePropertyDefinitionConstraintsAction;
+use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\PropertyType;
@@ -240,7 +241,7 @@ it('refuses rule sets that cannot work', function (PropertyType $type, array $in
 })->with([
     'a range that is upside down' => [PropertyType::Number, ['min' => 10, 'max' => 1], 'max', 'The largest allowed value is smaller than the smallest. Swap them or change one.'],
     'a length on a number' => [PropertyType::Number, ['max_length' => 5], 'max_length', 'This rule does not apply to this kind of field. Clear it before saving.'],
-    'a format that does not compile' => [PropertyType::Text, ['pattern' => '[A-Z'], 'pattern', 'This format cannot be used. Check it for unmatched brackets or stray symbols, or ask a developer to write it.'],
+    'a format that does not compile' => [PropertyType::Text, ['pattern' => '[A-Z'], 'pattern', 'This format cannot be used. Check it for unmatched brackets, stray symbols or (*...) instructions, or ask a developer to write it.'],
     'a malformed file type' => [PropertyType::Media, ['allowed_mime_types' => ['png']], 'allowed_mime_types.0', 'Enter a file type such as image/png, or image/* for any image.'],
 ]);
 
@@ -458,4 +459,94 @@ it('treats a stored format that cannot finish checking as a failed check, not a 
     expect($errors['code'][0] ?? null)->toStartWith('Code could not be checked against its required format')
         ->and(microtime(true) - $started)->toBeLessThan(5.0)
         ->and(propertyWriteErrors($page, 'code', PropertyType::Text, 'aaaa'))->toBe([]);
+});
+
+it('refuses a format that would escape the whole-value anchors when it is saved', function (string $pattern): void {
+    $definition = PropertyDefinition::factory()->create(['type' => PropertyType::Text]);
+
+    try {
+        UpdatePropertyDefinitionConstraintsAction::run($definition, ['pattern' => $pattern]);
+        $this->fail('Expected the pattern to be refused.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['pattern'][0])->toStartWith('This format cannot be used.');
+    }
+
+    expect($definition->refresh()->constraints)->toBeNull();
+})->with([
+    'a group closed early into an alternation' => ['x)|(y'],
+    'a control verb that ends the match early' => ['abc(*ACCEPT)'],
+]);
+
+it('fails a check against a stored format that would escape the whole-value anchors, instead of passing it', function (string $pattern, string $value): void {
+    $page = Page::factory()->create();
+    // Written directly, bypassing the update action's checks.
+    constrainedProperty($page, PropertyType::Text, ['pattern' => $pattern], 'code');
+
+    expect(propertyWriteErrors($page, 'code', PropertyType::Text, $value)['code'][0] ?? null)
+        ->toStartWith('Code could not be checked against its required format');
+})->with([
+    'a group closed early into an alternation' => ['x)|(y', 'x and anything after it'],
+    'a control verb that ends the match early' => ['abc(*ACCEPT)', 'abc and anything after it'],
+]);
+
+it('keeps escaped brackets and ordinary alternation working inside a format', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Text, ['pattern' => 'red|blue|\(\*green\)'], 'colour');
+
+    expect(propertyWriteErrors($page, 'colour', PropertyType::Text, 'blue'))->toBe([])
+        ->and(propertyWriteErrors($page, 'colour', PropertyType::Text, '(*green)'))->toBe([])
+        ->and(propertyWriteErrors($page, 'colour', PropertyType::Text, 'blue sky')['colour'][0] ?? null)
+        ->toStartWith('Colour is not in the format this field expects.');
+});
+
+it('skips resolving property definitions on a page save that changes no promoted field', function (): void {
+    $page = Page::factory()->create(['name' => 'An established page name']);
+    promotedNameProperty($page, ['max_length' => 10]);
+    $page->refresh();
+    $definitionQueries = static function (callable $callback): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $callback();
+        DB::disableQueryLog();
+
+        return collect(DB::getQueryLog())
+            ->filter(static fn (array $query): bool => str_contains((string) $query['query'], (new PropertyDefinition)->getTable()))
+            ->count();
+    };
+
+    $page->order = 7;
+
+    expect($definitionQueries(static fn () => ValidatePromotedPropertyValuesAction::run($page)))->toBe(0);
+
+    $page->name = 'Changed';
+
+    expect($definitionQueries(static fn () => ValidatePromotedPropertyValuesAction::run($page)))->toBeGreaterThan(0);
+});
+
+it("rejects a unique value already stored at another of the page's entries that the write leaves in place", function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->withConstraints(['unique_per_site' => true])->create([
+        'property_set_id' => $set->id,
+        'key' => 'codes',
+        'type' => PropertyType::Text,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'ONE', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'TWO', position: 1),
+    ]);
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'ONE', position: 1),
+    ]))->toThrow(ValidationException::class, 'Codes must be different in each entry. Remove the repeated value.');
+
+    // Rewriting both entries in one write may swap the values.
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'TWO', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'ONE', position: 1),
+    ]);
+
+    expect(PagePropertyValue::query()->where('page_id', $page->id)->orderBy('position')->pluck('value_text')->all())->toBe(['TWO', 'ONE']);
 });

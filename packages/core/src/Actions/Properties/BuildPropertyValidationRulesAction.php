@@ -45,9 +45,17 @@ final class BuildPropertyValidationRulesAction
      * backtracking budget so an editor-supplied pattern cannot tie up a
      * request. Returns null when the pattern does not compile or cannot finish
      * within the budget.
+     *
+     * Every stored pattern is checked here before it is used, whichever path
+     * stored it, so a pattern that could escape the whole-value anchors (see
+     * {@see self::anchorsHold()}) fails the check instead of passing it.
      */
     public static function matchesPattern(string $pattern, string $value): ?bool
     {
+        if (! self::anchorsHold($pattern)) {
+            return null;
+        }
+
         $previous = ini_get('pcre.backtrack_limit');
         ini_set('pcre.backtrack_limit', (string) self::PATTERN_BACKTRACK_LIMIT);
 
@@ -83,6 +91,25 @@ final class BuildPropertyValidationRulesAction
     public static function compilePattern(string $pattern): string
     {
         return '~\A(?:' . str_replace('~', '\~', $pattern) . ')\z~u';
+    }
+
+    /**
+     * Whether wrapping the pattern in {@see self::compilePattern()} still makes
+     * it match the WHOLE value.
+     *
+     * The pattern must compile on its own, so its groups are balanced and it
+     * cannot close the wrapping group early: `x)|(y` would otherwise become an
+     * unanchored alternation. Backtracking control verbs such as `(*ACCEPT)`
+     * are refused because they can end a match before the closing anchor.
+     */
+    public static function anchorsHold(string $pattern): bool
+    {
+        if (preg_match('/(?<!\\\\)(?:\\\\\\\\)*\(\*/', $pattern) === 1) {
+            return false;
+        }
+
+        return @preg_match('~' . str_replace('~', '\~', $pattern) . '~u', '') !== false
+            && @preg_match(self::compilePattern($pattern), '') !== false;
     }
 
     /**
