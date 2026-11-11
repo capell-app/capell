@@ -125,7 +125,7 @@ it('eager loads page table relations used by visible row columns', function (): 
         'ancestors',
         'layout',
         'site',
-        'translation',
+        'translations',
         'blueprint',
         'pageUrls',
         'pageUrl.siteDomain',

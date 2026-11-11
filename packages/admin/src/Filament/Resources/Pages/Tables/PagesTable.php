@@ -725,7 +725,7 @@ class PagesTable implements TableConfigurator
                 ->select(['translatable_id', 'translatable_type', 'language_id', 'title'])
                 ->when($languageId, self::applyTranslationLanguageFilter(...));
         } else {
-            $relations[] = 'translations.language';
+            $relations[] = 'translations';
         }
 
         if (self::isTableColumnVisible($livewire, 'parent.name')) {

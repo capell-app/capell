@@ -416,6 +416,13 @@
             },
             {
                 "name": null,
+                "columns": ["fallback_language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "dbp_languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
                 "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "dbp_users",
