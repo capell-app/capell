@@ -123,14 +123,17 @@ The default interactive flow asks six questions, each with a default:
 The flow keeps existing data and homepage routes, skips application seeders and
 installer removal, refreshes Capell caches without clearing application data, and
 installs frontend dependencies and builds the assets at the end, so `php artisan serve`
-needs no second Capell command. Pass `--no-frontend-build` to skip that build. Existing
-installations do not offer a database reset in this flow.
+needs no second Capell command. Pass `--no-frontend-build` to skip that build. Flag-driven
+and non-interactive runs (`--no-interaction`, CI) build the frontend by default too; only the
+detailed `--customise` questionnaire asks first. Existing installations do not offer a
+database reset in this flow.
 
 For the smallest working site, pass `--minimal`. It installs Core, Admin, Frontend and
 the default theme only, with no sample content, Marketplace, welcome route or developer
 tooling, and asks just the site name, address and administrator questions. It cannot be
 combined with options that choose packages, content or tooling. Pass `--site-name=...` to
-answer the site name without a prompt.
+answer the site name without a prompt. The detailed `--customise` questionnaire and the
+browser installer ask for the site name as well, defaulting to `APP_NAME`.
 
 To skip the "What are you building?" question, pass `--preset=<name>`. A preset is one of
 the site types the installer offers (`blog`, `marketing`, `docs`, `client` or `headless`,

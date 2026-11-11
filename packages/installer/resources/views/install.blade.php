@@ -391,6 +391,32 @@
 
                                     <div
                                         class="field"
+                                        data-field="site_name"
+                                    >
+                                        <label
+                                            class="field-label"
+                                            for="site_name"
+                                        >
+                                            {{ __('capell-installer::installer.field_site_name') }}
+                                        </label>
+                                        <input
+                                            id="site_name"
+                                            type="text"
+                                            name="site_name"
+                                            maxlength="255"
+                                            value="{{ old('site_name', $defaultSiteName) }}"
+                                            aria-describedby="site-name-help"
+                                        />
+                                        <span
+                                            id="site-name-help"
+                                            class="section-help"
+                                            >{{ __('capell-core::install.site.name_hint') }}</span
+                                        >
+                                        <span class="field-error"></span>
+                                    </div>
+
+                                    <div
+                                        class="field"
                                         data-field="site_url"
                                     >
                                         <label

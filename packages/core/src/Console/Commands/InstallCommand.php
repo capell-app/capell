@@ -1009,10 +1009,25 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $this->input->isInteractive() && ! $this->basicInstall && ! $this->option('minimal');
     }
 
-    /** The default and --minimal installs end with a built frontend, so serving the site needs no second command. */
+    /**
+     * The default, --minimal and flag-driven or non-interactive installs end with a built frontend, so serving
+     * the site needs no second command. Only the detailed --customise flow asks instead.
+     */
     private function buildsFrontendByDefault(): bool
     {
-        return ($this->basicInstall || $this->option('minimal')) && ! $this->option('no-frontend-build');
+        if ($this->option('no-frontend-build')) {
+            return false;
+        }
+
+        if ($this->basicInstall) {
+            return true;
+        }
+
+        if ($this->option('minimal')) {
+            return true;
+        }
+
+        return ! $this->promptsForExtras();
     }
 
     private function resolveSiteName(): ?string
@@ -1020,7 +1035,9 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $siteName = $this->option('site-name');
 
         if (! is_string($siteName) || trim($siteName) === '') {
-            if (! $this->basicInstall || ! $this->input->isInteractive() || $this->option('plan')) {
+            $asksForSiteName = $this->basicInstall || (bool) $this->option('customise');
+
+            if (! $asksForSiteName || ! $this->input->isInteractive() || $this->option('plan')) {
                 return null;
             }
 
@@ -1123,6 +1140,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->input->setOption('url', $input->siteUrl);
+        $this->input->setOption('site-name', $input->siteName);
         $this->input->setOption('packages', implode(',', array_unique([...$input->packages, ...$input->extraPackages])));
         $this->input->setOption('theme', $input->selectedThemeKey);
         if ($input->newUser instanceof NewUserData) {

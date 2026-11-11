@@ -8,6 +8,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
+use Capell\Core\Support\Install\InstallSiteName;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -98,6 +99,7 @@ final class BuildInstallerPageDataAction
             'languages' => $this->options->languageOptions(),
             'customLanguageSuggestions' => $this->options->customLanguageSuggestions(),
             'existingUsers' => $this->existingUserOptions(),
+            'defaultSiteName' => InstallSiteName::fallback(),
             'defaultSiteUrl' => (string) config('app.url'),
             'defaultLocale' => config('app.locale', 'en'),
             'allPackageNames' => array_column($packages, 'name'),
