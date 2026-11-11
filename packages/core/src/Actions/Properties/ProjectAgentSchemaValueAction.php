@@ -109,7 +109,7 @@ final class ProjectAgentSchemaValueAction
         $languageId = $language?->id;
         $translation = $languageId !== null
             ? $page->translations()->where('language_id', $languageId)->first()
-            : $page->translation;
+            : $page->contextTranslation();
 
         $reference = ['@id' => $publicUrl, 'url' => $publicUrl];
         if (is_string($translation?->title) && $translation->title !== '') {

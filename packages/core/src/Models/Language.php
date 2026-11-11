@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -37,6 +38,7 @@ use Override;
  * @property array<array-key, mixed>|null $meta
  * @property array<array-key, mixed>|null $admin
  * @property string|null $locale
+ * @property int|null $fallback_language_id
  * @property int $order
  * @property bool $default
  * @property bool $status
@@ -49,6 +51,7 @@ use Override;
  * @property-read AuthenticatableUser|null $creator
  * @property-read AuthenticatableUser|null $destroyer
  * @property-read AuthenticatableUser|null $editor
+ * @property-read Language|null $fallbackLanguage
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Site> $sites
  * @property-read int|null $sites_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Site> $sitesLanguage
@@ -75,6 +78,7 @@ use Override;
  * @method static Builder<static>|Language whereDefault($value)
  * @method static Builder<static>|Language whereDeletedAt($value)
  * @method static Builder<static>|Language whereDeletedBy($value)
+ * @method static Builder<static>|Language whereFallbackLanguageId($value)
  * @method static Builder<static>|Language whereFlag($value)
  * @method static Builder<static>|Language whereId($value)
  * @method static Builder<static>|Language whereLocale($value)
@@ -140,6 +144,7 @@ class Language extends Model implements Defaultable, Statusable, Userstampable
         'admin',
         'code',
         'default',
+        'fallback_language_id',
         'flag',
         'locale',
         'meta',
@@ -188,6 +193,18 @@ class Language extends Model implements Defaultable, Statusable, Userstampable
     public static function getOptions(string $key = 'id', string $value = 'name'): Collection
     {
         return self::query()->select([$value, $key])->ordered()->pluck($value, $key);
+    }
+
+    /**
+     * The language whose translation is served when content has none in this language.
+     * Resolve the whole chain through ResolveLanguageFallbackChainAction, never by
+     * following this relation in a loop: chains can be misconfigured into cycles.
+     *
+     * @return BelongsTo<Language, $this>
+     */
+    public function fallbackLanguage(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'fallback_language_id');
     }
 
     /** @return HasManyThrough<Site, SiteDomain, $this> */
@@ -269,6 +286,7 @@ class Language extends Model implements Defaultable, Statusable, Userstampable
             'meta' => 'json',
             'admin' => 'json',
             'default' => 'boolean',
+            'fallback_language_id' => 'integer',
             'status' => 'boolean',
         ];
     }

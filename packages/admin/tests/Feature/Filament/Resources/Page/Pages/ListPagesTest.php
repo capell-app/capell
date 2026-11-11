@@ -384,13 +384,15 @@ it('loads optional page table relations only when their columns are visible', fu
     $defaultRecord = $defaultComponent->getFilteredTableQuery()->first();
     assert($defaultRecord instanceof Page);
 
+    // Without a language filter every translation is loaded, so titles resolve in each
+    // page's site default language; one unconstrained `translation` row would not.
     expect($defaultRecord->relationLoaded('parent'))->toBeFalse()
-        ->and($defaultRecord->relationLoaded('translations'))->toBeFalse()
+        ->and($defaultRecord->relationLoaded('translations'))->toBeTrue()
         ->and($defaultRecord->relationLoaded('creator'))->toBeFalse()
         ->and($defaultRecord->relationLoaded('editor'))->toBeFalse()
         ->and($defaultRecord->relationLoaded('layout'))->toBeTrue()
         ->and($defaultRecord->relationLoaded('blueprint'))->toBeTrue()
-        ->and($defaultRecord->relationLoaded('translation'))->toBeTrue()
+        ->and($defaultRecord->relationLoaded('translation'))->toBeFalse()
         ->and($defaultRecord->relationLoaded('pageUrls'))->toBeTrue();
 
     $expandedComponent = Livewire::test(ListPages::class)

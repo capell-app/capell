@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -29,17 +30,28 @@ final class ResolvePageCanonicalUrlAction
         }
 
         if ($page instanceof Page && $page->relationLoaded('canonicalPage') && $page->canonicalPage instanceof Page && $page->canonicalPage->relationLoaded('pageUrls')) {
-            $canonicalPageUrl = $this->canonicalPageUrl($page->canonicalPage, $language);
+            $canonicalPageUrl = $this->canonicalPageUrl($page->canonicalPage, $language->id);
 
             if ($canonicalPageUrl?->full_url !== null) {
                 return $canonicalPageUrl->full_url;
             }
         }
 
+        // A page served from a fallback language is canonical at the served language's URL.
+        $resolution = TranslationResolutionData::forLoaded($page, $language);
+
+        if ($resolution?->isFallback() === true && $page instanceof Page && $page->relationLoaded('pageUrls')) {
+            $servedPageUrl = $this->canonicalPageUrl($page, $resolution->servedLanguageId);
+
+            if ($servedPageUrl?->full_url !== null) {
+                return $servedPageUrl->full_url;
+            }
+        }
+
         $pageUrl = $page->relationLoaded('pageUrl') ? $page->pageUrl : null;
 
         if ($page instanceof Page && $pageUrl?->type === UrlTypeEnum::Alias && $page->relationLoaded('pageUrls')) {
-            $canonicalPageUrl = $this->canonicalPageUrl($page, $language);
+            $canonicalPageUrl = $this->canonicalPageUrl($page, $language->id);
 
             if ($canonicalPageUrl?->full_url !== null) {
                 return $canonicalPageUrl->full_url;
@@ -51,10 +63,10 @@ final class ResolvePageCanonicalUrlAction
             : null;
     }
 
-    private function canonicalPageUrl(Page $page, Language $language): ?PageUrl
+    private function canonicalPageUrl(Page $page, int $languageId): ?PageUrl
     {
         return $page->pageUrls
-            ->where('language_id', $language->id)
+            ->where('language_id', $languageId)
             ->whereNull('type')
             ->where('status', true)
             ->sortBy('id')

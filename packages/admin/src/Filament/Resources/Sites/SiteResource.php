@@ -65,8 +65,10 @@ class SiteResource extends SiteScopedResource
     #[Override]
     public static function getGlobalSearchEloquentQuery(): Builder
     {
+        // `title` reads the site's default-language row from these; an unconstrained
+        // `translation` returned an arbitrary language.
         return parent::getGlobalSearchEloquentQuery()
-            ->with('translation');
+            ->with('translations');
     }
 
     /** @param Builder<Site> $query */

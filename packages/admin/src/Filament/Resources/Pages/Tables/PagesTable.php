@@ -291,6 +291,7 @@ class PagesTable implements TableConfigurator
             DateColumn::make('updated_at'),
             TextColumn::make('translation.title')
                 ->label(__('capell-admin::table.title'))
+                ->state(static fn (PageModel $record): ?string => $record->title)
                 ->html()
                 ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('parent.name')
@@ -711,13 +712,21 @@ class PagesTable implements TableConfigurator
             'ancestors',
             'layout',
             'site' => self::includeTrashedSite(...),
-            'translation' => fn (BuilderContract $query): BuilderContract => $query->with('language')
-                ->select(['translatable_id', 'translatable_type', 'language_id', 'title'])
-                ->when($languageId, self::applyTranslationLanguageFilter(...)),
             'blueprint',
             'pageUrls' => self::includeOrderedPageUrls(...),
             'pageUrl.siteDomain',
         ];
+
+        // One `translation` row is only meaningful for a chosen language. Without a filter,
+        // every row is loaded and the title accessor picks the page's site default language
+        // through the fallback chain, whatever order the rows were written in.
+        if ($languageId) {
+            $relations['translation'] = fn (BuilderContract $query): BuilderContract => $query->with('language')
+                ->select(['translatable_id', 'translatable_type', 'language_id', 'title'])
+                ->when($languageId, self::applyTranslationLanguageFilter(...));
+        } else {
+            $relations[] = 'translations';
+        }
 
         if (self::isTableColumnVisible($livewire, 'parent.name')) {
             $relations['parent'] = self::includeParentType(...);

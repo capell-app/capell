@@ -10,6 +10,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\BuildSelectedFrontendWidgetResourceUsagesAction;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
@@ -107,4 +108,31 @@ it('extracts selected resource groups from layout container widget metadata', fu
     expect($usages)->toHaveCount(1)
         ->and($usages[0]['widgetKey'])->toBe('map')
         ->and($usages[0]['resourceGroup'])->toBe('package.map');
+});
+
+it('reads page widget metadata from the translation in the render language', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->createOne(['language_id' => $english->id]);
+    $layout = Layout::factory()->site($site)->createOne();
+    $blueprint = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->createOne();
+    $page = Page::factory()->site($site)->layout($layout)->type($blueprint)->createOne();
+    $page->translations()->forceDelete();
+    // The French row is written first, so an unconstrained read returns it.
+    Translation::factory()->translatable($page)->language($french)->createOne(['content' => []]);
+    Translation::factory()->translatable($page)->language($english)->createOne(['content' => [
+        ['type' => 'gallery', 'data' => ['__capell' => ['resources' => ['groups' => ['package.gallery']]]]],
+    ]]);
+    $page->unsetRelation('translation');
+
+    $usages = BuildSelectedFrontendWidgetResourceUsagesAction::run(new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $english,
+        layout: $layout,
+        theme: Theme::factory()->createOne(),
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    ));
+
+    expect(collect($usages)->pluck('resourceGroup')->all())->toContain('package.gallery');
 });

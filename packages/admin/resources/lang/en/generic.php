@@ -297,6 +297,7 @@ return [
     'language_availability_description' => 'Control whether this language is active, default, and right-to-left.',
     'language_flag_info' => 'Short flag marker shown in admin lists, usually an emoji or compact country code.',
     'language_identity_description' => 'The ISO 639-1 code and locale are required for URL routing and Blade translation helpers.',
+    'language_fallback_info' => "Pages with no translation in this language show the fallback language's version instead. Search engines are told not to index those copies. Leave empty to show a not-found page.",
     'language_order_info' => 'Lower numbers appear earlier in admin selectors, language switchers, and setup lists.',
     'language_site_setup_description' => 'Optionally add this language to existing sites and generate matching domains.',
     'language_setup_info' => 'Creates the site translation records and matching language domains for the selected sites.',

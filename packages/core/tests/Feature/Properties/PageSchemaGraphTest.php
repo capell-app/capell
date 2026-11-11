@@ -6,10 +6,12 @@ use Capell\Core\Actions\Properties\BuildPageSchemaGraphAction;
 use Capell\Core\Data\Properties\AgentPropertyEntryData;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Models\BlueprintPropertySet;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
+use Capell\Core\Models\Translation;
 
 it('omits the graph when no public properties resolve', function (): void {
     expect(BuildPageSchemaGraphAction::run(Page::factory()->create()))->toBeNull();
@@ -45,6 +47,21 @@ it('escapes author content so JSON LD cannot terminate its script element', func
 
     expect(substr_count((string) $script, '</script>'))->toBe(1)
         ->and($script)->not->toContain('<script>alert');
+});
+
+it('names the page in its site default language when no language is given, whatever the row order', function (): void {
+    $page = agentSchemaPageWithValues([
+        new AgentPropertyEntryData('content.article.author', 'schema:author', PropertyType::Text, 'Ada'),
+    ]);
+    $siteLanguage = $page->site->language;
+    $other = Language::factory()->createOne(['code' => 'xx', 'locale' => 'xx']);
+    $page->translations()->forceDelete();
+    Translation::factory()->translatable($page)->language($other)->createOne(['title' => 'Other language title']);
+    Translation::factory()->translatable($page)->language($siteLanguage)->createOne(['title' => 'Default language title']);
+
+    $graph = BuildPageSchemaGraphAction::run(Page::query()->whereKey($page->getKey())->firstOrFail());
+
+    expect($graph?->nodes[0]['name'] ?? null)->toBe('Default language title');
 });
 
 /** @param list<AgentPropertyEntryData> $entries */
