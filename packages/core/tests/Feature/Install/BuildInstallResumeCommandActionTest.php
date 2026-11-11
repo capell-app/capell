@@ -31,12 +31,24 @@ it('replays the original install options so every earlier choice carries over', 
     expect($command)->toBe("php artisan capell:install '--theme=bold' '--site-name=My Site' '--no-seed-default-data' '--table-prefix=cms_'");
 });
 
-it('never replays options that destroy data, only preview or carry a secret', function (): void {
+it('replays only allowlisted options and never a secret of any kind', function (): void {
     $command = BuildInstallResumeCommandAction::run(resumeInput(), [
-        'artisan', 'capell:install', '--fresh=force', '--plan', '--password', 'hunter2', '--role-user-password=hunter3', '--email=a@example.com', '--password=hunter4',
+        'artisan', 'capell:install', '--fresh=force', '--plan', '--password', 'hunter2', '--role-user-password=hunter3', '--email=a@example.com',
+        '--license-key=LIC-123', '--api-token', 'tok-456', '--token=tok-789', '--db-password=dbpass', '--database=prod', '--marketplace-key=mk-1',
+        '--url=https://user:secret@example.com', '--handoff-json=/tmp/h.json', 'positional-secret', '--theme', 'bold',
     ]);
 
-    expect($command)->toBe("php artisan capell:install '--email=a@example.com'");
+    expect($command)->toBe("php artisan capell:install '--email=a@example.com' '--theme=bold'")
+        ->and($command)->not->toContain('hunter')
+        ->and($command)->not->toContain('LIC-')
+        ->and($command)->not->toContain('tok-')
+        ->and($command)->not->toContain('secret')
+        ->and($command)->not->toContain('dbpass');
+});
+
+it('drops a url that carries credentials or a query string', function (): void {
+    expect(BuildInstallResumeCommandAction::run(resumeInput(), ['artisan', 'capell:install', '--url=https://example.com/?key=abc']))
+        ->toBe('php artisan capell:install');
 });
 
 it('resumes an interactive install with the bare command', function (): void {
