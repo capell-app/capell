@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Properties;
 
 use Capell\Core\Actions\PageSavedAction;
+use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\EventSourcing\Listeners\RecordPageRevision;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
@@ -13,6 +14,8 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -55,9 +58,11 @@ final class SetPagePropertyValuesAction
 
         DB::transaction(function () use ($page, $values, $effectiveDefinitions, $viaPromotedFieldSync): void {
             $touchedDefinitionIds = [];
+            $uniqueValuesSeen = [];
 
             foreach ($values as $value) {
                 $definition = $this->validator->validate($page, $value, $effectiveDefinitions);
+                $this->assertNotRepeatedInWrite($definition, $value, $uniqueValuesSeen);
 
                 if (! $viaPromotedFieldSync && $definition->promotedField !== null) {
                     throw PropertyValueValidationException::promotedPropertyDirectWrite(
@@ -98,5 +103,39 @@ final class SetPagePropertyValuesAction
 
             PageSavedAction::run($page, ['_property_keys' => array_keys($touchedDefinitionIds)]);
         });
+    }
+
+    /**
+     * A unique-per-site property cannot hold the same value twice on one page
+     * either: the database check ignores the page being written, so repeated
+     * positions in one write are caught here.
+     *
+     * @param  array<string, true>  $seen
+     */
+    private function assertNotRepeatedInWrite(EffectivePropertyDefinitionData $definition, PropertyValueData $value, array &$seen): void
+    {
+        $column = BuildPropertyValidationRulesAction::uniqueColumn($definition->type);
+
+        if ($definition->constraints?->uniquePerSite !== true || $column === null) {
+            return;
+        }
+
+        $held = $value->toColumns()[$column];
+
+        if ($held === null) {
+            return;
+        }
+
+        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', (string) $held]);
+
+        if (isset($seen[$identity])) {
+            throw ValidationException::withMessages([
+                $value->propertyKey => __('capell-core::properties.constraints.repeated_in_page', [
+                    'property' => Str::headline($definition->key),
+                ]),
+            ]);
+        }
+
+        $seen[$identity] = true;
     }
 }

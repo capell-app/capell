@@ -6,6 +6,7 @@ namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\AssertPageRestoreUrlsAvailableAction;
 use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
+use Capell\Core\Actions\Properties\AssertRestoredPagePropertyValuesAreUniqueAction;
 use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Actions\PrunePageDeletionMembershipAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
@@ -85,6 +86,7 @@ class PageObserver
     public function restoring(Page $page): void
     {
         if (! $page->isPageRestoreCascadePrepared()) {
+            AssertRestoredPagePropertyValuesAreUniqueAction::run($page);
             $this->restoreTrashedAncestors($page);
             AssertPageRestoreUrlsAvailableAction::run(new Collection([$page]));
         }

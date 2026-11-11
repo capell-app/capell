@@ -8,6 +8,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Support\Agent\AgentAdminConfirmationStore;
 use Capell\Admin\Support\Agent\AgentAdminToolInvocationService;
 use Capell\Admin\Support\Agent\AgentAdminToolRegistry;
+use Capell\Admin\Support\Properties\PropertyConstraintPageAuthoringValidator;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Actions\Properties\PromoteBlueprintFieldAction;
 use Capell\Core\Actions\Properties\UpdatePropertyDefinitionConstraintsAction;
@@ -170,4 +171,41 @@ it('keeps property rules, which every site shares, away from site-scoped adminis
 
     Livewire::test(ManageBlueprints::class)
         ->assertTableActionHidden('propertyRules', Blueprint::query()->findOrFail($page->blueprint_id));
+});
+
+it('checks only the promoted fields an editor changes, so an older value does not block an unrelated edit', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
+    $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
+    PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+    $validator = resolve(PropertyConstraintPageAuthoringValidator::class);
+
+    $validator->validate(['name' => 'An established page name'], $page);
+
+    expect(fn () => $validator->validate(['name' => 'Another far too long name'], $page))
+        ->toThrow(ValidationException::class);
+});
+
+it('checks promoted fields against the blueprint the form moves the page to', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
+    $strict = Blueprint::factory()->page()->create();
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->withConstraints(['max_length' => 12])->create([
+        'property_set_id' => $set->id,
+        'key' => 'display_name',
+        'type' => PropertyType::Text,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $strict->id, 'property_set_id' => $set->id]);
+    PromoteBlueprintFieldAction::run($strict, $definition, 'name');
+    $validator = resolve(PropertyConstraintPageAuthoringValidator::class);
+
+    $validator->validate(['name' => 'An established page name'], $page);
+
+    try {
+        $validator->validate(['blueprint_id' => $strict->id, 'name' => 'An established page name'], $page);
+        $this->fail('Expected the move to the stricter blueprint to be checked.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->toBe(['data.name' => ['Display Name must be 12 characters or fewer. Shorten the text.']]);
+    }
 });

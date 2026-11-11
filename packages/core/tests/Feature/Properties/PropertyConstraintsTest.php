@@ -322,3 +322,140 @@ it('applies a rule added later only to saves that change the promoted field', fu
     expect($page->refresh()->name)->toBe('An established page name')
         ->and(PagePropertyValue::query()->where('property_definition_id', $definition->id)->value('value_text'))->toBe('An established page name');
 });
+
+/**
+ * A page whose `name` field is promoted to a `display_name` property. Nothing
+ * is synced yet, as after a promotion added to existing content.
+ *
+ * @param  array<string, mixed>  $constraints
+ */
+function promotedNameProperty(Page $page, array $constraints = [], ?int $blueprintId = null): PropertyDefinition
+{
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->withConstraints($constraints)->create([
+        'property_set_id' => $set->id,
+        'key' => 'display_name',
+        'type' => PropertyType::Text,
+    ]);
+    $blueprint = Blueprint::query()->findOrFail($blueprintId ?? $page->blueprint_id);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
+    PromoteBlueprintFieldAction::run($blueprint, $definition, 'name');
+
+    return $definition;
+}
+
+it('lets an unrelated save through when an older promoted value with no stored property breaks a later rule', function (): void {
+    $page = Page::factory()->create(['name' => 'An established page name']);
+    $definition = promotedNameProperty($page, ['max_length' => 10]);
+
+    expect(PagePropertyValue::query()->where('property_definition_id', $definition->id)->exists())->toBeFalse();
+
+    $page->refresh()->order = 42;
+    $page->save();
+
+    expect($page->refresh()->order)->toBe(42)
+        ->and(PagePropertyValue::query()->where('property_definition_id', $definition->id)->exists())->toBeFalse();
+
+    $page->name = 'Short';
+    $page->save();
+
+    expect(PagePropertyValue::query()->where('property_definition_id', $definition->id)->value('value_text'))->toBe('Short');
+});
+
+it('checks promoted fields against the new blueprint before a page moves to it', function (): void {
+    $page = Page::factory()->create(['name' => 'An established page name']);
+    $strict = Blueprint::factory()->page()->create();
+    promotedNameProperty($page, ['max_length' => 10], $strict->id);
+    $originalBlueprintId = $page->blueprint_id;
+
+    $page->refresh()->blueprint_id = $strict->id;
+
+    expect(fn (): bool => $page->save())->toThrow(ValidationException::class)
+        ->and($page->refresh()->blueprint_id)->toBe($originalBlueprintId);
+});
+
+it('refuses to restore a page whose unique value another page took while it was in the bin', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Text, ['unique_per_site' => true], 'code');
+    $sibling = Page::factory()->create(['site_id' => $page->site_id, 'blueprint_id' => $page->blueprint_id]);
+    propertyWriteErrors($page, 'code', PropertyType::Text, 'AUTUMN');
+    $page->delete();
+    propertyWriteErrors($sibling, 'code', PropertyType::Text, 'AUTUMN');
+
+    expect(fn (): mixed => $page->restore())->toThrow(ValidationException::class)
+        ->and(Page::withTrashed()->whereKey($page->id)->sole()->trashed())->toBeTrue();
+
+    propertyWriteErrors($sibling, 'code', PropertyType::Text, 'WINTER');
+
+    expect($page->restore())->toBeTrue();
+});
+
+it('will not make a property unique while pages on one site share a value', function (): void {
+    $page = Page::factory()->create();
+    $definition = constrainedProperty($page, PropertyType::Text, [], 'code');
+    $sibling = Page::factory()->create(['site_id' => $page->site_id, 'blueprint_id' => $page->blueprint_id]);
+    propertyWriteErrors($page, 'code', PropertyType::Text, 'SHARED');
+    propertyWriteErrors($sibling, 'code', PropertyType::Text, 'SHARED');
+
+    try {
+        UpdatePropertyDefinitionConstraintsAction::run($definition, ['unique_per_site' => true]);
+        $this->fail('Expected the unique rule to be refused.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['unique_per_site'][0])->toStartWith('Some pages on the same site already share a value');
+    }
+
+    propertyWriteErrors($sibling, 'code', PropertyType::Text, 'OTHER');
+    UpdatePropertyDefinitionConstraintsAction::run($definition, ['unique_per_site' => true]);
+
+    expect($definition->refresh()->constraints?->uniquePerSite)->toBeTrue();
+});
+
+it("rejects a unique value repeated across one page's entries in a single write", function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->withConstraints(['unique_per_site' => true])->create([
+        'property_set_id' => $set->id,
+        'key' => 'codes',
+        'type' => PropertyType::Text,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 1),
+    ]))->toThrow(ValidationException::class, 'Codes must be different in each entry. Remove the repeated value.');
+
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'ONE', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'TWO', position: 1),
+    ]);
+
+    expect(PagePropertyValue::query()->where('page_id', $page->id)->count())->toBe(2);
+});
+
+it('refuses a format that backtracks catastrophically when it is saved', function (): void {
+    $definition = PropertyDefinition::factory()->create(['type' => PropertyType::Text]);
+
+    try {
+        UpdatePropertyDefinitionConstraintsAction::run($definition, ['pattern' => '(a+)+$']);
+        $this->fail('Expected the pattern to be refused.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['pattern'][0])->toStartWith('This format could take too long to check');
+    }
+
+    expect($definition->refresh()->constraints)->toBeNull();
+});
+
+it('treats a stored format that cannot finish checking as a failed check, not a pass', function (): void {
+    $page = Page::factory()->create();
+    // Written directly, as a package or older release could have stored it.
+    constrainedProperty($page, PropertyType::Text, ['pattern' => '(a+)+$'], 'code');
+
+    $started = microtime(true);
+    $errors = propertyWriteErrors($page, 'code', PropertyType::Text, str_repeat('a', 40) . '!');
+
+    expect($errors['code'][0] ?? null)->toStartWith('Code could not be checked against its required format')
+        ->and(microtime(true) - $started)->toBeLessThan(5.0)
+        ->and(propertyWriteErrors($page, 'code', PropertyType::Text, 'aaaa'))->toBe([]);
+});

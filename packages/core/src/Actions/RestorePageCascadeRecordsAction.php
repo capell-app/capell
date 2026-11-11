@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Properties\AssertRestoredPagePropertyValuesAreUniqueAction;
 use Capell\Core\Exceptions\PageRestoreCancelledException;
 use Capell\Core\Models\Page;
 use Closure;
@@ -32,6 +33,7 @@ final class RestorePageCascadeRecordsAction
                 $recomputedIds = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: true);
                 throw_if(array_diff($recomputedIds, $ids) !== [] || array_diff($ids, $recomputedIds) !== [], PageRestoreCancelledException::class);
                 AssertPageRestoreUrlsAvailableAction::run($members);
+                $members->each(static fn (Page $member) => AssertRestoredPagePropertyValuesAreUniqueAction::run($member));
                 RestorePageCascadeRelationsAction::run($page, $ids);
 
                 // Keep model events, auditing and extension observers; standard relation work is batched above.

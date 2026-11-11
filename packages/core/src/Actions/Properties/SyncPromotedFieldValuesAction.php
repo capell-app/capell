@@ -8,6 +8,8 @@ use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Support\Properties\PromotedFieldChanges;
+use Capell\Core\Support\Properties\PropertyValueValidator;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -18,7 +20,9 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * (which is what makes that action accept the write — every other caller is
  * rejected for a promoted property). Invoked on every page save.
  *
- * A field whose value already matches the stored property is skipped. A
+ * A field whose value already matches the stored property is skipped, and a
+ * field this save did not change is synced only while it meets the property's
+ * rules ({@see PromotedFieldChanges}). A
  * field currently holding `null` is left alone rather than clearing the
  * property — an in-progress edit that has not reached the promoted field yet
  * should not blank out a previously-synced value.
@@ -27,6 +31,8 @@ final class SyncPromotedFieldValuesAction
 {
     use AsFake;
     use AsObject;
+
+    public function __construct(private readonly PropertyValueValidator $validator) {}
 
     /**
      * Coerce a promoted field's raw form value to the property's value shape.
@@ -81,6 +87,16 @@ final class SyncPromotedFieldValuesAction
 
             if ($current instanceof PagePropertyValue
                 && PropertyValueData::fromPageValue($current, $definition->key, $definition->type)->toColumns() === $value->toColumns()) {
+                continue;
+            }
+
+            // A field this save did not change was never checked before the
+            // write (an older value, or one promoted after it was entered).
+            // Sync it only while it meets the rules; otherwise leave the
+            // property as it is rather than failing a save that has already
+            // been written.
+            if (! PromotedFieldChanges::changedBySave($page, (string) $definition->promotedField)
+                && ! $this->validator->passesConstraints($definition, $value->value, (int) $page->site_id, (int) $page->id)) {
                 continue;
             }
 

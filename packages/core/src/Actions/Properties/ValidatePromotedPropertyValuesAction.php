@@ -8,6 +8,7 @@ use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Models\Page;
 use Capell\Core\Observers\PageObserver;
+use Capell\Core\Support\Properties\PromotedFieldChanges;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -19,8 +20,10 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * only synced after the save, and a page save is not transactional, so a rule
  * failure found then would leave the field saved and its property stale.
  *
- * Only fields that are changing are checked: a rule added later never blocks
- * an unrelated save of an older page.
+ * Only fields that are changing are checked ({@see PromotedFieldChanges}): a
+ * rule added later never blocks an unrelated save of an older page, while a
+ * move to another blueprint or site checks every promoted field against the
+ * rules that will then apply.
  *
  * @method static void run(Page $page)
  */
@@ -48,7 +51,7 @@ final class ValidatePromotedPropertyValuesAction
         foreach ($promoted as $definition) {
             $field = (string) $definition->promotedField;
 
-            if ($page->exists && ! $page->isDirty(explode('.', $field)[0])) {
+            if (! PromotedFieldChanges::changingBeforeSave($page, $field)) {
                 continue;
             }
 

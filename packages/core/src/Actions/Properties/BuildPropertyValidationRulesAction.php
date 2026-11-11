@@ -37,6 +37,45 @@ final class BuildPropertyValidationRulesAction
     use AsFake;
     use AsObject;
 
+    /** Backtracking budget for an editor-supplied pattern: ample for real formats, far below a catastrophic one. */
+    public const int PATTERN_BACKTRACK_LIMIT = 100_000;
+
+    /**
+     * Whether `$value` matches the stored pattern, evaluated under a bounded
+     * backtracking budget so an editor-supplied pattern cannot tie up a
+     * request. Returns null when the pattern does not compile or cannot finish
+     * within the budget.
+     */
+    public static function matchesPattern(string $pattern, string $value): ?bool
+    {
+        $previous = ini_get('pcre.backtrack_limit');
+        ini_set('pcre.backtrack_limit', (string) self::PATTERN_BACKTRACK_LIMIT);
+
+        try {
+            $result = @preg_match(self::compilePattern($pattern), $value);
+        } finally {
+            if (is_string($previous)) {
+                ini_set('pcre.backtrack_limit', $previous);
+            }
+        }
+
+        return $result === false ? null : $result === 1;
+    }
+
+    /**
+     * The storage column a unique-per-site value is compared in, or null when
+     * the type cannot be unique.
+     */
+    public static function uniqueColumn(PropertyType $type): ?string
+    {
+        return match (true) {
+            $type->isNumeric() => 'value_number',
+            $type->isText() => 'value_text',
+            $type === PropertyType::EntryReference => 'referenced_page_id',
+            default => null,
+        };
+    }
+
     /**
      * Wrap a stored pattern body so it must match the WHOLE value. Editors
      * write the pattern without delimiters or anchors.
@@ -85,7 +124,7 @@ final class BuildPropertyValidationRulesAction
             $rules[] = $this->media($constraints, $label);
         }
 
-        if ($constraints->uniquePerSite && ($type->isNumeric() || $type->isText() || $type === PropertyType::EntryReference)) {
+        if ($constraints->uniquePerSite && self::uniqueColumn($type) !== null) {
             $rules[] = $this->uniquePerSite($definition, $siteId, $ignorePageId, $label);
         }
 
@@ -158,7 +197,13 @@ final class BuildPropertyValidationRulesAction
                 return;
             }
 
-            if (@preg_match(self::compilePattern($pattern), (string) $value) !== 1) {
+            $matches = self::matchesPattern($pattern, (string) $value);
+
+            // A pattern that cannot finish within the backtracking budget is a
+            // failure, never a pass: the value has not been shown to match.
+            if ($matches === null) {
+                $fail(self::message(__('capell-core::properties.constraints.pattern_unverifiable', ['property' => $label])));
+            } elseif (! $matches) {
                 $fail(self::message(__('capell-core::properties.constraints.pattern', ['property' => $label])));
             }
         };
@@ -269,13 +314,9 @@ final class BuildPropertyValidationRulesAction
             }
 
             $columns = new PropertyValueData($definition->key, $definition->type, $value)->toColumns();
-            $column = match (true) {
-                $definition->type->isNumeric() => 'value_number',
-                $definition->type === PropertyType::EntryReference => 'referenced_page_id',
-                default => 'value_text',
-            };
+            $column = self::uniqueColumn($definition->type);
 
-            if ($columns[$column] === null) {
+            if ($column === null || $columns[$column] === null) {
                 return;
             }
 

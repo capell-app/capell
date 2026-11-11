@@ -22,6 +22,12 @@ use Override;
  * {@see PropertyValueValidator::assertConstraints()} call every other write
  * path uses, so the editor sees the error on the field itself (`data.<field>`)
  * instead of the save failing later when the promoted value is synced.
+ *
+ * Like the page-save check in Core, only values the form is changing are
+ * checked: every promoted field on a new page or when the form moves the page
+ * to another blueprint or site, otherwise only fields whose value differs from
+ * the saved page. An older value that predates a rule never blocks an editor's
+ * unrelated change; it is checked when someone edits that field.
  */
 final readonly class PropertyConstraintPageAuthoringValidator implements PageAuthoringValidator
 {
@@ -34,11 +40,16 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
     #[Override]
     public function validate(array $formData, ?Pageable $page = null, string $operation = 'save'): void
     {
-        $subject = $this->subject($formData, $page);
+        $record = $page instanceof Page && $page->exists ? $page : null;
+        $subject = $this->subject($formData, $record);
 
         if (! $subject instanceof Page) {
             return;
         }
+
+        $scopeChanged = ! $record instanceof Page
+            || (int) $record->blueprint_id !== (int) $subject->blueprint_id
+            || (int) $record->site_id !== (int) $subject->site_id;
 
         $promoted = ResolveEffectiveDefinitionsAction::run($subject)->filter(
             static fn (EffectivePropertyDefinitionData $definition): bool => $definition->promotedField !== null
@@ -53,11 +64,18 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
                 continue;
             }
 
+            $value = SyncPromotedFieldValuesAction::coerce($definition, $rawValue);
+
+            if (! $scopeChanged && $record instanceof Page
+                && $value === SyncPromotedFieldValuesAction::coerce($definition, data_get($record, $field))) {
+                continue;
+            }
+
             $this->validator->assertConstraints(
                 $definition,
-                SyncPromotedFieldValuesAction::coerce($definition, $rawValue),
+                $value,
                 (int) $subject->site_id,
-                $subject->exists ? (int) $subject->getKey() : null,
+                $record instanceof Page ? (int) $record->getKey() : null,
                 'data.' . $field,
             );
         }
@@ -65,19 +83,15 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
 
     /**
      * The page whose blueprint and site decide which rules apply: the record
-     * being edited, or an unsaved page built from the create form's choices.
+     * being edited with any blueprint or site the form now chooses, or an
+     * unsaved page built from the create form's choices.
      *
      * @param  array<string, mixed>  $formData
-     * @param  Pageable<covariant Model>|null  $page
      */
-    private function subject(array $formData, ?Pageable $page): ?Page
+    private function subject(array $formData, ?Page $record): ?Page
     {
-        if ($page instanceof Page) {
-            return $page;
-        }
-
-        $blueprintId = $formData['blueprint_id'] ?? null;
-        $siteId = $formData['site_id'] ?? null;
+        $blueprintId = $formData['blueprint_id'] ?? $record?->blueprint_id;
+        $siteId = $formData['site_id'] ?? $record?->site_id;
 
         if (! is_numeric($blueprintId) || ! is_numeric($siteId)) {
             return null;

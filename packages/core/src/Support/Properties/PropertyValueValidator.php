@@ -107,6 +107,20 @@ final class PropertyValueValidator
         }
     }
 
+    /**
+     * Whether one value meets the definition's constraints, without throwing.
+     */
+    public function passesConstraints(EffectivePropertyDefinitionData $definition, mixed $value, int $siteId, ?int $ignorePageId): bool
+    {
+        try {
+            $this->assertConstraints($definition, $value, $siteId, $ignorePageId, 'value');
+        } catch (ValidationException) {
+            return false;
+        }
+
+        return true;
+    }
+
     private function assertType(EffectivePropertyDefinitionData $definition, PropertyValueData $value): void
     {
         if ($value->type !== $definition->type) {

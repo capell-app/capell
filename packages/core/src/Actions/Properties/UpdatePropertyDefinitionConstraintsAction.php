@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Properties;
 
 use Capell\Core\Data\Properties\PropertyConstraintsData;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Closure;
@@ -29,6 +30,17 @@ final class UpdatePropertyDefinitionConstraintsAction
 {
     use AsFake;
     use AsObject;
+
+    /** Inputs that expose catastrophic backtracking: long runs of common character kinds that then fail to match. */
+    private const array PATTERN_PROBES = [
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!',
+        'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!',
+        '0000000000000000000000000000000000000000!',
+        'a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0!',
+        '                                        !',
+        '----------------------------------------!',
+        '........................................' . "\x00",
+    ];
 
     /**
      * @param  array<string, mixed>  $input
@@ -89,6 +101,12 @@ final class UpdatePropertyDefinitionConstraintsAction
             ));
         }
 
+        if ($constraints->uniquePerSite && $definition->constraints?->uniquePerSite !== true && $this->hasSharedValues($definition)) {
+            throw ValidationException::withMessages([
+                'unique_per_site' => __('capell-core::properties.constraints.input.unique_has_duplicates'),
+            ]);
+        }
+
         return DB::transaction(function () use ($definition, $constraints): PropertyDefinition {
             $definition->constraints = $constraints->isEmpty() ? null : $constraints;
             $definition->saveOrFail();
@@ -117,11 +135,46 @@ final class UpdatePropertyDefinitionConstraintsAction
         }
     }
 
+    /**
+     * Whether two live pages on one site already hold the same value, so the
+     * rule cannot be switched on until an editor resolves them.
+     */
+    private function hasSharedValues(PropertyDefinition $definition): bool
+    {
+        $column = BuildPropertyValidationRulesAction::uniqueColumn($definition->type);
+
+        if ($column === null) {
+            return false;
+        }
+
+        return PagePropertyValue::query()
+            ->where('property_definition_id', $definition->id)
+            ->whereNotNull($column)
+            ->whereHas('page')
+            ->select(['site_id', $column])
+            ->groupBy(['site_id', $column])
+            ->havingRaw('COUNT(DISTINCT page_id) > 1')
+            ->exists();
+    }
+
     private function compilablePattern(): Closure
     {
         return static function (string $attribute, mixed $value, Closure $fail): void {
             if (! is_string($value) || @preg_match(BuildPropertyValidationRulesAction::compilePattern($value), '') === false) {
                 $fail(__('capell-core::properties.constraints.input.pattern_invalid'));
+
+                return;
+            }
+
+            // Refuse a pattern that cannot finish within the backtracking
+            // budget on short, ordinary-looking input (nested repeats such as
+            // (a+)+): it would slow every check and fail closed on real values.
+            foreach (self::PATTERN_PROBES as $probe) {
+                if (BuildPropertyValidationRulesAction::matchesPattern($value, $probe) === null) {
+                    $fail(__('capell-core::properties.constraints.input.pattern_too_slow'));
+
+                    return;
+                }
             }
         };
     }

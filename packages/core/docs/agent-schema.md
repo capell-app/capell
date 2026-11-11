@@ -75,8 +75,27 @@ stored as versioned JSON (`{"version": 1, ...}`):
 writes), the `admin.page.properties.write` preview, the admin page editor for
 promoted fields, and any page save that changes a promoted field, checked
 before the row is written. A rejected value raises a `ValidationException` with
-the same editor-readable message on each path. An unchanged promoted field is
-not re-checked, so a rule added later never blocks an unrelated save.
+the same editor-readable message on each path.
+
+Promoted fields are checked when they change: always on a new page, for every
+promoted field when the page moves to another blueprint or site, and otherwise
+only for fields whose value changes. The admin editor and page saves follow the
+same rule, so an older value that predates a rule never blocks an unrelated
+edit or background save; the promoted property is simply not re-synced until
+someone corrects that field.
+
+Uniqueness is checked against live pages on the same site, and a value
+repeated across one page's entries in a single write is refused. A page in the
+bin does not hold its values, so restoring it is refused while another page now
+uses one of them. Switching `unique_per_site` on is refused while pages on one
+site already share a value. The check runs before the write without a database
+unique index, so two simultaneous saves of the same value can both succeed;
+treat uniqueness as an editorial guard, not a key.
+
+Format patterns run with a capped backtracking budget. A pattern that cannot
+finish within it on short probe strings, such as `(a+)+`, is refused when it is
+saved, and a stored pattern that runs out of budget fails the check rather than
+passing it.
 
 Administrators set rules from the blueprint list (**Field rules**). Rules belong
 to the definition, so they apply on every page type that uses its property set.
