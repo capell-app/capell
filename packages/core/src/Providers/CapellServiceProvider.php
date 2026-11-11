@@ -102,6 +102,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
+use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
@@ -118,6 +119,7 @@ use Capell\Core\Models\MetricEvent;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRoleRestriction;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
@@ -1185,6 +1187,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen('eloquent.creating: ' . Translation::class, PageTranslationCreatingListener::class);
         Event::listen('eloquent.saved: ' . Translation::class, PageTranslationSavedListener::class);
         Event::listen('eloquent.deleted: ' . Translation::class, PageTranslationDeletedListener::class);
+        Event::listen('eloquent.deleted: ' . Translation::class, [ReindexPropertyReferencesOnCascadeListener::class, 'translationDeleted']);
+        Event::listen('eloquent.deleting: ' . PropertyDefinition::class, [ReindexPropertyReferencesOnCascadeListener::class, 'definitionDeleting']);
         CapellCore::subscriberManager()->subscribe(RebuildContentGraphOnPageRollbackSubscriber::class);
 
         return $this;

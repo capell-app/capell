@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
-use Capell\Core\Actions\ContentGraph\SyncPropertyReferenceGraphEdgesAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Capell\Core\Support\ContentGraph\PropertyReferenceSyncScheduler;
 
 /**
  * Keeps an owner's property-reference edges current whenever one of its
@@ -29,22 +29,8 @@ final class PropertyValueContentGraphObserver
 
     private function scheduleSync(PagePropertyValue|TermPropertyValue $value): void
     {
-        $isPageValue = $value instanceof PagePropertyValue;
-        $ownerId = $isPageValue ? $value->page_id : $value->term_id;
-
-        defer(
-            static function () use ($isPageValue, $ownerId): void {
-                // A trashed page keeps its references so a restore brings them back.
-                $owner = $isPageValue
-                    ? Page::query()->withTrashed()->find($ownerId)
-                    : Term::query()->find($ownerId);
-
-                if ($owner instanceof Page || $owner instanceof Term) {
-                    SyncPropertyReferenceGraphEdgesAction::run($owner);
-                }
-            },
-            'content-graph:property-references:' . ($isPageValue ? Page::class : Term::class) . ':' . $ownerId,
-            always: true,
-        );
+        $value instanceof PagePropertyValue
+            ? PropertyReferenceSyncScheduler::schedule(Page::class, $value->page_id)
+            : PropertyReferenceSyncScheduler::schedule(Term::class, $value->term_id);
     }
 }

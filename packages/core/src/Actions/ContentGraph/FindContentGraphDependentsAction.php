@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\ContentGraph;
 
 use Capell\Core\Models\ContentGraphEdge;
+use Capell\Core\Support\ContentGraph\LivePropertyReferenceEdges;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -21,9 +22,9 @@ class FindContentGraphDependentsAction
      */
     public function handle(string $targetType, int $targetId): Collection
     {
-        return ContentGraphEdge::query()
+        return LivePropertyReferenceEdges::filter(ContentGraphEdge::query()
             ->where('target_type', $targetType)
             ->where('target_id', $targetId)
-            ->get();
+            ->get());
     }
 }

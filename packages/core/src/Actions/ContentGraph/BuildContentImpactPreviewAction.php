@@ -9,6 +9,7 @@ use Capell\Core\Data\ContentGraph\ContentImpactGroupData;
 use Capell\Core\Data\ContentGraph\ContentImpactPreviewData;
 use Capell\Core\Data\EditorImpact\EditorImpactDependencyData;
 use Capell\Core\Data\EditorImpact\EditorImpactUrlData;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
 use Capell\Core\Exceptions\UrlMissingSiteDomainException;
 use Capell\Core\Models\ContentGraphEdge;
@@ -74,6 +75,9 @@ final class BuildContentImpactPreviewAction
                     'modelType' => $firstEdge->source_type,
                     'recordId' => $firstEdge->source_id,
                     'strongestStrength' => $this->strongestStrength($sourceRecordEdges->pluck('strength')->all()),
+                    'viaProperty' => $sourceRecordEdges->contains(
+                        fn (ContentGraphEdge $edge): bool => $edge->getAttribute('kind') === ContentGraphEdgeKind::ReferencedByProperty->value,
+                    ),
                 ];
             })
             ->values();
@@ -92,8 +96,14 @@ final class BuildContentImpactPreviewAction
 
             /** @var class-string<Model> $modelType */
             $models = $modelType::query()
-                ->whereKey($group->pluck('recordId')->all())
+                ->whereKey($group->where('viaProperty', false)->pluck('recordId')->all())
                 ->get()
+                // A property value keeps its owner's deletion blocked while the owner is trashed or out of
+                // scope, as HasRetainedDeletionDependenciesAction does, so the preview resolves it the same way.
+                ->merge($modelType::query()
+                    ->withoutGlobalScopes()
+                    ->whereKey($group->where('viaProperty', true)->pluck('recordId')->all())
+                    ->get())
                 ->keyBy(fn (Model $model): string => (string) $model->getKey());
 
             foreach ($group as $identity) {

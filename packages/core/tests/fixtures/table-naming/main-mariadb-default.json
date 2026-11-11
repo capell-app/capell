@@ -540,6 +540,7 @@
     "page_property_values": {
         "indexes": [
             "page_property_values_identity_unique",
+            "page_property_values_media_id_index",
             "page_property_values_numeric_lookup",
             "page_property_values_property_definition_id_foreign",
             "page_property_values_referenced_page_id_foreign",
@@ -982,6 +983,7 @@
         "indexes": [
             "primary",
             "term_property_values_identity_unique",
+            "term_property_values_media_id_index",
             "term_property_values_numeric_lookup",
             "term_property_values_referenced_page_id_foreign",
             "term_property_values_referenced_term_id_foreign",
