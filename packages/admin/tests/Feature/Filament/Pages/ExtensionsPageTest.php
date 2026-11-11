@@ -442,6 +442,13 @@ it('renders extension stats with three default and five medium columns', functio
         ->toMatchArray(['--cols-default' => 3, '--cols-md' => 5]);
 });
 
+it('marks every extension stat tile so the phone stylesheet can wrap its label', function (): void {
+    grantExtensionsPageAccess();
+    $page = domXPath(Livewire::test(ExtensionStatsOverviewFilamentWidget::class)->assertSuccessful()->html());
+
+    expect($page->query('//*[contains(concat(" ", normalize-space(@class), " "), " capell-extension-stat ")]'))->toHaveCount(5);
+});
+
 it('does not poll extension stats while the extensions page is idle', function (): void {
     grantExtensionsPageAccess();
     $editor = Livewire::test(ExtensionStatsOverviewFilamentWidget::class)->assertSuccessful();
