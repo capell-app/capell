@@ -6,6 +6,7 @@ SiteSpec is Capell's deterministic site handoff contract. Core validates and imp
 
 - [Import](#import)
 - [Contract](#contract)
+- [Apply to an existing site](#apply-to-an-existing-site)
 - [Presets](#presets)
 - [Remote Media Safety](#remote-media-safety)
 - [Package-Owned Blocks](#package-owned-blocks)
@@ -17,6 +18,19 @@ php artisan capell:site-spec-import storage/app/site-spec.json
 ```
 
 The path may be absolute or relative to the application working directory. The importer hashes the normalized contract; importing the same spec again returns the existing site instead of duplicating it.
+
+## Apply to an existing site
+
+```bash
+php artisan capell:site-spec-import storage/app/site-spec.json --plan --site=3
+php artisan capell:site-spec-import storage/app/site-spec.json --site=3
+```
+
+`--site` applies the spec to a site that already exists instead of creating a new one. Pages are matched by slug in the spec's language: missing pages are created, pages whose name, title or content differ are updated, and the rest are left alone. Theme settings are merged into the site's theme when the theme key matches. Package-owned parts such as navigation run their appliers again, so an applier must be safe to run more than once. The site then records the spec's hash as the last spec applied.
+
+`--plan` prints what the apply would create, update and leave alone, and writes nothing. Without `--site` it plans against the site this exact spec was last applied to, or reports every page as a create. Package-owned parts are listed but not previewed.
+
+Applying never changes whether an existing page is published. A private spec also leaves any page that is live or scheduled untouched, and the plan marks it as held, so applying a private spec cannot publish private copy. Pages a private spec adds are created as drafts. A public, acknowledged spec updates live pages.
 
 ## Contract
 
