@@ -81,7 +81,11 @@ final class ThemeDoctorCommand extends Command
         if (! $this->option('warnings')) {
             $this->line(new DoctorWarningSummaryData(
                 $report->warningCount(),
-                sprintf('php artisan capell:theme:doctor %s --warnings', $this->argument('theme')),
+                trim(sprintf(
+                    'php artisan capell:theme:doctor %s %s--warnings',
+                    escapeshellarg((string) $this->argument('theme')),
+                    is_string($this->option('path')) && $this->option('path') !== '' ? '--path=' . escapeshellarg($this->option('path')) . ' ' : '',
+                )),
             )->message());
         }
     }

@@ -98,10 +98,13 @@ it('points at the command that lists theme warnings and exits zero', function ()
 
     $exitCode = Artisan::call('capell:theme:doctor', ['theme' => 'demo']);
     $output = Artisan::output();
+    Artisan::call('capell:theme:doctor', ['theme' => 'demo', '--path' => '/tmp/my theme']);
+    $withPath = Artisan::output();
     $listed = Artisan::call('capell:theme:doctor', ['theme' => 'demo', '--warnings' => true]);
 
     expect($exitCode)->toBe(Command::SUCCESS)
         ->and($listed)->toBe(Command::SUCCESS)
         ->and($output)->toContain('Theme checks passed with warnings')
-        ->toContain('php artisan capell:theme:doctor demo --warnings');
+        ->toContain("php artisan capell:theme:doctor 'demo' --warnings")
+        ->and($withPath)->toContain("php artisan capell:theme:doctor 'demo' --path='/tmp/my theme' --warnings");
 });
