@@ -32,24 +32,16 @@ use Override;
  * new page or when the form moves the page to another blueprint or site,
  * otherwise fields whose value differs from the saved page.
  *
- * A saved value the form leaves untouched may predate a rule. In local and
- * testing environments it is enforced too, so developers see a newly added
- * rule's effect straight away. Elsewhere it is reported instead: the save goes
- * through, the editor sees a warning naming the field and the breach is
- * logged, so a rule added later never stops an unrelated edit. Page saves in
- * Core follow the reporting behaviour in every environment.
+ * A saved value the form leaves untouched may predate a rule. Outside
+ * production it is enforced too ({@see PropertyValueValidator::enforcesUntouchedValues()}),
+ * so developers and staging see a newly added rule's effect straight away. In
+ * production it is reported instead: the save goes through, the editor sees a
+ * warning naming the field and the breach is logged, so a rule added later
+ * never stops an unrelated edit. Page saves in Core follow the same split.
  */
 final readonly class PropertyConstraintPageAuthoringValidator implements PageAuthoringValidator
 {
     public function __construct(private PropertyValueValidator $validator) {}
-
-    /**
-     * Whether a saved value the form leaves untouched must also pass its rules.
-     */
-    public static function enforcesUntouchedValues(): bool
-    {
-        return app()->environment(['local', 'testing']);
-    }
 
     /**
      * @param  array<string, mixed>  $formData
@@ -87,7 +79,7 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
             $untouched = ! $scopeChanged && $record instanceof Page
                 && $value === SyncPromotedFieldValuesAction::coerce($definition, data_get($record, $field));
 
-            if ($untouched && ! self::enforcesUntouchedValues()) {
+            if ($untouched && ! PropertyValueValidator::enforcesUntouchedValues()) {
                 $this->reportUntouchedBreach($definition, $value, $record, $field);
 
                 continue;

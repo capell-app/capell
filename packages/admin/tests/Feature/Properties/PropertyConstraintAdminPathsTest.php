@@ -19,6 +19,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
+use Capell\Core\Support\Properties\PropertyValueValidator;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
@@ -175,25 +176,23 @@ it('keeps property rules, which every site shares, away from site-scoped adminis
         ->assertTableActionHidden('propertyRules', Blueprint::query()->findOrFail($page->blueprint_id));
 });
 
-it('blocks a saved value that breaks a newer rule in local and testing environments, even when the editor leaves it unchanged', function (): void {
+it('blocks a saved value that breaks a newer rule outside production, even when the editor leaves it unchanged', function (string $environment): void {
     test()->actingAsAdmin();
     $page = Page::factory()->withTranslations()->createOne(['name' => 'An established page name']);
     $definition = adminConstrainedProperty($page, 'display_name', PropertyType::Text, ['max_length' => 12]);
     PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
-
-    expect(PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues())->toBeTrue();
 
     Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
         ->fillForm(['name' => 'An established page name'])
         ->call('save')
         ->assertHasFormErrors(['name' => 'Display Name must be 12 characters or fewer. Shorten the text.']);
 
-    app()->detectEnvironment(static fn (): string => 'local');
+    app()->detectEnvironment(static fn (): string => $environment);
 
-    expect(PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues())->toBeTrue()
+    expect(PropertyValueValidator::enforcesUntouchedValues())->toBeTrue()
         ->and(fn () => resolve(PropertyConstraintPageAuthoringValidator::class)->validate(['name' => 'An established page name'], $page))
-        ->toThrow(ValidationException::class);
-});
+        ->toThrow(ValidationException::class, 'Display Name must be 12 characters or fewer. Shorten the text.');
+})->with(['testing', 'local', 'staging']);
 
 it('lets the save through in production when an unchanged saved value breaks a newer rule, then warns the editor and logs it', function (): void {
     test()->actingAsAdmin();
@@ -204,7 +203,7 @@ it('lets the save through in production when an unchanged saved value breaks a n
     $log = Log::spy();
     $validator = resolve(PropertyConstraintPageAuthoringValidator::class);
 
-    expect(PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues())->toBeFalse();
+    expect(PropertyValueValidator::enforcesUntouchedValues())->toBeFalse();
 
     $validator->validate(['name' => 'An established page name', 'order' => 5], $page);
 

@@ -8,9 +8,11 @@ use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Properties\PromotedFieldChanges;
 use Capell\Core\Support\Properties\PropertyValueValidator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -21,14 +23,15 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * only synced after the save, and a page save is not transactional, so a rule
  * failure found then would leave the field saved and its property stale.
  *
- * Only fields that are changing are checked ({@see PromotedFieldChanges}): a
- * rule added later never blocks an unrelated save of an older page, while a
- * move to another blueprint or site checks every promoted field against the
- * rules that will then apply.
+ * Changing fields are always enforced ({@see PromotedFieldChanges}), as is
+ * every promoted field on a move to another blueprint or site. A field this
+ * save leaves as it was is enforced where developers work and only reported
+ * in production, so a rule added later never blocks an unrelated production
+ * save of an older page.
  *
- * Runs on every page create and update, so it first reads only the
- * blueprint's promotion paths (one small query) and returns before resolving
- * definitions when no promoted field is changing.
+ * Runs on every page create and update, so it first reads the blueprint's
+ * promotions (one small query, plus one more only when there are any) and
+ * returns before resolving definitions when no promoted field has a rule.
  *
  * @method static void run(Page $page)
  */
@@ -51,7 +54,7 @@ final class ValidatePromotedPropertyValuesAction
             return;
         }
 
-        if (! $this->anyPromotedFieldChanging($page)) {
+        if (! $this->hasConstrainedPromotedFields($page)) {
             return;
         }
 
@@ -63,42 +66,59 @@ final class ValidatePromotedPropertyValuesAction
         foreach ($promoted as $definition) {
             $field = (string) $definition->promotedField;
 
-            if (! PromotedFieldChanges::changingBeforeSave($page, $field)) {
-                continue;
-            }
-
             $rawValue = data_get($page, $field);
 
             if ($rawValue === null) {
                 continue;
             }
 
-            $this->validator->assertConstraints(
+            $arguments = [
                 $definition,
                 SyncPromotedFieldValuesAction::coerce($definition, $rawValue),
                 (int) $page->site_id,
                 $page->exists ? (int) $page->getKey() : null,
                 self::ERROR_KEY_PREFIX . $definition->key,
-            );
+            ];
+
+            if (PromotedFieldChanges::changingBeforeSave($page, $field)) {
+                $this->validator->assertConstraints(...$arguments);
+            } else {
+                $this->validator->assertOrReportUntouchedConstraints(...$arguments);
+            }
         }
     }
 
-    private function anyPromotedFieldChanging(Page $page): bool
+    /**
+     * Whether any field on the page's blueprint is promoted to a property that
+     * carries rules, read without resolving the full definition list.
+     */
+    private function hasConstrainedPromotedFields(Page $page): bool
     {
-        $overrides = BlueprintPropertySet::query()
-            ->where('blueprint_id', $page->blueprint_id)
-            ->pluck('overrides');
+        $promotedKeysBySet = [];
 
-        foreach ($overrides as $override) {
-            foreach (is_array($override) ? $override : [] as $definitionOverride) {
-                $field = is_array($definitionOverride) ? ($definitionOverride['promoted_field'] ?? null) : null;
+        foreach (BlueprintPropertySet::query()->where('blueprint_id', $page->blueprint_id)->get(['property_set_id', 'overrides']) as $attachment) {
+            foreach ($attachment->overrides ?? [] as $key => $override) {
+                $field = $override['promoted_field'] ?? null;
 
-                if (is_string($field) && $field !== '' && PromotedFieldChanges::changingBeforeSave($page, $field)) {
-                    return true;
+                if (is_string($field) && $field !== '') {
+                    $promotedKeysBySet[(int) $attachment->property_set_id][] = (string) $key;
                 }
             }
         }
 
-        return false;
+        if ($promotedKeysBySet === []) {
+            return false;
+        }
+
+        return PropertyDefinition::query()
+            ->whereNotNull('constraints')
+            ->where(static function (Builder $query) use ($promotedKeysBySet): void {
+                foreach ($promotedKeysBySet as $propertySetId => $keys) {
+                    $query->orWhere(static fn (Builder $set): Builder => $set
+                        ->where('property_set_id', $propertySetId)
+                        ->whereIn('key', $keys));
+                }
+            })
+            ->exists();
     }
 }

@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Properties;
 
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
+use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\EventSourcing\Listeners\RecordPageRevision;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
@@ -13,6 +14,7 @@ use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Support\Properties\PropertyValueValidator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -66,7 +68,7 @@ final class SetPagePropertyValuesAction
             }
 
             foreach ($values as $value) {
-                $definition = $this->validator->validate($page, $value, $effectiveDefinitions);
+                $definition = $this->validator->validate($page, $value, $effectiveDefinitions, $this->leavesStoredValueUnchanged($page, $value, $effectiveDefinitions));
                 $this->assertNotRepeatedOnPage($page, $definition, $value, $uniqueValuesSeen, $writtenPositions);
 
                 if (! $viaPromotedFieldSync && $definition->promotedField !== null) {
@@ -108,6 +110,36 @@ final class SetPagePropertyValuesAction
 
             PageSavedAction::run($page, ['_property_keys' => array_keys($touchedDefinitionIds)]);
         });
+    }
+
+    /**
+     * Whether this value is already stored exactly as given, so its rules are
+     * enforced or only reported by environment
+     * ({@see PropertyValueValidator::assertOrReportUntouchedConstraints()}).
+     * Only looked up for a definition that carries rules.
+     *
+     * @param  Collection<int, EffectivePropertyDefinitionData>  $effectiveDefinitions
+     */
+    private function leavesStoredValueUnchanged(Page $page, PropertyValueData $value, Collection $effectiveDefinitions): bool
+    {
+        $definition = $effectiveDefinitions->first(
+            static fn (EffectivePropertyDefinitionData $candidate): bool => $candidate->key === $value->propertyKey,
+        );
+
+        if (! $definition instanceof EffectivePropertyDefinitionData || ! $definition->constraints instanceof PropertyConstraintsData) {
+            return false;
+        }
+
+        $stored = PagePropertyValue::query()
+            ->where('site_id', $page->site_id)
+            ->where('page_id', $page->id)
+            ->where('property_definition_id', $definition->definitionId)
+            ->where('translation_id', $value->translationId)
+            ->where('position', $value->position)
+            ->first();
+
+        return $stored instanceof PagePropertyValue
+            && PropertyValueData::fromPageValue($stored, $definition->key, $definition->type)->toColumns() === $value->toColumns();
     }
 
     /**

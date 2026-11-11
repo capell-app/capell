@@ -18,6 +18,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -35,9 +36,19 @@ use Illuminate\Validation\ValidationException;
 final class PropertyValueValidator
 {
     /**
+     * Whether a value a write leaves unchanged must still pass its rules: in
+     * every environment except production, so developers and staging find
+     * over-limit data while production only reports it.
+     */
+    public static function enforcesUntouchedValues(): bool
+    {
+        return ! app()->isProduction();
+    }
+
+    /**
      * @param  Collection<int, EffectivePropertyDefinitionData>  $effectiveDefinitions
      */
-    public function validate(Page $page, PropertyValueData $value, Collection $effectiveDefinitions): EffectivePropertyDefinitionData
+    public function validate(Page $page, PropertyValueData $value, Collection $effectiveDefinitions, bool $untouched = false): EffectivePropertyDefinitionData
     {
         $definition = $effectiveDefinitions->first(
             static fn (EffectivePropertyDefinitionData $candidate): bool => $candidate->key === $value->propertyKey,
@@ -62,7 +73,11 @@ final class PropertyValueValidator
             }
         }
 
-        $this->assertConstraints($definition, $value->value, $page->site_id, $page->id, $value->propertyKey);
+        if ($untouched) {
+            $this->assertOrReportUntouchedConstraints($definition, $value->value, $page->site_id, $page->id, $value->propertyKey);
+        } else {
+            $this->assertConstraints($definition, $value->value, $page->site_id, $page->id, $value->propertyKey);
+        }
 
         if ($definition->localised) {
             if ($value->translationId === null) {
@@ -104,6 +119,36 @@ final class PropertyValueValidator
 
         if ($validator->fails()) {
             throw ValidationException::withMessages([$errorKey => $validator->errors()->get('value')]);
+        }
+    }
+
+    /**
+     * Apply the constraints to a value this write leaves as it already was.
+     * Outside production ({@see self::enforcesUntouchedValues()}) it is
+     * enforced like any other value so over-limit data is found early; in
+     * production it is reported (a warning with identifiers only, never the
+     * value) and the save carries on, so a rule added later never blocks an
+     * unrelated save.
+     *
+     * @throws ValidationException
+     */
+    public function assertOrReportUntouchedConstraints(
+        EffectivePropertyDefinitionData $definition,
+        mixed $value,
+        int $siteId,
+        ?int $ignorePageId,
+        string $errorKey,
+    ): void {
+        try {
+            $this->assertConstraints($definition, $value, $siteId, $ignorePageId, $errorKey);
+        } catch (ValidationException $validationException) {
+            throw_if(self::enforcesUntouchedValues(), $validationException);
+
+            Log::warning('An unchanged property value breaks its constraints; the save was not blocked.', [
+                'property' => $definition->key,
+                'site_id' => $siteId,
+                'page_id' => $ignorePageId,
+            ]);
         }
     }
 

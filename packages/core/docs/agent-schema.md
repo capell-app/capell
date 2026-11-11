@@ -77,23 +77,26 @@ promoted fields, and any page save that changes a promoted field, checked
 before the row is written. A rejected value raises a `ValidationException` with
 the same editor-readable message on each path.
 
-Promoted fields are checked when they change: always on a new page, for every
-promoted field when the page moves to another blueprint or site, and otherwise
-only for fields whose value changes. Page saves follow this rule in every
-environment, so an older value that predates a rule never blocks an unrelated
-edit or background save; the promoted property is simply not re-synced until
-someone corrects that field.
+A value a write changes is always checked: every promoted field on a new page
+or when the page moves to another blueprint or site, a promoted field whose
+value changes, and every property value written with a new value. Checks run
+before anything is written, so a refused save never leaves a page half-saved.
 
-The admin page editor also looks at saved values the form leaves unchanged,
-and what it does depends on the application environment
-(`PropertyConstraintPageAuthoringValidator::enforcesUntouchedValues()`, true
-when `app()->environment(['local', 'testing'])`):
+A value the write leaves as it was may predate a rule. What happens then depends
+on the environment (`PropertyValueValidator::enforcesUntouchedValues()`, true
+unless `app()->isProduction()`):
 
-- In `local` and `testing` it blocks the save with the field error, so a
-  developer sees a newly added rule's effect straight away.
-- In every other environment, production included, it lets the save through,
-  shows the editor a warning naming the field and the broken rule, and logs a
-  warning with the page ID, property key and field (never the value).
+- Outside production (local, testing, staging) it is enforced like a changed
+  value, so developers find over-limit data as soon as a rule is added.
+- In production it is reported and the save goes through, so a rule added later
+  never blocks an unrelated edit. The page editor shows a warning naming the
+  field and the broken rule; every path logs a warning with identifiers only,
+  never the value. The promoted property is not re-synced until someone
+  corrects the field.
+
+Page saves only look further when the blueprint has a promoted field whose
+property carries rules, and a property write only looks up the stored value for
+a definition with rules.
 
 Uniqueness is checked against live pages on the same site, and a value
 repeated across one page's entries is refused, whether both entries are in the

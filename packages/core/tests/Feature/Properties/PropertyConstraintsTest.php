@@ -23,6 +23,7 @@ use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -242,6 +243,7 @@ it('refuses rule sets that cannot work', function (PropertyType $type, array $in
     'a range that is upside down' => [PropertyType::Number, ['min' => 10, 'max' => 1], 'max', 'The largest allowed value is smaller than the smallest. Swap them or change one.'],
     'a length on a number' => [PropertyType::Number, ['max_length' => 5], 'max_length', 'This rule does not apply to this kind of field. Clear it before saving.'],
     'a format that does not compile' => [PropertyType::Text, ['pattern' => '[A-Z'], 'pattern', 'This format cannot be used. Check it for unmatched brackets, stray symbols or (*...) instructions, or ask a developer to write it.'],
+    'a format that closes the whole-value wrapper' => [PropertyType::Text, ['pattern' => 'x)|(y'], 'pattern', 'This format cannot be used. Check it for unmatched brackets, stray symbols or (*...) instructions, or ask a developer to write it.'],
     'a malformed file type' => [PropertyType::Media, ['allowed_mime_types' => ['png']], 'allowed_mime_types.0', 'Enter a file type such as image/png, or image/* for any image.'],
 ]);
 
@@ -300,7 +302,7 @@ it('lets a value held only by a deleted page be reused', function (): void {
     expect(propertyWriteErrors($sibling, 'code', PropertyType::Text, 'SUMMER'))->toBe([]);
 });
 
-it('applies a rule added later only to saves that change the promoted field', function (): void {
+it('blocks an unrelated save over an older over-limit promoted value where developers work, and only reports it in production', function (): void {
     $page = Page::factory()->create(['name' => 'An established page name']);
     $set = PropertySet::factory()->create();
     $definition = PropertyDefinition::factory()->create(['property_set_id' => $set->id, 'key' => 'display_name', 'type' => PropertyType::Text]);
@@ -310,6 +312,13 @@ it('applies a rule added later only to saves that change the promoted field', fu
 
     UpdatePropertyDefinitionConstraintsAction::run($definition, ['max_length' => 10]);
 
+    $page->refresh()->order = 98;
+
+    // Refused before the row is written, so nothing is half-saved.
+    expect(fn (): bool => $page->save())->toThrow(ValidationException::class)
+        ->and($page->refresh()->order)->not->toBe(98);
+
+    app()->detectEnvironment(fn (): string => 'production');
     $page->refresh()->order = 99;
     $page->save();
 
@@ -345,14 +354,18 @@ function promotedNameProperty(Page $page, array $constraints = [], ?int $bluepri
     return $definition;
 }
 
-it('lets an unrelated save through when an older promoted value with no stored property breaks a later rule', function (): void {
+it('lets an unrelated production save through, reporting an older promoted value with no stored property that breaks a later rule', function (): void {
     $page = Page::factory()->create(['name' => 'An established page name']);
     $definition = promotedNameProperty($page, ['max_length' => 10]);
 
     expect(PagePropertyValue::query()->where('property_definition_id', $definition->id)->exists())->toBeFalse();
 
+    app()->detectEnvironment(fn (): string => 'production');
+    $log = Log::spy();
     $page->refresh()->order = 42;
     $page->save();
+
+    $log->shouldHaveReceived('warning')->atLeast()->once();
 
     expect($page->refresh()->order)->toBe(42)
         ->and(PagePropertyValue::query()->where('property_definition_id', $definition->id)->exists())->toBeFalse();
@@ -373,6 +386,25 @@ it('checks promoted fields against the new blueprint before a page moves to it',
 
     expect(fn (): bool => $page->save())->toThrow(ValidationException::class)
         ->and($page->refresh()->blueprint_id)->toBe($originalBlueprintId);
+});
+
+it('enforces an unchanged over-limit stored value where developers work and only reports it in production', function (): void {
+    $page = Page::factory()->create();
+    $definition = constrainedProperty($page, PropertyType::Text, [], 'code');
+    SetPagePropertyValuesAction::run($page, [new PropertyValueData('code', PropertyType::Text, 'far too long for the later rule')]);
+    UpdatePropertyDefinitionConstraintsAction::run($definition, ['max_length' => 5]);
+    $same = [new PropertyValueData('code', PropertyType::Text, 'far too long for the later rule')];
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, $same))->toThrow(ValidationException::class);
+
+    app()->detectEnvironment(fn (): string => 'production');
+    $log = Log::spy();
+    SetPagePropertyValuesAction::run($page, $same);
+
+    $log->shouldHaveReceived('warning')->once();
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [new PropertyValueData('code', PropertyType::Text, 'a different over-long value')]))
+        ->toThrow(ValidationException::class);
 });
 
 it('refuses to restore a page whose unique value another page took while it was in the bin', function (): void {
@@ -499,14 +531,17 @@ it('keeps escaped brackets and ordinary alternation working inside a format', fu
         ->toStartWith('Colour is not in the format this field expects.');
 });
 
-it('skips resolving property definitions on a page save that changes no promoted field', function (): void {
-    $page = Page::factory()->create(['name' => 'An established page name']);
-    promotedNameProperty($page, ['max_length' => 10]);
-    $page->refresh();
-    $definitionQueries = static function (callable $callback): int {
+it('skips resolving property definitions on a page save when no promoted field carries a rule', function (): void {
+    $plain = Page::factory()->create(['name' => 'An established page name']);
+    $unconstrained = Page::factory()->create(['name' => 'An established page name']);
+    promotedNameProperty($unconstrained);
+    $constrained = Page::factory()->create(['name' => 'Short']);
+    promotedNameProperty($constrained, ['max_length' => 10]);
+    $definitionQueries = static function (Page $page): int {
+        $page->refresh()->order = 7;
         DB::flushQueryLog();
         DB::enableQueryLog();
-        $callback();
+        ValidatePromotedPropertyValuesAction::run($page);
         DB::disableQueryLog();
 
         return collect(DB::getQueryLog())
@@ -514,13 +549,11 @@ it('skips resolving property definitions on a page save that changes no promoted
             ->count();
     };
 
-    $page->order = 7;
-
-    expect($definitionQueries(static fn () => ValidatePromotedPropertyValuesAction::run($page)))->toBe(0);
-
-    $page->name = 'Changed';
-
-    expect($definitionQueries(static fn () => ValidatePromotedPropertyValuesAction::run($page)))->toBeGreaterThan(0);
+    // No promotion: no definition query at all. A promotion without rules:
+    // one existence check, no resolution. A promotion with rules: resolved.
+    expect($definitionQueries($plain))->toBe(0)
+        ->and($definitionQueries($unconstrained))->toBe(1)
+        ->and($definitionQueries($constrained))->toBeGreaterThan(1);
 });
 
 it("rejects a unique value already stored at another of the page's entries that the write leaves in place", function (): void {
