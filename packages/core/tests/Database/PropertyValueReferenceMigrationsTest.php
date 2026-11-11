@@ -73,23 +73,72 @@ it('leaves a media table Capell did not record creating unconstrained instead of
         ->and(hasMediaForeignKey('term_property_values'))->toBeFalse();
 });
 
-it('indexes media_id on every property values table and removes only its own index on rollback', function (): void {
-    $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_11_11_000011_add_media_id_index_to_property_values_tables.php';
-    $indexName = static fn (string $table): string => TableName::index($table, 'media_id', 'index');
+/** @return list<string> names of the indexes whose leading column is media_id */
+function mediaIdIndexes(string $baseTable): array
+{
+    return array_values(array_map(
+        static fn (array $index): string => $index['name'],
+        array_filter(
+            Schema::getIndexes(TableName::resolve($baseTable)),
+            static fn (array $index): bool => ($index['columns'][0] ?? null) === 'media_id',
+        ),
+    ));
+}
 
-    expect(Schema::hasIndex(TableName::resolve('page_property_values'), $indexName('page_property_values')))->toBeTrue()
-        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), $indexName('term_property_values')))->toBeTrue();
+it('keeps media_id indexed on every driver and never drops the index a foreign key owns', function (): void {
+    $index = require dirname(__DIR__, 2) . '/database/migrations/2026_11_11_000011_add_media_id_index_to_property_values_tables.php';
 
-    $migration->down();
+    foreach (['page_property_values', 'term_property_values'] as $baseTable) {
+        $ownName = TableName::index($baseTable, 'media_id', 'index');
+        $before = mediaIdIndexes($baseTable);
 
-    expect(Schema::hasIndex(TableName::resolve('page_property_values'), $indexName('page_property_values')))->toBeFalse()
-        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), $indexName('term_property_values')))->toBeFalse();
+        // MySQL and MariaDB index the foreign key column themselves, so the migration adds nothing there.
+        expect($before)->not->toBeEmpty();
 
-    $migration->up();
-    $migration->up();
+        $index->down();
 
-    expect(Schema::hasIndex(TableName::resolve('page_property_values'), $indexName('page_property_values')))->toBeTrue()
-        ->and(Schema::hasIndex(TableName::resolve('term_property_values'), $indexName('term_property_values')))->toBeTrue();
+        expect(mediaIdIndexes($baseTable))->toBe(array_values(array_diff($before, [$ownName])))
+            ->and(hasMediaForeignKey($baseTable))->toBeTrue();
+
+        $index->up();
+        $index->up();
+
+        expect(mediaIdIndexes($baseTable))->toEqualCanonicalizing($before);
+    }
+});
+
+it('adds and removes its own media_id index where no foreign key indexes the column', function (): void {
+    $foreignKey = require dirname(__DIR__, 2) . '/database/migrations/2026_11_11_000010_add_media_foreign_key_to_property_values_tables.php';
+    $index = require dirname(__DIR__, 2) . '/database/migrations/2026_11_11_000011_add_media_id_index_to_property_values_tables.php';
+
+    $index->down();
+
+    $foreignKey->down();
+
+    foreach (['page_property_values', 'term_property_values'] as $baseTable) {
+        expect(mediaIdIndexes($baseTable))->toBe([])
+            ->and(hasMediaForeignKey($baseTable))->toBeFalse();
+    }
+
+    $index->up();
+
+    foreach (['page_property_values', 'term_property_values'] as $baseTable) {
+        expect(mediaIdIndexes($baseTable))->toBe([TableName::index($baseTable, 'media_id', 'index')]);
+    }
+
+    $index->down();
+
+    foreach (['page_property_values', 'term_property_values'] as $baseTable) {
+        expect(mediaIdIndexes($baseTable))->toBe([]);
+    }
+
+    $foreignKey->up();
+    $index->up();
+
+    foreach (['page_property_values', 'term_property_values'] as $baseTable) {
+        expect(hasMediaForeignKey($baseTable))->toBeTrue()
+            ->and(mediaIdIndexes($baseTable))->not->toBeEmpty();
+    }
 });
 
 it('skips the reference index upgrade when no property value holds a reference', function (): void {
