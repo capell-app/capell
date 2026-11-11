@@ -66,16 +66,26 @@ return new class extends Migration
                 continue;
             }
 
-            if (! $this->hasForeignKey($values, $baseTable)) {
-                continue;
-            }
+            foreach (Schema::getForeignKeys($values) as $foreignKey) {
+                if ($foreignKey['columns'] !== ['media_id']) {
+                    continue;
+                }
 
-            // Dropped by column: SQLite can only drop a foreign key by recreating the table from its
-            // column list. Other drivers derive the conventional name, which is the name up() gave
-            // the key unless a table prefix pushed it past 63 characters.
-            Schema::table($values, static function (Blueprint $table): void {
-                $table->dropForeign(['media_id']);
-            });
+                $name = $foreignKey['name'];
+
+                // SQLite keys carry no name and are dropped by column; elsewhere the key is dropped by the
+                // name up() gave it, which TableName may have shortened past the driver's identifier limit.
+                Schema::table($values, static function (Blueprint $table) use ($name): void {
+                    $table->dropForeign(is_string($name) && $name !== '' ? $name : ['media_id']);
+                });
+
+                // MySQL keeps the index it created for the key under the key's name.
+                if (is_string($name) && $name !== '' && Schema::hasIndex($values, $name)) {
+                    Schema::table($values, static function (Blueprint $table) use ($name): void {
+                        $table->dropIndex($name);
+                    });
+                }
+            }
         }
     }
 

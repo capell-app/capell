@@ -31,6 +31,7 @@ use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 /**
  * @param  array<string, array{0: PropertyType, 1: PropertyRequirement}>  $definitions
@@ -387,4 +388,46 @@ it('ignores a stored property edge whose value was removed without model events'
     expect(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull()
         ->and(HasRetainedDeletionDependenciesAction::run($media))->toBeFalse()
         ->and(BuildContentImpactPreviewAction::run($media)->strongCount)->toBe(0);
+});
+
+it('keeps property media references when the permanent delete does not go through', function (): void {
+    $this->withoutDefer();
+    $page = Page::factory()->create();
+    $media = Media::factory()->model(Page::factory()->create())->create();
+    $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::None]]);
+    $value = pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id]);
+    Event::listen('eloquent.deleting: ' . Media::class, static fn (): bool => false);
+
+    expect($media->forceDelete())->toBeFalse()
+        ->and($value->fresh()?->media_id)->toBe($media->id)
+        ->and(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull();
+});
+
+it('releases property media references itself where the media table carries no foreign key', function (): void {
+    $this->withoutDefer();
+    (require dirname(__DIR__, 3) . '/database/migrations/2026_11_11_000010_add_media_foreign_key_to_property_values_tables.php')->down();
+    $page = Page::factory()->create();
+    $media = Media::factory()->model(Page::factory()->create())->create();
+    $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::None]]);
+    $value = pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id]);
+
+    $media->forceDelete();
+
+    expect($value->fresh()?->media_id)->toBeNull()
+        ->and(storedPropertyReference($page, Media::class, $media->id))->toBeNull();
+});
+
+it('shows a trashed page whose required property still blocks a page delete in the preview', function (): void {
+    $this->withoutDefer();
+    $owner = Page::factory()->create();
+    $target = Page::factory()->create();
+    $definitions = attachReferenceProperties($owner, ['related' => [PropertyType::EntryReference, PropertyRequirement::Publish]]);
+    pagePropertyValue($owner, $definitions['related'], ['referenced_page_id' => $target->id]);
+    $owner->delete();
+
+    $preview = BuildContentImpactPreviewAction::run($target);
+
+    expect(HasRetainedDeletionDependenciesAction::run($target))->toBeTrue()
+        ->and($preview->blocked)->toBeTrue()
+        ->and($preview->strongCount)->toBe(1);
 });
