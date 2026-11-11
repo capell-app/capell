@@ -354,3 +354,17 @@ it('has standalone indexes so the site-less scheduled scan can use an index', fu
 
     expect($indexed)->toContain('visible_from')->toContain('visible_until');
 });
+
+it('leaves a recent checkpoint alone on an idle tick and advances an old one', function (): void {
+    $recent = CarbonImmutable::now()->subMinute()->toIso8601String();
+    setScheduledPublicationCheckpoint($recent);
+
+    expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(0)
+        ->and(scheduledPublicationCheckpointPayload())->toBe($recent);
+
+    $old = CarbonImmutable::now()->subMinutes(20)->toIso8601String();
+    setScheduledPublicationCheckpoint($old);
+
+    expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(0)
+        ->and(scheduledPublicationCheckpointPayload())->toBe(CarbonImmutable::now()->toIso8601String());
+});
