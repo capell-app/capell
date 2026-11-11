@@ -87,7 +87,7 @@ class RunNpmBuildAction
 
     private function runCommand(string $command): ProcessResult
     {
-        return Process::timeout(self::BUILD_TIMEOUT_SECONDS)->run($command);
+        return Process::path(base_path())->timeout(self::BUILD_TIMEOUT_SECONDS)->run($command);
     }
 
     private function throwBuildFailedException(ProcessResult $result): never

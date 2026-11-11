@@ -17,6 +17,17 @@ it('installs prepared dependencies and builds the selected asset mode', function
     Process::assertRan(fn (PendingProcess $process): bool => $process->command === $command && $process->timeout === 300);
 })->with(['production' => [false, 'npm run build'], 'development' => [true, 'npm run dev']]);
 
+it('runs npm from the application base path rather than the host process directory', function (): void {
+    Process::fake();
+    Process::preventStrayProcesses();
+
+    RunNpmBuildAction::run();
+
+    foreach (['npm install', 'npm run build'] as $command) {
+        Process::assertRan(fn (PendingProcess $process): bool => $process->command === $command && $process->path === base_path());
+    }
+});
+
 it('retains build diagnostics from stderr or stdout', function (string $output, string $error, string $message): void {
     Process::fake([
         'npm install' => Process::result(),
