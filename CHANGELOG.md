@@ -9,6 +9,8 @@ the `Update Changelog` workflow.
 
 ### Added
 
+- Documented website-specific page fields with a Client name walkthrough, extension examples, storage and lifecycle comparisons, and reproducible screenshot fixtures.
+
 - Added a progress bar across the `capell:install` steps and a closing summary of 60 lines or fewer (what was installed, the site and admin addresses and the next steps). Plain step lines replace the bar in CI and `--no-interaction` runs, and `-v` keeps the detailed install log and full handoff.
 - Added a short install-shaped "What next" list to the `capell:install` handoff (sign-in, first page, theme, content packages or the pending asset build), exported as `tips` in the JSON handoff.
 - Added a simple CLI installation flow with one confirmation for foundation defaults, editable customisation, reusable profiles, optional application URL updates and frontend dependency builds.

@@ -133,7 +133,7 @@ Developers can register custom blueprints through Capell extension points. Read 
 
 Choose **Save as draft** on the new-page form. The page is stored in Admin, but it is not available to anonymous visitors yet. The other create action is **Save and Publish**, so use the draft action for this first review.
 
-On an already published page, the save action is labelled **Save**. If workflow packages are installed, draft changes and publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing; follow the actions and checks your installation presents.
+The edit form's save action is labelled **Save** for every page. On a draft it keeps the page a draft; publishing is the separate **Publish now** action in the Publish panel. On an already published page it updates the live page. If workflow packages are installed, draft changes and publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing; follow the actions and checks your installation presents.
 
 ## Preview and publish
 

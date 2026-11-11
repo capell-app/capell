@@ -14,7 +14,7 @@
 
 ## Creating a Custom Page Type
 
-Page types describe the model subject that can be edited as a page-like blueprint. Register them with `PageTypeData`; form fields and admin behavior are extended separately through schema extenders and admin contracts.
+Blueprint subjects describe the models that blueprints can target. Register a `BlueprintSubjectDescriptorData` with `BlueprintSubjectRegistry`; form fields and admin behaviour are extended separately through schema extenders and admin contracts. The model must implement `Blueprintable` and have a `blueprint_id` relationship column.
 
 ```php
 <?php
@@ -23,36 +23,45 @@ declare(strict_types=1);
 
 namespace App\Types;
 
+use Capell\Core\Models\Concerns\HasBlueprint;
+use Capell\Core\Models\Contracts\Blueprintable;
 use Illuminate\Database\Eloquent\Model;
 
-final class ProductPage extends Model
+final class ProductPage extends Model implements Blueprintable
 {
+    use HasBlueprint;
+
     protected $table = 'product_pages';
 }
 ```
 
-Register in your `AppServiceProvider`:
+Register in your `AppServiceProvider`'s `boot()` method, before the registry freezes on application boot:
 
 ```php
 use App\Types\ProductPage;
-use Capell\Core\Data\PageTypeData;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 
-public function register(): void
+public function boot(): void
 {
-    CapellCore::registerPageType(new PageTypeData(
-        name: 'product',
-        model: ProductPage::class,
+    $this->app->make(BlueprintSubjectRegistry::class)->register(new BlueprintSubjectDescriptorData(
+        key: 'product',
         label: 'Products',
+        modelClass: ProductPage::class,
+        ownerPackage: 'app/site',
     ));
 }
 ```
+
+Use your application's Composer name for `ownerPackage`. Optional packages pass the descriptor to `$this->surface()->blueprintSubject(...)` in `bootInstalledPackage()` and declare a `blueprint-subject` contribution in `capell.json`. The helper also populates the legacy page-type collection. `CapellCore::registerPageType(new PageTypeData(...))` alone only populates that legacy collection; writing an unregistered string to `Blueprint.type` throws `UnknownBlueprintSubjectException`.
 
 Use `PageSchemaExtender::TAG` for fields, `PageTableExtender::TAG` for admin table query changes, and frontend component registration for public rendering. Do not publish core schemas to add package fields.
 
 ## Creating a Custom Widget
 
-Widgets can be placed on pages by packages that provide placement UIs.
+Choose the component surface first. Layout Builder widget records use their own blueprint, placement and metadata. Inline content widgets expose a Filament Builder block and typed input/render contracts; their values belong to a component occurrence, not to Page metadata.
+
+For an inline content widget, the current editor contract is `FilamentWidget`:
 
 ```php
 <?php
@@ -61,37 +70,37 @@ declare(strict_types=1);
 
 namespace App\Widgets;
 
-use Capell\Core\Blueprints\AbstractWidget;
+use Capell\Admin\Contracts\Widgets\FilamentWidget;
+use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\ColorPicker;
-use Filament\Schemas\Schema;
+use Override;
 
-class CallToActionWidget extends AbstractWidget
+final class ClientCreditWidget implements FilamentWidget
 {
-    public static function getName(): string
+    #[Override]
+    public static function getWidgetName(): string
     {
-        return 'Call To Action';
+        return 'my-site.client-credit';
     }
 
-    public static function schema(Schema $schema): array
+    #[Override]
+    public static function make(): Block
     {
-        return [
-            TextInput::make('title')->required(),
-            TextInput::make('button_text')->required(),
-            TextInput::make('button_url')->url()->required(),
-            ColorPicker::make('background_color'),
-        ];
-    }
-
-    // Blade view for frontend rendering
-    public static function getView(): string
-    {
-        return 'elements.call-to-action';
+        return Block::make(self::getWidgetName())
+            ->label(__('case-study.details'))
+            ->schema([
+                TextInput::make('client_name')
+                    ->label(__('case-study.client_name'))
+                    ->required()
+                    ->maxLength(120),
+            ]);
     }
 }
 ```
 
-Register: `CapellCore::registerWidget(CallToActionLayoutElement::class);`
+Define those translation labels in your application. This class supplies only the editor block. Register the widget's typed input, render handler and public output through the content-widget contribution contract; a form class alone does not complete registration or rendering. The Countdown extension is a concrete example of those separate contracts.
+
+For a Layout Builder widget, follow the [widget registration guide](https://github.com/capell-app/capell/blob/main/docs/frontend/widget-registration.md). Do not use the removed `Capell\Core\Blueprints\AbstractWidget` / `CapellCore::registerWidget()` pattern. The [custom-field decision guide](https://github.com/capell-app/capell/blob/main/docs/packages/custom-page-fields.md) distinguishes component-instance fields from page-wide fields.
 
 ## Creating a Settings Schema
 
@@ -201,7 +210,7 @@ The registered schema class owns its Filament components. Do not defer registry 
 
 ## Creating a Schema Extender (for Admin form-builder)
 
-Schema extenders modify Filament resource form-builder (e.g., add fields to the Page form). Implement `PageSchemaExtender` and tag with `PageSchemaExtender::TAG`:
+Use the abstract base when contributing one hook. It supplies the other interface methods without replacing existing components.
 
 ```php
 <?php
@@ -210,34 +219,58 @@ declare(strict_types=1);
 
 namespace App\Schemas;
 
-use Capell\Admin\Contracts\PageSchemaExtender;
+use Capell\Admin\Support\Schemas\AbstractPageSchemaExtender;
+use Capell\Core\Models\Page;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
+use Override;
 
-class MyPageSchemaExtender implements PageSchemaExtender
+final class CaseStudyPageSchemaExtender extends AbstractPageSchemaExtender
 {
-    public function extend(Schema $schema): array
+    #[Override]
+    public function extendTabs(Schema $schema, array $tabs): array
     {
+        $record = $schema->getRecord();
+
+        if (! $record instanceof Page || $record->blueprint?->key !== 'case-study') {
+            return $tabs;
+        }
+
         return [
-            TextInput::make('custom_seo_title')
-                ->label('Custom SEO Title'),
+            ...$tabs,
+            Tab::make(__('case-study.details'))->schema([
+                TextInput::make('meta.case_study.client_name')
+                    ->label(__('case-study.client_name'))
+                    ->required()
+                    ->maxLength(120),
+            ]),
         ];
     }
 }
 ```
 
-Register in service provider:
+Define the labels in `lang/en/case-study.php`, then register in the application's provider:
 
 ```php
-$this->app->tag([MyPageSchemaExtender::class], PageSchemaExtender::TAG);
+use App\Schemas\CaseStudyPageSchemaExtender;
+use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
+
+$this->app->tag([CaseStudyPageSchemaExtender::class], PageSchemaExtender::TAG);
 ```
 
-The core admin resolves all tagged extenders at runtime:
+For an optional package, register installed-only contributions from `bootInstalledRuntime()` rather than an unconditional Composer-discovered provider boot.
 
-```php
-collect(app()->tagged(PageSchemaExtender::TAG))
-    ->each(fn (PageSchemaExtender $extender) => $extender->extend($schema));
+The top-level field persists in `Page.meta`; no migration or arbitrary new attribute is implied. A field at that relative path inside `extendTranslationComponentsForHook()` persists in each `Translation.meta` instead. Choose the intended scope, enforce write rules and hydrate public display data before Blade. Keep unrelated tabs with `...$tabs`; add a site condition if the blueprint spans sites but the field should not.
+
+After changing a cached admin registration, clear and rebuild the configurator cache:
+
+```bash
+php artisan capell:admin-clear-cache
+php artisan capell:admin-cache-configurators
 ```
+
+See the [complete Client name walkthrough](https://github.com/capell-app/capell/blob/main/docs/getting-started/add-a-custom-page-field.md) for validation, persistence and public output.
 
 ## Creating a New Add-on Package
 

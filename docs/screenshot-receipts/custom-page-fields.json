@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 4,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "custom-page-fields-editor",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/admin/custom-page-fields-editor.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "custom-page-fields-validation",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/admin/custom-page-fields-validation.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "custom-page-fields-reopened",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/admin/custom-page-fields-reopened.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "custom-page-fields-public",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/package-surfaces/custom-page-fields-public.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-11-10T13:06:14.610Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "05503f62ec741226984de302f1e13b6204df8886",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "e2a12e42aa606c632699feae572b4f5fbaf308e0",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "95ed15b2213a357d32f16a4a506a9eaf5b0ebbd6cba3e17595242cdd9e8ad61d"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "0017a89c23819becbab7788f3a0adaf21c8d23a97c36ae3c044eebdcf83b20c5"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "documentation",
+        "id": "custom-page-fields-editor",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/custom-page-fields-editor.png",
+          "sha256": "414a196f7f5e7090c099dab8ab66d3e02499f3b2f6ca7f5c41f8b6f3fc590069"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "5387fe8aa5f30687632d9832e9e3d8480c4d19e510a6bdeeddabdf75032af232"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2a12e42aa606c632699feae572b4f5fbaf308e0"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8197/",
+          "url": "http://127.0.0.1:8197/admin/pages/13/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "custom-page-fields-validation",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/custom-page-fields-validation.png",
+          "sha256": "09b1ef4291b38730f36fe3f26c395433f4cb64e6b0d910d8669a744eb29da63d"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "5387fe8aa5f30687632d9832e9e3d8480c4d19e510a6bdeeddabdf75032af232"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2a12e42aa606c632699feae572b4f5fbaf308e0"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8197/",
+          "url": "http://127.0.0.1:8197/admin/pages/14/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "custom-page-fields-reopened",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/custom-page-fields-reopened.png",
+          "sha256": "7159123f26632defb2e037280214171e0e54d34a3109e6c9770ffdf91e4cb16b"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "5387fe8aa5f30687632d9832e9e3d8480c4d19e510a6bdeeddabdf75032af232"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2a12e42aa606c632699feae572b4f5fbaf308e0"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8197/",
+          "url": "http://127.0.0.1:8197/admin/pages/15/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "custom-page-fields-public",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/package-surfaces/custom-page-fields-public.png",
+          "sha256": "42c57dcc4c412b25d5814c2af71f5c457b77395385a704be9a3e8f4bd6fab0cd"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "5387fe8aa5f30687632d9832e9e3d8480c4d19e510a6bdeeddabdf75032af232"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2a12e42aa606c632699feae572b4f5fbaf308e0"
+        },
+        "capture": {
+          "scenario": "frontend-page",
+          "baseUrl": "http://127.0.0.1:8197/",
+          "url": "http://127.0.0.1:8197/custom-page-fields-public",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": true,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": null,
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 4\nSkipped: 0\nFailed: 0\n- captured documentation:custom-page-fields-editor -> /Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/admin/custom-page-fields-editor.png\n- captured documentation:custom-page-fields-validation -> /Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/admin/custom-page-fields-validation.png\n- captured documentation:custom-page-fields-reopened -> /Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/admin/custom-page-fields-reopened.png\n- captured documentation:custom-page-fields-public -> /Users/ben/Sites/.capell-wt/custom-field-screenshots/capell-4/docs/images/generated/package-surfaces/custom-page-fields-public.png"
+}

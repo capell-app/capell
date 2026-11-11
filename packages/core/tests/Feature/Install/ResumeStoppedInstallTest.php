@@ -13,7 +13,11 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
+
+require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
 /**
  * Runs the real install command and the real InstallStepExecutor for the two steps this scenario
@@ -57,10 +61,23 @@ function artisanOptionsFromCommand(string $command): array
 }
 
 beforeEach(function (): void {
+    // The install command inspects the application's own files (for example the Filament panel
+    // provider), so run against a private tree: the shared Testbench skeleton is written to by
+    // other install tests in parallel workers.
+    // Serialise with the install command tests that still write into the shared skeleton.
+    acquireCapellInstallFilesystemLock();
+    $this->skeletonBasePath = base_path();
+    $this->ownedPaths = new OwnedApplicationPaths(app());
+    config([
+        'capell.install.welcome_routes_web_path' => $this->ownedPaths->root . '/routes/web.php',
+        'capell.install.welcome_env_path' => $this->ownedPaths->root . '/.env',
+    ]);
     InstallRunState::completeInitialInstallation();
 });
 
 afterEach(function (): void {
+    $this->ownedPaths->restore();
+    releaseCapellInstallFilesystemLock();
     InstallRunState::completeInitialInstallation();
     InstallRunState::clearStoppedStep();
     ClearCachesAction::clearFake();
@@ -155,4 +172,46 @@ it('reminds the doctor user to re-enter the password the stopped run was given',
         ->and($output)->not->toContain('Sup3r-secret-pw')
         ->and((string) $check->remediation)->not->toContain('Sup3r-secret-pw')
         ->and(json_encode($check->evidence))->not->toContain('Sup3r-secret-pw');
+});
+
+it('is not affected by a panel provider another test left in the shared skeleton', function (): void {
+    // A unique name never collides with the fixtures other tests write (the preflight globs *PanelProvider.php).
+    $leaked = $this->skeletonBasePath . '/app/Providers/Filament/ResumeLeakProbePanelProvider.php';
+    $directoryExisted = is_dir(dirname($leaked));
+    acquireCapellInstallFilesystemLock();
+    File::ensureDirectoryExists(dirname($leaked));
+    File::put($leaked, "<?php\n\nclass ResumeLeakProbePanelProvider {}\n");
+    expect(file_exists($leaked))->toBeTrue();
+
+    try {
+        CapellExtension::query()->where('composer_name', 'capell-app/core')->delete();
+        CapellCore::clearExtensionCache();
+        InstallRunState::clearStoppedStep();
+        $inputs = new ArrayObject;
+        bindResumeScenarioExecutor($inputs);
+        ClearCachesAction::mock()->shouldReceive('handle')->andThrow(new RuntimeException('Cache store is unreachable.'));
+
+        $exit = Artisan::call('capell:install', [
+            '--no-interaction' => true,
+            '--url' => 'https://resume.example.test',
+            '--site-name' => 'Resume Site',
+            '--no-seed-default-data' => true,
+            '--no-frontend-build' => true,
+            '--package-mode' => 'custom',
+            '--packages' => 'capell-app/core',
+            '--user' => User::factory()->createOne()->email,
+        ]);
+
+        expect($exit)->not->toBe(0)
+            ->and(InstallRunState::stoppedStep()?->key)->toBe(InstallPlan::STEP_CLEAR_CACHES);
+    } finally {
+        File::delete($leaked);
+
+        if (! $directoryExisted) {
+            @rmdir(dirname($leaked));
+            @rmdir(dirname($leaked, 2));
+        }
+
+        releaseCapellInstallFilesystemLock();
+    }
 });

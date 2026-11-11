@@ -58,62 +58,102 @@
                     {{ __('capell-installer::installer.section_setup') }}
                 </x-slot>
 
-                <x-filament::input.wrapper>
-                    <x-filament::input
-                        type="text"
-                        name="site_name"
-                        maxlength="255"
-                        :aria-label="__('capell-installer::installer.field_site_name')"
-                        :value="old('site_name', \Capell\Core\Support\Install\InstallSiteName::fallback())"
-                    />
-                </x-filament::input.wrapper>
-
-                <x-filament::input.wrapper>
-                    <x-filament::input
-                        type="url"
-                        name="site_url"
-                        :value="old('site_url', config('app.url'))"
-                        required
-                    />
-                </x-filament::input.wrapper>
-
-                <x-filament::input.wrapper>
-                    <x-filament::input.select
-                        name="language"
-                        required
+                <div class="grid gap-y-2">
+                    <label
+                        for="install-site-name"
+                        class="text-sm font-medium leading-6 text-gray-950 dark:text-white"
                     >
-                        <option
-                            value="en"
-                            @selected(old('language', config('app.locale', 'en')) === 'en')
+                        {{ __('capell-installer::installer.field_site_name') }}
+                    </label>
+                    <x-filament::input.wrapper>
+                        <x-filament::input
+                            id="install-site-name"
+                            type="text"
+                            name="site_name"
+                            maxlength="255"
+                            aria-describedby="install-site-name-help"
+                            :value="old('site_name', \Capell\Core\Support\Install\InstallSiteName::fallback())"
+                        />
+                    </x-filament::input.wrapper>
+                    <p
+                        id="install-site-name-help"
+                        class="text-sm text-gray-500 dark:text-gray-400"
+                    >
+                        {{ __('capell-core::install.site.name_hint') }}
+                    </p>
+                </div>
+
+                <div class="grid gap-y-2">
+                    <label
+                        for="install-site-url"
+                        class="text-sm font-medium leading-6 text-gray-950 dark:text-white"
+                    >
+                        {{ __('capell-installer::installer.field_site_url') }}
+                    </label>
+                    <x-filament::input.wrapper>
+                        <x-filament::input
+                            id="install-site-url"
+                            type="url"
+                            name="site_url"
+                            aria-describedby="install-site-url-help"
+                            :value="old('site_url', config('app.url'))"
+                            required
+                        />
+                    </x-filament::input.wrapper>
+                    <p
+                        id="install-site-url-help"
+                        class="text-sm text-gray-500 dark:text-gray-400"
+                    >
+                        {{ __('capell-core::install.site.url_hint') }}
+                    </p>
+                </div>
+
+                <div class="grid gap-y-2">
+                    <label
+                        for="install-language"
+                        class="text-sm font-medium leading-6 text-gray-950 dark:text-white"
+                    >
+                        {{ __('capell-installer::installer.field_language') }}
+                    </label>
+                    <x-filament::input.wrapper>
+                        <x-filament::input.select
+                            id="install-language"
+                            name="language"
+                            required
                         >
-                            English
-                        </option>
-                        <option
-                            value="fr"
-                            @selected(old('language', config('app.locale', 'en')) === 'fr')
-                        >
-                            Français
-                        </option>
-                        <option
-                            value="de"
-                            @selected(old('language', config('app.locale', 'en')) === 'de')
-                        >
-                            Deutsch
-                        </option>
-                        <option
-                            value="es"
-                            @selected(old('language', config('app.locale', 'en')) === 'es')
-                        >
-                            Español
-                        </option>
-                        <option
-                            value="nl"
-                            @selected(old('language', config('app.locale', 'en')) === 'nl')
-                        >
-                            Nederlands
-                        </option>
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
+                            <option
+                                value="en"
+                                @selected(old('language', config('app.locale', 'en')) === 'en')
+                            >
+                                English
+                            </option>
+                            <option
+                                value="fr"
+                                @selected(old('language', config('app.locale', 'en')) === 'fr')
+                            >
+                                Français
+                            </option>
+                            <option
+                                value="de"
+                                @selected(old('language', config('app.locale', 'en')) === 'de')
+                            >
+                                Deutsch
+                            </option>
+                            <option
+                                value="es"
+                                @selected(old('language', config('app.locale', 'en')) === 'es')
+                            >
+                                Español
+                            </option>
+                            <option
+                                value="nl"
+                                @selected(old('language', config('app.locale', 'en')) === 'nl')
+                            >
+                                Nederlands
+                            </option>
+                        </x-filament::input.select>
+                    </x-filament::input.wrapper>
+                </div>
             </x-filament::fieldset>
 
             <x-filament::fieldset>

@@ -71,14 +71,16 @@ use Capell\Admin\Enums\PageTranslationSchemaHookEnum;
 use Capell\Admin\Support\Schemas\AbstractPageSchemaExtender;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Override;
 
 final class ExamplePageSchemaExtender extends AbstractPageSchemaExtender
 {
+    #[Override]
     public function extendTranslationComponentsForHook(Schema $schema, PageTranslationSchemaHookEnum $hook): array
     {
         return match ($hook) {
             PageTranslationSchemaHookEnum::AfterTitle => [
-                TextInput::make('example_subtitle')
+                TextInput::make('meta.example.subtitle')
                     ->label(__('capell-example::fields.subtitle'))
                     ->maxLength(160),
             ],
@@ -87,6 +89,8 @@ final class ExamplePageSchemaExtender extends AbstractPageSchemaExtender
     }
 }
 ```
+
+Translation hook components run inside the translations repeater: `meta.example.subtitle` writes to **Translation.meta**, separately for each language. The same path in a top-level page tab/sidebar writes to **Page.meta**. Define the example translation label in your package and scope the contribution to its intended blueprint/site. An input named after an arbitrary attribute does not create storage. See [Add a custom field to a page](../../../../docs/getting-started/add-a-custom-page-field.md) for persistence, validation and public output, and [compare the alternatives](../../../../docs/packages/custom-page-fields.md).
 
 ## Site Schema
 

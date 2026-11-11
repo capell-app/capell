@@ -28,7 +28,7 @@ public function boot(LayoutWidgetRegistry $widgets): void
 
 ## Render A Widget From An Application
 
-A definition alone does not render. A public Blade widget also needs a renderable of type `layout-widget`, and a widget record whose `component` is that key. Follow [Build your first page type](../getting-started/build-your-first-page-type.md#5-add-a-public-widget) for a complete example.
+A definition alone does not render. A public Blade widget also needs a renderable of type `layout-widget`, and a widget record whose `component` is that key. Follow [Build your first page type](../getting-started/build-your-first-page-type.md#add-a-public-widget) for a complete example.
 
 ## Inertia Widgets
 
