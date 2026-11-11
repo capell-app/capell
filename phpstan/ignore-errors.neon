@@ -1,10 +1,5 @@
 parameters:
     ignoreErrors:
-        # The rule's own fixture deliberately holds models in public render data so
-        # the rule test can prove it reports them.
-        - identifier: capell.publicRenderDataModel
-          path: ../packages/core/tests/Unit/PHPStan/Fixtures/PublicRenderDataConsumer.php
-          reportUnmatched: false
         # Pest 5's semantic expectation rules cannot model mutable spies or every
         # higher-order subject transition. These runtime contract assertions remain
         # useful and are still exercised by Pest.
