@@ -157,3 +157,22 @@ it('marks a fallback-served page in the head: served language, noindex, canonica
         ->and(translationFallbackHreflangs($response))->toContain('en', 'de')
         ->and(translationFallbackHreflangs($response))->not->toContain('fr');
 });
+
+it('names the served language when the fallback page is reached through the requested language URL', function (): void {
+    [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    $page = translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'about', 'Marqueur français'],
+    ]);
+    // A query-level delete, so no model event rewrites the page's URLs.
+    $page->translations()->where('language_id', $french->getKey())->forceDelete();
+    $page->pageUrls()->where('language_id', $english->getKey())->update(['status' => false]);
+
+    $response = $this->get($frenchDomain->full_url . '/about')
+        ->assertOk()
+        ->assertSeeText('English about marker body')
+        ->assertSee('lang="en"', false)
+        ->assertDontSee('lang="fr"', false);
+
+    expect(translationFallbackRobots($response))->toContain('noindex');
+});

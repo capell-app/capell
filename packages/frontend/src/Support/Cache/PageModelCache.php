@@ -103,7 +103,7 @@ final class PageModelCache
             $this->injectTransientRelations($model, $site, $language, $translationLanguage);
         } elseif ($model->translation !== null && $model->pageUrl !== null) {
             $model->translation->setRelation('language', $translationLanguage);
-            $model->pageUrl->setRelation('language', $translationLanguage);
+            $model->pageUrl->setRelation('language', $this->urlLanguage($model->pageUrl, $language, $translationLanguage));
         }
 
         return $model;
@@ -122,8 +122,9 @@ final class PageModelCache
     /**
      * The cached payload holds every translation row, so a page with no translation in
      * the requested language takes its configured fallback here, per request, rather
-     * than baking a chain into the cache. The served language's URL replaces the missing
-     * requested-language URL. Returns the language the hydrated translation is in.
+     * than baking a chain into the cache. The served language's usable URL becomes the
+     * page URL when one exists; otherwise the matched URL stays. Returns the language the
+     * hydrated translation is in, taken from the translation row, never from a URL.
      *
      * @param  Model&Pageable<Model>  $model
      */
@@ -147,18 +148,44 @@ final class PageModelCache
             return $language;
         }
 
+        // Canonical at the served language's own URL when it has a usable one; otherwise
+        // the URL that matched stays, so the page keeps a canonical URL.
         $servedUrl = $model->pageUrls->first(
             fn (PageUrl $url): bool => (int) $url->language_id === $resolution->servedLanguageId
                 && $url->type === null
                 && $url->status,
         );
-        $model->setRelation('pageUrl', $servedUrl);
 
-        $served = $servedUrl instanceof PageUrl && $servedUrl->relationLoaded('language')
-            ? $servedUrl->getRelation('language')
+        if ($servedUrl instanceof PageUrl) {
+            $model->setRelation('pageUrl', $servedUrl);
+        }
+
+        // The content's language comes from the translation itself (`translations.language`
+        // is cached with the page), never from whichever URL happens to exist.
+        $served = $resolution->translation->relationLoaded('language')
+            ? $resolution->translation->getRelation('language')
             : null;
 
-        return $served instanceof Language ? $served : $language;
+        return $served instanceof Language && (int) $served->id === $resolution->servedLanguageId ? $served : $language;
+    }
+
+    /**
+     * A URL is labelled with its own language: a kept requested-language URL must not
+     * take the fallback content's language.
+     */
+    private function urlLanguage(PageUrl $url, Language $requested, Language $served): Language
+    {
+        if ((int) $url->language_id === (int) $served->id) {
+            return $served;
+        }
+
+        if ((int) $url->language_id === (int) $requested->id) {
+            return $requested;
+        }
+
+        $own = $url->relationLoaded('language') ? $url->getRelation('language') : null;
+
+        return $own instanceof Language ? $own : $requested;
     }
 
     /**
@@ -174,7 +201,7 @@ final class PageModelCache
             // The head's hreflang cluster pairs every pageUrl with a real translation row, so
             // `translations` must travel with `pageUrls`: public Blade may only read hydrated
             // relations (PublicViewQueryGuard). Do not drop this to slim the cached payload.
-            'translations',
+            'translations.language',
             'image.translations',
             'blueprint',
             'canonicalPage.pageUrls',
@@ -212,7 +239,7 @@ final class PageModelCache
         }
 
         if ($model->pageUrl instanceof PageUrl) {
-            $model->pageUrl->setRelation('language', $translationLanguage);
+            $model->pageUrl->setRelation('language', $this->urlLanguage($model->pageUrl, $language, $translationLanguage));
             $model->pageUrl->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $model->pageUrl->language_id));
         }
 

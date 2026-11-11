@@ -41,6 +41,47 @@ it('hydrates the fallback translation, in its own language, from the page model 
         ->and($translation->language?->is($english))->toBeTrue();
 });
 
+/**
+ * A page translated into English only whose French URL survived (a French translation
+ * was removed) while its English URL is disabled: the only usable URL is French.
+ *
+ * @return array{Site, Language, Language, Page}
+ */
+function fallbackCachePageWithoutServedUrl(): array
+{
+    [$site, $english, $french] = fallbackCacheSite();
+    $page = Page::factory()->site($site)->published(CarbonImmutable::now())
+        ->withTranslations([$english, $french], slug: 'p')
+        ->createOne();
+    $page->translations()->where('language_id', $english->getKey())->update(['title' => 'English only']);
+    // A query-level delete, so no model event rewrites the page's URLs.
+    $page->translations()->where('language_id', $french->getKey())->forceDelete();
+    $page->pageUrls()->where('language_id', $english->getKey())->update(['status' => false]);
+
+    return [$site, $english, $french, $page];
+}
+
+it('labels fallback content with its own language and keeps the matched URL when the served language has no usable URL', function (): void {
+    [$site, $english, $french, $page] = fallbackCachePageWithoutServedUrl();
+
+    $cached = expectPresent(resolve(PageModelCache::class)->get(Page::class, $page->id, $site, $french));
+
+    expect($cached->translation?->title)->toBe('English only')
+        ->and($cached->translation?->language?->is($english))->toBeTrue()
+        ->and($cached->pageUrl?->language_id)->toBe($french->getKey());
+});
+
+it('labels fallback content with its own language on the wildcard load path', function (): void {
+    [$site, $english, $french, $page] = fallbackCachePageWithoutServedUrl();
+
+    $loaded = PageLoader::loadPage(Page::class, $page->id, $site, $french);
+
+    expect($loaded)->toBeInstanceOf(Page::class)
+        ->and($loaded?->translation?->title)->toBe('English only')
+        ->and($loaded?->translation?->language?->is($english))->toBeTrue()
+        ->and($loaded?->pageUrl?->language_id)->toBe($french->getKey());
+});
+
 it('keeps the requested language when the page model cache has a real translation', function (): void {
     [$site, $english, $french] = fallbackCacheSite();
     $page = Page::factory()->site($site)->published(CarbonImmutable::now())

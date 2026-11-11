@@ -74,18 +74,10 @@ class ResolvePublicPageByUrlAction
             return $this->missing($site, $language);
         }
 
+        // `translations.language` is eager-loaded, so fallback content carries its own
+        // language whether or not that language has a URL for this page.
         $translation = $resolution->translation;
         $page->setRelation('translation', $translation);
-
-        if ($resolution->isFallback()) {
-            $servedLanguage = $page->getRelation('pageUrls')
-                ->first(fn (PageUrl $url): bool => (int) $url->language_id === $resolution->servedLanguageId && $url->relationLoaded('language'))
-                ?->getRelation('language');
-
-            if ($servedLanguage instanceof Language) {
-                $translation->setRelation('language', $servedLanguage);
-            }
-        }
 
         return new PublicPageResolutionData(
             page: $page,
@@ -203,7 +195,7 @@ class ResolvePublicPageByUrlAction
                 // Every translation row travels with the page: the head's hreflang cluster
                 // pairs page URLs with real translations, and ResolveTranslationAction picks
                 // the requested or fallback translation from this set without a query.
-                'translations',
+                'translations.language',
             ])
             ->first();
 
