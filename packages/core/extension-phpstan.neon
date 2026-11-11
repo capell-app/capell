@@ -9,3 +9,7 @@ services:
         class: Capell\Core\PHPStan\InternalMemberRule
         tags:
             - phpstan.rules.rule
+    -
+        class: Capell\Core\PHPStan\PublicRenderDataModelRule
+        tags:
+            - phpstan.rules.rule
