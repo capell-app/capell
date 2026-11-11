@@ -8,6 +8,7 @@ use Capell\Core\Actions\Diagnostics\BuildThemeDoctorReportAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Data\Diagnostics\DoctorWarningSummaryData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Support\Json\JsonCodec;
@@ -21,6 +22,7 @@ final class ThemeDoctorCommand extends Command
     protected $signature = 'capell:theme:doctor
         {theme : Theme key to inspect}
         {--path= : Theme package path, defaults to packages/{theme}}
+        {--warnings : List only the checks that reported warnings}
         {--json : Output a machine-readable JSON report}';
 
     protected $description = 'Run theme-specific Capell diagnostics.';
@@ -55,7 +57,9 @@ final class ThemeDoctorCommand extends Command
         $this->line('<fg=blue;options=bold>Capell Theme Health Check</>');
         $this->newLine();
 
-        $report->checks->each(function (DoctorCheckResultData $check): void {
+        $listed = $this->option('warnings') ? $report->warnings() : $report->checks;
+
+        $listed->each(function (DoctorCheckResultData $check): void {
             $this->outputCheckResult($check);
         });
         $this->newLine();
@@ -66,9 +70,20 @@ final class ThemeDoctorCommand extends Command
             return;
         }
 
-        $report->warningCount() > 0
-            ? $this->info((string) __('capell-core::health.doctor.theme_passed_with_warnings', ['count' => $report->warningCount()]))
-            : $this->info((string) __('capell-core::health.doctor.theme_passed'));
+        if ($report->warningCount() === 0) {
+            $this->info((string) __('capell-core::health.doctor.theme_passed'));
+
+            return;
+        }
+
+        $this->info((string) __('capell-core::health.doctor.theme_passed_with_warnings'));
+
+        if (! $this->option('warnings')) {
+            $this->line(new DoctorWarningSummaryData(
+                $report->warningCount(),
+                sprintf('php artisan capell:theme:doctor %s --warnings', $this->argument('theme')),
+            )->message());
+        }
     }
 
     private function outputCheckResult(DoctorCheckResultData $check): void

@@ -175,7 +175,7 @@ it('keeps the outcome pending until another node applies its own environment fil
 
     $doctor = new SecurityPostureCheck()->check();
     expect($doctor->passed)->toBeFalse()
-        ->and($doctor->severity)->toBe(DoctorCheckSeverity::Warning)
+        ->and($doctor->severity)->toBe(DoctorCheckSeverity::Critical)
         ->and($doctor->message)->toContain(__('capell-core::security.doctor.pending_nodes', ['count' => 1, 'nodes' => 'node-b']))
         ->and($doctor->evidence)->toMatchArray(['pending_remediations' => 1, 'pending_nodes' => ['node-b']]);
 

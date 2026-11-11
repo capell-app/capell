@@ -46,7 +46,7 @@ final class BuildDoctorReportAction
     use AsObject;
 
     /** @var list<class-string<DoctorCheck>> */
-    private const array CORE_CHECKS = [
+    public const array CORE_CHECKS = [
         MigrationsCheck::class,
         InstallLifecycleCheck::class,
         MorphMapCheck::class,
@@ -76,7 +76,7 @@ final class BuildDoctorReportAction
             ->map(fn (string $check): DoctorCheckResultData => resolve($check)->check($installSummary));
 
         $checks = $checks->merge(collect(app()->tagged(DoctorCheck::TAG))
-            ->map(fn (DoctorCheck $check): DoctorCheckResultData => $check->check($installSummary)))
+            ->map(fn (DoctorCheck $check): DoctorCheckResultData => $this->blockingWhenFailed($check->check($installSummary))))
             ->keyBy(fn (DoctorCheckResultData $check): string => $check->id)
             ->values();
 
@@ -85,6 +85,28 @@ final class BuildDoctorReportAction
         }
 
         return DoctorReportData::fromChecks($checks);
+    }
+
+    /**
+     * Package and third-party checks were never allowed to fail quietly: a
+     * failure they report stops the doctor whatever severity they declared.
+     * Only the core checks decide for themselves which failures are advisory.
+     */
+    private function blockingWhenFailed(DoctorCheckResultData $check): DoctorCheckResultData
+    {
+        if ($check->passed || $check->severity === DoctorCheckSeverity::Critical) {
+            return $check;
+        }
+
+        return new DoctorCheckResultData(
+            label: $check->label,
+            passed: false,
+            message: $check->message,
+            remediation: $check->remediation,
+            id: $check->id,
+            severity: DoctorCheckSeverity::Critical,
+            evidence: $check->evidence,
+        );
     }
 
     /** @return Collection<int, DoctorCheckResultData> */
@@ -158,7 +180,7 @@ final class BuildDoctorReportAction
 
         return collect($decoded['checks'])
             ->filter(fn (mixed $check): bool => is_array($check))
-            ->map(fn (array $check): DoctorCheckResultData => new DoctorCheckResultData(
+            ->map(fn (array $check): DoctorCheckResultData => $this->blockingWhenFailed(new DoctorCheckResultData(
                 label: (string) ($check['label'] ?? sprintf('Package doctor: %s', $command)),
                 passed: (bool) ($check['passed'] ?? false),
                 message: (string) ($check['message'] ?? ''),
@@ -166,7 +188,7 @@ final class BuildDoctorReportAction
                 id: (string) $check['id'],
                 severity: DoctorCheckSeverity::from((string) $check['severity']),
                 evidence: is_array($check['evidence'] ?? null) ? $check['evidence'] : [],
-            ))
+            )))
             ->values()
             ->all();
     }

@@ -38,7 +38,7 @@ return [
         'runtime_stage_passed_with_warnings' => 'Capell Doctor passed with :count warning(s) that do not stop the site working. To list them, run: :command',
         'runtime_stage_failed' => 'Failed checks: :checks.',
         'theme_passed' => 'All theme checks passed.',
-        'theme_passed_with_warnings' => 'Theme checks passed with :count warning(s) that do not stop the theme working.',
+        'theme_passed_with_warnings' => 'Theme checks passed with warnings. The theme works; fix the warnings when you can.',
         'theme_failed' => 'One or more theme checks failed. See suggestions above.',
     ],
     'cache' => [

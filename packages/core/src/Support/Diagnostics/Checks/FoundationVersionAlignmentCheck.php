@@ -28,7 +28,7 @@ final class FoundationVersionAlignmentCheck extends AbstractDoctorCheck
     #[Override]
     protected function severity(): DoctorCheckSeverity
     {
-        return DoctorCheckSeverity::Warning;
+        return DoctorCheckSeverity::Critical;
     }
 
     #[Override]

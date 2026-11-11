@@ -71,13 +71,15 @@ final class SecurityPostureCheck implements DoctorCheck
 
         $fleetIssue = $pendingNodes !== null || $collisions !== [];
 
+        $passed = $critical === 0 && $high === 0 && ! $fleetIssue;
+
         return new DoctorCheckResultData(
             label: __('capell-core::security.doctor.label'),
-            passed: $critical === 0 && $high === 0 && ! $fleetIssue,
+            passed: $passed,
             message: trim($message . ' ' . ($warning ?? '')),
             remediation: __('capell-core::security.doctor.action'),
             id: 'core.security.posture',
-            severity: $critical > 0 ? DoctorCheckSeverity::Critical : ($high > 0 || $warning !== null || $fleetIssue ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info),
+            severity: $passed ? ($warning !== null ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info) : (DoctorCheckSeverity::Critical),
             evidence: $evidence,
         );
     }

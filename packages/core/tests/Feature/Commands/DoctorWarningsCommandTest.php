@@ -123,6 +123,10 @@ it('reports the outcome of every check and the warning count in the json report'
     expect($exitCode)->toBe(Command::SUCCESS)
         ->and($report['status'])->toBe('passed')
         ->and($report['warning_count'])->toBe(1)
+        ->and(array_column($report['checks'], 'severity', 'id'))->toBe([
+            'test.clean' => 'critical',
+            'test.optional-binary' => 'warning',
+        ])
         ->and(array_column($report['checks'], 'outcome', 'id'))->toBe([
             'test.clean' => 'passed',
             'test.optional-binary' => 'warning',

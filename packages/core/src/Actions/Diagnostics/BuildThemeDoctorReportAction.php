@@ -36,7 +36,7 @@ final class BuildThemeDoctorReportAction
             $this->identified($this->checkManifest($theme, $themePath), 'theme.manifest.valid', DoctorCheckSeverity::Critical),
             $this->identified($this->checkComposerJson($themePath), 'theme.composer.present', DoctorCheckSeverity::Critical),
             $this->identified($this->checkViewsDirectory($themePath), 'theme.views.present', DoctorCheckSeverity::Critical),
-            $this->identified($this->checkSafeAssetUrls($themePath), 'theme.asset-urls.safe', DoctorCheckSeverity::Warning),
+            $this->identified($this->checkSafeAssetUrls($themePath), 'theme.asset-urls.safe', DoctorCheckSeverity::Critical),
             $this->identified($this->checkRuntimeRegistry($theme, $themePath), 'theme.runtime.registered', DoctorCheckSeverity::Critical),
         ]);
 

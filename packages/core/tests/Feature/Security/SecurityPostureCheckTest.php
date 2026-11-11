@@ -18,7 +18,7 @@ it('reports critical and high open findings with the appropriate urgency', funct
         ->and($never->evidence['never_scanned'])->toBeTrue()
         ->and($never->message)->toContain('capell:security:scan');
     $high = SecurityWeaknessFinding::factory()->create(['severity' => SecurityWeaknessSeverity::High]);
-    expect($check->check()->severity)->toBe(DoctorCheckSeverity::Warning)
+    expect($check->check()->severity)->toBe(DoctorCheckSeverity::Critical)
         ->and($check->check()->passed)->toBeFalse();
     $critical = SecurityWeaknessFinding::factory()->create(['severity' => SecurityWeaknessSeverity::Critical]);
     expect($check->check()->severity)->toBe(DoctorCheckSeverity::Critical);
@@ -55,7 +55,7 @@ it('warns when the latest completed scan failed after a successful scan', functi
     SecurityScanRun::query()->create(['id' => (string) Str::ulid(), 'started_at' => $time, 'finished_at' => $time, 'findings_count' => null, 'source' => 'test']);
     SecurityWeaknessFinding::factory()->create(['severity' => SecurityWeaknessSeverity::High]);
     $result = (new SecurityPostureCheck)->check();
-    expect($result->severity)->toBe(DoctorCheckSeverity::Warning)
+    expect($result->severity)->toBe(DoctorCheckSeverity::Critical)
         ->and($result->passed)->toBeFalse()
         ->and($result->evidence['high'])->toBe(1)
         ->and($result->message)->toContain($time);
