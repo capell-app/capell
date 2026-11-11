@@ -34,6 +34,9 @@
             "url": "/extensions",
             "waitFor": "table",
             "viewport": "mobile",
+            "capture": {
+                "fullPage": true
+            },
             "required": true,
             "notes": "Captures the Extensions catalogue table at mobile width so the triage list is checked responsively.",
             "covers": [
