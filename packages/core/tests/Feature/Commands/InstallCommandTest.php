@@ -19,6 +19,7 @@ use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
@@ -3453,6 +3454,186 @@ it('refuses --minimal combined with options that choose packages, content or too
     'customise' => ['--customise', true],
     'developer tooling' => ['--developer-tooling', true],
 ]);
+
+function configureInstallPresetsForTest(): void
+{
+    config(['capell.install.recommendations' => [
+        'site' => [
+            'label' => 'Test site',
+            'description' => 'A site for testing.',
+            'packages' => ['capell-app/admin', 'capell-app/frontend'],
+            'recommended' => ['capell-app/form-builder' => 'Forms with an inbox.'],
+            'optional' => ['capell-app/newsletter' => 'Collect subscribers.'],
+            'theme' => 'default',
+            'demo' => false,
+            'order' => 10,
+        ],
+        'lean' => [
+            'label' => 'Lean admin',
+            'description' => 'Only the admin workspace.',
+            'packages' => ['capell-app/admin'],
+            'theme' => 'default',
+            'demo' => true,
+            'order' => 20,
+        ],
+    ]]);
+
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
+        'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin, isPaid: false),
+        'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin, isPaid: false),
+    ]));
+}
+
+it('selects the package set of the named preset without asking what is being built', function (string $preset, array $packages, array $downloads, bool $demo): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend']);
+    configureInstallPresetsForTest();
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--preset' => $preset,
+        '--url' => 'https://hartley.test',
+        '--user' => $existing->email,
+        '--no-interaction' => true,
+        '--clear-cache' => true,
+    ])
+        ->doesntExpectOutputToContain('What are you building?')
+        ->assertSuccessful();
+
+    expect($fake->capturedInput->packages)->toEqualCanonicalizing($packages)
+        ->and($fake->capturedInput->extraPackages)->toEqualCanonicalizing([...$downloads, 'capell-app/theme-foundation'])
+        ->and($fake->capturedInput->demoContent)->toBe($demo)
+        ->and($fake->capturedInput->presetKey)->toBe($preset);
+})->with([
+    'a preset with a free recommended extension to download' => ['site', ['capell-app/admin', 'capell-app/frontend'], ['capell-app/form-builder'], false],
+    'a preset that installs only the admin and starts with sample content' => ['lean', ['capell-app/admin'], [], true],
+]);
+
+it('refuses an unknown preset and lists the valid ones before changing anything', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend']);
+    configureInstallPresetsForTest();
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', ['--preset' => 'shopfront', '--user' => $existing->email, '--no-interaction' => true])
+        ->expectsOutputToContain('Unknown install preset "shopfront"')
+        ->expectsOutputToContain('Choose one of: site, lean')
+        ->assertFailed();
+
+    expect($fake->callCount)->toBe(0);
+});
+
+it('lets explicit packages override the preset package set but keeps the preset recorded', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend']);
+    configureInstallPresetsForTest();
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--preset' => 'site',
+        '--package-mode' => 'custom',
+        '--packages' => 'capell-app/frontend',
+        '--url' => 'https://hartley.test',
+        '--user' => $existing->email,
+        '--no-interaction' => true,
+        '--clear-cache' => true,
+    ])->assertSuccessful();
+
+    expect($fake->capturedInput->packages)->toBe(['capell-app/frontend'])
+        ->and($fake->capturedInput->extraPackages)->not->toContain('capell-app/form-builder')
+        ->and($fake->capturedInput->presetKey)->toBe('site');
+});
+
+it('refuses --preset combined with options that already choose the packages', function (string $option, mixed $value): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    configureInstallPresetsForTest();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', ['--preset' => 'site', $option => $value, '--no-interaction' => true])
+        ->expectsOutputToContain($option)
+        ->assertFailed();
+
+    expect($fake->callCount)->toBe(0);
+})->with([
+    'minimal' => ['--minimal', true],
+    'recommendation' => ['--recommendation', 'site'],
+    'recommendation action' => ['--recommendation-action', 'skip'],
+]);
+
+it('carries --publish into the install input only when it is passed', function (bool $publish): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', ['--minimal' => true, ...($publish ? ['--publish' => true] : []), '--url' => 'https://hartley.test', '--user' => $existing->email, '--no-interaction' => true])
+        ->assertSuccessful();
+
+    expect($fake->capturedInput->publish)->toBe($publish);
+})->with([[true], [false]]);
+
+it('refuses --publish for a private site spec, whose first page is held back', function (?string $visibility): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+    $spec = tempnam(sys_get_temp_dir(), 'capell-spec-');
+    file_put_contents($spec, json_encode($visibility === null ? ['site' => ['name' => 'Hartley']] : ['initialVisibility' => $visibility]));
+    $output = new BufferedOutput;
+
+    try {
+        $exit = Artisan::call('capell:install', ['--minimal' => true, '--publish' => true, '--spec' => $spec, '--url' => 'https://hartley.test', '--user' => $existing->email, '--no-interaction' => true], $output);
+    } finally {
+        unlink($spec);
+    }
+
+    expect($exit)->toBe(Command::FAILURE)
+        ->and($output->fetch())->toContain('cannot publish a private site spec')
+        ->and($fake->callCount)->toBe(0);
+})->with([
+    'no visibility, which defaults to private' => [null],
+    'explicitly private' => ['private'],
+]);
+
+it("refuses --publish on an installation that already exists, so editors' drafts stay unpublished", function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+    Site::factory()->create();
+    InstallRunState::completeInitialInstallation();
+    $output = new BufferedOutput;
+
+    $exit = Artisan::call('capell:install', ['--minimal' => true, '--publish' => true, '--url' => 'https://hartley.test', '--user' => $existing->email, '--no-interaction' => true], $output);
+
+    expect($exit)->toBe(Command::FAILURE)
+        ->and($output->fetch())->toContain('only applies to a first install')
+        ->and($fake->callCount)->toBe(0);
+});
+
+it('accepts --publish with a public site spec', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+    $spec = tempnam(sys_get_temp_dir(), 'capell-spec-');
+    file_put_contents($spec, json_encode([
+        'site' => ['name' => 'Fixture Site'],
+        'theme' => ['key' => 'default'],
+        'pages' => [['name' => 'Home', 'slug' => 'home', 'title' => 'Home', 'pageType' => 'default']],
+        'initialVisibility' => 'public',
+        'acknowledgePublic' => true,
+    ], JSON_THROW_ON_ERROR));
+
+    try {
+        artisanCommand('capell:install', ['--minimal' => true, '--publish' => true, '--spec' => $spec, '--url' => 'https://hartley.test', '--user' => $existing->email, '--no-interaction' => true])
+            ->assertSuccessful();
+    } finally {
+        unlink($spec);
+    }
+
+    expect($fake->callCount)->toBe(1)
+        ->and($fake->capturedInput->publish)->toBeTrue();
+});
 
 it('reports a frontend build failure without claiming a completed handoff', function (): void {
     setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);

@@ -129,6 +129,20 @@ return [
         'conflict' => 'The --minimal option installs a fixed set of packages, so it cannot be combined with options that choose packages, content or tooling.',
         'remove' => 'Remove :options, or drop --minimal to choose your own packages.',
     ],
+    'preset' => [
+        'unknown' => 'Unknown install preset ":preset".',
+        'valid' => 'Choose one of: :presets. Run capell:install without --preset to be asked instead.',
+        'none_available' => 'No install presets are configured. Run capell:install without --preset to be asked instead.',
+        'conflict' => 'The --preset option picks the packages, so it cannot be combined with :options.',
+        'conflict_remove' => 'Remove :options, or drop --preset to choose the packages another way.',
+    ],
+    'publish' => [
+        'no_user' => 'Capell could not find the administrator to publish as. Publish the pages from the admin instead.',
+        'done' => '✓ Published :count draft page(s).',
+        'refused' => 'These pages could not be published: :pages. Capell is installed. Fix them in the admin and publish them there.',
+        'already_installed' => 'The --publish option only applies to a first install, because it would also publish drafts your editors left unpublished. Publish pages from the admin instead, or drop --publish.',
+        'private_spec' => 'The --publish option cannot publish a private site spec, because its first page is held back as "Coming soon". Set initialVisibility to public (with acknowledgePublic) in the spec, or drop --publish and publish from the admin when you are ready.',
+    ],
     'suites' => [
         'goal_label' => 'What are you building?',
         'goal_hint_compact' => 'Pick the closest match. Nothing is installed until you confirm at the end. To choose individual extensions, rerun with --customise.',
@@ -232,6 +246,7 @@ return [
         'incomplete_title' => 'Installation needs attention',
         'warnings_title' => 'Items to review',
         'summary' => [
+            'preset' => 'Preset',
             'installed' => 'Installed',
             'site' => 'Site',
             'admin' => 'Admin',

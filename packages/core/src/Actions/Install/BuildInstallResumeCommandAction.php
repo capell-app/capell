@@ -19,16 +19,17 @@ final class BuildInstallResumeCommandAction
      * Only these options are replayed. Anything else, including options added later and every
      * credential, licence key, token, API key or database setting, is dropped until it is reviewed
      * and added here. Destructive (--fresh) and preview-only (--plan) options are deliberately absent.
+     * --publish is replayed because it is idempotent: it only publishes pages that are still draft.
      */
     private const array VALUE_OPTIONS = [
-        '--site-name', '--url', '--recommendation', '--recommendation-action', '--package-mode', '--packages',
+        '--site-name', '--url', '--preset', '--recommendation', '--recommendation-action', '--package-mode', '--packages',
         '--table-prefix', '--table-alias', '--theme', '--languages', '--sites', '--spec', '--user', '--name',
         '--email', '--profile', '--save-profile',
     ];
 
     private const array FLAG_OPTIONS = [
         '--no-interaction', '-n', '--customise', '--build-assets', '--update-app-url', '--demo', '--minimal',
-        '--no-frontend-build', '--allow-demo-credentials', '--all-packages', '--remove-installer', '--seed',
+        '--no-frontend-build', '--publish', '--allow-demo-credentials', '--all-packages', '--remove-installer', '--seed',
         '--no-seed-default-data', '--role-users', '--clear-cache', '--generate-sitemap', '--install-welcome-route',
         '--developer-tooling', '--no-boost-install', '--production',
     ];

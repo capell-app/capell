@@ -75,6 +75,7 @@ it('builds a stable redacted install handoff without account or telemetry requir
             ],
         ],
         'warningCount' => 1,
+        'preset' => null,
     ])->and(json_encode($handoff->toArray(), JSON_THROW_ON_ERROR))
         ->not->toContain('secret')
         ->not->toContain('hunter2')
