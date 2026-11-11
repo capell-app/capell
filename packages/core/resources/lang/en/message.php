@@ -31,4 +31,6 @@ return [
     'site_spec_import_invalid_json' => 'The SiteSpec contains invalid JSON: :reason',
     'site_spec_import_path_required' => 'Provide a SiteSpec JSON file path.',
     'site_spec_import_validation_failed' => 'The SiteSpec failed validation.',
+    'language_fallback_self' => 'A language cannot fall back to itself. Choose a different language, or leave the fallback empty so untranslated pages show a not-found page.',
+    'language_fallback_cycle' => 'That language already falls back to this one, so choosing it would create a loop. Choose a language that does not lead back here.',
 ];

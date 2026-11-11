@@ -11,17 +11,21 @@ use Capell\Admin\Enums\SchemaExtenderEnum;
 use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\StatusToggle;
 use Capell\Admin\Filament\Concerns\HasConfigurator;
+use Capell\Core\Actions\Translations\ValidateLanguageFallbackAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Closure;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
 
 class DefaultLanguageConfigurator implements ConfiguratorInterface
@@ -49,6 +53,35 @@ class DefaultLanguageConfigurator implements ConfiguratorInterface
             ->helperText(__('capell-admin::generic.language_flag_info'))
             ->required()
             ->maxLength(12);
+    }
+
+    protected function makeFallbackLanguageField(): Field
+    {
+        return Select::make('fallback_language_id')
+            ->label(__('capell-admin::form.fallback_language'))
+            ->helperText(__('capell-admin::generic.language_fallback_info'))
+            ->placeholder(__('capell-admin::form.no_fallback_language'))
+            ->options(function (?Language $record): array {
+                $query = Language::query()->ordered();
+
+                if ($record instanceof Language && $record->exists) {
+                    $query->whereKeyNot($record->getKey());
+                }
+
+                return $query->pluck('name', 'id')->all();
+            })
+            ->nullable()
+            ->exists(table: Language::class, column: 'id', modifyRuleUsing: fn (Exists $rule) => $rule->whereNull('deleted_at'))
+            ->rule(fn (?Language $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
+                $reason = ValidateLanguageFallbackAction::run(
+                    $record instanceof Language && $record->exists ? (int) $record->getKey() : null,
+                    filled($value) ? (int) $value : null,
+                );
+
+                if ($reason !== null) {
+                    $fail($reason);
+                }
+            });
     }
 
     /** @return array<int, mixed> */
@@ -121,6 +154,7 @@ class DefaultLanguageConfigurator implements ConfiguratorInterface
                                 ]),
                         ]),
                     StatusToggle::make('status'),
+                    $this->makeFallbackLanguageField(),
                 ]),
 
             Section::make(__('capell-admin::form.language_site_setup'))

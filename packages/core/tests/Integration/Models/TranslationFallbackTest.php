@@ -9,6 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 function translationFallbackPage(): Page
 {
@@ -166,7 +167,8 @@ it('walks a multi-step fallback chain in configured order', function (): void {
 it('stops a cyclic fallback chain instead of looping', function (): void {
     $english = Language::factory()->english(isDefault: false)->createOne();
     $french = Language::factory()->french()->createOne(['fallback_language_id' => $english->getKey()]);
-    $english->forceFill(['fallback_language_id' => $french->getKey()])->save();
+    // Saving a cycle is rejected; data written around the model must still not loop.
+    DB::table($english->getTable())->where('id', $english->getKey())->update(['fallback_language_id' => $french->getKey()]);
     $page = translationFallbackPage();
     $page->translations()->delete();
 
@@ -210,4 +212,29 @@ it('clears the fallback when the fallback language is removed from the database'
 
     expect($french->refresh()->fallback_language_id)->toBeNull()
         ->and($french->fallbackLanguage)->toBeNull();
+});
+
+it('refuses to save a language that falls back to itself or into a loop', function (): void {
+    $english = Language::factory()->english(isDefault: false)->createOne();
+    $french = Language::factory()->french()->createOne(['fallback_language_id' => $english->getKey()]);
+
+    expect(fn () => $french->forceFill(['fallback_language_id' => $french->getKey()])->save())
+        ->toThrow(ValidationException::class)
+        ->and(fn () => $english->forceFill(['fallback_language_id' => $french->getKey()])->save())
+        ->toThrow(ValidationException::class)
+        ->and($english->refresh()->fallback_language_id)->toBeNull()
+        ->and($french->refresh()->fallback_language_id)->toBe($english->getKey());
+});
+
+it('explains a rejected fallback in words, not translation keys', function (): void {
+    $french = Language::factory()->french()->createOne();
+
+    try {
+        $french->forceFill(['fallback_language_id' => $french->getKey()])->save();
+        $message = null;
+    } catch (ValidationException $validationException) {
+        $message = $validationException->errors()['fallback_language_id'][0] ?? null;
+    }
+
+    expect($message)->toBeString()->not->toBeEmpty()->not->toContain('::');
 });
