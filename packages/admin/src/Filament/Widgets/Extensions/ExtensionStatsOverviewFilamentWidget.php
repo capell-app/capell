@@ -16,6 +16,9 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
 {
     use GatedByRoleAndSettings;
 
+    /** Lets the admin stylesheet compact a tile on a phone, where three share a row and a label wraps rather than clips. */
+    private const string TILE_CLASS = 'capell-extension-stat';
+
     /** @var list<string> */
     protected static array $rolesConfigKeys = [];
 
@@ -31,9 +34,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
 
     /** @var int|array<string, int|null>|null */
     protected int|array|null $columns = [
-        'default' => 2,
-        'md' => 3,
-        'lg' => 5,
+        'default' => 3,
+        'md' => 5,
     ];
 
     protected static ?int $sort = 19;
@@ -55,6 +57,7 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
     private function installedStat(ExtensionOperationsSummaryData $summary): Stat
     {
         return Stat::make(__('capell-admin::generic.extension_operations_tab_installed'), (string) $summary->installedCount)
+            ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-cube')
             ->color('primary');
     }
@@ -62,6 +65,7 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
     private function uninstalledStat(ExtensionOperationsSummaryData $summary): Stat
     {
         return Stat::make(__('capell-admin::generic.extension_operations_tab_uninstalled'), (string) $summary->uninstalledCount)
+            ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-archive-box')
             ->color('gray');
     }
@@ -69,6 +73,7 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
     private function needsAttentionStat(ExtensionOperationsSummaryData $summary): Stat
     {
         return Stat::make(__('capell-admin::generic.extension_operations_tab_needs_attention'), (string) $summary->needsAttentionCount)
+            ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-exclamation-triangle')
             ->color($summary->needsAttentionCount > 0 ? 'warning' : 'success');
     }
@@ -76,6 +81,7 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
     private function updatesStat(ExtensionOperationsSummaryData $summary): Stat
     {
         return Stat::make(__('capell-admin::generic.extension_operations_tab_updates'), (string) $summary->updatesCount)
+            ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-arrow-path')
             ->color($summary->updatesCount > 0 ? 'warning' : 'success');
     }
@@ -83,6 +89,7 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
     private function blockedStat(ExtensionOperationsSummaryData $summary): Stat
     {
         return Stat::make(__('capell-admin::generic.extension_operations_tab_blocked'), (string) $summary->blockedCount)
+            ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-no-symbol')
             ->color($summary->blockedCount > 0 ? 'danger' : 'success');
     }
