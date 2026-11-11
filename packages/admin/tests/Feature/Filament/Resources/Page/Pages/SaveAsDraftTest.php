@@ -304,39 +304,28 @@ it('shows standard notification when normal create is used instead of draft', fu
     ]);
 });
 
-it('offers an ordinary draft save in the configured action position', function (AdminFormActionPositionEnum $position): void {
+it('does not offer a duplicate draft save when no workspace draft handler is installed', function (AdminFormActionPositionEnum $position): void {
     $settings = AdminSettings::instance();
     $settings->form_action_position = $position;
     $settings->save();
 
     $page = Page::factory()->withTranslations()->create(['visible_from' => now()->addCentury(), 'visible_until' => null]);
-    $translationFields = ['id', 'language_id', 'translatable_type', 'translatable_id', 'title', 'content'];
-    $translations = $page->translations()->get()->map->only($translationFields)->all();
-    $slugs = $page->translations()->get()->map(fn (Translation $translation): mixed => data_get($translation->meta, 'slug'))->all();
-    $urlFields = ['id', 'site_id', 'language_id', 'pageable_type', 'pageable_id', 'url', 'target_url', 'type'];
-    $urls = $page->pageUrls()->get()->map->only($urlFields)->all();
 
     $livewire = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
-        ->assertActionVisible('saveAsDraft')
-        ->fillForm(['name' => 'First draft save'])
-        ->callAction('saveAsDraft')
-        ->assertHasNoFormErrors()
-        ->fillForm(['name' => 'Second draft save'])
-        ->callAction('saveAsDraft')
+        ->assertActionHidden('saveAsDraft')
+        ->fillForm(['name' => 'Plain draft save'])
+        ->call('save')
         ->assertHasNoFormErrors();
 
-    $page->refresh();
-    expect($page->name)->toBe('Second draft save');
-    expect($page->isPending())->toBeTrue();
-    expect($page->translations()->get()->map->only($translationFields)->all())->toBe($translations);
-    expect($page->translations()->get()->map(fn (Translation $translation): mixed => data_get($translation->meta, 'slug'))->all())->toBe($slugs);
-    expect($page->pageUrls()->get()->map->only($urlFields)->all())->toBe($urls);
+    expect($page->refresh()->name)->toBe('Plain draft save')
+        ->and($page->isPending())->toBeTrue();
 
     $component = $livewire->instance();
     $actions = $position === AdminFormActionPositionEnum::AboveForm
         ? $component->getCachedHeaderActions()
         : $component->getCachedFormActions();
-    expect(collect($actions)->filter(fn (Action|ActionGroup $action): bool => $action instanceof Action && $action->getName() === 'saveAsDraft'))->toHaveCount(1);
+    $visibleSaveAsDraft = collect($actions)->filter(fn (Action|ActionGroup $action): bool => $action instanceof Action && $action->getName() === 'saveAsDraft' && $action->isVisible());
+    expect($visibleSaveAsDraft)->toHaveCount(0);
 })->with(AdminFormActionPositionEnum::cases());
 
 it('preserves an extension draft action without adding a duplicate', function (bool $grouped): void {

@@ -14,6 +14,7 @@ use Capell\Admin\Filament\Components\Forms\Page\ContentEditor;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
 use Capell\Admin\Filament\Configurators\Pages\LandingPageConfigurator;
 use Capell\Admin\Filament\Configurators\Pages\ResultsPageConfigurator;
+use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Filament\RelationManagers\ActivityHistoryRelationManager;
 use Capell\Admin\Filament\RelationManagers\EventSourcedHistoryRelationManager;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
@@ -466,7 +467,7 @@ it('labels the primary save action as save for live published pages', function (
     expect(filamentText($saveAction->getLabel()))->toBe(__('capell-admin::button.save'));
 });
 
-it('labels the primary save action as save and publish for unpublished pages', function (): void {
+it('labels the primary save action as save for unpublished pages because publishing is a separate action', function (): void {
     $page = Page::factory()->createOne([
         'visible_from' => now()->addDay(),
         'visible_until' => null,
@@ -483,7 +484,7 @@ it('labels the primary save action as save and publish for unpublished pages', f
     expect($saveAction)->toBeInstanceOf(Action::class);
     assert($saveAction instanceof Action);
 
-    expect(filamentText($saveAction->getLabel()))->toBe(__('capell-admin::button.save_and_publish'));
+    expect(filamentText($saveAction->getLabel()))->toBe(__('capell-admin::button.save'));
 });
 
 // Unpublish / cancel-scheduled-unpublish moved off the EditPage form into the
@@ -1170,9 +1171,51 @@ it('save home page', function (): void {
         ->call('save')
         ->assertHasNoFormErrors();
 
-    // Saving a pending page is "Save and Publish": mutateFormDataBeforeSave clears
-    // the draft sentinel so the page goes live. Scheduling a future date is now the
-    // PublishStatusPanel's job, not the main form's.
+    // A plain Save keeps a draft a draft. Going live is the explicit Publish now
+    // action on the publish panel.
+    expect($page->refresh()->isPending())->toBeTrue();
+});
+
+it('keeps the draft visibility date when a draft page is saved with a plain save', function (): void {
+    $site = Site::factory()->hasSiteDomains()->create();
+    $languages = $site->siteDomains->map->language_id;
+
+    $page = Page::factory()->site($site)->pending()->create();
+    setupPage($page, $languages);
+    $draftVisibleFrom = $page->refresh()->visible_from;
+
+    Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->fillForm(['name' => 'Renamed draft'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $page->refresh();
+
+    expect($page->name)->toBe('Renamed draft')
+        ->and($page->isPending())->toBeTrue()
+        ->and($page->visible_from?->equalTo($draftVisibleFrom))->toBeTrue();
+});
+
+it('still lets the explicit publish action take a saved draft live', function (): void {
+    $site = Site::factory()->hasSiteDomains()->create();
+    $languages = $site->siteDomains->map->language_id;
+
+    $page = Page::factory()->site($site)->pending()->create();
+    setupPage($page, $languages);
+
+    Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])->call('save')->assertHasNoFormErrors();
+
+    expect($page->refresh()->isPending())->toBeTrue();
+
+    Livewire::test(PublishStatusPanel::class, [
+        'recordClass' => Page::class,
+        'recordId' => $page->getKey(),
+    ])->callAction('publishNow');
+
     expect($page->refresh()->isPending())->toBeFalse();
 });
 
