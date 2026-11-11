@@ -67,6 +67,7 @@ class BuildPublicPageRenderDataAction
             extensionFingerprint: $extensionContributions->fingerprint,
             extensionSurrogateKeys: $extensionContributions->surrogateKeys,
             extensionCacheDependencies: $extensionContributions->cacheDependencies,
+            context: HydratePublicRenderContextDataAction::run($context),
         );
     }
 

@@ -41,6 +41,7 @@ class PublicPageRenderData extends Data
         public string $extensionFingerprint = '',
         public array $extensionSurrogateKeys = [],
         public array $extensionCacheDependencies = [],
+        public ?PublicRenderContextData $context = null,
     ) {}
 
     public function contentWidgetPayload(string $instanceId): ?object
