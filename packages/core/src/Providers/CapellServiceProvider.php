@@ -145,8 +145,10 @@ use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\MediaContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageEmbedContentGraphExtractor;
+use Capell\Core\Support\ContentGraph\Extractors\PagePropertyValueContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageUrlContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\SiteContentGraphExtractor;
+use Capell\Core\Support\ContentGraph\Extractors\TermPropertyValueContentGraphExtractor;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Database\Platforms\MariaDbDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
@@ -235,6 +237,7 @@ use Capell\Core\Support\TableName;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
+use Capell\Core\Support\Upgrade\IndexPropertyValueReferencesUpgradeStep;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
@@ -754,9 +757,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             MediaContentGraphExtractor::class,
             PageContentGraphExtractor::class,
             PageEmbedContentGraphExtractor::class,
+            PagePropertyValueContentGraphExtractor::class,
             PageUrlContentGraphExtractor::class,
             SiteContentGraphExtractor::class,
+            TermPropertyValueContentGraphExtractor::class,
         ], ContentGraphRegistry::TAG);
+        $this->app->tag([IndexPropertyValueReferencesUpgradeStep::class], 'capell.upgrade-steps');
 
         return $this;
     }

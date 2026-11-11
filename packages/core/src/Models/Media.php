@@ -11,11 +11,14 @@ use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Concerns\HasAssets;
 use Capell\Core\Models\Concerns\HasTranslations;
 use Capell\Core\Models\Contracts\Translatable;
+use Capell\Core\Observers\MediaPropertyReferenceObserver;
 use Capell\Core\Support\Media\LocalizedMediaMetadata;
 use Capell\Core\Support\Media\LocalizedMediaMetadataResolver;
 use Capell\Core\Support\Media\MediaCropPresetRepository;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
+use Capell\Core\Support\Properties\PropertyMediaUsage;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -80,6 +83,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection;
  *
  * @mixin Model
  */
+#[ObservedBy(MediaPropertyReferenceObserver::class)]
 class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implements MediaContract, Translatable
 {
     use HasAssets;
@@ -368,7 +372,8 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
     }
 
     /**
-     * How many AssetAttachment rows reference this media item.
+     * How many records use this media item: AssetAttachment rows plus each
+     * page or term whose property values point at it.
      *
      * Surfaces in the MediaResource list so editors can see at a glance
      * whether deleting an image will break N pages — the most common
@@ -380,7 +385,11 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
         return Attribute::make(get: fn (): int => AssetAttachment::query()
             ->where('asset_type', $this->getMorphClass())
             ->where('asset_id', (string) $this->getKey())
-            ->count());
+            ->count()
+            + PropertyMediaUsage::count(
+                PagePropertyValue::query()->where('media_id', $this->getKey()),
+                TermPropertyValue::query()->where('media_id', $this->getKey()),
+            ));
     }
 
     private function normalizePercentage(mixed $value): int

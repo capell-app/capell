@@ -41,4 +41,7 @@ return [
         'property_set_out_of_scope' => 'The selected property set is not available.',
         'property_set_owned' => 'Package-owned property sets cannot be edited here.',
     ],
+    'upgrade' => [
+        'index_references' => 'Index the media, pages and terms that property values point at',
+    ],
 ];
