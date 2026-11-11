@@ -6,12 +6,14 @@ namespace Capell\Core\Models\Concerns;
 
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -26,7 +28,7 @@ trait HasTranslations
 {
     public function getTranslation(string $key): mixed
     {
-        return $this->translation[$key] ?? null;
+        return $this->contextTranslation()?->getAttribute($key);
     }
 
     public function getPrimaryLanguage(): ?Language
@@ -87,10 +89,55 @@ trait HasTranslations
         return $model;
     }
 
+    /**
+     * The translation `title` and getTranslation() read. A `translation` relation the
+     * caller loaded (constrained to the language in context) wins. Without one, the
+     * choice is deterministic instead of whichever row the database returns first:
+     * the site's default language and its fallback chain, then the first language in
+     * admin order. Nothing is cached on the relation, so a later constrained load of
+     * `translation` is not shadowed.
+     */
+    protected function contextTranslation(): ?Translation
+    {
+        if ($this->relationLoaded('translation')) {
+            $loaded = $this->getRelation('translation');
+
+            return $loaded instanceof Translation ? $loaded : null;
+        }
+
+        $defaultLanguageId = $this->defaultTranslationLanguageId();
+
+        if ($defaultLanguageId !== null) {
+            $resolution = ResolveTranslationAction::run($this, $defaultLanguageId);
+
+            if ($resolution instanceof TranslationResolutionData) {
+                return $resolution->translation;
+            }
+        }
+
+        if ($this->relationLoaded('translations')) {
+            /** @var EloquentCollection<int, Translation> $translations */
+            $translations = $this->getRelation('translations');
+            $order = Language::query()->ordered()->pluck('id')->flip();
+
+            return $translations
+                ->sortBy(fn (Translation $translation): int => (int) ($order[$translation->language_id] ?? PHP_INT_MAX))
+                ->first();
+        }
+
+        $languages = new Language;
+        $translation = $this->translations()
+            ->orderBy($languages->newQuery()->select($languages->qualifyColumn('order'))->whereColumn($languages->getQualifiedKeyName(), (new Translation)->qualifyColumn('language_id')))
+            ->orderBy((new Translation)->qualifyColumn('language_id'))
+            ->first();
+
+        return $translation instanceof Translation ? $translation : null;
+    }
+
     /** @return Attribute<string|null, never> */
     protected function title(): Attribute
     {
-        return Attribute::make(get: fn (): ?string => $this->translation?->title);
+        return Attribute::make(get: fn (): ?string => $this->contextTranslation()?->title);
     }
 
     /**
@@ -102,5 +149,25 @@ trait HasTranslations
             'translation',
             fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language_id),
         );
+    }
+
+    private function defaultTranslationLanguageId(): ?int
+    {
+        if ($this instanceof Site) {
+            return $this->language_id === null ? null : (int) $this->language_id;
+        }
+
+        $siteId = $this->getAttribute('site_id');
+
+        if ($siteId === null) {
+            return null;
+        }
+
+        $site = $this->relationLoaded('site') ? $this->getRelation('site') : null;
+        $languageId = $site instanceof Site
+            ? $site->language_id
+            : Site::query()->whereKey($siteId)->value('language_id');
+
+        return $languageId === null ? null : (int) $languageId;
     }
 }

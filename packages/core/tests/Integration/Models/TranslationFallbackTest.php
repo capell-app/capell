@@ -7,6 +7,7 @@ use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -237,4 +238,50 @@ it('explains a rejected fallback in words, not translation keys', function (): v
     }
 
     expect($message)->toBeString()->not->toBeEmpty()->not->toContain('::');
+});
+
+it('reads the title in the site default language when no translation was loaded, whatever the row order', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->createOne();
+    $page = Page::factory()->site($site)->createOne();
+    $page->translations()->delete();
+    translationFallbackTitle($page, $french, 'Bonjour');
+    translationFallbackTitle($page, $english, 'Hello');
+
+    $fresh = translationFallbackFresh($page);
+
+    expect($fresh->title)->toBe('Hello')
+        ->and(translationFallbackFresh($page)->getTranslation('title'))->toBe('Hello')
+        ->and($fresh->relationLoaded('translation'))->toBeFalse();
+});
+
+it('keeps the title of a translation loaded for the language in context', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->createOne();
+    $page = Page::factory()->site($site)->createOne();
+    $page->translations()->delete();
+    translationFallbackTitle($page, $english, 'Hello');
+    translationFallbackTitle($page, $french, 'Bonjour');
+
+    $loaded = Page::query()
+        ->with(['translation' => fn ($query) => $query->where('language_id', $french->getKey())])
+        ->whereKey($page->getKey())
+        ->firstOrFail();
+
+    expect($loaded->title)->toBe('Bonjour');
+});
+
+it('reads the title of the first language in order when the site default language has no translation', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $german = Language::factory()->german()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->createOne();
+    $page = Page::factory()->site($site)->createOne();
+    $page->translations()->delete();
+    translationFallbackTitle($page, $german, 'Hallo');
+    translationFallbackTitle($page, $french, 'Bonjour');
+
+    expect(translationFallbackFresh($page)->title)->toBe('Bonjour');
 });

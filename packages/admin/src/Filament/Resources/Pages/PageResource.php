@@ -125,8 +125,10 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
     {
         return parent::getGlobalSearchEloquentQuery()
             ->with([
-                'site:id,name,default',
-                'translation',
+                // The result detail reads `title` in the site's default language from
+                // these rows; an unconstrained `translation` returned an arbitrary language.
+                'site:id,name,default,language_id',
+                'translations',
                 'blueprint:id,name',
                 'ancestors',
                 'pageUrls',
