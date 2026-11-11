@@ -97,7 +97,7 @@ trait HasTranslations
      * admin order. Nothing is cached on the relation, so a later constrained load of
      * `translation` is not shadowed.
      */
-    protected function contextTranslation(): ?Translation
+    public function contextTranslation(): ?Translation
     {
         if ($this->relationLoaded('translation')) {
             $loaded = $this->getRelation('translation');
