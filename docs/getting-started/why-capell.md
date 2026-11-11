@@ -82,6 +82,10 @@ Editors work with shared page types, layouts, approved widgets, assets, preview,
 
 This avoids two common extremes: every content change becoming a developer ticket, or a visual builder allowing every page to become a one-off design. Capell supports custom pages, but repeated content should use a repeatable structure when that makes future change cheaper.
 
+## Adapt the content model to your website
+
+A case study can have a Client name field even though Core has no built-in client attribute. Your application can add the editor field, choose its storage and prepare its public output through the same contracts extensions use. [Follow the screenshot walkthrough](add-a-custom-page-field.md), or [compare the approaches and existing extension implementations](../packages/custom-page-fields.md). The decision guide also explains which publication, history, API and data-transfer integrations need additional work.
+
 ## Packages without catalogue fiction
 
 The public foundation consists of Core, Admin, Frontend, Installer, and Marketplace. Optional capabilities may exist as Released, Beta, Labs, private, or source-only packages.

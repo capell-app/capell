@@ -88,6 +88,8 @@ These captures show Capell administering [capell.app](https://capell.app) — th
 | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | ![Capell page editor with real page content, publishing state, and AI assistant](docs/images/capell-app-page-editor.png) | ![The capell.app public homepage rendered by the Capell frontend](docs/images/capell-app-public-homepage.jpg) |
 
+Add a website-specific field through Capell's extension contracts. [Add Client name to a case-study page](docs/getting-started/add-a-custom-page-field.md), then [compare the supported extension approaches](docs/packages/custom-page-fields.md), including the data and upgrade responsibilities of each.
+
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
 
 ### Where an edit goes

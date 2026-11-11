@@ -101,7 +101,7 @@ Locks are stored in the `content_locks` table with the owning user, model identi
 
 Blueprints shape how content is edited, rendered, and reused. For pages, a blueprint can change the admin fields, frontend component, cache behaviour, URL accessibility, listing behaviour, sitemap inclusion, and layout-editing options available to that page.
 
-Capell ships with a standard page blueprint, and you can add custom blueprints for specialised content. A product page could require a price field and use a product detail component. A team member page could require a photo and bio. A campaign page could use a landing-page component, opt out of archive listings, and keep its layout locked.
+Capell ships with a standard page blueprint, and you can add custom blueprints for specialised content. A case-study page could include a Client name field and use its own public presentation. A team member page could require a photo and bio. A campaign page could use a landing-page component, opt out of archive listings, and keep its layout locked.
 
 Application and package code uses `Blueprint` records and `blueprint` relationships.
 
@@ -111,7 +111,7 @@ When creating a page, select its blueprint from the dropdown. The blueprint dete
 
 ### Registering custom page blueprints
 
-See [Blueprints](../../../docs/getting-started/types.md) for product examples, and [Extending Capell](extending-capell.md#2-page-types-and-component-registration) for how to register page subject blueprints from your application or a package.
+For an ordinary Page, create a blueprint and add fields through its editor contracts: [add Client name end to end](../../../docs/getting-started/add-a-custom-page-field.md), then [compare all custom-field approaches](../../../docs/packages/custom-page-fields.md). [Blueprints](../../../docs/getting-started/types.md) explains configuration. [Subject registration](extending-capell.md#2-page-types-and-component-registration) is a separate operation for a new model subject; it does not create editor fields or a blueprint record.
 
 ---
 

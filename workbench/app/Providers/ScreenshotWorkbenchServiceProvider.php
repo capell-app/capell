@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Workbench\App\Providers;
 
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
+use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Filament\Events\ServingFilament;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
@@ -15,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use RuntimeException;
+use Workbench\App\Support\CaseStudyRenderDataContributor;
+use Workbench\App\Support\CustomPageFieldsFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\ScreenshotTranslationTabs;
 use Workbench\App\Support\SiteAdminMetricsScreenshotFixture;
@@ -30,6 +34,9 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             Config::set('database.default', 'sqlite');
             Config::set('database.connections.sqlite.database', $database);
             Config::set('database.connections.sqlite.url');
+            CustomPageFieldsFixture::registerSchemaExtenders();
+            CustomPageFieldsFixture::configureActivityColumnManager();
+            $this->app->tag([CaseStudyRenderDataContributor::class], PublicRenderDataContributor::TAG);
         }
 
         $displayOrigin = config('screenshot.display_origin');
@@ -86,6 +93,11 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 
         $this->publishFilamentAssets();
 
+        $this->loadTranslationsFrom(__DIR__ . '/../../lang/custom-page-fields', 'custom-page-fields');
+        $this->loadTranslationsFrom(__DIR__ . '/../../fixtures/extension-cookbook/lang', 'capell-extension-cookbook');
+        $this->loadViewsFrom(__DIR__ . '/../../resources/views/custom-page-fields', 'custom-page-fields');
+        resolve(LayoutViewRegistry::class)->registerLayout('custom-page-fields::case-study', 'Case study');
+        resolve(LayoutViewRegistry::class)->registerMaster('custom-page-fields::empty', 'Case study content');
         $this->loadRoutesFrom(__DIR__ . '/../../routes/screenshot-fixtures.php');
 
         Event::listen(ServingFilament::class, ScreenshotTranslationTabs::apply(...));

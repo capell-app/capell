@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\ActionScreenshotFixture;
+use Workbench\App\Support\CustomPageFieldsFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
@@ -77,4 +78,8 @@ Route::get('/screenshot-fixtures/actions/parent', static fn (): RedirectResponse
     ->middleware(['web', RequireScreenshotAdmin::class]);
 
 Route::get('/screenshot-fixtures/actions/site', static fn (): RedirectResponse => redirect()->to(ActionScreenshotFixture::createUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
+Route::get('/screenshot-fixtures/custom-page-fields/{scenario}', static fn (string $scenario): RedirectResponse => redirect()->to(CustomPageFieldsFixture::editUrl($scenario)))
+    ->where('scenario', 'editor|validation|reopened|public')
     ->middleware(['web', RequireScreenshotAdmin::class]);

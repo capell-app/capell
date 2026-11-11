@@ -278,8 +278,7 @@ test('seeds a real scheduled page for the admin dashboard capture', () => {
     assert.deepEqual(commandsForEntries([{ id: 'admin-dashboard' }]), [
         'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
     ])
-});
-
+})
 
 test('seeds the page template for each translation tabs capture on its own', () => {
     for (const id of [
@@ -297,4 +296,27 @@ test('initialises action fixture only for action coverage entries', () => {
         'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
     ])
     assert.deepEqual(commandsForEntries([{ id: 'ordinary-page' }]), [])
+})
+
+test('initializes custom-field editor and public entries once with the selected local origin', () => {
+    assert.deepEqual(
+        commandsForEntries(
+            [
+                { id: 'custom-page-fields-editor' },
+                { id: 'custom-page-fields-public' },
+            ],
+            'http://127.0.0.1:8197',
+        ),
+        [
+            'Workbench\\App\\Support\\CustomPageFieldsFixture::initialize("http://127.0.0.1:8197");',
+        ],
+    )
+    assert.throws(
+        () =>
+            commandsForEntries(
+                [{ id: 'custom-page-fields-public' }],
+                'https://capell.example',
+            ),
+        /require a local origin/,
+    )
 })
