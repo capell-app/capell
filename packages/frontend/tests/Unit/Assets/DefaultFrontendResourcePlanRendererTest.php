@@ -155,7 +155,7 @@ it('renders no nonce for a cacheable page and authorises inline resources by con
     resolve(Vite::class)->useCspNonce('per-response');
     $page = new Page;
     $blueprint = new Blueprint;
-    $blueprint->setAttribute('cache_time', CacheTime::Hourly);
+    $blueprint->setAttribute('meta', ['cache_time' => CacheTime::Hourly->value]);
 
     $page->setRelation('blueprint', $blueprint);
     $plan = ResolveFrontendResourcePlanAction::run([
@@ -177,3 +177,41 @@ it('renders no nonce for a cacheable page and authorises inline resources by con
         ->and($rendered->styleHashSources)->toBe(["'sha256-" . base64_encode(hash('sha256', 'body { color: red; }', true)) . "'"])
         ->and($rendered->scriptHashSources)->toContain("'sha256-" . base64_encode(hash('sha256', 'window.ready = true;', true)) . "'");
 });
+
+it('keeps nonces only when the page is positively never cached', function (?CacheTime $cacheTime, bool $loaded, bool $expectNonce): void {
+    resolve(Vite::class)->useCspNonce('per-response');
+    config()->set('capell-frontend.stylesheet_recovery', [
+        'enabled' => true,
+        'fallback_url' => '/build/fallback/frontend.css',
+        'runtime_url' => '/vendor/capell-frontend/stylesheet-recovery.js',
+        'inline' => false,
+    ]);
+    $page = new Page;
+
+    if ($loaded) {
+        $blueprint = new Blueprint;
+        $blueprint->setAttribute('meta', ['cache_time' => $cacheTime?->value]);
+
+        $page->setRelation('blueprint', $blueprint);
+    }
+
+    $plan = ResolveFrontendResourcePlanAction::run([
+        new FrontendResourceContributionData(FrontendResourceData::inlineScript('capell-app/gallery:script', 'capell-app/gallery', 'window.ready = true;')),
+    ]);
+    $context = new FrontendResourceContextData(
+        page: $page,
+        site: null,
+        language: null,
+        layout: null,
+        theme: null,
+        runtime: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+
+    $rendered = resolve(DefaultFrontendResourcePlanRenderer::class)->render($plan, $context);
+
+    expect(str_contains($rendered->headHtml . $rendered->bodyEndHtml, 'nonce="per-response"'))->toBe($expectNonce);
+})->with([
+    'never cached' => [CacheTime::Never, true, true],
+    'cacheable' => [CacheTime::Daily, true, false],
+    'blueprint not loaded' => [null, false, false],
+]);
