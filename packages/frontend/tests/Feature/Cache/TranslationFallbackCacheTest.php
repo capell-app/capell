@@ -9,6 +9,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Data\CacheInvalidationRule;
 use Capell\Frontend\Enums\CacheEnum;
+use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\PageCacheInvalidator;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Loader\PageLoader;
@@ -249,6 +250,22 @@ it('refreshes the cached home page when the home page is created, edited or dele
 
     expect(PageLoader::getSiteHomePage($site, $english))->toBeNull()
         ->and(PageLoader::getSiteHomePage($site, $french))->toBeNull();
+});
+
+it('forgets cached system and home pages when every page cache is invalidated', function (): void {
+    [$site, $english] = fallbackCacheSite();
+    $blueprint = Blueprint::factory()->page()->createOne(['key' => PageTypeEnum::NotFound->value]);
+    $page = Page::factory()->site($site)->type($blueprint)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations($english, ['title' => 'Not found'], slug: 'not-found')
+        ->createOne();
+
+    expect(PageLoader::getSystemPage($site, $english, PageTypeEnum::NotFound->value))->not->toBeNull();
+
+    // A query-level change fires no model event, so only the class-wide plan can retire it.
+    Page::query()->whereKey($page->getKey())->update(['visible_from' => CarbonImmutable::now()->addWeek(), 'visible_until' => null]);
+    resolve(CacheInvalidationRegistry::class)->invalidateForModel(Page::class);
+
+    expect(PageLoader::getSystemPage($site, $english, PageTypeEnum::NotFound->value))->toBeNull();
 });
 
 it('plans a page change from its loaded blueprint without querying blueprints', function (): void {

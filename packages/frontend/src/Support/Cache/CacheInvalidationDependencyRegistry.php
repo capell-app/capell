@@ -21,8 +21,10 @@ final class CacheInvalidationDependencyRegistry
         // A language's fallback chain decides which translation, system page and home
         // page every language renders, so a language change reaches all of them.
         Language::class => ['languages', 'page-*', 'site-*', 'system-page-*', 'homepage-*'],
-        // System pages (404, error, maintenance) are cached per type, site and language and
-        // may be served through a fallback, so any page change can alter which one applies.
+        // Class-wide plans (invalidateForModel(Page::class), e.g. after a SiteSpec privacy
+        // repair or a query-level change) retire every system page with the rest. A single
+        // page save does not use these patterns: PageCacheInvalidator::planForPage forgets
+        // that page's exact system-page and home-page keys instead.
         Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*', 'system-page-*'],
         'Capell\Core\Models\Navigation' => ['navigation-*', 'site-navigations-*'],
         // Generated URLs embed the domain when use_site_domain_for_urls is on, so a
