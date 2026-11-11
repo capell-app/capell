@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Dashboard;
 
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstAttentionAction;
 use Capell\Admin\Actions\Dashboard\CanViewDashboardItemAction;
+use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
 use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Contracts\Dashboard\MyWorkQueueDataProvider;
 use Capell\Admin\Contracts\Dashboard\RecentlyPublishedDataProvider;
@@ -13,6 +14,7 @@ use Capell\Admin\Contracts\Dashboard\ScopedSiteStatsDataProvider;
 use Capell\Admin\Contracts\Dashboard\SiteStatsDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
+use Capell\Admin\Data\Dashboard\FirstRunStateData;
 use Capell\Admin\Data\Dashboard\MyWorkQueueData;
 use Capell\Admin\Data\Dashboard\RecentlyPublishedData;
 use Capell\Admin\Data\Dashboard\SiteStatsData;
@@ -31,6 +33,14 @@ final class AdminDashboardDataRequestCache
 
     /** @var array<string, DashboardAnalyticsSnapshotData> */
     private array $analytics = [];
+
+    /** @var array<string, FirstRunStateData> */
+    private array $firstRun = [];
+
+    public function firstRunState(Authenticatable $actor): FirstRunStateData
+    {
+        return $this->firstRun[(string) $actor->getAuthIdentifier()] ??= ResolveFirstRunStateAction::run($actor);
+    }
 
     public function myWorkQueue(Authenticatable $user, int $limit): MyWorkQueueData
     {

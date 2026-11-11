@@ -18,6 +18,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidge
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
@@ -216,6 +217,12 @@ class CapellDashboard extends Dashboard
                 ->columnSpanFull();
         }
 
+        $checklist = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === FirstRunChecklistFilamentWidget::class));
+        $checklistComponents = $this->getWidgetsSchemaComponents($checklist);
+        if ($checklistComponents !== []) {
+            $components[] = Grid::make(1)->schema($checklistComponents)->columnSpanFull();
+        }
+
         $components[] = $this->getFiltersFormContentComponent();
         $attention = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === NeedsAttentionFilamentWidget::class));
         if ($this->getWidgetsSchemaComponents($attention) !== []) {
@@ -232,7 +239,8 @@ class CapellDashboard extends Dashboard
     {
         $widgets = array_values(array_filter($this->getWidgets(), fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget)::canView()
             && ! $this->isWelcomeWidget($widget)
-            && $this->normalizeWidgetClass($widget) !== NeedsAttentionFilamentWidget::class));
+            && ! in_array($this->normalizeWidgetClass($widget), [NeedsAttentionFilamentWidget::class, FirstRunChecklistFilamentWidget::class], true)
+            && (! $this->isFirstRun() || ! $this->isAnalyticsWidget($widget))));
         $regions = [];
 
         foreach ([DashboardRegionEnum::Pulse, DashboardRegionEnum::Trends, DashboardRegionEnum::Insights] as $region) {
@@ -346,6 +354,22 @@ class CapellDashboard extends Dashboard
             ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main),
             ...($this->workFirstEnabled() ? [] : CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::MarketingStudio)),
         ], SORT_REGULAR)));
+    }
+
+    protected function isFirstRun(): bool
+    {
+        return FirstRunChecklistFilamentWidget::canView();
+    }
+
+    /** @param class-string<Widget>|WidgetConfiguration $widget */
+    protected function isAnalyticsWidget(string|WidgetConfiguration $widget): bool
+    {
+        return in_array($this->normalizeWidgetClass($widget), [
+            AnalyticsOverviewFilamentWidget::class,
+            AnalyticsTrendFilamentWidget::class,
+            AnalyticsInsightsFilamentWidget::class,
+            AnalyticsRecentActivityFilamentWidget::class,
+        ], true);
     }
 
     /** @param class-string<Widget>|WidgetConfiguration $widget */
