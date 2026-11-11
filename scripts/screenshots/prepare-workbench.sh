@@ -53,8 +53,11 @@ export default {
 VITE_CONFIG
 
 # Testbench omits the application npm manifest required by frontend preparation.
-# Seed the original laravel/laravel v13.10.1 package.json only when absent.
-# Source commit: 5aad4ddf34d5e21dfe6b4c07eeac67d5bd5e08b0.
+# Seed the laravel/laravel v13.10.1 package.json (source commit
+# 5aad4ddf34d5e21dfe6b4c07eeac67d5bd5e08b0) only when absent. Its `build` script is
+# replaced with a no-op: the skeleton has no node_modules and no vendor/capell-app,
+# so `vite build` cannot run there, and the capture CSS is compiled by
+# build-filament-theme-css.mjs and build-frontend-theme-css.mjs below instead.
 TESTBENCH_PACKAGE_JSON="${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/package.json"
 if [[ ! -e "${TESTBENCH_PACKAGE_JSON}" && ! -L "${TESTBENCH_PACKAGE_JSON}" ]]; then
     cp "${REPOSITORY_ROOT}/scripts/screenshots/laravel-v13.10.1-package.json" "${TESTBENCH_PACKAGE_JSON}"

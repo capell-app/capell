@@ -172,13 +172,13 @@ it('prepares a real Laravel manifest before installation without replacing an ex
     $expectedManifest = $temporary . '/expected-package.json';
     $log = $temporary . '/commands.log';
 
-    // The install needs an application manifest; formatting of its shipped JSON is irrelevant.
+    // The install needs an application manifest whose build script runs without node_modules; formatting of its shipped JSON is irrelevant.
     $applicationManifest = json_decode((string) file_get_contents($fixture), true, flags: JSON_THROW_ON_ERROR);
     expect($applicationManifest)->toEqual([
         '$schema' => 'https://www.schemastore.org/package.json',
         'private' => true,
         'type' => 'module',
-        'scripts' => ['build' => 'vite build', 'dev' => 'vite'],
+        'scripts' => ['build' => 'echo "Screenshot workbench: theme CSS is compiled by scripts/screenshots, so there is no Vite build to run."', 'dev' => 'vite'],
         'devDependencies' => [
             '@tailwindcss/vite' => '^4.0.0',
             'concurrently' => '^10.0.3',
@@ -321,3 +321,19 @@ BASH);
         (new Filesystem)->deleteDirectory($temporary);
     }
 })->with(['default scan' => [null], 'empty scan' => [''], 'inherited scan' => ['custom']]);
+
+it('ships a workbench build script that succeeds where no frontend dependencies are installed', function (): void {
+    $manifest = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/scripts/screenshots/laravel-v13.10.1-package.json'), true, flags: JSON_THROW_ON_ERROR);
+    $empty = sys_get_temp_dir() . '/capell-core-screenshot-build-' . bin2hex(random_bytes(6));
+    mkdir($empty);
+
+    try {
+        // The skeleton has neither node_modules nor vendor/capell-app, so a real Vite build cannot run there.
+        $process = Process::fromShellCommandline($manifest['scripts']['build'], $empty, ['PATH' => '/usr/bin:/bin']);
+        $process->run();
+
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    } finally {
+        (new Filesystem)->deleteDirectory($empty);
+    }
+});
