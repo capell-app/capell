@@ -105,6 +105,15 @@ final class TableName
         return 'capell.database.external_tables.' . $table;
     }
 
+    /** The configured physical name of a table Capell uses but a vendor package creates, such as `media`. */
+    public static function external(string $table): string
+    {
+        $configured = config('capell.database.external_tables.' . $table, $table);
+        throw_if(! is_string($configured) || preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,' . (self::MAX_IDENTIFIER_LENGTH - 1) . '}$/D', $configured) !== 1, RuntimeException::class, 'Invalid external database table name for ' . $table);
+
+        return $configured;
+    }
+
     public static function base(string $table): string
     {
         $aliases = config('capell.database.table_aliases', []);

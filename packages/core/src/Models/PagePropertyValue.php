@@ -7,7 +7,9 @@ namespace Capell\Core\Models;
 use Capell\Core\Concerns\HasCapellTable;
 use Capell\Core\Database\Factories\PagePropertyValueFactory;
 use Capell\Core\Models\Concerns\HasPublishDates;
+use Capell\Core\Observers\PropertyValueContentGraphObserver;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,6 +42,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  */
+#[ObservedBy(PropertyValueContentGraphObserver::class)]
 final class PagePropertyValue extends Model
 {
     use HasCapellTable;
