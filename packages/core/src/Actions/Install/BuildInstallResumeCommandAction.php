@@ -35,6 +35,24 @@ final class BuildInstallResumeCommandAction
     ];
 
     /**
+     * Whether the console run passed --password, which the resume command cannot replay.
+     *
+     * @param  list<string>|null  $argv
+     */
+    public static function omitsPassword(?array $argv = null): bool
+    {
+        $consoleArguments = Request::server('argv');
+        $argv ??= is_array($consoleArguments) ? array_values(array_map(strval(...), $consoleArguments)) : [];
+        $position = array_search('capell:install', $argv, true);
+
+        if ($position === false) {
+            return false;
+        }
+
+        return array_any(array_slice($argv, $position + 1), fn (string $argument): bool => strtok($argument, '=') === '--password');
+    }
+
+    /**
      * The command that reruns the installer the way the stopped run was started, so every choice
      * (theme, site name, seed flags, table names) carries over. A run that did not start from the
      * console falls back to the packages and address recorded in its input.

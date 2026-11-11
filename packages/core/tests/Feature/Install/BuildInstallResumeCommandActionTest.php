@@ -90,3 +90,12 @@ it("forgets the previous run's stopped step when a new install run starts", func
 
     InstallRunState::clearStoppedStep();
 });
+
+it('reports when the console run passed a password the resume command cannot replay', function (array $argv, bool $expected): void {
+    expect(BuildInstallResumeCommandAction::omitsPassword($argv))->toBe($expected);
+})->with([
+    'separate value' => [['artisan', 'capell:install', '--password', 'hunter2'], true],
+    'inline value' => [['artisan', 'capell:install', '--password=hunter2'], true],
+    'no password' => [['artisan', 'capell:install', '--theme=bold'], false],
+    'a password before the command name is not ours' => [['artisan', '--password=x', 'other:command'], false],
+]);

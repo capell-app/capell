@@ -109,7 +109,7 @@ final class InstallRunState
             return null;
         }
 
-        return new InstallStoppedStepData($step['key'], $step['label'], $step['resumeCommand']);
+        return new InstallStoppedStepData($step['key'], $step['label'], $step['resumeCommand'], ($step['passwordOmitted'] ?? false) === true);
     }
 
     public static function clearStoppedStep(): void

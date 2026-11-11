@@ -24,6 +24,7 @@ return [
         'not_installed_remediation' => 'Run php artisan capell:install.',
         'stopped' => 'Installation stopped at ":step" (:key). Capell is only partly installed, so the admin and the site may not work yet.',
         'stopped_remediation' => 'Resume the installation with: :command',
+        'stopped_password_note' => 'The first run was given a password, which is never saved. Add --password=<value> to this command before you run it.',
         'unrecorded' => 'The installation is incomplete, but the installer did not record which step stopped. Capell may be only partly set up.',
         'unrecorded_remediation' => 'Run php artisan capell:install to finish the installation. Add --plan first to see the steps.',
     ],
