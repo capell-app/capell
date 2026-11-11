@@ -153,8 +153,9 @@ return [
         // <sitemapindex> index file.  Google's limit is 50 000.
         'max_urls_per_file' => env('CAPELL_SITEMAP_MAX_URLS_PER_FILE', 50000),
         // Public path appended to the domain base URL when building chunk
-        // <loc> entries inside a sitemap index (e.g. /sitemap-xml).
-        'xml_path' => env('CAPELL_SITEMAP_XML_PATH', '/sitemap-xml'),
+        // <loc> entries inside a sitemap index. /sitemap.xml is canonical;
+        // the legacy /sitemap-xml path is 301-redirected to it by Site Discovery.
+        'xml_path' => env('CAPELL_SITEMAP_XML_PATH', '/sitemap.xml'),
     ],
 
     'static_site' => [
