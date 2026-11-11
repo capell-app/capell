@@ -114,7 +114,7 @@ final class InstallCommandPresenter
 
         if ($stopped instanceof InstallStoppedStepData) {
             $output->writeln(OutputFormatter::escape(__('capell-core::install.progress.stopped_at', ['step' => $stopped->label, 'key' => $stopped->key])));
-            $output->writeln(OutputFormatter::escape(__('capell-core::health.install_lifecycle.stopped_remediation', ['command' => $stopped->resumeCommand])));
+            $output->writeln(OutputFormatter::escape($stopped->remediation()));
         }
 
         $output->writeln(OutputFormatter::escape(__('capell-core::install.failure.next_action')));

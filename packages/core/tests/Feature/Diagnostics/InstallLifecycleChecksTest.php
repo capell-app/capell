@@ -81,6 +81,25 @@ it('names the stopped install step and the exact command that resumes it', funct
         ->and($result->evidence['stopped_step']['key'])->toBe('run-migrations-mid');
 });
 
+it('tells the user to add the password back when the stopped run used one, without printing it', function (): void {
+    markInstallPartial();
+    InstallRunState::recordStoppedStep(new InstallStoppedStepData('run-migrations-mid', 'Run package migrations', "php artisan capell:install --no-interaction --packages='capell-app/admin'", passwordOmitted: true));
+
+    $result = resolve(InstallLifecycleCheck::class)->check();
+
+    expect(InstallRunState::stoppedStep()?->passwordOmitted)->toBeTrue()
+        ->and($result->remediation)->toContain("php artisan capell:install --no-interaction --packages='capell-app/admin'")
+        ->and($result->remediation)->toContain('--password')
+        ->and($result->remediation)->toContain('never saved');
+});
+
+it('does not mention a password when the stopped run did not use one', function (): void {
+    markInstallPartial();
+    InstallRunState::recordStoppedStep(new InstallStoppedStepData('run-migrations-mid', 'Run package migrations', 'php artisan capell:install'));
+
+    expect(resolve(InstallLifecycleCheck::class)->check()->remediation)->not->toContain('--password');
+});
+
 it('says so when an incomplete install did not record which step stopped', function (): void {
     markInstallPartial();
 

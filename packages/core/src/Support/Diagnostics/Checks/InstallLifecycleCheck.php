@@ -66,7 +66,7 @@ final class InstallLifecycleCheck extends AbstractDoctorCheck
             label: $label,
             passed: false,
             message: __('capell-core::health.install_lifecycle.stopped', ['step' => $stopped->label, 'key' => $stopped->key]),
-            remediation: __('capell-core::health.install_lifecycle.stopped_remediation', ['command' => $stopped->resumeCommand]),
+            remediation: $stopped->remediation(),
             evidence: ['installation_state' => $state->value, 'stopped_step' => $stopped->toArray()],
         );
     }

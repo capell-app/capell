@@ -110,6 +110,7 @@ final class InstallStepExecutor
                 key: $stepKey,
                 label: InstallPlan::labelForStep(InstallPlan::build($state->inputData), $stepKey),
                 resumeCommand: BuildInstallResumeCommandAction::run($state->inputData),
+                passwordOmitted: BuildInstallResumeCommandAction::omitsPassword(),
             ));
         } catch (Throwable $throwable) {
             // Recording is diagnostic only; it must not replace the step failure.

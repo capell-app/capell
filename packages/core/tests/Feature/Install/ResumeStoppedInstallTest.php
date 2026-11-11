@@ -138,6 +138,42 @@ it('lets the doctor resume a stopped install with the options the first run used
         ->and($inputs[0]['seedDefaultData'])->toBeFalse();
 });
 
+it('reminds the doctor user to re-enter the password the stopped run was given', function (): void {
+    CapellExtension::query()->where('composer_name', 'capell-app/core')->delete();
+    CapellCore::clearExtensionCache();
+    InstallRunState::clearStoppedStep();
+    bindResumeScenarioExecutor(new ArrayObject);
+    $firstRun = [
+        '--no-interaction' => true,
+        '--url' => 'https://resume.example.test',
+        '--site-name' => 'Resume Site',
+        '--no-seed-default-data' => true,
+        '--no-frontend-build' => true,
+        '--package-mode' => 'custom',
+        '--packages' => 'capell-app/core',
+        '--name' => 'Resume Admin',
+        '--email' => 'resume-admin@example.test',
+    ];
+    // The console argv carries the secret; it must influence the hint but never reach the output.
+    request()->server->set('argv', ['artisan', 'capell:install', '--password=Sup3r-secret-pw', ...array_map(
+        static fn (string $name, mixed $value): string => $value === true ? $name : $name . '=' . $value,
+        array_keys($firstRun),
+        $firstRun,
+    )]);
+    ClearCachesAction::mock()->shouldReceive('handle')->andThrow(new RuntimeException('Cache store is unreachable.'));
+
+    Artisan::call('capell:install', [...$firstRun, '--password' => 'Sup3r-secret-pw']);
+    $output = Artisan::output();
+    $check = resolve(InstallLifecycleCheck::class)->check();
+
+    expect($check->remediation)->toContain('--password=<value>')
+        ->and($check->remediation)->toContain('never saved')
+        ->and($output)->toContain('--password=<value>')
+        ->and($output)->not->toContain('Sup3r-secret-pw')
+        ->and((string) $check->remediation)->not->toContain('Sup3r-secret-pw')
+        ->and(json_encode($check->evidence))->not->toContain('Sup3r-secret-pw');
+});
+
 it('is not affected by a panel provider another test left in the shared skeleton', function (): void {
     // A unique name never collides with the fixtures other tests write (the preflight globs *PanelProvider.php).
     $leaked = $this->skeletonBasePath . '/app/Providers/Filament/ResumeLeakProbePanelProvider.php';
