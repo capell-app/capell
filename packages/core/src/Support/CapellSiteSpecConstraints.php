@@ -30,6 +30,9 @@ final class CapellSiteSpecConstraints
 
     public const int MAX_SECTION_CONTENT_LENGTH = 20000;
 
+    /** Typed property values one page may set; each must match a property attached to its page type. */
+    public const int MAX_PAGE_PROPERTIES = 50;
+
     public const int MAX_TOTAL_CONTENT_LENGTH = 200000;
 
     public static function validationRegex(string $pattern): string

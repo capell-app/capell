@@ -15,6 +15,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\NameColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
+use Capell\Admin\Filament\Resources\Blueprints\Actions\EditPropertyRulesAction;
 use Capell\Admin\Filament\Resources\Blueprints\Pages\ManageBlueprints;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Data\Database\SqlFragment;
@@ -108,6 +109,7 @@ class BlueprintsTable implements TableConfigurator
                     })
                     ->using(self::updateBlueprint(...)),
                 ActionGroup::make([
+                    EditPropertyRulesAction::make(),
                     ReplicateAction::make()
                         ->hidden(
                             /**

@@ -1,0 +1,324 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Actions\CaptureBlueprintSchemaSnapshotAction;
+use Capell\Core\Actions\Properties\BuildPropertyValidationRulesAction;
+use Capell\Core\Actions\Properties\PromoteBlueprintFieldAction;
+use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
+use Capell\Core\Actions\Properties\SetPagePropertyValuesAction;
+use Capell\Core\Actions\Properties\UpdatePropertyDefinitionConstraintsAction;
+use Capell\Core\Data\Properties\PropertyConstraintsData;
+use Capell\Core\Data\Properties\PropertyValueData;
+use Capell\Core\Enums\PropertyType;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\BlueprintPropertySet;
+use Capell\Core\Models\Media;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
+use Capell\Core\Models\Taxonomy;
+use Capell\Core\Models\Term;
+use Capell\Core\Support\TableName;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * @param  array<string, mixed>  $constraints
+ */
+function constrainedProperty(Page $page, PropertyType $type, array $constraints, string $key = 'field'): PropertyDefinition
+{
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()
+        ->withConstraints($constraints)
+        ->create(['property_set_id' => $set->id, 'key' => $key, 'type' => $type]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+
+    return $definition;
+}
+
+/**
+ * The validation messages a write is rejected with, or [] when it is stored.
+ *
+ * @return array<string, list<string>>
+ */
+function propertyWriteErrors(Page $page, string $key, PropertyType $type, mixed $value, ?string $currency = null): array
+{
+    try {
+        SetPagePropertyValuesAction::run($page, [new PropertyValueData($key, $type, $value, currency: $currency)]);
+    } catch (ValidationException $validationException) {
+        return $validationException->errors();
+    }
+
+    return [];
+}
+
+it('stores constraints as versioned snake_case JSON and an empty rule set as null', function (): void {
+    $definition = PropertyDefinition::factory()->withConstraints(['max_length' => 20, 'unique_per_site' => true])->create();
+
+    $raw = DB::table(TableName::resolve('property_definitions'))->where('id', $definition->id)->value('constraints');
+
+    expect(json_decode((string) $raw, true))->toBe(['version' => 1, 'max_length' => 20, 'unique_per_site' => true])
+        ->and($definition->refresh()->constraints)->toBeInstanceOf(PropertyConstraintsData::class)
+        ->and($definition->constraints?->maxLength)->toBe(20);
+
+    $definition->constraints = new PropertyConstraintsData;
+    $definition->save();
+
+    expect(DB::table(TableName::resolve('property_definitions'))->where('id', $definition->id)->value('constraints'))->toBeNull()
+        ->and($definition->refresh()->constraints)->toBeNull();
+});
+
+it('reads stored constraints tolerantly, dropping malformed values and unknown keys', function (): void {
+    $constraints = PropertyConstraintsData::fromStored([
+        'version' => 2,
+        'min' => 'not a number',
+        'max_length' => -5,
+        'allowed_blueprints' => ['article', '', 7, 'article'],
+        'future_rule' => true,
+    ]);
+
+    expect($constraints->version)->toBe(2)
+        ->and($constraints->min)->toBeNull()
+        ->and($constraints->maxLength)->toBeNull()
+        ->and($constraints->allowedBlueprints)->toBe(['article'])
+        ->and($constraints->toStored())->toBe(['version' => 2, 'allowed_blueprints' => ['article']]);
+});
+
+it('carries constraints into the effective definition every write path resolves', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Number, ['min' => 1, 'max' => 5]);
+
+    $effective = ResolveEffectiveDefinitionsAction::run($page)->firstWhere('key', 'field');
+
+    expect($effective?->constraints?->min)->toBe(1)
+        ->and($effective?->constraints?->max)->toBe(5);
+});
+
+it('builds no rules for a definition without constraints', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->create(['property_set_id' => $set->id, 'key' => 'free', 'type' => PropertyType::Text]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+
+    $definition = ResolveEffectiveDefinitionsAction::run($page)->firstWhere('key', 'free');
+
+    expect(BuildPropertyValidationRulesAction::run($definition, $page->site_id))->toBe([])
+        ->and(propertyWriteErrors($page, 'free', PropertyType::Text, str_repeat('x', 5000)))->toBe([]);
+});
+
+it('enforces numeric ranges', function (mixed $value, bool $accepted): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Money, ['min' => 0, 'max' => 1000], 'price');
+
+    $errors = propertyWriteErrors($page, 'price', PropertyType::Money, $value, 'GBP');
+
+    expect($errors === [])->toBe($accepted);
+
+    if (! $accepted) {
+        expect($errors['price'][0])->toContain('Price must be');
+    }
+})->with([
+    'inside the range' => [49.99, true],
+    'at the lower bound' => [0, true],
+    'below the minimum' => [-1, false],
+    'above the maximum' => [1000.01, false],
+]);
+
+it('enforces text length and format against the whole value', function (string $value, ?string $expected): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Text, ['min_length' => 8, 'max_length' => 8, 'pattern' => '[A-Z]{3}-[0-9]{4}'], 'sku');
+
+    $errors = propertyWriteErrors($page, 'sku', PropertyType::Text, $value);
+
+    if ($expected === null) {
+        expect($errors)->toBe([]);
+
+        return;
+    }
+
+    expect($errors['sku'])->toContain($expected);
+})->with([
+    'valid' => ['ABC-1234', null],
+    'too short' => ['AB-1234', 'Sku must be at least 8 characters long. Add more text.'],
+    'wrong format' => ['abc-1234', 'Sku is not in the format this field expects. Check the field help for an example and try again.'],
+    'format matched only in part' => ['XABC-123', 'Sku is not in the format this field expects. Check the field help for an example and try again.'],
+]);
+
+it('rejects a value another page on the same site already uses, but not one on another site', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Text, ['unique_per_site' => true], 'code');
+    $sibling = Page::factory()->create(['site_id' => $page->site_id, 'blueprint_id' => $page->blueprint_id]);
+    $elsewhere = Page::factory()->create(['blueprint_id' => $page->blueprint_id]);
+
+    expect(propertyWriteErrors($page, 'code', PropertyType::Text, 'SPRING'))->toBe([])
+        ->and(propertyWriteErrors($page->fresh(), 'code', PropertyType::Text, 'SPRING'))->toBe([])
+        ->and(propertyWriteErrors($sibling, 'code', PropertyType::Text, 'SPRING'))
+        ->toBe(['code' => ['Another page on this site already uses this Code. Enter a different value.']])
+        ->and(propertyWriteErrors($elsewhere, 'code', PropertyType::Text, 'SPRING'))->toBe([])
+        ->and(PagePropertyValue::query()->where('value_text', 'SPRING')->count())->toBe(2);
+});
+
+it('restricts entry references to the allowed page types', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::EntryReference, ['allowed_blueprints' => ['article']], 'related');
+    $article = Page::factory()->create([
+        'site_id' => $page->site_id,
+        'blueprint_id' => Blueprint::factory()->page()->create(['key' => 'article'])->id,
+    ]);
+    $landing = Page::factory()->create([
+        'site_id' => $page->site_id,
+        'blueprint_id' => Blueprint::factory()->page()->create(['key' => 'landing'])->id,
+    ]);
+
+    expect(propertyWriteErrors($page, 'related', PropertyType::EntryReference, $article->id))->toBe([])
+        ->and(propertyWriteErrors($page, 'related', PropertyType::EntryReference, $landing->id))
+        ->toBe(['related' => ['Related can only link to these page types: article. Choose a page of one of those types.']]);
+});
+
+it('restricts term references to the allowed taxonomies', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::TermReference, ['allowed_taxonomies' => ['topics']], 'topic');
+    $topic = Term::factory()->for(Taxonomy::factory()->create(['site_id' => $page->site_id, 'key' => 'topics']))->create();
+    $colour = Term::factory()->for(Taxonomy::factory()->create(['site_id' => $page->site_id, 'key' => 'colours']))->create();
+
+    expect(propertyWriteErrors($page, 'topic', PropertyType::TermReference, $topic->id))->toBe([])
+        ->and(propertyWriteErrors($page, 'topic', PropertyType::TermReference, $colour->id))
+        ->toBe(['topic' => ['Topic can only use terms from: topics. Choose a term from one of those.']]);
+});
+
+it('restricts media to the allowed file types and image sizes', function (string $mimeType, array $size, ?string $expected): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Media, [
+        'allowed_mime_types' => ['image/*'],
+        'min_width' => 800,
+        'max_height' => 1200,
+    ], 'hero');
+    $media = Media::factory()->model($page)->create(['mime_type' => $mimeType, 'custom_properties' => $size]);
+
+    $errors = propertyWriteErrors($page, 'hero', PropertyType::Media, $media->id);
+
+    if ($expected === null) {
+        expect($errors)->toBe([]);
+
+        return;
+    }
+
+    expect($errors['hero'])->toContain($expected);
+})->with([
+    'a large enough image' => ['image/png', ['width' => 1600, 'height' => 900], null],
+    'a document' => ['application/pdf', ['width' => 1600, 'height' => 900], 'Hero only accepts these file types: image/*. Choose a file of one of those types.'],
+    'too narrow' => ['image/jpeg', ['width' => 400, 'height' => 300], 'Hero needs an image at least 800 pixels wide. Choose a wider image.'],
+    'too tall' => ['image/jpeg', ['width' => 1600, 'height' => 2400], 'Hero needs an image no more than 1200 pixels tall. Choose a shorter image.'],
+    'of unknown size' => ['image/jpeg', [], 'Hero needs an image whose size is known. Upload the image again so its size can be checked.'],
+]);
+
+it('saves constraints through the update action and clears them when every rule is empty', function (): void {
+    $definition = PropertyDefinition::factory()->create(['type' => PropertyType::Number]);
+
+    UpdatePropertyDefinitionConstraintsAction::run($definition, ['min' => '1.5', 'max' => '10', 'unique_per_site' => '1']);
+
+    expect($definition->refresh()->constraints?->toStored())->toBe(['version' => 1, 'min' => 1.5, 'max' => 10, 'unique_per_site' => true]);
+
+    UpdatePropertyDefinitionConstraintsAction::run($definition, ['min' => '', 'max' => null, 'unique_per_site' => false]);
+
+    expect($definition->refresh()->constraints)->toBeNull();
+});
+
+it('refuses rule sets that cannot work', function (PropertyType $type, array $input, string $field, string $message): void {
+    $definition = PropertyDefinition::factory()->create(['type' => $type]);
+
+    try {
+        UpdatePropertyDefinitionConstraintsAction::run($definition, $input);
+        $this->fail('Expected the rule set to be refused.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()[$field] ?? [])->toContain($message);
+    }
+
+    expect($definition->refresh()->constraints)->toBeNull();
+})->with([
+    'a range that is upside down' => [PropertyType::Number, ['min' => 10, 'max' => 1], 'max', 'The largest allowed value is smaller than the smallest. Swap them or change one.'],
+    'a length on a number' => [PropertyType::Number, ['max_length' => 5], 'max_length', 'This rule does not apply to this kind of field. Clear it before saving.'],
+    'a format that does not compile' => [PropertyType::Text, ['pattern' => '[A-Z'], 'pattern', 'This format cannot be used. Check it for unmatched brackets or stray symbols, or ask a developer to write it.'],
+    'a malformed file type' => [PropertyType::Media, ['allowed_mime_types' => ['png']], 'allowed_mime_types.0', 'Enter a file type such as image/png, or image/* for any image.'],
+]);
+
+it('leaves package-owned property rules to their package', function (): void {
+    $set = PropertySet::factory()->create(['owner_package' => 'capell-app/commerce']);
+    $definition = PropertyDefinition::factory()->create(['property_set_id' => $set->id, 'type' => PropertyType::Number]);
+
+    expect(fn (): mixed => UpdatePropertyDefinitionConstraintsAction::run($definition, ['min' => 1]))
+        ->toThrow(ValidationException::class);
+
+    expect($definition->refresh()->constraints)->toBeNull();
+});
+
+it('records the property rules a blueprint carried in its schema snapshot', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create(['key' => 'test.snapshot']);
+    PropertyDefinition::factory()->withConstraints(['max_length' => 12])->create([
+        'property_set_id' => $set->id,
+        'key' => 'sku',
+        'type' => PropertyType::Text,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    $blueprint = Blueprint::query()->findOrFail($page->blueprint_id);
+
+    $snapshot = CaptureBlueprintSchemaSnapshotAction::run($blueprint, 'test');
+
+    expect($snapshot->metadata)->toBe(['property_definitions' => [[
+        'property_set' => 'test.snapshot',
+        'key' => 'sku',
+        'type' => 'text',
+        'requirement' => 'none',
+        'constraints' => ['version' => 1, 'max_length' => 12],
+    ]]]);
+});
+
+it('compares numeric values when enforcing uniqueness', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Number, ['unique_per_site' => true], 'position');
+    $sibling = Page::factory()->create(['site_id' => $page->site_id, 'blueprint_id' => $page->blueprint_id]);
+
+    expect(propertyWriteErrors($page, 'position', PropertyType::Number, 10))->toBe([])
+        ->and(propertyWriteErrors($sibling, 'position', PropertyType::Number, '10.0'))
+        ->toBe(['position' => ['Another page on this site already uses this Position. Enter a different value.']])
+        ->and(propertyWriteErrors($sibling, 'position', PropertyType::Number, 11))->toBe([]);
+});
+
+it('lets a value held only by a deleted page be reused', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Text, ['unique_per_site' => true], 'code');
+    $sibling = Page::factory()->create(['site_id' => $page->site_id, 'blueprint_id' => $page->blueprint_id]);
+
+    expect(propertyWriteErrors($page, 'code', PropertyType::Text, 'SUMMER'))->toBe([]);
+
+    $page->delete();
+
+    expect(propertyWriteErrors($sibling, 'code', PropertyType::Text, 'SUMMER'))->toBe([]);
+});
+
+it('applies a rule added later only to saves that change the promoted field', function (): void {
+    $page = Page::factory()->create(['name' => 'An established page name']);
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->create(['property_set_id' => $set->id, 'key' => 'display_name', 'type' => PropertyType::Text]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+    $page->save();
+
+    UpdatePropertyDefinitionConstraintsAction::run($definition, ['max_length' => 10]);
+
+    $page->refresh()->order = 99;
+    $page->save();
+
+    expect($page->refresh()->order)->toBe(99);
+
+    $page->name = 'Another name that is too long';
+
+    expect(fn (): bool => $page->save())->toThrow(ValidationException::class);
+
+    // Rejected before the row is written: the field and its property stay in step.
+    expect($page->refresh()->name)->toBe('An established page name')
+        ->and(PagePropertyValue::query()->where('property_definition_id', $definition->id)->value('value_text'))->toBe('An established page name');
+});

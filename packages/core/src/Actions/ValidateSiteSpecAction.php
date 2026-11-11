@@ -109,6 +109,7 @@ final class ValidateSiteSpecAction
             'pages.*.sections.*.meta' => ['sometimes', 'array'],
             'pages.*.visibility' => ['sometimes', 'array'],
             'pages.*.meta' => ['sometimes', 'array'],
+            'pages.*.properties' => ['sometimes', 'array', 'max:' . CapellSiteSpecConstraints::MAX_PAGE_PROPERTIES],
             'navigations' => ['sometimes', 'array', 'max:' . CapellSiteSpecConstraints::MAX_NAVIGATIONS],
             'navigations.*' => ['array'],
             'navigations.*.key' => [...$slug, 'distinct'],

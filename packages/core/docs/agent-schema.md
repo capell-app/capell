@@ -53,6 +53,40 @@ different site can never enter the result. Localised values select the requested
 translation and fall back only according to the Core value rules. A draft or
 unpublished page is never projected by the public query.
 
+## Property rules
+
+A definition can carry declarative rules in `property_definitions.constraints`,
+stored as versioned JSON (`{"version": 1, ...}`):
+
+| Rule                                                 | Applies to                              | Meaning                                                                    |
+| ---------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `min`, `max`                                         | money, number, dimension, duration      | Inclusive numeric range.                                                   |
+| `min_length`, `max_length`                           | text, URL                               | Length in characters.                                                      |
+| `pattern`                                            | text, URL                               | Format the whole value must match, written without delimiters or anchors.  |
+| `unique_per_site`                                    | number-like, text, URL, entry reference | No other page on the site may hold the same value.                         |
+| `allowed_blueprints`                                 | entry reference                         | Page type (blueprint) keys the reference may point at.                     |
+| `allowed_taxonomies`                                 | term reference                          | Taxonomy keys the term must belong to.                                     |
+| `allowed_mime_types`                                 | media                                   | File types such as `image/png`, or `image/*`.                              |
+| `min_width`, `max_width`, `min_height`, `max_height` | media                                   | Image size in pixels; images of unknown size are refused while one is set. |
+
+`BuildPropertyValidationRulesAction` turns these into one rule set, and
+`PropertyValueValidator::assertConstraints()` applies it on every write path:
+`SetPagePropertyValuesAction` (and so SiteSpec imports and confirmed agent
+writes), the `admin.page.properties.write` preview, the admin page editor for
+promoted fields, and any page save that changes a promoted field, checked
+before the row is written. A rejected value raises a `ValidationException` with
+the same editor-readable message on each path. An unchanged promoted field is
+not re-checked, so a rule added later never blocks an unrelated save.
+
+Administrators set rules from the blueprint list (**Field rules**). Rules belong
+to the definition, so they apply on every page type that uses its property set.
+`UpdatePropertyDefinitionConstraintsAction` saves them, refusing rules that
+cannot apply to the type, upside-down ranges and patterns that do not compile.
+Package-owned sets are managed by their package, which writes `constraints`
+when it syncs its own definitions; the admin action refuses them. In tests, use
+`PropertyDefinition::factory()->withConstraints([...])`. Blueprint schema
+snapshots record each attached definition's type, requirement and rules.
+
 ## Tool declarations
 
 An extension can declare a public tool in `capell.json` under `agent_tools` or

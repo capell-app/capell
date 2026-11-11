@@ -29,6 +29,23 @@ php artisan capell:site-spec-import storage/app/site-spec.json
 
 The importer validates the complete contract before writing, sanitises section HTML, requires requested extensions to be installed, and treats the normalized spec as idempotent. Remote media is accepted only from the declared public HTTPS origin, with redirect, size, aggregate-budget, and image-type controls.
 
+A page may also set typed property values with `properties`, keyed by the property key (or `set.key`). A value is a scalar, or `{"value": ..., "currency": ..., "unit": ...}` for money and measured values:
+
+```json
+{
+    "name": "Gift card",
+    "slug": "gift-card",
+    "title": "Gift card",
+    "pageType": "product",
+    "properties": {
+        "sku": "GFT-0001",
+        "price": { "value": 25, "currency": "GBP" }
+    }
+}
+```
+
+Each value goes through the same property validator as the admin editor and the agent API, so a value that breaks a property rule (for example a format or a range) fails the import with an error naming the page and property, and no site is created.
+
 Optional packages own their records. For example, a navigation package registers a typed SiteSpec applier and receives the persisted site plus a page map inside the import transaction. Core therefore exposes a stable seam without importing package-specific models. AI generators remain commercial; deterministic import stays free.
 
 ## Signed Project Build Manifests

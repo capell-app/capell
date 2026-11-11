@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Properties;
 
+use Capell\Core\Actions\Properties\BuildPropertyValidationRulesAction;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\PropertyType;
@@ -17,12 +18,19 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Validates one {@see PropertyValueData} against its resolved effective
- * definition: type match, currency/unit rules, localisation, and blueprint
- * attachment. Returns the matched definition so the caller does not have to
- * re-resolve it.
+ * definition: type match, currency/unit rules, localisation, blueprint
+ * attachment and the definition's declarative constraints. Returns the matched
+ * definition so the caller does not have to re-resolve it.
+ *
+ * Structural failures throw {@see PropertyValueValidationException}; a value
+ * that breaks one of the definition's constraints throws a
+ * {@see ValidationException} with editor-readable messages, so admin forms,
+ * the agent API and SiteSpec imports all report it as a field error.
  */
 final class PropertyValueValidator
 {
@@ -54,6 +62,8 @@ final class PropertyValueValidator
             }
         }
 
+        $this->assertConstraints($definition, $value->value, $page->site_id, $page->id, $value->propertyKey);
+
         if ($definition->localised) {
             if ($value->translationId === null) {
                 throw PropertyValueValidationException::localisedTranslationRequired($value->propertyKey);
@@ -67,6 +77,34 @@ final class PropertyValueValidator
         }
 
         return $definition;
+    }
+
+    /**
+     * Apply the definition's declarative constraints to one value, reporting
+     * any failure under `$errorKey`. The single entry point for constraint
+     * checks: write actions, admin form validation and agent previews all call
+     * this, so the rules and the messages are identical on every path.
+     *
+     * @throws ValidationException
+     */
+    public function assertConstraints(
+        EffectivePropertyDefinitionData $definition,
+        mixed $value,
+        int $siteId,
+        ?int $ignorePageId,
+        string $errorKey,
+    ): void {
+        $rules = BuildPropertyValidationRulesAction::run($definition, $siteId, $ignorePageId);
+
+        if ($rules === []) {
+            return;
+        }
+
+        $validator = Validator::make(['value' => $value], ['value' => $rules]);
+
+        if ($validator->fails()) {
+            throw ValidationException::withMessages([$errorKey => $validator->errors()->get('value')]);
+        }
     }
 
     private function assertType(EffectivePropertyDefinitionData $definition, PropertyValueData $value): void

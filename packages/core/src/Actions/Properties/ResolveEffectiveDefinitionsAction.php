@@ -90,6 +90,7 @@ final class ResolveEffectiveDefinitionsAction
                     unitConfig: $definition->unit_config,
                     position: $definition->position,
                     promotedField: $override['promoted_field'] ?? null,
+                    constraints: $definition->constraints,
                 ));
             }
         }

@@ -6,6 +6,7 @@ namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\AssertPageRestoreUrlsAvailableAction;
 use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
+use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Actions\PrunePageDeletionMembershipAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Concerns\RestoresSoftDeletedRelations;
@@ -38,6 +39,17 @@ class PageObserver
             $page->layout_id = Layout::query()->default()->value('id');
             throw_unless($page->layout_id !== null, InvalidArgumentException::class, 'Unable to create page without a layout.');
         }
+
+        ValidatePromotedPropertyValuesAction::run($page);
+    }
+
+    /**
+     * Reject a changed promoted field that breaks its property's rules before
+     * the row is written, rather than after, when the property is synced.
+     */
+    public function updating(Page $page): void
+    {
+        ValidatePromotedPropertyValuesAction::run($page);
     }
 
     public function updated(Page $page): void

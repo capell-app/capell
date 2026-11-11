@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Properties;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -17,7 +18,8 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * (which is what makes that action accept the write — every other caller is
  * rejected for a promoted property). Invoked on every page save.
  *
- * A field currently holding `null` is left alone rather than clearing the
+ * A field whose value already matches the stored property is skipped. A
+ * field currently holding `null` is left alone rather than clearing the
  * property — an in-progress edit that has not reached the promoted field yet
  * should not blank out a previously-synced value.
  */
@@ -25,6 +27,20 @@ final class SyncPromotedFieldValuesAction
 {
     use AsFake;
     use AsObject;
+
+    /**
+     * Coerce a promoted field's raw form value to the property's value shape.
+     * Shared with admin form validation so constraints are checked against
+     * exactly the value this sync would write.
+     */
+    public static function coerce(EffectivePropertyDefinitionData $definition, mixed $rawValue): mixed
+    {
+        return match (true) {
+            $definition->type->isBoolean() => (bool) $rawValue,
+            $definition->type->isNumeric() => is_numeric($rawValue) ? (float) $rawValue : null,
+            default => is_scalar($rawValue) ? (string) $rawValue : null,
+        };
+    }
 
     public function handle(Page $page): void
     {
@@ -36,6 +52,14 @@ final class SyncPromotedFieldValuesAction
         }
 
         $values = [];
+        $stored = PagePropertyValue::query()
+            ->where('site_id', $page->site_id)
+            ->where('page_id', $page->id)
+            ->whereIn('property_definition_id', $promoted->pluck('definitionId')->all())
+            ->whereNull('translation_id')
+            ->where('position', 0)
+            ->get()
+            ->keyBy('property_definition_id');
 
         foreach ($promoted as $definition) {
             $rawValue = data_get($page, (string) $definition->promotedField);
@@ -44,24 +68,27 @@ final class SyncPromotedFieldValuesAction
                 continue;
             }
 
-            $values[] = new PropertyValueData(
+            $value = new PropertyValueData(
                 propertyKey: $definition->key,
                 type: $definition->type,
-                value: $this->coerce($definition, $rawValue),
+                value: self::coerce($definition, $rawValue),
             );
+
+            // An unchanged field is not re-written, so a property rule added
+            // later only stops saves that actually change the value, never an
+            // unrelated save (or background job) of an older page.
+            $current = $stored->get($definition->definitionId);
+
+            if ($current instanceof PagePropertyValue
+                && PropertyValueData::fromPageValue($current, $definition->key, $definition->type)->toColumns() === $value->toColumns()) {
+                continue;
+            }
+
+            $values[] = $value;
         }
 
         if ($values !== []) {
             SetPagePropertyValuesAction::run($page, $values, viaPromotedFieldSync: true);
         }
-    }
-
-    private function coerce(EffectivePropertyDefinitionData $definition, mixed $rawValue): mixed
-    {
-        return match (true) {
-            $definition->type->isBoolean() => (bool) $rawValue,
-            $definition->type->isNumeric() => is_numeric($rawValue) ? (float) $rawValue : null,
-            default => is_scalar($rawValue) ? (string) $rawValue : null,
-        };
     }
 }

@@ -16,6 +16,7 @@ use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Properties\PropertyValueValidator;
 use Illuminate\Validation\ValidationException;
 
 final readonly class AgentPagePropertyWriteTool implements AgentAdminTool
@@ -23,6 +24,7 @@ final readonly class AgentPagePropertyWriteTool implements AgentAdminTool
     public function __construct(
         private AgentAdminAuthorization $authorization,
         private AgentAdminPropertyValuePresenter $presenter,
+        private PropertyValueValidator $validator = new PropertyValueValidator,
     ) {}
 
     public function definition(): AgentToolDefinitionData
@@ -76,8 +78,19 @@ final readonly class AgentPagePropertyWriteTool implements AgentAdminTool
             'translation_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ])->validate();
 
-        $this->authorization->page($invocation, 'update');
-        $this->resolveDefinition($invocation);
+        $page = $this->authorization->page($invocation, 'update');
+        $definition = $this->resolveDefinition($invocation);
+
+        // Reject a value that breaks the property's rules at preview time, with
+        // the same messages every other write path reports, instead of issuing
+        // a confirmation token for a write that can only fail.
+        $this->validator->assertConstraints(
+            $definition,
+            $invocation->payload['value'],
+            $page->site_id,
+            $page->id,
+            'value',
+        );
     }
 
     public function preview(AgentAdminToolInvocationData $invocation): AgentAdminToolResultData

@@ -8,11 +8,17 @@ use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecNavigationData;
+use Capell\Core\Enums\PropertyType;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageRevision;
+use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
@@ -366,4 +372,118 @@ it('labels the page versions an import creates as imported in the single version
     } finally {
         unlink($path);
     }
+});
+
+/**
+ * A spec with no remote assets whose About page sets typed property values,
+ * against a `default` page type whose `sku` property only accepts ABC-1234
+ * and whose `price` cannot be negative.
+ *
+ * @param  array<string, mixed>  $properties
+ * @return array<string, mixed>
+ */
+function importSiteSpecWithProperties(array $properties): array
+{
+    $blueprint = Blueprint::query()->pageType()->where('key', 'default')->first()
+        ?? Blueprint::factory()->page()->create(['key' => 'default']);
+    $set = PropertySet::query()->firstOrCreate(['key' => 'test.catalogue'], ['name' => 'Catalogue']);
+    PropertyDefinition::factory()->withConstraints(['pattern' => '[A-Z]{3}-[0-9]{4}', 'unique_per_site' => true])->create([
+        'property_set_id' => $set->id,
+        'key' => 'sku',
+        'type' => PropertyType::Text,
+    ]);
+    PropertyDefinition::factory()->withConstraints(['min' => 0])->create([
+        'property_set_id' => $set->id,
+        'key' => 'price',
+        'type' => PropertyType::Money,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
+
+    $payload = importSiteSpecPayload();
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    $payload['pages'][1]['properties'] = $properties;
+
+    return $payload;
+}
+
+it('imports page property values that meet their property rules', function (array $properties): void {
+    $path = writeSiteSpec(importSiteSpecWithProperties($properties));
+
+    try {
+        $site = BuildSiteFromSpecFileAction::run($path);
+    } finally {
+        unlink($path);
+    }
+
+    $about = $site->pages()->where('name', 'About')->firstOrFail();
+
+    expect(PagePropertyValue::query()->where('page_id', $about->id)->whereNotNull('value_text')->value('value_text'))->toBe('ABC-1234')
+        ->and(PagePropertyValue::query()->where('page_id', $about->id)->whereNotNull('value_number')->first()?->currency)->toBe('GBP');
+})->with([
+    'as bare and explicit values' => [['sku' => 'ABC-1234', 'price' => ['value' => 25, 'currency' => 'GBP']]],
+    'by qualified key' => [['test.catalogue.sku' => ['value' => 'ABC-1234'], 'test.catalogue.price' => ['value' => 0, 'currency' => 'GBP']]],
+]);
+
+it('rejects an import whose property value breaks a rule, naming the page and property, and creates no site', function (array $properties, string $field, string $message): void {
+    $siteCount = Site::query()->count();
+    $path = writeSiteSpec(importSiteSpecWithProperties($properties));
+
+    try {
+        $command = $this->artisan('capell:site-spec-import', ['spec' => $path]);
+        assert($command instanceof PendingCommand);
+        $command->expectsOutputToContain(__('capell::message.site_spec_import_validation_failed'))
+            // The console bullet list drops a message's closing full stop.
+            ->expectsOutputToContain(sprintf('%s: %s', $field, rtrim($message, '.')))
+            ->assertExitCode(Command::FAILURE)
+            ->run();
+    } finally {
+        unlink($path);
+    }
+
+    expect(Site::query()->count())->toBe($siteCount)
+        ->and(PagePropertyValue::query()->count())->toBe(0);
+})->with([
+    'a value in the wrong format' => [
+        ['sku' => 'abc-1234'],
+        'pages.about.properties.sku',
+        'Sku is not in the format this field expects. Check the field help for an example and try again.',
+    ],
+    'a negative price' => [
+        ['price' => ['value' => -5, 'currency' => 'GBP']],
+        'pages.about.properties.price',
+        'Price must be 0 or more. Enter a larger value.',
+    ],
+    'a price without a currency' => [
+        ['price' => 25],
+        'pages.about.properties',
+        'Property "price" requires a currency code.',
+    ],
+    'a property the page type does not have' => [
+        ['colour' => 'red'],
+        'pages.about.properties.colour',
+        'Property "colour" is not attached to this page\'s blueprint.',
+    ],
+]);
+
+it('keeps the import fingerprint of a spec without page properties unchanged', function (): void {
+    $payload = importSiteSpecPayload();
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    $withoutField = writeSiteSpec($payload);
+    $payload['pages'][0]['properties'] = [];
+    $withEmptyField = writeSiteSpec($payload);
+
+    try {
+        $first = BuildSiteFromSpecFileAction::run($withoutField);
+        $second = BuildSiteFromSpecFileAction::run($withEmptyField);
+    } finally {
+        unlink($withoutField);
+        unlink($withEmptyField);
+    }
+
+    expect($second->id)->toBe($first->id)
+        ->and(Site::query()->count())->toBe(1);
 });
