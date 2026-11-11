@@ -381,3 +381,30 @@ it('ships plain-path descriptions that differ from the CLI suite descriptions fo
             ->and($suite['description'])->not->toBe($suite['suite_description'] ?? '', $key . ' must not promise its extensions on the plain path');
     }
 });
+
+it('pre-ticks the free Site Discovery package in every suite that publishes a site, so a default install serves its sitemap', function (string $suiteKey): void {
+    CapellCore::clearPackages();
+    $defaults = require dirname(__DIR__, 3) . '/config/capell.php';
+    config(['capell.install.recommendations' => $defaults['install']['recommendations']]);
+    $catalogue = collect($defaults['install']['recommendations'])
+        ->flatMap(fn (array $suite): array => array_keys([...($suite['recommended'] ?? []), ...($suite['optional'] ?? [])]))
+        ->unique()
+        ->mapWithKeys(fn (string $name): array => [$name => new PackageData(
+            name: $name,
+            type: PackageTypeEnum::Plugin,
+            isPaid: $name !== 'capell-app/site-discovery',
+        )]);
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn($catalogue);
+
+    $suite = collect(resolve(InstallRecommendationRepository::class)->suites())->firstWhere('key', $suiteKey);
+
+    expect($suite?->recommended)->toHaveKey('capell-app/site-discovery')
+        ->and($suite?->recommended['capell-app/site-discovery'])->not->toBe('')
+        ->and($suite?->preselectedRecommended())->toBe(['capell-app/site-discovery']);
+})->with(['blog', 'marketing', 'docs', 'client']);
+
+it('leaves Site Discovery out of the headless suite, which ships no public frontend to serve a sitemap from', function (): void {
+    $defaults = require dirname(__DIR__, 3) . '/config/capell.php';
+
+    expect($defaults['install']['recommendations']['headless'])->not->toHaveKey('recommended');
+});
