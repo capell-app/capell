@@ -94,8 +94,8 @@ trait HasTranslations
      * caller loaded (constrained to the language in context) wins. Without one, the
      * choice is deterministic instead of whichever row the database returns first:
      * the site's default language and its fallback chain, then the first language in
-     * admin order. Nothing is cached on the relation, so a later constrained load of
-     * `translation` is not shadowed.
+     * admin order. It loads `translations` (and the site) once; it never sets
+     * `translation`, so a later constrained load of that relation is not shadowed.
      */
     public function contextTranslation(): ?Translation
     {
@@ -104,6 +104,10 @@ trait HasTranslations
 
             return $loaded instanceof Translation ? $loaded : null;
         }
+
+        // Load every row once, so repeated reads (a title in a loop) make no further
+        // queries and the choice below never depends on database row order.
+        $this->loadMissing('translations');
 
         $defaultLanguageId = $this->defaultTranslationLanguageId();
 
@@ -115,23 +119,18 @@ trait HasTranslations
             }
         }
 
-        if ($this->relationLoaded('translations')) {
-            /** @var EloquentCollection<int, Translation> $translations */
-            $translations = $this->getRelation('translations');
-            $order = Language::query()->ordered()->pluck('id')->flip();
+        /** @var EloquentCollection<int, Translation> $translations */
+        $translations = $this->getRelation('translations');
 
-            return $translations
-                ->sortBy(fn (Translation $translation): int => (int) ($order[$translation->language_id] ?? PHP_INT_MAX))
-                ->first();
+        if ($translations->count() < 2) {
+            return $translations->first();
         }
 
-        $languages = new Language;
-        $translation = $this->translations()
-            ->orderBy($languages->newQuery()->select($languages->qualifyColumn('order'))->whereColumn($languages->getQualifiedKeyName(), (new Translation)->qualifyColumn('language_id')))
-            ->orderBy((new Translation)->qualifyColumn('language_id'))
-            ->first();
+        $order = Language::query()->ordered()->pluck('id')->flip();
 
-        return $translation instanceof Translation ? $translation : null;
+        return $translations
+            ->sortBy(fn (Translation $translation): int => (int) ($order[$translation->language_id] ?? PHP_INT_MAX))
+            ->first();
     }
 
     /** @return Attribute<string|null, never> */
@@ -161,6 +160,10 @@ trait HasTranslations
 
         if ($siteId === null) {
             return null;
+        }
+
+        if (! $this->relationLoaded('site') && method_exists($this, 'site')) {
+            $this->loadMissing('site');
         }
 
         $site = $this->relationLoaded('site') ? $this->getRelation('site') : null;

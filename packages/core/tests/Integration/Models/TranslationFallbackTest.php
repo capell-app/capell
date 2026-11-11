@@ -285,3 +285,26 @@ it('reads the title of the first language in order when the site default languag
 
     expect(translationFallbackFresh($page)->title)->toBe('Bonjour');
 });
+
+it('reads a model title again without querying once it has been resolved', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $site = Site::factory()->language($english)->createOne();
+    $page = Page::factory()->site($site)->createOne();
+    $page->translations()->forceDelete();
+    translationFallbackTitle($page, $english, 'Hello');
+    $fresh = translationFallbackFresh($page);
+    $first = $fresh->title;
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $second = $fresh->title;
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    expect($first)->toBe('Hello')->and($second)->toBe('Hello')->and($queries)->toBe([]);
+});
