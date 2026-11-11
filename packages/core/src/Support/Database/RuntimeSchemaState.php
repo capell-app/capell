@@ -6,12 +6,15 @@ namespace Capell\Core\Support\Database;
 
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Exceptions\SchemaProbeFailedException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 final class RuntimeSchemaState
 {
+    private const int SHARED_LISTING_TTL_SECONDS = 3600;
+
     /** @var array<string, SchemaProbeResult> */
     private array $tables = [];
 
@@ -109,6 +112,7 @@ final class RuntimeSchemaState
 
     public function refreshTable(string $table): bool
     {
+        $this->forgetSharedTableListing();
         $this->tableListing = null;
 
         return $this->hasTable($table, refresh: true);
@@ -126,12 +130,14 @@ final class RuntimeSchemaState
         $this->tableFailures = [];
         $this->columnFailures = [];
         $this->tableListing = null;
+        $this->forgetSharedTableListing();
     }
 
     public function forgetTable(string $table): void
     {
         unset($this->tables[$table], $this->tableFailures[$table]);
         $this->tableListing = null;
+        $this->forgetSharedTableListing();
 
         foreach (array_keys($this->columns) as $key) {
             if (str_starts_with($key, $table . '.')) {
@@ -247,7 +253,7 @@ final class RuntimeSchemaState
     private function readTableListing(): array|false
     {
         try {
-            $names = Schema::getTableListing(Schema::getCurrentSchemaName(), schemaQualified: false);
+            $names = $this->sharedTableNames();
         } catch (Throwable) {
             return false;
         }
@@ -261,6 +267,64 @@ final class RuntimeSchemaState
         }
 
         return $listing;
+    }
+
+    /**
+     * The table names are shared across requests so a warm request issues no
+     * information_schema query. The entry is dropped whenever migrations run
+     * or the schema is reported changed, and expires on its own as a backstop
+     * for tables dropped outside a migration.
+     *
+     * @return list<mixed>
+     */
+    private function sharedTableNames(): array
+    {
+        $key = $this->sharedListingKey();
+
+        try {
+            $cached = Cache::get($key);
+
+            if (is_array($cached)) {
+                return array_values($cached);
+            }
+        } catch (Throwable) {
+            // An unreadable cache falls back to reading the schema itself.
+        }
+
+        $names = array_values(Schema::getTableListing(Schema::getCurrentSchemaName(), schemaQualified: false));
+
+        try {
+            Cache::put($key, $names, self::SHARED_LISTING_TTL_SECONDS);
+        } catch (Throwable) {
+            // A cache that cannot store the listing only costs the next request a probe.
+        }
+
+        return $names;
+    }
+
+    private function forgetSharedTableListing(): void
+    {
+        try {
+            Cache::forget($this->sharedListingKey());
+        } catch (Throwable) {
+            // Nothing cached can be read back either.
+        }
+    }
+
+    private function sharedListingKey(): string
+    {
+        try {
+            $connection = Schema::getConnection();
+
+            return sprintf(
+                'capell:schema:tables:%s:%s:%s',
+                $connection->getName(),
+                (string) $connection->getDatabaseName(),
+                $connection->getTablePrefix(),
+            );
+        } catch (Throwable) {
+            return 'capell:schema:tables:unknown';
+        }
     }
 
     private function columnKey(string $table, string $column): string
