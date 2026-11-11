@@ -29,6 +29,7 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Exceptions;
 use Livewire\Livewire;
 
@@ -340,12 +341,40 @@ it('reports a failing task contributor and still shows the checklist', function 
     Exceptions::assertReported(RuntimeException::class);
 });
 
-it('puts the checklist first on the work-first dashboard during first run', function (): void {
-    config()->set('capell-admin.dashboard.work_first.enabled', true);
-    $this->actingAsAdmin();
-    unpublishedDashboardSite();
+it('leads the work-first dashboard a fresh install gets with the checklist until the site goes live', function (): void {
+    // capell:install writes CAPELL_WORK_FIRST_DASHBOARD=true; read the config the way a fresh install does.
+    $environment = Env::getRepository();
+    $environment->set('CAPELL_WORK_FIRST_DASHBOARD', 'true');
 
-    Livewire::test(CapellDashboard::class)
-        ->assertOk()
-        ->assertSeeLivewire(FirstRunChecklistFilamentWidget::class);
+    try {
+        $adminConfig = require dirname(__DIR__, 3) . '/config/capell-admin.php';
+        config()->set('capell-admin.dashboard.work_first.enabled', data_get($adminConfig, 'dashboard.work_first.enabled'));
+    } finally {
+        $environment->clear('CAPELL_WORK_FIRST_DASHBOARD');
+    }
+
+    expect(config('capell-admin.dashboard.work_first.enabled'))->toBeTrue();
+
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+
+    $html = $this->get(CapellDashboard::getUrl())->assertOk()->getContent();
+    throw_unless(is_string($html), LogicException::class);
+    $checklistAt = strpos($html, firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class));
+    $workFirstAt = array_filter(array_map(
+        static fn (string $widget): int|false => strpos($html, firstRunWidgetMarker($widget)),
+        new ReflectionMethod(CapellDashboard::class, 'defaultWorkFirstWidgets')->invoke(new CapellDashboard),
+    ), is_int(...));
+
+    throw_if($workFirstAt === [], LogicException::class, 'The work-first widgets should render.');
+
+    expect($checklistAt)->toBeInt()
+        ->and($checklistAt)->toBeLessThan(min($workFirstAt))
+        ->and($html)->toContain(e(__('capell-admin::dashboard.first_run_hide_help')));
+
+    RecordSitePublishedAction::run($site->id);
+    nextDashboardRequest();
+
+    expect($this->get(CapellDashboard::getUrl())->assertOk()->getContent())
+        ->not->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class));
 });
