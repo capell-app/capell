@@ -79,6 +79,8 @@ it('lets the doctor resume a stopped install with the options the first run used
         '--site-name' => 'Resume Site',
         '--no-seed-default-data' => true,
         '--no-frontend-build' => true,
+        '--package-mode' => 'custom',
+        '--packages' => 'capell-app/core',
         '--user' => $author->email,
     ];
     request()->server->set('argv', ['artisan', 'capell:install', ...array_map(
