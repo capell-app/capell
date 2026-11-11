@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
@@ -14,6 +15,7 @@ class LanguageObserver
     public function saved(Language $language): void
     {
         CapellCore::removeCacheKey(CacheEnum::LanguageLocales->value);
+        CapellCore::removeCacheKey(ResolveLanguageFallbackChainAction::CACHE_KEY);
 
         CapellCoreHelper::flushCache([
             CacheEnum::HasDefaultLanguage,

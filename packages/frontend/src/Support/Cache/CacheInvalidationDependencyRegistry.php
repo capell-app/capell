@@ -18,7 +18,9 @@ final class CacheInvalidationDependencyRegistry
         // shape the whole document. Without page-* a site rename leaves every
         // cached page showing the old one, which is why Language already lists it.
         Site::class => ['sites', 'site-*', 'site-related-*', 'page-*'],
-        Language::class => ['languages', 'page-*', 'site-*'],
+        // A language's fallback chain decides which translation, system page and home
+        // page every language renders, so a language change reaches all of them.
+        Language::class => ['languages', 'page-*', 'site-*', 'system-page-*', 'homepage-*'],
         Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*'],
         'Capell\Core\Models\Navigation' => ['navigation-*', 'site-navigations-*'],
         // Generated URLs embed the domain when use_site_domain_for_urls is on, so a

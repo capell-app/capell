@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Capell\Core\Actions\Translations\ResolveLanguagesFallingBackToAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
@@ -45,9 +46,15 @@ final class PageCacheInvalidator
         // it guarantees it here rather than trusting every caller to remember.
         $model->loadMissing('translations');
 
-        // Invalidate individual model cache for every language this model lives in
-        $model->translations->each(function ($translation) use (&$rules, $type, $id, $siteId): void {
-            $languageId = (int) $translation->getAttribute('language_id');
+        // Invalidate individual model cache for every language this model lives in, and
+        // for every language that falls back to one of them: those render this content too.
+        $languageIds = $model->translations
+            ->map(fn (Model $translation): int => (int) $translation->getAttribute('language_id'))
+            ->flatMap(fn (int $languageId): array => [$languageId, ...ResolveLanguagesFallingBackToAction::run($languageId)])
+            ->unique()
+            ->values();
+
+        $languageIds->each(function (int $languageId) use (&$rules, $type, $id, $siteId): void {
             $rules[] = CacheInvalidationRule::pageModel($type, $id, $siteId, $languageId);
             $rules[] = CacheInvalidationRule::pageListing($siteId, $languageId);
             $rules[] = CacheInvalidationRule::publicRenderData($type, $id, $siteId, $languageId);

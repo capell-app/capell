@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Translations;
 
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -20,14 +22,17 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * relation. A loaded `translations` relation is reused, so render paths that
  * hydrate it ahead of time make no query here beyond the fallback chain.
  *
- * @method static TranslationResolutionData|null run(Translatable $model, Language|int $language, bool $followFallback = true)
+ * @method static TranslationResolutionData|null run(Pageable<Model>|Translatable $model, Language|int $language, bool $followFallback = true)
  */
 final class ResolveTranslationAction
 {
     use AsFake;
     use AsObject;
 
-    public function handle(Translatable $model, Language|int $language, bool $followFallback = true): ?TranslationResolutionData
+    /**
+     * @param  Pageable<Model>|Translatable  $model
+     */
+    public function handle(Pageable|Translatable $model, Language|int $language, bool $followFallback = true): ?TranslationResolutionData
     {
         $requestedId = $language instanceof Language ? (int) $language->getKey() : $language;
 
@@ -65,8 +70,10 @@ final class ResolveTranslationAction
     /**
      * The translation in exactly this language. A `translation` relation loaded
      * with a different language constraint is ignored rather than trusted.
+     *
+     * @param  Pageable<Model>|Translatable  $model
      */
-    private function exact(Translatable $model, int $languageId): ?Translation
+    private function exact(Pageable|Translatable $model, int $languageId): ?Translation
     {
         if ($model->relationLoaded('translation')) {
             $loaded = $model->getRelation('translation');
@@ -91,10 +98,11 @@ final class ResolveTranslationAction
     }
 
     /**
+     * @param  Pageable<Model>|Translatable  $model
      * @param  list<int>  $languageIds
      * @return Collection<int, Translation>
      */
-    private function candidates(Translatable $model, array $languageIds): Collection
+    private function candidates(Pageable|Translatable $model, array $languageIds): Collection
     {
         if ($model->relationLoaded('translations')) {
             /** @var Collection<int, Translation> $loaded */

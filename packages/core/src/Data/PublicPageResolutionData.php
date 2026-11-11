@@ -27,7 +27,18 @@ final class PublicPageResolutionData extends Data
         #[Hidden]
         public ?Layout $layout,
         public PublicPageFieldsData $fields,
+        #[Hidden]
+        public ?TranslationResolutionData $translation = null,
     ) {}
+
+    /**
+     * True when the page is served in a fallback language because it has no
+     * translation in the requested one. Such pages are not real alternates.
+     */
+    public function servesFallback(): bool
+    {
+        return $this->translation?->isFallback() === true;
+    }
 
     public function found(): bool
     {

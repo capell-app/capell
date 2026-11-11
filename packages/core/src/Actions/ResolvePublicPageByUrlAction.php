@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
+use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\PublicPageFieldsData;
 use Capell\Core\Data\PublicPageResolutionData;
+use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -40,7 +43,8 @@ class ResolvePublicPageByUrlAction
         $normalizedUrl = $this->normalizeUrl($url);
 
         $pageUrl = $this->usableResolvedPageUrl($resolvedPageUrl, $site, $language, $normalizedUrl)
-            ?? $this->resolvePageUrl($site, $language, $normalizedUrl);
+            ?? $this->resolvePageUrl($site, $language, $normalizedUrl)
+            ?? $this->resolveFallbackPageUrl($site, $language, $normalizedUrl);
 
         if (! $pageUrl instanceof PageUrl) {
             $this->logResolutionFailure($site, $normalizedUrl, 'no_matching_page_url');
@@ -48,7 +52,7 @@ class ResolvePublicPageByUrlAction
             return $this->missing($site, $language);
         }
 
-        $page = $this->resolvePage($pageUrl, $site, $language, $revisionPageId);
+        $page = $this->resolvePage($pageUrl, $site, $revisionPageId);
 
         if (! $page instanceof Pageable) {
             // The URL matched a PageUrl row but the page itself was filtered out by
@@ -60,12 +64,27 @@ class ResolvePublicPageByUrlAction
             return $this->missing($site, $language);
         }
 
-        $translation = $page->translation;
+        // The requested language first, then its configured fallback chain. No
+        // translation on the chain is a 404: fallback is opt-in per language.
+        $resolution = ResolveTranslationAction::run($page, $language);
 
-        if (! $translation instanceof Translation) {
+        if (! $resolution instanceof TranslationResolutionData) {
             $this->logResolutionFailure($site, $normalizedUrl, 'no_translation');
 
             return $this->missing($site, $language);
+        }
+
+        $translation = $resolution->translation;
+        $page->setRelation('translation', $translation);
+
+        if ($resolution->isFallback()) {
+            $servedLanguage = $page->getRelation('pageUrls')
+                ->first(fn (PageUrl $url): bool => (int) $url->language_id === $resolution->servedLanguageId && $url->relationLoaded('language'))
+                ?->getRelation('language');
+
+            if ($servedLanguage instanceof Language) {
+                $translation->setRelation('language', $servedLanguage);
+            }
         }
 
         return new PublicPageResolutionData(
@@ -79,6 +98,7 @@ class ResolvePublicPageByUrlAction
                 content: $translation->content,
                 meta: (array) $translation->meta,
             ),
+            translation: $resolution,
         );
     }
 
@@ -93,8 +113,10 @@ class ResolvePublicPageByUrlAction
         return UrlPathNormalizer::canonicalEncoding('/' . trim($url, '/'));
     }
 
-    private function resolvePageUrl(Site $site, Language $language, string $url): ?PageUrl
+    private function resolvePageUrl(Site $site, Language|int $language, string $url): ?PageUrl
     {
+        $languageId = $language instanceof Language ? $language->getKey() : $language;
+
         $publicPageableMorphTypes = ResolvePublicPageableMorphTypesAction::run();
 
         if ($publicPageableMorphTypes === []) {
@@ -103,7 +125,7 @@ class ResolvePublicPageByUrlAction
 
         return PageUrl::query()
             ->where('site_id', $site->getKey())
-            ->where('language_id', $language->getKey())
+            ->where('language_id', $languageId)
             ->where('url', $url)
             ->enabled()
             ->where(function (Builder $query): void {
@@ -121,12 +143,38 @@ class ResolvePublicPageByUrlAction
     }
 
     /**
+     * A language with a configured fallback answers the fallback language's URL for a
+     * page that has no translation of its own in the requested language, so a visitor
+     * on the French domain still reaches an English-only page. A page that does have a
+     * translation in the requested language is only served at that translation's URL.
+     */
+    private function resolveFallbackPageUrl(Site $site, Language $language, string $url): ?PageUrl
+    {
+        foreach (array_slice(ResolveLanguageFallbackChainAction::run($language), 1) as $fallbackLanguageId) {
+            $pageUrl = $this->resolvePageUrl($site, $fallbackLanguageId, $url);
+
+            if (! $pageUrl instanceof PageUrl) {
+                continue;
+            }
+
+            $hasOwnTranslation = Translation::query()
+                ->where('translatable_type', $pageUrl->pageable_type)
+                ->where('translatable_id', $pageUrl->pageable_id)
+                ->where('language_id', $language->getKey())
+                ->exists();
+
+            return $hasOwnTranslation ? null : $pageUrl;
+        }
+
+        return null;
+    }
+
+    /**
      * @return Pageable<Model>|null
      */
     private function resolvePage(
         PageUrl $pageUrl,
         Site $site,
-        Language $language,
         ?int $revisionPageId,
     ): ?Pageable {
         $pageableId = $revisionPageId ?? $pageUrl->pageable_id;
@@ -150,9 +198,12 @@ class ResolvePublicPageByUrlAction
             ->whereKey($pageableId)
             ->with([
                 'layout',
-                'pageUrls',
+                'pageUrls.language',
                 'blueprint',
-                'translation' => fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language->getKey()),
+                // Every translation row travels with the page: the head's hreflang cluster
+                // pairs page URLs with real translations, and ResolveTranslationAction picks
+                // the requested or fallback translation from this set without a query.
+                'translations',
             ])
             ->first();
 
