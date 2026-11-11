@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
+use Capell\Core\Actions\Install\BuildInstallResumeCommandAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\CreateAdditionalInstallUsersAction;
@@ -26,6 +27,7 @@ use Capell\Core\Actions\Install\ResolveInstallUserAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
+use Capell\Core\Data\Install\InstallStoppedStepData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
@@ -69,6 +71,7 @@ final class InstallStepExecutor
 
             if ($stepKey === InstallPlan::STEP_MARK_CORE_INSTALLED) {
                 InstallRunState::completeInitialInstallation();
+                InstallRunState::clearStoppedStep();
             }
 
             return $result;
@@ -81,6 +84,8 @@ final class InstallStepExecutor
             } catch (Throwable $checkpointFailure) {
                 report($checkpointFailure);
             }
+
+            $this->rememberStoppedStep($stepKey, $state);
 
             throw $throwable;
         } finally {
@@ -95,6 +100,20 @@ final class InstallStepExecutor
                     // Reporting must not replace the primary install-step failure.
                 }
             }
+        }
+    }
+
+    private function rememberStoppedStep(string $stepKey, InstallRunState $state): void
+    {
+        try {
+            InstallRunState::recordStoppedStep(new InstallStoppedStepData(
+                key: $stepKey,
+                label: InstallPlan::labelForStep(InstallPlan::build($state->inputData), $stepKey),
+                resumeCommand: BuildInstallResumeCommandAction::run($state->inputData),
+            ));
+        } catch (Throwable $throwable) {
+            // Recording is diagnostic only; it must not replace the step failure.
+            report($throwable);
         }
     }
 

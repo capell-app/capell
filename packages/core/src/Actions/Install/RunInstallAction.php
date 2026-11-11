@@ -24,6 +24,8 @@ class RunInstallAction
     public function handle(InstallInputData $inputData, ProgressReporter $reporter): void
     {
         $this->completedResult = null;
+        // A new run owns the record of where it stops; an earlier run's record would name the wrong step.
+        InstallRunState::clearStoppedStep();
         $reporter->step('Starting installation…');
 
         $state = new InstallRunState($inputData, $reporter);

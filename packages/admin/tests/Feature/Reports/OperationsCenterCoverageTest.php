@@ -17,6 +17,8 @@ it('groups every operations category behind stable finding contracts', function 
         operationsFinding('core.storage.writable'),
         operationsFinding('core.packages.installed'),
         operationsFinding('core.schema.required'),
+        operationsFinding('core.migrations'),
+        operationsFinding('core.install.lifecycle'),
         operationsFinding('core.admin.access'),
         operationsFinding('core.route.homepage'),
     ];
@@ -39,11 +41,11 @@ it('groups every operations category behind stable finding contracts', function 
     $operations = runBoundAction(BuildOperationsCenterAction::class, new BuildOperationsCenterAction($report));
 
     expect(array_keys($operations->categories))->toBe(BuildOperationsCenterAction::CATEGORIES)
-        ->and(collect($operations->categories)->flatten(1))->toHaveCount(7)
+        ->and(collect($operations->categories)->flatten(1))->toHaveCount(9)
         ->and($operations->generatedAt->equalTo($snapshot->generatedAt))->toBeTrue();
 
-    foreach ($operations->categories as $categoryFindings) {
-        expect($categoryFindings)->toHaveCount(1);
+    foreach ($operations->categories as $category => $categoryFindings) {
+        expect($categoryFindings)->toHaveCount($category === 'schema_integrity' ? 3 : 1);
         $finding = $categoryFindings[0];
 
         expect($finding->id)->not->toBeNull()

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
+use Capell\Core\Actions\Diagnostics\ResolvePendingMigrationsAction;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
@@ -24,6 +25,7 @@ use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -33,6 +35,12 @@ use Symfony\Component\Console\Command\Command;
 
 function seedHealthyDoctorInstall(): void
 {
+    // The Testbench harness ships migrations of its own that it never runs; a healthy install has none pending.
+    $migrations = resolve(Migrator::class)->getRepository();
+    foreach (ResolvePendingMigrationsAction::run() as $migration) {
+        $migrations->log($migration, $migrations->getNextBatchNumber());
+    }
+
     config()->set('queue.connections.database.retry_after', 900);
 
     // A stale capell-runtime manifest set (e.g. left behind by a killed
@@ -91,8 +99,8 @@ it('accepts complete schema while the installer has not yet marked core installe
     $normalReport = BuildDoctorReportAction::run();
     $installReport = BuildDoctorReportAction::run(installSummary: true, includePackageDoctors: false);
 
-    expect($normalReport->checks->firstWhere('id', 'core.schema.required')?->passed)->toBeFalse()
-        ->and($installReport->checks->firstWhere('id', 'core.schema.required')?->passed)->toBeTrue();
+    expect($normalReport->checks->firstWhere('id', 'core.install.lifecycle')?->passed)->toBeFalse()
+        ->and($installReport->checks->firstWhere('id', 'core.install.lifecycle')?->passed)->toBeTrue();
 });
 
 afterEach(function (): void {
@@ -182,11 +190,12 @@ it('lists the skipped packages once each, separately from the unmet requirement 
         ->and($healthy?->message)->not->toContain('Skipped packages');
 });
 
-it('reports required tables as present', function (): void {
+it('reports migrations and the install lifecycle as healthy', function (): void {
     seedHealthyDoctorInstall();
 
     artisanCommand('capell:doctor')
-        ->expectsOutputToContain('Required tables exist')
+        ->expectsOutputToContain('Migrations are up to date')
+        ->expectsOutputToContain('Installation is complete')
         ->assertExitCode(Command::SUCCESS);
 });
 
@@ -199,7 +208,7 @@ it('allows the install summary to validate required tables before the final core
         '--install-summary' => true,
         '--skip-package-doctors' => true,
     ])
-        ->expectsOutputToContain('Required tables exist')
+        ->expectsOutputToContain('Installation is complete')
         ->assertExitCode(Command::SUCCESS);
 
     artisanCommand('capell:doctor')
@@ -639,7 +648,7 @@ it('does not recursively merge the core doctor into the install summary', functi
     $report = BuildDoctorReportAction::run(installSummary: true);
     $labels = $report->checks->pluck('label')->all();
 
-    expect(array_count_values($labels)['Required tables exist'] ?? 0)->toBe(1)
+    expect(array_count_values($labels)['Installation is complete'] ?? 0)->toBe(1)
         ->and($report->passed())->toBeTrue();
 });
 

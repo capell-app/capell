@@ -58,7 +58,7 @@ final class BuildOperationsCenterAction
             str_starts_with($id, 'core.cache.') => 'cache',
             str_starts_with($id, 'core.storage.'), str_starts_with($id, 'admin.storage-') => 'storage',
             str_starts_with($id, 'core.packages.'), str_starts_with($id, 'core.manifest-'), str_starts_with($id, 'package-doctor.') => 'package_compatibility',
-            str_starts_with($id, 'core.schema.') => 'schema_integrity',
+            str_starts_with($id, 'core.schema.'), str_starts_with($id, 'core.migrations'), str_starts_with($id, 'core.install.') => 'schema_integrity',
             str_starts_with($id, 'core.admin.'), str_starts_with($id, 'admin.settings.') => 'admin_access',
             str_starts_with($id, 'core.route.'), str_starts_with($id, 'core.page-urls.') => 'public_route_health',
             default => null,

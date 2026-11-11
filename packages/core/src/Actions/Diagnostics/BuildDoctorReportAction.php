@@ -20,10 +20,11 @@ use Capell\Core\Support\Diagnostics\Checks\GeneratedTailwindCssCheck;
 use Capell\Core\Support\Diagnostics\Checks\HomepageRouteCheck;
 use Capell\Core\Support\Diagnostics\Checks\InstalledPackagesCheck;
 use Capell\Core\Support\Diagnostics\Checks\InstalledRuntimeCheck;
+use Capell\Core\Support\Diagnostics\Checks\InstallLifecycleCheck;
 use Capell\Core\Support\Diagnostics\Checks\ManifestContractsCheck;
+use Capell\Core\Support\Diagnostics\Checks\MigrationsCheck;
 use Capell\Core\Support\Diagnostics\Checks\MorphMapCheck;
 use Capell\Core\Support\Diagnostics\Checks\PageUrlSiteDomainsCheck;
-use Capell\Core\Support\Diagnostics\Checks\RequiredTablesCheck;
 use Capell\Core\Support\Diagnostics\Checks\RuntimeRoleCheck;
 use Capell\Core\Support\Diagnostics\Checks\RuntimeToolingCheck;
 use Capell\Core\Support\Diagnostics\Checks\SecurityPostureCheck;
@@ -46,7 +47,8 @@ final class BuildDoctorReportAction
 
     /** @var list<class-string<DoctorCheck>> */
     private const array CORE_CHECKS = [
-        RequiredTablesCheck::class,
+        MigrationsCheck::class,
+        InstallLifecycleCheck::class,
         MorphMapCheck::class,
         StorageDisksWritableCheck::class,
         SeedDataCheck::class,
