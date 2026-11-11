@@ -33,6 +33,9 @@ final class InstallInputFactory
             : null;
 
         $demoContent = (bool) ($validated['demo_content'] ?? false);
+        $siteName = is_string($validated['site_name'] ?? null) && trim($validated['site_name']) !== ''
+            ? trim($validated['site_name'])
+            : null;
         $packageSelectionMode = $this->packageSelectionMode($validated);
         $availablePackages = CapellCore::getPackages();
         $selectedPackages = $this->packageWorkflowPlanner
@@ -81,7 +84,7 @@ final class InstallInputFactory
             cachesToClear: [],
             generateSitemap: (bool) ($validated['generate_sitemap'] ?? false),
             generateStaticSite: false,
-            demoSites: $demoContent ? [config('app.name', 'Capell Application')] : null,
+            demoSites: $demoContent ? [$siteName ?? config('app.name', 'Capell Application')] : null,
             demoLanguages: $demoContent ? [(string) $validated['language']] : null,
             userId: $existingUserId,
             newUser: $newUser,
@@ -101,6 +104,7 @@ final class InstallInputFactory
             additionalUsers: $additionalUsers,
             selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
             initialInstallation: DetectInitialInstallationAction::run(),
+            siteName: $siteName,
         );
     }
 

@@ -642,6 +642,7 @@ it('stops installation before finalisation when a required cache command fails',
             '--clear-cache' => true,
             '--theme' => 'foundation',
             '--no-interaction' => true,
+            '--no-frontend-build' => true,
             '--handoff-json' => $handoffPath,
         ], $output);
 
@@ -1024,6 +1025,7 @@ it('emits a redacted install handoff and writes its machine-readable artifact', 
             '--theme' => 'foundation',
             '--handoff-json' => $relativePath,
             '--no-interaction' => true,
+            '--no-frontend-build' => true,
         ])
             ->expectsOutputToContain('Installation complete')
             ->expectsOutputToContain('Machine-readable install handoff written.')
@@ -1428,7 +1430,7 @@ it('does not ask what is being built for unattended or recommendation-driven ins
 
     $command->doesntExpectOutputToContain('What are you building?')->assertExitCode(Command::SUCCESS);
 })->with([
-    'unattended' => [['--no-interaction' => true, '--theme' => 'foundation']],
+    'unattended' => [['--no-interaction' => true, '--no-frontend-build' => true, '--theme' => 'foundation']],
     'a named recommendation' => [['--recommendation' => 'site', '--theme' => 'foundation']],
 ]);
 
@@ -2394,6 +2396,7 @@ it('does not collect frontend asset paths during non-interactive installs', func
         '--clear-cache' => true,
         '--theme' => 'foundation',
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
     ])->assertExitCode(Command::SUCCESS);
 
     expect($fake->callCount)->toBe(1)
@@ -2417,6 +2420,7 @@ it('preserves named home routes during frontend installs', function (): void {
         '--clear-cache' => true,
         '--theme' => 'foundation',
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
     ])->assertExitCode(Command::SUCCESS);
 
     $routesContent = file_get_contents(base_path('routes/web.php'));
@@ -3495,6 +3499,7 @@ it('selects the package set of the named preset without asking what is being bui
         '--url' => 'https://hartley.test',
         '--user' => $existing->email,
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
         '--clear-cache' => true,
     ])
         ->doesntExpectOutputToContain('What are you building?')
@@ -3536,6 +3541,7 @@ it('lets explicit packages override the preset package set but keeps the preset 
         '--url' => 'https://hartley.test',
         '--user' => $existing->email,
         '--no-interaction' => true,
+        '--no-frontend-build' => true,
         '--clear-cache' => true,
     ])->assertSuccessful();
 
@@ -3817,4 +3823,63 @@ it('plans an install on a fresh SQLite project without creating or reading the d
         config(['database.default' => $original]);
         DB::purge('fresh-sqlite');
     }
+});
+
+it('asks for the site name in the detailed --customise questionnaire and applies it', function (): void {
+    setupInstallTest(['capell-app/core'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--customise' => true,
+        '--package-mode' => 'custom',
+        '--packages' => 'capell-app/core',
+        '--url' => 'https://hartley.test',
+        '--user' => $existing->email,
+        '--no-seed-default-data' => true,
+        '--theme' => 'foundation',
+        '--clear-cache' => true,
+    ])
+        ->expectsQuestion('What is the site called?', 'Hartley Dental')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsChoice('Review or change your settings', 'install', ['install' => 'Install with these settings', 'site' => 'Change the site address', 'packages' => 'Choose packages and theme', 'administrator' => 'Change the administrator', 'customise' => 'Customise settings', 'app-url' => 'Change whether APP_URL is updated', 'profile' => 'Save these settings as a reusable profile', 'cancel' => 'Cancel'])
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertSuccessful();
+
+    expect($fake->capturedInput->siteName)->toBe('Hartley Dental');
+});
+
+it('builds the frontend by default on a non-interactive flag-driven run', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/frontend']);
+    bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--package-mode' => 'custom',
+        '--packages' => 'capell-app/core,capell-app/frontend',
+        '--url' => 'https://hartley.test',
+        '--user' => $existing->email,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    expect($build->calls)->toBe(1);
+});
+
+it('skips the frontend build on a non-interactive flag-driven run when --no-frontend-build is passed', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/frontend']);
+    bindFakeRunInstallAction();
+    $build = bindInstallCommandFrontendBuild();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--package-mode' => 'custom',
+        '--packages' => 'capell-app/core,capell-app/frontend',
+        '--url' => 'https://hartley.test',
+        '--user' => $existing->email,
+        '--no-frontend-build' => true,
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    expect($build->calls)->toBe(0);
 });

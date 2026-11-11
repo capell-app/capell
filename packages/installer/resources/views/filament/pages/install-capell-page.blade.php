@@ -60,6 +60,16 @@
 
                 <x-filament::input.wrapper>
                     <x-filament::input
+                        type="text"
+                        name="site_name"
+                        maxlength="255"
+                        :aria-label="__('capell-installer::installer.field_site_name')"
+                        :value="old('site_name', \Capell\Core\Support\Install\InstallSiteName::fallback())"
+                    />
+                </x-filament::input.wrapper>
+
+                <x-filament::input.wrapper>
+                    <x-filament::input
                         type="url"
                         name="site_url"
                         :value="old('site_url', config('app.url'))"
