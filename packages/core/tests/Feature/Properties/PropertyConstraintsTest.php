@@ -532,10 +532,14 @@ it('keeps escaped brackets and ordinary alternation working inside a format', fu
 });
 
 it('skips resolving property definitions on a page save when no promoted field carries a rule', function (): void {
-    $plain = Page::factory()->create(['name' => 'An established page name']);
-    $unconstrained = Page::factory()->create(['name' => 'An established page name']);
+    $onOwnBlueprint = static fn (): Page => Page::factory()->create([
+        'name' => 'Short',
+        'blueprint_id' => Blueprint::factory()->page()->create()->id,
+    ]);
+    $plain = $onOwnBlueprint();
+    $unconstrained = $onOwnBlueprint();
     promotedNameProperty($unconstrained);
-    $constrained = Page::factory()->create(['name' => 'Short']);
+    $constrained = $onOwnBlueprint();
     promotedNameProperty($constrained, ['max_length' => 10]);
     $definitionQueries = static function (Page $page): int {
         $page->refresh()->order = 7;
