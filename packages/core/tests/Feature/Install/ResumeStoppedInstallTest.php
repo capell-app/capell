@@ -64,6 +64,8 @@ beforeEach(function (): void {
     // The install command inspects the application's own files (for example the Filament panel
     // provider), so run against a private tree: the shared Testbench skeleton is written to by
     // other install tests in parallel workers.
+    // Serialise with the install command tests that still write into the shared skeleton.
+    acquireCapellInstallFilesystemLock();
     $this->skeletonBasePath = base_path();
     $this->ownedPaths = new OwnedApplicationPaths(app());
     config([
@@ -75,6 +77,7 @@ beforeEach(function (): void {
 
 afterEach(function (): void {
     $this->ownedPaths->restore();
+    releaseCapellInstallFilesystemLock();
     InstallRunState::completeInitialInstallation();
     InstallRunState::clearStoppedStep();
     ClearCachesAction::clearFake();
