@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
+use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
@@ -164,4 +166,22 @@ it('reports an indeterminate critical result when the workspace scan fails', fun
         ->and($check?->message)->toBe(__('capell-marketplace::marketplace.auth_workspace.indeterminate'))
         ->and($check?->evidence['status'])->toBe(WorkspaceFailure::Indeterminate->value)
         ->and($check?->evidence['trusted'])->toBeTrue();
+});
+
+it('labels a warning check WARN and still exits zero from the marketplace doctor command', function (): void {
+    app()->instance(BuildMarketplaceOperationsDoctorReportAction::class, new class
+    {
+        public function handle(int $staleAfterMinutes = 15): DoctorReportData
+        {
+            return DoctorReportData::fromChecks(collect([
+                new DoctorCheckResultData('Schema', true, 'Schema is healthy.', null, 'test.schema', DoctorCheckSeverity::Critical),
+                new DoctorCheckResultData('Auth files', false, 'Stale auth files.', 'Remove them.', 'test.auth', DoctorCheckSeverity::Warning),
+            ]));
+        }
+    });
+
+    artisanCommand('capell:marketplace:doctor')
+        ->expectsOutputToContain('[OK] Schema')
+        ->expectsOutputToContain('[WARN] Auth files')
+        ->assertExitCode(0);
 });

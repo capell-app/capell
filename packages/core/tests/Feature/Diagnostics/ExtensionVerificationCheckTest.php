@@ -28,7 +28,7 @@ it('reports the first failure and action as a warning in normal and install summ
     $issue = new ExtensionVerificationIssueData('manifest_missing', 'Manifest missing.', 'Restore the manifest.');
     VerifyInstalledExtensionAction::shouldRun()->once()->with($name)->andReturn(new ExtensionVerificationReportData($name, null, null, null, false, [$issue], [], CarbonImmutable::now()));
     $result = resolve(ExtensionVerificationCheck::class)->check($summary);
-    expect($result->passed)->toBeFalse()->and($result->severity)->toBe(DoctorCheckSeverity::Warning)
+    expect($result->passed)->toBeFalse()->and($result->severity)->toBe(DoctorCheckSeverity::Critical)
         ->and($result->message)->toContain($name, 'Manifest missing.', 'Restore the manifest.');
 })->with([false, true]);
 

@@ -9,6 +9,7 @@ use Capell\Core\Actions\RepairPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
@@ -33,6 +34,7 @@ class DoctorCommand extends Command
         {--install-summary : Output the installer-focused health summary}
         {--report-json= : Write the health report as JSON to this file}
         {--repair-page-url-domains : Create or restore missing site domains for page URLs before checking health}
+        {--warnings : List only the checks that reported warnings}
         {--skip-package-doctors : Skip package-owned doctor commands when building the install summary}';
 
     /**
@@ -52,6 +54,7 @@ class DoctorCommand extends Command
         if (! $this->option('json')) {
             $this->writeCommandIntro('run Capell health checks', $this->enabledOptionDetails([
                 'install-summary' => 'the installer health summary',
+                'warnings' => 'only checks with warnings listed',
                 'repair-page-url-domains' => 'missing page URL site domains repaired before checks',
                 'skip-package-doctors' => 'package doctor checks skipped',
             ]));
@@ -116,42 +119,53 @@ class DoctorCommand extends Command
             : '<fg=blue;options=bold>Capell Health Check</>');
         $this->newLine();
 
-        $report->checks->each(function (DoctorCheckResultData $check): void {
+        $listed = $this->option('warnings') ? $report->warnings() : $report->checks;
+
+        if ($this->option('warnings') && $listed->isEmpty()) {
+            $this->components->info((string) __('capell-core::health.doctor.no_warnings_to_list'));
+        }
+
+        $listed->each(function (DoctorCheckResultData $check): void {
             $this->outputCheckResult($check);
         });
 
         $this->newLine();
 
-        if ($report->passed()) {
-            $hasWarnings = $report->checks->contains(fn (DoctorCheckResultData $check): bool => ($check->evidence['warning_count'] ?? 0) > 0);
-            $this->info($hasWarnings ? 'Checks passed with warnings.' : 'All checks passed.');
-
-            return;
+        if (! $report->passed()) {
+            $this->error((string) __('capell-core::health.doctor.failed'));
+        } elseif ($report->warningCount() > 0) {
+            $this->info((string) __('capell-core::health.doctor.passed_with_warnings'));
+        } else {
+            $this->info((string) __('capell-core::health.doctor.all_passed'));
         }
 
-        $this->error('One or more checks failed. See suggestions above.');
+        // The listing already is the warnings, so only point at it from the full report.
+        if ($report->warningCount() > 0 && ! $this->option('warnings')) {
+            $this->line($report->warningSummary()->message());
+        }
     }
 
     private function outputCheckResult(DoctorCheckResultData $check): void
     {
-        $icon = $check->passed
-            ? '<fg=green>✓</>'
-            : match ($check->severity) {
-                DoctorCheckSeverity::Info => '<fg=blue>i</>',
-                DoctorCheckSeverity::Warning => '<fg=yellow>!</>',
-                DoctorCheckSeverity::Critical => '<fg=red>✗</>',
-            };
+        $outcome = $check->outcome();
+        $icon = match (true) {
+            $outcome === DoctorCheckOutcome::Passed => '<fg=green>✓</>',
+            $outcome === DoctorCheckOutcome::Failed => '<fg=red>✗</>',
+            $check->severity === DoctorCheckSeverity::Info => '<fg=blue>i</>',
+            default => '<fg=yellow>!</>',
+        };
+        $colour = match (true) {
+            $outcome === DoctorCheckOutcome::Passed => 'green',
+            $outcome === DoctorCheckOutcome::Failed => 'red',
+            $check->severity === DoctorCheckSeverity::Info => 'blue',
+            default => 'yellow',
+        };
         $this->components->twoColumnDetail(
             sprintf('%s %s', $icon, $check->label),
-            match (true) {
-                $check->passed => '<fg=green>' . $check->message . '</>',
-                $check->severity === DoctorCheckSeverity::Info => '<fg=blue>' . $check->message . '</>',
-                $check->severity === DoctorCheckSeverity::Warning => '<fg=yellow>' . $check->message . '</>',
-                default => '<fg=red>' . $check->message . '</>',
-            },
+            sprintf('<fg=%s>%s</>', $colour, $check->message),
         );
 
-        if (! $check->passed && $check->remediation !== null && $check->remediation !== '') {
+        if ($outcome !== DoctorCheckOutcome::Passed && $check->remediation !== null && $check->remediation !== '') {
             $this->line(sprintf('  <fg=yellow>Fix:</> %s', $check->remediation));
         }
     }

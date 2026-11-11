@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static DoctorReportData run(int $staleAfterMinutes = 15)
+ */
 final class BuildMarketplaceOperationsDoctorReportAction
 {
     use AsFake;
@@ -53,12 +56,7 @@ final class BuildMarketplaceOperationsDoctorReportAction
         // check that must fail the report therefore has to declare itself
         // Critical rather than borrow the effect from an aggregate that
         // ignores severity.
-        return new DoctorReportData(
-            status: $checks->contains(static fn (DoctorCheckResultData $check): bool => $check->isCriticalFailure())
-                ? 'failed'
-                : 'passed',
-            checks: $checks,
-        );
+        return DoctorReportData::fromChecks($checks);
     }
 
     /**

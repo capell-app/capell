@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Console\Commands;
 
+use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Illuminate\Console\Command;
@@ -29,7 +30,11 @@ final class MarketplaceDoctorCommand extends Command
         }
 
         foreach ($report->checks as $check) {
-            $this->line(sprintf('[%s] %s: %s', $check->passed ? 'OK' : 'FAIL', $check->label, $check->message));
+            $this->line(sprintf('[%s] %s: %s', match ($check->outcome()) {
+                DoctorCheckOutcome::Passed => 'OK',
+                DoctorCheckOutcome::Warning => 'WARN',
+                DoctorCheckOutcome::Failed => 'FAIL',
+            }, $check->label, $check->message));
 
             if ($check->remediation !== null) {
                 $this->line('       ' . $check->remediation);

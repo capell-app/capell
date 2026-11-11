@@ -572,7 +572,7 @@ final class InstallStepExecutor
                     $count = $check['evidence']['warning_count'] ?? 0;
                     if (is_int($count) && $count > 0 && is_string($check['message'] ?? null)) {
                         $state->doctorWarnings[] = ['message' => $check['message'], 'count' => $count];
-                    } elseif (($check['passed'] ?? true) === false && ($check['severity'] ?? null) === 'warning' && is_string($check['message'] ?? null)) {
+                    } elseif (($check['outcome'] ?? null) === 'warning' && is_string($check['message'] ?? null)) {
                         $state->doctorWarnings[] = ['message' => $check['message'], 'count' => 1];
                     }
                 }

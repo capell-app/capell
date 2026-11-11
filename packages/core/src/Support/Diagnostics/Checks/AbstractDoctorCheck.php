@@ -26,8 +26,18 @@ abstract class AbstractDoctorCheck implements DoctorCheck
             message: $check->message,
             remediation: $check->remediation,
             id: $this->id(),
-            severity: $this->severity(),
+            severity: $this->severityFor($check),
             evidence: $check->evidence,
         );
+    }
+
+    /**
+     * The severity of one result. A check declares its usual severity in
+     * severity(), and may raise it for a result that is worse than usual, for
+     * example when a check that normally only warns finds an outright error.
+     */
+    protected function severityFor(DoctorCheckResultData $result): DoctorCheckSeverity
+    {
+        return $this->severity();
     }
 }

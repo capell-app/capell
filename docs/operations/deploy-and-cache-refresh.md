@@ -13,7 +13,7 @@ php artisan capell:runtime-refresh --no-interaction
 
 `capell:upgrade` runs migrations and upgrade steps. [Deploy recipes](deploy-recipes.md) give this order for Deployer, Forge and Ploi.
 
-`capell:runtime-refresh` rebuilds the Capell package cache, clears compiled views, rebuilds the configuration and route caches, warms critical pages, runs Capell Doctor, and finally runs `queue:restart` so workers pick up the release. It exits non-zero if any stage fails, and a stage that throws is recorded as failed without stopping the others. Prefer it to calling the cache commands yourself. The configuration stage only rebuilds the cache if the configuration was already cached; an uncached install stays uncached.
+`capell:runtime-refresh` rebuilds the Capell package cache, clears compiled views, rebuilds the configuration and route caches, warms critical pages, runs Capell Doctor (only failed checks fail this stage; warnings are reported and leave it passed, list them with `php artisan capell:doctor --warnings`), and finally runs `queue:restart` so workers pick up the release. It exits non-zero if any stage fails, and a stage that throws is recorded as failed without stopping the others. Prefer it to calling the cache commands yourself. The configuration stage only rebuilds the cache if the configuration was already cached; an uncached install stays uncached.
 
 Then reload PHP-FPM (or Octane), and refresh public HTML as described below.
 

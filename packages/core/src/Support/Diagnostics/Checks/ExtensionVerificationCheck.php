@@ -66,7 +66,7 @@ final class ExtensionVerificationCheck implements DoctorCheck
                 ? __('capell-core::health.extension_verification.passed')
                 : __('capell-core::health.extension_verification.failed', ['issues' => implode('; ', $issues)]),
             id: 'core.packages.extension-verification',
-            severity: DoctorCheckSeverity::Warning,
+            severity: $issues === [] ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Critical,
         );
     }
 }

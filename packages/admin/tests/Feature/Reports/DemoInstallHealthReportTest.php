@@ -8,8 +8,10 @@ use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
 use Capell\Core\Actions\Diagnostics\ResolvePendingMigrationsAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\CapellInstallationState;
+use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -309,3 +311,32 @@ function dropTablesWithDependents(array $roots): void
         $drop($root);
     }
 }
+
+it('reports doctor warnings as warning findings and counts them apart from passed checks', function (): void {
+    demoInstallHealthSeedInstall();
+
+    app()->instance(BuildDoctorReportAction::class, new class
+    {
+        public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
+        {
+            return DoctorReportData::fromChecks(collect([
+                new DoctorCheckResultData('Tooling', false, 'Composer was not found.', 'Install Composer.', 'test.tooling', DoctorCheckSeverity::Warning),
+                new DoctorCheckResultData('Manifest v3 contracts', true, '203 manifest contract warning(s).', 'Run the audit.', 'test.manifest', DoctorCheckSeverity::Warning, ['warning_count' => 203]),
+                new DoctorCheckResultData('Broken', false, 'Something stops the site.', 'Fix it.', 'test.broken', DoctorCheckSeverity::Critical),
+                new DoctorCheckResultData('Fine', true, 'All good.', null, 'test.fine', DoctorCheckSeverity::Critical),
+            ]));
+        }
+    });
+
+    $snapshot = BuildDemoInstallHealthReportAction::run();
+    $findings = collect($snapshot->findings)->keyBy('id');
+    $metrics = collect($snapshot->metrics)->keyBy('label');
+    $warningMetric = $metrics[__('capell-admin::reports.demo_install_health_metric_checks_with_warnings')];
+
+    expect($findings['test.tooling']->severity)->toBe(ReportFindingSeverity::Warning)
+        ->and($findings['test.manifest']->severity)->toBe(ReportFindingSeverity::Warning)
+        ->and($findings['test.broken']->severity)->toBe(ReportFindingSeverity::Critical)
+        ->and($findings)->not->toHaveKey('test.fine')
+        ->and($warningMetric->value)->toBeGreaterThanOrEqual(2)
+        ->and($warningMetric->description)->toContain('php artisan capell:doctor --warnings');
+});

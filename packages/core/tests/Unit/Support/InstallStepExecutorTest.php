@@ -551,6 +551,23 @@ it('retains warning totals from the fresh doctor process', function (): void {
         ->and($processes->processes)->toHaveCount(1);
 });
 
+it('retains a warning outcome from the fresh doctor process as one warning', function (): void {
+    $processes = FakeProcessFactory::bind()->push(onRun: function ($process): void {
+        $argument = collect($process->command)->first(fn (string $value): bool => str_starts_with($value, '--report-json='));
+        file_put_contents(substr($argument, strlen('--report-json=')), json_encode(['checks' => [
+            ['passed' => false, 'severity' => 'warning', 'outcome' => 'warning', 'message' => 'Composer was not found.', 'evidence' => []],
+            ['passed' => true, 'severity' => 'critical', 'outcome' => 'passed', 'message' => 'Fine.', 'evidence' => []],
+        ]], JSON_THROW_ON_ERROR));
+    });
+    $lines = [];
+    $state = new InstallRunState(installStepExecutorInputData(), installStepExecutorReporter($lines));
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_RUN_DOCTOR_SUMMARY, $state);
+
+    expect($state->doctorWarnings)->toBe([['message' => 'Composer was not found.', 'count' => 1]])
+        ->and($processes->processes)->toHaveCount(1);
+});
+
 it('reloads package runtime providers before final install permission sync', function (): void {
     $events = [];
 
