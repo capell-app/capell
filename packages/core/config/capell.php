@@ -364,6 +364,7 @@ return [
                 'suite_description' => 'Publish articles with archives and tags, and be found in search.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
+                    'capell-app/site-discovery' => 'Serve an XML sitemap so search engines find every published page.',
                     'capell-app/blog' => 'Article publishing, archive pages and article widgets.',
                     'capell-app/seo-suite' => 'SEO scoring, structured data and redirect management.',
                     'capell-app/search' => 'A themeable results page and header search field.',
@@ -384,6 +385,7 @@ return [
                 'suite_description' => 'A content-managed site with forms, navigation and SEO tooling.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
+                    'capell-app/site-discovery' => 'Serve an XML sitemap so search engines find every published page.',
                     'capell-app/form-builder' => 'Spam-filtered forms with a submissions inbox.',
                     'capell-app/navigation' => 'A visual menu builder for every site and language.',
                     'capell-app/seo-suite' => 'SEO scoring, structured data and redirect management.',
@@ -404,6 +406,7 @@ return [
                 'suite_description' => 'A structured knowledge base that readers can search and browse.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
+                    'capell-app/site-discovery' => 'Serve an XML sitemap so search engines find every published page.',
                     'capell-app/knowledge-base' => 'Collections of articles grouped into a public help centre.',
                     'capell-app/search' => 'A themeable results page and header search field.',
                     'capell-app/navigation' => 'A visual menu builder for every site and language.',
@@ -423,6 +426,7 @@ return [
                 'suite_description' => 'Visual page building with a media library and safe publishing.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
+                    'capell-app/site-discovery' => 'Serve an XML sitemap so search engines find every published page.',
                     'capell-app/layout-builder' => 'Compose pages visually from reusable widgets and areas.',
                     'capell-app/media-library' => 'One consistent media field and a media-health dashboard.',
                     'capell-app/form-builder' => 'Spam-filtered forms with a submissions inbox.',
