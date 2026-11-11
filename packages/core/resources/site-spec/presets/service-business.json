@@ -1,0 +1,150 @@
+{
+    "key": "service-business",
+    "label": "Service business",
+    "description": "Home, About, Services, Reviews and Contact for a business that sells its time and skill, such as a trade, clinic or consultancy.",
+    "businessTypes": ["service", "trade", "consultancy", "clinic", "agency"],
+    "suiteKeys": [],
+    "requiredExtensions": [],
+    "spec": {
+        "site": {
+            "name": "Your business",
+            "description": "A service business website with the pages customers look for first."
+        },
+        "theme": {
+            "key": "default"
+        },
+        "language": {
+            "code": "en",
+            "name": "English",
+            "locale": "en_GB",
+            "flag": "gb",
+            "default": true
+        },
+        "pages": [
+            {
+                "name": "Home",
+                "slug": "home",
+                "title": "Welcome",
+                "description": "The services you offer, who they are for and how to get in touch.",
+                "pageType": "page",
+                "order": 0,
+                "url": "/",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "What we do",
+                        "content": "<p>Say in a sentence or two who you help and the problem you solve for them. Visitors decide in a few seconds whether this is the right place, so lead with their need rather than your history.</p><p>Then point them to the next step: see the services, or get in touch.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Why people choose us",
+                        "content": "<ul><li>Name the thing you do better than anyone nearby.</li><li>Say how quickly you reply and when you can start.</li><li>Mention a guarantee, a qualification or a years-in-business figure you can stand behind.</li></ul>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "About",
+                "slug": "about",
+                "title": "About us",
+                "description": "Who you are, how you work and what visitors can expect.",
+                "pageType": "page",
+                "order": 1,
+                "url": "/about",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Who we are",
+                        "content": "<p>Introduce the people behind the business: who you are, how you got started and what you care about. A real name and a real story build more trust than any slogan.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "How we work",
+                        "content": "<p>Describe what happens from the first conversation to the finished job, so a new customer knows what to expect and what you will need from them.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Services",
+                "slug": "services",
+                "title": "Our services",
+                "description": "What you offer, what each service includes and how to book.",
+                "pageType": "page",
+                "order": 2,
+                "url": "/services",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "What we offer",
+                        "content": "<p>List each service with a short description of what is included and who it suits. Keep each one to a few lines, and link to a page of its own when it needs more detail.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Prices and booking",
+                        "content": "<p>Say how pricing works: a fixed price, a rate per hour or a quote after a visit. Tell people how to book and how long they will wait for a reply.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Reviews",
+                "slug": "reviews",
+                "title": "What our customers say",
+                "description": "Reviews and results from people you have worked with.",
+                "pageType": "page",
+                "order": 3,
+                "url": "/reviews",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Reviews",
+                        "content": "<p>Add reviews from real customers here, with their permission and, where they agree, their name and town. Only publish words your customers have actually written.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Share your experience",
+                        "content": "<p>Invite customers to send you a review after a job, and say how they can do it.</p>",
+                        "order": 1
+                    }
+                ]
+            },
+            {
+                "name": "Contact",
+                "slug": "contact",
+                "title": "Contact us",
+                "description": "How to reach the business, opening hours and where to find it.",
+                "pageType": "page",
+                "order": 4,
+                "url": "/contact",
+                "sections": [
+                    {
+                        "type": "content",
+                        "title": "Get in touch",
+                        "content": "<p>Give the best way to reach you first, whether that is a phone number, an email address or a form. Add your opening hours and the area you cover.</p>",
+                        "order": 0
+                    },
+                    {
+                        "type": "content",
+                        "title": "Where to find us",
+                        "content": "<p>Add your address, parking and public transport details if customers visit you, or the areas you travel to if you go to them.</p>",
+                        "order": 1
+                    }
+                ]
+            }
+        ],
+        "navigations": [
+            {
+                "key": "main",
+                "name": "Main navigation",
+                "pageSlugs": ["home", "about", "services", "reviews", "contact"]
+            }
+        ],
+        "initialVisibility": "private",
+        "acknowledgePublic": false
+    }
+}

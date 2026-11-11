@@ -6,6 +6,7 @@ SiteSpec is Capell's deterministic site handoff contract. Core validates and imp
 
 - [Import](#import)
 - [Contract](#contract)
+- [Presets](#presets)
 - [Remote Media Safety](#remote-media-safety)
 - [Package-Owned Blocks](#package-owned-blocks)
 
@@ -78,6 +79,12 @@ The path may be absolute or relative to the application working directory. The i
 `site`, `theme`, and at least one `pages` entry are required. Page slugs and navigation keys use lowercase kebab-case. Navigation page references and media image keys must match page slugs in the same spec. Extension values are Composer package names and every requested package must already be installed before import starts.
 
 Private imports publish only a neutral, noindex coming-soon homepage. A public import requires both `"initialVisibility": "public"` and `"acknowledgePublic": true`.
+
+## Presets
+
+Core ships three starting points as SiteSpec files under `packages/core/resources/site-spec/presets/`: `service-business`, `shop-front` and `studio`. Each is a complete, private, five-page draft with real copy and a main navigation, and passes the same validation as any other spec. Read them through `SiteSpecPresetRegistry` (`all()`, `get($key)`, `keys()`).
+
+A theme or package adds its own preset by tagging a class that implements `SiteSpecPresetProvider` with `SiteSpecPresetProvider::TAG` and returning `SiteSpecPresetData` from `presets()`. Preset keys are unique across Core and every provider; a duplicate key throws when it is registered.
 
 ## Remote Media Safety
 
