@@ -11,6 +11,10 @@ DATABASE_PATH="${REPOSITORY_ROOT}/workbench/database/screenshots.sqlite"
 
 cd "${REPOSITORY_ROOT}"
 
+# Everything below rewrites the shared Testbench skeleton. Keep a pristine copy so
+# the caller can restore it with testbench-skeleton.sh once the capture is done.
+bash "${REPOSITORY_ROOT}/scripts/screenshots/testbench-skeleton.sh" snapshot
+
 mkdir -p "$(dirname "${DATABASE_PATH}")"
 # composer's post-autoload-dump deletes the testbench skeleton's migrations
 # directory, so a run straight after `composer install` has nowhere to publish

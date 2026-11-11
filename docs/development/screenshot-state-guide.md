@@ -4,12 +4,12 @@ Screenshots should show real product states that help someone debug or understan
 
 ## State Matrix
 
-| Area             | States to capture                                                                                                                      | Current paths                                                 |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Installer        | Fresh form, preflight failure, install guide, progress running, success/removal                                                        | `packages/installer/docs/images/screenshots/*`                |
+| Area             | States to capture                                                                                                                              | Current paths                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Installer        | Fresh form, preflight failure, install guide, progress running, success/removal                                                                | `packages/installer/docs/images/screenshots/*`                |
 | Marketplace      | Unconnected, connected, catalogue browsing, readiness review, manual-only install, licence entry, live progress, purchases, package operations | `packages/marketplace/docs/images/screenshots/*`              |
-| Admin extensions | Extensions page empty/installed, package settings page, permission denied                                                              | Add under `packages/admin/docs/images/screenshots/*`.         |
-| Frontend safety  | Normal anonymous page, cached page, authoring beacon disabled/enabled for admin                                                        | Add under frontend docs when frontend-authoring is installed. |
+| Admin extensions | Extensions page empty/installed, package settings page, permission denied                                                                      | Add under `packages/admin/docs/images/screenshots/*`.         |
+| Frontend safety  | Normal anonymous page, cached page, authoring beacon disabled/enabled for admin                                                                | Add under frontend docs when frontend-authoring is installed. |
 
 ## Naming
 
@@ -87,7 +87,14 @@ The FLUX connector must be authenticated before generating these assets. Once au
 
 Core documentation captures come from `scripts/screenshots/prepare-workbench.sh`, which runs `capell:install --demo --package-mode=core --theme=none`. That seeds almost no content, because the core, admin and frontend `capell.json` files all declare `"demo": null`, and no theme is installed. Content-rich captures (for example the "Index of Practice" demo) come from the `theme-submissions` package's demo content in capell-packages-4, so run those passes from capell-packages-4.
 
-`prepare-workbench.sh` rewrites the shared Testbench skeleton under `vendor/` and leaves a `.capell-workbench-prepared` marker there. `composer preflight` refuses to run the test and PHPStan stages while the marker exists, because tests booted from a rewritten skeleton fail for reasons unrelated to the change. Run workbench and screenshot work from a separate checkout, or restore the skeleton with `composer reinstall orchestra/testbench-core --no-scripts`.
+`prepare-workbench.sh` rewrites the shared Testbench skeleton under `vendor/` and leaves a `.capell-workbench-prepared` marker there, because the capture serves from it. Tests and static analysis booted from a rewritten skeleton fail for reasons unrelated to the change, so `composer preflight` refuses to run those stages while the marker exists.
+
+Before rewriting, preparation copies the pristine skeleton to `storage/framework/testing/testbench-skeleton-pristine`. `scripts/local-core-screenshots.sh` restores it when the run ends, whether the capture passed or failed, and removes the marker. Two cases need you to restore it yourself:
+
+- `--keep-workbench` leaves the prepared skeleton in place for a later `--reuse-app` run.
+- Calling `prepare-workbench.sh` or `npm run screenshots:prepare` directly has no wrapper to restore afterwards.
+
+In either case run `npm run screenshots:restore` when you have finished capturing. If the copy is missing, `composer reinstall orchestra/testbench-core --no-scripts` also restores a pristine skeleton.
 
 After a fresh `composer install`, `post-autoload-dump` removes `vendor/orchestra/testbench-core/laravel/database/migrations`; `prepare-workbench.sh` recreates the directory before the install step, so a manual `testbench capell:install` straight after `composer install` has nowhere to publish vendor migrations to.
 
