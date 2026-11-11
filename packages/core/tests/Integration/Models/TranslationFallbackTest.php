@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Data\TranslationResolutionData;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
@@ -337,4 +338,17 @@ it('orders the translations of a model without a site from cached language order
     $german->update(['order' => 0]);
 
     expect($fresh()->title)->toBe('Hallo');
+});
+
+it('ignores a language map cached in id order by an earlier release', function (): void {
+    $german = Language::factory()->german()->createOne(['order' => 2]);
+    $french = Language::factory()->french()->createOne(['order' => 1]);
+    // An earlier release cached the map in id order under the unversioned key.
+    CapellCore::rememberCache('language-fallback-map', static fn (): array => [
+        (int) $german->getKey() => ['fallback' => null, 'enabled' => true],
+        (int) $french->getKey() => ['fallback' => null, 'enabled' => true],
+    ]);
+
+    expect(array_keys(ResolveLanguageFallbackChainAction::make()->languageOrder()))
+        ->toBe([(int) $french->getKey(), (int) $german->getKey()]);
 });

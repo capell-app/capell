@@ -28,7 +28,9 @@ final class ResolveLanguageFallbackChainAction
 
     public const int MAX_DEPTH = 5;
 
-    public const string CACHE_KEY = 'language-fallback-map';
+    // Versioned: v2 is built in display order (languageOrder() relies on it), so a map
+    // cached by an earlier release in id order is never read.
+    public const string CACHE_KEY = 'language-fallback-map-v2';
 
     /**
      * @return list<int>
