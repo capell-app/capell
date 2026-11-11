@@ -8,7 +8,6 @@ use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
-use Capell\Core\Support\Properties\PromotedFieldChanges;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -21,8 +20,8 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * rejected for a promoted property). Invoked on every page save.
  *
  * A field whose value already matches the stored property is skipped, and a
- * field this save did not change is synced only while it meets the property's
- * rules ({@see PromotedFieldChanges}). A
+ * value is synced only while it meets the property's rules, so the sync can
+ * never fail a save that has already been written. A
  * field currently holding `null` is left alone rather than clearing the
  * property — an in-progress edit that has not reached the promoted field yet
  * should not blank out a previously-synced value.
@@ -90,13 +89,12 @@ final class SyncPromotedFieldValuesAction
                 continue;
             }
 
-            // A field this save did not change was never checked before the
-            // write (an older value, or one promoted after it was entered).
-            // Sync it only while it meets the rules; otherwise leave the
-            // property as it is rather than failing a save that has already
-            // been written.
-            if (! PromotedFieldChanges::changedBySave($page, (string) $definition->promotedField)
-                && ! $this->validator->passesConstraints($definition, $value->value, (int) $page->site_id, (int) $page->id)) {
+            // A value the save changes was checked before the row was written.
+            // One it left as it was may predate a rule; in production that is
+            // reported rather than enforced. Sync a value only while it meets
+            // the rules, so nothing can fail after the page is written; the
+            // property keeps its last good value until the field is corrected.
+            if (! $this->validator->passesConstraints($definition, $value->value, (int) $page->site_id, (int) $page->id)) {
                 continue;
             }
 

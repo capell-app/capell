@@ -80,7 +80,7 @@ final class ValidatePromotedPropertyValuesAction
                 self::ERROR_KEY_PREFIX . $definition->key,
             ];
 
-            if (PromotedFieldChanges::changingBeforeSave($page, $field)) {
+            if (PromotedFieldChanges::changingBeforeSave($page, $definition)) {
                 $this->validator->assertConstraints(...$arguments);
             } else {
                 $this->validator->assertOrReportUntouchedConstraints(...$arguments);

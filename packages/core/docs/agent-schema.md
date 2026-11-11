@@ -77,9 +77,14 @@ promoted fields, and any page save that changes a promoted field, checked
 before the row is written. A rejected value raises a `ValidationException` with
 the same editor-readable message on each path.
 
-A value a write changes is always checked: every promoted field on a new page
-or when the page moves to another blueprint or site, a promoted field whose
-value changes, and every property value written with a new value. Checks run
+A value a write changes is always checked: every promoted field on a new page,
+a promoted field whose value changes, and every property value written with a
+new value. Moving a page to another blueprint or site checks every promoted
+field against the rules that will then apply, in production too, because the
+value is new to those rules. A promoted value counts as unchanged when it is
+the same once stored as the property's type (`5.0` over a saved `5`), and the
+page editor and page saves share that one definition
+(`PromotedFieldChanges`). Checks run
 before anything is written, so a refused save never leaves a page half-saved.
 
 A value the write leaves as it was may predate a rule. What happens then depends
@@ -90,8 +95,11 @@ unless `app()->isProduction()`):
   value, so developers find over-limit data as soon as a rule is added.
 - In production it is reported and the save goes through, so a rule added later
   never blocks an unrelated edit. The page editor shows a warning naming the
-  field and the broken rule; every path logs a warning with identifiers only,
-  never the value. The promoted property is not re-synced until someone
+  field and the broken rule, and the save logs one warning per breach with
+  identifiers only, never the value. The same rule covers an agent preview of
+  an unchanged value, a value repeated at a stored entry the write leaves in
+  place, and values a revision rollback restores (a refusal rolls the whole
+  restore back). The promoted property is not re-synced until someone
   corrects the field.
 
 Page saves only look further when the blueprint has a promoted field whose

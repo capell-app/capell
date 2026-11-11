@@ -6,53 +6,54 @@ namespace Capell\Core\Support\Properties;
 
 use Capell\Core\Actions\Properties\SyncPromotedFieldValuesAction;
 use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
+use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Models\Page;
 
 /**
- * Decides whether a save is changing a promoted field's value, so property
- * rules are enforced on exactly the saves that set a value and never on an
- * unrelated save of an older page.
+ * The one definition of whether a save changes a promoted field's value,
+ * shared by the page save check ({@see ValidatePromotedPropertyValuesAction})
+ * and the admin page editor, so both treat the same value the same way.
  *
- * A field counts as changing when the page is new, when the field itself
- * changes, or when the page moves to another blueprint or site (the rules that
- * apply to it change). {@see ValidatePromotedPropertyValuesAction} asks before
- * the row is written; {@see SyncPromotedFieldValuesAction} asks after.
+ * Values are compared as the property stores them
+ * ({@see SyncPromotedFieldValuesAction::coerce()}): `5.0` entered over a saved
+ * `5` is the same number, so it is not a change. A field also counts as
+ * changing when the page is new or moves to another blueprint or site, because
+ * the rules that apply to it change; a move therefore enforces every promoted
+ * field, in production too.
  */
 final class PromotedFieldChanges
 {
     private const array SCOPE_ATTRIBUTES = ['blueprint_id', 'site_id'];
 
-    public static function changingBeforeSave(Page $page, string $field): bool
+    public static function sameValue(EffectivePropertyDefinitionData $definition, mixed $value, mixed $other): bool
     {
-        if (! $page->exists) {
-            return true;
-        }
-
-        if ($page->isDirty(self::rootAttribute($field))) {
-            return true;
-        }
-
-        return $page->isDirty(self::SCOPE_ATTRIBUTES);
+        return SyncPromotedFieldValuesAction::coerce($definition, $value)
+            === SyncPromotedFieldValuesAction::coerce($definition, $other);
     }
 
-    public static function changedBySave(Page $page, string $field): bool
+    /**
+     * Whether this save, before the row is written, changes the value of the
+     * definition's promoted field.
+     */
+    public static function changingBeforeSave(Page $page, EffectivePropertyDefinitionData $definition): bool
     {
-        // `wasRecentlyCreated` stays true for the instance's lifetime; a later
-        // update on the same instance records its changes, so only treat the
-        // save as the create while no update changes are recorded.
-        if ($page->wasRecentlyCreated && $page->getChanges() === []) {
+        if (! $page->exists || $page->isDirty(self::SCOPE_ATTRIBUTES)) {
             return true;
         }
 
-        if ($page->wasChanged(self::rootAttribute($field))) {
-            return true;
+        $field = (string) $definition->promotedField;
+        [$root, $path] = array_pad(explode('.', $field, 2), 2, null);
+
+        if (! $page->isDirty($root)) {
+            return false;
         }
 
-        return $page->wasChanged(self::SCOPE_ATTRIBUTES);
-    }
+        $original = $page->getOriginal($root);
 
-    private static function rootAttribute(string $field): string
-    {
-        return explode('.', $field)[0];
+        return ! self::sameValue(
+            $definition,
+            data_get($page, $field),
+            $path === null ? $original : data_get($original, $path),
+        );
     }
 }

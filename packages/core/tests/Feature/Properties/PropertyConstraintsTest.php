@@ -12,6 +12,7 @@ use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\PropertyType;
+use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Media;
@@ -586,4 +587,96 @@ it("rejects a unique value already stored at another of the page's entries that 
     ]);
 
     expect(PagePropertyValue::query()->where('page_id', $page->id)->orderBy('position')->pluck('value_text')->all())->toBe(['TWO', 'ONE']);
+});
+
+it('checks restored property values when a page is rolled back, enforcing outside production and reporting in production', function (): void {
+    $page = Page::factory()->create();
+    constrainedProperty($page, PropertyType::Text, ['unique_per_site' => true], 'code');
+    $sibling = Page::factory()->create(['site_id' => $page->site_id, 'blueprint_id' => $page->blueprint_id]);
+    propertyWriteErrors($page, 'code', PropertyType::Text, 'AUTUMN');
+    $serializer = resolve(PageStateSerializer::class);
+    $snapshot = $serializer->capture($page->refresh());
+    propertyWriteErrors($page, 'code', PropertyType::Text, 'WINTER');
+    propertyWriteErrors($sibling, 'code', PropertyType::Text, 'AUTUMN');
+    $code = static fn (): ?string => PagePropertyValue::query()->where('page_id', $page->id)->value('value_text');
+
+    expect(fn () => $serializer->restore($page->refresh(), $snapshot))
+        ->toThrow(ValidationException::class, 'Another page on this site already uses this Code. Enter a different value.')
+        ->and($code())->toBe('WINTER');
+
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+    $serializer->restore($page->refresh(), $snapshot);
+
+    $log->shouldHaveReceived('warning')->once();
+    expect($code())->toBe('AUTUMN');
+});
+
+it('treats a promoted number entered as 5.0 over a saved 5 as unchanged, on the page save and in the editor alike', function (): void {
+    $page = Page::factory()->create(['name' => '5']);
+    $set = PropertySet::factory()->create();
+    $definition = PropertyDefinition::factory()->withConstraints(['max' => 3])->create([
+        'property_set_id' => $set->id,
+        'key' => 'rating',
+        'type' => PropertyType::Number,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    PromoteBlueprintFieldAction::run(Blueprint::query()->findOrFail($page->blueprint_id), $definition, 'name');
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+
+    $page->refresh()->name = '5.0';
+    $page->save();
+
+    // Reported once, as an unchanged value, instead of refused as a change.
+    $log->shouldHaveReceived('warning')->once();
+    expect($page->refresh()->name)->toBe('5.0');
+
+    $page->name = '6';
+
+    expect(fn (): bool => $page->save())->toThrow(ValidationException::class);
+});
+
+it('enforces every promoted field when a page moves to another blueprint, in production too', function (): void {
+    app()->detectEnvironment(static fn (): string => 'production');
+    $page = Page::factory()->create(['name' => 'An established page name']);
+    $strict = Blueprint::factory()->page()->create();
+    promotedNameProperty($page, ['max_length' => 10], $strict->id);
+    $originalBlueprintId = $page->blueprint_id;
+
+    $page->refresh()->blueprint_id = $strict->id;
+
+    expect(fn (): bool => $page->save())->toThrow(ValidationException::class)
+        ->and($page->refresh()->blueprint_id)->toBe($originalBlueprintId);
+});
+
+it('reports rather than refuses a repeat already stored on the page in production, but enforces it elsewhere', function (): void {
+    $page = Page::factory()->create();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'codes',
+        'type' => PropertyType::Text,
+        'multiple' => true,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $page->blueprint_id, 'property_set_id' => $set->id]);
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 0),
+        new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 1),
+    ]);
+    PropertyDefinition::query()->where('key', 'codes')->firstOrFail()
+        ->forceFill(['constraints' => PropertyConstraintsData::fromStored(['unique_per_site' => true])])->save();
+    $unchanged = [new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 1)];
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, $unchanged))
+        ->toThrow(ValidationException::class, 'Codes must be different in each entry. Remove the repeated value.');
+
+    app()->detectEnvironment(static fn (): string => 'production');
+    $log = Log::spy();
+    SetPagePropertyValuesAction::run($page, $unchanged);
+
+    $log->shouldHaveReceived('warning')->once();
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [new PropertyValueData('codes', PropertyType::Text, 'SAME', position: 2)]))
+        ->toThrow(ValidationException::class);
 });

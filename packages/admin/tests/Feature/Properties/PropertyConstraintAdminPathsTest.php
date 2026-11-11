@@ -11,7 +11,9 @@ use Capell\Admin\Support\Agent\AgentAdminToolRegistry;
 use Capell\Admin\Support\Properties\PropertyConstraintPageAuthoringValidator;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Actions\Properties\PromoteBlueprintFieldAction;
+use Capell\Core\Actions\Properties\SetPagePropertyValuesAction;
 use Capell\Core\Actions\Properties\UpdatePropertyDefinitionConstraintsAction;
+use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
@@ -207,19 +209,14 @@ it('lets the save through in production when an unchanged saved value breaks a n
 
     $validator->validate(['name' => 'An established page name', 'order' => 5], $page);
 
+    // The editor warns; the page save logs the breach, once.
     Notification::assertNotified(__('capell-admin::property_rules.untouched_breach_title', ['field' => 'Name']));
-    $log->shouldHaveReceived('warning')
-        ->withArgs(static fn (string $message, array $context): bool => $context === [
-            'page_id' => $page->id,
-            'property' => 'test.admin.display_name.display_name',
-            'field' => 'name',
-        ])
-        ->once();
+    $log->shouldNotHaveReceived('warning');
 
-    // The page save behind the editor is not blocked by the untouched field either.
     $page->order = 5;
     $page->save();
 
+    $log->shouldHaveReceived('warning')->once();
     expect($page->refresh()->order)->toBe(5)
         ->and($page->name)->toBe('An established page name');
 
@@ -263,4 +260,30 @@ it('checks promoted fields against the blueprint the form moves the page to', fu
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toBe(['data.name' => ['Display Name must be 12 characters or fewer. Shorten the text.']]);
     }
+});
+
+it('previews an agent write of an unchanged value by the same rule the write applies', function (): void {
+    $user = test()->actingAsAdmin()->authenticatedUser();
+    $page = Page::factory()->withTranslations()->createOne();
+    $definition = adminConstrainedProperty($page, 'sku', PropertyType::Text, []);
+    SetPagePropertyValuesAction::run($page, [new PropertyValueData('sku', PropertyType::Text, 'LEGACY-CODE')]);
+    UpdatePropertyDefinitionConstraintsAction::run($definition, ['max_length' => 8]);
+    $service = new AgentAdminToolInvocationService(new AgentAdminToolRegistry, new AgentAdminConfirmationStore);
+    $preview = static fn (string $value): AgentAdminToolResultData => $service->invoke(
+        'admin.page.properties.write',
+        ['page_id' => $page->id, 'property_key' => 'sku', 'value' => $value],
+        $user,
+        $page->site_id,
+        sessionId: 'agent-session',
+    );
+
+    // Outside production an unchanged over-limit value is refused, as the write would.
+    expect(fn (): AgentAdminToolResultData => $preview('LEGACY-CODE'))->toThrow(ValidationException::class);
+
+    app()->detectEnvironment(static fn (): string => 'production');
+    $token = $preview('LEGACY-CODE')->confirmationToken;
+    $executed = $service->invoke('admin.page.properties.write', [], $user, $page->site_id, $token, 'agent-session');
+
+    expect($executed->mode)->toBe('executed')
+        ->and(fn (): AgentAdminToolResultData => $preview('ANOTHER-LONG-CODE'))->toThrow(ValidationException::class);
 });

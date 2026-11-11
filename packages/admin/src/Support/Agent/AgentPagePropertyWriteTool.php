@@ -83,7 +83,15 @@ final readonly class AgentPagePropertyWriteTool implements AgentAdminTool
 
         // Reject a value that breaks the property's rules at preview time, with
         // the same messages every other write path reports, instead of issuing
-        // a confirmation token for a write that can only fail.
+        // a confirmation token for a write that can only fail. A value already
+        // stored as given follows the write's own rule: in production it is
+        // reported by the write rather than refused here.
+        $value = $this->valueData($definition, $invocation);
+
+        if ($this->validator->isStoredUnchanged($page, $definition, $value) && ! PropertyValueValidator::enforcesUntouchedValues()) {
+            return;
+        }
+
         $this->validator->assertConstraints(
             $definition,
             $invocation->payload['value'],
@@ -123,15 +131,7 @@ final readonly class AgentPagePropertyWriteTool implements AgentAdminTool
         $page = $this->authorization->page($invocation, 'update');
         $definition = $this->resolveDefinition($invocation);
 
-        SetPagePropertyValuesAction::run($page, [new PropertyValueData(
-            propertyKey: $definition->key,
-            type: $definition->type,
-            value: $invocation->payload['value'],
-            currency: $invocation->payload['currency'] ?? null,
-            unit: $invocation->payload['unit'] ?? null,
-            position: (int) ($invocation->payload['position'] ?? 0),
-            translationId: $invocation->payload['translation_id'] ?? null,
-        )]);
+        SetPagePropertyValuesAction::run($page, [$this->valueData($definition, $invocation)]);
 
         return new AgentAdminToolResultData(
             ok: true,
@@ -141,6 +141,19 @@ final readonly class AgentPagePropertyWriteTool implements AgentAdminTool
                 'page_id' => $page->id,
                 'property' => ['key' => $definition->qualifiedKey(), 'updated' => true],
             ],
+        );
+    }
+
+    private function valueData(EffectivePropertyDefinitionData $definition, AgentAdminToolInvocationData $invocation): PropertyValueData
+    {
+        return new PropertyValueData(
+            propertyKey: $definition->key,
+            type: $definition->type,
+            value: $invocation->payload['value'],
+            currency: $invocation->payload['currency'] ?? null,
+            unit: $invocation->payload['unit'] ?? null,
+            position: (int) ($invocation->payload['position'] ?? 0),
+            translationId: $invocation->payload['translation_id'] ?? null,
         );
     }
 

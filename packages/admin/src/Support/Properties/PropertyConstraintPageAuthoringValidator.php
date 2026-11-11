@@ -11,11 +11,11 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Properties\PromotedFieldChanges;
 use Capell\Core\Support\Properties\PropertyValueValidator;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Override;
@@ -35,9 +35,10 @@ use Override;
  * A saved value the form leaves untouched may predate a rule. Outside
  * production it is enforced too ({@see PropertyValueValidator::enforcesUntouchedValues()}),
  * so developers and staging see a newly added rule's effect straight away. In
- * production it is reported instead: the save goes through, the editor sees a
- * warning naming the field and the breach is logged, so a rule added later
- * never stops an unrelated edit. Page saves in Core follow the same split.
+ * production it is reported instead: the save goes through and the editor sees
+ * a warning naming the field, so a rule added later never stops an unrelated
+ * edit. The page save then logs the breach once ({@see PromotedFieldChanges}
+ * is the shared definition of an unchanged value).
  */
 final readonly class PropertyConstraintPageAuthoringValidator implements PageAuthoringValidator
 {
@@ -77,7 +78,7 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
             $value = SyncPromotedFieldValuesAction::coerce($definition, $rawValue);
 
             $untouched = ! $scopeChanged && $record instanceof Page
-                && $value === SyncPromotedFieldValuesAction::coerce($definition, data_get($record, $field));
+                && PromotedFieldChanges::sameValue($definition, $rawValue, data_get($record, $field));
 
             if ($untouched && ! PropertyValueValidator::enforcesUntouchedValues()) {
                 $this->reportUntouchedBreach($definition, $value, $record, $field);
@@ -108,12 +109,6 @@ final readonly class PropertyConstraintPageAuthoringValidator implements PageAut
         } catch (ValidationException $validationException) {
             $reason = (string) Arr::first(Arr::flatten($validationException->errors()));
         }
-
-        Log::warning('A saved page value breaks a property rule and was left unchanged.', [
-            'page_id' => (int) $record->getKey(),
-            'property' => $definition->qualifiedKey(),
-            'field' => $field,
-        ]);
 
         Notification::make()
             ->warning()

@@ -6,10 +6,12 @@ namespace Capell\Core\Support\Properties;
 
 use Capell\Core\Actions\Properties\BuildPropertyValidationRulesAction;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
+use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
@@ -150,6 +152,30 @@ final class PropertyValueValidator
                 'page_id' => $ignorePageId,
             ]);
         }
+    }
+
+    /**
+     * Whether the value is already stored exactly as given at its position and
+     * translation, so a write of it changes nothing and its rules follow
+     * {@see self::enforcesUntouchedValues()}. Only looked up for a definition
+     * that carries rules; without rules the answer does not matter.
+     */
+    public function isStoredUnchanged(Page $page, EffectivePropertyDefinitionData $definition, PropertyValueData $value): bool
+    {
+        if (! $definition->constraints instanceof PropertyConstraintsData || ! $page->exists) {
+            return false;
+        }
+
+        $stored = PagePropertyValue::query()
+            ->where('site_id', $page->site_id)
+            ->where('page_id', $page->id)
+            ->where('property_definition_id', $definition->definitionId)
+            ->where('translation_id', $value->translationId)
+            ->where('position', $value->position)
+            ->first();
+
+        return $stored instanceof PagePropertyValue
+            && PropertyValueData::fromPageValue($stored, $definition->key, $definition->type)->toColumns() === $value->toColumns();
     }
 
     /**
