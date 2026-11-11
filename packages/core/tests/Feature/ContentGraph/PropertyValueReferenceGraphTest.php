@@ -30,6 +30,7 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
@@ -339,23 +340,49 @@ it('treats a value whose definition the blueprint no longer attaches as a weak r
         ->toBe(ContentGraphEdgeStrength::Weak);
 });
 
-it('re-indexes owners when a property definition is deleted with its values', function (): void {
-    $this->withoutDefer();
+it('re-indexes owners after a property definition is deleted with its values', function (): void {
+    $deferred = resolve(DeferredCallbackCollection::class);
     $page = Page::factory()->create();
     $media = Media::factory()->model(Page::factory()->create())->create();
     $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::Publish]]);
     pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id]);
     $term = Term::factory()->create();
     TermPropertyValue::factory()->create(['term_id' => $term->id, 'property_definition_id' => $definitions['hero']->id, 'value_text' => null, 'media_id' => $media->id]);
+    $deferred->invoke();
 
     expect(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull()
         ->and(storedPropertyReference($term, Media::class, $media->id))->not->toBeNull();
 
     $definitions['hero']->delete();
 
+    // The re-index waits until the delete has committed.
+    expect(storedPropertyReference($page, Media::class, $media->id))->not->toBeNull();
+
+    $deferred->invoke();
+
     expect(storedPropertyReference($page, Media::class, $media->id))->toBeNull()
         ->and(storedPropertyReference($term, Media::class, $media->id))->toBeNull()
-        ->and(HasRetainedDeletionDependenciesAction::run($media))->toBeFalse();
+        ->and(ContentGraphEdge::query()->where('target_type', Media::class)->where('target_id', $media->id)->where('kind', ContentGraphEdgeKind::ReferencedByProperty)->exists())->toBeFalse();
+});
+
+it('keeps property values and their edges when a property definition delete rolls back', function (): void {
+    $deferred = resolve(DeferredCallbackCollection::class);
+    $page = Page::factory()->create();
+    $media = Media::factory()->model(Page::factory()->create())->create();
+    $definitions = attachReferenceProperties($page, ['hero' => [PropertyType::Media, PropertyRequirement::Publish]]);
+    $value = pagePropertyValue($page, $definitions['hero'], ['media_id' => $media->id]);
+    $deferred->invoke();
+
+    expect(fn () => DB::transaction(function () use ($definitions): void {
+        $definitions['hero']->delete();
+
+        throw new RuntimeException('Delete failed');
+    }))->toThrow(RuntimeException::class, 'Delete failed');
+
+    $deferred->invoke();
+
+    expect($value->fresh()?->media_id)->toBe($media->id)
+        ->and(storedPropertyReference($page, Media::class, $media->id)?->strength)->toBe(ContentGraphEdgeStrength::Strong);
 });
 
 it('re-indexes the page when a translation and its localised values are deleted', function (): void {
