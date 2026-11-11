@@ -109,7 +109,8 @@ final class ImportSiteSpecCommand extends Command
 
             if ($planOnly) {
                 // With no site named, plan against the site this spec was last applied to, if any.
-                $site ??= Site::query()->where('meta->site_spec_hash', SiteSpecHasher::hash($spec))->first();
+                $hash = SiteSpecHasher::hash($spec);
+                $site ??= Site::query()->where('meta->site_spec_applied_hash', $hash)->orWhere('meta->site_spec_hash', $hash)->first();
                 $plan = PlanSiteSpecAction::run($spec, $site);
                 $this->renderPlan($plan);
                 $this->components->info((string) __('capell::message.site_spec_plan_summary', $this->planCounts($plan)));
@@ -150,6 +151,10 @@ final class ImportSiteSpecCommand extends Command
 
         if ($plan->appliers !== []) {
             $this->components->warn((string) __('capell::message.site_spec_plan_appliers', ['appliers' => implode(', ', $plan->appliers)]));
+        }
+
+        if ($plan->packagePartsHeld) {
+            $this->components->warn((string) __('capell::message.site_spec_plan_parts_held'));
         }
 
         if (! $plan->hasChanges()) {

@@ -26,11 +26,13 @@ php artisan capell:site-spec-import storage/app/site-spec.json --plan --site=3
 php artisan capell:site-spec-import storage/app/site-spec.json --site=3
 ```
 
-`--site` applies the spec to a site that already exists instead of creating a new one. Pages are matched by slug in the spec's language: missing pages are created, pages whose name, title or content differ are updated, and the rest are left alone. Theme settings are merged into the site's theme when the theme key matches. Package-owned parts such as navigation run their appliers again, so an applier must be safe to run more than once. The site then records the spec's hash as the last spec applied.
+`--site` applies the spec to a site that already exists instead of creating a new one. Pages are matched by slug in the spec's language (a page's own `meta.slug` wins over its spec slug): missing pages are created, pages whose name, title or content differ are updated, and the rest are left alone. Two pages on the site with the same slug make the apply refuse rather than guess. Theme settings are merged into the site's theme when the theme key matches. Package-owned parts such as navigation run their appliers, and media is attached, once for each distinct spec, and media already attached is not attached again. Navigation appliers replace their data, so anything added by hand to it is replaced when a changed spec is applied.
 
-`--plan` prints what the apply would create, update and leave alone, and writes nothing. Without `--site` it plans against the site this exact spec was last applied to, or reports every page as a create. Package-owned parts are listed but not previewed.
+The site keeps the hash of its original import in `site_spec_hash`, which is how a repeated import finds it and how a privacy repair works, and records the hash of the spec last applied in `site_spec_applied_hash`.
 
-Applying never changes whether an existing page is published. A private spec also leaves any page that is live or scheduled untouched, and the plan marks it as held, so applying a private spec cannot publish private copy. Pages a private spec adds are created as drafts. A public, acknowledged spec updates live pages.
+`--plan` prints what the apply would create, update and leave alone, and writes nothing. It makes the same checks as the apply, so a plan that succeeds can be applied. Without `--site` it plans against the site this exact spec was last applied to or imported as, or reports every page as a create. Package-owned parts are listed but not previewed.
+
+Applying never changes whether an existing page is published. A private spec also leaves any page that is live or scheduled untouched, and with it package-owned parts and media, because its copy and images must not reach a live site; the plan marks such pages as held. Pages a private spec adds are created as drafts. A public, acknowledged spec updates live pages.
 
 ## Contract
 

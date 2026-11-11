@@ -6,20 +6,60 @@ use Capell\Core\Actions\ApplySiteSpecToSiteAction;
 use Capell\Core\Actions\BuildCapellSiteFromSpecAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\PlanSiteSpecAction;
+use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Enums\SiteSpecPlanAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\Publishing\PublishSentinel;
+use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecHasher;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\PendingCommand;
 use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
     CreateDefaultLanguagesAction::run(['en']);
     Queue::fake();
+    Storage::fake('public');
+    config()->set('media-library.disk_name', 'public');
+    config()->set('media-library.queue_conversions_by_default', true);
 });
+
+function applyPng(): string
+{
+    $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3h8AAAAASUVORK5CYII=', true);
+
+    throw_unless(is_string($image), RuntimeException::class, 'Unable to decode the PNG fixture.');
+
+    return $image;
+}
+
+/** Registers a navigation applier that counts how often it runs. */
+function countingNavigationApplier(): object
+{
+    $applier = new class implements SiteSpecApplier
+    {
+        public int $runs = 0;
+
+        public function key(): string
+        {
+            return 'navigation';
+        }
+
+        /** @param array<string, Page> $pagesBySlug */
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
+        {
+            $this->runs++;
+        }
+    };
+    resolve(SiteSpecApplierRegistry::class)->register($applier);
+
+    return $applier;
+}
 
 /**
  * @param  list<array{slug: string, name: string, title: string, content: string}>  $pages
@@ -112,7 +152,7 @@ it('applies a changed spec to the existing site instead of creating another one'
         ->and(applyPage($site, 'about')->translations->first()?->title)->toBe('About the shop')
         ->and(applyPage($site, 'about')->translations->first()?->content)->toContain('Updated about copy.')
         ->and(applyPage($site, 'contact')->name)->toBe('Contact')
-        ->and($site->meta['site_spec_hash'])->toBe(SiteSpecHasher::hash($spec));
+        ->and($site->meta['site_spec_applied_hash'])->toBe(SiteSpecHasher::hash($spec));
 });
 
 it('applies the same spec twice without changing anything the second time', function (): void {
@@ -225,4 +265,96 @@ it('reports an unknown site and refuses mixing the plan options with repair', fu
     } finally {
         unlink($path);
     }
+});
+
+it('finds a page by the slug its spec stores it under, so a changed spec never duplicates it', function (): void {
+    $payload = applySpecPayload(basePages());
+    $payload['pages'][1]['meta'] = ['slug' => 'our-story'];
+    $site = BuildCapellSiteFromSpecAction::run(applySpec($payload));
+
+    $payload['pages'][1]['sections'][0]['content'] = '<p>Reworded.</p>';
+    ApplySiteSpecToSiteAction::run(applySpec($payload), $site->refresh());
+
+    expect($site->pages()->count())->toBe(2)
+        ->and(applyPage($site, 'our-story')->translations->first()?->content)->toContain('Reworded.');
+});
+
+it('keeps the original import hash and records the applied hash beside it', function (): void {
+    $original = applySpec(applySpecPayload(basePages()));
+    $site = BuildCapellSiteFromSpecAction::run($original);
+    $changed = basePages();
+    $changed[] = ['slug' => 'contact', 'name' => 'Contact', 'title' => 'Contact us', 'content' => '<p>Write to us.</p>'];
+    $second = applySpec(applySpecPayload($changed));
+
+    ApplySiteSpecToSiteAction::run($second, $site->refresh());
+    $site->refresh();
+
+    expect($site->meta['site_spec_hash'])->toBe(SiteSpecHasher::hash($original))
+        ->and($site->meta['site_spec_applied_hash'])->toBe(SiteSpecHasher::hash($second))
+        ->and(BuildCapellSiteFromSpecAction::run($original)->getKey())->toBe($site->getKey());
+});
+
+it('runs package-owned parts once per distinct spec', function (): void {
+    $applier = countingNavigationApplier();
+    $payload = applySpecPayload(basePages(), 'public');
+    $payload['navigations'] = [['key' => 'main', 'name' => 'Main', 'pageSlugs' => ['home', 'about']]];
+    $site = BuildCapellSiteFromSpecAction::run(applySpec($payload));
+    $payload['pages'][1]['sections'][0]['content'] = '<p>Changed.</p>';
+    $spec = applySpec($payload);
+
+    ApplySiteSpecToSiteAction::run($spec, $site->refresh());
+    ApplySiteSpecToSiteAction::run($spec, $site->refresh());
+
+    expect($applier->runs)->toBe(2);
+});
+
+it('does not attach private media to live pages or the live site', function (): void {
+    Http::fake(['https://93.184.216.34/*' => Http::response(applyPng(), 200, ['Content-Type' => 'image/png'])]);
+    $site = BuildCapellSiteFromSpecAction::run(applySpec(applySpecPayload(basePages())));
+    $payload = applySpecPayload(basePages());
+    $payload['pages'][0]['sections'][0]['content'] = '<p>New home copy.</p>';
+    $payload['media'] = ['sourceUrl' => 'https://93.184.216.34', 'logo' => 'https://93.184.216.34/logo.png', 'images' => ['home' => 'https://93.184.216.34/home.png']];
+
+    $plan = ApplySiteSpecToSiteAction::run(applySpec($payload), $site->refresh());
+
+    expect($plan->packagePartsHeld)->toBeTrue()
+        ->and(applyPage($site, 'home')->media()->count())->toBe(0)
+        ->and($site->refresh()->media()->count())->toBe(0);
+});
+
+it('attaches public media once, however many times the page changes', function (): void {
+    Http::fake(['https://93.184.216.34/*' => Http::response(applyPng(), 200, ['Content-Type' => 'image/png'])]);
+    $payload = applySpecPayload(basePages(), 'public');
+    $payload['media'] = ['sourceUrl' => 'https://93.184.216.34', 'images' => ['home' => 'https://93.184.216.34/home.png']];
+    $site = BuildCapellSiteFromSpecAction::run(applySpec($payload));
+    $afterBuild = applyPage($site, 'home')->media()->count();
+
+    $payload['pages'][0]['sections'][0]['content'] = '<p>Reworded.</p>';
+    ApplySiteSpecToSiteAction::run(applySpec($payload), $site->refresh());
+    $payload['pages'][0]['sections'][0]['content'] = '<p>Reworded again.</p>';
+    ApplySiteSpecToSiteAction::run(applySpec($payload), $site->refresh());
+
+    expect($afterBuild)->toBe(1)
+        ->and(applyPage($site, 'home')->media()->count())->toBe(1);
+});
+
+it('plans with the same refusals as apply', function (): void {
+    $site = BuildCapellSiteFromSpecAction::run(applySpec(applySpecPayload(basePages())));
+    CreateDefaultLanguagesAction::run(['fr']);
+    $french = applySpecPayload(basePages());
+    $french['language'] = ['code' => 'fr', 'name' => 'French', 'locale' => 'fr_FR', 'flag' => 'fr', 'default' => false];
+    $unacknowledged = applySpecPayload(basePages(), 'public');
+    $unacknowledged['acknowledgePublic'] = false;
+
+    expect(fn (): mixed => PlanSiteSpecAction::run(applySpec($french), $site->refresh()))->toThrow(RuntimeException::class, 'does not have the language')
+        ->and(fn (): mixed => PlanSiteSpecAction::run(applySpec($unacknowledged)))->toThrow(RuntimeException::class, 'acknowledgement');
+});
+
+it('refuses to guess when two pages on the site share a slug', function (): void {
+    $site = BuildCapellSiteFromSpecAction::run(applySpec(applySpecPayload(basePages())));
+    $home = applyPage($site, 'home')->translations->first();
+    Translation::withoutEvents(fn () => $home?->update(['meta' => array_merge($home->meta ?? [], ['slug' => 'about'])]));
+
+    expect(fn (): mixed => PlanSiteSpecAction::run(applySpec(applySpecPayload(basePages())), $site->refresh()))
+        ->toThrow(RuntimeException::class, 'More than one page');
 });

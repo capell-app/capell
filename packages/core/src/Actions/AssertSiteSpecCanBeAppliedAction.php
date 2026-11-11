@@ -7,6 +7,8 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -20,10 +22,27 @@ final class AssertSiteSpecCanBeAppliedAction
     use AsFake;
     use AsObject;
 
-    public function handle(CapellSiteSpecData $spec): void
+    public function handle(CapellSiteSpecData $spec, ?Site $site = null): void
     {
+        throw_if($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic, RuntimeException::class, 'Public site specs require explicit acknowledgement.');
+
+        if ($site instanceof Site) {
+            $this->assertSiteHasTheSpecLanguage($spec, $site);
+        }
+
         $this->assertExtensionRequirementsAreInstalled($spec);
         $this->assertReferencesCanBeApplied($spec);
+    }
+
+    private function assertSiteHasTheSpecLanguage(CapellSiteSpecData $spec, Site $site): void
+    {
+        $language = Language::query()->where('code', $spec->language->code)->first();
+
+        throw_unless(
+            $language instanceof Language && $site->languages->contains('id', $language->getKey()),
+            RuntimeException::class,
+            sprintf('The site does not have the language [%s] this site spec is written in.', $spec->language->code),
+        );
     }
 
     private function assertExtensionRequirementsAreInstalled(CapellSiteSpecData $spec): void

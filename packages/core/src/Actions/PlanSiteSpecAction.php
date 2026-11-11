@@ -15,8 +15,10 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
+use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 
 /**
  * Works out what applying a SiteSpec would do to a site, and writes nothing.
@@ -31,11 +33,14 @@ final class PlanSiteSpecAction
 
     public function handle(CapellSiteSpecData $spec, ?Site $site = null): SiteSpecPlanData
     {
+        // The plan refuses what apply refuses, so a plan that succeeds can be applied.
+        AssertSiteSpecCanBeAppliedAction::run($spec, $site);
+
         $existing = $site instanceof Site ? $this->existingPagesBySlug($spec, $site) : [];
         $items = [];
 
         foreach ($spec->pages as $pageSpec) {
-            $match = $existing[ltrim($pageSpec->slug, '/')] ?? null;
+            $match = $existing[SiteSpecPageSlug::for($pageSpec)] ?? null;
             $items[] = $this->pageItem($pageSpec, $match['page'] ?? null, $match['translation'] ?? null, $spec->initialVisibility === 'private');
         }
 
@@ -45,7 +50,12 @@ final class PlanSiteSpecAction
             $items[] = $themeItem;
         }
 
-        return new SiteSpecPlanData($items, $this->applierKeys($spec));
+        $held = $spec->initialVisibility === 'private' && array_filter(
+            $items,
+            static fn (SiteSpecPlanItemData $item): bool => $item->note === SiteSpecPlanItemData::NOTE_LIVE_PAGE_HELD,
+        ) !== [];
+
+        return new SiteSpecPlanData($items, $this->applierKeys($spec), $held);
     }
 
     /**
@@ -68,6 +78,7 @@ final class PlanSiteSpecAction
             $slug = $translation instanceof Translation ? ($translation->meta['slug'] ?? null) : null;
 
             if ($translation instanceof Translation && is_string($slug) && $slug !== '') {
+                throw_if(isset($pages[$slug]), RuntimeException::class, sprintf('More than one page on this site uses the slug [%s], so the spec cannot tell which to update.', $slug));
                 $pages[$slug] = ['page' => $page, 'translation' => $translation];
             }
         }

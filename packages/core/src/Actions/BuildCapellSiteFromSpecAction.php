@@ -20,6 +20,7 @@ use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecHasher;
 use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Capell\Core\Support\SiteSpec\SiteSpecPageDataFactory;
+use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
@@ -189,7 +190,7 @@ final class BuildCapellSiteFromSpecAction
                     continue;
                 }
 
-                $slug = $pageSpec->meta['slug'] ?? ltrim($pageSpec->slug, '/');
+                $slug = SiteSpecPageSlug::for($pageSpec);
                 $pages = $site->pages()->whereHas('translations', fn (Builder $query): Builder => $query
                     ->where('language_id', $site->language_id)->where('meta->slug', $slug))->lockForUpdate()->get();
                 throw_unless($pages->count() === 1, RuntimeException::class, 'Cannot identify the original imported page: ' . $pageSpec->slug);

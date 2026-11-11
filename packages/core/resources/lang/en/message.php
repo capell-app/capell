@@ -35,6 +35,7 @@ return [
     'site_spec_options_conflict' => 'Use --plan and --site on their own, without the privacy audit and repair options.',
     'site_spec_plan_appliers' => 'These parts are applied by their own packages and are not previewed here: :appliers.',
     'site_spec_plan_note_live_page_held' => 'live page left alone: a private spec cannot change it',
+    'site_spec_plan_parts_held' => 'Package-owned parts and media are left out, because this private spec would otherwise change live pages. Publish the site or use a public, acknowledged spec to apply them.',
     'site_spec_plan_nothing' => 'Nothing to change: the site already matches this SiteSpec.',
     'site_spec_plan_summary' => 'Plan: :created to create, :updated to update, :skipped unchanged. Nothing was written.',
     'site_spec_site_not_found' => 'No site with the ID :id was found.',

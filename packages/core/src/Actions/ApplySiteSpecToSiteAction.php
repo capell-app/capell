@@ -16,12 +16,12 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
-use Capell\Core\Support\SiteSpec\PrivateSiteSpecSourceStore;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecHasher;
 use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
 use Capell\Core\Support\SiteSpec\SiteSpecPageDataFactory;
+use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -30,9 +30,10 @@ use RuntimeException;
 /**
  * Applies a SiteSpec to a site that already exists: pages are matched by slug and
  * created or updated, theme settings are merged, and package-owned parts run
- * their appliers again. Publication is never changed for a page that exists, so
- * applying a private spec cannot unpublish a live page. The spec's hash is
- * recorded on the site as the last spec applied.
+ * their appliers once per distinct spec. Publication is never changed for a page
+ * that exists, and a private spec leaves live pages, their media and package parts
+ * alone, so applying one cannot publish private copy. The spec's hash is recorded
+ * on the site as the last spec applied, beside the hash of the original import.
  */
 final class ApplySiteSpecToSiteAction
 {
@@ -41,23 +42,11 @@ final class ApplySiteSpecToSiteAction
 
     public function handle(CapellSiteSpecData $spec, Site $site): SiteSpecPlanData
     {
-        throw_if($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic, RuntimeException::class, 'Public site specs require explicit acknowledgement.');
-        AssertSiteSpecCanBeAppliedAction::run($spec);
+        // Planning runs the same checks as applying, before anything is written.
+        PlanSiteSpecAction::run($spec, $site);
 
-        $language = Language::query()->where('code', $spec->language->code)->first();
-
-        throw_unless(
-            $language instanceof Language && $site->languages->contains('id', $language->getKey()),
-            RuntimeException::class,
-            sprintf('The site does not have the language [%s] this site spec is written in.', $spec->language->code),
-        );
-
+        $language = Language::query()->where('code', $spec->language->code)->firstOrFail();
         $hash = SiteSpecHasher::hash($spec);
-
-        if ($spec->initialVisibility === 'private') {
-            resolve(PrivateSiteSpecSourceStore::class)->put($hash, $spec);
-        }
-
         $downloads = FetchSiteSpecMediaAction::run($spec->media);
 
         try {
@@ -90,22 +79,24 @@ final class ApplySiteSpecToSiteAction
 
         $creator = resolve(PageCreator::class);
         $pagesBySlug = [];
+        $writable = [];
 
         foreach ($spec->pages as $pageSpec) {
             $item = $actions['page:' . $pageSpec->slug];
-            $key = ltrim($pageSpec->slug, '/');
 
             if ($item->action === SiteSpecPlanAction::Create) {
                 $pagesBySlug[$pageSpec->slug] = $this->createPage($creator, $pageSpec, $spec, $site, $language);
+                $writable[] = $pageSpec->slug;
 
                 continue;
             }
 
-            $match = $existing[$key];
+            $match = $existing[SiteSpecPageSlug::for($pageSpec)];
             $pagesBySlug[$pageSpec->slug] = $match['page'];
 
             if ($item->action === SiteSpecPlanAction::Update) {
                 $this->updatePage($pageSpec, $match['page'], $match['translation'], $item);
+                $writable[] = $pageSpec->slug;
             }
         }
 
@@ -115,21 +106,53 @@ final class ApplySiteSpecToSiteAction
             MergeSiteSpecThemeSettingsAction::run($theme, $spec);
         }
 
-        $applied = [];
+        // Package-owned parts and media run once per distinct spec, and not at all
+        // while a private spec is being held back from live pages.
+        $runPackageParts = ! $plan->packagePartsHeld && ($site->meta['site_spec_applied_hash'] ?? null) !== $hash;
 
-        foreach ($plan->appliers as $key) {
-            if (! in_array($key, $applied, true)) {
+        if ($runPackageParts) {
+            foreach ($plan->appliers as $key) {
                 resolve(SiteSpecApplierRegistry::class)->apply($key, $spec, $site, $pagesBySlug);
-                $applied[] = $key;
             }
         }
 
-        AttachSiteSpecMediaAction::run($site, $pagesBySlug, $downloads);
-
-        $site->forceFill(['meta' => array_merge($site->meta ?? [], ['site_spec_hash' => $hash])])->save();
+        // The original import hash stays as it was: it is how the import is found again and repaired.
+        $site->forceFill(['meta' => array_merge($site->meta ?? [], ['site_spec_applied_hash' => $hash])])->save();
         RecordImportedPageVersionsAction::run($site);
 
+        // Last, so a failure above leaves no stored files behind to be orphaned by the rollback.
+        if ($runPackageParts) {
+            AttachSiteSpecMediaAction::run($site, $pagesBySlug, $this->downloadsToAttach($spec, $site, $pagesBySlug, $writable, $downloads));
+        }
+
         return $plan;
+    }
+
+    /**
+     * Only media that is not already attached, and, for a private spec, only media for
+     * pages the spec just created or updated as drafts: its images must not reach a
+     * live page, and its site logo must not reach a live site.
+     *
+     * @param  array<string, Page>  $pagesBySlug
+     * @param  list<string>  $writable
+     * @param  list<SiteSpecMediaDownload>  $downloads
+     * @return list<SiteSpecMediaDownload>
+     */
+    private function downloadsToAttach(CapellSiteSpecData $spec, Site $site, array $pagesBySlug, array $writable, array $downloads): array
+    {
+        $private = $spec->initialVisibility === 'private';
+
+        return array_values(array_filter($downloads, function (SiteSpecMediaDownload $download) use ($private, $site, $pagesBySlug, $writable): bool {
+            if ($private && ($download->pageSlug === null || ! in_array($download->pageSlug, $writable, true))) {
+                return false;
+            }
+
+            $owner = $download->pageSlug === null ? $site : ($pagesBySlug[$download->pageSlug] ?? null);
+
+            return $owner !== null && $owner->media()->get()->doesntContain(
+                static fn ($media): bool => $media->getCustomProperty('capell.site_spec.source_hash') === $download->sourceHash,
+            );
+        }));
     }
 
     private function createPage(PageCreator $creator, CapellSiteSpecPageData $pageSpec, CapellSiteSpecData $spec, Site $site, Language $language): Page
