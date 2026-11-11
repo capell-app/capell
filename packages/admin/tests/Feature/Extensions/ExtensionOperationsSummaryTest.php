@@ -39,6 +39,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Route;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\Process\Process;
 
@@ -512,7 +513,22 @@ it('alerts when composer exposes a different extension version than the capell r
         ->and($alert?->message)->toContain('different from the version Capell last recorded');
 
     $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
-    expect($html)->toContain('different from the version Capell last recorded', 'Ask a developer')->not->toContain('Check its licence and activation in Marketplace');
+    expect($html)->toContain('Version Drift needs attention', 'different from the version Capell last recorded', 'Ask your developer to repair this extension')
+        ->not->toContain('Check its licence and activation in Marketplace');
+
+    // The command and Composer package name are for developers, so they sit behind the disclosure only.
+    $plain = preg_replace('#<details\b.*?</details>#s', '', $html);
+    $disclosure = preg_match('#<details\b.*?</details>#s', $html, $matches) === 1 ? $matches[0] : '';
+    expect($plain)->not->toContain('artisan')
+        ->and($plain)->not->toContain('needs attention: vendor/version-drift')
+        ->and($disclosure)->toContain(__('capell-admin::dashboard.extension_developer_detail'), 'php artisan capell:extensions:repair-composer-drift vendor/version-drift');
+
+    test()->actingAsAdmin();
+    $widget = Livewire::test(ExtensionHealthFilamentWidget::class)->html();
+    $widgetPlain = preg_replace('#<details\b.*?</details>#s', '', $widget);
+
+    expect($widget)->toContain('Ask your developer to repair this extension', __('capell-admin::dashboard.extension_developer_detail'), 'repair-composer-drift vendor/version-drift')
+        ->and($widgetPlain)->not->toContain('artisan');
 });
 
 it('records successful composer drift repair metadata and clears extension caches', function (): void {

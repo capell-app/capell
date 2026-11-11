@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Feature\Dashboard;
 
+use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -39,6 +40,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\RecordedVisitsAnalyticsDataProvider;
 use Capell\Admin\Tests\Feature\Filament\Widgets\Fixtures\UngatedFixtureFilamentWidget;
 use Capell\Core\Models\Site;
 use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
@@ -49,9 +51,11 @@ use Filament\Actions\ActionGroup;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Livewire as LivewireTester;
 use LogicException;
 use ReflectionMethod;
 use ReflectionProperty;
@@ -111,16 +115,23 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
     ]);
 });
 
-it('keeps account and filament info widgets on the installed dashboard', function (): void {
+it('keeps the account and framework cards off the installed dashboard', function (): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
 
     $widgets = (new CapellDashboard)->getWidgets();
 
     expect($widgets)
-        ->toContain(CapellInfoFilamentWidget::class)
-        ->toContain(CapellAccountFilamentWidget::class)
+        ->not->toContain(CapellInfoFilamentWidget::class)
+        ->not->toContain(CapellAccountFilamentWidget::class)
         ->toContain(ListPagesFilamentWidget::class);
+
+    $html = LivewireTester::test(CapellDashboard::class)->assertOk()->html();
+    $factory = resolve('livewire.factory');
+
+    expect($html)->toContain(trim(e(json_encode(['name' => $factory->resolveComponentName(ListPagesFilamentWidget::class)], JSON_THROW_ON_ERROR)), '{}'))
+        ->and($html)->not->toContain(trim(e(json_encode(['name' => $factory->resolveComponentName(CapellInfoFilamentWidget::class)], JSON_THROW_ON_ERROR)), '{}'))
+        ->and($html)->not->toContain(trim(e(json_encode(['name' => $factory->resolveComponentName(CapellAccountFilamentWidget::class)], JSON_THROW_ON_ERROR)), '{}'));
 });
 
 it('keeps auth and filament widgets above dashboard Filament widgets ordered by admin settings', function (): void {
@@ -271,6 +282,7 @@ it('uses a responsive dashboard layout for content-heavy widgets', function (): 
 it('composes performance summaries and additional dashboard panels', function (): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
     $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
     expect($components)->toHaveCount(3)->and($components[0])->toBeInstanceOf(Section::class);
@@ -289,6 +301,35 @@ it('composes performance summaries and additional dashboard panels', function ()
         ->not->toContain(AnalyticsOverviewFilamentWidget::class)->not->toContain(AnalyticsTrendFilamentWidget::class)->not->toContain(AnalyticsInsightsFilamentWidget::class);
     expect((new DashboardToolsPage)->getWidgets())->toContain(ListPagesFilamentWidget::class)
         ->not->toContain(CapellAccountFilamentWidget::class)->not->toContain(CapellInfoFilamentWidget::class);
+});
+
+it('shows one plain sentence instead of empty visit panels until visits are recorded', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+
+    $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
+    $components = $components instanceof Schema ? $components->getComponents() : $components;
+
+    $performance = $components[0];
+    throw_unless($performance instanceof Section, LogicException::class);
+    $children = $performance->getDefaultChildComponents();
+    $children = $children instanceof Schema ? $children->getComponents() : $children;
+
+    $sentence = $children[0] ?? null;
+    throw_unless($sentence instanceof Text, LogicException::class);
+    $activity = $components[1] ?? null;
+    $additional = $components[2] ?? null;
+    throw_unless(($activity instanceof Grid || $activity instanceof Section) && ($additional instanceof Grid || $additional instanceof Section), LogicException::class);
+
+    expect($performance->getHeading())->toBe(__('capell-admin::dashboard.performance_heading'))
+        ->and($children)->toHaveCount(1)
+        ->and($sentence->getContent())->toBe(__('capell-admin::dashboard.analytics_no_visits_yet'))
+        ->and($components)->toHaveCount(3);
+
+    $rendered = [...defaultDashboardRegionWidgets($activity), ...defaultDashboardRegionWidgets($additional)];
+    foreach ([AnalyticsOverviewFilamentWidget::class, AnalyticsTrendFilamentWidget::class, AnalyticsInsightsFilamentWidget::class] as $analyticsWidget) {
+        expect($rendered)->not->toContain($analyticsWidget);
+    }
 });
 
 it('retains enabled marketing contributions in the specialist tools view', function (bool $enabled): void {
@@ -430,7 +471,7 @@ it('stops mounted analytics reads when their class switch is disabled', function
         RisingPagesWidget::class => new RisingPagesWidget,
         default => throw new LogicException('Unsupported analytics widget fixture.'),
     };
-    $component = \Livewire\Livewire::test($widgetClass);
+    $component = LivewireTester::test($widgetClass);
     expect($widgetClass::canView())->toBeTrue();
 
     config()->set('capell-admin.dashboard.work_first.widgets', [$widgetClass => false]);

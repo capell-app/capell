@@ -76,6 +76,7 @@ use Capell\Admin\Filament\Components\Forms\SpatieMediaLibraryFileUpload as Admin
 use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
+use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionsTable;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Filament\Pages\Reports\AccessibilityReadinessReport;
@@ -207,6 +208,7 @@ use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Support\Icons\FlagIconRenderer;
 use Capell\Admin\Support\ImportEntryRegistry;
+use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
 use Capell\Admin\Support\Install\FilamentAdminPanelUrlResolver;
 use Capell\Admin\Support\InstalledPanelRuntime;
@@ -1255,6 +1257,19 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Insights, AnalyticsInsightsFilamentWidget::class, DashboardEnum::Main);
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Activity, AnalyticsRecentActivityFilamentWidget::class, DashboardEnum::Main);
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Activity, RecentActivityFilamentWidget::class, DashboardEnum::Main);
+
+        // Where a person finds the getting-started list again after hiding it.
+        CapellAdmin::registerUserMenuItem(
+            key: 'first-run-checklist',
+            label: static fn (): string => (string) __('capell-admin::dashboard.first_run_help_menu_item'),
+            icon: Heroicon::OutlinedQuestionMarkCircle,
+            url: static fn (): string => CapellDashboard::getUrl([CapellDashboard::SHOW_FIRST_RUN_CHECKLIST_QUERY => '1']),
+            visible: static fn (): bool => resolve(AdminInstallState::class)->installed()
+                && FirstRunChecklistFilamentWidget::isFirstRun()
+                && ! FirstRunChecklistFilamentWidget::canView(),
+            sort: 900,
+            group: 'help',
+        );
 
         return $this;
     }

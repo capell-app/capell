@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\FirstRunStateData;
+use Capell\Admin\Data\Dashboard\FirstRunTaskContextData;
 use Capell\Admin\Data\Dashboard\FirstRunTaskData;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
+use Capell\Admin\Support\Dashboard\FirstRunTaskRegistry;
+use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
@@ -17,12 +20,16 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Settings\FirstRunSettings;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Spatie\LaravelSettings\Exceptions\MissingSettings;
 
 /**
  * Works out which first-run tasks this install has completed, from the data it
@@ -31,14 +38,26 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * The install is in its first-run state until the home page of a site the actor
  * can access is public. Anything else (no site or home page yet, or a live
  * site) is not first-run, so established installs never see the checklist.
+ * Once the site has been published the recorded milestone keeps it out of
+ * first-run, even if the home page is unpublished again later.
+ *
+ * Packages add tasks through FirstRunTaskContributor; they sit before the
+ * publish task, which always comes last.
  */
 final class ResolveFirstRunStateAction
 {
     use AsFake;
     use AsObject;
 
+    /** @var list<string> */
+    private const array BUILT_IN_KEYS = ['site', 'homepage', 'logo', 'address'];
+
     public function handle(Authenticatable $actor): FirstRunStateData
     {
+        if ($this->sitePublishedBefore()) {
+            return FirstRunStateData::notFirstRun();
+        }
+
         $access = SiteAccess::forActor($actor);
         $homes = $access->query(Page::class)->homePage()->orderBy('id')->get();
 
@@ -59,7 +78,7 @@ final class ResolveFirstRunStateAction
             ? GetEditPageResourceUrlAction::run($home)
             : null;
 
-        return new FirstRunStateData(true, [
+        $builtIn = [
             $this->task('site', true, $siteUrl),
             $this->task('homepage', $this->editedByPerson($access, $home), $homeUrl),
             $this->task('logo', $access->query(Media::class)
@@ -68,8 +87,26 @@ final class ResolveFirstRunStateAction
                 ->where('collection_name', MediaCollectionEnum::Logo->value)
                 ->exists(), $siteUrl),
             $this->task('address', $this->hasPublicAddress($access, $siteId), $siteUrl),
-            $this->task('publish', false, $homeUrl),
-        ]);
+        ];
+        $contributed = resolve(FirstRunTaskRegistry::class)->contributedTasks(
+            new FirstRunTaskContextData($actor, $siteId, (int) $home->getKey()),
+            [...self::BUILT_IN_KEYS, 'publish'],
+        );
+
+        return new FirstRunStateData(
+            true,
+            [...$builtIn, ...$contributed, $this->task('publish', false, $homeUrl)],
+            $actor instanceof Model && resolve(AdminWorkspacePreferenceStore::class)->firstRunChecklistHidden($actor),
+        );
+    }
+
+    private function sitePublishedBefore(): bool
+    {
+        try {
+            return resolve(FirstRunSettings::class)->published_at instanceof CarbonImmutable;
+        } catch (MissingSettings) {
+            return false;
+        }
     }
 
     private function task(string $key, bool $complete, ?string $url): FirstRunTaskData

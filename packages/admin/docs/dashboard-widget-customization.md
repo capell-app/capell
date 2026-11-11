@@ -22,17 +22,47 @@ Prefer overview stats for small package counters. Use a standalone dashboard Fil
 
 ## Dashboard Composition
 
-The main dashboard keeps the native account and Filament information widgets at
-its top, followed by filters, a brief Needs attention summary and site performance.
-`Pulse` metrics precede the `Trends` and `Insights` panels, which sit side by side on
-desktop and stack on mobile. Content `Activity` follows the performance section.
+Until the site is public, the main dashboard holds only work: the **Get your site
+ready** checklist, recently updated pages and **Needs attention**. Filters,
+performance and package panels wait until there can be something to show. The site
+counts as public once a home page is published; Core records that moment in
+`FirstRunSettings::$published_at`, so unpublishing the home page later does not bring
+the first-run layout back.
+
+After that, the dashboard shows filters, a brief Needs attention summary and site
+performance. `Pulse` metrics precede the `Trends` and `Insights` panels, which sit
+side by side on desktop and stack on mobile. Visit panels appear only once the
+analytics source has counted a view or search; until then the performance section
+shows one sentence saying when visits will appear. Content `Activity` follows the
+performance section. The Filament account and information cards are not shown on
+the dashboard; signing out stays in the account menu.
 
 Register a compact overview panel with
 `CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, YourWidget::class, DashboardEnum::Main)`.
 Widgets without an explicit overview region remain available in **Reports →
-Dashboard tools**, rather than expanding the home page. Native welcome widgets
-remain in the top row even if registered into another region. **Explore analytics**
+Dashboard tools**, rather than expanding the home page. **Explore analytics**
 opens the specialist analytics dashboard with the current filter context.
+
+### Add a getting-started task
+
+Packages add tasks to the first-run checklist by implementing
+`Capell\Admin\Contracts\Dashboard\FirstRunTaskContributor` (experimental) and
+tagging the class:
+
+```php
+$this->app->tag([ContactFormFirstRunTask::class], FirstRunTaskContributor::TAG);
+```
+
+`tasks(FirstRunTaskContextData $context)` receives the actor, the site and its home
+page, and returns `FirstRunTaskData` items. Work out `complete` from data the install
+already holds so the task ticks itself, and pass a `url` only when the actor may open
+it. Contributed tasks appear after the built-in tasks and before **Publish your
+site**. A key that is already in use is skipped, and a contributor that throws is
+reported and left out, so the checklist always renders.
+
+Each person can hide the checklist for themselves. While it is hidden and the site
+is not yet public, the account menu offers **Help: Get your site ready** to bring it
+back.
 
 Needs attention checks up to three pages missing basic publishing requirements in
 the actor's accessible site scope. Its clear state is not a full health or readiness
@@ -86,8 +116,9 @@ The Admin service provider and Filament plugin register the default dashboard Fi
 
 | Widget                            | Default state | Purpose                                                         |
 | --------------------------------- | ------------- | --------------------------------------------------------------- |
-| `CapellAccountFilamentWidget`     | Enabled       | Filament account welcome card.                                  |
-| `CapellInfoFilamentWidget`        | Enabled       | Filament version and documentation links.                       |
+| `FirstRunChecklistFilamentWidget` | Enabled       | Getting-started checklist while the site is not yet public.     |
+| `CapellAccountFilamentWidget`     | Not shown     | Filament account card; kept registered, not placed.             |
+| `CapellInfoFilamentWidget`        | Not shown     | Filament version card; kept registered, not placed.             |
 | `ListPagesFilamentWidget`         | Enabled       | Recently updated pages filtered by dashboard date range.        |
 | `RecentActivityFilamentWidget`    | Enabled       | Recent admin activity when activity exists for the site.        |
 | `UpdateAdvisoryFilamentWidget`    | Enabled       | Package/update advisory panel.                                  |

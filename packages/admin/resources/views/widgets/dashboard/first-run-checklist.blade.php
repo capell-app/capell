@@ -32,10 +32,31 @@
                 </li>
             @endforeach
         </ol>
-        @if ($next !== null)
-            <p class="mt-4 text-sm text-gray-600 dark:text-gray-400">
-                {{ __('capell-admin::dashboard.first_run_next', ['task' => $next->title]) }}
-            </p>
-        @endif
+        <div
+            class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+            @if ($next !== null)
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ __('capell-admin::dashboard.first_run_next', ['task' => $next->title]) }}
+                </p>
+            @endif
+            <div class="flex items-center gap-3">
+                <p
+                    id="first-run-hide-help"
+                    class="text-xs text-gray-500 dark:text-gray-400"
+                >
+                    {{ __('capell-admin::dashboard.first_run_hide_help') }}
+                </p>
+                <x-filament::button
+                    color="gray"
+                    size="sm"
+                    wire:click="hide"
+                    aria-describedby="first-run-hide-help"
+                    data-first-run-hide
+                >
+                    {{ __('capell-admin::dashboard.first_run_hide') }}
+                </x-filament::button>
+            </div>
+        </div>
     </x-filament::section>
 </x-filament-widgets::widget>

@@ -14,11 +14,18 @@ final class FirstRunStateData extends Data
     public function __construct(
         public readonly bool $isFirstRun,
         public readonly array $tasks,
+        public readonly bool $hiddenByActor = false,
     ) {}
 
     public static function notFirstRun(): self
     {
         return new self(false, []);
+    }
+
+    /** The checklist shows during first run unless this person chose to hide it. */
+    public function showsChecklist(): bool
+    {
+        return $this->isFirstRun && ! $this->hiddenByActor;
     }
 
     public function completedCount(): int

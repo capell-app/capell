@@ -6,6 +6,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Settings\FirstRunSettings;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Config\Repository;
@@ -42,6 +43,7 @@ it('loads Spatie defaults and aggregates Capell settings when configuration is u
             'App\\Settings\\ExistingSettings',
             CoreSettings::class,
             ThemeStudioSettings::class,
+            FirstRunSettings::class,
             'Vendor\\Settings\\FirstSettings',
             'Vendor\\Settings\\SecondSettings',
         ]);
@@ -80,6 +82,7 @@ it('preserves cached Spatie config while aggregating Capell settings', function 
             'App\\Settings\\CachedSettings',
             CoreSettings::class,
             ThemeStudioSettings::class,
+            FirstRunSettings::class,
             'Vendor\\Settings\\FirstSettings',
             'Vendor\\Settings\\SecondSettings',
         ]);

@@ -75,32 +75,41 @@ it('retains additional contributions in the overview and specialist tools view',
         ->and(compositionChild($grid, 0, Livewire::class)->getComponent())->toBe(VisibleCompositionWidget::class);
 });
 
-it('places the native welcome widgets before filters and overview content', function (): void {
+it('leaves the account and framework cards off the dashboard even when they are configured', function (bool $withFrameworkCard): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
     $dashboard = new CompositionDashboard;
-    $dashboard->widgets = [CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class];
-
-    $components = $dashboard->content(Schema::make($dashboard))->getComponents();
-    $welcome = $components[0];
-    throw_unless($welcome instanceof Grid, LogicException::class);
-    expect(compositionChild($welcome, 0, Livewire::class)->getComponent())->toBe(CapellAccountFilamentWidget::class)
-        ->and(compositionChild($welcome, 1, Livewire::class)->getComponent())->toBe(CapellInfoFilamentWidget::class);
-});
-
-it('lets a single visible native welcome widget fill its row', function (): void {
-    test()->actingAsAdmin();
-    Site::factory()->createOne();
-    $dashboard = new CompositionDashboard;
-    $dashboard->widgets = [CapellAccountFilamentWidget::class];
+    $dashboard->widgets = $withFrameworkCard
+        ? [CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class]
+        : [CapellAccountFilamentWidget::class];
     CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, CapellAccountFilamentWidget::class, DashboardEnum::Main);
 
-    $components = $dashboard->content(Schema::make($dashboard))->getComponents();
-    $welcome = $components[0];
-    throw_unless($welcome instanceof Grid, LogicException::class);
-    expect($welcome->getColumns())->toMatchArray(['default' => 1, 'lg' => 1])
+    $rendered = [];
+    $walk = function (mixed $node) use (&$walk, &$rendered): void {
+        if ($node instanceof Livewire) {
+            $rendered[] = $node->getComponent();
+
+            return;
+        }
+
+        if ($node instanceof Component) {
+            $children = $node->getDefaultChildComponents();
+            foreach ($children instanceof Schema ? $children->getComponents() : $children as $child) {
+                $walk($child);
+            }
+        }
+    };
+    foreach ($dashboard->content(Schema::make($dashboard))->getComponents() as $component) {
+        $walk($component);
+    }
+
+    expect($rendered)->not->toContain(CapellAccountFilamentWidget::class)
+        ->and($rendered)->not->toContain(CapellInfoFilamentWidget::class)
         ->and(compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class)->getHeading())->toBe(__('capell-admin::dashboard.empty_heading'));
-});
+})->with([
+    'both cards' => true,
+    'account card only' => false,
+]);
 
 it('keeps configured lead panels distinct within the two column overview', function (): void {
     $dashboard = new CompositionDashboard;

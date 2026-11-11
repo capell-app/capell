@@ -92,6 +92,7 @@ use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
+use Capell\Core\Events\PublicationTransitioned;
 use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
@@ -102,6 +103,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
+use Capell\Core\Listeners\RecordSitePublishedOnHomePagePublication;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
@@ -458,6 +460,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AuthorizesPublicationTransition::class,
             GatePublicationTransitionAuthorizer::class,
         );
+
+        Event::listen(PublicationTransitioned::class, RecordSitePublishedOnHomePagePublication::class);
 
         return $this;
     }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
+use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -10,6 +11,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\CompositionDashboard;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\RecordedVisitsAnalyticsDataProvider;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
@@ -151,6 +153,7 @@ it('is not first-run when there is no site or homepage yet', function (): void {
 it('hides analytics panels on the dashboard during first run and restores them once public', function (): void {
     $this->actingAsAdmin();
     [, $home] = firstRunSite();
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
     CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, AnalyticsTrendFilamentWidget::class, DashboardEnum::NotInstalled);
     $dashboard = new CompositionDashboard;
     $dashboard->widgets = [AnalyticsTrendFilamentWidget::class];

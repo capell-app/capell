@@ -24,10 +24,14 @@ final class RecentlyUpdatedWidget extends Widget implements CapellFilamentWidget
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-recently-updated';
 
+    /** Renders with the page so the dashboard never shows an empty placeholder card while it loads. */
+    protected static bool $isLazy = false;
+
     #[Override]
     public static function canView(): bool
     {
-        return self::widgetEnabled('recently_updated');
+        // The standard dashboard places this during first run, so it is not limited to the work-first layout.
+        return self::widgetEnabled('recently_updated', requiresWorkFirst: false);
     }
 
     #[Computed]

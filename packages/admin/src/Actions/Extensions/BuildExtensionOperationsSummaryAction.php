@@ -791,8 +791,9 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         $lastRepairAttempt = ComposerDriftMetadata::lastRepairAttempt($extension);
+        $displayName = is_string($extension->name) && trim($extension->name) !== '' ? trim($extension->name) : $packageName;
         $message = (string) __('capell-admin::dashboard.extension_composer_drift_message', [
-            'package' => $packageName,
+            'package' => $displayName,
             'reason' => (string) __('capell-admin::dashboard.extension_composer_drift_reason_' . $reason),
         ]);
 
@@ -810,6 +811,7 @@ final class BuildExtensionOperationsSummaryAction
             requiredAction: (string) __('capell-admin::dashboard.extension_composer_drift_required_action'),
             runtimeDisabled: true,
             protectedActionsBlocked: true,
+            developerDetail: (string) __('capell-admin::dashboard.extension_composer_drift_developer_detail', ['package' => $packageName]),
         );
     }
 
