@@ -8,10 +8,12 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Data\CacheInvalidationRule;
+use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageCacheInvalidator;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @return array{Site, Language, Language}
@@ -181,4 +183,96 @@ it('refreshes a cached fallback system page when the language fallback chain cha
     $french->update(['fallback_language_id' => null]);
 
     expect(PageLoader::getSystemPage($site, $french->refresh(), PageTypeEnum::NotFound->value))->toBeNull();
+});
+
+it('forgets the cached system page in every language when the system page is deleted', function (): void {
+    [$site, $english, $french] = fallbackCacheSite();
+    $blueprint = Blueprint::factory()->page()->createOne(['key' => PageTypeEnum::NotFound->value]);
+    $page = Page::factory()->site($site)->type($blueprint)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations($english, ['title' => 'Not found'], slug: 'not-found')
+        ->createOne();
+
+    expect(PageLoader::getSystemPage($site, $english, PageTypeEnum::NotFound->value))->not->toBeNull()
+        ->and(PageLoader::getSystemPage($site, $french, PageTypeEnum::NotFound->value))->not->toBeNull();
+
+    $page->delete();
+
+    expect(PageLoader::getSystemPage($site, $english, PageTypeEnum::NotFound->value))->toBeNull()
+        ->and(PageLoader::getSystemPage($site, $french, PageTypeEnum::NotFound->value))->toBeNull();
+});
+
+it('stops serving a deleted translation from the system page and page model caches', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $site->load('siteDomains');
+
+    $blueprint = Blueprint::factory()->page()->createOne(['key' => PageTypeEnum::NotFound->value]);
+    $page = Page::factory()->site($site)->type($blueprint)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations([$english, $french], slug: 'not-found')
+        ->createOne();
+    $page->translations()->where('language_id', $french->getKey())->update(['title' => 'Page introuvable']);
+    $models = resolve(PageModelCache::class);
+
+    expect(PageLoader::getSystemPage($site, $french, PageTypeEnum::NotFound->value)?->translation?->title)->toBe('Page introuvable')
+        ->and($models->get(Page::class, $page->id, $site, $french)?->translation?->title)->toBe('Page introuvable');
+
+    $page->translations()->where('language_id', $french->getKey())->sole()->delete();
+
+    expect(PageLoader::getSystemPage($site, $french, PageTypeEnum::NotFound->value))->toBeNull()
+        ->and($models->get(Page::class, $page->id, $site, $french)?->translation?->title)->not->toBe('Page introuvable');
+});
+
+it('refreshes the cached home page when the home page is created, edited or deleted', function (): void {
+    [$site, $english, $french] = fallbackCacheSite();
+    $home = Blueprint::factory()->page()->createOne(['key' => 'home']);
+
+    expect(PageLoader::getSiteHomePage($site, $english))->toBeNull();
+
+    $page = Page::factory()->site($site)->type($home)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations([$english, $french], slug: 'home')
+        ->createOne();
+
+    expect(PageLoader::getSiteHomePage($site, $english)?->is($page))->toBeTrue()
+        ->and(PageLoader::getSiteHomePage($site, $french)?->is($page))->toBeTrue();
+
+    $page->update(['visible_from' => CarbonImmutable::now()->addWeek(), 'visible_until' => null]);
+
+    expect(PageLoader::getSiteHomePage($site, $english))->toBeNull()
+        ->and(PageLoader::getSiteHomePage($site, $french))->toBeNull();
+
+    $page->update(['visible_from' => CarbonImmutable::now()->subDay()]);
+
+    expect(PageLoader::getSiteHomePage($site, $french)?->is($page))->toBeTrue();
+
+    $page->delete();
+
+    expect(PageLoader::getSiteHomePage($site, $english))->toBeNull()
+        ->and(PageLoader::getSiteHomePage($site, $french))->toBeNull();
+});
+
+it('plans a page change from its loaded blueprint without querying blueprints', function (): void {
+    [$site, $english] = fallbackCacheSite();
+    $blueprint = Blueprint::factory()->page()->createOne(['key' => PageTypeEnum::NotFound->value]);
+    $created = Page::factory()->site($site)->type($blueprint)->published(CarbonImmutable::now()->subDay())
+        ->withTranslations($english, ['title' => 'Not found'], slug: 'not-found')
+        ->createOne();
+    $page = Page::query()->with(['blueprint', 'translations'])->whereKey($created->getKey())->firstOrFail();
+    resolve(PageCacheInvalidator::class)->planForPage($page);
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $rules = resolve(PageCacheInvalidator::class)->planForPage($page)->rules;
+        $queries = collect(DB::getQueryLog())->pluck('query')->filter(static fn (string $query): bool => str_contains($query, 'blueprints'))->all();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    $keys = collect($rules)->map(fn (CacheInvalidationRule $rule): ?string => $rule->cacheKey)->filter()->all();
+
+    expect($queries)->toBe([])
+        ->and($keys)->toContain(CacheEnum::systemPage(PageTypeEnum::NotFound->value, $site->id, $english->getKey()));
 });

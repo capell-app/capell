@@ -142,6 +142,17 @@ final class CacheInvalidationRegistry
         ]));
     }
 
+    /** @return list<int> */
+    private function translationLanguageIds(Translation $translation): array
+    {
+        $previous = $translation->wasChanged('language_id') ? ($translation->getPrevious()['language_id'] ?? null) : null;
+
+        return array_values(array_unique(array_map(intval(...), array_filter(
+            [$translation->getAttribute('language_id'), $previous, $translation->getOriginal('language_id')],
+            static fn (mixed $id): bool => $id !== null,
+        ))));
+    }
+
     private function isSiteLogoMedia(Media $media): bool
     {
         return $media->model_type === resolve(Site::class)->getMorphClass()
@@ -158,8 +169,12 @@ final class CacheInvalidationRegistry
         if ($roots !== []) {
             $rules = [];
 
+            // The changed row may no longer be among its owner's translations (deleted, or
+            // moved to another language), so its languages reach the owner's plan directly.
+            $changedLanguageIds = $this->translationLanguageIds($translation);
+
             foreach ($roots as $root) {
-                $rules = [...$rules, ...$this->rulesForRoot($root)];
+                $rules = [...$rules, ...$this->rulesForRoot($root, $changedLanguageIds)];
             }
 
             return new CacheInvalidationPlanData($this->uniqueRules($rules));
@@ -177,11 +192,14 @@ final class CacheInvalidationRegistry
         ]));
     }
 
-    /** @return list<CacheInvalidationRule> */
-    private function rulesForRoot(Model $root): array
+    /**
+     * @param  list<int>  $changedLanguageIds
+     * @return list<CacheInvalidationRule>
+     */
+    private function rulesForRoot(Model $root, array $changedLanguageIds = []): array
     {
         if ($root instanceof Pageable) {
-            return $this->pageRulesWithDependents($root);
+            return $this->pageRulesWithDependents($root, $changedLanguageIds);
         }
 
         if ($root instanceof Site) {
@@ -205,11 +223,12 @@ final class CacheInvalidationRegistry
     }
 
     /**
+     * @param  list<int>  $changedLanguageIds
      * @return list<CacheInvalidationRule>
      */
-    private function pageRulesWithDependents(Model&Pageable $page): array
+    private function pageRulesWithDependents(Model&Pageable $page, array $changedLanguageIds = []): array
     {
-        $ownRules = resolve(PageCacheInvalidator::class)->planForPage($page)->rules;
+        $ownRules = resolve(PageCacheInvalidator::class)->planForPage($page, $changedLanguageIds)->rules;
         $dependentRules = $this->dependentPages($page::class, (int) $page->getKey())
             ->reject(fn (Page $dependentPage): bool => $dependentPage::class === $page::class
                 && (int) $dependentPage->getKey() === (int) $page->getKey())
