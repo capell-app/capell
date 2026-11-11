@@ -53,6 +53,90 @@ different site can never enter the result. Localised values select the requested
 translation and fall back only according to the Core value rules. A draft or
 unpublished page is never projected by the public query.
 
+## Property rules
+
+A definition can carry declarative rules in `property_definitions.constraints`,
+stored as versioned JSON (`{"version": 1, ...}`):
+
+| Rule                                                 | Applies to                              | Meaning                                                                    |
+| ---------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `min`, `max`                                         | money, number, dimension, duration      | Inclusive numeric range.                                                   |
+| `min_length`, `max_length`                           | text, URL                               | Length in characters.                                                      |
+| `pattern`                                            | text, URL                               | Format the whole value must match, written without delimiters or anchors.  |
+| `unique_per_site`                                    | number-like, text, URL, entry reference | No other page on the site may hold the same value.                         |
+| `allowed_blueprints`                                 | entry reference                         | Page type (blueprint) keys the reference may point at.                     |
+| `allowed_taxonomies`                                 | term reference                          | Taxonomy keys the term must belong to.                                     |
+| `allowed_mime_types`                                 | media                                   | File types such as `image/png`, or `image/*`.                              |
+| `min_width`, `max_width`, `min_height`, `max_height` | media                                   | Image size in pixels; images of unknown size are refused while one is set. |
+
+`BuildPropertyValidationRulesAction` turns these into one rule set, and
+`PropertyValueValidator::assertConstraints()` applies it on every write path:
+`SetPagePropertyValuesAction` (and so SiteSpec imports and confirmed agent
+writes), the `admin.page.properties.write` preview, the admin page editor for
+promoted fields, and any page save that changes a promoted field, checked
+before the row is written. A rejected value raises a `ValidationException` with
+the same editor-readable message on each path.
+
+A value a write changes is always checked: every promoted field on a new page,
+a promoted field whose value changes, and every property value written with a
+new value. Moving a page to another blueprint or site checks every promoted
+field against the rules that will then apply, in production too, because the
+value is new to those rules. A promoted value counts as unchanged when it is
+the same once stored as the property's type (`5.0` over a saved `5`), and the
+page editor and page saves share that one definition
+(`PromotedFieldChanges`). Checks run
+before anything is written, so a refused save never leaves a page half-saved.
+
+A value the write leaves as it was may predate a rule. What happens then depends
+on the environment (`PropertyValueValidator::enforcesUntouchedValues()`, true
+unless `app()->isProduction()`):
+
+- Outside production (local, testing, staging) it is enforced like a changed
+  value, so developers find over-limit data as soon as a rule is added.
+- In production it is reported and the save goes through, so a rule added later
+  never blocks an unrelated edit. The page editor shows a warning naming the
+  field and the broken rule, and the save logs one warning per breach with
+  identifiers only, never the value; the promoted property keeps its last
+  value that met the rules. The same rule covers an agent preview of
+  an unchanged value, a value repeated at a stored entry the write leaves in
+  place, and values a revision rollback restores (a refusal rolls the whole
+  restore back). The promoted property is not re-synced until someone
+  corrects the field.
+
+These checks run in the page observer, so a save that skips model events
+(`saveQuietly()`, `withoutEvents()`, raw queries) skips them too.
+
+Page saves only look further when the blueprint has a promoted field whose
+property carries rules, and a property write only looks up the stored value for
+a definition with rules.
+
+Uniqueness is checked against live pages on the same site, and a value
+repeated across one page's entries is refused, whether both entries are in the
+same write or one is already stored at a position the write leaves in place. A page in the
+bin does not hold its values, so restoring it is refused while another page now
+uses one of them. Switching `unique_per_site` on is refused while pages on one
+site already share a value. The check runs before the write without a database
+unique index, so two simultaneous saves of the same value can both succeed;
+treat uniqueness as an editorial guard, not a key.
+
+Format patterns run with a capped backtracking budget. A pattern that cannot
+finish within it on short probe strings, such as `(a+)+`, is refused when it is
+saved, and a stored pattern that runs out of budget fails the check rather than
+passing it. A pattern must also keep matching the whole value once it is
+anchored: one that does not compile on its own, such as `x)|(y`, or that uses a
+backtracking control verb such as `(*ACCEPT)`, is refused when saved, and the
+same check runs before every match, so a pattern stored by another path fails
+closed.
+
+Administrators set rules from the blueprint list (**Field rules**). Rules belong
+to the definition, so they apply on every page type that uses its property set.
+`UpdatePropertyDefinitionConstraintsAction` saves them, refusing rules that
+cannot apply to the type, upside-down ranges and patterns that do not compile.
+Package-owned sets are managed by their package, which writes `constraints`
+when it syncs its own definitions; the admin action refuses them. In tests, use
+`PropertyDefinition::factory()->withConstraints([...])`. Blueprint schema
+snapshots record each attached definition's type, requirement and rules.
+
 ## Tool declarations
 
 An extension can declare a public tool in `capell.json` under `agent_tools` or

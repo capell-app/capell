@@ -17,6 +17,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\ContentGraph\LivePropertyReferenceEdges;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -94,11 +95,11 @@ final class HasRetainedDeletionDependenciesAction
 
     private function hasRetainedGraphDependants(Model $record): bool
     {
-        $edges = ContentGraphEdge::query()
+        $edges = LivePropertyReferenceEdges::filter(ContentGraphEdge::query()
             ->where('target_type', $record::class)
             ->where('target_id', $record->getKey())
             ->where('strength', ContentGraphEdgeStrength::Strong)
-            ->get(['source_type', 'source_id']);
+            ->get(['source_type', 'source_id', 'target_type', 'target_id', 'kind']));
 
         foreach ($edges->groupBy('source_type') as $sourceType => $sourceEdges) {
             if (! is_string($sourceType)) {

@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Properties;
 
 use Capell\Core\Actions\PageSavedAction;
+use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\EventSourcing\Listeners\RecordPageRevision;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Support\Properties\PropertyValueEquality;
 use Capell\Core\Support\Properties\PropertyValueValidator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -55,9 +61,17 @@ final class SetPagePropertyValuesAction
 
         DB::transaction(function () use ($page, $values, $effectiveDefinitions, $viaPromotedFieldSync): void {
             $touchedDefinitionIds = [];
+            $uniqueValuesSeen = [];
+            $writtenPositions = [];
 
             foreach ($values as $value) {
-                $definition = $this->validator->validate($page, $value, $effectiveDefinitions);
+                $writtenPositions[$value->propertyKey . '|' . ($value->translationId ?? '')][] = $value->position;
+            }
+
+            foreach ($values as $value) {
+                $untouched = $this->leavesStoredValueUnchanged($page, $value, $effectiveDefinitions);
+                $definition = $this->validator->validate($page, $value, $effectiveDefinitions, $untouched);
+                $this->assertNotRepeatedOnPage($page, $definition, $value, $uniqueValuesSeen, $writtenPositions, $untouched);
 
                 if (! $viaPromotedFieldSync && $definition->promotedField !== null) {
                     throw PropertyValueValidationException::promotedPropertyDirectWrite(
@@ -98,5 +112,89 @@ final class SetPagePropertyValuesAction
 
             PageSavedAction::run($page, ['_property_keys' => array_keys($touchedDefinitionIds)]);
         });
+    }
+
+    /**
+     * @param  Collection<int, EffectivePropertyDefinitionData>  $effectiveDefinitions
+     */
+    private function leavesStoredValueUnchanged(Page $page, PropertyValueData $value, Collection $effectiveDefinitions): bool
+    {
+        $definition = $effectiveDefinitions->first(
+            static fn (EffectivePropertyDefinitionData $candidate): bool => $candidate->key === $value->propertyKey,
+        );
+
+        return $definition instanceof EffectivePropertyDefinitionData
+            && $this->validator->isStoredUnchanged($page, $definition, $value);
+    }
+
+    /**
+     * A unique-per-site property cannot hold the same value twice on one page
+     * either: the database check ignores the page being written, so a value
+     * repeated across positions in this write, or already stored at a position
+     * this write leaves in place, is caught here.
+     *
+     * @param  array<string, bool>  $seen
+     * @param  array<string, list<int>>  $writtenPositions
+     */
+    private function assertNotRepeatedOnPage(
+        Page $page,
+        EffectivePropertyDefinitionData $definition,
+        PropertyValueData $value,
+        array &$seen,
+        array $writtenPositions,
+        bool $untouched,
+    ): void {
+        $column = BuildPropertyValidationRulesAction::uniqueColumn($definition->type);
+
+        if ($definition->constraints?->uniquePerSite !== true || $column === null) {
+            return;
+        }
+
+        $held = $value->toColumns()[$column];
+
+        if ($held === null) {
+            return;
+        }
+
+        $identity = implode('|', [$definition->definitionId, $value->translationId ?? '', PropertyValueEquality::identity($column, $held)]);
+        $storedElsewhere = $definition->multiple && PagePropertyValue::query()
+            ->where('page_id', $page->id)
+            ->where('property_definition_id', $definition->definitionId)
+            ->where('translation_id', $value->translationId)
+            ->whereNotIn('position', $writtenPositions[$value->propertyKey . '|' . ($value->translationId ?? '')] ?? [$value->position])
+            ->where($column, $held)
+            ->exists();
+
+        $repeatedInWrite = array_key_exists($identity, $seen);
+
+        if (! $repeatedInWrite && ! $storedElsewhere) {
+            $seen[$identity] = $untouched;
+
+            return;
+        }
+
+        // A repeat made only of entries this write leaves as they were (one
+        // already stored elsewhere on the page, or every earlier occurrence in
+        // this write unchanged too) predates the write, so it follows the
+        // rule for unchanged values: enforced outside production, reported in
+        // it. A repeat this write introduces is always refused.
+        $preExisting = $untouched && (! $repeatedInWrite || $seen[$identity]);
+
+        if ($preExisting && ! PropertyValueValidator::enforcesUntouchedValues()) {
+            Log::warning('An unchanged property value repeats another entry on the same page; the save was not blocked.', [
+                'property' => $definition->key,
+                'site_id' => $page->site_id,
+                'page_id' => $page->id,
+            ]);
+            $seen[$identity] = true;
+
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            $value->propertyKey => __('capell-core::properties.constraints.repeated_in_page', [
+                'property' => Str::headline($definition->key),
+            ]),
+        ]);
     }
 }

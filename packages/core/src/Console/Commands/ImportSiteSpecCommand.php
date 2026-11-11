@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\ApplySiteSpecToSiteAction;
 use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Actions\PlanSiteSpecAction;
+use Capell\Core\Actions\PublishSiteSpecSiteAction;
 use Capell\Core\Actions\ReadSiteSpecFileAction;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanItemData;
@@ -15,6 +16,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteSpec\SiteSpecHasher;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command as CommandAlias;
@@ -28,7 +32,9 @@ final class ImportSiteSpecCommand extends Command
         {--repair-private : Repair a legacy private import after reviewing its publication decisions}
         {--keep-published=* : Original spec slugs whose later publication decisions must be preserved}
         {--site= : Apply the spec to this existing site (by ID) instead of creating a new one}
-        {--plan : Show what applying the spec would create, update and leave alone, without writing anything}';
+        {--plan : Show what applying the spec would create, update and leave alone, without writing anything}
+        {--publish : After applying to --site, make every spec page public and clear the caches (names a page and changes nothing if one cannot be published)}
+        {--user= : With --publish, the email or ID of the user to publish as}';
 
     protected $description = 'Import a deterministic Capell site from a SiteSpec JSON file.';
 
@@ -45,7 +51,7 @@ final class ImportSiteSpecCommand extends Command
         $planOnly = (bool) $this->option('plan');
         $siteOption = $this->option('site');
 
-        if ($planOnly || $siteOption !== null) {
+        if ($planOnly || $siteOption !== null || $this->option('publish')) {
             return $this->planOrApply($path, $planOnly, is_string($siteOption) ? $siteOption : null);
         }
 
@@ -91,7 +97,7 @@ final class ImportSiteSpecCommand extends Command
 
     private function planOrApply(string $path, bool $planOnly, ?string $siteOption): int
     {
-        if ($this->option('audit-private') || $this->option('repair-private') || $this->option('keep-published') !== []) {
+        if ($this->option('audit-private') || $this->option('repair-private') || $this->option('keep-published') !== [] || ($planOnly && $this->option('publish'))) {
             $this->components->error((string) __('capell-core::message.site_spec_options_conflict'));
 
             return CommandAlias::FAILURE;
@@ -119,7 +125,18 @@ final class ImportSiteSpecCommand extends Command
             }
 
             throw_unless($site instanceof Site, RuntimeException::class, 'Name the site to apply the spec to with --site.');
-            $plan = ApplySiteSpecToSiteAction::run($spec, $site);
+            $actor = $this->option('publish') ? $this->publishingUser() : null;
+
+            // One transaction: a page that cannot be published undoes the apply too.
+            $plan = DB::transaction(function () use ($spec, $site, $actor, &$published): SiteSpecPlanData {
+                $plan = ApplySiteSpecToSiteAction::run($spec, $site);
+
+                if ($actor instanceof Authenticatable) {
+                    $published = PublishSiteSpecSiteAction::run($spec, $site, $actor);
+                }
+
+                return $plan;
+            });
         } catch (ValidationException $validationException) {
             $this->components->error((string) __('capell::message.site_spec_import_validation_failed'));
 
@@ -139,7 +156,24 @@ final class ImportSiteSpecCommand extends Command
         $this->renderPlan($plan);
         $this->components->info((string) __('capell-core::message.site_spec_apply_complete', ['name' => $site->name, 'id' => $site->getKey(), ...$this->planCounts($plan)]));
 
+        if (isset($published)) {
+            $this->components->info((string) __('capell-core::message.site_spec_publish_complete', ['count' => $published, 'name' => $site->name, 'id' => $site->getKey()]));
+        }
+
         return CommandAlias::SUCCESS;
+    }
+
+    private function publishingUser(): Authenticatable
+    {
+        $identifier = $this->option('user');
+        throw_unless(is_string($identifier) && $identifier !== '', RuntimeException::class, (string) __('capell-core::message.site_spec_publish_no_user'));
+
+        /** @var class-string<Model&Authenticatable> $userModel */
+        $userModel = config('auth.providers.users.model');
+        $user = $userModel::query()->where('email', $identifier)->first() ?? $userModel::query()->find($identifier);
+        throw_unless($user instanceof Authenticatable, RuntimeException::class, (string) __('capell-core::message.site_spec_publish_no_user'));
+
+        return $user;
     }
 
     private function renderPlan(SiteSpecPlanData $plan): void

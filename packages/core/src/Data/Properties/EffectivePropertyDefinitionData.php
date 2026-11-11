@@ -37,6 +37,7 @@ final class EffectivePropertyDefinitionData extends Data
         public ?array $unitConfig,
         public int $position,
         public ?string $promotedField = null,
+        public ?PropertyConstraintsData $constraints = null,
     ) {}
 
     public function qualifiedKey(): string

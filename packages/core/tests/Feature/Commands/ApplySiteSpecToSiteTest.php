@@ -8,8 +8,14 @@ use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\PlanSiteSpecAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Enums\PropertyType;
 use Capell\Core\Enums\SiteSpecPlanAction;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Publishing\PublishSentinel;
@@ -19,6 +25,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\PendingCommand;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
@@ -357,4 +364,28 @@ it('refuses to guess when two pages on the site share a slug', function (): void
 
     expect(fn (): mixed => PlanSiteSpecAction::run(applySpec(applySpecPayload(basePages())), $site->refresh()))
         ->toThrow(RuntimeException::class, 'More than one page');
+});
+
+it('writes the page properties of a page the spec adds to an existing site', function (): void {
+    $site = BuildCapellSiteFromSpecAction::run(applySpec(applySpecPayload(basePages())));
+    $blueprint = Blueprint::query()->pageType()->where('key', 'default')->firstOrFail();
+    $set = PropertySet::factory()->create();
+    PropertyDefinition::factory()->withConstraints(['max_length' => 8])->create([
+        'property_set_id' => $set->id,
+        'key' => 'sku',
+        'type' => PropertyType::Text,
+    ]);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
+    $changed = applySpecPayload([...basePages(), ['slug' => 'contact', 'name' => 'Contact', 'title' => 'Contact us', 'content' => '<p>Write to us.</p>']]);
+    $changed['pages'][2]['properties'] = ['sku' => 'GFT-0001'];
+
+    ApplySiteSpecToSiteAction::run(applySpec($changed), $site->refresh());
+
+    expect(PagePropertyValue::query()->where('page_id', applyPage($site->refresh(), 'contact')->id)->value('value_text'))->toBe('GFT-0001');
+
+    $refused = applySpecPayload([...basePages(), ['slug' => 'faq', 'name' => 'FAQ', 'title' => 'Questions', 'content' => '<p>Ask us.</p>']]);
+    $refused['pages'][2]['properties'] = ['sku' => 'FAR-TOO-LONG'];
+
+    expect(fn (): mixed => ApplySiteSpecToSiteAction::run(applySpec($refused), $site->refresh()))
+        ->toThrow(ValidationException::class, 'Sku must be 8 characters or fewer. Shorten the text.');
 });
