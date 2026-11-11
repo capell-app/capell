@@ -6,6 +6,7 @@ use Capell\Core\Actions\BuildCapellSiteFromSpecAction;
 use Capell\Core\Concerns\HasCache;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Events\SiteSpecPrivacyRepaired;
+use Capell\Core\Events\SiteSpecPublished;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -551,3 +552,35 @@ function exportPrivateRepairFixture(Site $site, string $host, string $html): arr
 
     return GenerateStaticPageArtifactsAction::run(siteId: $site->id);
 }
+
+it('withdraws cached render data for the whole site when its spec pages are published', function (): void {
+    $site = BuildCapellSiteFromSpecAction::run(confidentialPrivateSiteSpec());
+    SiteDomain::factory()->create(['site_id' => $site->id, 'language_id' => $site->language_id, 'scheme' => 'https', 'domain' => 'publish.test']);
+    $home = $site->pages()->where('name', 'Home')->firstOrFail();
+    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout']);
+
+    $site->load(['translation', 'siteDomains', 'siteDomain', 'theme']);
+    $context = new FrontendRenderContextData(
+        page: $home,
+        site: $site,
+        language: $site->language,
+        layout: $home->layout,
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $cache->remember($context, fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context));
+    $cache->remember($context, function (): never {
+        throw new RuntimeException('Expected a public render data cache hit before publishing.');
+    });
+
+    event(new SiteSpecPublished($site));
+
+    $rebuilt = false;
+    $cache->remember($context, function () use (&$rebuilt, $context): PublicPageRenderData {
+        $rebuilt = true;
+
+        return BuildPublicPageRenderDataAction::run($context);
+    });
+    expect($rebuilt)->toBeTrue();
+});

@@ -34,6 +34,14 @@ The site keeps the hash of its original import in `site_spec_hash`, which is how
 
 Applying never changes whether an existing page is published. A private spec also leaves any page that is live or scheduled untouched, and with it package-owned parts and media, because its copy and images must not reach a live site; the plan marks such pages as held. Pages a private spec adds are created as drafts. A public, acknowledged spec updates live pages.
 
+### Publish
+
+```bash
+php artisan capell:site-spec-import storage/app/site-spec.json --site=3 --publish --user=editor@example.com
+```
+
+`--publish` applies the spec and then makes every spec page public through the normal publication pipeline, as the user named with `--user` (an email address or ID), then clears the frontend caches. A private spec's "Coming soon" homepage is replaced with the spec's copy unless an editor already replaced it, and the noindex markers a private import wrote are lifted. Everything that can be refused (a page missing from the site, a user who may not publish it, missing required properties) is checked before anything is written, and the apply and the publish share one transaction, so a failure names the page and leaves the site as it was before the command. Markers such as noindex are lifted only where they still hold exactly what the private import wrote; a noindex an editor or the spec chose is kept. Running it again publishes nothing more. Publishing is deliberate: a private spec never publishes on its own, and `--publish` cannot be combined with `--plan`.
+
 ## Contract
 
 ```json

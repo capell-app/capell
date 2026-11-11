@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models;
 
+use Capell\Core\Casts\PropertyConstraintsCast;
 use Capell\Core\Concerns\HasCapellTable;
+use Capell\Core\Data\Properties\PropertyConstraintsData;
 use Capell\Core\Database\Factories\PropertyDefinitionFactory;
 use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Enums\PropertyType;
@@ -31,6 +33,7 @@ use RuntimeException;
  * @property bool $locked
  * @property string|null $description
  * @property array<string, mixed>|null $unit_config
+ * @property PropertyConstraintsData|null $constraints
  * @property int $position
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
@@ -56,6 +59,7 @@ final class PropertyDefinition extends Model
         'locked',
         'description',
         'unit_config',
+        'constraints',
         'position',
     ];
 
@@ -67,6 +71,7 @@ final class PropertyDefinition extends Model
         'multiple' => 'boolean',
         'locked' => 'boolean',
         'unit_config' => 'array',
+        'constraints' => PropertyConstraintsCast::class,
         'position' => 'integer',
     ];
 
