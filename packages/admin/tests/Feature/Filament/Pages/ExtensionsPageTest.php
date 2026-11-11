@@ -425,7 +425,7 @@ it('preserves a disabled extension statistics widget when rendering the dashboar
         ->and(AdminSettings::instance()->refresh()->enabled_widgets)->toHaveKey('extensions.stats', false);
 });
 
-it('renders extension stats with two default, three medium and five large columns', function (): void {
+it('renders extension stats with three default and five medium columns', function (): void {
     grantExtensionsPageAccess();
     $editor = Livewire::test(ExtensionStatsOverviewFilamentWidget::class)->assertSuccessful();
     $page = domXPath($editor->html());
@@ -438,8 +438,8 @@ it('renders extension stats with two default, three medium and five large column
         $columns[$match[1]] = (int) $match[2];
     }
 
-    expect($columns)->toHaveCount(3)
-        ->toMatchArray(['--cols-default' => 2, '--cols-md' => 3, '--cols-lg' => 5]);
+    expect($columns)->toHaveCount(2)
+        ->toMatchArray(['--cols-default' => 3, '--cols-md' => 5]);
 });
 
 it('does not poll extension stats while the extensions page is idle', function (): void {

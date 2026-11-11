@@ -31,9 +31,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
 
     /** @var int|array<string, int|null>|null */
     protected int|array|null $columns = [
-        'default' => 2,
-        'md' => 3,
-        'lg' => 5,
+        'default' => 3,
+        'md' => 5,
     ];
 
     protected static ?int $sort = 19;
