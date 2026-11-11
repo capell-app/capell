@@ -286,19 +286,25 @@ The source links above identify inspected implementations; they do not establish
 
 ### A new subject is more than a field
 
-`CapellCore::registerPageType(new PageTypeData(...))` registers a model subject that blueprints can target. It does not create a blueprint, add an input or confer Page's routing, authorisation, revisions and public API behaviour on an arbitrary model.
+Register a `BlueprintSubjectDescriptorData` with `BlueprintSubjectRegistry` during your application provider's `boot()` method, before the registry freezes on application boot. The model must implement `Capell\Core\Models\Contracts\Blueprintable`; an Eloquent model can use `HasBlueprint` with a `blueprint_id` relationship column. Registration does not create a blueprint, add an input or confer Page's routing, authorisation, revisions and public API behaviour on an arbitrary model.
 
 ```php
 use App\Models\CaseStudy;
-use Capell\Core\Data\PageTypeData;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 
-CapellCore::registerPageType(new PageTypeData(
-    name: 'case-study',
-    model: CaseStudy::class,
-    label: __('case-study.details'),
-));
+public function boot(): void
+{
+    $this->app->make(BlueprintSubjectRegistry::class)->register(new BlueprintSubjectDescriptorData(
+        key: 'case-study',
+        label: __('case-study.details'),
+        modelClass: CaseStudy::class,
+        ownerPackage: 'app/site',
+    ));
+}
 ```
+
+Use your application's Composer name for `ownerPackage`. Optional packages register the descriptor through `$this->surface()->blueprintSubject(...)` in `bootInstalledPackage()` and declare a `blueprint-subject` contribution in `capell.json`. That helper also populates the legacy page-type collection. `CapellCore::registerPageType(new PageTypeData(...))` alone only populates that legacy collection; it does not register a blueprint subject, and writing an unregistered string to `Blueprint.type` throws `UnknownBlueprintSubjectException`.
 
 Choose this only when you are integrating a separate domain subject and can own those contracts. An ordinary Page assigned to a Case study blueprint needs no new subject registration.
 

@@ -28,31 +28,31 @@ For a website-specific field, follow [Add Client name to a page](../../../docs/g
 
 Capell offers several extension mechanisms. Pick by what you're extending:
 
-| I want to…                                                         | Use                                                                    | Section                                                                                       |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Add a page subject type                                            | `CapellCore::registerPageType(new PageTypeData(...))`                  | [§2](#2-page-types-and-component-registration)                                                |
-| Register component aliases                                         | `CapellCore::registerComponent()` / `registerComponents()`             | [§2](#2-page-types-and-component-registration)                                                |
-| Change seed/install data for pages, layouts, themes, or blueprints | `CapellCore::registerModelInterceptor()`                               | [§3](#3-model-interceptors)                                                                   |
-| Add fields to an existing page or site edit form                   | Schema hook extender                                                   | [§4](#4-schema-hook-extenders)                                                                |
-| React to an admin lifecycle event (e.g. after save)                | Event registry callback / subscriber                                   | [§5](#5-event-registry-callbacks--subscribers)                                                |
-| Block an action based on a condition                               | `ValidationSubscriber`                                                 | [§5](#5-event-registry-callbacks--subscribers)                                                |
-| Subscribe to fine-grained lifecycle events                         | `SubscriberManager::subscribe()`                                       | [Subscriber Manager](subscriber-manager.md)                                                   |
-| Hook into static site export                                       | `StaticSiteExtensionRegistry::register()`                              | [Static Site Extensions](static-site-extensions.md)                                           |
-| Inject HTML into a frontend Blade component                        | Render hook                                                            | [§6](#6-render-hooks)                                                                         |
-| Register selectable theme header/footer components                 | `ThemeChromeRegistry::register*()`                                     | [Theme Chrome Components](#theme-chrome-components)                                           |
-| Add a custom admin toolbar item                                    | Tag with `AdminToolItem::TAG`                                          | [Admin Tool Registry](../../admin/docs/admin-tool-registry.md)                                |
-| Add a dashboard Filament widget programmatically                   | `CapellAdmin::registerDashboardFilamentWidget()`                       | [Dashboard Widget Customization](../../admin/docs/dashboard-widget-customization.md)          |
-| Add a tab to the admin Settings page                               | Settings Schema Registry                                               | [§7](#7-settings-schema-registry)                                                             |
-| Wire model changes to cache flushes                                | `CacheInvalidationRegistry::registerDependency()`                      | [Cache Invalidation](../../../docs/performance/cache-invalidation.md)                         |
-| Register runtime frontend assets                                   | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG` | [Frontend Asset Optimization](../../../docs/performance/critical-asset-optimization.md)       |
-| Cache an expensive Blade fragment                                  | `@cache(...) ... @endcache` directive                                  | [Fragment Caching](../../../docs/performance/fragment-caching.md)                             |
-| Enable conditional responses via ETags                             | `ETagMiddleware` + header handling                                     | [ETag & Conditional Responses](../../../docs/performance/etag-and-conditional-responses.md)   |
-| Lazy-load JavaScript for non-critical routes                       | Lazy page hydration                                                    | [Lazy Page Hydration](../../../docs/performance/lazy-page-hydration.md)                       |
-| Register Tailwind sources, imports, or plugins                     | `TailwindAssetsRegistry::register*()`                                  | [Tailwind Assets](../../frontend/docs/tailwind-assets.md)                                     |
-| Load vendor build assets only for matching pages                   | `VendorAssetConditionRegistry::register()`                             | [Conditional Vendor Assets](../../frontend/docs/tailwind-assets.md#conditional-vendor-assets) |
-| Flush singleton state between Octane requests                      | Implement `Resettable` and tag with `Resettable::TAG`                  | [Long-running workers](#long-running-workers)                                                 |
-| Substitute my own subclass for a core model                        | Container binding                                                      | [§8](#8-extending-core-models)                                                                |
-| Register package metadata                                          | `capell.json` plus manifest registration                               | [§9](#9-package-metadata-and-discovery)                                                       |
+| I want to…                                                         | Use                                                                           | Section                                                                                       |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Add a page subject type                                            | `BlueprintSubjectRegistry::register(new BlueprintSubjectDescriptorData(...))` | [§2](#2-page-types-and-component-registration)                                                |
+| Register component aliases                                         | `CapellCore::registerComponent()` / `registerComponents()`                    | [§2](#2-page-types-and-component-registration)                                                |
+| Change seed/install data for pages, layouts, themes, or blueprints | `CapellCore::registerModelInterceptor()`                                      | [§3](#3-model-interceptors)                                                                   |
+| Add fields to an existing page or site edit form                   | Schema hook extender                                                          | [§4](#4-schema-hook-extenders)                                                                |
+| React to an admin lifecycle event (e.g. after save)                | Event registry callback / subscriber                                          | [§5](#5-event-registry-callbacks--subscribers)                                                |
+| Block an action based on a condition                               | `ValidationSubscriber`                                                        | [§5](#5-event-registry-callbacks--subscribers)                                                |
+| Subscribe to fine-grained lifecycle events                         | `SubscriberManager::subscribe()`                                              | [Subscriber Manager](subscriber-manager.md)                                                   |
+| Hook into static site export                                       | `StaticSiteExtensionRegistry::register()`                                     | [Static Site Extensions](static-site-extensions.md)                                           |
+| Inject HTML into a frontend Blade component                        | Render hook                                                                   | [§6](#6-render-hooks)                                                                         |
+| Register selectable theme header/footer components                 | `ThemeChromeRegistry::register*()`                                            | [Theme Chrome Components](#theme-chrome-components)                                           |
+| Add a custom admin toolbar item                                    | Tag with `AdminToolItem::TAG`                                                 | [Admin Tool Registry](../../admin/docs/admin-tool-registry.md)                                |
+| Add a dashboard Filament widget programmatically                   | `CapellAdmin::registerDashboardFilamentWidget()`                              | [Dashboard Widget Customization](../../admin/docs/dashboard-widget-customization.md)          |
+| Add a tab to the admin Settings page                               | Settings Schema Registry                                                      | [§7](#7-settings-schema-registry)                                                             |
+| Wire model changes to cache flushes                                | `CacheInvalidationRegistry::registerDependency()`                             | [Cache Invalidation](../../../docs/performance/cache-invalidation.md)                         |
+| Register runtime frontend assets                                   | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG`        | [Frontend Asset Optimization](../../../docs/performance/critical-asset-optimization.md)       |
+| Cache an expensive Blade fragment                                  | `@cache(...) ... @endcache` directive                                         | [Fragment Caching](../../../docs/performance/fragment-caching.md)                             |
+| Enable conditional responses via ETags                             | `ETagMiddleware` + header handling                                            | [ETag & Conditional Responses](../../../docs/performance/etag-and-conditional-responses.md)   |
+| Lazy-load JavaScript for non-critical routes                       | Lazy page hydration                                                           | [Lazy Page Hydration](../../../docs/performance/lazy-page-hydration.md)                       |
+| Register Tailwind sources, imports, or plugins                     | `TailwindAssetsRegistry::register*()`                                         | [Tailwind Assets](../../frontend/docs/tailwind-assets.md)                                     |
+| Load vendor build assets only for matching pages                   | `VendorAssetConditionRegistry::register()`                                    | [Conditional Vendor Assets](../../frontend/docs/tailwind-assets.md#conditional-vendor-assets) |
+| Flush singleton state between Octane requests                      | Implement `Resettable` and tag with `Resettable::TAG`                         | [Long-running workers](#long-running-workers)                                                 |
+| Substitute my own subclass for a core model                        | Container binding                                                             | [§8](#8-extending-core-models)                                                                |
+| Register package metadata                                          | `capell.json` plus manifest registration                                      | [§9](#9-package-metadata-and-discovery)                                                       |
 
 **Rule of thumb:** prefer targeted extension points over publishing or copying host package files. Published files stop receiving upstream fixes.
 
@@ -99,30 +99,35 @@ The service should clear only in-memory request state in `flushOctaneState()`. D
 
 ## 2. Page Types And Component Registration
 
-Page types describe the model subject a Blueprint can target. Core registers the built-in `page`, `site`, and `theme` subjects from `BlueprintSubjectEnum`.
+Blueprint subjects describe the models a Blueprint can target. Core registers the built-in `page`, `site`, and `theme` subjects in `BlueprintSubjectRegistry`.
 
-Register a page type from a provider when a package owns a new public content subject:
+Register an application-owned subject in your provider's `boot()` method, before the registry freezes on application boot. The model must implement `Capell\Core\Models\Contracts\Blueprintable`; an Eloquent model can use `HasBlueprint` with a `blueprint_id` relationship column.
 
 ```php
-use Capell\Core\Data\PageTypeData;
-use Capell\Core\Facades\CapellCore;
-use Vendor\Example\Models\LandingExperience;
+use App\Models\LandingExperience;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 
 public function boot(): void
 {
-    CapellCore::registerPageType(new PageTypeData(
-        name: 'landing-experience',
-        model: LandingExperience::class,
-        label: __('capell-example::page_types.landing_experience'),
+    $this->app->make(BlueprintSubjectRegistry::class)->register(new BlueprintSubjectDescriptorData(
+        key: 'landing-experience',
+        label: __('page_types.landing_experience'),
+        modelClass: LandingExperience::class,
+        ownerPackage: 'app/site',
     ));
 }
 ```
+
+Use your application's Composer name for `ownerPackage`. Optional packages pass the descriptor to `$this->surface()->blueprintSubject(...)` in `bootInstalledPackage()` and declare a `blueprint-subject` contribution in `capell.json`. That helper also populates the legacy page-type collection. `CapellCore::registerPageType(new PageTypeData(...))` alone only populates that legacy collection; it does not register a blueprint subject. Writing an unregistered string to `Blueprint.type` throws `UnknownBlueprintSubjectException`.
 
 Use plain strings for labels when the data may cross Livewire boundaries. Closures can dehydrate badly in Livewire state; Core eagerly resolves built-in labels for this reason.
 
 Component aliases are a separate registry. Use them when package code needs to refer to renderable component names by a stable type/key pair:
 
 ```php
+use Capell\Core\Facades\CapellCore;
+
 CapellCore::registerComponent('Page', 'LandingExperience', 'capell-example::pages.landing-experience');
 ```
 

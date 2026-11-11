@@ -10,19 +10,19 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 
 ## Core And Package Runtime
 
-| Need                                   | Use                                                                  | Owner                 |
-| -------------------------------------- | -------------------------------------------------------------------- | --------------------- |
-| Register a page subject type           | `CapellCore::registerPageType(new PageTypeData(...))`                | Core                  |
-| Replace a core model implementation    | Laravel container binding for the model class                        | Core                  |
-| Register renderable definitions        | `RenderableRegistry::register(...)`                                  | Core                  |
-| Register link picker/search options    | `LinkableContentRegistry::register(...)`                             | Core                  |
-| Register content graph extractors      | `ContentGraphRegistry::register(...)` or `ContentGraphRegistry::TAG` | Core                  |
-| Add package settings                   | Provider `surface()` or `AdminBridgeRegistrar`                       | Core/Admin            |
-| Add package settings migrations        | `database/settings/*` plus package install/setup registration        | Core                  |
-| Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                              | Core                  |
-| Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                        | Core/Frontend         |
-| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                         | Static export package |
-| Extend ownership/export mapping        | `OwnershipMap::register(...)`                                        | Migration Assistant   |
+| Need                                   | Use                                                                           | Owner                 |
+| -------------------------------------- | ----------------------------------------------------------------------------- | --------------------- |
+| Register a page subject type           | `BlueprintSubjectRegistry::register(new BlueprintSubjectDescriptorData(...))` | Core                  |
+| Replace a core model implementation    | Laravel container binding for the model class                                 | Core                  |
+| Register renderable definitions        | `RenderableRegistry::register(...)`                                           | Core                  |
+| Register link picker/search options    | `LinkableContentRegistry::register(...)`                                      | Core                  |
+| Register content graph extractors      | `ContentGraphRegistry::register(...)` or `ContentGraphRegistry::TAG`          | Core                  |
+| Add package settings                   | Provider `surface()` or `AdminBridgeRegistrar`                                | Core/Admin            |
+| Add package settings migrations        | `database/settings/*` plus package install/setup registration                 | Core                  |
+| Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                                       | Core                  |
+| Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                                 | Core/Frontend         |
+| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                                  | Static export package |
+| Extend ownership/export mapping        | `OwnershipMap::register(...)`                                                 | Migration Assistant   |
 
 ## Admin Runtime
 

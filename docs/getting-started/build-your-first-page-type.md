@@ -6,7 +6,7 @@ Follow [Add a custom field to a page](add-a-custom-page-field.md) to add **Clien
 
 The [starter kit](build-a-client-site.md) already includes a case-study blueprint, an application-owned configurator, client/year metadata and public rendering. Inspect that implementation if you are extending a starter project; do not add a duplicate client field.
 
-Creating a blueprint is different from registering a new model subject with `PageTypeData`. A website-specific field on an ordinary page does not need a new subject. The current `capell:make-blueprint` scaffold only supplies a name and label class; it does not build the complete field workflow for you.
+Creating a blueprint is different from registering a new model subject with `BlueprintSubjectDescriptorData` and `BlueprintSubjectRegistry`. A website-specific field on an ordinary page does not need a new subject. The current `capell:make-blueprint` scaffold only supplies a name and label class; it does not build the complete field workflow for you.
 
 ## Add a public widget
 

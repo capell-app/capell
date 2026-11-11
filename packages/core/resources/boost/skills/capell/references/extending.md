@@ -14,7 +14,7 @@
 
 ## Creating a Custom Page Type
 
-Page types describe the model subject that can be edited as a page-like blueprint. Register them with `PageTypeData`; form fields and admin behavior are extended separately through schema extenders and admin contracts.
+Blueprint subjects describe the models that blueprints can target. Register a `BlueprintSubjectDescriptorData` with `BlueprintSubjectRegistry`; form fields and admin behaviour are extended separately through schema extenders and admin contracts. The model must implement `Blueprintable` and have a `blueprint_id` relationship column.
 
 ```php
 <?php
@@ -23,30 +23,37 @@ declare(strict_types=1);
 
 namespace App\Types;
 
+use Capell\Core\Models\Concerns\HasBlueprint;
+use Capell\Core\Models\Contracts\Blueprintable;
 use Illuminate\Database\Eloquent\Model;
 
-final class ProductPage extends Model
+final class ProductPage extends Model implements Blueprintable
 {
+    use HasBlueprint;
+
     protected $table = 'product_pages';
 }
 ```
 
-Register in your `AppServiceProvider`:
+Register in your `AppServiceProvider`'s `boot()` method, before the registry freezes on application boot:
 
 ```php
 use App\Types\ProductPage;
-use Capell\Core\Data\PageTypeData;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Data\BlueprintSubjectDescriptorData;
+use Capell\Core\Support\BlueprintSubjectRegistry;
 
-public function register(): void
+public function boot(): void
 {
-    CapellCore::registerPageType(new PageTypeData(
-        name: 'product',
-        model: ProductPage::class,
+    $this->app->make(BlueprintSubjectRegistry::class)->register(new BlueprintSubjectDescriptorData(
+        key: 'product',
         label: 'Products',
+        modelClass: ProductPage::class,
+        ownerPackage: 'app/site',
     ));
 }
 ```
+
+Use your application's Composer name for `ownerPackage`. Optional packages pass the descriptor to `$this->surface()->blueprintSubject(...)` in `bootInstalledPackage()` and declare a `blueprint-subject` contribution in `capell.json`. The helper also populates the legacy page-type collection. `CapellCore::registerPageType(new PageTypeData(...))` alone only populates that legacy collection; writing an unregistered string to `Blueprint.type` throws `UnknownBlueprintSubjectException`.
 
 Use `PageSchemaExtender::TAG` for fields, `PageTableExtender::TAG` for admin table query changes, and frontend component registration for public rendering. Do not publish core schemas to add package fields.
 

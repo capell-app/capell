@@ -30,6 +30,8 @@ Use an application with matching Capell Core, Admin and Frontend packages, a wor
 
 In **Blueprints**, create a page blueprint named **Case study**, with key `case-study`, using the default page configurator. [Blueprints](types.md) explains the editor and frontend settings. Then [create a page](create-your-first-page.md) using that blueprint; name the page **Field Notes** and use the slug `field-notes`. This example uses `/field-notes`; use the actual published URL shown by your site if it has a language or parent prefix.
 
+Keep the built-in `page` subject: `case-study` is this blueprint's key, not a new subject type. This walkthrough needs no subject registration. For a separate model, use the [blueprint subject registry](../packages/custom-page-fields.md#a-new-subject-is-more-than-a-field).
+
 The starter kit already includes a case-study configurator and a client field. If you are using it, inspect its [existing implementation](https://github.com/capell-app/starter-kit/blob/main/app/Filament/Configurators/Pages/CaseStudyPageConfigurator.php), then choose one implementation rather than adding a second client input. The walkthrough below uses a namespaced metadata key so the storage contract is explicit.
 
 ## 1. Define the editor field
