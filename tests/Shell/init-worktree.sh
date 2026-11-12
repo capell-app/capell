@@ -42,9 +42,14 @@ PYTHON
 printf 'vendor/\nnode_modules/\n' > .gitignore
 git add composer.json .gitignore packages tests
 git -c user.name=fixture -c user.email=fixture@example.test commit -qm source
+# npm leaves a relative link for "file:../sibling" dependencies. Worktrees live in
+# a different directory depth, so the cloned link would dangle there.
+mkdir -p "$fixture/sibling-tools" node_modules/@capell-app
+ln -s ../../../sibling-tools node_modules/@capell-app/sibling-tools
 # The manifest now declares a source namespace absent from the primary vendor metadata.
-git worktree add -q "$fixture/worktree" -b fixture-worktree
-cd "$fixture/worktree"
+mkdir -p "$fixture/nested"
+git worktree add -q "$fixture/nested/worktree" -b fixture-worktree
+cd "$fixture/nested/worktree"
 bash "$script" --host-only
 php -r '$loader=require "vendor/autoload.php"; $actual=(new ReflectionClass("Fixture\\NewSource\\NewSource"))->getFileName(); $expected=getcwd()."/tests/fixtures/new-source/NewSource.php"; if (realpath($actual)!==realpath($expected)) { throw new RuntimeException("New source resolved outside worktree"); } echo "PASS new manifest source resolves inside worktree", PHP_EOL;'
 cmp vendor/pest-plugins.json "$fixture/primary/vendor/pest-plugins.json"
@@ -64,6 +69,10 @@ fi
 printf '<?php return "v2";\n' > "$fixture/primary/vendor/acme/library/src/version.php"
 test "$(php -r 'echo require "vendor/acme/library/src/version.php";')" = "v1"
 echo 'PASS third-party packages are real trees isolated from the primary'
+test -e node_modules/@capell-app/sibling-tools
+test "$(readlink node_modules/@capell-app/sibling-tools)" = "$(cd "$fixture/sibling-tools" && pwd -P)"
+echo 'PASS linked sibling packages resolve from the worktree'
 cd "$fixture/primary"
+test "$(readlink node_modules/@capell-app/sibling-tools)" = "../../../sibling-tools"
 test "$primary_hash" = "$(shasum -a 256 vendor/composer/autoload_psr4.php)"
 echo 'PASS primary autoload metadata unchanged'

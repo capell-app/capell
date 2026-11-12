@@ -22,5 +22,6 @@ it('provisions new source mappings without mutating the primary autoloader', fun
         ->and($process->getOutput())->toContain('PASS new manifest source resolves inside worktree')
         ->and($process->getOutput())->toContain('PASS top-level vendor metadata provisioned')
         ->and($process->getOutput())->toContain('PASS third-party packages are real trees isolated from the primary')
+        ->and($process->getOutput())->toContain('PASS linked sibling packages resolve from the worktree')
         ->and($process->getOutput())->toContain('PASS primary autoload metadata unchanged');
 });
