@@ -53,6 +53,7 @@ use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\ReconcilePublicReadProjectionsCommand;
 use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
+use Capell\Core\Console\Commands\ReplayInboundWebhookEventCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
@@ -109,10 +110,12 @@ use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
+use Capell\Core\Macros\RouteMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\InboundWebhookEvent;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
@@ -375,6 +378,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             CacheComponentsCommand::class,
             BackupHealthCommand::class,
             ReconcilePublicReadProjectionsCommand::class,
+            ReplayInboundWebhookEventCommand::class,
             CloudBootstrapCommand::class,
             ClearComponentsCacheCommand::class,
             CoreFakerCommand::class,
@@ -439,6 +443,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
+            ->registerInboundWebhookPruneSchedule()
             ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
@@ -606,6 +611,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerMacros(): self
     {
         SchemaBlueprint::mixin(new BlueprintMacros);
+        Router::mixin(new RouteMacros);
 
         return $this;
     }
@@ -896,6 +902,19 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->withoutOverlapping()
                 ->onOneServer();
 
+        });
+
+        return $this;
+    }
+
+    private function registerInboundWebhookPruneSchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('model:prune', ['--model' => [InboundWebhookEvent::class]])
+                ->dailyAt('01:30')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
         });
 
         return $this;
