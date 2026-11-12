@@ -119,6 +119,7 @@ final class InstallRecommendationRepository
 
             $recommended = $withExtensions ? $this->reasonMap($recommendation['recommended'] ?? [], $isInstallable) : [];
             $optional = $withExtensions ? $this->reasonMap($recommendation['optional'] ?? [], $isInstallable) : [];
+            $unavailable = $withExtensions ? $this->unavailablePackages($recommendation['recommended'] ?? [], $isInstallable) : [];
             $licenceStates = [];
             $downloadedPackages = [];
             foreach (array_unique([...array_keys($recommended), ...array_keys($optional)]) as $name) {
@@ -148,6 +149,7 @@ final class InstallRecommendationRepository
                 ))),
                 packageLicenceStates: $licenceStates,
                 downloadedPackages: $downloadedPackages,
+                unavailable: $unavailable,
             );
         }
 
@@ -170,6 +172,30 @@ final class InstallRecommendationRepository
         } catch (Throwable) {
             return collect();
         }
+    }
+
+    /**
+     * Named packages the install cannot offer, so a preselected extension is reported, not dropped silently.
+     *
+     * @param  callable(string): bool  $isInstallable
+     * @return list<string>
+     */
+    private function unavailablePackages(mixed $value, callable $isInstallable): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $unavailable = [];
+        foreach (array_keys($value) as $package) {
+            $package = is_string($package) ? trim($package) : '';
+
+            if ($package !== '' && ! $isInstallable($package)) {
+                $unavailable[] = $package;
+            }
+        }
+
+        return array_values(array_unique($unavailable));
     }
 
     /**

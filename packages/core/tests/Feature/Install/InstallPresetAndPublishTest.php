@@ -230,3 +230,30 @@ it('prints a resume command that replays the preset and publish when the install
         ->and($output)->toContain("'--preset=site'")
         ->toContain("'--publish'");
 });
+
+it('names a preselected package the public channel cannot supply instead of skipping it silently', function (): void {
+    $author = User::factory()->createOne();
+    bindPresetScenarioExecutor($author);
+    config(['capell.install.recommendations.site.recommended' => [
+        'capell-app/preview-only-extension' => 'Only in the preview channel.',
+    ]]);
+
+    [$exit, $output] = runPresetScenario(presetScenarioOptions($author));
+
+    $skip = (string) __('capell-core::install.skipped.not_in_public_channel', ['package' => 'capell-app/preview-only-extension']);
+
+    expect($exit)->toBe(0)
+        ->and($output)->toContain($skip)
+        ->and($skip)->toContain('capell:extension-install capell-app/preview-only-extension');
+});
+
+it('says nothing about skipped packages when every recommended package is installable', function (): void {
+    $author = User::factory()->createOne();
+    bindPresetScenarioExecutor($author);
+    config(['capell.install.recommendations.site.recommended' => ['capell-app/core' => 'Always available.']]);
+
+    [$exit, $output] = runPresetScenario(presetScenarioOptions($author));
+
+    expect($exit)->toBe(0)
+        ->and($output)->not->toContain('was not installed');
+});
