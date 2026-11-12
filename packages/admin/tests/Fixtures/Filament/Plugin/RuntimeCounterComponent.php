@@ -8,11 +8,14 @@ use Livewire\Component;
 
 final class RuntimeCounterComponent extends Component
 {
+    public static int $increments = 0;
+
     public int $count = 0;
 
     public function increment(): void
     {
         $this->count++;
+        self::$increments++;
     }
 
     public function render(): string

@@ -124,6 +124,8 @@ class CreatePage extends CreateRecord implements HasPageResource
     #[Override]
     public function hydrate(): void
     {
+        parent::hydrate();
+
         if ($this->creationRecoveryContext === '') {
             $this->creationRecoveryContext = 'page-create:' . Str::uuid();
         }

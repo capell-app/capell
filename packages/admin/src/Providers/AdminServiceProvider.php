@@ -219,6 +219,7 @@ use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintIntercep
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\NotFoundPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\SystemPageBlueprintInterceptor;
+use Capell\Admin\Support\Livewire\ShortCircuitingPersistentMiddleware;
 use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
@@ -286,6 +287,7 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -324,6 +326,7 @@ use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
@@ -338,9 +341,11 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Livewire\Mechanisms\HandleComponents\ComponentContext;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
+use Livewire\Mechanisms\PersistentMiddleware\PersistentMiddleware;
 
 use function Livewire\on;
 
+use LogicException;
 use Override;
 use Pboivin\FilamentPeek\Support\Cache as PeekPreviewTokens;
 use ReflectionClass;
@@ -397,6 +402,19 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     }
 
     #[Override]
+    public function packageRegistered(): void
+    {
+        // Livewire's listeners capture the mechanism when the application boots, so a
+        // late registration would leave updates unguarded. Checked here, after the
+        // bindings are made, so re-running registeringPackage() on a booted app stays valid.
+        throw_if(
+            $this->app->isBooted() && ! $this->lateRegistrationIsInstallingPackages(),
+            LogicException::class,
+            'The admin package must be registered before the application boots so Livewire updates honour middleware responses.',
+        );
+    }
+
+    #[Override]
     public function registeringPackage(): void
     {
         // Filament builds panels while its routes boot, before this provider's
@@ -419,6 +437,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(SpatieMediaLibraryFileUpload::class, AdminSpatieMediaLibraryFileUpload::class);
 
         $this->registerAdminEventSystem();
+        $this->registerShortCircuitingPersistentMiddleware();
 
         $this->app->scoped(PaletteRequestState::class);
         $this->app->scoped(AdminUploadGrantRepository::class);
@@ -909,6 +928,79 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'skip-permission-sync',
             'force',
         ];
+    }
+
+    /**
+     * The package installer registers a newly installed package's providers in its already-booted process
+     * (console, queue worker, or the installer's own step request). That process serves no Livewire
+     * update, and the next request boots with the admin package registered in time. Under Octane the
+     * worker keeps this booted application for later requests, whose Livewire updates would reach the
+     * mechanism captured before the late registration, so it is refused there. Anything that may be a
+     * Livewire update, or any doubt, keeps the late registration refused.
+     */
+    private function lateRegistrationIsInstallingPackages(): bool
+    {
+        if ($this->runningUnderOctane()) {
+            return false;
+        }
+
+        if (! $this->app->resolved(PackageSurfaceRegistrar::class)
+            || ! $this->app->make(PackageSurfaceRegistrar::class)->isInstallingPackages()) {
+            return false;
+        }
+
+        return ! $this->mayBeServingLivewireUpdate();
+    }
+
+    /**
+     * Octane's start commands give every worker process LARAVEL_OCTANE=1. The 'octane' binding is not used:
+     * it exists wherever the package is installed, including the console and queue processes that install.
+     */
+    private function runningUnderOctane(): bool
+    {
+        return filter_var(getenv('LARAVEL_OCTANE'), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function mayBeServingLivewireUpdate(): bool
+    {
+        if (! $this->app->bound('request')) {
+            return true;
+        }
+
+        try {
+            $request = $this->app->make('request');
+
+            if (! $request instanceof Request) {
+                return true;
+            }
+
+            if ($request->hasHeader('X-Livewire')) {
+                return true;
+            }
+
+            $updatePath = trim((string) parse_url((string) Livewire::getUpdateUri(), PHP_URL_PATH), '/');
+
+            return $updatePath === '' || $request->is($updatePath);
+        } catch (Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * Livewire replays persistent middleware through a mechanism resolved from the container.
+     * Extending the binding covers both provider orders: before Livewire registers, the
+     * extender wraps its resolution; after, it swaps the registered instance before any
+     * mechanism boots. Once the application has booted, Livewire's listeners already hold
+     * the original, so a late registration fails instead of leaving updates unguarded.
+     */
+    private function registerShortCircuitingPersistentMiddleware(): void
+    {
+        $this->app->extend(
+            PersistentMiddleware::class,
+            static fn (PersistentMiddleware $mechanism): PersistentMiddleware => $mechanism instanceof ShortCircuitingPersistentMiddleware
+                ? $mechanism
+                : new ShortCircuitingPersistentMiddleware,
+        );
     }
 
     /**
