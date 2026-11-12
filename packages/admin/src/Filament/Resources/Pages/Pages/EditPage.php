@@ -160,6 +160,8 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Override]
     public function hydrate(): void
     {
+        parent::hydrate();
+
         if ($this->scratchDraftContext === '') {
             $this->scratchDraftContext = 'page-editor:' . Str::uuid();
         }
