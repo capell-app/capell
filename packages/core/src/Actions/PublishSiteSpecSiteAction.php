@@ -55,11 +55,12 @@ final class PublishSiteSpecSiteAction
     public function __construct(private readonly AuthorizesPublicationTransition $authorizer) {}
 
     /**
+     * @param  list<string>|null  $onlyPageSlugs  publish only these spec pages (by {@see SiteSpecPageSlug}), leaving the rest as they are; null publishes every page
      * @return int the number of pages that went live (pages already live are left alone)
      *
      * @throws RuntimeException naming each page that cannot be published
      */
-    public function handle(CapellSiteSpecData $spec, Site $site, Authenticatable $actor): int
+    public function handle(CapellSiteSpecData $spec, Site $site, Authenticatable $actor, ?array $onlyPageSlugs = null): int
     {
         $language = Language::query()->where('code', $spec->language->code)->firstOrFail();
         $existing = PlanSiteSpecAction::make()->existingPagesBySlug($spec, $site);
@@ -71,6 +72,10 @@ final class PublishSiteSpecSiteAction
         $problemPages = [];
 
         foreach ($this->orderedPages($spec) as $index => $pageSpec) {
+            if ($onlyPageSlugs !== null && ! in_array(SiteSpecPageSlug::for($pageSpec), $onlyPageSlugs, true)) {
+                continue;
+            }
+
             $found = $existing[SiteSpecPageSlug::for($pageSpec)] ?? null;
 
             if ($found === null) {

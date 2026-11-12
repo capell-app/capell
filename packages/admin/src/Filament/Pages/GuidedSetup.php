@@ -9,7 +9,6 @@ use Capell\Core\Actions\FirstRun\AttachGuidedSetupLogoAction;
 use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
-use Capell\Core\Actions\FirstRun\SettleGuidedSetupPublicationAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -117,6 +116,14 @@ class GuidedSetup extends FilamentPage
         return $site instanceof Site && AttachGuidedSetupLogoAction::pending($site) ? $site : null;
     }
 
+    /** How many pages setup's Publish would put live: the placeholder home page and each created page nobody has touched. */
+    public static function publishablePageCount(Site $site): int
+    {
+        $home = ResolveGuidedSetupStateAction::placeholderHome($site) instanceof Page ? 1 : 0;
+
+        return $home + count(ResolveGuidedSetupStateAction::untouchedSetupPages($site));
+    }
+
     /** Whether the person should be taken to setup now: it is owed (nothing created yet) and they may do it. */
     public static function isOwed(): bool
     {
@@ -176,14 +183,14 @@ class GuidedSetup extends FilamentPage
 
         if ($pendingLogo instanceof Site) {
             // Published, but the logo could not be added: offer to add it again.
-            $this->finish($site, 1 + count(SettleGuidedSetupPublicationAction::setupPageUuids($site)));
+            $this->finish($site, self::publishablePageCount($site));
             $this->sitePublished = true;
             $this->logoPending = true;
         }
 
         if ($awaiting instanceof Site) {
             // Coming back after the pages were created: go straight to opening the homepage or publishing.
-            $this->finish($site, 1 + count(SettleGuidedSetupPublicationAction::setupPageUuids($site)));
+            $this->finish($site, self::publishablePageCount($site));
         }
 
         $state = GuidedSetupStateData::forSite($site);

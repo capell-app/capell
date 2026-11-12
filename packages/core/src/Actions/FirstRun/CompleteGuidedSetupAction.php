@@ -93,7 +93,7 @@ final class CompleteGuidedSetupAction
         foreach (PlanSiteSpecAction::make()->existingPagesBySlug($spec, $site) as $found) {
             $page = $found['page'];
 
-            if (SettleGuidedSetupPublicationAction::isPrivateDraft($page) && ! Page::query()->homePage()->whereKey($page->getKey())->exists()) {
+            if (ResolveGuidedSetupStateAction::isPrivateDraft($page) && ! Page::query()->homePage()->whereKey($page->getKey())->exists()) {
                 $uuids[] = (string) $page->uuid;
             }
         }

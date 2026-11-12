@@ -48,19 +48,24 @@ with `?getting-started` comes first, and guided setup follows on the next visit.
 
 A first install without sample content marks each site it made under
 `guided_setup.fresh_install_at` once the install, and every package's own setup, has
-finished. The mark records the home page the install left and a hash of its copy. Guided
-setup is offered only to a marked site that nobody has set up, skipped or put live, and whose
-pages no person has made or edited; pages that packages seed during the install do not count.
-A site without the mark, such as one installed before it existed or a demo install, is never
-offered setup. The install's home page stays public as a placeholder while its stored copy is
-unchanged: setup creates its pages as private drafts and keeps the spec it built, and
-publishing works from that spec, writes the person's home page over the placeholder, publishes
-the created pages still private, records the go-live and attaches the uploaded logo. Once the
-pages are created the dashboard opens as usual and offers Publish to people who may publish.
-The offer ends, and the go-live date is written, as soon as the person publishes, schedules or
-unpublishes a created page from the editor, or edits, replaces or removes the placeholder home
-page; setup then publishes nothing. If the logo cannot be attached, the site stays published,
-the file is kept, and guided setup offers to add it again.
+finished. The mark records the home page the install left. Guided setup is offered only to a
+marked site that nobody has set up, skipped or put live, and whose pages no person has made or
+edited; pages that packages seed during the install do not count. A site without the mark, such
+as one installed before it existed or a demo install, is never offered setup.
+
+The install's home page stays public as a placeholder until a person edits it: any revision a
+person records, including a property value, counts, and nothing else about the page is
+inspected. Setup creates its pages as private drafts and keeps the spec it built and the pages
+it created. Publish works from that stored spec and touches only what nobody has touched since:
+the home page while it is still the placeholder, and each created page that is still a private
+draft with no person's revision. A page the person edited, published, scheduled, reverted or
+deleted is left exactly as it is. Publish records the go-live and then attaches the uploaded
+logo; if the logo cannot be attached, the site stays published, the file is kept, and guided
+setup offers to add it again. Nothing the person does in the editor ends setup's offer: the
+dashboard offers Publish, to people who may publish, until setup's Publish runs or nothing
+untouched is left. A site whose pages were created before setup kept its spec cannot be
+published by setup; the dashboard settles it once and says to publish its pages from the
+Pages list.
 
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above

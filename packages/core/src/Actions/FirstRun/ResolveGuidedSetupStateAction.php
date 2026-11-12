@@ -9,13 +9,12 @@ use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
-use Capell\Core\Models\Translation;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -88,55 +87,101 @@ final class ResolveGuidedSetupStateAction
     }
 
     /**
-     * The public home page a first install leaves in place until the person publishes the site:
-     * the very page the install recorded, with the copy it recorded. Its being public is not a sign
-     * that anyone has published the site; once anything changes its copy, it counts like any other
-     * public home page.
+     * The public home page a first install leaves in place until setup publishes the site: the
+     * very page the install recorded, which no person has edited since. Only the recorded page and
+     * the person's own revisions are read, so the page's content, of any shape, is never inspected;
+     * a failure to read either counts as "not the placeholder".
      */
     public static function isPlaceholderHome(Site $site, Page $home): bool
     {
-        $mark = data_get($site->meta, self::FRESH_INSTALL_META_KEY);
-
-        if (! is_array($mark) || ! is_string($mark['home_uuid'] ?? null) || ! is_string($mark['home_hash'] ?? null)) {
-            return false;
-        }
-
-        $hash = hash_equals($mark['home_uuid'], (string) $home->uuid) ? self::homeHash($home) : null;
-
-        return $hash !== null && hash_equals($mark['home_hash'], $hash);
-    }
-
-    /**
-     * A hash of the home page as stored: its name, blueprint and content structure, and the raw
-     * title, content and meta of every translation, deleted ones included. It reads the stored
-     * columns rather than cast values, so content of any shape (HTML or blocks) hashes the same
-     * way, and a change by anyone, person or seeder, is seen. Null when it cannot be worked out,
-     * which every caller takes as "not the placeholder", so a failure never offers setup.
-     */
-    public static function homeHash(Page $home): ?string
-    {
         try {
-            $copy = DB::table((new Translation)->getTable())
-                ->where('translatable_type', $home->getMorphClass())
-                ->where('translatable_id', $home->getKey())
-                ->orderBy('language_id')
-                ->orderBy('id')
-                ->get(['language_id', 'title', 'content', 'meta', 'deleted_at'])
-                ->map(fn (object $row): array => [$row->language_id, $row->title, $row->content, $row->meta, $row->deleted_at])
-                ->all();
+            $uuid = data_get($site->meta, self::FRESH_INSTALL_META_KEY . '.home_uuid');
 
-            return hash('sha256', json_encode([
-                $home->getRawOriginal('name'),
-                $home->getRawOriginal('blueprint_id'),
-                $home->getRawOriginal('content_structure_override'),
-                $home->getRawOriginal('deleted_at'),
-                $copy,
-            ], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+            return is_string($uuid)
+                && hash_equals($uuid, (string) $home->uuid)
+                && ! $home->trashed()
+                && ! self::personRevisions(Page::query()->whereKey($home->getKey())->select('uuid'))->exists();
         } catch (Throwable $throwable) {
             report($throwable);
 
-            return null;
+            return false;
         }
+    }
+
+    /** The install's home page while it is still the placeholder setup may write over. */
+    public static function placeholderHome(Site $site): ?Page
+    {
+        $uuid = data_get($site->meta, self::FRESH_INSTALL_META_KEY . '.home_uuid');
+        $home = is_string($uuid) ? Page::query()->where('site_id', $site->getKey())->where('uuid', $uuid)->first() : null;
+
+        return $home instanceof Page && self::isPlaceholderHome($site, $home) ? $home : null;
+    }
+
+    /** @return list<string> the pages guided setup created, recorded when it created them */
+    public static function setupPageUuids(Site $site): array
+    {
+        $uuids = data_get($site->meta, 'guided_setup.page_uuids');
+
+        return is_array($uuids) ? array_values(array_filter($uuids, is_string(...))) : [];
+    }
+
+    public static function isPrivateDraft(Page $page): bool
+    {
+        return ! $page->trashed()
+            && $page->visible_until === null
+            && PublishSentinel::isDraftValue($page->visible_from);
+    }
+
+    /**
+     * The pages setup created that nobody has touched since: still private drafts, never edited,
+     * published, scheduled or reverted by a person, and not deleted. Setup publishes only these.
+     *
+     * @return list<Page>
+     */
+    public static function untouchedSetupPages(Site $site): array
+    {
+        $uuids = self::setupPageUuids($site);
+
+        if ($uuids === []) {
+            return [];
+        }
+
+        $touched = self::personRevisions(Page::query()->where('site_id', $site->getKey())->whereIn('uuid', $uuids)->select('uuid'))
+            ->pluck('page_uuid')->map(strval(...))->all();
+
+        return array_values(Page::query()->where('site_id', $site->getKey())->whereIn('uuid', $uuids)->get()
+            ->filter(fn (Page $page): bool => self::isPrivateDraft($page) && ! in_array((string) $page->uuid, $touched, true))
+            ->all());
+    }
+
+    /**
+     * Whether setup's Publish still has something to do: it created pages, kept the spec it built,
+     * has not published or been settled, and the placeholder home page or at least one created page
+     * is untouched. It ends only through setup's Publish or once nothing untouched remains; nothing
+     * the person does in the editor writes to it. A failure to read counts as nothing left to publish.
+     */
+    public static function awaitsPublication(Site $site): bool
+    {
+        if (! self::setupWaiting($site) || ! is_array(data_get($site->meta, 'guided_setup.spec'))) {
+            return false;
+        }
+
+        try {
+            return self::placeholderHome($site) instanceof Page || self::untouchedSetupPages($site) !== [];
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return false;
+        }
+    }
+
+    /**
+     * Setup created pages before it kept the spec it built, so its Publish cannot run. Such a site
+     * is settled once, with a message, instead of offering a Publish that would only be refused.
+     */
+    public static function isStranded(Site $site): bool
+    {
+        return self::setupWaiting($site) && ! is_array(data_get($site->meta, 'guided_setup.spec'));
     }
 
     public function handle(Authenticatable $actor): GuidedSetupStateData
@@ -152,14 +197,15 @@ final class ResolveGuidedSetupStateAction
     {
         $site = SiteAccess::forActor($actor)->query(Site::class)->excludingPreview()->orderBy('id')->first();
 
-        if (! $site instanceof Site
-            || blank(data_get($site->meta, 'guided_setup.completed_at'))
-            || filled(data_get($site->meta, 'guided_setup.published_at'))) {
-            return null;
-        }
+        return $site instanceof Site && self::awaitsPublication($site) ? $site : null;
+    }
 
-        // Taken public from the editor since: the wait ends here rather than offering to publish over it.
-        return SettleGuidedSetupPublicationAction::run($site) ? $site : null;
+    /** The person's site whose setup can no longer be published, so it can be settled with a message. */
+    public function strandedSetup(Authenticatable $actor): ?Site
+    {
+        $site = SiteAccess::forActor($actor)->query(Site::class)->excludingPreview()->orderBy('id')->first();
+
+        return $site instanceof Site && self::isStranded($site) ? $site : null;
     }
 
     /**
@@ -184,6 +230,13 @@ final class ResolveGuidedSetupStateAction
 
         return Page::query()->where('site_id', $site->getKey())->homePage()->published()->get()
             ->contains(fn (Page $home): bool => ! self::isPlaceholderHome($site, $home));
+    }
+
+    private static function setupWaiting(Site $site): bool
+    {
+        return filled(data_get($site->meta, 'guided_setup.completed_at'))
+            && blank(data_get($site->meta, 'guided_setup.published_at'))
+            && blank(data_get($site->meta, 'guided_setup.settled_at'));
     }
 
     private function build(Authenticatable $actor): GuidedSetupStateData

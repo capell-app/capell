@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\CreateDefaultPagesAction;
 use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
+use Capell\Admin\Actions\Publishing\PublishRecordAction;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\GuidedSetup;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
+use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Enums\ContentStructure;
@@ -429,6 +431,7 @@ it('records the launch of a site whose setup was skipped once a person has edite
     Livewire::test(GuidedSetup::class)->call('skip');
     $home = $site->pages()->homePage()->with('translations')->firstOrFail();
     $home->translations->first()?->update(['content' => '<p>Our own homepage</p>']);
+    PageSavedAction::run($home->refresh());
 
     ResolveFirstRunStateAction::run($this->authenticatedUser());
 
@@ -512,17 +515,49 @@ it('does not trap anyone on setup when the chosen page set is removed after the 
     $this->get(GuidedSetup::getUrl())->assertOk();
 });
 
-it('stops offering Publish and records the go-live once the person edits the placeholder home page', function (): void {
+it('keeps offering Publish for the untouched pages after the person edits the home page, and keeps their home page', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     createGuidedSetupPages();
-    $site->pages()->homePage()->with('translations')->firstOrFail()->translations->first()?->update(['content' => '<p>Written by the person</p>']);
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $home->translations->first()?->update(['content' => '<p>Written by the person</p>']);
+    PageSavedAction::run($home->refresh());
+
+    Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotified(__('capell-admin::setup.awaiting_publication'));
+    Livewire::test(GuidedSetup::class)->call('publishSite')->assertSet('sitePublished', true);
+
+    expect((string) $home->refresh()->translations()->firstOrFail()->content)->toBe('<p>Written by the person</p>')
+        ->and(collect(guidedSetupWrittenPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue()
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
+});
+
+it('stops offering Publish once the person has touched everything setup created', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    createGuidedSetupPages();
+    $home = $site->pages()->homePage()->firstOrFail();
+    PageSavedAction::run($home);
+    foreach (guidedSetupWrittenPages($site) as $page) {
+        PublishRecordAction::run($page, $this->authenticatedUser());
+    }
 
     Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotNotified(__('capell-admin::setup.awaiting_publication'));
     $this->get(GuidedSetup::getUrl())->assertForbidden();
+});
 
-    expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue()
-        ->and(collect(guidedSetupWrittenPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::draft))->toBeTrue();
+it('settles a site whose setup predates the stored spec, says so once, and never offers Publish', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    createGuidedSetupPages();
+    $meta = $site->refresh()->meta;
+    data_forget($meta, 'guided_setup.spec');
+    $site->forceFill(['meta' => $meta])->save();
+
+    Livewire::test(CapellDashboard::class)->assertNoRedirect()
+        ->assertNotified(__('capell-admin::setup.stranded'))
+        ->assertNotNotified(__('capell-admin::setup.awaiting_publication'));
+    $this->get(GuidedSetup::getUrl())->assertForbidden();
+    Livewire::test(CapellDashboard::class)->assertNotNotified(__('capell-admin::setup.stranded'));
 });
 
 it('opens the dashboard for a site whose home page holds blocks, without taking it for the placeholder', function (): void {

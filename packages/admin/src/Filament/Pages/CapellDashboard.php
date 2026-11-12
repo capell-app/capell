@@ -15,6 +15,7 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
+use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
@@ -41,6 +42,8 @@ use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
+use Capell\Core\Actions\FirstRun\SettleStrandedGuidedSetupAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
@@ -117,6 +120,18 @@ class CapellDashboard extends Dashboard
             $this->redirect(GuidedSetup::getUrl());
 
             return;
+        }
+
+        // Setup created pages before it kept what it built, so its Publish cannot run: settle it once and say so.
+        $stranded = $actor instanceof Authenticatable ? ResolveGuidedSetupStateAction::make()->strandedSetup($actor) : null;
+
+        if ($stranded instanceof Site && SiteResource::canEdit($stranded) && SettleStrandedGuidedSetupAction::run($stranded)) {
+            Notification::make('guided-setup-stranded')
+                ->warning()
+                ->title((string) __('capell-admin::setup.stranded'))
+                ->body((string) __('capell-admin::setup.stranded_body'))
+                ->persistent()
+                ->send();
         }
 
         // Pages setup created wait to be published: say so and offer it, without keeping anyone off the dashboard.
