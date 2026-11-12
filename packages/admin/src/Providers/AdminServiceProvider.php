@@ -121,6 +121,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadiness
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
+use Capell\Admin\Http\Middleware\AuthorisePeekPreview;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
@@ -237,6 +238,7 @@ use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Admin\Support\Security\ScopedPeekPreviewTokens;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
@@ -338,6 +340,7 @@ use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use function Livewire\on;
 
 use Override;
+use Pboivin\FilamentPeek\Support\Cache as PeekPreviewTokens;
 use ReflectionClass;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
@@ -443,6 +446,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class, AdminRouteOwnershipCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
+        $this->securePeekPreviews();
         // Each route records who serves it as it is registered, before any route is cached.
         ProvenanceRouteCollection::install($this->app->make(Router::class));
 
@@ -903,6 +907,32 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'skip-permission-sync',
             'force',
         ];
+    }
+
+    /**
+     * Filament Peek names a user's previews with one token derived from their identifier, which never expires
+     * and opens every later preview of theirs to anyone holding it. Each preview gets its own grant instead,
+     * and the preview URL is opened only for the user and panel it was granted to.
+     */
+    private function securePeekPreviews(): void
+    {
+        $this->app->bind(PeekPreviewTokens::class, ScopedPeekPreviewTokens::class);
+
+        // After every provider has merged its configuration, before Peek loads its preview route.
+        $this->app->booting(static function (): void {
+            $middleware = config('filament-peek.internalPreviewUrl.middleware', ['web']);
+            $middleware = is_string($middleware) ? [$middleware] : (is_array($middleware) ? array_values($middleware) : []);
+
+            if (! in_array('web', $middleware, true)) {
+                array_unshift($middleware, 'web');
+            }
+
+            if (! in_array(AuthorisePeekPreview::class, $middleware, true)) {
+                $middleware[] = AuthorisePeekPreview::class;
+            }
+
+            config()->set('filament-peek.internalPreviewUrl.middleware', $middleware);
+        });
     }
 
     private function prepareAdminRuntime(): self
