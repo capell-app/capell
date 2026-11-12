@@ -102,3 +102,33 @@ it('cannot be steered by document-level tags in the input', function (string $ht
     'head content hoisting' => ['<head><script>alert(1)</script></head><p>kept</p>'],
     'leading script and meta' => ['<meta http-equiv="refresh" content="0;url=//evil.test"><script>x()</script><p>kept</p>'],
 ]);
+
+it('removes comment, processing-instruction and CDATA nodes so no markup can hide inside them', function (string $payload): void {
+    $sanitized = (new PublicHtmlSanitizer)->sanitize($payload);
+
+    expect($sanitized)
+        ->not->toContain('<!--')
+        ->not->toContain('-->')
+        ->not->toContain('<?')
+        ->not->toContain('<![CDATA[')
+        ->not->toMatch('/<img\b[^>]*\bonerror/i')
+        ->not->toMatch('/<script\b/i');
+})->with([
+    'empty comment opener' => ['<!--><img src=x onerror=alert(2)>-->'],
+    'three-dash comment opener' => ['<!---><img src=x onerror=alert(2)>-->'],
+    'bang close' => ['<!-- x --!><img src=x onerror=alert(2)>-->'],
+    'conditional comment' => ['<!--[if IE]><img src=x onerror=alert(2)><![endif]-->'],
+    'downlevel-revealed conditional comment' => ['<![if !IE]><img src=x onerror=alert(2)><![endif]>'],
+    'comment wrapping a script' => ['<p>Safe</p><!-- <script>alert(1)</script> -->'],
+    'processing instruction' => ['<?xml-stylesheet href="x"?><p>Safe</p><?php echo 1; ?>'],
+    'cdata section' => ['<![CDATA[<img src=x onerror=alert(2)>]]><p>Safe</p>'],
+    'comment nested in an unwrapped element' => ['<b><!--><img src=x onerror=alert(2)>--></b>'],
+    'comment nested in an allowed element' => ['<p><!--><img src=x onerror=alert(2)>--></p>'],
+]);
+
+it('keeps legitimate content around the comments it removes', function (): void {
+    $html = '<h2>Title</h2><!-- editor note --><p>Body with <a href="https://example.com">a link</a> &amp; text</p><!--[if IE]>old<![endif]--><ul><li>One</li></ul>';
+
+    expect((new PublicHtmlSanitizer)->sanitize($html))
+        ->toBe('<h2>Title</h2><p>Body with <a href="https://example.com" rel="nofollow noopener noreferrer" target="_blank">a link</a> &amp; text</p><ul><li>One</li></ul>');
+});
