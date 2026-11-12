@@ -38,13 +38,16 @@ final class CompleteGuidedSetupAction
                 $site->addMedia($logoPath)->preservingOriginal()->toMediaCollection(MediaCollectionEnum::Logo->value);
             }
 
-            $site->forceFill(['meta' => [
-                ...($site->meta ?? []),
-                'guided_setup' => [
-                    'preset_key' => $input->presetKey,
-                    'completed_at' => now()->toIso8601String(),
-                ],
-            ]])->save();
+            // Read the row under a lock, after the spec apply wrote its own meta, so nothing recorded alongside is lost.
+            $fresh = Site::query()->lockForUpdate()->whereKey($site->getKey())->firstOrFail();
+            $meta = is_array($fresh->meta) ? $fresh->meta : [];
+            $meta['guided_setup'] = [
+                ...(array) data_get($meta, 'guided_setup', []),
+                'preset_key' => $input->presetKey,
+                'completed_at' => now()->toIso8601String(),
+            ];
+            $fresh->forceFill(['meta' => $meta])->save();
+            $site->setRawAttributes($fresh->getAttributes(), true);
 
             return $plan;
         });

@@ -18,11 +18,13 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -250,4 +252,43 @@ it('keeps a site awaiting publication from the moment its pages are created unti
     $site->pages()->get()->each(fn (Page $page) => $page->update(['visible_from' => now()->subDay()]));
 
     expect($state->awaitingPublication($actor))->toBeNull();
+});
+
+it('never asks about a site that has gone live, even if its home page is private again', function (): void {
+    $site = installedSite();
+    $user = guidedSetupAdmin();
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeTrue();
+
+    resolve(SitePublicationMilestones::class)->record((int) $site->getKey(), CarbonImmutable::now());
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::make()->awaitingPublication($user))->toBeNull();
+});
+
+it('keeps the go-live date and the other site meta when setup is skipped from a stale copy of the site', function (): void {
+    $site = installedSite();
+    $stale = Site::query()->findOrFail($site->getKey());
+    resolve(SitePublicationMilestones::class)->record((int) $site->getKey(), CarbonImmutable::now());
+
+    SkipGuidedSetupAction::run($stale);
+
+    $meta = $site->refresh()->meta;
+
+    expect(data_get($meta, 'first_run.published_at'))->toBeString()
+        ->and(data_get($meta, 'guided_setup.skipped_at'))->toBeString();
+});
+
+it('tells the first-run checklist and guided setup the same thing about a site being set up', function (): void {
+    $site = installedSite();
+
+    expect(ResolveGuidedSetupStateAction::isSetUp($site))->toBeFalse();
+
+    SkipGuidedSetupAction::run($site);
+
+    expect(ResolveGuidedSetupStateAction::isSetUp($site->refresh()))->toBeFalse();
+
+    $site->forceFill(['meta' => [...($site->meta ?? []), 'guided_setup' => ['completed_at' => now()->toIso8601String()]]])->save();
+
+    expect(ResolveGuidedSetupStateAction::isSetUp($site->refresh()))->toBeTrue();
 });

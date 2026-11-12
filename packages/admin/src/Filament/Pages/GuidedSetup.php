@@ -18,6 +18,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
 use Filament\Actions\Action;
@@ -109,7 +110,7 @@ class GuidedSetup extends FilamentPage
 
         $state = ResolveGuidedSetupStateAction::run($actor);
 
-        return $state->needsSetup && $state->siteId !== null ? Site::query()->whereKey($state->siteId)->first() : null;
+        return $state->needsSetup && $state->siteId !== null ? SiteAccess::forActor($actor)->query(Site::class)->whereKey($state->siteId)->first() : null;
     }
 
     #[Override]
@@ -377,7 +378,8 @@ class GuidedSetup extends FilamentPage
 
     private function finish(Site $site): void
     {
-        $home = Page::query()->where('site_id', $site->getKey())->homePage()->orderBy('id')->first();
+        $actor = auth()->user();
+        $home = $actor === null ? null : SiteAccess::forActor($actor)->query(Page::class)->where('site_id', $site->getKey())->homePage()->orderBy('id')->first();
 
         $this->created = true;
         $this->createdPageCount = count($this->selectedSlugs());
@@ -439,7 +441,8 @@ class GuidedSetup extends FilamentPage
     private function site(): Site
     {
         if (! $this->resolvedSite instanceof Site) {
-            $site = $this->siteId === null ? null : Site::query()->whereKey($this->siteId)->first();
+            $actor = auth()->user();
+            $site = $this->siteId === null || $actor === null ? null : SiteAccess::forActor($actor)->query(Site::class)->whereKey($this->siteId)->first();
             abort_unless($site instanceof Site && SiteResource::canEdit($site), 403);
             $this->resolvedSite = $site;
         }

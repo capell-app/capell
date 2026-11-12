@@ -68,11 +68,11 @@ it('shows the five first-run tasks with what to do and why on a fresh install', 
             __('capell-admin::dashboard.first_run_task_publish_title'),
         ])
         ->assertSee(__('capell-admin::dashboard.first_run_task_logo_consequence'))
-        ->assertSee(__('capell-admin::dashboard.first_run_description', ['done' => 1, 'total' => 5]))
-        ->assertSee(__('capell-admin::dashboard.first_run_next', ['task' => __('capell-admin::dashboard.first_run_task_homepage_title')]));
+        ->assertSee(__('capell-admin::dashboard.first_run_description', ['done' => 0, 'total' => 5]))
+        ->assertSee(__('capell-admin::dashboard.first_run_next', ['task' => __('capell-admin::dashboard.first_run_task_site_title')]));
 
     expect(firstRunTaskStates())->toBe([
-        'site' => true,
+        'site' => false,
         'homepage' => false,
         'logo' => false,
         'address' => false,
@@ -83,6 +83,7 @@ it('shows the five first-run tasks with what to do and why on a fresh install', 
 it('ticks tasks itself as they are done', function (): void {
     $this->actingAsAdmin();
     [$site, $home] = firstRunSite();
+    $site->forceFill(['meta' => ['guided_setup' => ['completed_at' => now()->toIso8601String()]]])->save();
 
     Media::factory()->model($site)->createOne(['collection_name' => MediaCollectionEnum::Logo->value]);
     SiteDomain::query()->where('site_id', $site->id)->update(['domain' => 'example.org']);
@@ -234,3 +235,16 @@ it('ticks the homepage task after the homepage is saved as a draft through the a
 
     expect(firstRunTaskStates()['homepage'])->toBeTrue();
 });
+
+it('ticks Set up your site from guided setup or an imported site spec, and not from skipping it', function (array $meta, bool $expected): void {
+    $this->actingAsAdmin();
+    [$site] = firstRunSite();
+    $site->forceFill(['meta' => $meta])->save();
+
+    expect(firstRunTaskStates()['site'])->toBe($expected);
+})->with([
+    'nothing recorded' => [[], false],
+    'skipped' => [['guided_setup' => ['skipped_at' => '2026-11-12T10:00:00+00:00']], false],
+    'guided setup finished' => [['guided_setup' => ['completed_at' => '2026-11-12T10:00:00+00:00']], true],
+    'site spec imported' => [['site_spec_applied_hash' => 'abc123'], true],
+]);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\GuidedSetup;
+use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
@@ -51,6 +52,24 @@ it('sends an administrator of a new site from the dashboard to guided setup', fu
     guidedSetupSite();
 
     Livewire::test(CapellDashboard::class)->assertRedirect(GuidedSetup::getUrl());
+});
+
+it('sends one redirect when a checklist restore and guided setup are both due, restore first', function (): void {
+    $this->actingAsAdmin();
+    $user = $this->authenticatedUser();
+    guidedSetupSite();
+    $store = resolve(AdminWorkspacePreferenceStore::class);
+    $store->setFirstRunChecklistHidden($user, true);
+
+    // The restore redirect to the plain dashboard comes first, and setup is not also asked for in the same response.
+    Livewire::withQueryParams([CapellDashboard::SHOW_FIRST_RUN_CHECKLIST_QUERY => '1'])
+        ->test(CapellDashboard::class)
+        ->assertRedirect(CapellDashboard::getUrl());
+
+    expect($store->firstRunChecklistHidden($user->refresh()))->toBeFalse();
+
+    // The plain dashboard address then sends the person on to guided setup.
+    Livewire::withQueryParams([])->test(CapellDashboard::class)->assertRedirect(GuidedSetup::getUrl());
 });
 
 it('keeps the dashboard for a person who may not edit sites', function (): void {

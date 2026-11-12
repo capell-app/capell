@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\Dashboard\FirstRunTaskRegistry;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
@@ -72,7 +73,7 @@ final class ResolveFirstRunStateAction
             : null;
 
         $builtIn = [
-            $this->task('site', true, $siteUrl),
+            $this->task('site', $site instanceof Site && ResolveGuidedSetupStateAction::isSetUp($site), $siteUrl),
             $this->task('homepage', $this->editedByPerson($access, $home), $homeUrl),
             $this->task('logo', $access->query(Media::class)
                 ->where('model_type', (new Site)->getMorphClass())

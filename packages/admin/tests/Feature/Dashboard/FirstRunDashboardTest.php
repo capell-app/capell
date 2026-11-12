@@ -331,7 +331,7 @@ it('adds package tasks before Publish your site and ignores keys already in use'
 
     Livewire::test(FirstRunChecklistFilamentWidget::class)
         ->assertSeeInOrder(['Check the contact form', __('capell-admin::dashboard.first_run_task_publish_title')])
-        ->assertSee(__('capell-admin::dashboard.first_run_description', ['done' => 1, 'total' => 6]))
+        ->assertSee(__('capell-admin::dashboard.first_run_description', ['done' => 0, 'total' => 6]))
         ->assertDontSee('Check the contact form again');
 });
 
