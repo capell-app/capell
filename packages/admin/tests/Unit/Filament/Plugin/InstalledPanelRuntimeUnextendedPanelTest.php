@@ -15,9 +15,13 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\HostCompanionWorkspacePage;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\InspectedRouteController;
 use Capell\CompanionFixture\CompanionAdminController;
 use Capell\CompanionFixture\CompanionWorkspacePage;
+use Composer\Autoload\ClassLoader;
 use Filament\Facades\Filament;
 use Filament\Http\Controllers\RedirectToHomeController;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
+use Orchestra\Testbench\Attributes\DefineEnvironment;
 use Override;
 use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +33,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
 {
+    private const string HOST_ROOT_NAMESPACE = 'Capell\\HostRoot\\';
+
+    private const string HOST_ROOT_ROUTES = 'routes/capell-host-root.php';
+
     public function test_a_panel_without_the_capell_plugin_refuses_capell_admin_code(): void
     {
         $this->portalRoute('/portal/avatar/{initials}', AdminAvatarController::class);
@@ -84,6 +92,34 @@ final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
         $this->get('/portal/companion-closure')->assertStatus(503)->assertDontSee('companion route file served');
     }
 
+    /** A cached closure is never unserialised to be read, so the companion code it runs is recorded when it is registered. */
+    public function test_a_panel_without_the_capell_plugin_refuses_cached_companion_route_files(): void
+    {
+        Route::name('filament.portal.')->middleware('panel:portal')->group(dirname(__DIR__, 3) . '/Fixtures/CompanionPackage/routes/portal.php');
+        Route::name('filament.portal.')->middleware('panel:portal')->group(static function (): void {
+            // Its own line: a serialised closure is found by its line.
+            Route::get('/portal/host-closure', static fn (): string => 'host closure served');
+        });
+        $this->cacheRoutes();
+
+        $this->get('/portal/companion-closure')->assertStatus(503)->assertDontSee('companion route file served');
+        $this->get('/portal/host-closure')->assertOk()->assertSee('host closure served');
+    }
+
+    /** A host mapping a Capell namespace onto its own root keeps its own route files. */
+    #[DefineEnvironment('mapCapellNamespaceOntoTheHostRoot')]
+    public function test_a_panel_without_the_capell_plugin_serves_a_host_mapping_a_capell_namespace_onto_its_root(): void
+    {
+        try {
+            Route::name('filament.portal.')->middleware('panel:portal')->group(base_path(self::HOST_ROOT_ROUTES));
+
+            $this->get('/portal/host-root')->assertOk()->assertSee('host root route served');
+        } finally {
+            array_values(ClassLoader::getRegisteredLoaders())[0]->setPsr4(self::HOST_ROOT_NAMESPACE, []);
+            File::delete(base_path(self::HOST_ROOT_ROUTES));
+        }
+    }
+
     /** @param class-string $action */
     #[TestWith(['/portal/host-companion', HostCompanionAdminController::class, CompanionAdminController::BODY])]
     #[TestWith(['/portal/host-companion-workspace', HostCompanionWorkspacePage::class, CompanionWorkspacePage::BODY])]
@@ -111,6 +147,33 @@ final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
         array_splice($providers, $position === false ? count($providers) : $position + 1, 0, [ForeignPanelProvider::class]);
 
         return $providers;
+    }
+
+    /** Map a Capell namespace onto the host's own root before Capell reads Composer's map. */
+    protected function mapCapellNamespaceOntoTheHostRoot(mixed $app): void
+    {
+        File::ensureDirectoryExists(base_path('src'));
+        File::put(base_path(self::HOST_ROOT_ROUTES), "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n\nRoute::get('/portal/host-root', static fn (): string => 'host root route served');\n");
+        array_values(ClassLoader::getRegisteredLoaders())[0]->addPsr4(self::HOST_ROOT_NAMESPACE, base_path('src'));
+    }
+
+    /** Write and load the route cache exactly as `route:cache` does. */
+    private function cacheRoutes(): void
+    {
+        $routes = Route::getRoutes();
+        $this->assertInstanceOf(RouteCollection::class, $routes);
+        foreach ($routes->getRoutes() as $route) {
+            $route->prepareForSerialization();
+        }
+
+        $file = storage_path('framework/testing-routes-' . bin2hex(random_bytes(6)) . '.php');
+        File::ensureDirectoryExists(dirname($file));
+        File::put($file, '<?php return ' . var_export($routes->compile(), true) . ';');
+        try {
+            Route::setCompiledRoutes(require $file);
+        } finally {
+            File::delete($file);
+        }
     }
 
     /** @param class-string $controller */

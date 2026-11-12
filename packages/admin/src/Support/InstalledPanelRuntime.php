@@ -45,6 +45,7 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use Livewire\Mechanisms\HandleRouting\LivewirePageController;
+use LogicException;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionProperty;
@@ -118,6 +119,9 @@ final class InstalledPanelRuntime
 
     /** A page gaining authentication solely because it runs admin code, retained through reconciliation and route caching. */
     private const string PAGE_AUTHENTICATION_ACTION = 'capell_panel_page_authentication';
+
+    /** A panel route running Capell package code, recorded at registration so it survives route caching. */
+    private const string CAPELL_CODE_ACTION = 'capell_panel_capell_code';
 
     /** @var WeakMap<Panel, array<int, bool>> */
     private WeakMap $applied;
@@ -220,6 +224,12 @@ final class InstalledPanelRuntime
             $panel = $registered[$ownership->panel] ?? $this->synchronised[$ownership->panel] ?? null;
             $route->action[self::AUTHENTICATED_ACTION] = array_any($declared, $this->isAuthenticator(...))
                 || ($panel instanceof Panel && array_intersect($declared, $this->router->resolveMiddleware($panel->getAuthMiddleware())) !== []);
+        }
+
+        // A cached closure is never unserialised to be read, so record now whether it runs Capell code. Classes
+        // stay readable once cached, and are not loaded at registration.
+        if ($ownership?->kind === RouteOwnershipEnum::Panel && $route->getAction('uses') instanceof Closure && $this->runsCapellCode($route)) {
+            $route->action[self::CAPELL_CODE_ACTION] = true;
         }
 
         $this->demoteLegacyHost($route);
@@ -1219,6 +1229,10 @@ final class InstalledPanelRuntime
      */
     private function runsCapellCode(Route $route): bool
     {
+        if ($route->getAction(self::CAPELL_CODE_ACTION) === true) {
+            return true;
+        }
+
         $file = $this->actionSource($route)[1];
 
         return $file !== null && array_any($this->capellRoots(), static fn (string $root): bool => str_starts_with($file, $root));
@@ -1454,32 +1468,18 @@ final class InstalledPanelRuntime
             return $this->adminRoots;
         }
 
-        $namespaces = self::ADMIN_NAMESPACES;
         $roots = [];
-        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
-            foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
-                if (! array_any($namespaces, static fn (string $namespace): bool => str_starts_with($prefix, $namespace))) {
-                    continue;
-                }
-
-                foreach ($directories as $directory) {
-                    $path = realpath($directory);
-                    // A package's route files sit beside its source directory.
-                    if ($path !== false && basename($path) === 'src') {
-                        $roots[$path . DIRECTORY_SEPARATOR] = $prefix;
-                        $roots[dirname($path) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR] ??= null;
-                    }
-                }
-            }
+        foreach ($this->sourceRoots(self::ADMIN_NAMESPACES) as $source => $prefix) {
+            $roots[$source] = $prefix;
+            $roots[$this->routesBeside($source)] ??= null;
         }
 
         return $this->adminRoots = $roots;
     }
 
     /**
-     * The source and route directories of every package under the Capell namespace, found once per process
-     * through Composer's PSR-4 map, the same way as the admin packages' roots. Their test suites are not
-     * package code.
+     * The source and route directories of every package under the Capell namespace, the same way as the admin
+     * packages' roots. A host mapping a Capell namespace onto its own root is the host's code, not a package's.
      *
      * @return list<string>
      */
@@ -1489,25 +1489,59 @@ final class InstalledPanelRuntime
             return $this->capellRoots;
         }
 
+        $application = realpath(base_path());
+        $roots = [];
+        foreach (array_keys($this->sourceRoots([self::CAPELL_NAMESPACE])) as $source) {
+            if ($application === false || dirname($source) !== $application) {
+                $roots[$source] = true;
+                $roots[$this->routesBeside($source)] = true;
+            }
+        }
+
+        // This class is Capell code, so a list without its own source directory means Composer's map could not
+        // be read. Refuse rather than serve Capell code on panels without the Capell plugin.
+        $self = realpath((string) new ReflectionClass(self::class)->getFileName());
+        throw_unless(
+            $self !== false && array_any(array_keys($roots), static fn (string $root): bool => str_starts_with($self, $root)),
+            LogicException::class,
+            "Capell's package directories could not be read from Composer's autoloader.",
+        );
+
+        return $this->capellRoots = array_keys($roots);
+    }
+
+    /**
+     * The real `src` directories Composer's PSR-4 map registers for the namespaces, each with its prefix, found
+     * once per process from the registered autoloaders. Test suites and other directories are not package code.
+     *
+     * @param  list<string>  $namespaces
+     * @return array<string, string>
+     */
+    private function sourceRoots(array $namespaces): array
+    {
         $roots = [];
         foreach (ClassLoader::getRegisteredLoaders() as $loader) {
             foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
-                if (! str_starts_with($prefix, self::CAPELL_NAMESPACE)) {
+                if (! array_any($namespaces, static fn (string $namespace): bool => str_starts_with($prefix, $namespace))) {
                     continue;
                 }
 
                 foreach ($directories as $directory) {
                     $path = realpath($directory);
-                    // A package's route files sit beside its source directory.
                     if ($path !== false && basename($path) === 'src') {
-                        $roots[$path . DIRECTORY_SEPARATOR] = true;
-                        $roots[dirname($path) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR] = true;
+                        $roots[$path . DIRECTORY_SEPARATOR] = $prefix;
                     }
                 }
             }
         }
 
-        return $this->capellRoots = array_keys($roots);
+        return $roots;
+    }
+
+    /** A package's route files sit beside its source directory. */
+    private function routesBeside(string $source): string
+    {
+        return dirname($source) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR;
     }
 
     /** @return array{middleware: array<string>, auth: array<string>, tenant: array<string>} */
