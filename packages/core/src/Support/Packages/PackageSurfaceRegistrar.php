@@ -41,6 +41,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PackageSurfaceRegistrar
 {
+    private int $installationDepth = 0;
+
     public function __construct(
         private readonly CapellCoreManager $core,
         private readonly SettingsSchemaRegistry $settings,
@@ -70,16 +72,28 @@ final class PackageSurfaceRegistrar
      */
     public function duringPackageInstallation(callable $callback): mixed
     {
-        return $this->outboundEvents->duringPackageInstallation(
-            fn (): mixed => $this->blueprintSubjects->duringPackageInstallation(
-                fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
-                    $result = $callback();
-                    $this->securityWeaknesses->adoptTagged($this->app);
+        $this->installationDepth++;
 
-                    return $result;
-                }),
-            ),
-        );
+        try {
+            return $this->outboundEvents->duringPackageInstallation(
+                fn (): mixed => $this->blueprintSubjects->duringPackageInstallation(
+                    fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
+                        $result = $callback();
+                        $this->securityWeaknesses->adoptTagged($this->app);
+
+                        return $result;
+                    }),
+                ),
+            );
+        } finally {
+            $this->installationDepth--;
+        }
+    }
+
+    /** Whether the package-install lifecycle is running in this process; only that lifecycle opens it. */
+    public function isInstallingPackages(): bool
+    {
+        return $this->installationDepth > 0;
     }
 
     public function pageType(PageTypeData $type): self

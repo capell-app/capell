@@ -5,20 +5,32 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Support\AdminPanelEntrypoint;
 use Capell\Admin\Support\AdminRouteProvenance;
 use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Support\Livewire\ShortCircuitingPersistentMiddleware;
 use Capell\Admin\Support\ProvenanceRouteCollection;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeDecoratingMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeForbiddenResponseMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeHeldResponseMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeLateForbiddenMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Filament\Facades\Filament;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Iterator;
 use Livewire\Livewire;
 use Livewire\Mechanisms\HandleComponents\Checksum;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
+use Livewire\Mechanisms\PersistentMiddleware\PersistentMiddleware;
+use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 
 /** A Livewire update is held to the route that rendered the component, reconciled as that route stands now. */
@@ -26,16 +38,92 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
 {
     private const string URI = '/admin/runtime-replay';
 
+    /** @return Iterator<string, array{class-string, int, string}> */
+    public static function shortCircuitingMiddleware(): Iterator
+    {
+        yield 'returned refusal' => [RuntimeForbiddenResponseMiddleware::class, 403, 'refused by panel middleware'];
+        yield 'successful answer without the next middleware' => [RuntimeHeldResponseMiddleware::class, 200, 'held by panel middleware'];
+        yield 'refusal after the next middleware' => [RuntimeLateForbiddenMiddleware::class, 403, 'refused after the route answered'];
+    }
+
+    /** @return Iterator<string, array{bool}> */
+    public static function livewireUpdateRequests(): Iterator
+    {
+        yield 'Livewire header on another path' => [true];
+        yield 'update endpoint without the header' => [false];
+    }
+
     public function test_a_replay_runs_panel_middleware_gained_after_the_render(): void
     {
         $payload = $this->render();
         $this->replay($payload)->assertOk();
 
-        // Livewire's replay honours middleware that aborts or redirects, not a returned response.
+        // The replay honours middleware that aborts, as it does a returned response.
         Filament::getPanel('admin')->middleware([RuntimeWireBlockMiddleware::class]);
         Livewire::flushState();
 
         $this->replay($payload)->assertForbidden();
+    }
+
+    /** @param class-string $middleware */
+    #[DataProvider('shortCircuitingMiddleware')]
+    public function test_a_replay_ends_with_the_exact_response_a_middleware_returns_instead_of_running_the_update(string $middleware, int $status, string $body): void
+    {
+        $payload = $this->render();
+        RuntimeCounterComponent::$increments = 0;
+
+        Filament::getPanel('admin')->middleware([$middleware], isPersistent: true);
+        Livewire::addPersistentMiddleware([$middleware]);
+        Livewire::flushState();
+
+        $response = $this->replay($payload);
+
+        $response->assertStatus($status);
+        $this->assertSame($body, $response->getContent());
+        $this->assertSame(0, RuntimeCounterComponent::$increments, 'The update must stop before the action runs.');
+    }
+
+    public function test_a_replay_through_middleware_that_passes_the_request_on_runs_the_update(): void
+    {
+        $payload = $this->render();
+        RuntimeCounterComponent::$increments = 0;
+
+        Filament::getPanel('admin')->middleware([RuntimeDecoratingMiddleware::class], isPersistent: true);
+        Livewire::addPersistentMiddleware([RuntimeDecoratingMiddleware::class]);
+        Livewire::flushState();
+
+        $this->replay($payload)->assertOk()->assertJsonPath('components.0.effects.html', fn (?string $html): bool => str_contains((string) $html, 'count: 1'));
+        $this->assertSame(1, RuntimeCounterComponent::$increments);
+    }
+
+    public function test_the_short_circuiting_replay_stands_in_for_livewire_persistent_middleware(): void
+    {
+        $this->assertInstanceOf(ShortCircuitingPersistentMiddleware::class, resolve(PersistentMiddleware::class));
+    }
+
+    public function test_registering_the_admin_package_after_boot_fails_instead_of_leaving_updates_unguarded(): void
+    {
+        $this->expectException(LogicException::class);
+
+        $this->app->register(new AdminServiceProvider($this->app), force: true);
+    }
+
+    /** During installation, a process that may be serving a Livewire update still refuses a late registration. */
+    #[DataProvider('livewireUpdateRequests')]
+    public function test_the_package_installer_may_not_register_the_admin_package_late_while_serving_a_livewire_update(bool $byHeader): void
+    {
+        $request = $byHeader
+            ? Request::create('/install/run-step', Request::METHOD_POST, server: ['HTTP_X_LIVEWIRE' => 'true'])
+            : Request::create(Livewire::getUpdateUri(), Request::METHOD_POST);
+
+        $this->app->instance('request', $request);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
+
+        resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
+            fn (): object => $this->app->register(new AdminServiceProvider($this->app), force: true),
+        );
     }
 
     public function test_a_replay_of_a_refused_route_is_refused_even_when_the_route_excludes_the_availability_guard(): void
