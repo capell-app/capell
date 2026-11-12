@@ -77,6 +77,7 @@ use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
+use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Contracts\Security\SecurityWeaknessAnalyser;
 use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
@@ -164,6 +165,7 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\Http\DnsHostAddressResolver;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
@@ -617,6 +619,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(MediaCompositionGuidanceRegistry::class);
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(ExtensionEntitlements::class, NullExtensionEntitlements::class);
+        $this->app->bindIf(ResolvesHostAddresses::class, DnsHostAddressResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
         // Keep these legacy class names as strings so the compatibility binding

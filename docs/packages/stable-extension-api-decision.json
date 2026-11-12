@@ -1,8 +1,9 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "Domain ownership protection adds one isolated, additive Core migration creating site_domain_claim_locks and seeding its singleton mutex row. Domain saves and individual/site-batch restores hold this database mutex through validation and persistence, including when no claim exists. Existing migrations, data shapes, public extension signatures, configuration keys and dependency admission remain unchanged. Deploy the migration before enabling domain writes or restores. Language fallback adds one additive, nullable Core column (languages.fallback_language_id, null on delete); existing languages keep today's behaviour with no fallback until one is configured.",
+    "reason": "Domain ownership protection adds one isolated, additive Core migration creating site_domain_claim_locks and seeding its singleton mutex row. Domain saves and individual/site-batch restores hold this database mutex through validation and persistence, including when no claim exists. Existing migrations, data shapes, public extension signatures, configuration keys and dependency admission remain unchanged. Deploy the migration before enabling domain writes or restores. Language fallback adds one additive, nullable Core column (languages.fallback_language_id, null on delete); existing languages keep today's behaviour with no fallback until one is configured. The guarded outbound HTTP client makes Core declare the packages it already loaded through Laravel's HTTP client: ext-curl, guzzlehttp/guzzle ^7.5|^8.0, guzzlehttp/promises ^2.0|^3.0 and psr/http-message ^1.1|^2.0. Every Capell install already has them through laravel/framework, so no install gains a new dependency.",
     "drift": [
-        "migrations"
+        "migrations",
+        "packageConstraints"
     ]
 }
