@@ -20,10 +20,10 @@ it('documents every supported page-building path and the page view boundary', fu
     $guide = pageBuildingGuideContents('docs/getting-started/building-pages.md');
 
     expect($guide)
-        ->toContain('## 1. Basic HTML content')
-        ->toContain('## 2. Structured content blocks')
-        ->toContain('## 3. Layout Builder widgets')
-        ->toContain('## 4. Custom Blade rendering')
+        ->toContain('## Basic HTML content')
+        ->toContain('## Structured content blocks')
+        ->toContain('## Layout Builder widgets')
+        ->toContain('## Custom Blade rendering')
         ->toContain('Blocks are a body-authoring choice, not a replacement for a page layout.')
         ->toContain('[Block Library documentation](https://docs.capell.app/packages/block-library)')
         ->toContain('There is no page-level `view_file`. A page does not have a direct `view_file` override; assigning a dedicated layout with `master_file` and `layout_file` is the supported per-page route to full Blade control.');
