@@ -9,6 +9,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function (): void {
@@ -174,4 +175,19 @@ it('retains translation primary keys for retrieval listeners while rebuilding pa
         ->and($this->parent->translations->modelKeys())->toContain($parentTranslationId)
         ->and(pageUrlFor($this->parent, $this->language)?->url)->toBe('/parent')
         ->and(pageUrlFor($this->child, $this->language)?->url)->toBe('/parent/child');
+});
+
+it('leaves complete translations on the page it rebuilt urls for so title reads stay safe', function (): void {
+    $title = $this->parent->translations()->firstOrFail()->title;
+
+    Model::preventAccessingMissingAttributes();
+
+    try {
+        SetupPageUrlsAction::run($this->parent, updateDescendants: true);
+
+        expect($this->parent->translations->first()->getAttributes())->toHaveKeys(['title', 'content', 'meta'])
+            ->and($this->parent->title)->toBe($title);
+    } finally {
+        Model::preventAccessingMissingAttributes(false);
+    }
 });
