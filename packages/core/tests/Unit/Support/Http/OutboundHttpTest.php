@@ -6,9 +6,11 @@ use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Capell\Core\Support\Http\OutboundHttp;
 use Capell\Core\Support\Http\OutboundHttpPolicy;
+use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Promise\PromiseInterface;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -35,13 +37,13 @@ function fakeHostAnswers(array $answers): void
  * Captures the transport options the guard hands to the next handler, so the
  * pinning and limits can be asserted without opening a socket.
  *
- * @param  array<int, mixed>|null  $captured
+ * @param  array<string, mixed>|null  $captured
  */
-function captureCurlOptions(?array &$captured): Closure
+function captureRequestOptions(?array &$captured): Closure
 {
     return static function (callable $handler) use (&$captured): Closure {
-        return static function (RequestInterface $request, array $options) use ($handler, &$captured) {
-            $captured = $options['curl'] ?? null;
+        return static function (RequestInterface $request, array $options) use ($handler, &$captured): PromiseInterface {
+            $captured = $options;
 
             return $handler($request, $options);
         };
@@ -104,28 +106,57 @@ it('refuses ports and schemes the policy does not allow', function (string $url,
     'plain http on an https-only policy' => ['http://public.example.test/', new OutboundHttpPolicy(schemes: ['https'])],
 ]);
 
-it('pins the connection to the checked address and ignores proxies', function (): void {
+it('pins the connection to the checked address, ignores proxies and limits the download', function (): void {
     Http::fake(['*' => Http::response('ok')]);
     fakeHostAnswers(['public.example.test' => ['2606:2800:220:1:248:1893:25c8:1946']]);
     $captured = null;
 
-    OutboundHttp::guarded(new OutboundHttpPolicy(ports: [8443]))
-        ->withMiddleware(captureCurlOptions($captured))
+    OutboundHttp::guarded(new OutboundHttpPolicy(ports: [8443], maxBytes: 1024))
+        ->withMiddleware(captureRequestOptions($captured))
         ->get('https://public.example.test:8443/feed');
 
-    expect($captured)->toBeArray();
     $options = is_array($captured) ? $captured : [];
-    $abort = $options[CURLOPT_XFERINFOFUNCTION] ?? null;
+    $curl = is_array($options['curl'] ?? null) ? $options['curl'] : [];
 
-    expect($options[CURLOPT_RESOLVE] ?? null)->toBe(['public.example.test:8443:[2606:2800:220:1:248:1893:25c8:1946]'])
-        ->and($options[CURLOPT_PROXY] ?? null)->toBe('')
-        ->and($options[CURLOPT_NOPROXY] ?? null)->toBe('*')
-        ->and($options[CURLOPT_MAXFILESIZE] ?? null)->toBe(OutboundHttpPolicy::DEFAULT_MAX_BYTES)
-        ->and($options[CURLOPT_NOPROGRESS] ?? null)->toBeFalse()
-        ->and($abort)->toBeCallable();
-    assert(is_callable($abort));
-    expect($abort(null, 0, OutboundHttpPolicy::DEFAULT_MAX_BYTES + 1, 0, 0))->toBe(1)
-        ->and($abort(null, 0, OutboundHttpPolicy::DEFAULT_MAX_BYTES, 0, 0))->toBe(0);
+    expect($curl[CURLOPT_RESOLVE] ?? null)->toBe(['public.example.test:8443:[2606:2800:220:1:248:1893:25c8:1946]'])
+        ->and($options['proxy'] ?? null)->toBe('');
+
+    $onHeaders = $options['on_headers'] ?? null;
+    assert(is_callable($onHeaders));
+    $onHeaders(new Psr7Response(200, ['Content-Length' => '1024']));
+    expect(fn () => $onHeaders(new Psr7Response(200, ['Content-Length' => '1025'])))
+        ->toThrow(OutboundRequestRefusedException::class, 'download limit');
+
+    if (constant(ClientInterface::class . '::MAJOR_VERSION') < 8) {
+        // Guzzle 7 cannot abort from its progress option, so the limit is cURL's own.
+        $abort = $curl[CURLOPT_XFERINFOFUNCTION] ?? null;
+        assert(is_callable($abort));
+        expect($curl[CURLOPT_MAXFILESIZE] ?? null)->toBe(1024)
+            ->and($curl[CURLOPT_NOPROGRESS] ?? null)->toBeFalse()
+            ->and($abort(null, 0, 1025, 0, 0))->toBe(1)
+            ->and($abort(null, 0, 1024, 0, 0))->toBe(0);
+
+        return;
+    }
+
+    // Guzzle 8 rejects those raw cURL options and aborts through its progress option.
+    $progress = $options['progress'] ?? null;
+    assert(is_callable($progress));
+    expect($curl)->toHaveKeys([CURLOPT_RESOLVE])->toHaveCount(1)
+        ->and($progress(0, 1024, 0, 0))->toBeFalse()
+        ->and(fn () => $progress(0, 1025, 0, 0))->toThrow(OutboundRequestRefusedException::class);
+});
+
+it('surfaces the guard refusal that Guzzle wrapped from a header or progress callback', function (): void {
+    Http::fake(['*' => Http::response('ok')]);
+    fakeHostAnswers(['public.example.test' => ['93.184.216.34']]);
+
+    $wrapped = static fn (callable $handler): Closure => static fn (RequestInterface $request, array $options): PromiseInterface => Create::rejectionFor(
+        new RuntimeException('An error was encountered during the on_headers event', 0, OutboundRequestRefusedException::forHost('public.example.test', OutboundRequestRefusedException::REASON_SIZE, 'the response exceeds the download limit')),
+    );
+
+    expect(fn () => OutboundHttp::guarded()->withMiddleware($wrapped)->get('https://public.example.test/big'))
+        ->toThrow(OutboundRequestRefusedException::class, 'download limit');
 });
 
 it('does not follow redirects unless the policy allows them', function (): void {
@@ -206,7 +237,7 @@ it('reports a transfer cURL stopped at the download limit as a size refusal', fu
     fakeHostAnswers(['public.example.test' => ['93.184.216.34']]);
 
     $stoppedByCurl = static fn (callable $handler): Closure => static fn (RequestInterface $request, array $options): PromiseInterface => Create::rejectionFor(
-        new ConnectException('cURL error ' . $errno, $request, null, ['errno' => $errno]),
+        new ConnectException(sprintf('cURL error %d: transfer stopped', $errno), $request),
     );
 
     try {
@@ -223,7 +254,7 @@ it('leaves other transport failures as connection errors', function (): void {
     fakeHostAnswers(['public.example.test' => ['93.184.216.34']]);
 
     $refused = static fn (callable $handler): Closure => static fn (RequestInterface $request, array $options): PromiseInterface => Create::rejectionFor(
-        new ConnectException('cURL error 7', $request, null, ['errno' => 7]),
+        new ConnectException('cURL error 7: Failed to connect', $request),
     );
 
     expect(fn () => OutboundHttp::guarded()->withMiddleware($refused)->get('https://public.example.test/'))

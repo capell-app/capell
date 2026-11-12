@@ -61,11 +61,11 @@ class VisitUrlAction implements ShouldBeUnique
         } catch (OutboundRequestRefusedException $outboundRequestRefusedException) {
             Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host, 'reason' => $outboundRequestRefusedException->getMessage()]);
 
-            throw UrlVisitFailedException::forUrl($url, __(match ($outboundRequestRefusedException->reason) {
-                OutboundRequestRefusedException::REASON_SCHEME, OutboundRequestRefusedException::REASON_PORT => 'capell-core::message.visit_requires_standard_port',
-                OutboundRequestRefusedException::REASON_SIZE => 'capell-core::message.visit_response_too_large',
-                default => 'capell-core::message.visit_requires_public_address',
-            }));
+            throw UrlVisitFailedException::forUrl($url, match ($outboundRequestRefusedException->reason) {
+                OutboundRequestRefusedException::REASON_SCHEME, OutboundRequestRefusedException::REASON_PORT => __('capell-core::message.visit_requires_standard_port'),
+                OutboundRequestRefusedException::REASON_SIZE => __('capell-core::message.visit_response_too_large'),
+                default => __('capell-core::message.visit_requires_public_address'),
+            });
         }
 
         if (! $response->ok()) {
