@@ -183,3 +183,20 @@ it('refuses a registered public host on a port other than 80 or 443', function (
 
     Http::assertNothingSent();
 });
+
+it('names the refusal reason when a visit is stopped', function (string $url, string $key): void {
+    Http::fake();
+    SiteDomain::factory()->createOne(['domain' => '93.184.216.37', 'status' => true]);
+
+    expect(fn () => VisitUrlAction::run($url))->toThrow(UrlVisitFailedException::class, __($key));
+})->with([
+    'custom port' => ['https://93.184.216.37:8080/', 'capell-core::message.visit_requires_standard_port'],
+]);
+
+it('stops a visit whose page is larger than the download limit and says so', function (): void {
+    Http::fake(['*' => Http::response(str_repeat('a', 10 * 1024 * 1024 + 1))]);
+    SiteDomain::factory()->createOne(['domain' => '93.184.216.38', 'status' => true]);
+
+    expect(fn () => VisitUrlAction::run('https://93.184.216.38/large'))
+        ->toThrow(UrlVisitFailedException::class, __('capell-core::message.visit_response_too_large'));
+});

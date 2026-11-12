@@ -6,6 +6,10 @@ use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Capell\Core\Support\Http\OutboundHttp;
 use Capell\Core\Support\Http\OutboundHttpPolicy;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Promise\Create;
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Psr\Http\Message\RequestInterface;
@@ -196,3 +200,32 @@ it('rejects policies that would loosen the guard beyond its limits', function (C
     'too many redirects' => [fn (): OutboundHttpPolicy => new OutboundHttpPolicy(maxRedirects: 11)],
     'no download limit' => [fn (): OutboundHttpPolicy => new OutboundHttpPolicy(maxBytes: 0)],
 ]);
+
+it('reports a transfer cURL stopped at the download limit as a size refusal', function (int $errno): void {
+    Http::fake(['*' => Http::response('ok')]);
+    fakeHostAnswers(['public.example.test' => ['93.184.216.34']]);
+
+    $stoppedByCurl = static fn (callable $handler): Closure => static fn (RequestInterface $request, array $options): PromiseInterface => Create::rejectionFor(
+        new ConnectException('cURL error ' . $errno, $request, null, ['errno' => $errno]),
+    );
+
+    try {
+        OutboundHttp::guarded()->withMiddleware($stoppedByCurl)->get('https://public.example.test/big');
+        $this->fail('The oversize transfer was not refused.');
+    } catch (OutboundRequestRefusedException $outboundRequestRefusedException) {
+        expect($outboundRequestRefusedException->reason)->toBe(OutboundRequestRefusedException::REASON_SIZE)
+            ->and($outboundRequestRefusedException->getPrevious())->toBeInstanceOf(ConnectException::class);
+    }
+})->with(['aborted by the transfer callback' => 42, 'declared length over the limit' => 63]);
+
+it('leaves other transport failures as connection errors', function (): void {
+    Http::fake(['*' => Http::response('ok')]);
+    fakeHostAnswers(['public.example.test' => ['93.184.216.34']]);
+
+    $refused = static fn (callable $handler): Closure => static fn (RequestInterface $request, array $options): PromiseInterface => Create::rejectionFor(
+        new ConnectException('cURL error 7', $request, null, ['errno' => 7]),
+    );
+
+    expect(fn () => OutboundHttp::guarded()->withMiddleware($refused)->get('https://public.example.test/'))
+        ->toThrow(ConnectionException::class);
+});

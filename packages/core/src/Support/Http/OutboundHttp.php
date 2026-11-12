@@ -7,7 +7,10 @@ namespace Capell\Core\Support\Http;
 use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Closure;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\CurlHandler;
+use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -39,6 +42,9 @@ use Psr\Http\Message\ResponseInterface;
  */
 final class OutboundHttp
 {
+    /** CURLE_ABORTED_BY_CALLBACK and CURLE_FILESIZE_EXCEEDED. */
+    private const array DOWNLOAD_LIMIT_CURL_ERRORS = [42, 63];
+
     public static function guarded(?OutboundHttpPolicy $policy = null): PendingRequest
     {
         $policy ??= new OutboundHttpPolicy;
@@ -75,15 +81,32 @@ final class OutboundHttp
             /** @var PromiseInterface $promise */
             $promise = $handler($request, $options);
 
-            return $promise->then(static function (ResponseInterface $response) use ($request, $policy): ResponseInterface {
-                $size = $response->getBody()->getSize();
+            return $promise->then(
+                static function (ResponseInterface $response) use ($request, $policy): ResponseInterface {
+                    $size = $response->getBody()->getSize();
 
-                if ($size !== null && $size > $policy->maxBytes) {
-                    throw OutboundRequestRefusedException::forHost(self::host($request), 'the response exceeds the download limit');
-                }
+                    if ($size !== null && $size > $policy->maxBytes) {
+                        throw OutboundRequestRefusedException::forHost(self::host($request), OutboundRequestRefusedException::REASON_SIZE, 'the response exceeds the download limit');
+                    }
 
-                return $response;
-            });
+                    return $response;
+                },
+                static function (mixed $reason) use ($request): PromiseInterface {
+                    // cURL stops an oversize transfer with "maximum file size
+                    // exceeded" (declared length) or "aborted by callback" (our
+                    // transfer callback); both are the download limit, not a
+                    // network failure.
+                    if ($reason instanceof RequestException || $reason instanceof ConnectException) {
+                        $errno = $reason->getHandlerContext()['errno'] ?? null;
+
+                        if (in_array($errno, self::DOWNLOAD_LIMIT_CURL_ERRORS, true)) {
+                            throw OutboundRequestRefusedException::forHost(self::host($request), OutboundRequestRefusedException::REASON_SIZE, 'the response exceeds the download limit', $reason);
+                        }
+                    }
+
+                    return Create::rejectionFor($reason);
+                },
+            );
         };
     }
 
@@ -97,24 +120,24 @@ final class OutboundHttp
         $scheme = strtolower($uri->getScheme());
 
         if ($host === '' || ! $policy->allowsScheme($scheme)) {
-            throw OutboundRequestRefusedException::forHost($host, 'the scheme is not allowed');
+            throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_SCHEME, 'the scheme is not allowed');
         }
 
         $port = $uri->getPort() ?? ($scheme === 'http' ? 80 : 443);
 
         if (! $policy->allowsPort($port)) {
-            throw OutboundRequestRefusedException::forHost($host, 'the port is not allowed');
+            throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_PORT, 'the port is not allowed');
         }
 
         $isLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
         $addresses = $isLiteral ? [$host] : resolve(ResolvesHostAddresses::class)->resolve($host);
 
         if ($addresses === []) {
-            throw OutboundRequestRefusedException::forHost($host, 'the host could not be resolved');
+            throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_UNRESOLVED, 'the host could not be resolved');
         }
 
         if (! resolve(PublicAddressPolicy::class)->allPublic($addresses)) {
-            throw OutboundRequestRefusedException::forHost($host, 'the host resolves to a non-public address');
+            throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_ADDRESS, 'the host resolves to a non-public address');
         }
 
         $maxBytes = $policy->maxBytes;

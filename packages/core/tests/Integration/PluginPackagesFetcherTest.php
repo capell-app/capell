@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Illuminate\Support\Facades\Http;
@@ -240,3 +241,29 @@ it('expires catalogue decisions in one process without flushing local cache', fu
     expect($fetcher->fetch()->pluck('name')->all())->toBe(['vendor/recovered']);
     Http::assertSentCount(2);
 })->with(['cooldown' => true, 'valid empty' => false]);
+
+it('refuses a catalogue host whose address changes to a private one after the source check', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.example.com/extensions', 'capell.disable_cache' => true]);
+    app()->instance(ResolvesHostAddresses::class, new class implements ResolvesHostAddresses
+    {
+        private int $lookups = 0;
+
+        public function resolve(string $host): array
+        {
+            // The source check sees a public answer; the connection sees metadata.
+            return ++$this->lookups === 1 ? ['93.184.216.34'] : ['169.254.169.254'];
+        }
+    });
+    Http::fake(['*' => Http::response(['packages' => [['name' => 'vendor/leaked']]])]);
+
+    expect(resolve(PluginPackagesFetcher::class)->fetch(force: true))->toHaveCount(0);
+
+    Http::assertNothingSent();
+});
+
+it('stops a catalogue response at the one megabyte limit through the guarded client', function (): void {
+    config(['capell.plugins_source_url' => 'https://93.184.216.34/extensions', 'capell.disable_cache' => true]);
+    Http::fake(['*' => Http::response(str_repeat('a', 1048577))]);
+
+    expect(resolve(PluginPackagesFetcher::class)->fetch(force: true))->toHaveCount(0);
+});
