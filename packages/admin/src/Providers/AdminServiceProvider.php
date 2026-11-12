@@ -287,6 +287,7 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -325,6 +326,7 @@ use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
@@ -405,7 +407,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // Livewire's listeners capture the mechanism when the application boots, so a
         // late registration would leave updates unguarded. Checked here, after the
         // bindings are made, so re-running registeringPackage() on a booted app stays valid.
-        throw_if($this->app->isBooted(), LogicException::class, 'The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
+        throw_if(
+            $this->app->isBooted() && ! $this->lateRegistrationIsInstallingPackages(),
+            LogicException::class,
+            'The admin package must be registered before the application boots so Livewire updates honour middleware responses.',
+        );
     }
 
     #[Override]
@@ -922,6 +928,47 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'skip-permission-sync',
             'force',
         ];
+    }
+
+    /**
+     * The package installer registers a newly installed package's providers in its already-booted process
+     * (console, queue worker, or the installer's own step request). That process serves no Livewire
+     * update, and the next request boots with the admin package registered in time. Anything that may be
+     * a Livewire update, or any doubt, keeps the late registration refused.
+     */
+    private function lateRegistrationIsInstallingPackages(): bool
+    {
+        if (! $this->app->resolved(PackageSurfaceRegistrar::class)
+            || ! $this->app->make(PackageSurfaceRegistrar::class)->isInstallingPackages()) {
+            return false;
+        }
+
+        return ! $this->mayBeServingLivewireUpdate();
+    }
+
+    private function mayBeServingLivewireUpdate(): bool
+    {
+        if (! $this->app->bound('request')) {
+            return true;
+        }
+
+        try {
+            $request = $this->app->make('request');
+
+            if (! $request instanceof Request) {
+                return true;
+            }
+
+            if ($request->hasHeader('X-Livewire')) {
+                return true;
+            }
+
+            $updatePath = trim((string) parse_url((string) Livewire::getUpdateUri(), PHP_URL_PATH), '/');
+
+            return $updatePath === '' || $request->is($updatePath);
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     /**
