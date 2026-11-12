@@ -13,6 +13,7 @@ use Capell\Core\Models\SiteDomain;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 it('rejects localhost URLs before issuing an HTTP request', function (): void {
     Http::fake();
@@ -128,6 +129,27 @@ it('fails rejected visits without delivering a request or exposing URL credentia
     'unresolved host' => ['https://unresolvable.invalid/required?token=secret', 'unresolvable.invalid'],
 ]);
 
+it('logs a refused visit without the credentials or query it carried', function (string $url, ?string $registeredHost): void {
+    if ($registeredHost !== null) {
+        SiteDomain::factory()->createOne(['domain' => $registeredHost, 'status' => true]);
+    }
+
+    Http::fake();
+    $logged = [];
+    Log::listen(function (object $message) use (&$logged): void {
+        $logged[] = json_encode([$message->message, $message->context], JSON_THROW_ON_ERROR);
+    });
+
+    expect(fn () => VisitUrlAction::run($url))->toThrow(UrlVisitFailedException::class);
+
+    expect($logged)->not->toBeEmpty()
+        ->and(implode("\n", $logged))->not->toContain('s3cret')->not->toContain('admin')->not->toContain('token=');
+})->with([
+    'unregistered host' => ['https://admin:s3cret@93.184.216.34/required?token=abc', null],
+    'credentials on a registered host' => ['https://admin:s3cret@93.184.216.39/required?token=abc', '93.184.216.39'],
+    'private address' => ['http://admin:s3cret@127.0.0.1/required?token=abc', '127.0.0.1'],
+]);
+
 it('propagates transport failures to visit callers', function (): void {
     SiteDomain::factory()->createOne(['domain' => '93.184.216.34', 'status' => true]);
     Http::fake(['*' => Http::failedConnection()]);
@@ -191,6 +213,7 @@ it('names the refusal reason when a visit is stopped', function (string $url, st
     expect(fn () => VisitUrlAction::run($url))->toThrow(UrlVisitFailedException::class, __($key));
 })->with([
     'custom port' => ['https://93.184.216.37:8080/', 'capell-core::message.visit_requires_standard_port'],
+    'credentials in the URL' => ['https://admin:s3cret@93.184.216.37/', 'capell-core::message.visit_must_not_contain_credentials'],
 ]);
 
 it('stops a visit whose page is larger than the download limit and says so', function (): void {

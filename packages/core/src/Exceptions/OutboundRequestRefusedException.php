@@ -9,8 +9,8 @@ use Throwable;
 
 /**
  * A guarded outbound request was stopped before or while it ran: the target was not
- * a public address, used a scheme or port the policy does not allow, or the
- * response exceeded the download limit.
+ * a public address, used a scheme or port the policy does not allow, carried
+ * credentials in the URL, or the response exceeded the download limit.
  *
  * The message names the host only, never the full URL, so query-string secrets do
  * not reach logs. `reason` is one of the REASON_* constants so callers can explain
@@ -27,6 +27,8 @@ final class OutboundRequestRefusedException extends RuntimeException
     public const string REASON_ADDRESS = 'address';
 
     public const string REASON_SIZE = 'size';
+
+    public const string REASON_CREDENTIALS = 'credentials';
 
     private function __construct(string $message, public readonly string $reason, ?Throwable $previous = null)
     {
