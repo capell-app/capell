@@ -128,6 +128,7 @@ use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
+use Capell\Admin\Livewire\Header\ClearCacheButton;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
 use Capell\Admin\Macros\Database\BuilderMacros;
@@ -429,6 +430,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
+
+        // The vendor clear-cache button checks nothing on the server; Capell's subclass allows only global
+        // administrators. Set before any panel registers the plugin, overriding a host's configuration.
+        config([
+            'filament-clear-cache.livewireComponentClass' => ClearCacheButton::class,
+            'filament-clear-cache.role' => config('capell.roles.super_admin', 'super_admin'),
+        ]);
 
         // Native make() and legacy factories use the container too. The native
         // original-path fallback reads model attributes before its allow callback,
