@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
@@ -12,12 +13,15 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\ForeignPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\OtherDomainCapellPanelProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\PackageSecurityDenyMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\SecondCapellPanelProvider;
+use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\TableName;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Actions\Exports\Models\Export;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Facades\Filament;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +29,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\ValidationException;
+use Iterator;
 use Override;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Filament's global export and import downloads are served by the panel the record was started in,
@@ -34,6 +41,14 @@ use Override;
  */
 final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
 {
+    /** @return Iterator<string, array{string|null}> */
+    public static function importsWithoutACapellPanel(): Iterator
+    {
+        yield 'no recorded panel' => [null];
+        yield 'a panel Capell does not extend' => ['portal'];
+        yield 'a retired panel' => ['retired'];
+    }
+
     public function test_an_export_started_in_a_panel_downloads_under_that_panel(): void
     {
         [$user, $url] = $this->exportFrom('admin');
@@ -94,6 +109,51 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
         $this->actingAs($user)->followingRedirects()
             ->get(URL::signedRoute('filament.imports.failed-rows.download', ['authGuard' => 'web', 'import' => $import], absolute: false))
             ->assertOk();
+    }
+
+    /** A queued import writes its rows while the person who started it may still use the Capell panel it was started in. */
+    public function test_a_queued_import_writes_rows_for_an_owner_who_may_use_its_originating_panel(): void
+    {
+        [, $import] = $this->importFrom('admin');
+
+        $this->importRedirectRow($import, '/admitted-old');
+
+        $this->assertTrue(PageUrl::query()->where('url', '/admitted-old')->exists());
+    }
+
+    /** A queued import has no panel stack of its own; one that cannot be tied to a Capell panel writes nothing. */
+    #[DataProvider('importsWithoutACapellPanel')]
+    public function test_a_queued_import_without_a_capell_panel_writes_nothing(?string $panel): void
+    {
+        [, $import] = $this->importFrom($panel === 'retired' ? null : $panel);
+        if ($panel === 'retired') {
+            DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'import', 'transfer_key' => (string) $import->getKey(), 'panel' => 'retired', 'host' => 'localhost']);
+        }
+
+        try {
+            $this->importRedirectRow($import, '/unowned-old');
+            $this->fail('The import row was written.');
+        } catch (ValidationException $validationException) {
+            $this->assertSame([__('capell-admin::message.import_origin_unknown')], $validationException->errors()['import'] ?? null);
+        }
+
+        $this->assertFalse(PageUrl::query()->where('url', '/unowned-old')->exists());
+    }
+
+    /** An owner who has lost access to the originating panel since starting the import writes nothing more. */
+    public function test_a_queued_import_writes_nothing_once_its_owner_may_no_longer_use_the_panel(): void
+    {
+        [$user, $import] = $this->importFrom('admin');
+        $user->syncRoles([]);
+
+        try {
+            $this->importRedirectRow($import, '/revoked-old');
+            $this->fail('The import row was written.');
+        } catch (ValidationException $validationException) {
+            $this->assertSame([__('capell-admin::message.import_owner_not_admitted')], $validationException->errors()['import'] ?? null);
+        }
+
+        $this->assertFalse(PageUrl::query()->where('url', '/revoked-old')->exists());
     }
 
     /** A Filament panel Capell does not extend has no Capell security stack to serve its downloads, so they are refused. */
@@ -214,7 +274,7 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
     }
 
     /** @return array{0: User, 1: Import} */
-    private function importFrom(string $panel): array
+    private function importFrom(?string $panel): array
     {
         Schema::create('imports', static function (Blueprint $table): void {
             $table->id();
@@ -274,5 +334,17 @@ final class InstalledPanelRuntimeTransferOriginTest extends AdminTestCase
             $request->setRouteResolver($resolver ?? static fn (): null => null);
             $request->headers->set('host', $servingHost);
         }
+    }
+
+    /** Write one redirect row as the queue worker does: no signed-in user, only the import's owner. */
+    private function importRedirectRow(Import $import, string $url): void
+    {
+        auth()->logout();
+        // Filament's Import resolves its owner through the authenticatable binding an application provides.
+        app()->bind(Authenticatable::class, User::class);
+        $site = Site::factory()->withTranslations()->createOne();
+        $importer = new RedirectImporter($import->fresh() ?? $import, ['url' => 'url', 'target_url' => 'target_url'], ['site_id' => $site->getKey(), 'language_id' => $site->language_id]);
+
+        $importer(['url' => $url, 'target_url' => '/new-url']);
     }
 }
