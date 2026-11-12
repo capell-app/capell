@@ -113,7 +113,7 @@ class GuidedSetup extends FilamentPage
     {
         $actor = auth()->user();
         $site = $actor === null ? null : ResolveGuidedSetupStateAction::make()->awaitingPublication($actor);
-        $home = $site instanceof Site ? Page::query()->where('site_id', $site->getKey())->homePage()->first() : null;
+        $home = $site instanceof Site ? SiteAccess::forActor($actor)->query(Page::class)->where('site_id', $site->getKey())->homePage()->first() : null;
 
         return $site instanceof Site
             && $home instanceof Page
