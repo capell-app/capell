@@ -10,6 +10,7 @@ use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
+use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Console\Commands\AdoptTableCommand;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
 use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
@@ -328,6 +329,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(PageUrlRewriteContext::class);
         $this->app->scoped(PropertyBreachReports::class);
         $this->app->scoped(ResolvePublicPageableMorphTypesAction::class);
+        $this->app->scoped(HydratePageLanguagesAction::class);
 
         config(['media-library.media_model' => Media::class]);
         if (config('capell.database.external_tables.tags', 'tags') !== 'tags'
