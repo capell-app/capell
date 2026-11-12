@@ -15,6 +15,7 @@ use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
@@ -419,3 +420,63 @@ it('never reads a logo path the browser made up, so no server file can be copied
     'traversal to a private file' => ['../guided-setup-secret.txt'],
     'absolute path' => ['/etc/hosts'],
 ]);
+
+it('records the launch of a site whose setup was skipped once a person has edited its public home page', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    Livewire::test(GuidedSetup::class)->call('skip');
+    $home = $site->pages()->homePage()->firstOrFail();
+    PageRevision::query()->create([
+        'page_uuid' => $home->uuid,
+        'version' => 1,
+        'actor_id' => $this->authenticatedUser()->getKey(),
+        'summary' => 'Edited',
+        'is_rollback' => false,
+        'source' => 'edit',
+        'occurred_at' => now(),
+    ]);
+
+    ResolveFirstRunStateAction::run($this->authenticatedUser());
+
+    expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
+});
+
+it('keeps the placeholder home page working after setup is left before publishing, and sends the person back to publish', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $placeholder = (string) $home->translations->first()?->content;
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
+        ->call('createPages')
+        ->assertSet('created', true);
+
+    $home->refresh()->load('translations');
+
+    expect($home->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published)
+        ->and((string) $home->translations->first()?->content)->toBe($placeholder);
+
+    Livewire::test(CapellDashboard::class)->assertRedirect(GuidedSetup::getUrl());
+    Livewire::test(GuidedSetup::class)->assertSet('created', true)->assertSee(__('capell-admin::setup.open_home'));
+});
+
+it("writes the person's home page over the placeholder when they publish", function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $placeholder = (string) $home->translations->first()?->content;
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
+        ->call('createPages')
+        ->call('publishSite')
+        ->assertSet('sitePublished', true);
+
+    $home->refresh()->load('translations');
+
+    expect((string) $home->translations->first()?->content)->not->toBe($placeholder)->not->toBe('')
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
+
+    Livewire::test(CapellDashboard::class)->assertNoRedirect();
+});

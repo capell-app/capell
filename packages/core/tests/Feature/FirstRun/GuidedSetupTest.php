@@ -188,9 +188,10 @@ it('accepts a held logo only from inside the guided setup directory and only as 
     Storage::fake(GuidedSetupLogo::DISK);
     Storage::disk(GuidedSetupLogo::DISK)->put('secret.txt', 'APP_KEY=secret');
     Storage::disk(GuidedSetupLogo::DISK)->put('guided-setup/notes.txt', 'not an image');
+    Storage::disk(GuidedSetupLogo::DISK)->put('outside.png', (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3h8AAAAASUVORK5CYII=', true));
 
     expect(GuidedSetupLogo::path($stored))->toBeNull();
-})->with(['guided-setup/../secret.txt', '../secret.txt', 'secret.txt', '/etc/hosts', 'guided-setup/notes.txt', '']);
+})->with(['guided-setup/../secret.txt', '../secret.txt', 'secret.txt', '/etc/hosts', 'guided-setup/notes.txt', 'outside.png', 'guided-setup/../outside.png', '']);
 
 it('leaves the site untouched when the spec is refused', function (): void {
     $site = installedSite();
