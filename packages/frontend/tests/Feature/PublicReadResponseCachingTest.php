@@ -12,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Testing\TestResponse;
 
 /**
  * Rules with one scheduled transition: $schedule->at is the moment, null for
@@ -186,7 +187,6 @@ it('never answers a no-store preview response with 304, whatever validators the 
         ->and($first->headers->get('ETag'))->toBeNull()
         ->and(responseCachingDirectives((string) $repeat->headers->get('Cache-Control')))->toHaveKey('no-store');
 })->with([
-    'If-None-Match with the stamped validator' => [static fn ($first): array => ['If-None-Match' => (string) ($first->headers->get('ETag') ?? '*')]],
-    'If-None-Match wildcard' => [static fn ($first): array => ['If-None-Match' => '*']],
-    'If-Modified-Since after the last change' => [static fn ($first): array => ['If-Modified-Since' => CarbonImmutable::now()->toRfc7231String()]],
+    'If-None-Match wildcard' => [static fn (TestResponse $first): array => ['If-None-Match' => '*']],
+    'If-Modified-Since after the last change' => [static fn (TestResponse $first): array => ['If-Modified-Since' => CarbonImmutable::now()->toRfc7231String()]],
 ]);
