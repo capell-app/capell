@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
-use Capell\Core\Actions\FirstRun\BuildGuidedSetupSpecAction;
 use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
+use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
-use Capell\Core\Actions\PublishSiteSpecSiteAction;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\FirstRun\GuidedSetupStateData;
 use Capell\Core\Data\SiteSpec\SiteSpecPresetData;
@@ -20,6 +19,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\FirstRun\GuidedSetupLogo;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
@@ -37,7 +37,6 @@ use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -97,10 +96,11 @@ class GuidedSetup extends FilamentPage
         return $site instanceof Site && SiteResource::canEdit($site);
     }
 
-    /** Whether the person should be taken to setup now: it is owed and they may do it. */
+    /** Whether the person should be taken to setup now: it is owed, or its pages wait to be published, and they may do it. */
     public static function isOwed(): bool
     {
-        $site = self::editableSite();
+        $actor = auth()->user();
+        $site = self::editableSite() ?? ($actor === null ? null : ResolveGuidedSetupStateAction::make()->awaitingPublication($actor));
 
         return $site instanceof Site && SiteResource::canEdit($site);
     }
@@ -206,8 +206,8 @@ class GuidedSetup extends FilamentPage
                                 ->helperText(__('capell-admin::setup.logo_help'))
                                 ->image()
                                 ->acceptedFileTypes(['image/png', 'image/svg+xml'])
-                                ->disk('local')
-                                ->directory('guided-setup')
+                                ->disk(GuidedSetupLogo::DISK)
+                                ->directory(GuidedSetupLogo::DIRECTORY)
                                 ->visibility('private'),
                         ]),
                     Step::make('pages')
@@ -238,11 +238,12 @@ class GuidedSetup extends FilamentPage
     {
         $input = $this->input();
         $site = $this->site();
-        $logo = $this->logoPath();
+        $logo = $this->storedLogo();
 
         try {
             CompleteGuidedSetupAction::run($input, $site, $logo);
         } catch (GuidedSetupRefusedException $refused) {
+            GuidedSetupLogo::discard($logo);
             Notification::make()
                 ->danger()
                 ->title((string) __('capell-admin::setup.create_failed', ['reason' => match ($refused->reason) {
@@ -256,6 +257,7 @@ class GuidedSetup extends FilamentPage
         } catch (Throwable $throwable) {
             // The detail can hold internal text, so it goes to the log and the person gets what to do next.
             report($throwable);
+            GuidedSetupLogo::discard($logo);
             Notification::make()
                 ->danger()
                 ->title((string) __('capell-admin::setup.create_failed', ['reason' => (string) __('capell-admin::setup.create_failed_unknown')]))
@@ -312,7 +314,7 @@ class GuidedSetup extends FilamentPage
         $site = $this->site();
 
         try {
-            PublishSiteSpecSiteAction::run(BuildGuidedSetupSpecAction::run($this->storedInput($site), $site), $site, $actor);
+            PublishGuidedSetupSiteAction::run($this->storedInput($site), $site, $actor);
         } catch (SiteSpecPublishRefusedException $refused) {
             Notification::make()
                 ->danger()
@@ -467,16 +469,21 @@ class GuidedSetup extends FilamentPage
         );
     }
 
-    private function logoPath(): ?string
+    /**
+     * The uploaded logo's path on the guided setup logo disk, or null. Only a file this request
+     * uploaded, or the path the form stored it under, is used; GuidedSetupLogo refuses any path
+     * outside its directory, so a path written by the browser can never reach another file.
+     */
+    private function storedLogo(): ?string
     {
         $logo = $this->data['logo'] ?? null;
         $logo = is_array($logo) ? (array_values($logo)[0] ?? null) : $logo;
 
         if ($logo instanceof TemporaryUploadedFile) {
-            return $logo->getRealPath() ?: null;
+            $logo = $logo->store(GuidedSetupLogo::DIRECTORY, GuidedSetupLogo::DISK);
         }
 
-        return is_string($logo) && $logo !== '' ? Storage::disk('local')->path(ltrim($logo, '/')) : null;
+        return is_string($logo) && GuidedSetupLogo::path($logo) !== null ? $logo : null;
     }
 
     private function formSchema(): Schema

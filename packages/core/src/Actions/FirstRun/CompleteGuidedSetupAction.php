@@ -7,13 +7,10 @@ namespace Capell\Core\Actions\FirstRun;
 use Capell\Core\Actions\ApplySiteSpecToSiteAction;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanData;
-use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
-use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\FirstRun\GuidedSetupLogo;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
-use Capell\Core\Support\FirstRun\InstallerPages;
-use Capell\Core\Support\Publishing\PublishSentinel;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -22,7 +19,9 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * Creates the pages a person chose in guided setup and records that setup is done. The pages are
  * written by the SiteSpec apply path and stay private until the site is published.
  *
- * It writes only to a site that is still exactly as the installer left it. The site row is locked
+ * It writes only to a site that is still exactly as the installer left it. The install's public
+ * placeholder home page stays as it is until the person publishes, so the site never shows nothing
+ * at its address; the pages setup adds are private drafts. The site row is locked
  * and checked inside the transaction before anything is applied, so a repeated or concurrent
  * submit, or a request aimed at a live or half-built site, is refused instead of overwriting it.
  */
@@ -32,34 +31,24 @@ final class CompleteGuidedSetupAction
     use AsObject;
 
     /**
-     * @param  string|null  $logoPath  A file on the local filesystem to use as the site logo
+     * @param  string|null  $logo  The uploaded logo's path on the guided setup logo disk; it is attached when the site is published
      *
      * @throws GuidedSetupRefusedException when guided setup is not owed to the site or it already holds work
      */
-    public function handle(GuidedSetupInputData $input, Site $site, ?string $logoPath = null): SiteSpecPlanData
+    public function handle(GuidedSetupInputData $input, Site $site, ?string $logo = null): SiteSpecPlanData
     {
         $spec = BuildGuidedSetupSpecAction::run($input, $site);
 
-        $plan = DB::transaction(function () use ($input, $site, $spec, $logoPath): SiteSpecPlanData {
+        $plan = DB::transaction(function () use ($input, $site, $spec, $logo): SiteSpecPlanData {
             $locked = Site::query()->lockForUpdate()->whereKey($site->getKey())->firstOrFail();
             $refusal = ResolveGuidedSetupStateAction::refusalFor($locked);
 
             throw_if($refusal === ResolveGuidedSetupStateAction::REASON_SET_UP, GuidedSetupRefusedException::alreadySetUp((int) $locked->getKey()));
             throw_if($refusal === ResolveGuidedSetupStateAction::REASON_EXISTING_WORK, GuidedSetupRefusedException::hasExistingWork((int) $locked->getKey()));
 
-            // The installer publishes its placeholder home page. Setup writes the person's home page over it, so it
-            // becomes a private draft with the pages setup adds and goes live only when the person publishes them.
-            Page::query()->where('site_id', $locked->getKey())->homePage()->get()
-                ->filter(fn (Page $home): bool => InstallerPages::isRecorded($locked, $home) && ! PublishSentinel::isDraftValue($home->visible_from))
-                ->each(fn (Page $home): bool => $home->update(['visible_from' => PublishSentinel::draftValue()]));
-
             $plan = ApplySiteSpecToSiteAction::run($spec, $locked);
 
             $locked->update(['name' => $spec->site->name]);
-
-            if ($logoPath !== null && is_file($logoPath)) {
-                $locked->addMedia($logoPath)->preservingOriginal()->toMediaCollection(MediaCollectionEnum::Logo->value);
-            }
 
             // Re-read after the apply, which writes its own meta, so nothing recorded alongside is lost.
             $fresh = Site::query()->whereKey($locked->getKey())->firstOrFail();
@@ -71,6 +60,8 @@ final class CompleteGuidedSetupAction
                 'tagline' => $input->tagline,
                 'theme_key' => $input->themeKey,
                 'primary_colour' => $input->primaryColour,
+                // Held privately until the person publishes: the logo must not reach a live site before then.
+                'logo' => GuidedSetupLogo::path($logo) !== null ? $logo : null,
                 'completed_at' => now()->toIso8601String(),
             ];
             $fresh->forceFill(['meta' => $meta])->save();

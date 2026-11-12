@@ -8,6 +8,7 @@ use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\GuidedSetup;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
+use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Enums\MediaCollectionEnum;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(CreatesAdminUser::class);
@@ -36,13 +38,15 @@ beforeEach(function (): void {
     config()->set('capell-admin.dashboard.guided_setup.redirect', true);
 });
 
-/** A freshly installed site, given its default pages by the installer's own action: nothing set up yet. */
+/** A freshly installed site, built as the install builds it: nothing set up yet. */
 function guidedSetupSite(): Site
 {
     $english = Language::query()->where('code', 'en')->firstOrFail();
     $theme = Theme::factory()->createOne(['key' => 'default', 'default' => true]);
     $site = Site::factory()->language($english)->withTranslations($english)->createOne(['theme_id' => $theme->getKey(), 'name' => 'My Laravel App']);
     CreateDefaultPagesAction::run($site->refresh(), $site->languages);
+    // The install's completion marks the sites a first install made.
+    MarkFreshInstallSitesAction::run();
 
     return $site->refresh();
 }
@@ -50,11 +54,11 @@ function guidedSetupSite(): Site
 /** The installer's pages beside the home page: not found, maintenance and welcome. */
 const GUIDED_SETUP_INSTALLER_EXTRA_PAGES = 3;
 
-/** @return array<int, Page> the site's pages that guided setup wrote: its home page and the pages it added */
+/** @return array<int, Page> the pages guided setup added, without the install's own pages */
 function guidedSetupWrittenPages(Site $site): array
 {
     return Page::query()->where('site_id', $site->getKey())->with('translations')->get()
-        ->reject(fn (Page $page): bool => in_array($page->translations->first()?->meta['slug'] ?? null, ['not-found', 'maintenance', 'welcome'], true))
+        ->reject(fn (Page $page): bool => in_array($page->translations->first()?->meta['slug'] ?? null, ['/', 'not-found', 'maintenance', 'welcome'], true))
         ->values()->all();
 }
 
@@ -282,7 +286,10 @@ it('refuses to publish before the pages have been created', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     // What setup stores is present, so only the check that the pages are waiting to be published can refuse.
-    $site->forceFill(['meta' => [...($site->meta ?? []), 'guided_setup' => ['preset_key' => 'service-business', 'page_slugs' => ['about']]]])->save();
+    $meta = $site->meta ?? [];
+    data_set($meta, 'guided_setup.preset_key', 'service-business');
+    data_set($meta, 'guided_setup.page_slugs', ['about']);
+    $site->forceFill(['meta' => $meta])->save();
 
     Livewire::test(GuidedSetup::class)->call('publishSite')->assertForbidden();
 
@@ -323,11 +330,16 @@ it('reads an uploaded logo from the local disk wherever that disk is rooted', fu
     $before = Storage::disk('local')->files('guided-setup');
 
     try {
-        Livewire::test(GuidedSetup::class)
+        $page = Livewire::test(GuidedSetup::class)
             ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about'], 'logo' => UploadedFile::fake()->image('logo.png')])
             ->call('createPages')
             ->assertHasNoFormErrors()
             ->assertSet('created', true);
+
+        // Held back until the site is published, so it never reaches a live site early.
+        expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(0);
+
+        $page->call('publishSite')->assertSet('sitePublished', true);
     } finally {
         Storage::disk('local')->delete(array_diff(Storage::disk('local')->files('guided-setup'), $before));
     }
@@ -380,3 +392,30 @@ it("does not take the installer's public home page as a sign the site has gone l
     expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeFalse()
         ->and(GuidedSetup::isOwed())->toBeTrue();
 });
+
+it('never reads a logo path the browser made up, so no server file can be copied into the site', function (string $path): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $secret = storage_path('app/guided-setup-secret.txt');
+    file_put_contents($secret, 'APP_KEY=secret');
+
+    try {
+        $page = Livewire::test(GuidedSetup::class)
+            ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']]);
+
+        try {
+            $page->set('data.logo', ['x' => $path])->call('createPages');
+        } catch (Throwable) {
+            // Refusing the state outright is as good as ignoring it.
+        }
+    } finally {
+        @unlink($secret);
+    }
+
+    expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(0)
+        ->and(Media::query()->where('file_name', 'like', '%secret%')->orWhere('file_name', 'like', '%.env%')->exists())->toBeFalse();
+})->with([
+    'traversal to the environment file' => ['../../../.env'],
+    'traversal to a private file' => ['../guided-setup-secret.txt'],
+    'absolute path' => ['/etc/hosts'],
+]);

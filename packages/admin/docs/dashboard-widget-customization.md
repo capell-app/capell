@@ -46,11 +46,14 @@ is finished or a site spec has been imported into the site; skipping guided setu
 tick it. Opening the dashboard sends at most one redirect: restoring a hidden checklist
 with `?getting-started` comes first, and guided setup follows on the next visit.
 
-Creating a site's default pages records the pages it added in the site's meta under
-`installer_page_ids`. Guided setup is offered while those are the site's only pages and no
-person has edited any of them; a page someone added or edited stops it. The installer's
-home page is public from the start, so it does not count as the site going live until the
-site is set up; guided setup makes it a draft before writing the person's home page over it.
+A first install marks each site it made under `guided_setup.fresh_install_at` once the
+install, and every package's own setup, has finished. Guided setup is offered only to a marked
+site that nobody has set up, skipped or put live, and whose pages no person has made or edited;
+pages that packages seed during the install do not count. A site without the mark, such as one
+installed before it existed, is never offered setup. The install's home page stays public as a
+placeholder until the person publishes: setup creates its pages as private drafts, writes the
+person's home page over the placeholder when they publish, and attaches the uploaded logo only
+then. Until the placeholder is edited by a person it does not count as the site going live.
 
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above

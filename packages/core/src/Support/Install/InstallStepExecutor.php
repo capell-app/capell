@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
 use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
 use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallResumeCommandAction;
@@ -659,6 +660,11 @@ final class InstallStepExecutor
         RecordInstallSuiteAction::run($state->inputData->suiteKey);
 
         Event::dispatch(new CapellInstallationCompleted);
+
+        // Last, after every package has seeded its pages: only a site a first install made is offered guided setup.
+        if ($state->inputData->initialInstallation) {
+            MarkFreshInstallSitesAction::run();
+        }
 
         $state->reporter->report('✓ Installation complete!');
     }
