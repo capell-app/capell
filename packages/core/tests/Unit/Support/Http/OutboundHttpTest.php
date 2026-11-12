@@ -106,6 +106,43 @@ it('refuses ports and schemes the policy does not allow', function (string $url,
     'plain http on an https-only policy' => ['http://public.example.test/', new OutboundHttpPolicy(schemes: ['https'])],
 ]);
 
+it('refuses a URL that carries credentials, without repeating them', function (string $url): void {
+    Http::fake();
+    fakeHostAnswers(['public.example.test' => ['93.184.216.34']]);
+
+    try {
+        OutboundHttp::guarded()->get($url);
+        $this->fail('The request was not refused.');
+    } catch (OutboundRequestRefusedException $outboundRequestRefusedException) {
+        expect($outboundRequestRefusedException->reason)->toBe(OutboundRequestRefusedException::REASON_CREDENTIALS)
+            ->and($outboundRequestRefusedException->getMessage())->toContain('public.example.test')
+            ->not->toContain('s3cret')
+            ->not->toContain('admin');
+    }
+
+    Http::assertNothingSent();
+})->with([
+    'user and password' => 'https://admin:s3cret@public.example.test/',
+    'user only' => 'https://admin@public.example.test/',
+    'encoded separator' => 'https://admin%3As3cret@public.example.test/',
+]);
+
+it('refuses a redirect hop that carries credentials', function (): void {
+    Http::fake([
+        'https://public.example.test/*' => Http::response('', 302, ['Location' => 'https://admin:s3cret@cdn.example.test/file']),
+        'https://cdn.example.test/*' => Http::response('done'),
+    ]);
+    fakeHostAnswers([
+        'public.example.test' => ['93.184.216.34'],
+        'cdn.example.test' => ['93.184.216.35'],
+    ]);
+
+    expect(fn () => OutboundHttp::guarded(new OutboundHttpPolicy(maxRedirects: 2))->get('https://public.example.test/start'))
+        ->toThrow(OutboundRequestRefusedException::class, 'credentials');
+
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'cdn.example.test'));
+});
+
 it('pins the connection to the checked address, ignores proxies and limits the download', function (): void {
     Http::fake(['*' => Http::response('ok')]);
     fakeHostAnswers(['public.example.test' => ['2606:2800:220:1:248:1893:25c8:1946']]);
