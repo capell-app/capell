@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Redirects;
 
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Url\RedirectTargetPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -87,26 +88,11 @@ class ValidateRedirectAction
 
     private function isSafeTargetUrl(string $targetUrl): bool
     {
-        if (preg_match('/[\x00-\x1F\x7F]/', $targetUrl) === 1) {
+        if (! resolve(RedirectTargetPolicy::class)->validate($targetUrl)->allowed()) {
             return false;
         }
 
-        if (str_starts_with($targetUrl, '//')) {
-            return false;
-        }
-
-        if (str_starts_with($targetUrl, '/')) {
-            return true;
-        }
-
-        $scheme = parse_url($targetUrl, PHP_URL_SCHEME);
-
-        if (! is_string($scheme)) {
-            return false;
-        }
-
-        return in_array(mb_strtolower($scheme), ['http', 'https'], true)
-            && filter_var($targetUrl, FILTER_VALIDATE_URL) !== false;
+        return str_starts_with($targetUrl, '/') || filter_var($targetUrl, FILTER_VALIDATE_URL) !== false;
     }
 
     /**

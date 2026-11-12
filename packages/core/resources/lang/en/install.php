@@ -129,6 +129,10 @@ return [
         'conflict' => 'The --minimal option installs a fixed set of packages, so it cannot be combined with options that choose packages, content or tooling.',
         'remove' => 'Remove :options, or drop --minimal to choose your own packages.',
     ],
+    'skipped' => [
+        'not_in_public_channel' => ':package was not installed: it is not available from the public package channel yet. Everything else is installing. When it is released, add it with php artisan capell:extension-install :package.',
+        'may_need_licence' => ':package was not installed: it may need a licence this install cannot check. Everything else is installing. To add it later, confirm your licence, then run php artisan capell:extension-install :package.',
+    ],
     'preset' => [
         'unknown' => 'Unknown install preset ":preset".',
         'valid' => 'Choose one of: :presets. Run capell:install without --preset to be asked instead.',

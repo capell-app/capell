@@ -82,6 +82,9 @@ it('rejects localhost plugin package source urls before sending a request', func
     'loopback' => 'https://127.0.0.1/packages.json',
     'private' => 'https://10.0.0.5/packages.json',
     'metadata' => 'https://169.254.169.254/packages.json',
+    'carrier-grade NAT' => 'https://100.64.0.1/packages.json',
+    'benchmarking' => 'https://198.18.0.1/packages.json',
+    'IETF protocol assignment' => 'https://192.0.0.8/packages.json',
 ]);
 
 it('rejects oversized plugin package responses before decoding json', function (): void {

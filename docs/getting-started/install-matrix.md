@@ -30,7 +30,7 @@ php artisan capell:install \
   --install-welcome-route
 ```
 
-This creates the first account and answers every required install decision explicitly. For an existing account, use `--user=<email-or-id>` instead of the three account-creation options; `--user` selects the default author and never creates or changes login credentials.
+This creates the first account and answers every required install decision explicitly. For an existing account, use `--user=<email>` instead of the three account-creation options; `--user` finds the account by email, grants it the global administrator role and makes it the default author. It never creates the account or changes its login credentials.
 
 ## Next
 

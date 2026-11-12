@@ -95,7 +95,8 @@ final class InstalledPanelRuntime
     ];
 
     /**
-     * Admin plugin route files whose closures are public: the token-keyed internal preview, and leaving an
+     * Admin plugin route files whose closures are public: the internal preview, whose per-preview grant
+     * admits only the signed-in user and panel it was issued to (AuthorisePeekPreview), and leaving an
      * impersonation, which serves the impersonated user, who need not have panel access.
      */
     private const array PUBLIC_ROUTE_FILES = [
