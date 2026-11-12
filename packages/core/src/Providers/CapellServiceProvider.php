@@ -159,6 +159,7 @@ use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Diagnostics\SchedulerHeartbeat;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
@@ -439,6 +440,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
+            ->registerSchedulerHeartbeat()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
@@ -955,6 +957,23 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->cron($cron)
                 ->withoutOverlapping()
                 ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    /**
+     * Gives the doctor evidence that schedule:run is being invoked. Without
+     * it a stopped scheduler is invisible: pages still render.
+     */
+    private function registerSchedulerHeartbeat(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->call(static function (): void {
+                resolve(SchedulerHeartbeat::class)->record();
+            })
+                ->name(SchedulerHeartbeat::SCHEDULE_NAME)
+                ->everyFiveMinutes();
         });
 
         return $this;

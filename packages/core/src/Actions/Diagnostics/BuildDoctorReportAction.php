@@ -18,6 +18,7 @@ use Capell\Core\Support\Diagnostics\Checks\ExtensionVerificationCheck;
 use Capell\Core\Support\Diagnostics\Checks\FoundationVersionAlignmentCheck;
 use Capell\Core\Support\Diagnostics\Checks\GeneratedTailwindCssCheck;
 use Capell\Core\Support\Diagnostics\Checks\HomepageRouteCheck;
+use Capell\Core\Support\Diagnostics\Checks\HostingPlatformCheck;
 use Capell\Core\Support\Diagnostics\Checks\InstalledPackagesCheck;
 use Capell\Core\Support\Diagnostics\Checks\InstalledRuntimeCheck;
 use Capell\Core\Support\Diagnostics\Checks\InstallLifecycleCheck;
@@ -68,6 +69,7 @@ final class BuildDoctorReportAction
         RuntimeToolingCheck::class,
         DatabaseBackupBinariesCheck::class,
         SharedCacheStoreCheck::class,
+        HostingPlatformCheck::class,
     ];
 
     public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData

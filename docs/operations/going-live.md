@@ -26,6 +26,8 @@ UI works at all.
 | Atomic releases behind a `current` symlink (Forge, Ploi, Deployer, Envoyer) | `atomic` | No — do this at build time                     |
 | Laravel Cloud or similar managed platform            | `immutable`                | No — do this at build time                     |
 
+For Laravel Cloud, follow [Deploy on Laravel Cloud](deploy-on-laravel-cloud.md), which makes these choices for you.
+
 Set it to match reality, not to what you wish were true. Capell detects a symlink
 component inside a root declared `mutable` and blocks the write; do not work around that
 by making versioned release directories writable, because a long-running request can then

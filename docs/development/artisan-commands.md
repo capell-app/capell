@@ -525,17 +525,18 @@ Failures exit non-zero. Warnings alone exit `0`, so a warning never blocks a dep
 
 Every option except `--repair-page-url-domains` is read-only. That one repairs records before reporting, so run the command without it first and read the result before letting it change anything.
 
-Checks cover required tables, the morph map, storage writability, seed data, config files, manifest contracts, installed packages, Vite inputs, generated Tailwind CSS, admin access, the homepage route, the default theme and layout, page URL site domains, runtime tooling, database backup binaries, and whether the cache store can be shared between nodes.
+Checks cover required tables, the morph map, storage writability, seed data, config files, manifest contracts, installed packages, Vite inputs, generated Tailwind CSS, admin access, the homepage route, the default theme and layout, page URL site domains, runtime tooling, database backup binaries, whether the cache store can be shared between nodes, and the hosting platform.
 
-Three of those relate directly to hosting:
+Four of those relate directly to hosting:
 
 | Check                           | Fails when                                                                                                                               |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `core.runtime.tooling`          | `proc_open` is disabled, or `composer`/`npm` are missing — extension installs, package setup, backups, and asset rebuilds depend on them |
 | `core.backup.database-binaries` | Backups are enabled but `mysqldump`/`pg_dump` cannot be found for the active connection                                                  |
 | `core.cache.shared-store`       | The cache store is `file`, `array`, or `null` — fine on one server, unsafe behind a load balancer                                        |
+| `core.hosting.platform`         | Reports the detected platform and release-root mode; warns on a `mutable` release root on Laravel Cloud, `QUEUE_CONNECTION=sync` in production, or no scheduler heartbeat in the last 15 minutes in production |
 
-The last one is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes).
+`core.cache.shared-store` is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes). `core.hosting.platform` is also a warning, because each hazard stops background work rather than page rendering. See [Deploy on Laravel Cloud](../operations/deploy-on-laravel-cloud.md).
 
 ### `capell:health`
 
