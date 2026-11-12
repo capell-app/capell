@@ -12,6 +12,9 @@ final class SiteSpecPlanItemData extends Data
 {
     public const string NOTE_LIVE_PAGE_HELD = 'live_page_held';
 
+    /** A first install's placeholder home page: kept as it is until the person publishes, without holding anything else back. */
+    public const string NOTE_PLACEHOLDER_HOME_KEPT = 'placeholder_home_kept';
+
     /**
      * @param  string  $kind  What the item is: `page` or `theme`.
      * @param  string  $key  The page slug, or the theme key.

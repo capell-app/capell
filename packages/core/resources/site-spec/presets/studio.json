@@ -32,7 +32,7 @@
                 "slug": "home",
                 "title": "Welcome",
                 "description": "A short introduction to the studio and a way into its work.",
-                "pageType": "page",
+                "pageType": "home",
                 "order": 0,
                 "url": "/",
                 "sections": [
@@ -55,7 +55,7 @@
                 "slug": "work",
                 "title": "Our work",
                 "description": "Selected projects with the brief, the approach and the result.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 1,
                 "url": "/work",
                 "sections": [
@@ -72,7 +72,7 @@
                 "slug": "services",
                 "title": "Services",
                 "description": "What the studio does and how projects run.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 2,
                 "url": "/services",
                 "sections": [
@@ -95,7 +95,7 @@
                 "slug": "about",
                 "title": "About the studio",
                 "description": "The people, the approach and what the studio believes in.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 3,
                 "url": "/about",
                 "sections": [
@@ -118,7 +118,7 @@
                 "slug": "contact",
                 "title": "Contact",
                 "description": "How to start a project or ask a question.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 4,
                 "url": "/contact",
                 "sections": [

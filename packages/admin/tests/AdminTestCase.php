@@ -43,6 +43,9 @@ class AdminTestCase extends AbstractTestCase
     {
         parent::setUp();
 
+        // Dashboard tests expect the dashboard; the guided setup redirect has its own tests.
+        config()->set('capell-admin.dashboard.guided_setup.redirect', false);
+
         $this->withoutVite();
 
         $this->registerAndMigrateSettings(

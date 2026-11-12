@@ -37,6 +37,36 @@ step. The date is kept in the site's own meta (`first_run.published_at`), so it 
 with the site. Unpublishing the home page later does not bring the first-run layout
 back.
 
+A site nobody has set up opens guided setup instead of the dashboard, for people who may
+edit it. Set `capell-admin.dashboard.guided_setup.redirect` (environment variable
+`CAPELL_GUIDED_SETUP_REDIRECT`) to `false` for provisioned sites that should open on the
+dashboard. Guided setup keeps its state in the site's meta under `guided_setup`, beside
+`first_run.published_at`. The checklist's "Set up your site" task ticks when guided setup
+is finished or a site spec has been imported into the site; skipping guided setup does not
+tick it. Opening the dashboard sends at most one redirect: restoring a hidden checklist
+with `?getting-started` comes first, and guided setup follows on the next visit.
+
+A first install without sample content marks each site it made under
+`guided_setup.fresh_install_at` once the install, and every package's own setup, has
+finished. The mark records the home page the install left. Guided setup is offered only to a
+marked site that nobody has set up, skipped or put live, and whose pages no person has made or
+edited; pages that packages seed during the install do not count. A site without the mark, such
+as one installed before it existed or a demo install, is never offered setup.
+
+The install's home page stays public as a placeholder until it is edited: any revision a person
+records, including a property value, or any save of its translations after the install, by the
+inline editor, an importer or anything else, ends it. The page's content is never inspected. Setup creates its pages as private drafts and keeps the spec it built and the pages
+it created. Publish works from that stored spec and touches only what nobody has touched since:
+the home page while it is still the placeholder, and each created page that is still a private
+draft with no person's revision. A page the person edited, published, scheduled, reverted or
+deleted is left exactly as it is. Publish records the go-live and then attaches the uploaded
+logo; if the logo cannot be attached, the site stays published, the file is kept, and guided
+setup offers to add it again. Nothing the person does in the editor ends setup's offer: the
+dashboard offers Publish, to people who may publish, until setup's Publish runs or nothing
+untouched is left. A site whose pages were created before setup kept its spec cannot be
+published by setup; the dashboard settles it once and says to publish its pages from the
+Pages list.
+
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above
 the normal dashboard, with the site named in its heading, instead of replacing it.

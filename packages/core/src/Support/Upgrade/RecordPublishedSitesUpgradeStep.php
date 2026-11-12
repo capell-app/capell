@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Upgrade;
 
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Data\UpgradeContext;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,8 +42,10 @@ final class RecordPublishedSitesUpgradeStep extends AbstractUpgradeStep
         $milestones = resolve(SitePublicationMilestones::class);
         $now = CarbonImmutable::now();
 
-        $this->unrecordedHomePages()->orderBy('id')->each(function (Page $home) use ($milestones, $now): void {
-            if (SitePublicationMilestones::isPublicHome($home, $now)) {
+        $this->unrecordedHomePages()->with('site')->orderBy('id')->each(function (Page $home) use ($milestones, $now): void {
+            // A first install's untouched placeholder home page is public before anyone publishes the site.
+            if (SitePublicationMilestones::isPublicHome($home, $now)
+                && (! $home->site instanceof Site || ! ResolveGuidedSetupStateAction::isPlaceholderHome($home->site, $home))) {
                 $milestones->record((int) $home->site_id, $now);
             }
         });

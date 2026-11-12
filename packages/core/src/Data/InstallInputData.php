@@ -51,5 +51,6 @@ final class InstallInputData extends Data
         public readonly ?string $siteName = null,
         public readonly ?string $presetKey = null,
         public readonly bool $publish = false,
+        public readonly ?string $suiteKey = null,
     ) {}
 }

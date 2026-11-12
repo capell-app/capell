@@ -26,7 +26,7 @@
                 "slug": "home",
                 "title": "Welcome",
                 "description": "The services you offer, who they are for and how to get in touch.",
-                "pageType": "page",
+                "pageType": "home",
                 "order": 0,
                 "url": "/",
                 "sections": [
@@ -49,7 +49,7 @@
                 "slug": "about",
                 "title": "About us",
                 "description": "Who you are, how you work and what visitors can expect.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 1,
                 "url": "/about",
                 "sections": [
@@ -72,7 +72,7 @@
                 "slug": "services",
                 "title": "Our services",
                 "description": "What you offer, what each service includes and how to book.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 2,
                 "url": "/services",
                 "sections": [
@@ -95,7 +95,7 @@
                 "slug": "reviews",
                 "title": "What our customers say",
                 "description": "Reviews and results from people you have worked with.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 3,
                 "url": "/reviews",
                 "sections": [
@@ -118,7 +118,7 @@
                 "slug": "contact",
                 "title": "Contact us",
                 "description": "How to reach the business, opening hours and where to find it.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 4,
                 "url": "/contact",
                 "sections": [

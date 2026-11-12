@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\Dashboard\FirstRunTaskRegistry;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
@@ -72,7 +73,7 @@ final class ResolveFirstRunStateAction
             : null;
 
         $builtIn = [
-            $this->task('site', true, $siteUrl),
+            $this->task('site', $site instanceof Site && ResolveGuidedSetupStateAction::isSetUp($site), $siteUrl),
             $this->task('homepage', $this->editedByPerson($access, $home), $homeUrl),
             $this->task('logo', $access->query(Media::class)
                 ->where('model_type', (new Site)->getMorphClass())
@@ -114,15 +115,18 @@ final class ResolveFirstRunStateAction
         $homes = SiteAccess::forActor($actor)->query(Page::class)->homePage()
             ->when($scopedSiteId !== null, fn (Builder $query): Builder => $query->where('site_id', $scopedSiteId))
             ->when($published !== [], fn (Builder $query): Builder => $query->whereNotIn('site_id', $published))
+            ->with('site')
             ->orderBy('id')
             ->get();
 
         // A home page can go public without a publication transition (a scheduled
         // time passing, a form save, an import); record those sites as they are seen.
+        // A first install's placeholder home page is public from the start, so until a
+        // person edits it, it is not a sign that anyone has published the site.
         $now = CarbonImmutable::now();
         $live = [];
         foreach ($homes as $home) {
-            if (SitePublicationMilestones::isPublicHome($home, $now)) {
+            if (SitePublicationMilestones::isPublicHome($home, $now) && (! $home->site instanceof Site || ! ResolveGuidedSetupStateAction::isPlaceholderHome($home->site, $home))) {
                 $milestones->record((int) $home->site_id, $now);
                 $live[(int) $home->site_id] = true;
             }
