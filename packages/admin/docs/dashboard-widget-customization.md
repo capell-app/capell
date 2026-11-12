@@ -37,6 +37,15 @@ step. The date is kept in the site's own meta (`first_run.published_at`), so it 
 with the site. Unpublishing the home page later does not bring the first-run layout
 back.
 
+A site nobody has set up opens guided setup instead of the dashboard, for people who may
+edit it. Set `capell-admin.dashboard.guided_setup.redirect` (environment variable
+`CAPELL_GUIDED_SETUP_REDIRECT`) to `false` for provisioned sites that should open on the
+dashboard. Guided setup keeps its state in the site's meta under `guided_setup`, beside
+`first_run.published_at`. The checklist's "Set up your site" task ticks when guided setup
+is finished or a site spec has been imported into the site; skipping guided setup does not
+tick it. Opening the dashboard sends at most one redirect: restoring a hidden checklist
+with `?getting-started` comes first, and guided setup follows on the next visit.
+
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above
 the normal dashboard, with the site named in its heading, instead of replacing it.

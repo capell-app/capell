@@ -121,3 +121,10 @@ checkpoint, the retry conservatively uses the existing dashboard. Set
 `CAPELL_WORK_FIRST_DASHBOARD=true` to opt in after completing recovery. This
 feature does not add a database identity table or claim recovery from every
 uncatchable installation interruption.
+
+## Guided setup redirect
+
+A site nobody has set up opens guided setup instead of the dashboard, for people who may
+edit it. Set `capell-admin.dashboard.guided_setup.redirect` (environment variable
+`CAPELL_GUIDED_SETUP_REDIRECT`) to `false` for provisioned sites that should open on the
+dashboard.
