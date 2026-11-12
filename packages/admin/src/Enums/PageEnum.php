@@ -7,6 +7,7 @@ namespace Capell\Admin\Enums;
 use Capell\Admin\Filament\Pages\AnalyticsDashboard;
 use Capell\Admin\Filament\Pages\DashboardToolsPage;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Filament\Pages\GuidedSetup;
 use Capell\Admin\Filament\Pages\SecurityPage;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Filament\Pages\SiteAdminMetricsPage;
@@ -21,6 +22,8 @@ enum PageEnum: string
     case DashboardTools = DashboardToolsPage::class;
 
     case Extension = ExtensionsPage::class;
+
+    case GuidedSetup = GuidedSetup::class;
 
     case Security = SecurityPage::class;
 

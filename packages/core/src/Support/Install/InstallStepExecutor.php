@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
+use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
 use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallResumeCommandAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
@@ -655,7 +657,15 @@ final class InstallStepExecutor
             ],
         );
 
+        RecordInstallSuiteAction::run($state->inputData->suiteKey);
+
         Event::dispatch(new CapellInstallationCompleted);
+
+        // Last, after every package has seeded its pages: only a site a first install made is offered guided setup.
+        // A demo install is built content, not a blank site, so it is never offered setup.
+        if ($state->inputData->initialInstallation && ! $state->inputData->demoContent) {
+            MarkFreshInstallSitesAction::run();
+        }
 
         $state->reporter->report('✓ Installation complete!');
     }

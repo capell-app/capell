@@ -37,7 +37,7 @@ it('gives every preset the five pages its business type needs, in navigation ord
 it('keeps every preset valid against the SiteSpec contract and private by default', function (string $key): void {
     $spec = presetSpec(new SiteSpecPresetRegistry(app()), $key);
 
-    $result = ValidateSiteSpecAction::run($spec, ['default'], ['page'], ['content']);
+    $result = ValidateSiteSpecAction::run($spec, ['default'], ['default', 'home'], ['content']);
 
     expect($result['errors'])->toBe([])
         ->and($result['valid'])->toBeTrue()

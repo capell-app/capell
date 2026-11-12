@@ -15,6 +15,7 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
+use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
@@ -41,6 +42,8 @@ use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
+use Capell\Core\Actions\FirstRun\SettleStrandedGuidedSetupAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
@@ -54,6 +57,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Page;
@@ -96,21 +100,49 @@ class CapellDashboard extends Dashboard
 
     /**
      * Restoring a hidden checklist comes first and ends in one redirect to the plain
-     * dashboard address; anything else that must redirect on arrival has to follow it
-     * rather than add a second redirect.
+     * dashboard address. A site nobody has set up yet then opens guided setup instead
+     * of an empty dashboard, for people who may edit it; only one redirect is ever sent.
      */
     public function mount(): void
     {
         $actor = auth()->user();
-        if (request()->query(self::SHOW_FIRST_RUN_CHECKLIST_QUERY) === null || ! $actor instanceof Model) {
+        if (request()->query(self::SHOW_FIRST_RUN_CHECKLIST_QUERY) !== null && $actor instanceof Model) {
+            RestoreFirstRunChecklistAction::run($actor);
+            resolve(AdminDashboardDataRequestCache::class)->forgetFirstRunState($actor);
+
+            // Drop the flag so a reload or a shared link does not restore the list again.
+            $this->redirect(self::getUrl());
+
             return;
         }
 
-        RestoreFirstRunChecklistAction::run($actor);
-        resolve(AdminDashboardDataRequestCache::class)->forgetFirstRunState($actor);
+        if (config('capell-admin.dashboard.guided_setup.redirect', true) && GuidedSetup::isOwed()) {
+            $this->redirect(GuidedSetup::getUrl());
 
-        // Drop the flag so a reload or a shared link does not restore the list again.
-        $this->redirect(self::getUrl());
+            return;
+        }
+
+        // Setup created pages before it kept what it built, so its Publish cannot run: settle it once and say so.
+        $stranded = $actor instanceof Authenticatable ? ResolveGuidedSetupStateAction::make()->strandedSetup($actor) : null;
+
+        if ($stranded instanceof Site && SiteResource::canEdit($stranded) && SettleStrandedGuidedSetupAction::run($stranded)) {
+            Notification::make('guided-setup-stranded')
+                ->warning()
+                ->title((string) __('capell-admin::setup.stranded'))
+                ->body((string) __('capell-admin::setup.stranded_body'))
+                ->persistent()
+                ->send();
+        }
+
+        // Pages setup created wait to be published: say so and offer it, without keeping anyone off the dashboard.
+        if (GuidedSetup::mayPublishAwaitingSite()) {
+            Notification::make('guided-setup-awaiting-publication')
+                ->info()
+                ->title((string) __('capell-admin::setup.awaiting_publication'))
+                ->body((string) __('capell-admin::setup.awaiting_publication_body'))
+                ->actions([Action::make('publish')->label((string) __('capell-admin::setup.awaiting_publication_action'))->url(GuidedSetup::getUrl())])
+                ->send();
+        }
     }
 
     public function filtersForm(Schema $schema): Schema
