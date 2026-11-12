@@ -106,9 +106,8 @@ final class ResolveGuidedSetupStateAction
 
     /**
      * A site is live once its go-live is recorded or one of its home pages is public now. The
-     * installer publishes the home page it makes, so that page being public does not count until
-     * a person publishes the site; any other public home page does, including one on a site
-     * installed before the installer recorded its pages.
+     * installer's placeholder home page being public does not count; any other public home page
+     * does, including one on a site installed before the installer recorded its pages.
      */
     private static function isLive(Site $site): bool
     {
@@ -117,7 +116,7 @@ final class ResolveGuidedSetupStateAction
         }
 
         return Page::query()->where('site_id', $site->getKey())->homePage()->published()->get()
-            ->contains(fn (Page $home): bool => ! InstallerPages::isRecorded($site, $home));
+            ->contains(fn (Page $home): bool => ! InstallerPages::isPlaceholderHome($site, $home));
     }
 
     private function build(Authenticatable $actor): GuidedSetupStateData

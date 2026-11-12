@@ -46,6 +46,12 @@ is finished or a site spec has been imported into the site; skipping guided setu
 tick it. Opening the dashboard sends at most one redirect: restoring a hidden checklist
 with `?getting-started` comes first, and guided setup follows on the next visit.
 
+Creating a site's default pages records the pages it added in the site's meta under
+`installer_page_ids`. Guided setup is offered while those are the site's only pages and no
+person has edited any of them; a page someone added or edited stops it. The installer's
+home page is public from the start, so it does not count as the site going live until the
+site is set up; guided setup makes it a draft before writing the person's home page over it.
+
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above
 the normal dashboard, with the site named in its heading, instead of replacing it.

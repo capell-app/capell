@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\FirstRun;
 
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -62,6 +63,17 @@ final class InstallerPages
                 self::installerShape($query);
             })
             ->exists();
+    }
+
+    /**
+     * Whether this is the home page the installer published as a placeholder, before anyone set
+     * the site up. Its being public is not a sign that anyone has published the site. Guided setup
+     * drafts it before writing over it, so once the site is set up a public home page was
+     * published by a person.
+     */
+    public static function isPlaceholderHome(Site $site, Page $home): bool
+    {
+        return self::isRecorded($site, $home) && ! ResolveGuidedSetupStateAction::isSetUp($site);
     }
 
     /** Whether creating the site's default pages recorded this page as one of its own. */

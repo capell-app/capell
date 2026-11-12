@@ -122,12 +122,12 @@ final class ResolveFirstRunStateAction
 
         // A home page can go public without a publication transition (a scheduled
         // time passing, a form save, an import); record those sites as they are seen.
-        // The installer's own home page is public from the start, so it is not a sign
-        // that anyone has published the site.
+        // The installer's placeholder home page is public from the start, so it is not
+        // a sign that anyone has published the site.
         $now = CarbonImmutable::now();
         $live = [];
         foreach ($homes as $home) {
-            if (SitePublicationMilestones::isPublicHome($home, $now) && (! $home->site instanceof Site || ! InstallerPages::isRecorded($home->site, $home))) {
+            if (SitePublicationMilestones::isPublicHome($home, $now) && (! $home->site instanceof Site || ! InstallerPages::isPlaceholderHome($home->site, $home))) {
                 $milestones->record((int) $home->site_id, $now);
                 $live[(int) $home->site_id] = true;
             }

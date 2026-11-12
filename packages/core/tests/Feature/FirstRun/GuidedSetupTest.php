@@ -282,6 +282,18 @@ it('keeps a site awaiting publication from the moment its pages are created unti
     expect($state->awaitingPublication($actor))->toBeNull();
 });
 
+it('takes a home page made public after setup, without a publication, as the site going live', function (): void {
+    $site = installedSite();
+    $actor = guidedSetupAdmin();
+    CompleteGuidedSetupAction::run(guidedInput(), $site);
+
+    expect(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor)?->is($site))->toBeTrue();
+
+    $site->pages()->homePage()->firstOrFail()->update(['visible_from' => now()->subDay()]);
+
+    expect(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor))->toBeNull();
+});
+
 it('never asks about a site that has gone live, even if its home page is private again', function (): void {
     $site = installedSite();
     $user = guidedSetupAdmin();
