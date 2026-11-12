@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use LogicException;
 use Throwable;
 
@@ -85,6 +86,23 @@ final class ProcessInboundWebhookEventJob implements ShouldBeUnique, ShouldQueue
             'last_error' => null,
             'processed_at' => CarbonImmutable::now(),
         ])->save();
+    }
+
+    /**
+     * Runs once the queue has given up: the event stays Failed for a replay, and
+     * the log records which event, by id and exception class only.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        InboundWebhookEvent::query()
+            ->whereKey($this->eventId)
+            ->whereNot('status', InboundWebhookEventStatus::Processed->value)
+            ->update(['status' => InboundWebhookEventStatus::Failed->value]);
+
+        Log::error('Inbound webhook event failed after its last attempt', [
+            'event' => $this->eventId,
+            'exception' => $exception instanceof Throwable ? $exception::class : null,
+        ]);
     }
 
     private function handler(InboundWebhookEvent $event): InboundWebhookHandler

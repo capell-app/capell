@@ -19,6 +19,7 @@ use Illuminate\Queue\SyncQueue;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
@@ -265,4 +266,21 @@ it('says so instead of claiming a replay was queued when a copy is already queue
         ->and(Artisan::output())->toContain(__('capell-core::message.webhook_replay_already_queued'))
         ->and($event->refresh()->status)->toBe(InboundWebhookEventStatus::Failed);
     Queue::assertPushed(ProcessInboundWebhookEventJob::class, 1);
+});
+
+it('leaves an event failed and logs it by id and class once the queue gives up', function (): void {
+    Queue::fake();
+    $logged = [];
+    Log::listen(function (object $message) use (&$logged): void {
+        $logged[] = json_encode([$message->level, $message->context], JSON_THROW_ON_ERROR);
+    });
+    deliverTestWebhook($this, ['id' => 'evt_exhausted', 'type' => 'order.broken', 'created' => 1_800_000_000]);
+    $event = InboundWebhookEvent::query()->sole();
+    $event->forceFill(['status' => InboundWebhookEventStatus::Processing])->save();
+
+    new ProcessInboundWebhookEventJob((int) $event->getKey())->failed(new RuntimeException('card 4242 declined for jane@example.test'));
+
+    expect($event->refresh()->status)->toBe(InboundWebhookEventStatus::Failed);
+    expect($logged)->toContain(json_encode(['error', ['event' => $event->getKey(), 'exception' => RuntimeException::class]], JSON_THROW_ON_ERROR))
+        ->and(implode("\n", $logged))->not->toContain('jane@example.test');
 });
