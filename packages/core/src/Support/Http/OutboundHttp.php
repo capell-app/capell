@@ -25,7 +25,9 @@ use Throwable;
  * `OutboundHttp::guarded()` returns an ordinary PendingRequest that, for the request
  * and for every redirect hop it is allowed to follow:
  *
- * - refuses schemes and ports the policy does not allow;
+ * - refuses schemes and ports the policy does not allow, and URLs that carry
+ *   credentials (a user name or password before the host), which would be sent
+ *   to the target and written wherever the URL is logged;
  * - resolves the host once and refuses it unless every address it resolves to is
  *   public under PublicAddressPolicy (IP literals are checked directly);
  * - pins the connection to the checked address, so a second DNS answer (DNS
@@ -133,6 +135,10 @@ final class OutboundHttp
 
         if ($host === '' || ! $policy->allowsScheme($scheme)) {
             throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_SCHEME, 'the scheme is not allowed');
+        }
+
+        if ($uri->getUserInfo() !== '') {
+            throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_CREDENTIALS, 'the URL must not contain credentials');
         }
 
         $port = $uri->getPort() ?? ($scheme === 'http' ? 80 : 443);

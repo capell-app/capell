@@ -40,14 +40,14 @@ class VisitUrlAction implements ShouldBeUnique
     {
         $scheme = parse_url($url, PHP_URL_SCHEME);
         if (! in_array($scheme, ['http', 'https'], true)) {
-            Log::warning('VisitUrlAction: rejected non-http(s) url', ['url' => $url, 'scheme' => $scheme]);
+            Log::warning('VisitUrlAction: rejected non-http(s) url', ['url' => $this->loggableUrl($url), 'scheme' => $scheme]);
 
             throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_http'));
         }
 
         $host = parse_url($url, PHP_URL_HOST);
         if (! is_string($host) || $host === '' || ! $this->isAllowedHost($host)) {
-            Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host]);
+            Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $this->loggableUrl($url), 'host' => $host]);
 
             throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_registered_host'));
         }
@@ -59,21 +59,39 @@ class VisitUrlAction implements ShouldBeUnique
                 timeoutSeconds: 10,
             ))->get($url);
         } catch (OutboundRequestRefusedException $outboundRequestRefusedException) {
-            Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host, 'reason' => $outboundRequestRefusedException->getMessage()]);
+            Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $this->loggableUrl($url), 'host' => $host, 'reason' => $outboundRequestRefusedException->getMessage()]);
 
             throw UrlVisitFailedException::forUrl($url, match ($outboundRequestRefusedException->reason) {
                 OutboundRequestRefusedException::REASON_SCHEME, OutboundRequestRefusedException::REASON_PORT => __('capell-core::message.visit_requires_standard_port'),
                 OutboundRequestRefusedException::REASON_SIZE => __('capell-core::message.visit_response_too_large'),
+                OutboundRequestRefusedException::REASON_CREDENTIALS => __('capell-core::message.visit_must_not_contain_credentials'),
                 default => __('capell-core::message.visit_requires_public_address'),
             });
         }
 
         if (! $response->ok()) {
-            Log::info('Problem accessing url', ['url' => $url, 'status' => $response->status()]);
+            Log::info('Problem accessing url', ['url' => $this->loggableUrl($url), 'status' => $response->status()]);
             event(new UrlVisitFailed($url, $response->status(), $pageId));
 
             throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_http_failed', ['status' => $response->status()]));
         }
+    }
+
+    /**
+     * The URL without its user name, password, query or fragment, which can carry
+     * secrets and must not reach the log.
+     */
+    private function loggableUrl(string $url): string
+    {
+        $parts = parse_url($url);
+
+        if (! is_array($parts) || ! isset($parts['scheme'])) {
+            return '[unparseable URL]';
+        }
+
+        return $parts['scheme'] . ':'
+            . (isset($parts['host']) ? '//' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') : '//')
+            . ($parts['path'] ?? '');
     }
 
     private function isAllowedHost(string $host): bool
