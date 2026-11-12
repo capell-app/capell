@@ -48,7 +48,7 @@ final class FirstRunChecklistFilamentWidget extends Widget implements CapellFila
         return self::canViewCheck() && self::resolveState()->isFirstRun;
     }
 
-    /** Whether the dashboard holds only setup work: no site this person can access is live, whether or not they hid the list. */
+    /** Whether the dashboard holds only setup work: no site this person can access is live and they have not hidden the list. */
     public static function replacesDashboard(): bool
     {
         return self::canViewCheck() && self::resolveState()->replacesDashboard();

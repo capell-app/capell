@@ -115,9 +115,8 @@ it('hides the checklist only for the person who chose Hide', function (): void {
 
     $html = Livewire::test(CapellDashboard::class)->html();
 
-    expect($html)->toContain(firstRunWidgetMarker(RecentlyUpdatedWidget::class))
-        ->and($html)->not->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class))
-        ->and($html)->not->toContain(firstRunWidgetMarker(AnalyticsTrendFilamentWidget::class));
+    expect($html)->not->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class))
+        ->and($html)->toContain(e(__('capell-admin::dashboard.performance_heading')));
 
     $this->actingAs($colleague);
     nextDashboardRequest();
@@ -469,4 +468,53 @@ it('shows the work-first visit panels after go-live only once visits are recorde
     $html = Livewire::test(CapellDashboard::class)->assertOk()->assertDontSee(__('capell-admin::dashboard.analytics_no_visits_yet'))->html();
 
     expect($html)->toContain(firstRunWidgetMarker(PageViewsWidget::class));
+});
+
+it('returns a person who hides the checklist to the normal dashboard, and the restore brings the setup layout back', function (): void {
+    $this->actingAsAdmin();
+    $user = $this->authenticatedUser();
+    $colleague = $this->createUserWithRole('super_admin');
+    // Published but kept out of search engines: never counted as live, as for an intranet or staging site.
+    [$site, $home] = unpublishedDashboardSite();
+    $home->forceFill(['visible_from' => now()->subMonth(), 'meta' => ['noindex' => true]])->saveQuietly();
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
+    nextDashboardRequest();
+
+    expect(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeFalse();
+
+    $html = Livewire::test(CapellDashboard::class)->assertOk()->assertDontSee(__('capell-admin::dashboard.performance_heading'))->html();
+
+    expect($html)->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class))
+        ->and($html)->not->toContain(firstRunWidgetMarker(AnalyticsOverviewFilamentWidget::class));
+
+    resolve(AdminWorkspacePreferenceStore::class)->setFirstRunChecklistHidden($user, true);
+    nextDashboardRequest();
+
+    $html = Livewire::test(CapellDashboard::class)->assertOk()->assertSee(__('capell-admin::dashboard.performance_heading'))->html();
+
+    expect($html)->not->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class))
+        ->and($html)->toContain(firstRunWidgetMarker(AnalyticsOverviewFilamentWidget::class))
+        ->and($html)->toContain('wire:model.live');
+
+    // Another person who has not hidden the list is unaffected.
+    $this->actingAs($colleague);
+    nextDashboardRequest();
+
+    $html = Livewire::test(CapellDashboard::class)->assertOk()->assertDontSee(__('capell-admin::dashboard.performance_heading'))->html();
+
+    expect($html)->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class));
+
+    $this->actingAs($user->refresh());
+    nextDashboardRequest();
+
+    Livewire::withQueryParams([CapellDashboard::SHOW_FIRST_RUN_CHECKLIST_QUERY => '1'])
+        ->test(CapellDashboard::class)
+        ->assertRedirect(CapellDashboard::getUrl());
+    nextDashboardRequest();
+
+    // The redirect drops the flag, so the next visit is the plain dashboard address.
+    $html = Livewire::withQueryParams([])->test(CapellDashboard::class)->assertOk()->assertDontSee(__('capell-admin::dashboard.performance_heading'))->html();
+
+    expect($html)->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class))
+        ->and($html)->not->toContain(firstRunWidgetMarker(AnalyticsOverviewFilamentWidget::class));
 });
