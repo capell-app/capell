@@ -170,6 +170,25 @@ it('renders the installer delete action with reinstall guidance', function (): v
         ->toContain(__('capell-installer::widgets.delete_installer_reinstall_link'));
 });
 
+it('keeps the installer warning actions and notes under the message at full width', function (): void {
+    test()->actingAsAdmin();
+    Livewire::withoutLazyLoading();
+    config()->set('capell.server_side_tooling', false);
+    Site::factory()->createOne();
+
+    $html = Livewire::test(InstallerWarning::class)->html();
+    $footerAt = strpos($html, 'fi-callout-footer');
+    $footer = is_int($footerAt) ? substr($html, $footerAt) : '';
+
+    // The callout's side controls column squeezed the message into a narrow column on phones.
+    expect($html)->not->toContain('fi-callout-controls')
+        ->and(strpos($html, e(__('capell-installer::widgets.installer_installed_message'))))->toBeLessThan($footerAt)
+        ->and($footer)->toContain('data-installer-warning-actions')
+        ->and($footer)->toContain(__('capell-installer::widgets.delete_installer_action'))
+        ->and($footer)->toContain(__('capell-installer::widgets.reinstall_action'))
+        ->and($footer)->toContain(e(__('capell-installer::widgets.delete_installer_tooling_disabled')));
+});
+
 it('lazy loads the installer warning component', function (): void {
     $lazyAttributes = new ReflectionClass(InstallerWarning::class)->getAttributes(Lazy::class);
 

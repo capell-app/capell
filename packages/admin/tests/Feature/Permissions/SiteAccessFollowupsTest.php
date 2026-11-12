@@ -17,6 +17,8 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Tests\Fixtures\Models\User;
+use Filament\Widgets\AccountWidget;
+use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
@@ -28,10 +30,11 @@ it('uses installation state for both dashboard paths when an actor has no assign
     $dashboard = new CapellDashboard;
 
     expect(new ReflectionMethod($dashboard, 'dashboardEnum')->invoke($dashboard))->toBe(DashboardEnum::Main)
-        ->and($dashboard->getWidgets())->toBe(array_values(array_unique([
+        // The account and framework cards repeat the user menu, so the dashboard omits them.
+        ->and($dashboard->getWidgets())->toBe(array_values(array_filter(array_unique([
             ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main),
             ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::MarketingStudio),
-        ], SORT_REGULAR)));
+        ], SORT_REGULAR), static fn (string $widget): bool => ! is_a($widget, AccountWidget::class, true) && ! is_a($widget, FilamentInfoWidget::class, true))));
 });
 
 it('does not send a zero site actor to site installation when creating a page', function (): void {

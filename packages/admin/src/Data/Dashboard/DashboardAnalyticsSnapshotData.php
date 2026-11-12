@@ -42,6 +42,12 @@ final class DashboardAnalyticsSnapshotData extends Data
         return $this->availability === DashboardAnalyticsAvailabilityEnum::Available;
     }
 
+    /** The source is connected and has counted at least one view or search. */
+    public function hasRecordedVisits(): bool
+    {
+        return $this->isAvailable() && ($this->totalViews > 0 || $this->audienceViews > 0 || $this->searches > 0);
+    }
+
     /**
      * Visitors counted once per site, per day. The visitor hash is salted with
      * the UTC day, so the same person on Monday and Tuesday is deliberately

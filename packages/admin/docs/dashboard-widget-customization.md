@@ -22,17 +22,63 @@ Prefer overview stats for small package counters. Use a standalone dashboard Fil
 
 ## Dashboard Composition
 
-The main dashboard keeps the native account and Filament information widgets at
-its top, followed by filters, a brief Needs attention summary and site performance.
-`Pulse` metrics precede the `Trends` and `Insights` panels, which sit side by side on
-desktop and stack on mobile. Content `Activity` follows the performance section.
+While a site is being set up, the main dashboard holds only work: the **Get your
+site ready** checklist, recently updated pages and **Needs attention**. Filters,
+performance and package panels wait until there can be something to show. First run
+is per site: the checklist covers the first site the person can access that has a
+home page and has never gone live, or the site the work-first dashboard is scoped
+to. A site goes live the first time its home page is published and not hidden from
+search engines. Core records that per site through
+`Capell\Core\Support\FirstRun\SitePublicationMilestones`: when a publication
+transition makes the home page public, when the dashboard first sees a home page
+that became public another way (a scheduled time passing, a form save or an
+import), and for existing sites through the `core.record-published-sites` upgrade
+step. The date is kept in the site's own meta (`first_run.published_at`), so it leaves
+with the site. Unpublishing the home page later does not bring the first-run layout
+back.
+
+The dashboard holds only setup work while no site the person can access is live. Once
+any accessible site is live, a second site still being set up gets the checklist above
+the normal dashboard, with the site named in its heading, instead of replacing it.
+
+After that, the dashboard shows filters, a brief Needs attention summary and site
+performance. `Pulse` metrics precede the `Trends` and `Insights` panels, which sit
+side by side on desktop and stack on mobile. Visit panels appear only when the
+analytics source has counted a view or search in the selected period. Otherwise the performance section shows one sentence that
+matches the source: nothing recorded in this period yet, analytics could not be
+loaded, or no analytics provider is configured. Content `Activity` follows the
+performance section. The Filament account and information cards are not shown on
+the dashboard; signing out stays in the account menu.
 
 Register a compact overview panel with
 `CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, YourWidget::class, DashboardEnum::Main)`.
 Widgets without an explicit overview region remain available in **Reports →
-Dashboard tools**, rather than expanding the home page. Native welcome widgets
-remain in the top row even if registered into another region. **Explore analytics**
+Dashboard tools**, rather than expanding the home page. **Explore analytics**
 opens the specialist analytics dashboard with the current filter context.
+
+### Add a getting-started task
+
+Packages add tasks to the first-run checklist by implementing
+`Capell\Admin\Contracts\Dashboard\FirstRunTaskContributor` (experimental) and
+tagging the class:
+
+```php
+$this->app->tag([ContactFormFirstRunTask::class], FirstRunTaskContributor::TAG);
+```
+
+`tasks(FirstRunTaskContextData $context)` receives the actor, the site and its home
+page, and returns `FirstRunTaskData` items. Work out `complete` from data the install
+already holds so the task ticks itself, and pass a `url` only when the actor may open
+it. Contributed tasks appear after the built-in tasks and before **Publish your
+site**. A key that is already in use is skipped, and a contributor that throws is
+reported and left out, so the checklist always renders. `tasks()` runs on every dashboard render while a site is being
+set up, so keep it to a few indexed queries for that site: no remote calls and no
+scans across sites.
+
+Each person can hide the checklist for themselves. While it is hidden and a site
+they can access has not gone live, the account menu offers **Help: Get your site
+ready** to bring it back. That menu check reads only the saved choice and the
+recorded go-live dates, so it never builds the checklist on other admin pages.
 
 Needs attention checks up to three pages missing basic publishing requirements in
 the actor's accessible site scope. Its clear state is not a full health or readiness
@@ -86,8 +132,9 @@ The Admin service provider and Filament plugin register the default dashboard Fi
 
 | Widget                            | Default state | Purpose                                                         |
 | --------------------------------- | ------------- | --------------------------------------------------------------- |
-| `CapellAccountFilamentWidget`     | Enabled       | Filament account welcome card.                                  |
-| `CapellInfoFilamentWidget`        | Enabled       | Filament version and documentation links.                       |
+| `FirstRunChecklistFilamentWidget` | Enabled       | Getting-started checklist while the site is not yet public.     |
+| `CapellAccountFilamentWidget`     | Not shown     | Filament account card; kept registered, not placed.             |
+| `CapellInfoFilamentWidget`        | Not shown     | Filament version card; kept registered, not placed.             |
 | `ListPagesFilamentWidget`         | Enabled       | Recently updated pages filtered by dashboard date range.        |
 | `RecentActivityFilamentWidget`    | Enabled       | Recent admin activity when activity exists for the site.        |
 | `UpdateAdvisoryFilamentWidget`    | Enabled       | Package/update advisory panel.                                  |

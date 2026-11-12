@@ -10,6 +10,7 @@ use Capell\Admin\Data\Dashboard\DashboardRecentlyUpdatedData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Concerns\WorkFirst\HasPersonalDashboardSize;
+use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Override;
@@ -24,10 +25,15 @@ final class RecentlyUpdatedWidget extends Widget implements CapellFilamentWidget
 
     protected string $view = 'capell-admin::widgets.dashboard.work-first-recently-updated';
 
+    /** Renders with the page so the dashboard never shows an empty placeholder card while it loads. */
+    protected static bool $isLazy = false;
+
     #[Override]
     public static function canView(): bool
     {
-        return self::widgetEnabled('recently_updated');
+        // The standard dashboard places this only while a site is being set up;
+        // otherwise it belongs to the work-first layout, as before.
+        return self::widgetEnabled('recently_updated', requiresWorkFirst: ! FirstRunChecklistFilamentWidget::replacesDashboard());
     }
 
     #[Computed]

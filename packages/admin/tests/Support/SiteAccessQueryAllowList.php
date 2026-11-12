@@ -46,6 +46,7 @@ final class SiteAccessQueryAllowList
                 'dashboardRecoveryState|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardLayout|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardOptions|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'firstRunChecklistHidden|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'merge|$actor->newQuery()->whereKey($actor->getKey())',
             ],
             // A media file is in use when any content, on any site, references it;

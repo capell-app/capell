@@ -18,7 +18,9 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeForbiddenResponseMiddlewa
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeHeldResponseMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeLateForbiddenMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Filament\Facades\Filament;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
@@ -42,6 +44,13 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         yield 'returned refusal' => [RuntimeForbiddenResponseMiddleware::class, 403, 'refused by panel middleware'];
         yield 'successful answer without the next middleware' => [RuntimeHeldResponseMiddleware::class, 200, 'held by panel middleware'];
         yield 'refusal after the next middleware' => [RuntimeLateForbiddenMiddleware::class, 403, 'refused after the route answered'];
+    }
+
+    /** @return Iterator<string, array{bool}> */
+    public static function livewireUpdateRequests(): Iterator
+    {
+        yield 'Livewire header on another path' => [true];
+        yield 'update endpoint without the header' => [false];
     }
 
     public function test_a_replay_runs_panel_middleware_gained_after_the_render(): void
@@ -98,6 +107,37 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         $this->expectExceptionMessage('The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
 
         $this->app->register(new AdminServiceProvider($this->app), force: true);
+    }
+
+    /** The package installer registers a newly installed admin package in its booted console or queue process. */
+    public function test_the_package_installer_may_register_the_admin_package_after_boot_outside_a_livewire_update(): void
+    {
+        $this->app->instance('request', Request::create('/'));
+
+        resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
+            fn (): object => $this->app->register(new AdminServiceProvider($this->app), force: true),
+        );
+
+        $this->assertFalse(resolve(PackageSurfaceRegistrar::class)->isInstallingPackages());
+        $this->assertInstanceOf(ShortCircuitingPersistentMiddleware::class, resolve(PersistentMiddleware::class));
+    }
+
+    /** During installation, a process that may be serving a Livewire update still refuses a late registration. */
+    #[DataProvider('livewireUpdateRequests')]
+    public function test_the_package_installer_may_not_register_the_admin_package_late_while_serving_a_livewire_update(bool $byHeader): void
+    {
+        $request = $byHeader
+            ? Request::create('/install/run-step', Request::METHOD_POST, server: ['HTTP_X_LIVEWIRE' => 'true'])
+            : Request::create(Livewire::getUpdateUri(), Request::METHOD_POST);
+
+        $this->app->instance('request', $request);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
+
+        resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
+            fn (): object => $this->app->register(new AdminServiceProvider($this->app), force: true),
+        );
     }
 
     public function test_a_replay_of_a_refused_route_is_refused_even_when_the_route_excludes_the_availability_guard(): void
