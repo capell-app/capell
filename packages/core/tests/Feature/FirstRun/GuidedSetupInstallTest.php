@@ -55,7 +55,7 @@ function seedPageOnInstallCompleted(string $slug): void
     });
 }
 
-function completeInstall(bool $initialInstallation, ?string $suiteKey = null): void
+function completeInstall(bool $initialInstallation, ?string $suiteKey = null, bool $demoContent = false): void
 {
     $reporter = new class implements ProgressReporter
     {
@@ -71,7 +71,7 @@ function completeInstall(bool $initialInstallation, ?string $suiteKey = null): v
             siteUrl: 'https://example.com',
             packages: [],
             languages: ['en'],
-            demoContent: false,
+            demoContent: $demoContent,
             cachesToClear: [],
             generateSitemap: false,
             generateStaticSite: false,
@@ -134,4 +134,13 @@ it('keeps guided setup for a fresh install when an upgrade runs before anyone se
 
     expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeFalse()
         ->and(ResolveGuidedSetupStateAction::run(installAdmin())->needsSetup)->toBeTrue();
+});
+
+it('never offers guided setup after a first install with sample content', function (): void {
+    $site = installStepSite();
+
+    completeInstall(initialInstallation: true, demoContent: true);
+
+    expect(ResolveGuidedSetupStateAction::isFreshInstall($site->refresh()))->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::run(installAdmin())->needsSetup)->toBeFalse();
 });

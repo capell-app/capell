@@ -85,14 +85,28 @@ final class ResolveGuidedSetupStateAction
     }
 
     /**
-     * The public home page a first install leaves in place until the person publishes the site.
-     * Its being public is not a sign that anyone has published the site; once a person edits it,
-     * it is theirs and counts like any other public home page.
+     * The public home page a first install leaves in place until the person publishes the site:
+     * the very page the install recorded, with the copy it recorded. Its being public is not a sign
+     * that anyone has published the site; once anything changes its copy, it counts like any other
+     * public home page.
      */
     public static function isPlaceholderHome(Site $site, Page $home): bool
     {
-        return self::isFreshInstall($site)
-            && ! self::personRevisions(Page::query()->whereKey($home->getKey())->select('uuid'))->exists();
+        $mark = data_get($site->meta, self::FRESH_INSTALL_META_KEY);
+
+        return is_array($mark)
+            && hash_equals((string) ($mark['home_uuid'] ?? ''), (string) $home->uuid)
+            && hash_equals((string) ($mark['home_hash'] ?? ''), self::homeHash($home));
+    }
+
+    /** A hash of the home page's copy in every language, so a change by anyone, person or seeder, is seen. */
+    public static function homeHash(Page $home): string
+    {
+        $copy = $home->translations()->orderBy('language_id')->get()
+            ->map(fn ($translation): array => [$translation->language_id, $translation->title, (string) $translation->content, $translation->meta])
+            ->all();
+
+        return hash('sha256', (string) json_encode([$home->name, $copy]));
     }
 
     public function handle(Authenticatable $actor): GuidedSetupStateData
@@ -108,11 +122,13 @@ final class ResolveGuidedSetupStateAction
     {
         $site = SiteAccess::forActor($actor)->query(Site::class)->excludingPreview()->orderBy('id')->first();
 
-        if (! $site instanceof Site || blank(data_get($site->meta, 'guided_setup.completed_at'))) {
+        if (! $site instanceof Site
+            || blank(data_get($site->meta, 'guided_setup.completed_at'))
+            || filled(data_get($site->meta, 'guided_setup.published_at'))) {
             return null;
         }
 
-        return self::isLive($site) ? null : $site;
+        return $site;
     }
 
     /**

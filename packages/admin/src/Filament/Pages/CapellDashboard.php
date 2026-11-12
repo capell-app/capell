@@ -54,6 +54,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Page;
@@ -114,6 +115,18 @@ class CapellDashboard extends Dashboard
 
         if (config('capell-admin.dashboard.guided_setup.redirect', true) && GuidedSetup::isOwed()) {
             $this->redirect(GuidedSetup::getUrl());
+
+            return;
+        }
+
+        // Pages setup created wait to be published: say so and offer it, without keeping anyone off the dashboard.
+        if (GuidedSetup::mayPublishAwaitingSite()) {
+            Notification::make('guided-setup-awaiting-publication')
+                ->info()
+                ->title((string) __('capell-admin::setup.awaiting_publication'))
+                ->body((string) __('capell-admin::setup.awaiting_publication_body'))
+                ->actions([Action::make('publish')->label((string) __('capell-admin::setup.awaiting_publication_action'))->url(GuidedSetup::getUrl())])
+                ->send();
         }
     }
 

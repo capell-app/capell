@@ -11,8 +11,11 @@ use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
 use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
+use Capell\Core\Actions\SiteReplicatedAction;
+use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
+use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
@@ -36,6 +39,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Testing\PendingCommand;
 use Illuminate\Validation\ValidationException;
 
 uses(CreatesAdminUser::class);
@@ -302,22 +307,86 @@ it('keeps a site awaiting publication from the moment its pages are created unti
 
     expect($state->awaitingPublication($actor)?->is($site))->toBeTrue();
 
-    // Publishing the home page records the go-live, as the publication listener does.
+    // A go-live recorded some other way does not take away Publish: only setup's own publish does.
     RecordSitePublishedAction::run((int) $site->getKey());
+
+    expect($state->awaitingPublication($actor)?->is($site))->toBeTrue();
+
+    $meta = $site->refresh()->meta ?? [];
+    data_set($meta, 'guided_setup.published_at', now()->toIso8601String());
+    $site->forceFill(['meta' => $meta])->save();
 
     expect($state->awaitingPublication($actor))->toBeNull();
 });
 
-it('takes the placeholder home page as the site going live once a person has edited it', function (): void {
+it('stops taking the home page as the placeholder once its copy changes, whoever changed it', function (): void {
     $site = installedSite();
     $actor = guidedSetupAdmin();
     CompleteGuidedSetupAction::run(guidedInput(), $site);
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
 
-    expect(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor)?->is($site))->toBeTrue();
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home))->toBeTrue();
 
-    personRevision($site->pages()->homePage()->firstOrFail());
+    // A seeder or a person editing the home page: no person revision is needed to see the change.
+    $home->translations->first()?->update(['content' => '<p>Written after the install</p>']);
 
-    expect(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor))->toBeNull();
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home->refresh()))->toBeFalse()
+        // Publish stays on offer: the pages setup created are still private.
+        ->and(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor)?->is($site))->toBeTrue();
+});
+
+it('does not take another home page with the same copy as the placeholder', function (): void {
+    $site = installedSite();
+    $mark = data_get($site->meta, ResolveGuidedSetupStateAction::FRESH_INSTALL_META_KEY);
+    $home = $site->pages()->homePage()->firstOrFail();
+
+    expect($mark['home_uuid'] ?? null)->toBe((string) $home->uuid);
+
+    $meta = $site->meta;
+    data_set($meta, ResolveGuidedSetupStateAction::FRESH_INSTALL_META_KEY . '.home_uuid', (string) Str::uuid());
+    $site->forceFill(['meta' => $meta])->save();
+
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home))->toBeFalse();
+});
+
+it('writes the spec home page over the placeholder and records the go-live when a private spec is published from the command line', function (): void {
+    $site = installedSite();
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $placeholder = (string) $home->translations->first()?->content;
+    app()->instance(AuthorizesPublicationTransition::class, new readonly class implements AuthorizesPublicationTransition
+    {
+        public function allows(PublicationTransitionRequestData $request): bool
+        {
+            return true;
+        }
+    });
+    $user = config('auth.providers.users.model')::factory()->createOne();
+    $path = (string) tempnam(sys_get_temp_dir(), 'capell-guided-spec-');
+    file_put_contents($path, json_encode(BuildGuidedSetupSpecAction::run(guidedInput('about'), $site)->toArray(), JSON_THROW_ON_ERROR));
+
+    try {
+        $command = $this->artisan('capell:site-spec-import', ['spec' => $path, '--site' => (string) $site->getKey(), '--publish' => true, '--user' => $user->email]);
+        assert($command instanceof PendingCommand);
+        $command->assertExitCode(0)->run();
+    } finally {
+        unlink($path);
+    }
+
+    $home->refresh()->load('translations');
+
+    expect((string) $home->translations->first()?->content)->not->toBe($placeholder)
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
+});
+
+it('keeps the copy of a site it replicates free of setup and go-live state', function (): void {
+    $site = installedSite();
+    RecordSitePublishedAction::run((int) $site->getKey());
+
+    $replica = SiteReplicatedAction::run($site->refresh(), ['name' => 'Copy']);
+
+    expect(data_get($replica->meta, 'guided_setup'))->toBeNull()
+        ->and(data_get($replica->meta, 'first_run.published_at'))->toBeNull()
+        ->and(data_get($site->refresh()->meta, 'first_run.published_at'))->not->toBeNull();
 });
 
 it('never asks about a site that has gone live, even if its home page is private again', function (): void {

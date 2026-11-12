@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\Properties\EvaluatePropertyCompletenessAction;
 use Capell\Core\Actions\Publishing\TransitionPublicationAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -12,12 +14,14 @@ use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Events\SiteSpecPublished;
 use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
 use Capell\Core\Support\SiteSpec\SiteSpecPageDataFactory;
 use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
 use Carbon\CarbonImmutable;
@@ -93,10 +97,17 @@ final class PublishSiteSpecSiteAction
             'pages' => implode('; ', $problems),
         ]), $problemPages);
 
-        $published = DB::transaction(function () use ($targets, $language, $actor, $now): int {
+        $published = DB::transaction(function () use ($targets, $language, $actor, $now, $site): int {
             $count = 0;
 
             foreach ($targets as $target) {
+                // A first install's untouched placeholder home page was kept public while the spec was private;
+                // publishing writes the spec's home page over it. A home page anyone has changed is left as it is.
+                if ($target['home'] && ResolveGuidedSetupStateAction::isPlaceholderHome($site, $target['page'])) {
+                    $target['page']->update(['name' => $target['spec']->name]);
+                    $target['translation']->update(['title' => $target['spec']->title, 'content' => SiteSpecPageContent::html($target['spec'])]);
+                }
+
                 $this->liftPrivateState($target['spec'], $target['page'], $target['translation'], $language, $target['home']);
 
                 $result = TransitionPublicationAction::run(new PublicationTransitionRequestData(
@@ -116,6 +127,11 @@ final class PublishSiteSpecSiteAction
                 if ($result->changed()) {
                     $count++;
                 }
+            }
+
+            // The home page was already public, so no publication transition records the go-live.
+            if ($targets !== [] && $targets[0]['home'] && $targets[0]['page']->refresh()->publishVisibilityState($now) === PublishVisibilityStateEnum::published) {
+                RecordSitePublishedAction::run((int) $site->getKey(), $now);
             }
 
             return $count;

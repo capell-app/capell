@@ -10,9 +10,12 @@ use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\FirstRun\GuidedSetupStateData;
+use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\SiteSpec\SiteSpecPresetData;
+use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Page;
@@ -23,6 +26,7 @@ use Capell\Core\Support\FirstRun\GuidedSetupLogo;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
@@ -96,13 +100,25 @@ class GuidedSetup extends FilamentPage
         return $site instanceof Site && SiteResource::canEdit($site);
     }
 
-    /** Whether the person should be taken to setup now: it is owed, or its pages wait to be published, and they may do it. */
+    /** Whether the person should be taken to setup now: it is owed (nothing created yet) and they may do it. */
     public static function isOwed(): bool
     {
-        $actor = auth()->user();
-        $site = self::editableSite() ?? ($actor === null ? null : ResolveGuidedSetupStateAction::make()->awaitingPublication($actor));
+        $site = self::editableSite();
 
         return $site instanceof Site && SiteResource::canEdit($site);
+    }
+
+    /** Whether the person may publish the pages setup created and still waiting: they are offered Publish on the dashboard. */
+    public static function mayPublishAwaitingSite(): bool
+    {
+        $actor = auth()->user();
+        $site = $actor === null ? null : ResolveGuidedSetupStateAction::make()->awaitingPublication($actor);
+        $home = $site instanceof Site ? Page::query()->where('site_id', $site->getKey())->homePage()->first() : null;
+
+        return $site instanceof Site
+            && $home instanceof Page
+            && SiteResource::canEdit($site)
+            && resolve(AuthorizesPublicationTransition::class)->allows(new PublicationTransitionRequestData($home, PublicationTransition::PublishNow, $actor, CarbonImmutable::now()));
     }
 
     #[Override]
@@ -315,6 +331,9 @@ class GuidedSetup extends FilamentPage
 
         try {
             PublishGuidedSetupSiteAction::run($this->storedInput($site), $site, $actor);
+        } catch (GuidedSetupRefusedException) {
+            // Already published, by this request's twin or another person.
+            abort(403);
         } catch (SiteSpecPublishRefusedException $refused) {
             Notification::make()
                 ->danger()

@@ -9,13 +9,15 @@ use Capell\Admin\Filament\Pages\GuidedSetup;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
+use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
+use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
-use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
@@ -425,23 +427,15 @@ it('records the launch of a site whose setup was skipped once a person has edite
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     Livewire::test(GuidedSetup::class)->call('skip');
-    $home = $site->pages()->homePage()->firstOrFail();
-    PageRevision::query()->create([
-        'page_uuid' => $home->uuid,
-        'version' => 1,
-        'actor_id' => $this->authenticatedUser()->getKey(),
-        'summary' => 'Edited',
-        'is_rollback' => false,
-        'source' => 'edit',
-        'occurred_at' => now(),
-    ]);
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $home->translations->first()?->update(['content' => '<p>Our own homepage</p>']);
 
     ResolveFirstRunStateAction::run($this->authenticatedUser());
 
     expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
 });
 
-it('keeps the placeholder home page working after setup is left before publishing, and sends the person back to publish', function (): void {
+it('keeps the placeholder home page working after setup is left before publishing, and offers Publish on the dashboard', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     $home = $site->pages()->homePage()->with('translations')->firstOrFail();
@@ -457,7 +451,8 @@ it('keeps the placeholder home page working after setup is left before publishin
     expect($home->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published)
         ->and((string) $home->translations->first()?->content)->toBe($placeholder);
 
-    Livewire::test(CapellDashboard::class)->assertRedirect(GuidedSetup::getUrl());
+    // The dashboard opens, with Publish offered rather than forced.
+    Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotified(__('capell-admin::setup.awaiting_publication'));
     Livewire::test(GuidedSetup::class)->assertSet('created', true)->assertSee(__('capell-admin::setup.open_home'));
 });
 
@@ -479,4 +474,63 @@ it("writes the person's home page over the placeholder when they publish", funct
         ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
 
     Livewire::test(CapellDashboard::class)->assertNoRedirect();
+});
+
+function createGuidedSetupPages(): void
+{
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
+        ->call('createPages')
+        ->assertSet('created', true);
+}
+
+it('lets an editor who may not publish use the dashboard after the pages are created, without offering Publish', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    createGuidedSetupPages();
+    app()->instance(AuthorizesPublicationTransition::class, new readonly class implements AuthorizesPublicationTransition
+    {
+        public function allows(PublicationTransitionRequestData $request): bool
+        {
+            return false;
+        }
+    });
+
+    Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotNotified(__('capell-admin::setup.awaiting_publication'));
+});
+
+it('does not trap anyone on setup when the chosen page set is removed after the pages are created', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    createGuidedSetupPages();
+    $meta = $site->refresh()->meta;
+    data_set($meta, 'guided_setup.preset_key', 'a-removed-page-set');
+    $site->forceFill(['meta' => $meta])->save();
+
+    Livewire::test(CapellDashboard::class)->assertNoRedirect();
+});
+
+it('still publishes every created page after the person edits the home page first, and keeps their edits', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    createGuidedSetupPages();
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $home->translations->first()?->update(['content' => '<p>Written by the person</p>']);
+
+    Livewire::test(GuidedSetup::class)->call('publishSite')->assertSet('sitePublished', true);
+
+    expect(collect(guidedSetupWrittenPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue()
+        ->and((string) $home->refresh()->translations->first()?->content)->toBe('<p>Written by the person</p>');
+});
+
+it('publishes once: a second publish of the same setup changes nothing and moves no logo twice', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    createGuidedSetupPages();
+    $input = new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Hartley Dental', pageSlugs: ['about']);
+
+    PublishGuidedSetupSiteAction::run($input, $site->refresh(), $this->authenticatedUser());
+
+    expect(fn (): int => PublishGuidedSetupSiteAction::run($input, $site->refresh(), $this->authenticatedUser()))
+        ->toThrow(GuidedSetupRefusedException::class);
 });

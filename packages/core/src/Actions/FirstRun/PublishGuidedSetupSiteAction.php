@@ -4,48 +4,52 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\FirstRun;
 
-use Capell\Core\Actions\PlanSiteSpecAction;
 use Capell\Core\Actions\PublishSiteSpecSiteAction;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\FirstRun\GuidedSetupLogo;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
-use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
-use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * Publishes what guided setup created, all or nothing: the person's home page is written over
- * the install's placeholder home page (unless someone has edited it since), every page setup
- * created is made public, the site's go-live is recorded and, last, the logo held back since
- * setup is attached to the now-live site.
+ * Publishes what guided setup created, once and all or nothing. The site row is locked and
+ * re-checked inside the transaction, so a repeated or concurrent request finds the site already
+ * published and changes nothing. Publishing the spec writes the person's home page over the
+ * install's placeholder and records the go-live; the logo held back since setup is attached
+ * only after the transaction commits, by the request that published.
  */
 final class PublishGuidedSetupSiteAction
 {
     use AsFake;
     use AsObject;
 
-    /** @throws SiteSpecPublishRefusedException when a page cannot be published; nothing is changed */
+    /**
+     * @throws SiteSpecPublishRefusedException when a page cannot be published; nothing is changed
+     * @throws GuidedSetupRefusedException when the site has no setup waiting to be published
+     */
     public function handle(GuidedSetupInputData $input, Site $site, Authenticatable $actor): int
     {
         $spec = BuildGuidedSetupSpecAction::run($input, $site);
 
         $published = DB::transaction(function () use ($spec, $site, $actor): int {
-            $homeSpec = $spec->pages[0] ?? null;
-            $home = $homeSpec === null ? null : (PlanSiteSpecAction::make()->existingPagesBySlug($spec, $site)[SiteSpecPageSlug::for($homeSpec)] ?? null);
+            $locked = Site::query()->lockForUpdate()->whereKey($site->getKey())->firstOrFail();
 
-            if ($homeSpec !== null && $home !== null && ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home['page'])) {
-                $home['page']->update(['name' => $homeSpec->name]);
-                $home['translation']->update(['title' => $homeSpec->title, 'content' => SiteSpecPageContent::html($homeSpec)]);
-            }
+            throw_if(
+                blank(data_get($locked->meta, 'guided_setup.completed_at')) || filled(data_get($locked->meta, 'guided_setup.published_at')),
+                GuidedSetupRefusedException::alreadySetUp((int) $locked->getKey()),
+            );
 
-            $published = PublishSiteSpecSiteAction::run($spec, $site, $actor);
-            RecordSitePublishedAction::run((int) $site->getKey());
+            $published = PublishSiteSpecSiteAction::run($spec, $locked, $actor);
+
+            $meta = is_array($locked->refresh()->meta) ? $locked->meta : [];
+            data_set($meta, 'guided_setup.published_at', now()->toIso8601String());
+            $locked->forceFill(['meta' => $meta])->save();
 
             return $published;
         });

@@ -662,7 +662,8 @@ final class InstallStepExecutor
         Event::dispatch(new CapellInstallationCompleted);
 
         // Last, after every package has seeded its pages: only a site a first install made is offered guided setup.
-        if ($state->inputData->initialInstallation) {
+        // A demo install is built content, not a blank site, so it is never offered setup.
+        if ($state->inputData->initialInstallation && ! $state->inputData->demoContent) {
             MarkFreshInstallSitesAction::run();
         }
 

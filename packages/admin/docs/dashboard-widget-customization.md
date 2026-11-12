@@ -46,14 +46,16 @@ is finished or a site spec has been imported into the site; skipping guided setu
 tick it. Opening the dashboard sends at most one redirect: restoring a hidden checklist
 with `?getting-started` comes first, and guided setup follows on the next visit.
 
-A first install marks each site it made under `guided_setup.fresh_install_at` once the
-install, and every package's own setup, has finished. Guided setup is offered only to a marked
-site that nobody has set up, skipped or put live, and whose pages no person has made or edited;
-pages that packages seed during the install do not count. A site without the mark, such as one
-installed before it existed, is never offered setup. The install's home page stays public as a
-placeholder until the person publishes: setup creates its pages as private drafts, writes the
-person's home page over the placeholder when they publish, and attaches the uploaded logo only
-then. Until the placeholder is edited by a person it does not count as the site going live.
+A first install without sample content marks each site it made under
+`guided_setup.fresh_install_at` once the install, and every package's own setup, has
+finished. The mark records the home page the install left and a hash of its copy. Guided
+setup is offered only to a marked site that nobody has set up, skipped or put live, and whose
+pages no person has made or edited; pages that packages seed during the install do not count.
+A site without the mark, such as one installed before it existed or a demo install, is never
+offered setup. The install's home page stays public as a placeholder while its copy is
+unchanged: setup creates its pages as private drafts, and publishing writes the person's home
+page over the placeholder, records the go-live and attaches the uploaded logo. Once the pages
+are created the dashboard opens as usual and offers Publish to people who may publish.
 
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above
