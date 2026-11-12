@@ -9,6 +9,7 @@ use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -88,24 +89,52 @@ final class ResolveGuidedSetupStateAction
 
     /**
      * The public home page a first install leaves in place until setup publishes the site: the
-     * very page the install recorded, which no person has edited since. Only the recorded page and
-     * the person's own revisions are read, so the page's content, of any shape, is never inspected;
-     * a failure to read either counts as "not the placeholder".
+     * very page the install recorded, whose translations are exactly as the install left them
+     * (none added, deleted or saved since, by any route) and which no person has edited since.
+     * The page's content, of any shape, is never inspected; a failure to read counts as "not the
+     * placeholder".
      */
     public static function isPlaceholderHome(Site $site, Page $home): bool
     {
         try {
             $uuid = data_get($site->meta, self::FRESH_INSTALL_META_KEY . '.home_uuid');
 
+            $copy = data_get($site->meta, self::FRESH_INSTALL_META_KEY . '.home_copy');
+
             return is_string($uuid)
                 && hash_equals($uuid, (string) $home->uuid)
                 && ! $home->trashed()
+                && is_array($copy)
+                && $copy === self::homeCopyStamp($home)
                 && ! self::personRevisions(Page::query()->whereKey($home->getKey())->select('uuid'))->exists();
         } catch (Throwable $throwable) {
             report($throwable);
 
             return false;
         }
+    }
+
+    /**
+     * When and how the home page's translations were last written, read from the stored rows: how
+     * many there are, how many are deleted, and the latest save. The install records it, so any
+     * later save, by the editor, an importer or a direct write, is seen without a revision.
+     *
+     * @return array{live: int, deleted: int, updated_at: string|null}
+     */
+    public static function homeCopyStamp(Page $home): array
+    {
+        $rows = Translation::withTrashed()
+            ->where('translatable_type', $home->getMorphClass())
+            ->where('translatable_id', $home->getKey())
+            ->toBase()
+            ->get(['updated_at', 'deleted_at']);
+        $latest = $rows->pluck('updated_at')->filter()->map(strval(...))->max();
+
+        return [
+            'live' => $rows->whereNull('deleted_at')->count(),
+            'deleted' => $rows->whereNotNull('deleted_at')->count(),
+            'updated_at' => is_string($latest) ? $latest : null,
+        ];
     }
 
     /** The install's home page while it is still the placeholder setup may write over. */

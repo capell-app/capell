@@ -53,9 +53,9 @@ marked site that nobody has set up, skipped or put live, and whose pages no pers
 edited; pages that packages seed during the install do not count. A site without the mark, such
 as one installed before it existed or a demo install, is never offered setup.
 
-The install's home page stays public as a placeholder until a person edits it: any revision a
-person records, including a property value, counts, and nothing else about the page is
-inspected. Setup creates its pages as private drafts and keeps the spec it built and the pages
+The install's home page stays public as a placeholder until it is edited: any revision a person
+records, including a property value, or any save of its translations after the install, by the
+inline editor, an importer or anything else, ends it. The page's content is never inspected. Setup creates its pages as private drafts and keeps the spec it built and the pages
 it created. Publish works from that stored spec and touches only what nobody has touched since:
 the home page while it is still the placeholder, and each created page that is still a private
 draft with no person's revision. A page the person edited, published, scheduled, reverted or

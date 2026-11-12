@@ -334,19 +334,49 @@ it('keeps a site awaiting publication from the moment its pages are created unti
     expect($state->awaitingPublication($actor))->toBeNull();
 });
 
-it('stops taking the home page as the placeholder once a person edits it, but not when the install changes it', function (): void {
+it('stops taking the home page as the placeholder once a person edits it', function (): void {
     $site = installedSite();
     CompleteGuidedSetupAction::run(guidedInput('about'), $site);
-    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $home = $site->pages()->homePage()->firstOrFail();
 
-    // A package or seeder writing the home page is not a person's edit.
-    $home->translations->first()?->update(['content' => '<p>Written by a package</p>']);
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home))->toBeTrue();
 
-    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home->refresh()))->toBeTrue();
-
+    $this->travel(1)->seconds();
     editAsPerson($home, '<p>Written by the person</p>');
 
     expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home->refresh()))->toBeFalse();
+});
+
+it('leaves a home page alone that was written directly, with no revision, after the install', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site);
+    $home = $site->pages()->homePage()->firstOrFail();
+    $this->travel(1)->seconds();
+    // As the inline editor saves it: the translation alone, with no page save and no revision.
+    $translation = $home->translations()->firstOrFail();
+    $translation->title = 'Our own title';
+    $translation->content = '<p>Our own words</p>';
+    $translation->save();
+
+    expect(PageRevision::query()->where('page_uuid', $home->uuid)->whereNotNull('actor_id')->where('source', 'edit')->exists())->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::placeholderHome($site->refresh()))->toBeNull()
+        ->and(ResolveGuidedSetupStateAction::make()->awaitingPublication(guidedSetupAdmin())?->is($site))->toBeTrue();
+
+    PublishGuidedSetupSiteAction::run($site->refresh(), guidedSetupAdmin());
+
+    $translation->refresh();
+    expect($translation->title)->toBe('Our own title')
+        ->and((string) $translation->content)->toBe('<p>Our own words</p>')
+        ->and(createdPage($site, 'about')->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published);
+});
+
+it('does not take a home page as the placeholder once one of its translations is deleted', function (): void {
+    $site = installedSite();
+    $home = $site->pages()->homePage()->firstOrFail();
+    $home->translations()->firstOrFail()->delete();
+
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home->refresh()))->toBeFalse();
 });
 
 it('does not take another home page with the same copy as the placeholder', function (): void {
