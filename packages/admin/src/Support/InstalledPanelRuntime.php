@@ -67,8 +67,11 @@ final class InstalledPanelRuntime
      */
     private const array SIGN_IN_PAGES = [Login::class, RequestPasswordReset::class, ResetPassword::class, Register::class];
 
-    /** Capell's own admin code, which only a panel with the Capell plugin may serve. */
-    private const string CAPELL_ADMIN_NAMESPACE = 'Capell\\Admin\\';
+    /**
+     * The namespace every Capell package ships under, Core and its companion packages alike. Their code only
+     * a panel with the Capell plugin may serve.
+     */
+    private const string CAPELL_NAMESPACE = 'Capell\\';
 
     /**
      * Packages that only serve the admin panels, by namespace: Filament, Livewire, Capell admin and the
@@ -163,6 +166,9 @@ final class InstalledPanelRuntime
 
     /** @var array<string, string|null>|null The admin packages' source and route directories, with the namespace each source directory holds. */
     private ?array $adminRoots = null;
+
+    /** @var list<string>|null The Capell packages' source and route directories. */
+    private ?array $capellRoots = null;
 
     /** @var array<string, true> */
     private array $freshApplicationRequired = [];
@@ -1060,11 +1066,12 @@ final class InstalledPanelRuntime
 
         $panel = $this->synchronised[$ownership->panel] ?? null;
         if (! $panel instanceof Panel) {
-            // Standalone declarations, global admin plugin endpoints and Capell's own admin code depend on
-            // Capell to add their security. A native Filament panel's other routes carry their own stack.
+            // Standalone declarations, global admin plugin endpoints and the code of Capell and its companion
+            // packages depend on Capell to add their security. A native Filament panel's other routes, including
+            // the host's own subclasses of Capell code, carry their own stack.
             return AdminRouteProvenance::declared($route)['panels'] === []
                 && ! in_array($this->actionCode($route)[0], self::ENTRYPOINT_ACTIONS, true)
-                && ! $this->runsCapellAdminCode($route)
+                && ! $this->runsCapellCode($route)
                 && (array_key_exists($ownership->panel, Filament::getPanels()) || $this->isUnavailable($ownership->panel))
                     ? null
                     : 'capell-admin::message.extension_panel_route_unowned';
@@ -1205,26 +1212,16 @@ final class InstalledPanelRuntime
     }
 
     /**
-     * The action is shipped in Capell's own admin source or route files. Filament, Livewire, other admin
-     * plugins and the host's own pages are not Capell code: a panel without the Capell plugin keeps serving
-     * them under its own stack, but cannot serve Capell's admin code without Capell's package security.
+     * The action is shipped in the source or route files of Capell or one of its companion packages, such as
+     * Layout Builder or Publishing Studio. Filament, Livewire, other admin plugins and the host's own code,
+     * including its subclasses of Capell classes, are not: a panel without the Capell plugin keeps serving
+     * them under its own stack, but cannot serve Capell code without Capell's package security.
      */
-    private function runsCapellAdminCode(Route $route): bool
+    private function runsCapellCode(Route $route): bool
     {
         $file = $this->actionSource($route)[1];
-        if ($file === null) {
-            return false;
-        }
 
-        foreach ($this->adminRoots() as $root => $prefix) {
-            $capellRoot = $prefix !== null && str_starts_with($prefix, self::CAPELL_ADMIN_NAMESPACE);
-            $capellRoutes = $prefix !== null && $capellRoot ? dirname($root) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR : null;
-            if (($capellRoot && str_starts_with($file, $root)) || ($capellRoutes !== null && str_starts_with($file, $capellRoutes))) {
-                return true;
-            }
-        }
-
-        return false;
+        return $file !== null && array_any($this->capellRoots(), static fn (string $root): bool => str_starts_with($file, $root));
     }
 
     /**
@@ -1477,6 +1474,40 @@ final class InstalledPanelRuntime
         }
 
         return $this->adminRoots = $roots;
+    }
+
+    /**
+     * The source and route directories of every package under the Capell namespace, found once per process
+     * through Composer's PSR-4 map, the same way as the admin packages' roots. Their test suites are not
+     * package code.
+     *
+     * @return list<string>
+     */
+    private function capellRoots(): array
+    {
+        if ($this->capellRoots !== null) {
+            return $this->capellRoots;
+        }
+
+        $roots = [];
+        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
+            foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
+                if (! str_starts_with($prefix, self::CAPELL_NAMESPACE)) {
+                    continue;
+                }
+
+                foreach ($directories as $directory) {
+                    $path = realpath($directory);
+                    // A package's route files sit beside its source directory.
+                    if ($path !== false && basename($path) === 'src') {
+                        $roots[$path . DIRECTORY_SEPARATOR] = true;
+                        $roots[dirname($path) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR] = true;
+                    }
+                }
+            }
+        }
+
+        return $this->capellRoots = array_keys($roots);
     }
 
     /** @return array{middleware: array<string>, auth: array<string>, tenant: array<string>} */
