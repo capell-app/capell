@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Data\Install;
 
 use Capell\Core\Enums\InstallPackageLicenceState;
+use Capell\Core\Enums\InstallSkipReason;
 use Spatie\LaravelData\Data;
 
 final class InstallRecommendationData extends Data
@@ -23,6 +24,7 @@ final class InstallRecommendationData extends Data
      * @param  list<string>  $mayNeedLicence
      * @param  array<string, InstallPackageLicenceState>  $packageLicenceStates
      * @param  list<string>  $downloadedPackages
+     * @param  list<string>  $unavailable  Recommended packages that are neither installed nor downloadable from the public package channel.
      */
     public function __construct(
         public readonly string $key,
@@ -38,7 +40,32 @@ final class InstallRecommendationData extends Data
         public readonly array $mayNeedLicence = [],
         public readonly array $packageLicenceStates = [],
         public readonly array $downloadedPackages = [],
+        public readonly array $unavailable = [],
     ) {}
+
+    /**
+     * Every recommended package a default or preset install leaves out, and why: the package is not
+     * available from the public channel, or it may need a licence the install cannot check.
+     *
+     * @return list<InstallSkippedPackageData>
+     */
+    public function skippedRecommended(): array
+    {
+        $preselected = $this->preselectedRecommended();
+        $skipped = [];
+
+        foreach ($this->unavailable as $package) {
+            $skipped[] = new InstallSkippedPackageData($package, InstallSkipReason::NotInPublicChannel);
+        }
+
+        foreach (array_keys($this->recommended) as $package) {
+            if (! in_array($package, $preselected, true)) {
+                $skipped[] = new InstallSkippedPackageData($package, InstallSkipReason::MayNeedLicence);
+            }
+        }
+
+        return $skipped;
+    }
 
     /**
      * Recommended extensions safe to pre-tick: a download that may need a licence would make

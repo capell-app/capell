@@ -56,6 +56,7 @@ final class ResolveInstallPresetAction
             ])),
             theme: $suite->theme,
             demo: $suite->demo,
+            skipped: $suite->skippedRecommended(),
         );
     }
 }

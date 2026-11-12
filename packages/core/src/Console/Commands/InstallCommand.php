@@ -1764,6 +1764,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $this->input->setOption('packages', implode(',', array_values(array_filter($selection->packages, $installable))));
         }
 
+        foreach ($selection->skipped as $skipped) {
+            $this->warn((string) __('capell-core::install.skipped.' . $skipped->reason->value, ['package' => $skipped->package]));
+        }
+
         $this->suiteThemeKey = $selection->theme;
 
         // A fresh install with --demo takes the unattended known-credentials path, so a suite

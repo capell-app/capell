@@ -8,10 +8,12 @@ use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\CheckInstallPackageAccessAction;
 use Capell\Core\Actions\Install\ResolveInstallPackageLicenceAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
+use Capell\Core\Data\Install\InstallSkippedPackageData;
 use Capell\Core\Data\Install\InstallSuiteSelectionData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
 use Capell\Core\Enums\InstallPackageLicenceState;
+use Capell\Core\Enums\InstallSkipReason;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -81,6 +83,7 @@ final class InstallSuitePrompter
                 ),
                 theme: $suite->theme,
                 demo: $suite->demo,
+                skipped: $suite->skippedRecommended(),
             );
         }
 
@@ -112,6 +115,10 @@ final class InstallSuitePrompter
             packages: $this->reviewDownloadAccess(array_values(array_unique($selected)), $siteUrl ?? (string) config('app.url')),
             theme: $suite->theme,
             demo: $suite->demo,
+            skipped: array_values(array_filter(
+                $suite->skippedRecommended(),
+                static fn (InstallSkippedPackageData $skipped): bool => $skipped->reason === InstallSkipReason::NotInPublicChannel,
+            )),
         );
     }
 
