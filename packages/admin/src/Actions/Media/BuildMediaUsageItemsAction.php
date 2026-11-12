@@ -85,7 +85,7 @@ final class BuildMediaUsageItemsAction
     }
 
     /**
-     * Pages, then terms, the actor can see whose property values point at the media item.
+     * Pages (trashed included), then terms, the actor can see whose property values point at the media item.
      *
      * @return list<Page|Term>
      */
@@ -96,7 +96,9 @@ final class BuildMediaUsageItemsAction
         }
 
         $access = SiteAccess::current();
+        // Trashed pages still hold their values and count as uses, so they are listed too.
         $pages = $access->query(Page::class)
+            ->withTrashed()
             ->whereIn('id', $access->query(PagePropertyValue::class)->where('media_id', $media->getKey())->select('page_id'))
             ->orderBy('id')
             ->when($limit !== null, fn (Builder $query): Builder => $query->limit((int) $limit))

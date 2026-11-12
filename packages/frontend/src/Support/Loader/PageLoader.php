@@ -7,6 +7,7 @@ namespace Capell\Frontend\Support\Loader;
 use Aimeos\Nestedset\QueryBuilder;
 use BackedEnum;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
+use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PageOrderEnum;
 use Capell\Core\Facades\CapellCore;
@@ -15,6 +16,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\ListPagesAction;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Data\PageListingRequestData;
@@ -96,15 +98,19 @@ class PageLoader
                 /** @var class-string<Page> $model */
                 $model = Page::class;
 
-                $builder = $model::query();
+                // The requested language first, then its configured fallbacks: a site
+                // with no French 404 page shows the English one on French URLs.
+                $languageIds = ResolveLanguageFallbackChainAction::run($language);
 
-                $builder->with([
-                    'layout',
-                    'pageUrls.siteDomain',
-                    // Paired with pageUrls for the head's hreflang cluster; public Blade only
-                    // reads hydrated relations (PublicViewQueryGuard).
-                    'translations',
-                ])
+                $candidates = $model::query()
+                    ->with([
+                        'layout',
+                        'pageUrls.siteDomain',
+                        'pageUrls.language',
+                        // Paired with pageUrls for the head's hreflang cluster; public Blade only
+                        // reads hydrated relations (PublicViewQueryGuard).
+                        'translations',
+                    ])
                     ->withWhereHas(
                         'blueprint',
                         function (BuilderContract $query) use ($type): void {
@@ -112,24 +118,43 @@ class PageLoader
                             $query->where('key', $type)->enabled();
                         },
                     )
-                    ->withWhereHas(
-                        'pageUrl',
-                        function (BuilderContract $query) use ($language): void {
-                            $query->where('language_id', $language->id)
-                                ->whereNull('type')
-                                ->enabled();
-                        },
+                    ->whereHas(
+                        'pageUrls',
+                        fn (BuilderContract $query): BuilderContract => $query->whereIn('language_id', $languageIds)
+                            ->whereNull('type')
+                            ->enabled(),
                     )
-                    ->withWhereHas(
-                        'translation',
-                        fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language->id),
+                    ->whereHas(
+                        'translations',
+                        fn (BuilderContract $query): BuilderContract => $query->whereIn('language_id', $languageIds),
                     )
                     ->where('site_id', $site->id)
-                    ->publishedDate();
+                    ->publishedDate()
+                    ->get();
 
-                $record = $builder->first();
+                foreach ($languageIds as $languageId) {
+                    foreach ($candidates as $candidate) {
+                        if (! $candidate instanceof Page) {
+                            continue;
+                        }
 
-                return $record instanceof Page ? $record : null;
+                        $translation = $candidate->translations->first(
+                            fn (Translation $row): bool => (int) $row->language_id === $languageId,
+                        );
+                        $pageUrl = $candidate->pageUrls->first(
+                            fn (PageUrl $url): bool => (int) $url->language_id === $languageId && $url->type === null && $url->status,
+                        );
+
+                        if ($translation instanceof Translation && $pageUrl instanceof PageUrl) {
+                            $candidate->setRelation('translation', $translation);
+                            $candidate->setRelation('pageUrl', $pageUrl);
+
+                            return $candidate;
+                        }
+                    }
+                }
+
+                return null;
             };
 
             if ($withEvents) {
@@ -143,8 +168,16 @@ class PageLoader
             return null;
         }
 
-        self::setPageRelations($page, $site, $language);
-        $page->pageUrls->each(fn (PageUrl $url) => $url->setRelation('language', $language));
+        $servedLanguage = $page->pageUrl->relationLoaded('language') && $page->pageUrl->language instanceof Language
+            ? $page->pageUrl->language
+            : $language;
+
+        self::setPageRelations($page, $site, $servedLanguage);
+        $page->pageUrls->each(function (PageUrl $url) use ($language): void {
+            if (! $url->relationLoaded('language') || ! $url->language instanceof Language) {
+                $url->setRelation('language', $language);
+            }
+        });
         if ($fromCache) {
             self::trackModelOrCollection($page);
         }

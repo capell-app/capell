@@ -18,8 +18,14 @@ final class CacheInvalidationDependencyRegistry
         // shape the whole document. Without page-* a site rename leaves every
         // cached page showing the old one, which is why Language already lists it.
         Site::class => ['sites', 'site-*', 'site-related-*', 'page-*'],
-        Language::class => ['languages', 'page-*', 'site-*'],
-        Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*'],
+        // A language's fallback chain decides which translation, system page and home
+        // page every language renders, so a language change reaches all of them.
+        Language::class => ['languages', 'page-*', 'site-*', 'system-page-*', 'homepage-*'],
+        // Class-wide plans (invalidateForModel(Page::class), e.g. after a SiteSpec privacy
+        // repair or a query-level change) retire every system page with the rest. A single
+        // page save does not use these patterns: PageCacheInvalidator::planForPage forgets
+        // that page's exact system-page and home-page keys instead.
+        Page::class => ['pages', 'page-*', 'homepage-*', 'page-error-*', 'system-page-*'],
         'Capell\Core\Models\Navigation' => ['navigation-*', 'site-navigations-*'],
         // Generated URLs embed the domain when use_site_domain_for_urls is on, so a
         // domain change leaves stale absolute URLs baked into cached pages.

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'language_fallback_cycle' => 'That language already falls back to this one, so choosing it would create a loop. Choose a language that does not lead back here.',
+    'language_fallback_self' => 'A language cannot fall back to itself. Choose a different language, or leave the fallback empty so untranslated pages show a not-found page.',
     'site_spec_private_audit_required' => 'Private import :id predates the privacy repair. Review the original spec and current publication decisions, then reimport with --repair-private and --keep-published for deliberate publications.',
     'site_domain_claim_conflict' => 'This origin is already assigned to another site. Ask a global administrator to configure shared domains.',
     'component_directory_failed' => 'Could not create component directory [:path]. Check directory permissions and retry.',

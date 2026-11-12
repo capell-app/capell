@@ -133,11 +133,41 @@ it('applies separate dependency commands generates the input manifest and builds
             ],
         ]);
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'install', 'swiper@^12.0.0']
-        && $process->timeout === 900);
+        && $process->timeout === 900
+        && $process->path === base_path());
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'install', '--save-dev', 'vite-plugin-example@^2.0.0']
-        && $process->timeout === 900);
+        && $process->timeout === 900
+        && $process->path === base_path());
     Process::assertRan(fn ($process): bool => $process->command === ['npm', 'run', 'build']
-        && $process->timeout === 900);
+        && $process->timeout === 900
+        && $process->path === base_path());
+});
+
+it('installs declared dependencies before building when the plan has nothing to add and node_modules is missing', function (): void {
+    File::put($this->viteConfigPath, viteConfigWithCapellInputs());
+    $modules = base_path('node_modules');
+    $parked = $modules . '.parked-by-test';
+    $hadModules = file_exists($modules) || is_link($modules);
+    if ($hadModules) {
+        rename($modules, $parked);
+    }
+
+    Process::fake(fn () => Process::result(output: 'process output'));
+
+    try {
+        $exit = Artisan::call('capell:frontend-after-install', [
+            '--no-interaction' => true,
+            '--apply' => true,
+        ]);
+    } finally {
+        if ($hadModules) {
+            rename($parked, $modules);
+        }
+    }
+
+    expect($exit)->toBe(0);
+    Process::assertRan(fn ($process): bool => $process->command === ['npm', 'install'] && $process->path === base_path());
+    Process::assertRan(fn ($process): bool => $process->command === ['npm', 'run', 'build']);
 });
 
 it('requires interactive confirmation before applying the printed plan', function (): void {

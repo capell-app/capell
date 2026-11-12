@@ -123,10 +123,12 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
     #[Override]
     public static function getGlobalSearchEloquentQuery(): Builder
     {
+        // The result detail reads `title` in the site's default language from the loaded
+        // translations; an unconstrained `translation` returned an arbitrary language.
         return parent::getGlobalSearchEloquentQuery()
             ->with([
-                'site:id,name,default',
-                'translation',
+                'site:id,name,default,language_id',
+                'translations',
                 'blueprint:id,name',
                 'ancestors',
                 'pageUrls',

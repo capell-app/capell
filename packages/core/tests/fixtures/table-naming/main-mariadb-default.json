@@ -350,6 +350,7 @@
             "languages_default_index",
             "languages_default_order_name_index",
             "languages_deleted_by_foreign",
+            "languages_fallback_language_id_foreign",
             "languages_order_index",
             "languages_status_index",
             "languages_updated_by_foreign",
@@ -366,6 +367,12 @@
                 "name": "languages_deleted_by_foreign",
                 "columns": ["deleted_by"],
                 "foreign_table": "users",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": "languages_fallback_language_id_foreign",
+                "columns": ["fallback_language_id"],
+                "foreign_table": "languages",
                 "foreign_columns": ["id"]
             },
             {
@@ -540,6 +547,7 @@
     "page_property_values": {
         "indexes": [
             "page_property_values_identity_unique",
+            "page_property_values_media_id_index",
             "page_property_values_numeric_lookup",
             "page_property_values_property_definition_id_foreign",
             "page_property_values_referenced_page_id_foreign",
@@ -982,6 +990,7 @@
         "indexes": [
             "primary",
             "term_property_values_identity_unique",
+            "term_property_values_media_id_index",
             "term_property_values_numeric_lookup",
             "term_property_values_referenced_page_id_foreign",
             "term_property_values_referenced_term_id_foreign",

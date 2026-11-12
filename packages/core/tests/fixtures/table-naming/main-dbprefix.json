@@ -416,6 +416,13 @@
             },
             {
                 "name": null,
+                "columns": ["fallback_language_id"],
+                "foreign_schema": "main",
+                "foreign_table": "dbp_languages",
+                "foreign_columns": ["id"]
+            },
+            {
+                "name": null,
                 "columns": ["updated_by"],
                 "foreign_schema": "main",
                 "foreign_table": "dbp_users",
@@ -589,6 +596,7 @@
     "page_property_values": {
         "indexes": [
             "page_property_values_identity_unique",
+            "page_property_values_media_id_index",
             "page_property_values_numeric_lookup",
             "page_property_values_text_lookup",
             "primary"
@@ -1039,6 +1047,7 @@
         "indexes": [
             "primary",
             "term_property_values_identity_unique",
+            "term_property_values_media_id_index",
             "term_property_values_numeric_lookup",
             "term_property_values_text_lookup"
         ],

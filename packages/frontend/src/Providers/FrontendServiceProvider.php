@@ -107,6 +107,7 @@ use Capell\Frontend\Support\Cache\PageCacheInvalidator;
 use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
+use Capell\Frontend\Support\Cache\PreChangeInvalidationSnapshots;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Cache\PublicUrlMissCache;
@@ -143,6 +144,7 @@ use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\HeadMetadataRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
+use Capell\Frontend\Support\Render\PublicBladeSourceGuard;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookFragmentRegistry;
@@ -277,6 +279,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->scoped(PublicViewQueryGuard::class);
+        $this->app->singleton(PublicBladeSourceGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
         $this->app->singleton(HeadMetadataRegistry::class);
         $this->app->scoped(RenderHookFragmentRegistry::class);
@@ -334,6 +337,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ),
         );
         $this->app->scoped(PageCacheInvalidator::class);
+        $this->app->scoped(PreChangeInvalidationSnapshots::class);
         $this->app->alias(PageCacheInvalidator::class, 'capell.frontend.page-cache-invalidator');
         $this->app->scoped(PageListingCache::class);
         $this->app->scoped(PageModelCache::class);
@@ -468,6 +472,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerSubscribers()
             ->bootstrapFrontendEvents()
             ->registerPublicViewQueryListener()
+            ->registerPublicBladeSourceGuard()
             ->registerPublicUrlMissInvalidation()
             ->registerScheduledPublicationInvalidation()
             ->registerSettingsSchemas()
@@ -699,6 +704,18 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerSubscribers(): self
     {
         CapellCore::subscriberManager()->subscribe(PurgeCdnCacheOnPageRollbackSubscriber::class);
+
+        return $this;
+    }
+
+    private function registerPublicBladeSourceGuard(): self
+    {
+        $guard = resolve(PublicBladeSourceGuard::class);
+        $guard->registerRoot(dirname(__DIR__, 2) . '/resources/views');
+
+        Blade::prepareStringsForCompilationUsing(
+            static fn (string $source): string => $guard->inspect($source, Blade::getPath()),
+        );
 
         return $this;
     }

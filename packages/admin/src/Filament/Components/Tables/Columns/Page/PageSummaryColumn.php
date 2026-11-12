@@ -155,11 +155,9 @@ class PageSummaryColumn extends TextColumn
 
     private function hasTitle(Page $page): bool
     {
-        if (! $page->relationLoaded('translation')) {
-            $page->loadMissing('translation');
-        }
-
-        $title = $page->translation?->title;
+        // `title` keeps a translation the table loaded for its language filter and
+        // otherwise reads the site's default language, never an arbitrary row.
+        $title = $page->title;
 
         return is_string($title) && filled($title);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Assets;
 
+use Capell\Core\Enums\CacheTime;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
@@ -16,6 +17,7 @@ use Capell\Frontend\Enums\FetchPriority;
 use Capell\Frontend\Enums\FrontendResourceHintAs;
 use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\ReferrerPolicy;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Vite;
 
 final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanRenderer
@@ -27,25 +29,80 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
 
     public function render(FrontendResourcePlanData $plan, FrontendResourceContextData $context): RenderedFrontendResourcesData
     {
-        $head = array_map($this->renderResource(...), $plan->headResources);
+        // HTML that may be cached or exported is replayed to many visitors, so
+        // a per-response nonce would be stale. Such pages carry no nonces; each
+        // inline script and style is authorised by a content hash instead.
+        $useNonce = $this->responseIsNeverCached($context);
+        $scriptHashes = [];
+        $styleHashes = [];
+        $renderResource = function (ResolvedFrontendResourceData $resource) use ($useNonce, &$scriptHashes, &$styleHashes): string {
+            $html = $this->renderResource($resource, $useNonce);
+            $inline = $this->inlineContent($resource);
+
+            if ($inline !== null) {
+                $hash = "'sha256-" . base64_encode(hash('sha256', $inline, true)) . "'";
+
+                if ($resource->kind === FrontendResourceKind::InlineStyle) {
+                    $styleHashes[$hash] = $hash;
+                } else {
+                    $scriptHashes[$hash] = $hash;
+                }
+            }
+
+            return $html;
+        };
+        $head = array_map($renderResource, $plan->headResources);
         $hints = array_map($this->renderHint(...), $plan->hints);
-        $bodyEnd = array_map($this->renderResource(...), $plan->bodyEndResources);
+        $bodyEnd = array_map($renderResource, $plan->bodyEndResources);
+        $recovery = $this->requiresStylesheetRecovery($plan) ? $this->stylesheetRecovery->cspHashSource() : null;
+
+        if ($recovery !== null) {
+            $scriptHashes[$recovery] = $recovery;
+        }
 
         return new RenderedFrontendResourcesData(
             headHtml: implode(PHP_EOL, array_filter([
                 ...$hints,
-                $this->requiresStylesheetRecovery($plan) ? $this->stylesheetRecovery->runtimeTag() : '',
+                $this->requiresStylesheetRecovery($plan) ? $this->stylesheetRecovery->runtimeTag($useNonce) : '',
                 ...$head,
             ])),
             bodyEndHtml: implode(PHP_EOL, array_filter($bodyEnd)),
             lazyRuntimePayload: array_map($this->activationPayload(...), $plan->lazyActivationGraphs),
+            scriptHashSources: array_values($scriptHashes),
+            styleHashSources: array_values($styleHashes),
         );
     }
 
-    private function renderResource(ResolvedFrontendResourceData $resource): string
+    /**
+     * A nonce is only safe where the HTML is certainly not stored. The HTML
+     * cache decides on request state this renderer cannot see, so a page counts
+     * as uncached only when its blueprint is loaded and says never to cache it
+     * (or there is no page at all). Anything else is treated as cacheable.
+     */
+    private function responseIsNeverCached(FrontendResourceContextData $context): bool
+    {
+        $page = $context->page;
+
+        if (! $page instanceof Model) {
+            return true;
+        }
+
+        return $page->relationLoaded('blueprint') && $page->blueprint?->cache_time === CacheTime::Never;
+    }
+
+    private function inlineContent(ResolvedFrontendResourceData $resource): ?string
+    {
+        return match ($resource->kind) {
+            FrontendResourceKind::InlineStyle => $this->escapeClosingTag((string) $resource->content, 'style'),
+            FrontendResourceKind::InlineScript => $this->escapeClosingTag((string) $resource->content, 'script'),
+            default => null,
+        };
+    }
+
+    private function renderResource(ResolvedFrontendResourceData $resource, bool $useNonce): string
     {
         $attributes = $this->securityAttributes($resource);
-        $nonce = $this->vite->cspNonce();
+        $nonce = $useNonce ? $this->vite->cspNonce() : null;
         $nonceAttribute = is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
         return match ($resource->kind) {

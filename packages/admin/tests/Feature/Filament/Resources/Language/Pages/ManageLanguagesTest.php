@@ -425,3 +425,44 @@ it('can group delete languages', function (): void {
         assertSoftDeleted($language, ['id' => $language->id]);
     }
 });
+
+it('sets a fallback language for content that is not translated', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+
+    Livewire::test(ManageLanguages::class)
+        ->callAction(
+            TestAction::make(EditAction::class)->table($french),
+            data: ['fallback_language_id' => $english->getKey()],
+        )
+        ->assertHasNoFormErrors();
+
+    expect($french->refresh()->fallback_language_id)->toBe($english->getKey());
+});
+
+it('rejects a fallback language that is the language itself', function (): void {
+    $french = Language::factory()->french()->createOne();
+
+    Livewire::test(ManageLanguages::class)
+        ->callAction(
+            TestAction::make(EditAction::class)->table($french),
+            data: ['fallback_language_id' => $french->getKey()],
+        )
+        ->assertHasFormErrors(['fallback_language_id']);
+
+    expect($french->refresh()->fallback_language_id)->toBeNull();
+});
+
+it('rejects a fallback language that leads back to the language', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne(['fallback_language_id' => $english->getKey()]);
+
+    Livewire::test(ManageLanguages::class)
+        ->callAction(
+            TestAction::make(EditAction::class)->table($english),
+            data: ['fallback_language_id' => $french->getKey()],
+        )
+        ->assertHasFormErrors(['fallback_language_id']);
+
+    expect($english->refresh()->fallback_language_id)->toBeNull();
+});

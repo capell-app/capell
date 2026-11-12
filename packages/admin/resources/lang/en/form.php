@@ -380,6 +380,8 @@ return [
     'required_translations' => 'Required translations',
     'reverse_order' => 'Reverse order',
     'right_to_left' => 'Right-to-left',
+    'fallback_language' => 'Fallback language',
+    'no_fallback_language' => 'No fallback: show a not-found page',
     'role_restrictions' => 'Restrict to roles',
     'roles' => 'Roles',
     'rounded_images' => 'Rounded images',

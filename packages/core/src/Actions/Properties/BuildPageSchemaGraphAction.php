@@ -63,7 +63,7 @@ final class BuildPageSchemaGraphAction
         $languageId = $language?->id;
         $translation = $languageId !== null
             ? $page->translations()->where('language_id', $languageId)->first()
-            : $page->translation;
+            : $page->contextTranslation();
         if ($translation?->title !== null) {
             $node['name'] = $translation->title;
         }

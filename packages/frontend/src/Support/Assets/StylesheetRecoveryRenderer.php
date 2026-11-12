@@ -30,7 +30,7 @@ final class StylesheetRecoveryRenderer
         return ' data-capell-stylesheet-recovery data-capell-stylesheet-fallback="' . e($fallbackUrl) . '"';
     }
 
-    public function runtimeTag(): string
+    public function runtimeTag(bool $useNonce = true): string
     {
         $runtimeUrl = $this->runtimeUrl();
 
@@ -59,7 +59,7 @@ final class StylesheetRecoveryRenderer
             return '<script data-capell-stylesheet-recovery-runtime>' . $source . '</script>';
         }
 
-        $nonce = $this->vite->cspNonce();
+        $nonce = $useNonce ? $this->vite->cspNonce() : null;
         $nonceAttribute = is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
         return '<script src="' . e($runtimeUrl) . '"' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime></script>';

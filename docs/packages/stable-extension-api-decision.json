@@ -1,7 +1,7 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "Domain ownership protection adds one isolated, additive Core migration creating site_domain_claim_locks and seeding its singleton mutex row. Domain saves and individual/site-batch restores hold this database mutex through validation and persistence, including when no claim exists. Existing migrations, data shapes, public extension signatures, configuration keys and dependency admission remain unchanged. Deploy the migration before enabling domain writes or restores.",
+    "reason": "Domain ownership protection adds one isolated, additive Core migration creating site_domain_claim_locks and seeding its singleton mutex row. Domain saves and individual/site-batch restores hold this database mutex through validation and persistence, including when no claim exists. Existing migrations, data shapes, public extension signatures, configuration keys and dependency admission remain unchanged. Deploy the migration before enabling domain writes or restores. Language fallback adds one additive, nullable Core column (languages.fallback_language_id, null on delete); existing languages keep today's behaviour with no fallback until one is configured.",
     "drift": [
         "migrations"
     ]

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Illuminate\Support\Arr;
@@ -49,9 +51,13 @@ class BuildSelectedFrontendWidgetResourceUsagesAction
             return [];
         }
 
-        $page->loadMissing(['blueprint', 'translation']);
+        $page->loadMissing('blueprint');
 
-        $content = $page->translation?->content;
+        // The translation in the render language (or the fallback it is served from), never
+        // whichever row an unconstrained `translation` load returns first.
+        $content = $context->language instanceof Language
+            ? ResolveTranslationAction::run($page, $context->language)?->translation->content
+            : $page->contextTranslation()?->content;
 
         return is_array($content) ? $this->flattenBlocks($content, 'page-content') : [];
     }

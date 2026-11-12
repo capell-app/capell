@@ -73,3 +73,32 @@ it('removes reserved editor envelopes while preserving public content and ordina
         'nested' => [],
     ]);
 });
+
+it('keeps the content that follows an unbalanced closing tag', function (string $html, string $expected): void {
+    expect((new PublicHtmlSanitizer)->sanitize($html))->toBe($expected);
+})->with([
+    'stray closing div' => ['<p>a</p></div><p>b tail kept</p>', '<p>a</p><p>b tail kept</p>'],
+    'stray closing span and p' => ['<p>one</span></p><p>two</p>', '<p>one</p><p>two</p>'],
+    'closing div before text' => ['</div>plain text after', 'plain text after'],
+]);
+
+it('still removes script after an unbalanced closing tag', function (): void {
+    expect((new PublicHtmlSanitizer)->sanitize('<p>a</p></div><script>alert(1)</script><p onclick="x()">b</p>'))
+        ->toBe('<p>a</p><p>b</p>');
+});
+
+it('cannot be steered by document-level tags in the input', function (string $html): void {
+    expect((new PublicHtmlSanitizer)->sanitize($html))
+        ->not->toContain('onload')
+        ->not->toContain('onclick')
+        ->not->toContain('<script')
+        ->not->toContain('<body')
+        ->not->toContain('<html')
+        ->not->toContain('<head')
+        ->toContain('kept');
+})->with([
+    'second body with handler' => ['<p>kept</p></body><body onload="x()"><p>more</p>'],
+    'html element with handler' => ['<html onclick="x()"><p>kept</p></html>'],
+    'head content hoisting' => ['<head><script>alert(1)</script></head><p>kept</p>'],
+    'leading script and meta' => ['<meta http-equiv="refresh" content="0;url=//evil.test"><script>x()</script><p>kept</p>'],
+]);

@@ -171,6 +171,14 @@ final class SiteAccessQueryAllowList
                 // The settings repository table holds group payloads, not site-owned rows; the group was authorised upstream.
                 'lockWriteTargets|' . DB::class . '::table((string) (config(\'settings.repositories.database.table\') ?: \'settings\'))->where(\'group\', (string) ($invocation->payload[\'group\'] ?? \'\'))->lockForUpdate()->get()',
                 'lockWriteTargets|' . DB::class . ('::table(' . TableName::class . '::resolve(\'page_term\'))->where(\'page_id\', $pageId)->lockForUpdate()->get()')],
+            'packages/admin/src/Filament/Resources/Pages/PageResource.php' => [
+                // Filament's parent global-search query is already SiteAccess-scoped; these relations only hydrate the pages it returns.
+                'getGlobalSearchEloquentQuery|parent::getGlobalSearchEloquentQuery()->with([\'site:id,name,default,language_id\', \'translations\', \'blueprint:id,name\', \'ancestors\', \'pageUrls\'])->withCount([\'children\' => fn(Illuminate\Database\Eloquent\Builder $query): Illuminate\Database\Eloquent\Builder => ' . SiteAccess::class . '::current()->scope($query), \'pageUrls\'])',
+            ],
+            'packages/admin/src/Filament/Resources/Sites/SiteResource.php' => [
+                // Filament's parent global-search query is already SiteAccess-scoped; the translations only hydrate the sites it returns.
+                "getGlobalSearchEloquentQuery|parent::getGlobalSearchEloquentQuery()->with('translations')",
+            ],
             'packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php' => [
                 // Filament resolves and authorises this page; its translations belong only to that page morph/key.
                 'pageTypeContentStructureUpdated|$this->record->translations',
