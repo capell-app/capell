@@ -42,14 +42,16 @@ class ResolvePublicPageByUrlAction
     ): PublicPageResolutionData {
         $normalizedUrl = $this->normalizeUrl($url);
 
+        $translatedUrl = null;
+
         $pageUrl = $this->usableResolvedPageUrl($resolvedPageUrl, $site, $language, $normalizedUrl)
             ?? $this->resolvePageUrl($site, $language, $normalizedUrl)
-            ?? $this->resolveFallbackPageUrl($site, $language, $normalizedUrl);
+            ?? $this->resolveFallbackPageUrl($site, $language, $normalizedUrl, $translatedUrl);
 
         if (! $pageUrl instanceof PageUrl) {
             $this->logResolutionFailure($site, $normalizedUrl, 'no_matching_page_url');
 
-            return $this->missing($site, $language);
+            return $this->missing($site, $language, $translatedUrl);
         }
 
         $page = $this->resolvePage($pageUrl, $site, $revisionPageId);
@@ -140,7 +142,7 @@ class ResolvePublicPageByUrlAction
      * on the French domain still reaches an English-only page. A page that does have a
      * translation in the requested language is only served at that translation's URL.
      */
-    private function resolveFallbackPageUrl(Site $site, Language $language, string $url): ?PageUrl
+    private function resolveFallbackPageUrl(Site $site, Language $language, string $url, ?PageUrl &$translatedUrl = null): ?PageUrl
     {
         foreach (array_slice(ResolveLanguageFallbackChainAction::run($language), 1) as $fallbackLanguageId) {
             $pageUrl = $this->resolvePageUrl($site, $fallbackLanguageId, $url);
@@ -158,6 +160,8 @@ class ResolvePublicPageByUrlAction
             // That page is served at its own requested-language URL, not this one; a later
             // language in the chain may still map this path to an untranslated page.
             if ($hasOwnTranslation) {
+                $translatedUrl ??= $this->ownLanguageUrl($pageUrl, $site, $language, $url);
+
                 continue;
             }
 
@@ -165,6 +169,33 @@ class ResolvePublicPageByUrlAction
         }
 
         return null;
+    }
+
+    /**
+     * The page's own enabled URL in the requested language, for a path that now has a real
+     * translation: the old fallback path leads there instead of answering not found.
+     */
+    private function ownLanguageUrl(PageUrl $fallbackUrl, Site $site, Language $language, string $requestedUrl): ?PageUrl
+    {
+        $ownUrl = PageUrl::query()
+            ->where('site_id', $site->getKey())
+            ->where('language_id', $language->getKey())
+            ->where('pageable_type', $fallbackUrl->pageable_type)
+            ->where('pageable_id', $fallbackUrl->pageable_id)
+            ->whereNull('type')
+            ->where('url', '!=', $requestedUrl)
+            ->enabled()
+            ->oldest('id')
+            ->first();
+
+        if (! $ownUrl instanceof PageUrl) {
+            return null;
+        }
+
+        $site->loadMissing('siteDomains');
+        $ownUrl->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $language->getKey()));
+
+        return $ownUrl;
     }
 
     /**
@@ -313,7 +344,7 @@ class ResolvePublicPageByUrlAction
         ]);
     }
 
-    private function missing(Site $site, Language $language): PublicPageResolutionData
+    private function missing(Site $site, Language $language, ?PageUrl $translatedUrl = null): PublicPageResolutionData
     {
         return new PublicPageResolutionData(
             page: null,
@@ -321,6 +352,7 @@ class ResolvePublicPageByUrlAction
             language: $language,
             layout: null,
             fields: new PublicPageFieldsData,
+            translatedUrl: $translatedUrl,
         );
     }
 }

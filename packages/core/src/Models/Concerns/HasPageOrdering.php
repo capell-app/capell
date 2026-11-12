@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Models\Concerns;
 
+use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Builder;
@@ -72,11 +73,22 @@ trait HasPageOrdering
      */
     protected function scopeAlphabetical(Builder $query, Language $language, string $direction = 'asc'): void
     {
+        // A page the language serves from its fallback chain sorts by that translation's
+        // title, so it does not collect at one end of the list; the language's own title wins.
+        $chain = ResolveLanguageFallbackChainAction::run($language);
+        $priority = 'CASE language_id ' . implode(' ', array_map(
+            static fn (int $languageId, int $index): string => sprintf('WHEN %d THEN %d', $languageId, $index),
+            $chain,
+            array_keys($chain),
+        )) . ' END';
+
         $query->orderBy(
             Translation::query()->select('title')
                 ->whereColumn('translatable_id', $this->qualifyColumn('id'))
                 ->where('translatable_type', $this->getMorphClass())
-                ->where('language_id', $language->id),
+                ->whereIn('language_id', $chain)
+                ->orderByRaw(self::literalSql($priority))
+                ->limit(1),
             self::sortDirection($direction),
         );
     }

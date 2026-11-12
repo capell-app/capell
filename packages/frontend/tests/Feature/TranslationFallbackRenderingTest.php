@@ -124,14 +124,45 @@ it('serves the real translation, indexable and in its own language, when one exi
         ->and(translationFallbackHreflangs($response))->toContain('fr', 'en');
 });
 
-it('does not serve the fallback language under the source slug once the page is translated', function (): void {
+it("moves the fallback language's slug permanently to the translated URL once the page is translated", function (): void {
     [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
     translationFallbackSitePage($site, [
         [$english, 'about', 'English about marker'],
         [$french, 'a-propos', 'Marqueur français'],
     ]);
 
+    $response = $this->get($frenchDomain->full_url . '/about?utm_source=news')
+        ->assertStatus(301)
+        ->assertRedirect($frenchDomain->full_url . '/a-propos?utm_source=news')
+        ->assertDontSeeText('English about marker body');
+
+    expect((string) $response->getContent())->not->toContain('data-capell-authoring');
+
+    $this->get($frenchDomain->full_url . '/a-propos')
+        ->assertOk()
+        ->assertSeeText('Marqueur français body');
+});
+
+it('still answers 404 for a slug that no page uses in the fallback language either', function (): void {
+    [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'a-propos', 'Marqueur français'],
+    ]);
+
+    $this->get($frenchDomain->full_url . '/missing')->assertNotFound();
+});
+
+it('does not move a fallback slug when the translated page has no usable URL in the requested language', function (): void {
+    [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    $page = translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'a-propos', 'Marqueur français'],
+    ]);
+    $page->pageUrls()->where('language_id', $french->getKey())->update(['status' => false]);
+
     $this->get($frenchDomain->full_url . '/about')
+        ->assertNotFound()
         ->assertDontSeeText('English about marker body');
 });
 

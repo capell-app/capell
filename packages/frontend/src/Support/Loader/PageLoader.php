@@ -7,6 +7,7 @@ namespace Capell\Frontend\Support\Loader;
 use Aimeos\Nestedset\QueryBuilder;
 use BackedEnum;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
+use Capell\Core\Actions\Translations\ConstrainToServedTranslationAction;
 use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PageOrderEnum;
@@ -21,6 +22,7 @@ use Capell\Frontend\Actions\ListPagesAction;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Enums\CacheEnum;
+use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Closure;
 use Deprecated;
@@ -243,21 +245,29 @@ class PageLoader
         /** @var QueryBuilder<Page> $builder */
         $builder = $page->ancestors()->getQuery();
 
-        $pages = $builder->withWhereHas(
-            'translation',
-            fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language->id),
-        )
-            ->withWhereHas(
-                'pageUrl',
-                fn (BuilderContract $query): BuilderContract => $query->whereNull('type')
-                    ->enabled()
-                    ->where('language_id', $language->id),
-            )
-            ->withWhereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
+        // Ancestors the language serves from its fallback chain still belong in the trail.
+        // The matching ids are hydrated through PageModelCache, which picks each page's served
+        // translation and URL.
+        $ancestorQuery = $builder
+            ->select($builder->getModel()->getTable() . '.id')
+            ->whereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
             ->where('site_id', $site->id)
             ->publishedDate()
-            ->orderBy('_lft', 'asc')
-            ->get();
+            ->orderBy('_lft', 'asc');
+
+        ConstrainToServedTranslationAction::run(
+            $ancestorQuery,
+            $language,
+            fn (BuilderContract $urlQuery, array $urlLanguageIds): BuilderContract => $urlQuery
+                ->whereNull('type')
+                ->enabled()
+                ->whereIn('language_id', $urlLanguageIds),
+        );
+
+        $ancestorIds = $ancestorQuery->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
+
+        /** @var Collection<int, Page> $pages */
+        $pages = resolve(PageHydrator::class)->hydrate($ancestorIds, Page::class, $site, $language);
 
         if ($pages->isEmpty()) {
             return null;
@@ -463,14 +473,9 @@ class PageLoader
 
             $builder = $page->{$siblingMethod}();
 
-            $result = $builder->with([
-                'image',
-                'blueprint' => fn (Relation $query): Relation => $query->enabled()->listable()->accessible(),
-                'pageUrl' => fn (Relation $query): Relation => $query->where('language_id', $language->id),
-                'pageUrl.siteDomain',
-            ])
+            $siblingQuery = $builder
+                ->select($builder->getModel()->getTable() . '.id')
                 ->where('site_id', $site->id)
-                ->withWhereRelation('translation', 'language_id', $language->id)
                 ->whereHas(
                     'blueprint',
                     fn (Builder $query): Builder => $query
@@ -487,8 +492,19 @@ class PageLoader
                         ->notHomePage()
                         ->ordered($direction === 'next' ? 'asc' : 'desc'),
                 )
-                ->limit(1)
-                ->first();
+                ->limit(1);
+
+            // The neighbour the language can serve, from its fallback chain when it has no
+            // translation of its own; PageModelCache picks the served translation and URL.
+            ConstrainToServedTranslationAction::run($siblingQuery, $language);
+
+            $siblingId = $siblingQuery->value('id');
+
+            if ($siblingId === null) {
+                return null;
+            }
+
+            $result = resolve(PageModelCache::class)->get($page::class, (int) $siblingId, $site, $language);
 
             return $result instanceof Pageable ? $result : null;
         });
@@ -526,13 +542,22 @@ class PageLoader
         }
 
         if ($language instanceof Language) {
-            $page->translation?->setRelation('language', $language);
-            $page->pageUrl?->setRelation('language', $language);
+            // Fallback content keeps the language it is written in: only rows in the
+            // requested language take it as their label.
+            self::labelWithLanguage($page->translation, $language);
+            self::labelWithLanguage($page->pageUrl, $language);
 
             if ($withParent && $page->hasPageHierarchy() && $page->parent !== null) {
-                $page->parent->pageUrl?->setRelation('language', $language);
-                $page->parent->translation?->setRelation('language', $language);
+                self::labelWithLanguage($page->parent->pageUrl, $language);
+                self::labelWithLanguage($page->parent->translation, $language);
             }
+        }
+    }
+
+    private static function labelWithLanguage(?Model $row, Language $language): void
+    {
+        if ($row instanceof Model && (int) $row->getAttribute('language_id') === (int) $language->id) {
+            $row->setRelation('language', $language);
         }
     }
 

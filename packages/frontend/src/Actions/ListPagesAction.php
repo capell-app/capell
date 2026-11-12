@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use BackedEnum;
+use Capell\Core\Actions\Translations\ConstrainToServedTranslationAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PageOrderEnum;
 use Capell\Core\Models\Language;
@@ -215,23 +216,29 @@ final class ListPagesAction
 
         $query->publishedDate();
 
-        $query
-            ->select($query->getModel()->getTable() . '.id')
-            ->whereHas('translation', fn (BuilderContract $translationQuery): BuilderContract => $translationQuery->when(
-                $optionalLanguage,
-                fn (BuilderContract $innerQuery): BuilderContract => LanguagesOrderScope::applyTo($innerQuery, $languageIds),
-                fn (BuilderContract $innerQuery) => $innerQuery->where('language_id', $language->id),
-            ))
-            ->whereHas(
-                'pageUrl',
-                fn (BuilderContract $urlQuery) => $urlQuery->whereNull('type')
+        $query->select($query->getModel()->getTable() . '.id');
+
+        if ($optionalLanguage) {
+            $query
+                ->whereHas('translation', fn (BuilderContract $translationQuery): BuilderContract => LanguagesOrderScope::applyTo($translationQuery, $languageIds))
+                ->whereHas(
+                    'pageUrl',
+                    fn (BuilderContract $urlQuery): BuilderContract => LanguagesOrderScope::applyTo($urlQuery->whereNull('type')->enabled(), $languageIds),
+                );
+        } else {
+            // A language that falls back lists the pages it can serve from the fallback
+            // chain; a page translated into the language is only listed through its own rows.
+            ConstrainToServedTranslationAction::run(
+                $query,
+                $language,
+                fn (BuilderContract $urlQuery, array $urlLanguageIds): BuilderContract => $urlQuery
+                    ->whereNull('type')
                     ->enabled()
-                    ->when(
-                        $optionalLanguage,
-                        fn (BuilderContract $innerQuery): BuilderContract => LanguagesOrderScope::applyTo($innerQuery, $languageIds),
-                        fn (BuilderContract $innerQuery) => $innerQuery->where('language_id', $language->id),
-                    ),
-            )
+                    ->whereIn('language_id', $urlLanguageIds),
+            );
+        }
+
+        $query
             ->whereHas(
                 'blueprint',
                 fn (BuilderContract $typeQuery) => $typeQuery

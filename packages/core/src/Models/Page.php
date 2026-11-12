@@ -12,6 +12,8 @@ use Capell\Core\Actions\Properties\ResolveAgentPropertyValuesAction;
 use Capell\Core\Actions\RecordPageDeletionCascadeAction;
 use Capell\Core\Actions\ResolveFirstPageByTypeAction;
 use Capell\Core\Actions\RestorePageCascadeRecordsAction;
+use Capell\Core\Actions\Translations\ConstrainToServedTranslationAction;
+use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Actions\ValidatePageHierarchyAction;
 use Capell\Core\Concerns\HasCapellMedia;
 use Capell\Core\Concerns\HasCapellTable;
@@ -19,6 +21,7 @@ use Capell\Core\Concerns\WhenBootedShim;
 use Capell\Core\Contracts\DraftableContract;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\TranslationResolutionData;
 use Capell\Core\Database\Factories\PageFactory;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
@@ -313,11 +316,28 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             $language = $site->language;
         }
 
-        return self::query()->withWhereHasLanguage($language->id)
+        $query = self::query()->with('translations');
+
+        // A home page the language can serve through its fallback chain still answers.
+        ConstrainToServedTranslationAction::run($query, $language);
+
+        $home = $query
             ->where('site_id', $site->id)
             ->publishedDate()
             ->homePage()
             ->first();
+
+        if (! $home instanceof self) {
+            return null;
+        }
+
+        $resolution = ResolveTranslationAction::run($home, $language);
+
+        if ($resolution instanceof TranslationResolutionData) {
+            $home->setRelation('translation', $resolution->translation);
+        }
+
+        return $home;
     }
 
     public static function getFirstPageByTypeForSite(
