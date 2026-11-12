@@ -46,6 +46,12 @@ final readonly class SchedulerHeartbeat
             return null;
         }
 
+        // The Redis store, which Valkey uses, keeps numbers unserialised and
+        // returns them as numeric strings.
+        if (is_string($timestamp) && ctype_digit($timestamp)) {
+            $timestamp = (int) $timestamp;
+        }
+
         return is_int($timestamp) ? CarbonImmutable::createFromTimestamp($timestamp) : null;
     }
 

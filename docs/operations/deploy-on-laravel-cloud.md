@@ -20,6 +20,8 @@ Each section says how its statements were checked:
 
 ## Choices this recipe makes
 
+These choices are this recipe's, made from the Laravel Cloud documentation cited in each section below. None has yet been run together on a live Cloud project.
+
 | Concern | Choice | Why |
 | --- | --- | --- |
 | Release root | `CAPELL_RELEASE_ROOT_MODE=immutable` | The Cloud filesystem is reset on every deploy and is not shared between replicas. |
@@ -130,15 +132,15 @@ php artisan capell:install --no-interaction --package-mode=core --theme=foundati
 
 Use the same `--package-mode` and `--theme` you chose when you installed locally. `--install-welcome-route` removes Laravel's default welcome route so Capell serves the home page.
 
-Sign in, then change the password straight away.
+Sign in, then change the password straight away. The command, including the password, stays in the command runner's history, so a changed password is the only safe one.
 
 **Not yet verified on a live Cloud project:** this step. The live proof run must confirm that the installer finishes on an immutable release whose code and migrations are already committed.
 
 ## Queue worker
 
-The managed queue needs no worker configuration. Capell's jobs run on it, apart from Marketplace operations.
+The managed queue needs no worker configuration. Capell's jobs run on it.
 
-Marketplace operations use their own queue. On an immutable release they are refused anyway, because they run Composer.
+Marketplace installs use their own queue (see [Going live](going-live.md#queue-worker)). On an immutable release they are refused anyway, because they run Composer.
 
 If you use a worker cluster instead of a managed queue, run `php artisan queue:work` on it and set `QUEUE_CONNECTION` to match.
 
@@ -148,11 +150,13 @@ If you use a worker cluster instead of a managed queue, run `php artisan queue:w
 
 Turn on **Scheduler** for the App cluster and redeploy. Laravel Cloud then runs `php artisan schedule:run` every minute.
 
-Capell schedules work every minute, including the public-read reconciliation, and records a scheduler heartbeat every five minutes. On a Flex cluster with scale to zero, these scheduled tasks wake the environment, so it will not sleep while the scheduler is on.
+Capell schedules work every minute, including the public-read reconciliation, and records a scheduler heartbeat every five minutes. Laravel Cloud documents that scheduled tasks wake a sleeping environment, so a Flex cluster with scale to zero is expected not to sleep while the scheduler is on.
+
+**Not yet verified on a live Cloud project:** whether the environment sleeps with the scheduler on.
 
 **From the Laravel Cloud documentation:** [Scheduled tasks](https://laravel.com/cloud/docs/scheduled-tasks), [Compute: scale to zero](https://laravel.com/cloud/docs/compute#scale-to-zero).
 
-**Verified in Capell:** the every-minute public-read reconciliation and the five-minute heartbeat are registered by Core's service provider. The heartbeat is covered by `HostingPlatformCheckTest`.
+**Verified in Capell:** the every-minute public-read reconciliation and the five-minute heartbeat are registered by Core's service provider. The heartbeat, including the numeric-string value Redis and Valkey return, is covered by `HostingPlatformCheckTest`.
 
 ## Storage
 
@@ -187,8 +191,8 @@ Capell supports Octane, and Laravel Cloud can run Octane on FrankenPHP. Capell d
 
 - the release root is `mutable` on Laravel Cloud;
 - `QUEUE_CONNECTION` is `sync` in production;
-- the scheduler has not recorded a heartbeat in the last 15 minutes.
+- the scheduler has not recorded a heartbeat in the last 15 minutes, in production.
 
-The heartbeat warning is expected for the first five minutes after you turn the scheduler on.
+The heartbeat is kept in the cache, so the warning is expected for up to five minutes after you turn the scheduler on, and after anything that clears the cache, such as `php artisan cache:clear` or `capell:install --clear-cache`.
 
-**Verified in Capell:** the hosting check detects Laravel Cloud from the `LARAVEL_CLOUD` variable that the framework's `laravel_cloud()` helper reads, and reports each hazard above (`HostingPlatformCheckTest`).
+**Verified in Capell:** the hosting check detects Laravel Cloud from the `LARAVEL_CLOUD` variable that the framework's `laravel_cloud()` helper reads, and reports each hazard above, including when the cache store returns the heartbeat as a numeric string (`HostingPlatformCheckTest`).

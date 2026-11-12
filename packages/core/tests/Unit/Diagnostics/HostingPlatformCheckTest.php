@@ -8,6 +8,7 @@ use Capell\Core\Support\Diagnostics\Checks\HostingPlatformCheck;
 use Capell\Core\Support\Diagnostics\SchedulerHeartbeat;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 
 beforeEach(function (): void {
@@ -168,4 +169,16 @@ it('records the scheduler heartbeat from the scheduled task Core registers', fun
     }
 
     expect(resolve(SchedulerHeartbeat::class)->lastBeatAt())->not->toBeNull();
+});
+
+it('reads a heartbeat stored as a numeric string, as the Redis and Valkey cache stores return it', function (): void {
+    Cache::forever(SchedulerHeartbeat::CACHE_KEY, '1731400000');
+
+    expect(resolve(SchedulerHeartbeat::class)->lastBeatAt()?->getTimestamp())->toBe(1731400000);
+});
+
+it('ignores a heartbeat value that is not a whole-second timestamp', function (): void {
+    Cache::forever(SchedulerHeartbeat::CACHE_KEY, '17314e5');
+
+    expect(resolve(SchedulerHeartbeat::class)->lastBeatAt())->toBeNull();
 });

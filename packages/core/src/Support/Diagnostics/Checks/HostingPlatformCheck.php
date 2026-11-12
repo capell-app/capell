@@ -55,38 +55,40 @@ final class HostingPlatformCheck extends AbstractDoctorCheck
 
         if ($platform === self::PLATFORM_LARAVEL_CLOUD && $releaseRootMode === 'mutable') {
             $hazards['mutable_release_root'] = [
-                'message' => $this->translate('mutable_release_root'),
-                'remediation' => $this->translate('mutable_release_root_remediation'),
+                'message' => $this->text(__('capell-core::health.hosting_platform.mutable_release_root')),
+                'remediation' => $this->text(__('capell-core::health.hosting_platform.mutable_release_root_remediation')),
             ];
         }
 
         if ($production && $queueDriver === 'sync') {
             $hazards['sync_queue'] = [
-                'message' => $this->translate('sync_queue', ['connection' => $queueConnection]),
-                'remediation' => $this->translate('sync_queue_remediation'),
+                'message' => $this->text(__('capell-core::health.hosting_platform.sync_queue', ['connection' => $queueConnection])),
+                'remediation' => $this->text(__('capell-core::health.hosting_platform.sync_queue_remediation')),
             ];
         }
 
         if ($production && ! $installSummary) {
             if (! $beatAt instanceof CarbonImmutable) {
                 $hazards['scheduler_heartbeat_missing'] = [
-                    'message' => $this->translate('scheduler_heartbeat_missing'),
-                    'remediation' => $this->translate('scheduler_remediation'),
+                    'message' => $this->text(__('capell-core::health.hosting_platform.scheduler_heartbeat_missing')),
+                    'remediation' => $this->text(__('capell-core::health.hosting_platform.scheduler_remediation')),
                 ];
             } elseif ($this->heartbeat->isStale($beatAt)) {
                 $hazards['scheduler_heartbeat_stale'] = [
-                    'message' => $this->translate('scheduler_heartbeat_stale', ['time' => $beatAt->toIso8601String()]),
-                    'remediation' => $this->translate('scheduler_remediation'),
+                    'message' => $this->text(__('capell-core::health.hosting_platform.scheduler_heartbeat_stale', ['time' => $beatAt->toIso8601String()])),
+                    'remediation' => $this->text(__('capell-core::health.hosting_platform.scheduler_remediation')),
                 ];
             }
         }
 
-        $platformLabel = $this->translate('platforms.' . $platform);
-        $summary = $this->translate('summary', [
+        $platformLabel = $platform === self::PLATFORM_LARAVEL_CLOUD
+            ? $this->text(__('capell-core::health.hosting_platform.platforms.laravel-cloud'))
+            : $this->text(__('capell-core::health.hosting_platform.platforms.self-managed'));
+        $summary = $this->text(__('capell-core::health.hosting_platform.summary', [
             'platform' => $platformLabel,
             'mode' => $releaseRootMode,
             'connection' => $queueConnection,
-        ]);
+        ]));
 
         $evidence = [
             'platform' => $platform,
@@ -101,7 +103,7 @@ final class HostingPlatformCheck extends AbstractDoctorCheck
 
         if ($hazards === []) {
             return new DoctorCheckResultData(
-                label: $this->translate('label'),
+                label: $this->text(__('capell-core::health.hosting_platform.label')),
                 passed: true,
                 message: $summary,
                 severity: $this->severity(),
@@ -110,10 +112,10 @@ final class HostingPlatformCheck extends AbstractDoctorCheck
         }
 
         $remediation = array_values(array_unique(array_column($hazards, 'remediation')));
-        $remediation[] = $this->translate('recipe', ['url' => self::RECIPE_URL]);
+        $remediation[] = $this->text(__('capell-core::health.hosting_platform.recipe', ['url' => self::RECIPE_URL]));
 
         return new DoctorCheckResultData(
-            label: $this->translate('label'),
+            label: $this->text(__('capell-core::health.hosting_platform.label')),
             passed: false,
             message: implode(' ', [$summary, ...array_column($hazards, 'message')]),
             remediation: implode(' ', $remediation),
@@ -141,12 +143,9 @@ final class HostingPlatformCheck extends AbstractDoctorCheck
         return null;
     }
 
-    /** @param  array<string, string>  $replace */
-    private function translate(string $key, array $replace = []): string
+    private function text(mixed $line): string
     {
-        $line = __('capell-core::health.hosting_platform.' . $key, $replace);
-
-        return is_string($line) ? $line : $key;
+        return is_string($line) ? $line : '';
     }
 
     private function configString(string $key, string $default): string
