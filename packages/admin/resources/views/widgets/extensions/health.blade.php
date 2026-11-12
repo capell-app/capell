@@ -22,13 +22,28 @@
                                 >
                                     {{ $alert->title }}
                                 </div>
-                                <div
-                                    class="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-300"
-                                >
-                                    {{ $alert->message ?: ($alert->requiredAction ?? $alert->packageName) }}
-                                </div>
-                                @if ($alert->message !== '' && is_string($alert->requiredAction) && trim($alert->requiredAction) !== '' && $alert->developerDetail !== null)
-                                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $alert->requiredAction }}</p>
+                                @if (($extensionLabel = $this->extensionLabel($alert)) !== null && ! str_contains($alert->title, $extensionLabel))
+                                    <div
+                                        class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400"
+                                        data-extension-health-extension
+                                    >
+                                        {{ $extensionLabel }}
+                                    </div>
+                                @endif
+                                @if ($alert->message !== '')
+                                    <div
+                                        class="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-300"
+                                    >
+                                        {{ $alert->message }}
+                                    </div>
+                                @endif
+                                @if (($recoveryAction = $alert->recoveryAction()) !== null && $recoveryAction !== '' && $recoveryAction !== $alert->message)
+                                    <p
+                                        class="mt-1 text-sm text-gray-600 dark:text-gray-300"
+                                        data-extension-health-recovery
+                                    >
+                                        {{ $recoveryAction }}
+                                    </p>
                                 @endif
                                 @if (is_string($alert->developerDetail) && trim($alert->developerDetail) !== '' && \Capell\Admin\Filament\Pages\ExtensionsPage::canManageExtensions())
                                     <details class="mt-1 text-sm">

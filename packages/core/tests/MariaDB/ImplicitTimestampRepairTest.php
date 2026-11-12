@@ -7,6 +7,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -218,7 +219,20 @@ it('installs Core with host unsigned integer keys and configured table names on 
         $repository = resolve('migrator')->getRepository();
         $repository->createRepository();
         $repository->log('2026_05_10_190824_create_permission_tables', 1);
-        $exit = Artisan::call('migrate', ['--path' => realpath(__DIR__ . '/../../database/migrations'), '--realpath' => true, '--force' => true]);
+        // Table ownership trusts a recorded migration only when its source file is on disk, as in a host application.
+        $migrationDirectoryPreviousPath = database_path();
+        $migrationDirectoryRoot = sys_get_temp_dir() . '/capell-migration-sources-' . bin2hex(random_bytes(8));
+        mkdir($migrationDirectoryRoot . '/migrations', 0755, true);
+        app()->useDatabasePath($migrationDirectoryRoot);
+        copy(dirname(__DIR__, 4) . '/vendor/spatie/laravel-permission/database/migrations/create_permission_tables.php.stub', $migrationDirectoryRoot . '/migrations/2026_05_10_190824_create_permission_tables.php');
+
+        try {
+            $exit = Artisan::call('migrate', ['--path' => realpath(__DIR__ . '/../../database/migrations'), '--realpath' => true, '--force' => true]);
+        } finally {
+            app()->useDatabasePath($migrationDirectoryPreviousPath);
+            (new Filesystem)->deleteDirectory($migrationDirectoryRoot);
+        }
+
         expect($exit)->toBe(0)->and(Schema::hasTable($pageTable))->toBeTrue();
         $columns = collect(Schema::getColumns($pageTable))->keyBy('name');
         expect($columns->get('created_by')['type'])->toContain('int')->toContain('unsigned')->not->toContain('bigint');
@@ -232,6 +246,11 @@ it('installs Core with host unsigned integer keys and configured table names on 
             $snapshot = [];
             foreach (Schema::getTables() as $table) {
                 $name = $table['name'];
+                // Without a schema Laravel lists every database on the server, but indexes and keys are read from this one only.
+                if (($table['schema'] ?? $database) !== $database) {
+                    continue;
+                }
+
                 if (in_array($name, ['migrations', 'users'], true)) {
                     continue;
                 }
