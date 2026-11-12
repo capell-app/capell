@@ -216,6 +216,7 @@ use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintIntercep
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\NotFoundPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\SystemPageBlueprintInterceptor;
+use Capell\Admin\Support\Livewire\ShortCircuitingPersistentMiddleware;
 use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
@@ -334,9 +335,11 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Livewire\Mechanisms\HandleComponents\ComponentContext;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
+use Livewire\Mechanisms\PersistentMiddleware\PersistentMiddleware;
 
 use function Livewire\on;
 
+use LogicException;
 use Override;
 use ReflectionClass;
 use RuntimeException;
@@ -414,6 +417,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(SpatieMediaLibraryFileUpload::class, AdminSpatieMediaLibraryFileUpload::class);
 
         $this->registerAdminEventSystem();
+        $this->registerShortCircuitingPersistentMiddleware();
 
         $this->app->scoped(PaletteRequestState::class);
         $this->app->scoped(AdminUploadGrantRepository::class);
@@ -903,6 +907,25 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'skip-permission-sync',
             'force',
         ];
+    }
+
+    /**
+     * Livewire replays persistent middleware through a mechanism resolved from the container.
+     * Extending the binding covers both provider orders: before Livewire registers, the
+     * extender wraps its resolution; after, it swaps the registered instance before any
+     * mechanism boots. Once the application has booted, Livewire's listeners already hold
+     * the original, so a late registration fails instead of leaving updates unguarded.
+     */
+    private function registerShortCircuitingPersistentMiddleware(): void
+    {
+        throw_if($this->app->isBooted(), LogicException::class, 'The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
+
+        $this->app->extend(
+            PersistentMiddleware::class,
+            static fn (PersistentMiddleware $mechanism): PersistentMiddleware => $mechanism instanceof ShortCircuitingPersistentMiddleware
+                ? $mechanism
+                : new ShortCircuitingPersistentMiddleware,
+        );
     }
 
     private function prepareAdminRuntime(): self
