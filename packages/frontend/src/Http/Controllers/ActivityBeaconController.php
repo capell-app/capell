@@ -8,8 +8,11 @@ use Capell\Core\Actions\Activity\RecordActivityBucketAction;
 use Capell\Core\Actions\Activity\RecordActivityVisitorAction;
 use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
 use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
+use Capell\Core\Enums\ConsentCategory;
+use Capell\Core\Enums\ConsentDecision;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -30,6 +33,7 @@ final class ActivityBeaconController
         private readonly RecordActivityBucketAction $record,
         private readonly RecordActivityVisitorAction $recordVisitor,
         private readonly CrawlerDetector $crawlers,
+        private readonly ConsentDecisionProvider $consent,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -42,7 +46,7 @@ final class ActivityBeaconController
 
         if (! $this->settings->collectionEnabled()
             || $this->crawlers->isCrawler($request->userAgent())
-            || $this->honoursPrivacySignal($request)
+            || $this->consent->decide(ConsentCategory::Analytics->value, $request) !== ConsentDecision::Granted
             || $this->rateLimited($request)) {
             return response()->json([], 204);
         }
@@ -113,15 +117,6 @@ final class ActivityBeaconController
         throw_if(! $siteDomain instanceof SiteDomain || ! $siteDomain->site instanceof Site, RuntimeException::class, 'Activity site could not be resolved.');
 
         return $siteDomain;
-    }
-
-    private function honoursPrivacySignal(Request $request): bool
-    {
-        if ($request->header('DNT') === '1') {
-            return true;
-        }
-
-        return $request->header('Sec-GPC') === '1';
     }
 
     private function rateLimited(Request $request): bool

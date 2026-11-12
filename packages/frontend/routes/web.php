@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Frontend\Http\Controllers\ActivityBeaconController;
 use Capell\Frontend\Http\Controllers\LanguagePreferenceController;
 use Capell\Frontend\Http\Controllers\PageController;
+use Capell\Frontend\Http\Controllers\ShowPrivacyRuntimeScriptController;
 use Illuminate\Support\Facades\Route;
 
 Route::name('capell-frontend.')
@@ -18,6 +19,12 @@ Route::name('capell-frontend.')
 
         Route::post('_capell/activity', ActivityBeaconController::class)
             ->name('activity');
+
+        // The default consent runtime. No session middleware, so it sets no cookie and
+        // a CDN can cache it; the URL carries the script's content hash. No `.js`
+        // extension, so a web server rule for static script files never answers it.
+        Route::get('_capell/privacy-runtime', ShowPrivacyRuntimeScriptController::class)
+            ->name('privacy-runtime');
 
         Route::middleware('capell-frontend')
             ->group(function (): void {

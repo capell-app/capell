@@ -192,6 +192,26 @@ return [
         'rate_limit_per_minute' => (int) env('CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE', 30),
     ],
 
+    // Consent decisions when no consent manager (such as Privacy Center) is installed.
+    // Pages load window.CapellPrivacy from a cacheable script; it sets no cookie.
+    'privacy' => [
+        'consent' => [
+            'runtime' => env('CAPELL_PRIVACY_CONSENT_RUNTIME', true),
+            // granted, denied or undecided per category; essential is always granted.
+            // Undecided and denied both keep a category's scripts and signals off.
+            'defaults' => [
+                'functional' => env('CAPELL_PRIVACY_CONSENT_FUNCTIONAL', 'granted'),
+                'preferences' => env('CAPELL_PRIVACY_CONSENT_PREFERENCES', 'granted'),
+                'analytics' => env('CAPELL_PRIVACY_CONSENT_ANALYTICS', 'granted'),
+                'marketing' => env('CAPELL_PRIVACY_CONSENT_MARKETING', 'undecided'),
+            ],
+            // A Global Privacy Control or Do Not Track signal refuses these categories.
+            'opt_out_signal_categories' => ['analytics', 'marketing'],
+            // Named purposes mapped to their category, for example 'youtube' => 'marketing'.
+            'purposes' => [],
+        ],
+    ],
+
     'agent' => [
         'read_api' => env('CAPELL_AGENT_READ_API', true),
         'rate_limit' => env('CAPELL_AGENT_RATE_LIMIT', 60),

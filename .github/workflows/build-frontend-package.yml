@@ -47,8 +47,8 @@ jobs:
       - name: Verify published frontend assets match their source
         run: node ../../scripts/check-package-build.mjs .
 
-      - name: Test the published widget runtime
-        run: node --experimental-vm-modules --test tests/JavaScript/published-widget-runtime.test.mjs
+      - name: Test the frontend runtimes
+        run: node --experimental-vm-modules --test tests/JavaScript/*.test.mjs
 
   nested-checkout-resolution:
     if: github.actor != 'dependabot[bot]'

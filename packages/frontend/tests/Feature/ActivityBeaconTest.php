@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Activity\RecordActivityBucketAction;
 use Capell\Core\Actions\Activity\RecordActivityVisitorAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\Language;
@@ -52,6 +53,7 @@ function makeActivityBeaconControllerForTest(bool $enabled = true): ActivityBeac
         resolve(RecordActivityBucketAction::class),
         resolve(RecordActivityVisitorAction::class),
         new CrawlerDetector,
+        resolve(ConsentDecisionProvider::class),
     );
 }
 
@@ -149,3 +151,25 @@ it('records one visitor row alongside the page view and none when a gate refuses
 
     expect(ActivityVisitor::query()->count())->toBe(1);
 });
+
+it('records a page view only when analytics consent is granted', function (string $decision, ?string $header, bool $recorded): void {
+    config(['capell.privacy.consent.defaults.analytics' => $decision]);
+    $language = Language::factory()->createOne(['code' => 'en']);
+    $site = Site::factory()->createOne(['language_id' => $language->getKey()]);
+    SiteDomain::factory()->default()->site($site)->language($language)->create();
+    $page = Page::factory()->site($site)->createOne();
+    PageUrl::factory()->page($page)->language($language)->site($site)->state(['url' => '/about'])->create();
+
+    $server = ['REMOTE_ADDR' => '203.0.113.30', 'HTTP_USER_AGENT' => 'Mozilla/5.0'] + ($header === null ? [] : [$header => '1']);
+    $request = Request::create('http://localhost/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, ['type' => 'page_view', 'path' => '/about'], server: $server);
+
+    expect(makeActivityBeaconControllerForTest()($request)->getStatusCode())->toBe(204)
+        ->and(ActivityBucket::query()->exists())->toBe($recorded)
+        ->and(ActivityVisitor::query()->exists())->toBe($recorded);
+})->with([
+    'granted' => ['granted', null, true],
+    'granted with Global Privacy Control' => ['granted', 'HTTP_SEC_GPC', false],
+    'granted with Do Not Track' => ['granted', 'HTTP_DNT', false],
+    'undecided' => ['undecided', null, false],
+    'denied' => ['denied', null, false],
+]);
