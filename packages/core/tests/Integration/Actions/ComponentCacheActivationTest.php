@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\EnablePackageAction;
+use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
 use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Actions\RuntimeRefresh\PreparePackageRuntimeReloadAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
+use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function (): void {
     CapellCore::registerPackage('test/component-cache-activation');
@@ -78,3 +82,47 @@ it('completes activation when persisted component caches are absent', function (
 
     expect(resolve(ComponentRegistry::class)->hasCachedComponents())->toBeFalse();
 })->with(['install', 'enable', 'refresh']);
+
+it('finishes a failed activation on retry without repeating the install lifecycle', function (): void {
+    Event::fake([PackageInstalled::class]);
+    $package = CapellCore::getPackage('test/component-cache-activation');
+    $cachePath = resolve(ComponentRegistry::class)->getComponentCachePath();
+    $activation = new stdClass;
+    $activation->fail = true;
+    // Fail only the activation refresh that follows the install lifecycle, not
+    // the runtime reload inside it, by finding a component cache that cannot be
+    // removed at that point.
+    $failing = function () use ($activation): bool {
+        if ($activation->fail !== true) {
+            return false;
+        }
+
+        $frames = collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
+
+        return $frames->contains(fn (array $frame): bool => ($frame['class'] ?? null) === InstallPackageAction::class)
+            && $frames->doesntContain(fn (array $frame): bool => ($frame['class'] ?? null) === PreparePackageRuntimeReloadAction::class);
+    };
+    $realFiles = new Filesystem;
+    $files = Mockery::mock(Filesystem::class)->makePartial();
+    $files->shouldReceive('exists')->andReturnUsing(fn (string $path): bool => ($failing() && $path === $cachePath) || $realFiles->exists($path));
+    $files->shouldReceive('delete')->andReturnUsing(fn (mixed $paths): bool => ! $failing() && $realFiles->delete($paths));
+    app()->instance(Filesystem::class, $files);
+    $lifecycleRuns = 0;
+    RunDeclaredPackageMigrationsAction::mock()->shouldReceive('handle')->andReturnUsing(function () use (&$lifecycleRuns): void {
+        $lifecycleRuns++;
+    });
+
+    expect(fn () => InstallPackageAction::run($package))
+        ->toThrow(RuntimeException::class, __('capell-core::runtime-refresh.cache_refresh_required'));
+
+    expect(CapellCore::isPackageInstalled($package->name))->toBeTrue()
+        ->and($lifecycleRuns)->toBe(1);
+    Event::assertNotDispatched(PackageInstalled::class);
+
+    $activation->fail = false;
+    InstallPackageAction::run($package);
+
+    expect($lifecycleRuns)->toBe(1)
+        ->and(CapellCore::isPackageInstalled($package->name))->toBeTrue();
+    Event::assertDispatchedTimes(PackageInstalled::class, 1);
+});

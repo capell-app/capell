@@ -162,7 +162,9 @@ class InstallExtensionCommand extends Command
             ->reject(fn (PackageData $package): bool => $package->isCore())
             ->unless(
                 $includeInstalled,
-                fn (Collection $packages): Collection => $packages->reject(fn (PackageData $package): bool => CapellCore::isPackageInstalled($package->name)),
+                fn (Collection $packages): Collection => $packages->reject(
+                    fn (PackageData $package): bool => CapellCore::isPackageInstalled($package->name) && ! InstallPackageAction::activationPending($package),
+                ),
             );
     }
 
