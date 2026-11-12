@@ -244,7 +244,10 @@ class GuidedSetup extends FilamentPage
         } catch (GuidedSetupRefusedException $refused) {
             Notification::make()
                 ->danger()
-                ->title((string) __('capell-admin::setup.create_failed', ['reason' => (string) __('capell-admin::setup.create_refused_' . $refused->reason)]))
+                ->title((string) __('capell-admin::setup.create_failed', ['reason' => match ($refused->reason) {
+                    GuidedSetupRefusedException::HAS_EXISTING_WORK => (string) __('capell-admin::setup.create_refused_has_existing_work'),
+                    default => (string) __('capell-admin::setup.create_refused_already_set_up'),
+                }]))
                 ->persistent()
                 ->send();
 
