@@ -16,6 +16,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Panel;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\URL;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
 
 uses(CreatesAdminUser::class)
@@ -192,4 +193,25 @@ it('enforces lockdown on a valid signed page preview', function (): void {
     } finally {
         $store->deactivate();
     }
+});
+
+it('refuses a signed draft preview to a panel user who may not view the page', function (): void {
+    $theme = Theme::factory()->defaultMeta()->createOne();
+    $site = Site::factory()->theme($theme)->withTranslations()->createOne();
+    $page = Page::factory()->site($site)->withTranslations(languages: $site->language)->createOne();
+    app()->instance(ThemePreviewRendererInterface::class, new class implements ThemePreviewRendererInterface
+    {
+        #[Override]
+        public function render(Theme $theme, Site $site, Page $page, ?Language $language = null, ?SiteDomain $siteDomain = null): Response
+        {
+            return new Response('draft body');
+        }
+    });
+
+    test()->actingAsAdmin();
+    $url = IssuePagePreviewTokenAction::run($page);
+    test()->get($url)->assertOk()->assertSee('draft body');
+
+    Role::findOrCreate('panel_user', 'web');
+    test()->actingAsRole('panel_user')->get($url)->assertForbidden()->assertDontSee('draft body');
 });

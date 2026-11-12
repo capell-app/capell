@@ -168,11 +168,11 @@ afterEach(function (): void {
 it('rejects unsigned preview requests', function (): void {
     [$theme, $site, $page] = createThemePreviewTestRecords();
 
-    test()->get(route('capell.admin.theme-preview', [
-        'theme' => $theme,
-        'site' => $site,
-        'page' => $page,
-    ]))->assertForbidden();
+    $url = route('capell.admin.theme-preview', ['theme' => $theme, 'site' => $site, 'page' => $page]);
+
+    // The panel signs the viewer in before the signature is checked.
+    test()->get($url)->assertRedirect('/admin/login');
+    test()->actingAsAdmin()->get($url)->assertForbidden();
 });
 
 it('redirects signed unauthenticated preview requests to admin login', function (): void {
