@@ -104,6 +104,7 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
     public function test_registering_the_admin_package_after_boot_fails_instead_of_leaving_updates_unguarded(): void
     {
         $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
 
         $this->app->register(new AdminServiceProvider($this->app), force: true);
     }
