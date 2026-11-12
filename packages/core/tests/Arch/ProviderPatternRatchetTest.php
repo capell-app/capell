@@ -53,6 +53,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/Media/MediaCompositionGuidanceRegistry.php',
         // Lifecycle-aware manifest event definitions with install reopen/freeze and domain validation.
         'packages/core/src/Support/OutboundEventRegistry.php',
+        // Two tagged contribution maps (privacy exporters and erasers) that it runs and whose receipts it validates.
+        'packages/core/src/Support/Privacy/PrivacySubjectRegistry.php',
         // Aggregates publication readiness contributors and owns the readiness state machine.
         'packages/core/src/Support/Publishing/PublicationReadinessRegistry.php',
         // Keyed by an integer schema version and walked as an ordered migration chain, not looked up by a single string key.
