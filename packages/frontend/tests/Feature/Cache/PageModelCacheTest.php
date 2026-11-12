@@ -6,6 +6,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Contracts\RenderedModelTracker;
@@ -219,7 +220,7 @@ it('loads the languages of a cold page model with a single query', function (): 
     expect($languageQueries)->toBe(1)
         ->and($result->translations->map(fn (Translation $translation): int => (int) $translation->language?->getKey())->sort()->values()->all())
         ->toBe(collect([$english->getKey(), $french->getKey()])->sort()->values()->all())
-        ->and($result->pageUrls->every(fn ($url): bool => $url->relationLoaded('language')))->toBeTrue();
+        ->and($result->pageUrls->every(fn (PageUrl $url): bool => $url->relationLoaded('language')))->toBeTrue();
 });
 
 it('reuses the request language for a cold single-language page model', function (): void {
@@ -246,5 +247,5 @@ it('reuses the request language for a cold single-language page model', function
 
     expect($languageQueries)->toBe(0)
         ->and($result->translations->every(fn (Translation $translation): bool => $translation->language?->getKey() === $english->getKey()))->toBeTrue()
-        ->and($result->pageUrls->every(fn ($url): bool => $url->language?->getKey() === $english->getKey()))->toBeTrue();
+        ->and($result->pageUrls->every(fn (PageUrl $url): bool => $url->language?->getKey() === $english->getKey()))->toBeTrue();
 });
