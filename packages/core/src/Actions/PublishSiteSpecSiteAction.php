@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\Properties\EvaluatePropertyCompletenessAction;
 use Capell\Core\Actions\Publishing\TransitionPublicationAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -12,11 +14,14 @@ use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Events\SiteSpecPublished;
+use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
 use Capell\Core\Support\SiteSpec\SiteSpecPageDataFactory;
 use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
 use Carbon\CarbonImmutable;
@@ -50,11 +55,12 @@ final class PublishSiteSpecSiteAction
     public function __construct(private readonly AuthorizesPublicationTransition $authorizer) {}
 
     /**
+     * @param  list<string>|null  $onlyPageSlugs  publish only these spec pages (by {@see SiteSpecPageSlug}), leaving the rest as they are; null publishes every page
      * @return int the number of pages that went live (pages already live are left alone)
      *
      * @throws RuntimeException naming each page that cannot be published
      */
-    public function handle(CapellSiteSpecData $spec, Site $site, Authenticatable $actor): int
+    public function handle(CapellSiteSpecData $spec, Site $site, Authenticatable $actor, ?array $onlyPageSlugs = null): int
     {
         $language = Language::query()->where('code', $spec->language->code)->firstOrFail();
         $existing = PlanSiteSpecAction::make()->existingPagesBySlug($spec, $site);
@@ -63,12 +69,18 @@ final class PublishSiteSpecSiteAction
         /** @var list<array{spec: CapellSiteSpecPageData, page: Page, translation: Translation, home: bool}> $targets */
         $targets = [];
         $problems = [];
+        $problemPages = [];
 
         foreach ($this->orderedPages($spec) as $index => $pageSpec) {
+            if ($onlyPageSlugs !== null && ! in_array(SiteSpecPageSlug::for($pageSpec), $onlyPageSlugs, true)) {
+                continue;
+            }
+
             $found = $existing[SiteSpecPageSlug::for($pageSpec)] ?? null;
 
             if ($found === null) {
                 $problems[] = sprintf('%s (not on this site yet; apply the spec first)', $pageSpec->name);
+                $problemPages[] = $pageSpec->name;
 
                 continue;
             }
@@ -77,21 +89,30 @@ final class PublishSiteSpecSiteAction
 
             if (! $this->authorizer->allows($request)) {
                 $problems[] = sprintf('%s (you are not allowed to publish it)', $pageSpec->name);
+                $problemPages[] = $pageSpec->name;
             } elseif (EvaluatePropertyCompletenessAction::run($found['page'])->blocksPublish()) {
                 $problems[] = sprintf('%s (required properties are missing)', $pageSpec->name);
+                $problemPages[] = $pageSpec->name;
             }
 
             $targets[] = ['spec' => $pageSpec, 'page' => $found['page'], 'translation' => $found['translation'], 'home' => $index === 0];
         }
 
-        throw_if($problems !== [], RuntimeException::class, (string) __('capell-core::message.site_spec_publish_refused', [
+        throw_if($problems !== [], SiteSpecPublishRefusedException::class, (string) __('capell-core::message.site_spec_publish_refused', [
             'pages' => implode('; ', $problems),
-        ]));
+        ]), $problemPages);
 
-        $published = DB::transaction(function () use ($targets, $language, $actor, $now): int {
+        $published = DB::transaction(function () use ($targets, $language, $actor, $now, $site): int {
             $count = 0;
 
             foreach ($targets as $target) {
+                // A first install's untouched placeholder home page was kept public while the spec was private;
+                // publishing writes the spec's home page over it. A home page anyone has changed is left as it is.
+                if ($target['home'] && ResolveGuidedSetupStateAction::isPlaceholderHome($site, $target['page'])) {
+                    $target['page']->update(['name' => $target['spec']->name]);
+                    $target['translation']->update(['title' => $target['spec']->title, 'content' => SiteSpecPageContent::html($target['spec'])]);
+                }
+
                 $this->liftPrivateState($target['spec'], $target['page'], $target['translation'], $language, $target['home']);
 
                 $result = TransitionPublicationAction::run(new PublicationTransitionRequestData(
@@ -103,13 +124,19 @@ final class PublishSiteSpecSiteAction
 
                 throw_unless(
                     in_array($result->outcome, [PublicationTransitionOutcome::Changed, PublicationTransitionOutcome::AlreadyCorrect], true),
-                    RuntimeException::class,
+                    SiteSpecPublishRefusedException::class,
                     (string) __('capell-core::message.site_spec_publish_refused', ['pages' => sprintf('%s (%s)', $target['spec']->name, $result->reasonKey)]),
+                    [$target['spec']->name],
                 );
 
                 if ($result->changed()) {
                     $count++;
                 }
+            }
+
+            // The home page was already public, so no publication transition records the go-live.
+            if ($targets !== [] && $targets[0]['home'] && $targets[0]['page']->refresh()->publishVisibilityState($now) === PublishVisibilityStateEnum::published) {
+                RecordSitePublishedAction::run((int) $site->getKey(), $now);
             }
 
             return $count;

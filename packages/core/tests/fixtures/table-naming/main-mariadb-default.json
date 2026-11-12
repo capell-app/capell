@@ -175,6 +175,13 @@
         ],
         "foreign_keys": []
     },
+    "capell_extension_quarantines": {
+        "indexes": [
+            "capell_extension_quarantines_composer_name_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_extensions": {
         "indexes": [
             "capell_extensions_auto_update_policy_index",
@@ -213,6 +220,41 @@
             "capell_reporting_incidents_checked_at_index",
             "capell_reporting_incidents_health_status_index",
             "capell_reporting_incidents_resolved_at_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_security_remediation_approvals": {
+        "indexes": [
+            "capell_security_remediation_approvals_weakness_id_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_security_remediation_runs": {
+        "indexes": [
+            "capell_security_remediation_runs_finding_id_foreign",
+            "capell_security_remediation_runs_weakness_id_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": "capell_security_remediation_runs_finding_id_foreign",
+                "columns": ["finding_id"],
+                "foreign_table": "capell_security_weakness_findings",
+                "foreign_columns": ["id"]
+            }
+        ]
+    },
+    "capell_security_scan_runs": {
+        "indexes": ["primary"],
+        "foreign_keys": []
+    },
+    "capell_security_weakness_findings": {
+        "indexes": [
+            "capell_security_weakness_findings_fingerprint_unique",
+            "capell_security_weakness_findings_status_severity_index",
+            "capell_security_weakness_findings_weakness_id_index",
             "primary"
         ],
         "foreign_keys": []

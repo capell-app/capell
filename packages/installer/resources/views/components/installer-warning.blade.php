@@ -27,39 +27,53 @@
                 : __('capell-installer::widgets.not_installed_message')
             "
         >
+            {{-- Actions and notes sit under the message at full width; the callout's side controls column squeezes the message on narrow screens. --}}
             <x-slot name="footer">
-                @if ($capellIsInstalled)
-                    <x-filament::link
-                        :href="$installUrl"
-                        tag="a"
-                    >
-                        {{ __('capell-installer::widgets.reinstall_action') }}
-                    </x-filament::link>
-                @else
-                    <x-filament::link
-                        :href="$installUrl"
-                        tag="a"
-                    >
-                        {{ __('capell-installer::widgets.install_action') }}
-                    </x-filament::link>
-                @endif
-            </x-slot>
+                <div
+                    class="flex w-full flex-col gap-2"
+                    data-installer-warning-actions
+                >
+                    <div class="flex flex-wrap items-center gap-3">
+                        @if ($capellIsInstalled)
+                            {{ $this->deleteInstallerAction }}
 
-            <x-slot name="controls">
-                <div class="flex flex-wrap items-center gap-2">
-                    @if ($capellIsInstalled)
-                        {{ $this->deleteInstallerAction }}
-                    @else
-                        <x-filament::button
-                            :href="$installGuideUrl"
-                            tag="a"
-                            color="gray"
-                            size="sm"
-                            :outlined="true"
-                        >
-                            {{ __('capell-installer::widgets.install_guide_action') }}
-                        </x-filament::button>
-                    @endif
+                            <x-filament::link
+                                :href="$installUrl"
+                                tag="a"
+                            >
+                                {{ __('capell-installer::widgets.reinstall_action') }}
+                            </x-filament::link>
+                        @else
+                            <x-filament::button
+                                :href="$installGuideUrl"
+                                tag="a"
+                                color="gray"
+                                size="sm"
+                                :outlined="true"
+                            >
+                                {{ __('capell-installer::widgets.install_guide_action') }}
+                            </x-filament::button>
+
+                            <x-filament::link
+                                :href="$installUrl"
+                                tag="a"
+                            >
+                                {{ __('capell-installer::widgets.install_action') }}
+                            </x-filament::link>
+                        @endif
+
+                        @if ($activeInstall ?? null)
+                            <x-filament::button
+                                :href="$activeInstall->progressUrl"
+                                tag="a"
+                                color="info"
+                                size="sm"
+                                :outlined="true"
+                            >
+                                {{ __('capell-installer::widgets.active_install_action') }}
+                            </x-filament::button>
+                        @endif
+                    </div>
 
                     @if ($capellIsInstalled && ! ($hasGlobalAccess ?? false))
                         <p class="text-sm">{{ __('capell-installer::widgets.delete_installer_global_access_required') }}</p>
@@ -67,18 +81,6 @@
 
                     @if ($capellIsInstalled && ! config('capell.server_side_tooling', false))
                         <p class="text-sm">{{ __('capell-installer::widgets.delete_installer_tooling_disabled') }}</p>
-                    @endif
-
-                    @if ($activeInstall ?? null)
-                        <x-filament::button
-                            :href="$activeInstall->progressUrl"
-                            tag="a"
-                            color="info"
-                            size="sm"
-                            :outlined="true"
-                        >
-                            {{ __('capell-installer::widgets.active_install_action') }}
-                        </x-filament::button>
                     @endif
                 </div>
             </x-slot>

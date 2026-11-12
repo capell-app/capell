@@ -29,7 +29,8 @@ use Symfony\Component\HttpFoundation\Response;
  *   changed never revalidates, even when its bytes are unchanged.
  *
  * Lifetimes are only ever shortened. A response that no cache may store
- * (no-store) is left as it is. With nothing restricting public reads, the
+ * (no-store) is left as it is: no lifetime change, no validator and never a 304.
+ * With nothing restricting public reads, the
  * response is untouched.
  *
  * @experimental
@@ -82,7 +83,10 @@ final class CapPublicReadResponseCaching
             $this->cap($response, max(0, $earliest->getTimestamp() - CarbonImmutable::now()->getTimestamp()));
         }
 
-        if ($response->getStatusCode() === Response::HTTP_OK) {
+        // A response no cache may keep (previews, token reads) has no stored copy to
+        // revalidate: a validator would only let a client confirm guessed content,
+        // and a 304 would replace the body the request is entitled to.
+        if ($response->getStatusCode() === Response::HTTP_OK && ! $response->headers->hasCacheControlDirective('no-store')) {
             $this->validate($response, $request, $keys);
         }
 

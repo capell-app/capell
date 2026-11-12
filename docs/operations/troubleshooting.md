@@ -70,6 +70,16 @@ php artisan queue:work
 
 `queue:work` is a useful immediate check. In production, configure the host's process manager to keep the worker running and restart workers during deployment with `php artisan queue:restart`. If the database queue is selected but its table is missing, run `php artisan queue:table && php artisan migrate` once.
 
+When the Marketplace package is installed, its installs and updates run on their own connection and queue, so a plain `queue:work` never picks them up. Read the values your installation uses, then start a worker for exactly that pair:
+
+```bash
+php artisan config:show capell-marketplace.marketplace.operations_queue_connection
+php artisan config:show capell-marketplace.marketplace.operations_queue
+php artisan queue:work database --queue=capell-marketplace
+```
+
+The last line shows the defaults (`database` and `capell-marketplace`). Substitute the two values the first commands print. The Marketplace readiness panel prints the same command with your values filled in. With `QUEUE_CONNECTION=sync` there is no worker to start, because the work runs inside the request.
+
 **You should see:** Queued installation, publishing, cache, notification, and package jobs move from pending to completed. Retry a known safe failed job with `php artisan queue:retry <job-id>` only after fixing its reported cause.
 
 <a id="scheduler"></a>
@@ -147,14 +157,16 @@ composer require capell-app/installer
 
 **Why:** The user exists, but Filament access or Capell roles were not assigned.
 
-**Run:**
+**Before you run anything:** decide whether this person should be a global administrator. `capell:install --user=<email>` looks the account up by its email address (an unknown address stops with `User not found`) and assigns the global `super_admin` role, which grants access to every site and every setting. Use it for the person who owns the installation. Do not use it to fix a 403 for an invited editor or a site-scoped role: that would silently promote them. For an editor, check the role and site assignment their invitation gave them in **Users** and **Roles**, and correct that instead.
+
+**Run (installation owner only):**
 
 ```bash
 php artisan capell:install --user=you@example.com
 php artisan optimize:clear
 ```
 
-Replace `you@example.com` with the admin user email.
+Replace `you@example.com` with the owner's email address. `optimize:clear` is safe here because no install is in progress.
 
 **You should see:** The user can open `/admin` and reach the dashboard.
 
@@ -205,7 +217,7 @@ Static export is a separate operation. An ordinary `capell:static-site` run can 
 QUEUE_CONNECTION=sync
 ```
 
-**For database or Redis queues, run:**
+**For database or Redis queues, run a worker on your default connection:**
 
 ```bash
 php artisan queue:work
@@ -270,7 +282,7 @@ php artisan optimize:clear
 
 **Why:** A Capell command asked for interactive input while running in CI, Docker, or `--no-interaction`.
 
-**Fix:** Pass every prompted decision as a flag. `--user` can select an account that already exists, but it does not create that account or set its login credentials:
+**Fix:** Pass every prompted decision as a flag. `--user` can select an account that already exists, found by its email address. It grants that account the global administrator role, and it does not create the account or set its login credentials:
 
 ```bash
 php artisan capell:install --no-interaction --url=https://example.com --user=admin@example.com
@@ -321,13 +333,14 @@ composer config repositories
 
 **Why:** The browser installer stores progress under cache keys named `capell.install.{installId}.*` and protects concurrent installs with `capell.install.lock`. If cache is cleared, a volatile cache store restarts, or the install takes longer than the lock TTL, the progress route no longer has enough state to continue.
 
-**Check:**
+**Check without changing anything:**
 
 ```bash
 php artisan config:show cache.default
 php artisan config:show session.driver
-php artisan optimize:clear
 ```
+
+Do not run `php artisan optimize:clear` or `php artisan cache:clear` while diagnosing this. Both flush the default cache store, which is where the installer keeps its progress, so they erase the state you are trying to inspect and turn an interrupted install into a lost one. If `cache.default` is `array`, the progress never survives between requests; use `file`, `database` or `redis`.
 
 If this happened after a long queued install, check that a worker is running:
 
@@ -335,7 +348,7 @@ If this happened after a long queued install, check that a worker is running:
 php artisan queue:work
 ```
 
-**Fix:** Restart the browser installer. For repeat failures, use a persistent cache store, avoid clearing cache mid-install, and keep the queue worker alive. On local/dev only, clear the stale installer lock if you know no install job is running.
+**Fix:** Open the browser installer again. Starting a new run cancels the stale one, so you do not need to clear the lock by hand. For repeat failures, use a persistent cache store, avoid clearing cache mid-install, and keep the queue worker alive.
 
 **You should see:** A new install ID and fresh progress page.
 
@@ -439,7 +452,7 @@ limit 5;
 Check the local package platform versions:
 
 ```bash
-composer show capell-app/core filament/filament livewire/livewire laravel/framework
+composer show | grep -E '^(capell-app/core|filament/filament|livewire/livewire|laravel/framework) '
 ```
 
 **Fix:** Connect a Capell account, resolve any diagnostics, activate or purchase the licence when requested, and follow the Marketplace action reason. If the browser looks stale during local debugging, clear local cache:

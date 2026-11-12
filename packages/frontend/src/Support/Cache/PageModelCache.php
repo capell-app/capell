@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Concerns\HasCache;
 use Capell\Core\Contracts\Pageable;
@@ -58,7 +59,15 @@ final class PageModelCache
                     $query->where('site_id', $site->id);
                 }
 
-                return $query->with($this->canonicalRelations($modelClass, $language->id))->first();
+                $loaded = $query->with($this->canonicalRelations($modelClass, $language->id))->first();
+
+                if ($loaded instanceof Pageable && $loaded instanceof Model) {
+                    // One read at most for the URL and translation languages; the request
+                    // language is reused, so a single-language page costs none.
+                    HydratePageLanguagesAction::run($loaded, [$language]);
+                }
+
+                return $loaded;
             };
 
             if ($withEvents) {
@@ -197,11 +206,11 @@ final class PageModelCache
     {
         $relations = [
             'layout.theme',
-            'pageUrls.language',
+            'pageUrls',
             // The head's hreflang cluster pairs every pageUrl with a real translation row, so
             // `translations` must travel with `pageUrls`: public Blade may only read hydrated
             // relations (PublicViewQueryGuard). Do not drop this to slim the cached payload.
-            'translations.language',
+            'translations',
             'image.translations',
             'blueprint',
             'canonicalPage.pageUrls',

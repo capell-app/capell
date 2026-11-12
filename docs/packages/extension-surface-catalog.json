@@ -113,6 +113,16 @@
             "contractTestId": null
         },
         {
+            "id": "admin.contract.first-run-task-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\FirstRunTaskContributor",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Adds permission-aware tasks to the dashboard getting-started checklist.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.dto.admin-zone-context",
             "kind": "dto",
             "identifier": "Capell\\Admin\\Data\\AdminZoneContextData",

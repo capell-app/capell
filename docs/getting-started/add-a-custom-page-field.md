@@ -268,7 +268,7 @@ If the selected layout comes from an installed theme, register and select an app
 
 If your application uses Inertia, an API or another renderer, project the same visitor-safe value through that runtime's response contract. Adding the Blade fragment does not change those responses.
 
-## 5. Verify the whole journey
+## 5. Verify the field from editor to public page
 
 1. Save a client name, reopen the editor, and confirm persistence.
 2. Clear the field and save. Confirm validation prevents that edit; enter a valid value again.
@@ -310,7 +310,7 @@ bash scripts/local-core-screenshots.sh --skip-install \
 
 The [accepted runner report](../screenshot-receipts/custom-page-fields.json) records the source and image digests for these captures. Use the shared runner's report and receipts to validate regenerated images. A manifest dry run does not establish browser behaviour. See [documentation visuals](../standards/documentation-visuals.md) for provenance and maintenance checks.
 
-## Next
+## Related guides
 
 - [Choose another custom-field approach](../packages/custom-page-fields.md), including configurators, translations, typed properties, relationships and component fields.
 - [Schema hooks](../../packages/admin/docs/schemas/hooks.md) for hook positions and relation managers.

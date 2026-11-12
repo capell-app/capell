@@ -86,8 +86,9 @@ it('selects dashboard Filament widgets from install state and available sites', 
 
     expect((new CapellDashboard)->getWidgets())
         ->toContain('main-widget')
+        // The account and framework cards repeat the user menu, so the dashboard omits them.
         ->toContain($capellAccountWidget)
-        ->toContain($filamentInfoWidget);
+        ->not->toContain($filamentInfoWidget);
 });
 
 it('returns default page relation managers based on available counts', function (): void {

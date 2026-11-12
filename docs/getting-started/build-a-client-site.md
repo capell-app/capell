@@ -55,7 +55,7 @@ The default mail driver is `log`, so contact messages appear in `storage/logs/la
 
 The starter kit includes `scripts/deploy.sh`. Before you run it, read the starter-kit [deployment notes](https://github.com/capell-app/starter-kit#deployment), then follow [Deploy recipes](../operations/deploy-recipes.md) for the routine order on your host.
 
-## Next
+## Related guides
 
 - [Build your first page type](build-your-first-page-type.md)
 - [Going live](../operations/going-live.md)

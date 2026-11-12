@@ -16,6 +16,7 @@ use Capell\Core\Models\Translation;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -48,6 +49,12 @@ class SiteReplicatedAction
         throw_if($replica === null, RuntimeException::class, 'Site could not be duplicated.');
 
         $replica->fill($fillableInput);
+
+        // Setup and go-live belong to the source site; the copy starts with neither.
+        $meta = is_array($replica->meta) ? $replica->meta : [];
+        unset($meta['guided_setup']);
+        Arr::forget($meta, 'first_run.published_at');
+        $replica->meta = $meta;
 
         if ($sourceSite->timestamps) {
             $replica->created_at = CarbonImmutable::now();

@@ -42,9 +42,35 @@ PYTHON
 printf 'vendor/\nnode_modules/\n' > .gitignore
 git add composer.json .gitignore packages tests
 git -c user.name=fixture -c user.email=fixture@example.test commit -qm source
+# npm leaves a relative link for "file:../sibling" dependencies. Worktrees live in
+# a different directory depth, so the cloned link would dangle there.
+mkdir -p "$fixture/sibling-tools" node_modules/@capell-app
+ln -s ../../../sibling-tools node_modules/@capell-app/sibling-tools
+# The script clones node_modules on APFS and otherwise falls back to `npm ci`,
+# which needs a lockfile this fixture does not have. Stub npm so the test behaves
+# the same on any host: like the real install it recreates the relative link.
+mkdir -p "$fixture/stubs"
+cat > "$fixture/stubs/npm" <<'NPM'
+#!/bin/sh
+echo "$*" >> "$FIXTURE_NPM_LOG"
+mkdir -p node_modules/@capell-app
+ln -sfn ../../../sibling-tools node_modules/@capell-app/sibling-tools
+NPM
+chmod +x "$fixture/stubs/npm"
+# A cp that refuses copy-on-write clones forces the fallback path on any host.
+mkdir -p "$fixture/noclone"
+cat > "$fixture/noclone/cp" <<'CP'
+#!/bin/sh
+for a in "$@"; do [ "$a" = "-Rc" ] && exit 1; done
+exec /bin/cp "$@"
+CP
+chmod +x "$fixture/noclone/cp"
+export FIXTURE_NPM_LOG="$fixture/npm.log"
+PATH="$fixture/stubs:$PATH"
 # The manifest now declares a source namespace absent from the primary vendor metadata.
-git worktree add -q "$fixture/worktree" -b fixture-worktree
-cd "$fixture/worktree"
+mkdir -p "$fixture/nested"
+git worktree add -q "$fixture/nested/worktree" -b fixture-worktree
+cd "$fixture/nested/worktree"
 bash "$script" --host-only
 php -r '$loader=require "vendor/autoload.php"; $actual=(new ReflectionClass("Fixture\\NewSource\\NewSource"))->getFileName(); $expected=getcwd()."/tests/fixtures/new-source/NewSource.php"; if (realpath($actual)!==realpath($expected)) { throw new RuntimeException("New source resolved outside worktree"); } echo "PASS new manifest source resolves inside worktree", PHP_EOL;'
 cmp vendor/pest-plugins.json "$fixture/primary/vendor/pest-plugins.json"
@@ -64,6 +90,20 @@ fi
 printf '<?php return "v2";\n' > "$fixture/primary/vendor/acme/library/src/version.php"
 test "$(php -r 'echo require "vendor/acme/library/src/version.php";')" = "v1"
 echo 'PASS third-party packages are real trees isolated from the primary'
+test -e node_modules/@capell-app/sibling-tools
+test "$(readlink node_modules/@capell-app/sibling-tools)" = "$(cd "$fixture/sibling-tools" && pwd -P)"
+echo 'PASS linked sibling packages resolve from the worktree'
 cd "$fixture/primary"
+test "$(readlink node_modules/@capell-app/sibling-tools)" = "../../../sibling-tools"
 test "$primary_hash" = "$(shasum -a 256 vendor/composer/autoload_psr4.php)"
 echo 'PASS primary autoload metadata unchanged'
+# Force the non-clone fallback regardless of host and prove it provisions the same.
+cd "$fixture/primary"
+git worktree add -q "$fixture/nested/fallback" -b fixture-fallback
+cd "$fixture/nested/fallback"
+: > "$FIXTURE_NPM_LOG"
+PATH="$fixture/noclone:$PATH" bash "$script" --host-only >/dev/null
+grep -qx 'ci' "$FIXTURE_NPM_LOG"
+test -e node_modules/@capell-app/sibling-tools
+test "$(readlink node_modules/@capell-app/sibling-tools)" = "$(cd "$fixture/sibling-tools" && pwd -P)"
+echo 'PASS non-clone fallback re-points linked sibling packages'

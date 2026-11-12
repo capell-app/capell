@@ -14,7 +14,7 @@ Use this section when you need a compact definition, relationship map, architect
 | Decide where documentation belongs             | [Docs ownership rules](../development/docs-ownership.md)   |
 | Check third-party credits                      | [Credits](credits.md)                                      |
 
-## Next
+## Related guides
 
 - [Learn Capell](../getting-started/capell-learn.md) for the guided path.
 - [Docs route map](../README.md) for every section.

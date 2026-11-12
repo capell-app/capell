@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
+use Capell\Core\Actions\Install\DescribePackageInstallPlanAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\PackageData;
@@ -71,6 +72,10 @@ class InstallExtensionCommand extends Command
                     $package->name,
                     $arguments === [] ? '' : ' with ' . JsonCodec::encode($arguments),
                 ));
+
+                foreach (DescribePackageInstallPlanAction::run($package) as $step) {
+                    $this->line('  - ' . $step);
+                }
 
                 return;
             }
@@ -162,7 +167,9 @@ class InstallExtensionCommand extends Command
             ->reject(fn (PackageData $package): bool => $package->isCore())
             ->unless(
                 $includeInstalled,
-                fn (Collection $packages): Collection => $packages->reject(fn (PackageData $package): bool => CapellCore::isPackageInstalled($package->name)),
+                fn (Collection $packages): Collection => $packages->reject(
+                    fn (PackageData $package): bool => CapellCore::isPackageInstalled($package->name) && ! InstallPackageAction::activationPending($package),
+                ),
             );
     }
 

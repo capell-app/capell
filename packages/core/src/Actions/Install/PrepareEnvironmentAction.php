@@ -49,6 +49,29 @@ final class PrepareEnvironmentAction
      */
     private function sessionsMigrationExists(): bool
     {
+        return $this->migrationCreatesTable('sessions');
+    }
+
+    /**
+     * Whether some migration already creates the notifications table, by content
+     * and over the migrator's registered paths, exactly as for sessions. A
+     * conventional `*_create_notifications_table.php` filename is not required.
+     */
+    private function notificationsMigrationExists(): bool
+    {
+        $publishedMigrations = glob(database_path('migrations/*create_notifications_table.php'));
+
+        if (($publishedMigrations !== false && $publishedMigrations !== []) || $this->migrationCreatesTable('notifications')) {
+            return true;
+        }
+
+        $packageMigrations = glob(base_path('vendor/capell-app/*/database/migrations/*create_notifications_table.php'));
+
+        return $packageMigrations !== false && $packageMigrations !== [];
+    }
+
+    private function migrationCreatesTable(string $table): bool
+    {
         // The migrator's own registered paths are the authoritative set of
         // directories whose migrations will actually run, so ask it rather than
         // guessing at conventional locations — base_path('migrations') resolves
@@ -73,25 +96,12 @@ final class PrepareEnvironmentAction
                     continue;
                 }
 
-                if (preg_match('/Schema::create\(\s*[\'"]sessions[\'"]/', $contents) === 1) {
+                if (preg_match('/Schema::create\(\s*[\'"]' . preg_quote($table, '/') . '[\'"]/', $contents) === 1) {
                     return true;
                 }
             }
         }
 
         return false;
-    }
-
-    private function notificationsMigrationExists(): bool
-    {
-        $publishedMigrations = glob(database_path('migrations/*create_notifications_table.php'));
-
-        if ($publishedMigrations !== false && $publishedMigrations !== []) {
-            return true;
-        }
-
-        $packageMigrations = glob(base_path('vendor/capell-app/*/database/migrations/*create_notifications_table.php'));
-
-        return $packageMigrations !== false && $packageMigrations !== [];
     }
 }

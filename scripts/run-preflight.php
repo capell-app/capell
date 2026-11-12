@@ -130,7 +130,8 @@ if ($requestedNodeStages !== [] && ! is_dir(dirname(__DIR__) . '/node_modules'))
  * skeleton under vendor/ (providers, migrations, caches, published assets) and
  * leaves a marker there. Tests and static analysis booted from that skeleton
  * fail in ways that look like regressions, so stop before running them.
- * Reinstalling the package restores a pristine skeleton and removes the marker.
+ * `npm run screenshots:restore` puts the pristine copy back; reinstalling the
+ * package also restores a pristine skeleton and removes the marker.
  *
  * @var list<string> $skeletonStages
  */
@@ -143,6 +144,10 @@ if (array_intersect($skeletonStages, array_keys($stages)) !== [] && is_file($ske
         tests and static analysis would fail for reasons unrelated to your change.
 
         Restore a pristine skeleton, or run workbench and screenshot work from a separate checkout:
+
+            npm run screenshots:restore
+
+        If that reports no saved copy, reinstall the package instead:
 
             composer reinstall orchestra/testbench-core --no-scripts
 

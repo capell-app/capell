@@ -25,12 +25,16 @@ trait ChecksWorkFirstWidgetAccess
         return [];
     }
 
-    public static function widgetEnabled(string $key): bool
+    /**
+     * @param  bool  $requiresWorkFirst  false for widgets the standard dashboard also places,
+     *                                   such as recent updates during first run
+     */
+    public static function widgetEnabled(string $key, bool $requiresWorkFirst = true): bool
     {
         $switches = config('capell-admin.dashboard.work_first.widgets', []);
         $actor = auth()->user();
 
-        return config('capell-admin.dashboard.work_first.enabled', false) === true
+        return (! $requiresWorkFirst || config('capell-admin.dashboard.work_first.enabled', false) === true)
             && (! is_array($switches) || (($switches[$key] ?? true) !== false && ($switches[static::class] ?? true) !== false))
             && $actor !== null && ((SiteAccess::forActor($actor)->isGlobal() && Gate::forUser($actor)->allows('viewAny', Page::class))
                 || collect(resolve(DashboardSiteEvaluator::class)->siteIds($actor))

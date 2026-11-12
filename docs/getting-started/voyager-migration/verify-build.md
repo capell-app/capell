@@ -257,6 +257,6 @@ Restore the previous source revisions and dependency manifests together, then
 verify that the restored build uses those files. This restore procedure is
 **not yet verified** in the rehearsal. Keep application backups until it is.
 
-## Next
+## Migration chapter list
 
 Return to [the migration chapter list](index.md), then audit the source site.

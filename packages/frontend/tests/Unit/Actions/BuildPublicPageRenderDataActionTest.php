@@ -68,7 +68,7 @@ it('builds public page render data from the resolved frontend render context', f
 
     $language = Language::factory()->createOne(['code' => 'en']);
     $site = Site::factory()->createOne(['language_id' => $language->id]);
-    $theme = Theme::factory()->createOne(['meta' => ['assets' => ['resources/css/app.css']]]);
+    $theme = Theme::factory()->createOne(['key' => 'render-data-theme', 'meta' => ['assets' => ['resources/css/app.css']]]);
     $layout = Layout::factory()->site($site)->create([
         'key' => 'home',
         'containers' => [

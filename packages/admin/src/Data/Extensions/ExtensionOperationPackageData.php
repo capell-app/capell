@@ -55,6 +55,48 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
         public readonly ?string $runtimeGateReason = null,
     ) {}
 
+    /**
+     * A copy carrying these health alerts instead, for alerts that can only be raised once the package exists.
+     *
+     * @param  list<ExtensionHealthAlertData>  $healthAlerts
+     */
+    public function withHealthAlerts(array $healthAlerts): self
+    {
+        return new self(
+            packageName: $this->packageName,
+            label: $this->label,
+            description: $this->description,
+            version: $this->version,
+            latestVersion: $this->latestVersion,
+            imageUrl: $this->imageUrl,
+            imageUrls: $this->imageUrls,
+            updateAvailable: $this->updateAvailable,
+            installed: $this->installed,
+            enabled: $this->enabled,
+            available: $this->available,
+            core: $this->core,
+            visibility: $this->visibility,
+            canUninstall: $this->canUninstall,
+            tier: $this->tier,
+            certification: $this->certification,
+            runtimeStatus: $this->runtimeStatus,
+            runtimeAllowed: $this->runtimeAllowed,
+            healthState: $this->healthState,
+            healthAlerts: $healthAlerts,
+            missingRequiredTables: $this->missingRequiredTables,
+            contributionCount: $this->contributionCount,
+            managementEntries: $this->managementEntries,
+            premiumMissingMarketplaceAccount: $this->premiumMissingMarketplaceAccount,
+            blocked: $this->blocked,
+            needsAttention: $this->needsAttention,
+            riskScore: $this->riskScore,
+            productGroup: $this->productGroup,
+            providerRecoveryEvents: $this->providerRecoveryEvents,
+            attentionReasons: $this->attentionReasons,
+            runtimeGateReason: $this->runtimeGateReason,
+        );
+    }
+
     /** @return array<string, mixed> */
     public function toRecord(): array
     {

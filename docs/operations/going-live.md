@@ -26,6 +26,8 @@ UI works at all.
 | Atomic releases behind a `current` symlink (Forge, Ploi, Deployer, Envoyer) | `atomic` | No — do this at build time                     |
 | Laravel Cloud or similar managed platform            | `immutable`                | No — do this at build time                     |
 
+For Laravel Cloud, follow [Deploy on Laravel Cloud](deploy-on-laravel-cloud.md), which makes these choices for you.
+
 Set it to match reality, not to what you wish were true. Capell detects a symlink
 component inside a root declared `mutable` and blocks the write; do not work around that
 by making versioned release directories writable, because a long-running request can then
@@ -439,7 +441,7 @@ When the origin is correct and the edge is stale, purge it rather than waiting o
 TTL. The purge command belongs to the package that owns the page cache; see
 [Put Cloudflare in front](making-capell-fast.md#put-cloudflare-in-front).
 
-## Further reading
+## Related guides
 
 - [Web server configuration](web-server.md) — the static HTML cache and multi-node hosting
 - [Making Capell fast](making-capell-fast.md) — serving tiers, CDN rules, and PHP tuning

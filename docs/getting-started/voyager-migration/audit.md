@@ -68,6 +68,6 @@ If an export contains INSERT, REPLACE, UPDATE or DELETE statements, treat it as 
 
 Read-only inspection needs no database rollback. Delete only owned disposable reports after preserving the evidence; keep the original source unchanged.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

@@ -1,9 +1,12 @@
 import { prepareMarketplaceGallery } from './prepare-marketplace-gallery.mjs'
 import { spawn } from 'node:child_process'
 
+function isFirstRunEntry(entry) {
+    return entry.id.startsWith('admin-dashboard-first-run')
+}
+
 function hasRecordStateSeed(entries) {
     const seededEntryIds = new Set([
-        'admin-dashboard',
         'admin-pages-list',
         'admin-layouts-list',
         'admin-media-list',
@@ -17,6 +20,7 @@ function hasRecordStateSeed(entries) {
     return entries.some(
         (entry) =>
             seededEntryIds.has(entry.id) ||
+            entry.id.startsWith('admin-dashboard') ||
             entry.url?.startsWith('/screenshot-fixtures/record-states/'),
     )
 }
@@ -56,6 +60,15 @@ function frontendSeedCommand(frontendOrigin) {
 
 export function commandsForEntries(entries, frontendOrigin = null) {
     const commands = []
+    const firstRun = entries.filter(isFirstRunEntry)
+
+    // The first-run state undoes the demo install's publish, which every other
+    // capture needs. Mixing them would produce a wrong image for one of the two.
+    if (firstRun.length > 0 && firstRun.length !== entries.length) {
+        throw new Error(
+            'First-run dashboard entries change shared data and must be captured on their own: run them with --only admin-dashboard-first-run and none of the published-state entries.',
+        )
+    }
 
     if (
         entries.some(
@@ -78,6 +91,12 @@ export function commandsForEntries(entries, frontendOrigin = null) {
     if (hasRecordStateSeed(entries)) {
         commands.push(
             'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+        )
+    }
+
+    if (firstRun.length > 0) {
+        commands.push(
+            'Workbench\\App\\Support\\FirstRunDashboardScreenshotFixture::initialize();',
         )
     }
 

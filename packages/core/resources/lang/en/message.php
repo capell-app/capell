@@ -16,6 +16,8 @@ return [
     'visit_requires_http' => 'Use an HTTP or HTTPS URL.',
     'visit_requires_registered_host' => 'Register and enable the destination site domain before retrying.',
     'visit_requires_public_address' => 'The destination must resolve to a public IP address. Check its DNS and network configuration.',
+    'visit_requires_standard_port' => 'The destination must use HTTP or HTTPS on port 80 or 443. Remove the custom port before retrying.',
+    'visit_response_too_large' => 'The page response is larger than 10 MB, so the visit stopped. Reduce the page size before retrying.',
     'redirect_target_control_character' => 'Remove the tab, line break or hidden character from the destination.',
     'redirect_target_protocol_relative' => 'Start a path on this site with a single slash, or enter the full address including https://.',
     'redirect_target_relative_not_allowed' => 'Enter the full address, including https://.',

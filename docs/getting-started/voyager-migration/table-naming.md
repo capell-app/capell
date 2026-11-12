@@ -108,6 +108,6 @@ verified**.
 
 Before any content import, restore the destination backup and naming configuration together. Changing config alone does not rename populated tables.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

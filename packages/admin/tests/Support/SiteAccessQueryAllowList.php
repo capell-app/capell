@@ -46,11 +46,15 @@ final class SiteAccessQueryAllowList
                 'dashboardRecoveryState|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardLayout|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardOptions|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'firstRunChecklistHidden|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'merge|$actor->newQuery()->whereKey($actor->getKey())',
             ],
             // A media file is in use when any content, on any site, references it;
             // counting only the actor's visible sites would let the library trash
             // a file another site still displays.
+            // Existence only, to tell a deleted site from a site the owner may not import into; the
+            // permission check then runs in that site's permission scope.
+            'packages/admin/src/Actions/Transfers/EnsureImportOwnerAdmittedAction.php' => ['handle|' . Site::class . '::query()->whereKey((int) $siteId)->exists()'],
             'packages/admin/src/Actions/Media/RepairMediaHealthAction.php' => ['deleteUnused|$media->assetRelations()->exists()'],
             // Compensation checks the captured primary key for any surviving owner,
             // including a trashed row or an owner outside the actor's current grants.
@@ -62,7 +66,11 @@ final class SiteAccessQueryAllowList
             // Installation readiness is global; an actor with no site grants
             // must not be offered installation for an already installed CMS.
             'packages/admin/src/Filament/Pages/CapellDashboard.php' => ['getWidgets|' . Site::class . '::query()->exists()', 'dashboardEnum|' . Site::class . '::query()->exists()'],
-            'packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php' => ['mount|' . Site::class . '::query()->exists()'],
+            'packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php' => [
+                'mount|' . Site::class . '::query()->exists()',
+                // Filament's Livewire hydrate hook, not Model::hydrate(): it re-authorises the create page on every update.
+                'hydrate|parent::hydrate()',
+            ],
             // The status panel authorises the record through its registered view
             // policy instead of SiteAccess: a shared (no-site) record that a
             // package policy allows for a site editor must stay reachable, and a
@@ -184,6 +192,8 @@ final class SiteAccessQueryAllowList
                 'pageTypeContentStructureUpdated|$this->record->translations',
                 // This is the parent-page relation of the page already resolved through PageResource and authorised by Filament.
                 'resolveRecord|$query->with([\'blueprint\', \'translations.language\'])',
+                // Filament's Livewire hydrate hook, not Model::hydrate(): it re-authorises the editor on every update.
+                'hydrate|parent::hydrate()',
             ],
             'packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php' => [
                 // The caller supplies the scoped PageResource query; translation predicates stay correlated to those pages.

@@ -56,4 +56,20 @@ return [
             'remediation' => 'Check the configured cache service and credentials, then rerun the Capell health checks.',
         ],
     ],
+    'hosting_platform' => [
+        'label' => 'Hosting platform',
+        'platforms' => [
+            'laravel-cloud' => 'Laravel Cloud',
+            'self-managed' => 'a self-managed host',
+        ],
+        'summary' => 'Capell is running on :platform with CAPELL_RELEASE_ROOT_MODE=:mode and QUEUE_CONNECTION=:connection.',
+        'mutable_release_root' => 'CAPELL_RELEASE_ROOT_MODE is mutable on Laravel Cloud. Each deploy resets the filesystem and every replica has its own copy, so anything installed or rebuilt from the admin is lost or reaches only one replica.',
+        'mutable_release_root_remediation' => 'Set CAPELL_RELEASE_ROOT_MODE=immutable and install extensions and build assets in the build commands instead.',
+        'sync_queue' => 'QUEUE_CONNECTION is :connection, which runs every job inside the web request. Slow jobs delay or time out the request that triggered them, and failed jobs are not retried.',
+        'sync_queue_remediation' => 'Use a worker-backed queue connection, such as a managed queue on Laravel Cloud or database or Redis with a running queue worker.',
+        'scheduler_heartbeat_missing' => 'The scheduler has not recorded a heartbeat. Scheduled publishing, pruning and retries do not run while the scheduler is stopped. Capell records a heartbeat every five minutes, so a scheduler started in the last five minutes may not have recorded one yet.',
+        'scheduler_heartbeat_stale' => 'The scheduler last recorded a heartbeat at :time. Scheduled publishing, pruning and retries do not run while the scheduler is stopped.',
+        'scheduler_remediation' => 'Run php artisan schedule:run every minute. On Laravel Cloud, turn on the Scheduler option for the App cluster and redeploy.',
+        'recipe' => 'See :url for the Laravel Cloud recipe.',
+    ],
 ];

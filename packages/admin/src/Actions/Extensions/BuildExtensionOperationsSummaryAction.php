@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Extensions;
 
+use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
@@ -79,6 +80,13 @@ final class BuildExtensionOperationsSummaryAction
     /** @return array{unhealthy: int, blocked: int} */
     public function navigationCounts(): array
     {
+        // Health providers read a fully built package, so with any registered the badge uses the full summary.
+        if (iterator_count(app()->tagged(ExtensionHealthProvider::TAG)) > 0) {
+            $summary = $this->handle();
+
+            return ['unhealthy' => $summary->needsAttentionCount, 'blocked' => $summary->blockedCount];
+        }
+
         $registry = resolve(CapellPackageRegistry::class);
         $extensions = $this->extensions();
         $alerts = $this->healthAlerts();
@@ -133,18 +141,34 @@ final class BuildExtensionOperationsSummaryAction
         $marketplaceAccountConnected = $this->marketplaceAccountConnected();
 
         $manifests = collect($registry->all());
+        $summaryFor = fn (CapellManifestData $manifest, string $packageName, array $providerAlerts = []): ExtensionOperationPackageData => $this->packageSummary(
+            manifest: $manifest,
+            package: $this->package($packageName),
+            extension: $extensions->get($packageName),
+            alerts: $alerts->get($packageName, collect()),
+            marketplaceAccountConnected: $marketplaceAccountConnected,
+            contributions: $registry->contributionsForPackage($packageName),
+            providerAlerts: $providerAlerts,
+        );
         $packages = $manifests
             ->reject(fn (CapellManifestData $manifest, string $packageName): bool => $manifest->visibility === 'support' || $this->package($packageName)?->isSupportPackage() === true)
-            ->mapWithKeys(fn (CapellManifestData $manifest, string $packageName): array => [
-                $packageName => $this->packageSummary(
-                    manifest: $manifest,
-                    package: $this->package($packageName),
-                    extension: $extensions->get($packageName),
-                    alerts: $alerts->get($packageName, collect()),
-                    marketplaceAccountConnected: $marketplaceAccountConnected,
-                    contributions: $registry->contributionsForPackage($packageName),
-                ),
-            ]);
+            ->mapWithKeys(fn (CapellManifestData $manifest, string $packageName): array => [$packageName => $summaryFor($manifest, $packageName)]);
+
+        // Providers read the built package, so a package they raise alerts for is built again with those alerts
+        // folded in before its health state, attention reasons and risk score are worked out.
+        $packages = $packages->map(function (ExtensionOperationPackageData $package, string $packageName) use ($manifests, $summaryFor): ExtensionOperationPackageData {
+            $providerAlerts = ResolveExtensionProviderAlertsAction::run($package);
+
+            if ($providerAlerts === []) {
+                return $package;
+            }
+
+            $manifest = $manifests->get($packageName);
+
+            return $manifest instanceof CapellManifestData
+                ? $summaryFor($manifest, $packageName, $providerAlerts)
+                : $package->withHealthAlerts([...$package->healthAlerts, ...$providerAlerts]);
+        });
 
         $driftedExtensions = $this->composerDriftedExtensions($extensions);
 
@@ -153,7 +177,9 @@ final class BuildExtensionOperationsSummaryAction
                 continue;
             }
 
-            $packages->put($extension->composer_name, $this->driftedPackageSummary($extension));
+            $drifted = $this->driftedPackageSummary($extension);
+            $driftedProviderAlerts = ResolveExtensionProviderAlertsAction::run($drifted);
+            $packages->put($extension->composer_name, $driftedProviderAlerts === [] ? $drifted : $drifted->withHealthAlerts([...$drifted->healthAlerts, ...$driftedProviderAlerts]));
         }
 
         $alertRecords = array_values($packages
@@ -177,6 +203,7 @@ final class BuildExtensionOperationsSummaryAction
     /**
      * @param  Collection<int, ExtensionHealthAlert>  $alerts
      * @param  list<ExtensionContributionData>  $contributions
+     * @param  list<ExtensionHealthAlertData>  $providerAlerts
      */
     private function packageSummary(
         CapellManifestData $manifest,
@@ -185,6 +212,7 @@ final class BuildExtensionOperationsSummaryAction
         Collection $alerts,
         bool $marketplaceAccountConnected,
         array $contributions,
+        array $providerAlerts = [],
     ): ExtensionOperationPackageData {
         $tier = $this->normaliseState($package?->getTier() ?? $manifest->tier, 'free');
         $requestedCertificationStatus = $package instanceof PackageData
@@ -212,6 +240,8 @@ final class BuildExtensionOperationsSummaryAction
         $runtimeStatus = $this->runtimeStatus($extension, $runtimeGate?->reason);
         $managementEntries = $this->managementEntries($contributions);
         $marketplaceAlerts = $this->healthAlertRecords($alerts, $managementEntries);
+        $marketplaceAlerts = [...$marketplaceAlerts, ...$providerAlerts];
+
         $healthAlerts = $marketplaceAlerts;
         $providerRecoveryAlert = $this->providerRecoveryAlert($extension);
 
@@ -791,8 +821,10 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         $lastRepairAttempt = ComposerDriftMetadata::lastRepairAttempt($extension);
+        // The message is for editors; the Composer package name stays in the developer detail.
+        $displayName = is_string($extension->name) && trim($extension->name) !== '' ? trim($extension->name) : (string) __('capell-admin::dashboard.extension_unnamed');
         $message = (string) __('capell-admin::dashboard.extension_composer_drift_message', [
-            'package' => $packageName,
+            'package' => $displayName,
             'reason' => (string) __('capell-admin::dashboard.extension_composer_drift_reason_' . $reason),
         ]);
 
@@ -810,6 +842,7 @@ final class BuildExtensionOperationsSummaryAction
             requiredAction: (string) __('capell-admin::dashboard.extension_composer_drift_required_action'),
             runtimeDisabled: true,
             protectedActionsBlocked: true,
+            developerDetail: (string) __('capell-admin::dashboard.extension_composer_drift_developer_detail', ['package' => $packageName]),
         );
     }
 

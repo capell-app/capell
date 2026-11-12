@@ -82,7 +82,7 @@ Use query counts or strict lazy-loading tests for the code path you changed.
 - Cached page models may already include `blueprint`; ad hoc models in tests or package code may not.
 - `LazyLoadedSiteContext` does not cache individual relations. Once `site()` is called, it stores the fully loaded `Site` object.
 
-## Related
+## Related guides
 
 - [Frontend Page And Site Loading](../../packages/frontend/docs/page-site-loading.md)
 - [Fragment caching](fragment-caching.md)

@@ -6,10 +6,12 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecMediaData;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Capell\Core\Support\CapellSiteSpecConstraints;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -96,14 +98,15 @@ final class FetchSiteSpecMediaAction
         throw_unless($this->origin($url) === $sourceOrigin, RuntimeException::class, sprintf('Remote media URL [%s] is outside the declared source origin.', $safeUrl));
 
         $urlParts = $this->urlParts($url);
-        $addresses = $this->resolvePublicAddresses($urlParts['host']);
         $remainingBytes = CapellSiteSpecConstraints::MAX_MEDIA_TOTAL_BYTES - $totalBytes;
 
         throw_if($remainingBytes <= 0, RuntimeException::class, 'The site spec media total exceeds the allowed download budget.');
 
         $maxBytes = min(CapellSiteSpecConstraints::MAX_MEDIA_FILE_BYTES, $remainingBytes);
         try {
-            $response = $this->request($url, $urlParts['host'], $urlParts['port'], $addresses[0]);
+            $response = $this->request($url, $urlParts['port'], $maxBytes);
+        } catch (OutboundRequestRefusedException $outboundRequestRefusedException) {
+            throw $outboundRequestRefusedException;
         } catch (Throwable $throwable) {
             throw new RuntimeException(sprintf('Remote media URL [%s] could not be fetched.', $safeUrl), $throwable->getCode(), previous: $throwable);
         }
@@ -149,27 +152,15 @@ final class FetchSiteSpecMediaAction
         }
     }
 
-    private function request(string $url, string $host, int $port, string $address): Response
+    private function request(string $url, int $port, int $maxBytes): Response
     {
-        throw_unless(defined('CURLOPT_RESOLVE'), RuntimeException::class, 'The cURL extension is required for SSRF-safe site spec media imports.');
-
-        /** @var array<string, mixed> $options */
-        $options = [
-            'allow_redirects' => false,
-            'stream' => true,
-        ];
-
-        $curlResolveOption = constant('CURLOPT_RESOLVE');
-        $resolvedAddress = str_contains($address, ':') ? '[' . $address . ']' : $address;
-        $options['curl'] = [
-            $curlResolveOption => [sprintf('%s:%d:%s', $host, $port, $resolvedAddress)],
-        ];
-
-        return Http::accept('image/*')
+        return OutboundHttp::guarded(new OutboundHttpPolicy(
+            schemes: ['https'],
+            ports: [$port],
+            maxBytes: $maxBytes,
+        ))
+            ->accept('image/*')
             ->withUserAgent('Capell-SiteSpec-Importer/1.0')
-            ->connectTimeout(5)
-            ->timeout(15)
-            ->withOptions($options)
             ->get($url);
     }
 
@@ -285,50 +276,6 @@ final class FetchSiteSpecMediaAction
         throw_unless($port >= 1 && $port <= 65535, RuntimeException::class, 'A site spec media URL contains an invalid port.');
 
         return ['host' => $host, 'port' => $port];
-    }
-
-    /** @return non-empty-list<string> */
-    private function resolvePublicAddresses(string $host): array
-    {
-        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            $addresses = [$host];
-        } else {
-            $records = @dns_get_record($host, DNS_A | DNS_AAAA);
-            $addresses = [];
-
-            if (is_array($records)) {
-                foreach ($records as $record) {
-                    $address = $record['ip'] ?? $record['ipv6'] ?? null;
-
-                    if (is_string($address)) {
-                        $addresses[] = $address;
-                    }
-                }
-            }
-
-            if ($addresses === []) {
-                $ipv4Addresses = @gethostbynamel($host);
-                $addresses = is_array($ipv4Addresses) ? $ipv4Addresses : [];
-            }
-        }
-
-        $addresses = array_values(array_unique($addresses));
-
-        throw_if($addresses === [], RuntimeException::class, sprintf('Remote media host [%s] could not be resolved.', $host));
-
-        foreach ($addresses as $address) {
-            throw_unless($this->isPublicAddress($address), RuntimeException::class, sprintf('Remote media host [%s] resolves to a non-public address.', $host));
-        }
-
-        /** @var non-empty-list<string> $addresses */
-        return $addresses;
-    }
-
-    private function isPublicAddress(string $address): bool
-    {
-        $validatedAddress = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE);
-
-        return is_string($validatedAddress) && $validatedAddress === $address;
     }
 
     private function safeUrlLabel(string $url): string

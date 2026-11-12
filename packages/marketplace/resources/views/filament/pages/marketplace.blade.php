@@ -8,11 +8,8 @@
             class="flex flex-col gap-4 border-b border-gray-200 pb-5 md:flex-row md:items-end md:justify-between dark:border-white/10"
         >
             <div class="min-w-0">
-                <p class="text-xs font-semibold tracking-wide text-blue-600 uppercase dark:text-blue-400">
-                    {{ __('capell-marketplace::marketplace.page.eyebrow') }}
-                </p>
                 <h1
-                    class="mt-1 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white"
+                    class="text-2xl font-semibold tracking-tight text-gray-950 dark:text-white"
                 >
                     {{ __('capell-marketplace::marketplace.page.heading') }}
                 </h1>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Actions\Pages\IssuePagePreviewTokenAction;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
@@ -73,17 +74,33 @@ final class InstalledPanelRuntimePublicListTest extends AdminTestCase
             ->assertDontSee(self::BODY);
     }
 
-    /** Preview links are public only because the URL signature is the credential. */
-    public function test_declared_public_previews_still_require_their_signature(): void
+    /** A preview link is not public: its signature proves the link was issued, and the viewer still signs in to the panel. */
+    public function test_previews_run_under_the_panels_sign_in_package_security_and_their_signature(): void
     {
         foreach (['capell.admin.preview-page', 'capell.admin.theme-preview'] as $name) {
             $route = Route::getRoutes()->getByName($name);
             $this->assertInstanceOf(\Illuminate\Routing\Route::class, $route);
-            $this->assertContains(ValidateSignature::class, resolve(Router::class)->gatherRouteMiddleware($route));
+            $middleware = resolve(Router::class)->gatherRouteMiddleware($route);
+            $this->assertContains(Authenticate::class, $middleware);
+            $this->assertContains(ValidateSignature::class, $middleware);
         }
 
         $page = Page::factory()->createOne();
-        $this->get(route('capell.admin.preview-page', ['page' => $page]))->assertForbidden()->assertDontSee(PackageSecurityDenyMiddleware::BODY);
+        $signed = IssuePagePreviewTokenAction::run($page);
+        $unsigned = route('capell.admin.preview-page', ['page' => $page]);
+        $signIn = route('filament.admin.auth.login');
+
+        // Signed out, even a validly signed link is sent to the panel sign-in rather than served.
+        $this->get($unsigned)->assertRedirect($signIn);
+        $this->get($signed)->assertRedirect($signIn);
+        $this->get($signed . 'x')->assertRedirect($signIn);
+
+        // Signed in, the panel's package security applies to previews like every other panel route.
+        $this->actingAsAdmin();
+
+        foreach ([$signed, $unsigned, $signed . 'x'] as $url) {
+            $this->get($url)->assertForbidden()->assertSee(PackageSecurityDenyMiddleware::BODY);
+        }
     }
 
     public function test_public_framework_actions_in_guest_groups_stay_public_after_resynchronisation(): void

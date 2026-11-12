@@ -29,7 +29,7 @@ The July 2026 standards inventory covered the following surfaces before rules we
 
 Not every majority is safe to enforce retroactively. Only about 64% of Actions are final, and enum names are split between semantic names and an `Enum` suffix. New code follows the defaults below, while existing extension and compatibility surfaces remain unchanged until a dedicated migration is justified.
 
-## PHP style beyond Pint
+## PHP style rules Pint does not enforce
 
 ### Strict types and declarations
 

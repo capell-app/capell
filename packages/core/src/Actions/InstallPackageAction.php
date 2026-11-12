@@ -16,6 +16,7 @@ use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Exceptions\ExtensionVerificationFailedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Components\ComponentRegistry;
+use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
@@ -45,11 +46,28 @@ class InstallPackageAction
         bool $freshLifecycleProcess = false,
     ): void {
         resolve(InstalledRuntimeLifecycle::class)->assertCanActivate($package->name);
+
+        if (self::activationPending($package)) {
+            // The lifecycle work finished on an earlier attempt and only the
+            // activation failed; repeating migrations or the install action
+            // could duplicate their effects, so finish the activation alone.
+            self::activate($package);
+            RestartQueueWorkersAction::run();
+
+            return;
+        }
+
         self::install($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
         RestartQueueWorkersAction::run();
         if (config('capell.multi_node', false) === true || is_string(config('octane.server'))) {
             $reporter?->report(__('capell-core::runtime-refresh.retained_reload_required'));
         }
+    }
+
+    public static function activationPending(PackageData $package): bool
+    {
+        return CapellCore::isPackageInstalled($package->name)
+            && resolve(ExtensionLifecycleRepository::class)->isActivationPending($package->name);
     }
 
     /** @param array<string, mixed> $arguments */
@@ -128,17 +146,30 @@ class InstallPackageAction
 
                     CapellCore::markPackageInstalled($package->name);
                     self::registerInstalledPackageProviders($package);
+                    resolve(ExtensionLifecycleRepository::class)->markActivationPending($package->name, true);
                 },
             );
         } catch (Throwable $throwable) {
             CapellCore::markPackageFailed($package->name, $throwable->getMessage());
+            resolve(ExtensionLifecycleRepository::class)->markActivationPending($package->name, false);
 
             throw $throwable;
         }
 
+        self::activate($package);
+    }
+
+    /**
+     * Refreshes the component cache, then tells subscribers and listeners the
+     * package is installed. The pending marker is cleared only once all of it
+     * has succeeded, so a failure here leaves the package retryable.
+     */
+    private static function activate(PackageData $package): void
+    {
         resolve(ComponentRegistry::class)->clearCachedComponentsOrFail();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
+        resolve(ExtensionLifecycleRepository::class)->markActivationPending($package->name, false);
     }
 
     /**
@@ -177,6 +208,11 @@ class InstallPackageAction
             foreach ($bundle->getRequirements() as $memberName) {
                 $member = CapellCore::getPackage($memberName);
                 if ($member->isInstalled()) {
+                    // A member whose earlier activation failed finishes it now.
+                    if (self::activationPending($member)) {
+                        self::activate($member);
+                    }
+
                     continue;
                 }
 

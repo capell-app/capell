@@ -140,6 +140,6 @@ received only an allow-listed environment.
 
 Restore the destination database and release together. Keep the source and its files unchanged; do not remove source tables as part of installation.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

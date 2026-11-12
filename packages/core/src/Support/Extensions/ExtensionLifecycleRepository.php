@@ -17,6 +17,8 @@ use Throwable;
 
 final class ExtensionLifecycleRepository
 {
+    public const string ACTIVATION_PENDING_KEY = 'activation_pending';
+
     /** @var array<string, ExtensionStatusEnum|null> */
     private array $statusCache = [];
 
@@ -191,6 +193,51 @@ final class ExtensionLifecycleRepository
                 'metadata' => array_merge($existingMetadata, $this->packageMetadata($package), $metadata),
             ],
         );
+    }
+
+    /**
+     * Records that an installed extension has not finished activating: its
+     * lifecycle work is done, but the component cache refresh, installed
+     * notifications or event have not all completed. A retried install runs
+     * only that activation, never the lifecycle work again.
+     */
+    public function markActivationPending(string $name, bool $pending): void
+    {
+        if (! $this->writableTableExists()) {
+            return;
+        }
+
+        $extension = CapellExtension::query()->where('composer_name', $name)->first();
+
+        if (! $extension instanceof CapellExtension) {
+            return;
+        }
+
+        $metadata = is_array($extension->metadata) ? $extension->metadata : [];
+
+        if ($pending) {
+            $metadata[self::ACTIVATION_PENDING_KEY] = true;
+        } else {
+            unset($metadata[self::ACTIVATION_PENDING_KEY]);
+        }
+
+        $extension->forceFill(['metadata' => $metadata])->save();
+        unset($this->recordCache[$name]);
+    }
+
+    public function isActivationPending(string $name): bool
+    {
+        if (! $this->tableExists()) {
+            return false;
+        }
+
+        $metadata = CapellExtension::query()->where('composer_name', $name)->value('metadata');
+
+        if (is_string($metadata)) {
+            $metadata = json_decode($metadata, true);
+        }
+
+        return is_array($metadata) && ($metadata[self::ACTIVATION_PENDING_KEY] ?? false) === true;
     }
 
     public function delete(string $name): void

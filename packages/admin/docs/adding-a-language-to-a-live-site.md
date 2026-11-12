@@ -144,7 +144,7 @@ When you do turn it on, the banner mode is the safer choice. It suggests rather 
 5. Translate the interface strings separately, with Translation Manager or by adding language files.
 6. Only then consider turning on visitor language detection.
 
-## Further Reading
+## Related guides
 
 - [Admin Multi-Language](admin-multi-language.md) — Languages CRUD, the translations repeater, admin interface language
 - [Multi-site and Multi-lingual](../../core/docs/multi-site-multi-lingual.md) — URL structure, hreflang, sitemaps, locale and the HTML cache

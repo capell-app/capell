@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanData;
@@ -41,7 +42,7 @@ final class PlanSiteSpecAction
 
         foreach ($spec->pages as $pageSpec) {
             $match = $existing[SiteSpecPageSlug::for($pageSpec)] ?? null;
-            $items[] = $this->pageItem($pageSpec, $match['page'] ?? null, $match['translation'] ?? null, $spec->initialVisibility === 'private');
+            $items[] = $this->pageItem($pageSpec, $match['page'] ?? null, $match['translation'] ?? null, $spec->initialVisibility === 'private', $site);
         }
 
         $themeItem = $site instanceof Site ? $this->themeItem($spec, $site) : null;
@@ -86,7 +87,7 @@ final class PlanSiteSpecAction
         return $pages;
     }
 
-    private function pageItem(CapellSiteSpecPageData $pageSpec, ?Page $page, ?Translation $translation, bool $privateSpec): SiteSpecPlanItemData
+    private function pageItem(CapellSiteSpecPageData $pageSpec, ?Page $page, ?Translation $translation, bool $privateSpec, ?Site $site): SiteSpecPlanItemData
     {
         if (! $page instanceof Page || ! $translation instanceof Translation) {
             return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Create);
@@ -104,6 +105,11 @@ final class PlanSiteSpecAction
 
         // A private spec must not push its copy onto a page that is live or scheduled.
         if ($privateSpec && ! PublishSentinel::isDraftValue($page->visible_from)) {
+            // Guided setup writes the person's home page over the placeholder when they publish.
+            if ($site instanceof Site && Page::query()->homePage()->whereKey($page->getKey())->exists() && ResolveGuidedSetupStateAction::isPlaceholderHome($site, $page)) {
+                return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip, $changes, SiteSpecPlanItemData::NOTE_PLACEHOLDER_HOME_KEPT);
+            }
+
             return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip, $changes, SiteSpecPlanItemData::NOTE_LIVE_PAGE_HELD);
         }
 

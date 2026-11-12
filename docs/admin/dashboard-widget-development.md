@@ -24,7 +24,7 @@ The full API — dashboard buckets, built-in widgets, overview stats, settings s
 | Add widgets to resource or page surfaces    | [Admin extensions](../packages/admin-extensions.md)                |
 | Add a frontend Layout Builder widget        | [Frontend widget registration](../frontend/widget-registration.md) |
 
-## Next
+## Related guides
 
 - [Dashboard Widgets: Programmatic API](../../packages/admin/docs/dashboard-widget-customization.md)
 - [Admin Dashboard Widgets](dashboard-widgets.md)

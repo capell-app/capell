@@ -12,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Testing\TestResponse;
 
 /**
  * Rules with one scheduled transition: $schedule->at is the moment, null for
@@ -165,3 +166,27 @@ it('gives browsers an explicit lifetime when only shared caches were given one',
         ->and($directives)->toHaveKey('max-age')
         ->and($directives['max-age'])->toBeLessThanOrEqual(120);
 });
+
+it('never answers a no-store preview response with 304, whatever validators the client sends', function (Closure $conditionalHeaders): void {
+    responseCachingRules();
+    Route::get('/response-caching-preview', static function (): ResponseFactory|Response {
+        resolve(PublicPageReadEligibilityRegistry::class)->allowsMany([new PublicPageReadCandidateData(url: 'https://example.test/draft', siteId: 7)]);
+
+        return response('{"draft":true}', 200, [
+            'Content-Type' => 'application/json',
+            'Cache-Control' => 'private, no-store',
+            'Last-Modified' => CarbonImmutable::now()->subYear()->toRfc7231String(),
+        ]);
+    });
+
+    $first = $this->get('/response-caching-preview?token=preview-token')->assertOk();
+    $repeat = $this->get('/response-caching-preview?token=preview-token', $conditionalHeaders($first));
+
+    $repeat->assertOk();
+    expect($repeat->getContent())->toBe('{"draft":true}')
+        ->and($first->headers->get('ETag'))->toBeNull()
+        ->and(responseCachingDirectives((string) $repeat->headers->get('Cache-Control')))->toHaveKey('no-store');
+})->with([
+    'If-None-Match wildcard' => [static fn (TestResponse $first): array => ['If-None-Match' => '*']],
+    'If-Modified-Since after the last change' => [static fn (TestResponse $first): array => ['If-Modified-Since' => CarbonImmutable::now()->toRfc7231String()]],
+]);

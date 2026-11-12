@@ -17,6 +17,16 @@ Use the words the intended reader uses for the task. Explain necessary technical
 
 For example, instead of “A valid, unexpired operator bootstrap secret is required. Ask the server operator to configure a new grant”, use: “To protect your site, enter a temporary access code before starting the installer.” Follow it with: “Need a code? Ask the person who manages your server. If that is you, follow the instructions to create one.” Link directly to those instructions.
 
+## Write headings that inform
+
+These rules apply to interface text, documentation and marketing copy.
+
+- No eyebrow labels or kickers above headings, in copy or in CMS schemas.
+- Number sections only when order matters (steps, sequences); never "01 / 02" decoration.
+- No rhythmic or contrasting title formulas ("Hard to describe. Easy to recognise."), metaphorical headings or slogans ("Built for teams that ship", "Unlock your potential").
+- No vague headings ("A closer look", "Why it matters"); name what the section says, like an email subject line.
+- Be concrete enough that the copy could not describe another product; let the facts carry the interest instead of manufactured drama.
+
 ## Check the complete interaction
 
 1. Read the heading, labels, help, button and result together. Remove repeated explanations and make the consequence of the action clear before it is taken.

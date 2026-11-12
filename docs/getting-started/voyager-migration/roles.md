@@ -44,6 +44,6 @@ role against every admin index and edit page, not only the dashboard.
 
 Keep role and permission before-images with the global session. Restore assignments before reopening admin access, and confirm an independent administrator can still sign in.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

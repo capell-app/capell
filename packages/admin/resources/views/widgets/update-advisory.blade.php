@@ -5,11 +5,8 @@
                 class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
             >
                 <div>
-                    <p class="text-danger-700 dark:text-danger-300 text-sm font-semibold tracking-wide uppercase">
-                        {{ __('capell-admin::dashboard.update_advisory_eyebrow') }}
-                    </p>
                     <h2
-                        class="mt-1 text-base font-semibold text-gray-950 dark:text-white"
+                        class="text-base font-semibold text-gray-950 dark:text-white"
                     >
                         {{ __('capell-admin::dashboard.update_advisory_title') }}
                     </h2>

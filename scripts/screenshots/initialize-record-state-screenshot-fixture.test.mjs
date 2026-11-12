@@ -37,6 +37,38 @@ test('selects the frontend fixture for a mobile dark published page', () => {
     )
 })
 
+test('puts the install in its first-run state only for a run of first-run dashboard entries', () => {
+    const firstRun = [
+        { id: 'admin-dashboard-first-run' },
+        { id: 'admin-dashboard-first-run-dark' },
+        { id: 'admin-dashboard-first-run-mobile' },
+    ]
+
+    assert.ok(
+        commandsForEntries(firstRun).includes(
+            'Workbench\\App\\Support\\FirstRunDashboardScreenshotFixture::initialize();',
+        ),
+    )
+    for (const id of ['admin-dashboard', 'admin-dashboard-mobile-dark']) {
+        assert.ok(
+            !commandsForEntries([{ id }]).some((command) =>
+                command.includes('FirstRunDashboardScreenshotFixture'),
+            ),
+        )
+    }
+})
+
+test('refuses to mix first-run entries with published-state entries', () => {
+    assert.throws(
+        () =>
+            commandsForEntries([
+                { id: 'admin-dashboard-first-run' },
+                { id: 'admin-dashboard' },
+            ]),
+        /must be captured on their own/,
+    )
+})
+
 test('selects the record-state fixture for documentation aliases', () => {
     for (const id of [
         'docs-media-edit-focal-point',

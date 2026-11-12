@@ -125,7 +125,7 @@ Check that:
 2. The settings group name in migration matches Settings class `group()`
 3. Database `settings` table has the records
 
-## Next
+## Related guides
 
 - [Development](index.md)
 - [Actions, Data, and Settings](../packages/data-actions-settings.md)

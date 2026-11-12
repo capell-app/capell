@@ -27,6 +27,9 @@ final class NeedsAttentionFilamentWidget extends Widget implements CapellFilamen
 
     protected int|string|array $columnSpan = 'full';
 
+    /** Renders with the page so the dashboard never shows an empty placeholder card while it loads. */
+    protected static bool $isLazy = false;
+
     #[Override]
     public static function canView(): bool
     {

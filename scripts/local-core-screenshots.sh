@@ -7,6 +7,7 @@ ENV_FILE="${REPOSITORY_ROOT}/.env.deploy.local"
 DRY_RUN=false
 REUSE_APP=false
 SKIP_INSTALL=false
+KEEP_WORKBENCH=false
 ONLY_ARGS=()
 ONLY_ARG_COUNT=0
 
@@ -21,6 +22,8 @@ Options:
   --dry-run            Validate manifests without preparing or capturing.
   --reuse-app          Reuse an already-running Testbench workbench.
   --skip-install       Use the installed node_modules instead of running npm ci.
+  --keep-workbench     Leave the prepared Testbench skeleton in place for --reuse-app runs.
+                       Restore it afterwards with: npm run screenshots:restore
   -h, --help           Show this help.
 USAGE
 }
@@ -47,6 +50,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --reuse-app)
             REUSE_APP=true
+            shift
+            ;;
+        --keep-workbench)
+            KEEP_WORKBENCH=true
             shift
             ;;
         --skip-install)
@@ -104,6 +111,11 @@ if [[ "${SKIP_INSTALL}" == false ]]; then
 fi
 
 if [[ "${REUSE_APP}" == false ]]; then
+    # Preparation rewrites the shared Testbench skeleton, which tests and static
+    # analysis in this checkout also boot from. Put it back when the run ends.
+    if [[ "${KEEP_WORKBENCH}" == false ]]; then
+        trap 'bash scripts/screenshots/testbench-skeleton.sh restore' EXIT
+    fi
     bash scripts/screenshots/prepare-workbench.sh
 else
     # Reusing an app skips prepare-workbench.sh, and a composer install since the

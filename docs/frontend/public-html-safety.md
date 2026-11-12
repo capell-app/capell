@@ -148,7 +148,7 @@ it('keeps cached html identical to anonymous-safe output', function (): void {
 });
 ```
 
-## Next
+## Related guides
 
 - [Frontend](index.md)
 - [Debugging public output](debugging-public-output.md)

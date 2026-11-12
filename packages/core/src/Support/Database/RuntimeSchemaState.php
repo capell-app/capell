@@ -254,7 +254,14 @@ final class RuntimeSchemaState
     {
         try {
             $names = $this->sharedTableNames();
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            // Reported once for the request: every table is probed on its own from here, which
+            // costs a query each, and the listing is not retried until the schema is forgotten.
+            Log::warning('Capell runtime schema listing failed; probing each table on its own.', [
+                'exception' => $throwable::class,
+                'reason' => $throwable->getMessage(),
+            ]);
+
             return false;
         }
 

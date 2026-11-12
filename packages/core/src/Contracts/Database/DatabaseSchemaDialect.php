@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts\Database;
 
+use Capell\Core\Data\Database\ColumnComparison;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
@@ -27,6 +28,8 @@ interface DatabaseSchemaDialect
     public function hasTrigger(string $trigger, Connection $connection): bool;
 
     public function isColumnCaseInsensitive(string $table, string $column, Connection $connection): bool;
+
+    public function columnComparison(string $table, string $column, Connection $connection): ColumnComparison;
 
     public function hasForeignKeyReference(
         string $table,

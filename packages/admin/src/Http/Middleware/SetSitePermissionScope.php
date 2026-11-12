@@ -93,7 +93,8 @@ class SetSitePermissionScope
                 return (int) $parameter->getKey();
             }
 
-            if ($parameter instanceof Model) {
+            // A model without a site (a theme, say) says nothing about the scope.
+            if ($parameter instanceof Model && $parameter->hasAttribute('site_id')) {
                 $siteId = $parameter->getAttribute('site_id');
                 if ($siteId !== null) {
                     return (int) $siteId;

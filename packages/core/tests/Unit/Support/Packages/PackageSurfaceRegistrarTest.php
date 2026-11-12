@@ -248,3 +248,14 @@ it('receipts built-in backed enum component batches with foundation ownership', 
             static fn (object $receipt): bool => ! $receipt->foundationBuiltIn,
         ))->toBe([]);
 });
+
+it('closes the package-install window when the install lifecycle throws', function (): void {
+    $registrar = resolve(PackageSurfaceRegistrar::class);
+
+    expect(fn (): mixed => $registrar->duringPackageInstallation(function () use ($registrar): never {
+        expect($registrar->isInstallingPackages())->toBeTrue();
+
+        throw new RuntimeException('Install step failed.');
+    }))->toThrow(RuntimeException::class, 'Install step failed.')
+        ->and($registrar->isInstallingPackages())->toBeFalse();
+});

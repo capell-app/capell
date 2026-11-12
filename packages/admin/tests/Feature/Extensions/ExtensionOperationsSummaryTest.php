@@ -14,6 +14,7 @@ use Capell\Admin\Contracts\Extensions\ExtensionHealthProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
 use Capell\Admin\Data\Extensions\ExtensionDependencyBlockData;
+use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
 use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Data\Extensions\ExtensionRuntimeCompatibilityData;
 use Capell\Admin\Data\Extensions\ExtensionUpdateReadinessData;
@@ -39,6 +40,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Route;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\Process\Process;
 
@@ -511,8 +513,61 @@ it('alerts when composer exposes a different extension version than the capell r
         ->and($package->needsAttention)->toBeTrue()
         ->and($alert?->message)->toContain('different from the version Capell last recorded');
 
+    test()->actingAsAdmin();
     $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
-    expect($html)->toContain('different from the version Capell last recorded', 'Ask a developer')->not->toContain('Check its licence and activation in Marketplace');
+    expect($html)->toContain('Version Drift needs attention', 'different from the version Capell last recorded', 'Ask your developer to repair this extension')
+        ->not->toContain('Check its licence and activation in Marketplace');
+
+    // The command and Composer package name are for developers, so they sit behind the disclosure only.
+    $plain = preg_replace('#<details\b.*?</details>#s', '', $html);
+    $disclosure = preg_match('#<details\b.*?</details>#s', $html, $matches) === 1 ? $matches[0] : '';
+    expect($plain)->not->toContain('artisan')
+        ->and($plain)->not->toContain('needs attention: vendor/version-drift')
+        ->and($disclosure)->toContain(__('capell-admin::dashboard.extension_developer_detail'), 'php artisan capell:extensions:repair-composer-drift vendor/version-drift');
+
+    $widget = Livewire::test(ExtensionHealthFilamentWidget::class)->html();
+    $widgetPlain = preg_replace('#<details\b.*?</details>#s', '', $widget);
+
+    expect($widget)->toContain('Ask your developer to repair this extension', __('capell-admin::dashboard.extension_developer_detail'), 'repair-composer-drift vendor/version-drift')
+        ->and($widgetPlain)->not->toContain('artisan');
+
+    // Someone who cannot manage extensions gets the plain explanation without the developer detail.
+    test()->actingAsUser();
+    $limited = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+
+    expect($limited)->toContain('Version Drift needs attention', 'Ask your developer to repair this extension')
+        ->not->toContain('<details')
+        ->not->toContain(__('capell-admin::dashboard.extension_developer_detail'))
+        ->not->toContain('repair-composer-drift');
+});
+
+it('names an unnamed drifting extension neutrally and keeps its package name for developers', function (): void {
+    registerOperationsSummaryManifest('vendor/unnamed-drift', ['version' => '2.0.0']);
+    app()->instance(InstalledExtensionRepository::class, new class
+    {
+        public function isAvailable(string $composerName, ?string $path = null): bool
+        {
+            return true;
+        }
+
+        public function version(string $composerName): string
+        {
+            return '2.0.0';
+        }
+    });
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/unnamed-drift',
+        'name' => '',
+        'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled,
+        'installed_at' => now(),
+    ]);
+
+    $alert = BuildExtensionOperationsSummaryAction::run()->package('vendor/unnamed-drift')?->healthAlerts[0] ?? null;
+
+    expect($alert?->message)->toStartWith(__('capell-admin::dashboard.extension_unnamed') . ' needs attention')
+        ->not->toContain('vendor/unnamed-drift')
+        ->and($alert?->developerDetail)->toContain('vendor/unnamed-drift');
 });
 
 it('records successful composer drift repair metadata and clears extension caches', function (): void {
@@ -1311,4 +1366,72 @@ it('shows readable guidance for marketplace action codes in extension details', 
         ->toContain('Update the extension')
         ->toContain('Review this alert and contact the extension provider')
         ->not->toContain('verify_site_or_buy_licence')->not->toContain('unknown_action_code');
+});
+
+it('shows a provider-raised alert in the summary and details, and names the extension and recovery action in the widget', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/provider-alert', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/provider-alert', 'name' => 'Provider Alert Pack', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    app()->instance('testing.provider-alert-provider', new class implements ExtensionHealthProvider
+    {
+        public function alerts(ExtensionOperationPackageData $package): array
+        {
+            return $package->packageName === 'vendor/provider-alert'
+                ? [new ExtensionHealthAlertData(
+                    id: 'provider-alert-1',
+                    packageName: $package->packageName,
+                    severity: 'warning',
+                    category: 'provider',
+                    title: 'Search index is behind',
+                    message: 'The search index has not been rebuilt for two days.',
+                    requiredAction: 'update_extension',
+                )]
+                : [];
+        }
+    });
+    app()->tag(['testing.provider-alert-provider'], ExtensionHealthProvider::TAG);
+
+    $package = BuildExtensionOperationsSummaryAction::run()->package('vendor/provider-alert');
+    $details = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+    $widget = Livewire::test(ExtensionHealthFilamentWidget::class)->html();
+
+    expect(collect($package->healthAlerts)->pluck('id')->all())->toContain('provider-alert-1')
+        ->and($details)->toContain('Search index is behind')
+        ->and($widget)->toContain('Search index is behind', 'Provider Alert Pack', __('capell-admin::generic.extension_alert_action_update_extension'))
+        ->and($widget)->not->toContain('vendor/provider-alert')
+        ->and($widget)->not->toContain('update_extension');
+});
+
+it('counts a critical provider alert toward needs-attention and the navigation badge, and keeps the raw failure text for developers', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/provider-critical', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/provider-critical', 'name' => 'Provider Critical', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    registerOperationsSummaryManifest('vendor/provider-throws', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/provider-throws', 'name' => 'Provider Throws', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    app()->instance('testing.provider-critical-provider', new class implements ExtensionHealthProvider
+    {
+        public function alerts(ExtensionOperationPackageData $package): array
+        {
+            throw_if($package->packageName === 'vendor/provider-throws', RuntimeException::class, 'secret stack detail 7731');
+
+            return $package->packageName === 'vendor/provider-critical'
+                ? [new ExtensionHealthAlertData(id: 'provider-critical-1', packageName: $package->packageName, severity: 'critical', category: 'provider', title: 'Index is corrupt', message: 'Rebuild the index.', requiredAction: 'review')]
+                : [];
+        }
+    });
+    app()->tag(['testing.provider-critical-provider'], ExtensionHealthProvider::TAG);
+
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $critical = $summary->package('vendor/provider-critical');
+    $throws = $summary->package('vendor/provider-throws');
+    test()->actingAsUser();
+    $limited = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $throws->toRecord()])->render();
+
+    expect($critical->needsAttention)->toBeTrue()
+        ->and($critical->healthState)->toBe('critical')
+        ->and($critical->attentionReasons)->toContain(ExtensionAttentionReason::CriticalAlert)
+        ->and($summary->needsAttentionCount)->toBeGreaterThanOrEqual(1)
+        ->and(BuildExtensionOperationsSummaryAction::make()->navigationCounts()['unhealthy'])->toBe($summary->needsAttentionCount)
+        ->and($limited)->not->toContain('secret stack detail 7731')
+        ->and($throws->healthAlerts[0]->developerDetail)->toBe('secret stack detail 7731');
 });

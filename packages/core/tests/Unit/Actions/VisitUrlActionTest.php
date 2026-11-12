@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\VisitUrlAction;
+use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Events\UrlVisitFailed;
 use Capell\Core\Exceptions\UrlVisitFailedException;
 use Capell\Core\Models\Language;
@@ -135,15 +136,67 @@ it('propagates transport failures to visit callers', function (): void {
         ->toThrow(ConnectionException::class);
 });
 
-it('pins the vetted address for registered host fetches', function (): void {
-    $action = new VisitUrlAction;
-    $method = new ReflectionMethod($action, 'pinnedDnsOptions');
+it('checks a registered host name through the guarded resolver before visiting it', function (array $addresses, bool $sent): void {
+    SiteDomain::factory()->createOne(['domain' => 'www.example.com', 'status' => true]);
+    app()->instance(ResolvesHostAddresses::class, new readonly class($addresses) implements ResolvesHostAddresses
+    {
+        /** @param list<string> $addresses */
+        public function __construct(private array $addresses) {}
 
-    $options = $method->invoke($action, 'https://example.com/public', 'example.com', '93.184.216.34');
+        public function resolve(string $host): array
+        {
+            return $host === 'www.example.com' ? $this->addresses : [];
+        }
+    });
+    Http::fake(['*' => Http::response('', 200)]);
 
-    expect($options)->toBe([
-        'curl' => [
-            CURLOPT_RESOLVE => ['example.com:443:93.184.216.34'],
-        ],
-    ]);
+    $visit = fn () => VisitUrlAction::run('https://www.example.com/public');
+
+    if ($sent) {
+        $visit();
+        Http::assertSentCount(1);
+
+        return;
+    }
+
+    expect($visit)->toThrow(UrlVisitFailedException::class);
+    Http::assertNothingSent();
+})->with([
+    'public answer' => [['93.184.216.34'], true],
+    'rebound to metadata' => [['169.254.169.254'], false],
+    'one private answer among public ones' => [['93.184.216.34', '10.0.0.1'], false],
+]);
+
+it('refuses a registered public host on a port other than 80 or 443', function (): void {
+    Http::fake();
+
+    $language = Language::factory()->createOne();
+    Site::factory()
+        ->has(SiteDomain::factory()->language($language)->state([
+            'domain' => '93.184.216.36',
+            'scheme' => 'https',
+            'status' => true,
+        ]))
+        ->create();
+
+    expect(fn () => VisitUrlAction::run('https://93.184.216.36:6379/'))->toThrow(UrlVisitFailedException::class);
+
+    Http::assertNothingSent();
+});
+
+it('names the refusal reason when a visit is stopped', function (string $url, string $key): void {
+    Http::fake();
+    SiteDomain::factory()->createOne(['domain' => '93.184.216.37', 'status' => true]);
+
+    expect(fn () => VisitUrlAction::run($url))->toThrow(UrlVisitFailedException::class, __($key));
+})->with([
+    'custom port' => ['https://93.184.216.37:8080/', 'capell-core::message.visit_requires_standard_port'],
+]);
+
+it('stops a visit whose page is larger than the download limit and says so', function (): void {
+    Http::fake(['*' => Http::response(str_repeat('a', 10 * 1024 * 1024 + 1))]);
+    SiteDomain::factory()->createOne(['domain' => '93.184.216.38', 'status' => true]);
+
+    expect(fn () => VisitUrlAction::run('https://93.184.216.38/large'))
+        ->toThrow(UrlVisitFailedException::class, __('capell-core::message.visit_response_too_large'));
 });

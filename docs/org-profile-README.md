@@ -20,7 +20,7 @@
 
 # Capell
 
-![Dark grid-lined banner with the Capell wordmark and "Starts where custom builds end." beside a 3D model of a Laravel-marked Core foundation forking into a separate Filament Admin panel and a Frontend browser window fed by Blade, Livewire, Inertia, and Vue tiles](https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero.jpg)
+![Dark grid-lined banner with the Capell wordmark beside a 3D model of a Laravel-marked Core foundation forking into a separate Filament Admin panel and a Frontend browser window fed by Blade, Livewire, Inertia, and Vue tiles](https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero.jpg)
 
 **This isn’t another CMS.**
 

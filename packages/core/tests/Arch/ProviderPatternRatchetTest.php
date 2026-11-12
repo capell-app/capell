@@ -73,6 +73,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/Themes/ThemeInstallDefaultsRegistry.php',
         'packages/core/src/ThemeStudio/Theme/PagePresentationRegistry.php',
         'packages/core/src/ThemeStudio/Theme/WidgetPresentationRegistry.php',
+        // Collects tagged first-run task contributors in container order and drops duplicate task keys; it is not a keyed contribution map.
+        'packages/admin/src/Support/Dashboard/FirstRunTaskRegistry.php',
         'packages/frontend/src/Support/Assets/FrontendPackageDependencyRegistry.php',
         'packages/frontend/src/Support/Cache/CacheInvalidationDependencyRegistry.php',
         'packages/frontend/src/Support/Cache/CacheInvalidationRegistry.php',

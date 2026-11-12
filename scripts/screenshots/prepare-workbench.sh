@@ -11,6 +11,10 @@ DATABASE_PATH="${REPOSITORY_ROOT}/workbench/database/screenshots.sqlite"
 
 cd "${REPOSITORY_ROOT}"
 
+# Everything below rewrites the shared Testbench skeleton. Keep a pristine copy so
+# the caller can restore it with testbench-skeleton.sh once the capture is done.
+bash "${REPOSITORY_ROOT}/scripts/screenshots/testbench-skeleton.sh" snapshot
+
 mkdir -p "$(dirname "${DATABASE_PATH}")"
 # composer's post-autoload-dump deletes the testbench skeleton's migrations
 # directory, so a run straight after `composer install` has nowhere to publish
@@ -35,6 +39,18 @@ for generated_migration_directory in \
         \( -name '*_create_notifications_table.php' -o -name '*_create_sessions_table.php' \) \
         -delete
 done
+# The skeleton's Vite config below imports vendor/capell-app/frontend, and in a
+# monorepo checkout no Composer install ever puts the frontend package there:
+# it is the checkout's own packages/frontend. A fresh worktree therefore failed
+# to resolve the workbench Vite config until someone linked it by hand. Link it
+# relatively so the link stays inside whichever checkout owns it, and leave any
+# existing directory or link (a real install) untouched.
+FRONTEND_PACKAGE_LINK="${REPOSITORY_ROOT}/vendor/capell-app/frontend"
+if [[ -d "${REPOSITORY_ROOT}/packages/frontend" && ! -e "${FRONTEND_PACKAGE_LINK}" && ! -L "${FRONTEND_PACKAGE_LINK}" ]]; then
+    mkdir -p "${REPOSITORY_ROOT}/vendor/capell-app"
+    ln -s ../../packages/frontend "${FRONTEND_PACKAGE_LINK}"
+fi
+
 # IntegrateViteInputsAction resolves base_path('vite.config.{js,mjs,ts}') and
 # throws when none is found. Under Testbench, base_path() is the generated
 # Orchestra skeleton, which ships no Vite config at all, so create one that
@@ -53,8 +69,11 @@ export default {
 VITE_CONFIG
 
 # Testbench omits the application npm manifest required by frontend preparation.
-# Seed the original laravel/laravel v13.10.1 package.json only when absent.
-# Source commit: 5aad4ddf34d5e21dfe6b4c07eeac67d5bd5e08b0.
+# Seed the laravel/laravel v13.10.1 package.json (source commit
+# 5aad4ddf34d5e21dfe6b4c07eeac67d5bd5e08b0) only when absent. Its `build` script is
+# replaced with a no-op: the skeleton has no node_modules and no vendor/capell-app,
+# so `vite build` cannot run there, and the capture CSS is compiled by
+# build-filament-theme-css.mjs and build-frontend-theme-css.mjs below instead.
 TESTBENCH_PACKAGE_JSON="${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/package.json"
 if [[ ! -e "${TESTBENCH_PACKAGE_JSON}" && ! -L "${TESTBENCH_PACKAGE_JSON}" ]]; then
     cp "${REPOSITORY_ROOT}/scripts/screenshots/laravel-v13.10.1-package.json" "${TESTBENCH_PACKAGE_JSON}"

@@ -32,7 +32,7 @@ packages/*/resources/views/**/*.blade.php
 - Source-only assertions with `file_get_contents()` do not count as coverage.
 - Do not add broad excludes for hard-to-test views. Keep the baseline as the ratchet and add focused tests when changing views.
 
-## Next
+## Related guides
 
 - [Development](index.md)
 - [Command index](commands.md)

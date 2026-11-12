@@ -110,6 +110,33 @@ final class AdminWorkspacePreferenceStore
         });
     }
 
+    public function firstRunChecklistHidden(Model $actor): bool
+    {
+        if (! $this->available($actor)) {
+            return false;
+        }
+
+        $raw = array_key_exists(self::COLUMN, $actor->getAttributes())
+            ? $actor->getAttribute(self::COLUMN)
+            : $actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN);
+        $data = is_array($raw) ? $raw : json_decode((string) $raw, true);
+
+        return is_array($data) && ($data['first_run_checklist_hidden'] ?? false) === true;
+    }
+
+    public function setFirstRunChecklistHidden(Model $actor, bool $hidden): void
+    {
+        $this->merge($actor, static function (array $data) use ($hidden): array {
+            if ($hidden) {
+                $data['first_run_checklist_hidden'] = true;
+            } else {
+                unset($data['first_run_checklist_hidden']);
+            }
+
+            return $data;
+        });
+    }
+
     public function dashboardAdvisoryDecision(Model $actor, string $key): ?DashboardAdvisoryDecisionData
     {
         if (! $this->available($actor)) {

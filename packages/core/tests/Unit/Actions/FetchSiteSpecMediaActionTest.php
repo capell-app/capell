@@ -115,3 +115,17 @@ it('rejects image responses whose declared and detected media types differ', fun
 
     $this->fail('Expected the mismatched media type to be rejected.');
 });
+
+it('refuses NAT64 and IPv4-mapped addresses that carry a private IPv4 address', function (string $origin): void {
+    Http::fake();
+
+    expect(fn (): array => FetchSiteSpecMediaAction::run(new CapellSiteSpecMediaData(
+        sourceUrl: $origin,
+        logo: $origin . '/logo.png',
+    )))->toThrow(RuntimeException::class, 'non-public address');
+
+    Http::assertNothingSent();
+})->with([
+    'NAT64 to 10.0.0.1' => 'https://[64:ff9b::a00:1]',
+    'IPv4-mapped loopback' => 'https://[::ffff:7f00:1]',
+]);

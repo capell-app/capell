@@ -77,6 +77,7 @@ use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
+use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Contracts\Security\SecurityWeaknessAnalyser;
 use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
@@ -92,6 +93,7 @@ use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
+use Capell\Core\Events\PublicationTransitioned;
 use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
@@ -102,6 +104,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
+use Capell\Core\Listeners\RecordSitePublishedOnHomePagePublication;
 use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
@@ -157,10 +160,13 @@ use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Diagnostics\SchedulerHeartbeat;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
+use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\Http\DnsHostAddressResolver;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
@@ -242,6 +248,7 @@ use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Capell\Core\Support\Upgrade\IndexPropertyValueReferencesUpgradeStep;
+use Capell\Core\Support\Upgrade\RecordPublishedSitesUpgradeStep;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
@@ -316,6 +323,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->scoped(SiteSpecApplierRegistry::class);
+        $this->app->scoped(GuidedSetupStateMemo::class);
         $this->app->scoped(SiteSpecPresetRegistry::class);
         $this->app->scoped(PageUrlRewriteContext::class);
         $this->app->scoped(PropertyBreachReports::class);
@@ -434,6 +442,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
+            ->registerSchedulerHeartbeat()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
@@ -467,6 +476,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AuthorizesPublicationTransition::class,
             GatePublicationTransitionAuthorizer::class,
         );
+
+        Event::listen(PublicationTransitioned::class, RecordSitePublishedOnHomePagePublication::class);
+        // Sites that were live before go-live dates were recorded.
+        $this->app->tag([RecordPublishedSitesUpgradeStep::class], 'capell.upgrade-steps');
 
         return $this;
     }
@@ -608,6 +621,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(MediaCompositionGuidanceRegistry::class);
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(ExtensionEntitlements::class, NullExtensionEntitlements::class);
+        $this->app->bindIf(ResolvesHostAddresses::class, DnsHostAddressResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
         // Keep these legacy class names as strings so the compatibility binding
@@ -946,6 +960,23 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->cron($cron)
                 ->withoutOverlapping()
                 ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    /**
+     * Gives the doctor evidence that schedule:run is being invoked. Without
+     * it a stopped scheduler is invisible: pages still render.
+     */
+    private function registerSchedulerHeartbeat(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->call(static function (): void {
+                resolve(SchedulerHeartbeat::class)->record();
+            })
+                ->name(SchedulerHeartbeat::SCHEDULE_NAME)
+                ->everyFiveMinutes();
         });
 
         return $this;

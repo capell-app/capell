@@ -1,7 +1,7 @@
 <nav aria-label="Explore the journal">
     <a href="#walk">The coastal walk</a> · <a href="#visit">Plan your visit</a>
 </nav>
-<p>Field Notes is a journal for curious travellers. Find quiet trails, independent places to stay and a little more room to breathe.</p>
+<p>Field Notes publishes walking routes and independent places to stay along the coast.</p>
 <figure id="walk">
     <img
         src="{{ $imageUrl }}"
@@ -11,7 +11,7 @@
     />
     <figcaption>Follow the coast from the harbour to the headland.</figcaption>
 </figure>
-<h2>A morning by the water</h2>
+<h2>The route from the harbour</h2>
 <p>Start at the harbour while the boats are still at their moorings. The path climbs gently through open grassland, with sheltered coves along the way and wide views from the headland.</p>
 <h2 id="visit">Plan your visit</h2>
 <ul>
@@ -20,6 +20,6 @@
     <li>Bring a waterproof layer and sturdy walking shoes.</li>
 </ul>
 <footer>
-    <p>Field Notes · Thoughtful journeys, close to home.</p>
+    <p>Field Notes · Coastal walking routes</p>
     <a href="#main">Back to the journal</a>
 </footer>

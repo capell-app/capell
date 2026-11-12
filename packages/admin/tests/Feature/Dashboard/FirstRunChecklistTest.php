@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
+use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -10,6 +11,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\CompositionDashboard;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\RecordedVisitsAnalyticsDataProvider;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
@@ -66,11 +68,11 @@ it('shows the five first-run tasks with what to do and why on a fresh install', 
             __('capell-admin::dashboard.first_run_task_publish_title'),
         ])
         ->assertSee(__('capell-admin::dashboard.first_run_task_logo_consequence'))
-        ->assertSee(__('capell-admin::dashboard.first_run_description', ['done' => 1, 'total' => 5]))
-        ->assertSee(__('capell-admin::dashboard.first_run_next', ['task' => __('capell-admin::dashboard.first_run_task_homepage_title')]));
+        ->assertSee(__('capell-admin::dashboard.first_run_description', ['done' => 0, 'total' => 5]))
+        ->assertSee(__('capell-admin::dashboard.first_run_next', ['task' => __('capell-admin::dashboard.first_run_task_site_title')]));
 
     expect(firstRunTaskStates())->toBe([
-        'site' => true,
+        'site' => false,
         'homepage' => false,
         'logo' => false,
         'address' => false,
@@ -81,6 +83,7 @@ it('shows the five first-run tasks with what to do and why on a fresh install', 
 it('ticks tasks itself as they are done', function (): void {
     $this->actingAsAdmin();
     [$site, $home] = firstRunSite();
+    $site->forceFill(['meta' => ['guided_setup' => ['completed_at' => now()->toIso8601String()]]])->save();
 
     Media::factory()->model($site)->createOne(['collection_name' => MediaCollectionEnum::Logo->value]);
     SiteDomain::query()->where('site_id', $site->id)->update(['domain' => 'example.org']);
@@ -151,6 +154,7 @@ it('is not first-run when there is no site or homepage yet', function (): void {
 it('hides analytics panels on the dashboard during first run and restores them once public', function (): void {
     $this->actingAsAdmin();
     [, $home] = firstRunSite();
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
     CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, AnalyticsTrendFilamentWidget::class, DashboardEnum::NotInstalled);
     $dashboard = new CompositionDashboard;
     $dashboard->widgets = [AnalyticsTrendFilamentWidget::class];
@@ -192,13 +196,16 @@ function compositionRegionWidgetClasses(mixed $component): array
     return $classes;
 }
 
-it('is not first-run while another accessible site has a public homepage', function (): void {
+it('is not first-run once every accessible site with a homepage is live', function (): void {
     $this->actingAsAdmin();
-    firstRunSite();
     $live = Site::factory()->createOne();
     Page::factory()->home()->site($live)->createOne(['visible_from' => now()->subDay()]);
 
     expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse();
+
+    firstRunSite();
+
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue();
 });
 
 it('treats a robots noindex homepage as not yet public', function (): void {
@@ -228,3 +235,16 @@ it('ticks the homepage task after the homepage is saved as a draft through the a
 
     expect(firstRunTaskStates()['homepage'])->toBeTrue();
 });
+
+it('ticks Set up your site from guided setup or an imported site spec, and not from skipping it', function (array $meta, bool $expected): void {
+    $this->actingAsAdmin();
+    [$site] = firstRunSite();
+    $site->forceFill(['meta' => $meta])->save();
+
+    expect(firstRunTaskStates()['site'])->toBe($expected);
+})->with([
+    'nothing recorded' => [[], false],
+    'skipped' => [['guided_setup' => ['skipped_at' => '2026-11-12T10:00:00+00:00']], false],
+    'guided setup finished' => [['guided_setup' => ['completed_at' => '2026-11-12T10:00:00+00:00']], true],
+    'site spec imported' => [['site_spec_applied_hash' => 'abc123'], true],
+]);

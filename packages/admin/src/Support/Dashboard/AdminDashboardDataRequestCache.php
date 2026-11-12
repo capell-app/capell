@@ -42,6 +42,11 @@ final class AdminDashboardDataRequestCache
         return $this->firstRun[(string) $actor->getAuthIdentifier()] ??= ResolveFirstRunStateAction::run($actor);
     }
 
+    public function forgetFirstRunState(Authenticatable $actor): void
+    {
+        unset($this->firstRun[(string) $actor->getAuthIdentifier()]);
+    }
+
     public function myWorkQueue(Authenticatable $user, int $limit): MyWorkQueueData
     {
         $key = sprintf('%s:%s', $user->getAuthIdentifier(), $limit);

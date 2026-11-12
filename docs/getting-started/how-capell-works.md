@@ -298,7 +298,7 @@ Capell is meant to be extended through package-safe hooks.
 
 Blueprints affect editor fields, frontend components, widgets, layouts, cache behaviour, and reuse. Use package extension points instead of editing host models directly.
 
-## Next
+## Next steps
 
 - [Build a page](building-pages.md) (Learn Capell stage 6) chooses how pages are composed.
 

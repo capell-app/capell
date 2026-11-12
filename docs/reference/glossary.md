@@ -51,9 +51,9 @@ Implementation-level definitions for package and theme authors.
 | Rollback | Restoring the previous live version after a publish. Also available per-row via `EntityRollbackAction`. |
 | Approval level | An integer count of approvers required before a workspace can publish. Defaults to `2`; override via `settings.required_approval_levels`. |
 | Schema | A Filament field schema class that defines the form for a blueprint, setting, or resource. |
-| Schema hook extender | A class that injects extra form fields at named positions in an existing schema, without overriding the full schema. See [Extending Capell §4](https://docs.capell.app/extending-capell/#4-schema-hook-extenders). |
+| Schema hook extender | A class that injects extra form fields at named positions in an existing schema, without overriding the full schema. See [Extending Capell §4](https://docs.capell.app/extending-capell/#schema-hook-extenders). |
 | Render hook | A registered extension that injects HTML into a named location inside a frontend Blade component. See [Render Hooks](https://docs.capell.app/extending-render-hooks/). |
-| Event registry | The Admin package's event bus for subscribing to admin lifecycle events (e.g. `afterSave`). See [Extending Capell §5](https://docs.capell.app/extending-capell/#5-event-registry-callbacks--subscribers). |
+| Event registry | The Admin package's event bus for subscribing to admin lifecycle events (e.g. `afterSave`). See [Extending Capell §5](https://docs.capell.app/extending-capell/#event-registry-callbacks--subscribers). |
 | Settings Schema Registry | Runtime registry of the settings form schemas shown on the admin **Settings** page. See [Settings Schema Registry](https://docs.capell.app/packages/admin/settings-schema-registry/). |
 | `Layout` (core model) | The theme-scoped template structure a page renders into (`Capell\Core\Models\Layout`). An ordered, theme/site-scoped template record with a status flag, a default flag, and an attached image, selected per page. Part of core. |
 | Layout Builder | The optional `capell-app/layout-builder` package: containers, layout widgets and widget assets composed into a page layout. It builds on the core `Layout` model above. **Not part of core.** See [Layout Builder](../packages/layout-builder.md). |
@@ -67,7 +67,7 @@ Implementation-level definitions for package and theme authors.
 
 The Draft, Live, Publish, Version, Rebase and Approval level rows above describe the optional Publishing Studio package where they mention workspaces; a Foundation-only install has the editing-term meanings.
 
-## Next
+## Related guides
 
 - [Learn Capell](../getting-started/capell-learn.md) to return to the guided path.
 - [Core relationship map](core-erd.md) for the fuller model.

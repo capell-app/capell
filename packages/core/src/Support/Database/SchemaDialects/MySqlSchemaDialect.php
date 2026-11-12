@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Database\SchemaDialects;
 
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\Database\RepairsImplicitTimestampUpdates;
+use Capell\Core\Data\Database\ColumnComparison;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\MySqlServerCapabilities;
 use Capell\Core\Data\Database\SqlFragment;
@@ -30,6 +31,12 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
 
     public function isColumnCaseInsensitive(string $table, string $column, Connection $connection): bool
     {
+        return $this->columnComparison($table, $column, $connection)->caseInsensitive;
+    }
+
+    #[Override]
+    public function columnComparison(string $table, string $column, Connection $connection): ColumnComparison
+    {
         try {
             $database = $connection->getDatabaseName();
             $table = $this->physicalTableName($table, $connection);
@@ -39,9 +46,9 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
             );
             $collation = $row->column_collation ?? $row->table_collation ?? null;
 
-            return ! is_string($collation) || str_ends_with(strtolower($collation), '_ci');
+            return ColumnComparison::fromMySqlCollation(is_string($collation) ? $collation : null);
         } catch (Throwable) {
-            return true;
+            return ColumnComparison::widest();
         }
     }
 

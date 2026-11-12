@@ -32,7 +32,7 @@ Add the following to your `composer.json` under the `repositories` key:
 composer update
 ```
 
-## Notes
+## Path and symlink notes
 
 - Ensure your local paths are correct relative to your Laravel project root.
 - If you are setting up the host and add-on repositories from scratch, follow [Creating the Capell 1.x Monorepo Branches](monorepo-1x-branch.md) first.
@@ -57,7 +57,7 @@ Techniques that help once drift is ruled out:
 - A shared primary checkout can show green while committed `main` is red, because uncommitted fixes in the working tree mask the failure. Check a pristine worktree of the commit before trusting it.
 - A scratch note left in the repository root fails `scripts/check-root-docs.php`.
 
-## Next
+## Related guides
 
 - [README.md](../README.md)
 - [Configuration Reference](configuration.md)

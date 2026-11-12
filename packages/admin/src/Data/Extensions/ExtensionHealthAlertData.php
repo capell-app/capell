@@ -20,6 +20,7 @@ final class ExtensionHealthAlertData extends Data
         public readonly bool $protectedActionsBlocked = false,
         public readonly ?string $managementUrl = null,
         public readonly ?string $managementLabel = null,
+        public readonly ?string $developerDetail = null,
     ) {}
 
     public function isActionable(): bool
@@ -74,6 +75,7 @@ final class ExtensionHealthAlertData extends Data
             'protectedActionsBlocked' => $this->protectedActionsBlocked,
             'managementUrl' => $this->managementUrl,
             'managementLabel' => $this->managementLabel,
+            'developerDetail' => $this->developerDetail,
         ];
     }
 }

@@ -61,3 +61,26 @@ it('uses the safe fallback when the server cannot be inspected', function (): vo
 
     expect(new PageUrlKey($connection)->url('/AbOut'))->toBe('/about');
 });
+
+it('collapses the accent and trailing-space variants the collation treats as equal', function (string $collation, string $left, string $right, bool $equal): void {
+    $keyFor = function (string $url) use ($collation): string {
+        $connection = Mockery::mock(Connection::class);
+        $connection->shouldReceive('getDriverName')->andReturn('mariadb');
+        $connection->shouldReceive('getName')->andReturn(uniqid('url-key-', true));
+        $connection->shouldReceive('getDatabaseName')->andReturn('testing');
+        $connection->shouldReceive('getTablePrefix')->andReturn('');
+        $connection->shouldReceive('selectOne')->andReturn((object) ['column_collation' => $collation, 'table_collation' => null]);
+
+        return new PageUrlKey($connection)->url($url);
+    };
+
+    expect($keyFor($left) === $keyFor($right))->toBe($equal);
+})->with([
+    'accent-insensitive folds accents' => ['utf8mb4_unicode_ci', '/café', '/cafe', true],
+    'ai_ci folds accents' => ['utf8mb4_0900_ai_ci', '/Café', '/cafe', true],
+    'pad space ignores trailing spaces' => ['utf8mb4_unicode_ci', '/about  ', '/about', true],
+    'no pad keeps trailing spaces' => ['utf8mb4_0900_ai_ci', '/about ', '/about', false],
+    'accent-sensitive keeps accents' => ['utf8mb4_0900_as_ci', '/café', '/cafe', false],
+    'binary keeps case and accents' => ['utf8mb4_bin', '/Café', '/cafe', false],
+    'binary pad space still ignores trailing spaces' => ['utf8mb4_bin', '/about ', '/about', true],
+]);
