@@ -508,6 +508,8 @@ it('does not trap anyone on setup when the chosen page set is removed after the 
     $site->forceFill(['meta' => $meta])->save();
 
     Livewire::test(CapellDashboard::class)->assertNoRedirect();
+    $this->get(CapellDashboard::getUrl())->assertOk();
+    $this->get(GuidedSetup::getUrl())->assertOk();
 });
 
 it('still publishes every created page after the person edits the home page first, and keeps their edits', function (): void {
