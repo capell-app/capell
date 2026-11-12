@@ -114,6 +114,17 @@ it('imports redirects for the queued owner without authentication or a team', fu
     expect(PageUrl::query()->where('site_id', $this->site->id)->where('url', '/queued-old')->exists())->toBeTrue();
 });
 
+it('imports redirects for a queued global administrator, whose roles hold no site team', function (): void {
+    // Global roles are stored without a team, so a site scope would hide them.
+    Role::findOrCreate('super_admin', 'web')->givePermissionTo(Permission::findOrCreate('Import:PageUrl', 'web'));
+    $this->actor->assignGlobalRole('super_admin');
+    $import = queuedRedirectImportForTeamlessTest($this->actor);
+
+    queuedRedirectRowForTeamlessTest($import, ['site_id' => $this->foreign->id, 'language_id' => $this->foreign->language_id], '/global-old');
+
+    expect(PageUrl::query()->where('site_id', $this->foreign->id)->where('url', '/global-old')->exists())->toBeTrue();
+});
+
 it('writes nothing once the queued owner loses import on the site before the row runs', function (): void {
     $role = grantRedirectImportOnSiteForTeamlessTest($this->actor, $this->site);
     $import = queuedRedirectImportForTeamlessTest($this->actor);

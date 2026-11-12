@@ -3,65 +3,43 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Imports\RedirectImporter;
+use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\TableName;
 use Filament\Actions\ActionsServiceProvider;
 use Filament\Actions\Imports\Models\Import;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
-/** @param SupportCollection<int, int> $assignedSiteIds */
-function createScopedUserForRedirectImporterTest(SupportCollection $assignedSiteIds): Authenticatable
+beforeEach(function (): void {
+    config(['permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+});
+
+afterEach(function (): void {
+    setPermissionsTeamId(null);
+    resolve(PermissionRegistrar::class)->teams = false;
+    config(['permission.teams' => false]);
+});
+
+/** A signed-in admin who may import redirects on the given sites only. */
+function signInRedirectImporterForRedirectImporterTest(Site ...$sites): TeamScopedPanelUser
 {
-    $user = new class extends Authenticatable implements FilamentUser
-    {
-        /** @use HasFactory<Factory<static>> */
-        use HasFactory;
+    $user = TeamScopedPanelUser::query()->create(['name' => 'Redirect Importer User', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::query()->firstOrCreate(['name' => 'redirect-importer', 'guard_name' => 'web']);
+    $role->givePermissionTo(Permission::findOrCreate('Import:PageUrl', 'web'));
+    foreach ($sites as $site) {
+        $user->assignRoleForSite($site, $role);
+    }
 
-        /** @var SupportCollection<int, int> */
-        public SupportCollection $assignedSiteIds;
-
-        protected $table = 'users';
-
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-
-        /** Filament Shield's gate asks every user whether they hold its super-admin role. */
-        public function hasRole(mixed $roles): bool
-        {
-            return false;
-        }
-
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
-
-        /** @return SupportCollection<int, int> */
-        public function getAssignedSiteIds(): SupportCollection
-        {
-            return $this->assignedSiteIds;
-        }
-    };
-
-    $user->forceFill([
-        'name' => 'Redirect Importer User',
-        'email' => fake()->unique()->safeEmail(),
-        'password' => bcrypt('password'),
-    ]);
-    $user->assignedSiteIds = $assignedSiteIds;
+    setPermissionsTeamId(null);
+    test()->actingAs($user);
 
     return $user;
 }
@@ -74,15 +52,11 @@ function startedRedirectImportForRedirectImporterTest(): Import
     }
 
     $user = auth()->user();
-    throw_unless($user instanceof Authenticatable, LogicException::class, 'Expected a signed-in importer.');
-    $user->save();
+    throw_unless($user instanceof TeamScopedPanelUser, LogicException::class, 'Expected a signed-in importer.');
 
     $import = new Import;
     $import->forceFill(['file_name' => 'redirects.csv', 'file_path' => 'redirects.csv', 'importer' => RedirectImporter::class, 'total_rows' => 1, 'user_id' => $user->getKey()])->save();
     DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'import', 'transfer_key' => (string) $import->getKey(), 'panel' => 'admin', 'host' => 'localhost']);
-    // These cases cover row validation; the owner's site-scoped import permission is covered with real roles
-    // in SiteAccessTeamlessOperationsTest.
-    Gate::before(static fn (mixed $user, string $ability): ?bool => $ability === 'import' ? true : null);
 
     return $import;
 }
@@ -107,16 +81,15 @@ function runRedirectImporterForRedirectImporterTest(int $siteId, int $languageId
     ]);
 }
 
-it('rejects redirect imports for sites the actor is not assigned to', function (): void {
+it('rejects redirect imports for sites the actor may not import into', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $language = $site->language;
-
-    test()->actingAs(createScopedUserForRedirectImporterTest(collect()));
+    signInRedirectImporterForRedirectImporterTest(Site::factory()->withTranslations()->create());
 
     expect(function () use ($site, $language): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $language->getKey());
     })
-        ->toThrow(ValidationException::class, __('capell-admin::message.redirect_import_invalid_site'));
+        ->toThrow(ValidationException::class, __('capell-admin::message.import_owner_not_permitted'));
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });
@@ -126,7 +99,7 @@ it('rejects redirect imports when the language is not attached to the selected s
     $otherLanguage = Language::factory()->createOne();
     $site = Site::factory()->language($siteLanguage)->withTranslations($siteLanguage)->create();
 
-    test()->actingAs(createScopedUserForRedirectImporterTest(collect([$site->getKey()])));
+    signInRedirectImporterForRedirectImporterTest($site);
 
     expect(function () use ($site, $otherLanguage): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $otherLanguage->getKey());
@@ -140,7 +113,7 @@ it('rejects redirect imports with unsafe targets', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $language = $site->language;
 
-    test()->actingAs(createScopedUserForRedirectImporterTest(collect([$site->getKey()])));
+    signInRedirectImporterForRedirectImporterTest($site);
 
     expect(function () use ($site, $language): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $language->getKey(), 'javascript:alert(1)');

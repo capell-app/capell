@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
+use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Admin\Support\PanelOwnership;
@@ -26,6 +27,14 @@ final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
         $this->portalRoute('/portal/avatar/{initials}', AdminAvatarController::class);
 
         $this->get('/portal/avatar/AB')->assertStatus(503)->assertDontSee('<svg', false);
+    }
+
+    public function test_a_panel_without_the_capell_plugin_refuses_capell_resource_pages(): void
+    {
+        // As a host panel that discovers Capell's resources without the plugin would register them.
+        $this->portalRoute('/portal/pages', ListPages::class);
+
+        $this->get('/portal/pages')->assertStatus(503);
     }
 
     public function test_a_panel_without_the_capell_plugin_keeps_serving_its_own_routes(): void

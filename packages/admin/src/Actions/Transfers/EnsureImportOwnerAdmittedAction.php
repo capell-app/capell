@@ -10,6 +10,7 @@ use Capell\Admin\Support\Transfers\TransferOrigin;
 use Capell\Admin\Support\Transfers\TransferOrigins;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -50,8 +51,9 @@ final class EnsureImportOwnerAdmittedAction
             $this->refuse('capell-admin::message.import_site_unknown');
         }
 
+        // As in a request, a global administrator's roles carry no site team, so they are read without one.
         $permitted = PermissionTeamContext::run(
-            $site,
+            SiteAccess::forActor($actor)->isGlobal() ? null : $site,
             static fn (): bool => Gate::forUser($actor)->allows('import', $model),
             $actor instanceof Model ? $actor : null,
         );

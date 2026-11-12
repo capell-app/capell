@@ -67,13 +67,14 @@ final class InstalledPanelRuntime
      */
     private const array SIGN_IN_PAGES = [Login::class, RequestPasswordReset::class, ResetPassword::class, Register::class];
 
+    /** Capell's own admin code, which only a panel with the Capell plugin may serve. */
+    private const string CAPELL_ADMIN_NAMESPACE = 'Capell\\Admin\\';
+
     /**
      * Packages that only serve the admin panels, by namespace: Filament, Livewire, Capell admin and the
      * admin-only Filament plugins the panels install. A route whose action is shipped in their source or
      * route files must be registered by a panel or declared public, or it is refused.
      */
-    private const string CAPELL_ADMIN_NAMESPACE = 'Capell\\Admin\\';
-
     private const array ADMIN_NAMESPACES = ['Filament\\', 'Livewire\\', 'Capell\\Admin\\', 'Guava\\IconPicker\\', 'Pboivin\\FilamentPeek\\', 'STS\\FilamentImpersonate\\'];
 
     /**
