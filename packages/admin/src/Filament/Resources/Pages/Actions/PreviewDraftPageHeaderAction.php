@@ -10,13 +10,15 @@ use Capell\Core\Models\Page;
 use Filament\Actions\Action;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 use Override;
 
 /**
  * "Preview draft" header action — visible only when the page is currently in
- * draft state (isPending()). Opens a signed preview URL in a new tab.
+ * draft state (isPending()) and the editor may view it, as the signed preview
+ * requires. Opens a signed preview URL in a new tab.
  *
  * The signed preview route is Page-specific, so this action only applies to
  * core Page records. Resources that inherit EditPage for a different model
@@ -33,7 +35,7 @@ class PreviewDraftPageHeaderAction extends Action
         $this->label(__('capell-admin::button.preview_draft'))
             ->icon(Heroicon::OutlinedEye)
             ->color('warning')
-            ->visible(fn (Model $record): bool => $record instanceof Page && $record->isPending() && Route::has('capell.admin.preview-page'))
+            ->visible(fn (Model $record): bool => $record instanceof Page && $record->isPending() && Route::has('capell.admin.preview-page') && Gate::allows('view', $record))
             ->url(fn (Model $record, Component $livewire): ?string => $record instanceof Page ? $this->previewUrl($record, $livewire) : null)
             ->disabled(fn (Model $record, Component $livewire): bool => $record instanceof Page && $this->previewUrl($record, $livewire) === null)
             ->tooltip(__('capell-admin::page_journey.preview_saved'))

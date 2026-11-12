@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Pages\IssuePagePreviewTokenAction;
+use Capell\Admin\Actions\Themes\CreateThemePreviewUrlAction;
+use Capell\Admin\Filament\Resources\Pages\Actions\PreviewDraftPageHeaderAction;
+use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -11,15 +14,22 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Security\LockdownStore;
-use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use Filament\Panel;
-use Illuminate\Support\Collection;
+use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Support\Facades\URL;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
 
 uses(CreatesAdminUser::class)
     ->group('preview');
+
+afterEach(function (): void {
+    setPermissionsTeamId(null);
+    resolve(PermissionRegistrar::class)->teams = false;
+    config(['permission.teams' => false]);
+});
 
 it('rejects unsigned page preview requests', function (): void {
     $page = Page::factory()->createOne();
@@ -126,38 +136,10 @@ it('retains preview access to assigned sites outside the current authoring scope
     $french = Language::factory()->french()->createOne();
     $theme = Theme::factory()->defaultMeta()->createOne();
     $site = Site::factory()->language($english)->theme($theme)->withTranslations([$english, $french])->createOne();
+    $authoring = Site::factory()->language($english)->theme($theme)->withTranslations([$english])->createOne();
     $page = Page::factory()->site($site)->withTranslations([$english, $french])->createOne();
-    $actor = new class extends User
-    {
-        #[Override]
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
+    $actor = createPagePreviewSiteEditor([$site, $authoring], canViewPages: true);
 
-        /** @return Collection<int, int> */
-        #[Override]
-        public function getAssignedSiteIds(): Collection
-        {
-            return collect();
-        }
-
-        /** @return Collection<int, int> */
-        public function getAllAssignedSiteIds(): Collection
-        {
-            return $this->assignedSiteIds;
-        }
-
-        #[Override]
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-    };
-    $actor->forceFill(['id' => 99999]);
-    $actor->assignedSiteIds = collect([$site->id]);
-
-    test()->actingAs($actor);
     $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
     $renderer->shouldReceive('render')->once()->withArgs(fn (Theme $theme, Site $site, Page $page, ?Language $language = null): bool => $language?->is($french) === true)
         ->andReturn(new Response('Assigned site French preview'));
@@ -167,7 +149,12 @@ it('retains preview access to assigned sites outside the current authoring scope
         'language_id' => $french->id,
     ]);
 
-    test()->get($url)->assertOk()->assertSee('Assigned site French preview');
+    // The editor is authoring another of their sites; the preview is scoped to the page's own site.
+    test()->actingAs($actor)
+        ->withSession(['capell.current_site_id' => $authoring->id])
+        ->get($url)
+        ->assertOk()
+        ->assertSee('Assigned site French preview');
 });
 
 it('enforces lockdown on a valid signed page preview', function (): void {
@@ -193,3 +180,80 @@ it('enforces lockdown on a valid signed page preview', function (): void {
         $store->deactivate();
     }
 });
+
+it('refuses a signed draft preview to a site editor who may not view its pages', function (string $preview): void {
+    $theme = Theme::factory()->defaultMeta()->createOne();
+    $site = Site::factory()->theme($theme)->withTranslations()->createOne();
+    $page = Page::factory()->site($site)->withTranslations(languages: $site->language)->createOne();
+    app()->instance(ThemePreviewRendererInterface::class, new class implements ThemePreviewRendererInterface
+    {
+        #[Override]
+        public function render(Theme $theme, Site $site, Page $page, ?Language $language = null, ?SiteDomain $siteDomain = null): Response
+        {
+            return new Response('draft body');
+        }
+    });
+
+    test()->actingAsAdmin();
+    $url = $preview === 'page'
+        ? IssuePagePreviewTokenAction::run($page)
+        : CreateThemePreviewUrlAction::run($theme, $site, $page);
+
+    test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: true))
+        ->get($url)->assertOk()->assertSee('draft body');
+    session()->flush();
+    test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: false))
+        ->get($url)->assertForbidden()->assertDontSee('draft body');
+})->with(['page', 'theme']);
+
+it('offers the draft preview only to editors who may view the page', function (): void {
+    $site = Site::factory()->withTranslations()->createOne();
+    $page = Page::factory()->site($site)->withTranslations(languages: $site->language)->createOne(['visible_from' => now()->addWeek()]);
+
+    test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: true));
+    // The page editor runs under the page's site scope.
+    setPermissionsTeamId($site->getKey());
+    expect(PreviewDraftPageHeaderAction::make()->record($page)->isVisible())->toBeTrue();
+
+    // Without View:Page the signed preview answers 403, so the editor is not offered it.
+    test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: false));
+    setPermissionsTeamId($site->getKey());
+    expect(PreviewDraftPageHeaderAction::make()->record($page)->isVisible())->toBeFalse();
+});
+
+it('sends a signed-out visitor to the panel sign-in before the preview signature is checked', function (): void {
+    $page = Page::factory()->createOne();
+    $tampered = IssuePagePreviewTokenAction::run($page) . 'x';
+
+    // The signature middleware alone would answer 403; the panel's own sign-in answers first.
+    test()->get($tampered)->assertRedirect('/admin/login');
+    test()->actingAsAdmin()->get($tampered)->assertForbidden();
+});
+
+/**
+ * A persisted panel user whose only roles are on the given sites, as a site-scoped editor is.
+ *
+ * @param  list<Site>  $sites
+ */
+function createPagePreviewSiteEditor(array $sites, bool $canViewPages): TeamScopedPanelUser
+{
+    $role = Role::query()->firstOrCreate(['name' => $canViewPages ? 'page-preview-viewer' : 'page-preview-outsider', 'guard_name' => 'web']);
+    if ($canViewPages) {
+        $role->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
+    }
+
+    // The panel re-reads the signed-in user through the auth provider, so it must load the site-scoped model, as a host's does.
+    config(['auth.providers.users.model' => TeamScopedPanelUser::class, 'permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+    resolve(AuthFactory::class)->forgetGuards();
+
+    $user = TeamScopedPanelUser::query()->create(['name' => 'Site editor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    foreach ($sites as $site) {
+        $user->assignRoleForSite($site, $role);
+    }
+
+    setPermissionsTeamId(null);
+    resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    return $user->fresh() ?? $user;
+}

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Themes\CreateThemePreviewUrlAction;
+use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
@@ -15,11 +16,14 @@ use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\File;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * @return array{0: Theme, 1: Site, 2: Page}
@@ -163,16 +167,20 @@ afterEach(function (): void {
     foreach (pullThemePreviewOverrideRoots() as $root) {
         File::deleteDirectory($root);
     }
+
+    setPermissionsTeamId(null);
+    resolve(PermissionRegistrar::class)->teams = false;
+    config(['permission.teams' => false]);
 });
 
 it('rejects unsigned preview requests', function (): void {
     [$theme, $site, $page] = createThemePreviewTestRecords();
 
-    test()->get(route('capell.admin.theme-preview', [
-        'theme' => $theme,
-        'site' => $site,
-        'page' => $page,
-    ]))->assertForbidden();
+    $url = route('capell.admin.theme-preview', ['theme' => $theme, 'site' => $site, 'page' => $page]);
+
+    // The panel signs the viewer in before the signature is checked.
+    test()->get($url)->assertRedirect('/admin/login');
+    test()->actingAsAdmin()->get($url)->assertForbidden();
 });
 
 it('redirects signed unauthenticated preview requests to admin login', function (): void {
@@ -240,12 +248,17 @@ it('rejects signed preview requests from authenticated users without admin panel
 it('rejects signed preview requests from site-scoped admins for unassigned sites', function (): void {
     [$theme, $site, $page] = createThemePreviewTestRecords();
 
-    test()->actingAs(createThemePreviewPanelUser(
-        canAccessPanel: true,
-        assignedSiteIds: collect(),
-    ));
+    $other = Site::factory()->createOne();
+    config(['auth.providers.users.model' => TeamScopedPanelUser::class, 'permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+    resolve(AuthFactory::class)->forgetGuards();
 
-    test()->get(CreateThemePreviewUrlAction::run($theme, $site, $page))
+    $outsider = TeamScopedPanelUser::query()->create(['name' => 'Other site editor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $outsider->assignRoleForSite($other, Role::query()->firstOrCreate(['name' => 'theme-preview-editor', 'guard_name' => 'web']));
+    setPermissionsTeamId(null);
+
+    test()->actingAs($outsider)
+        ->get(CreateThemePreviewUrlAction::run($theme, $site, $page))
         ->assertForbidden();
 });
 

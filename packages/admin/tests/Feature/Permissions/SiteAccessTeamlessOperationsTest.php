@@ -18,6 +18,7 @@ use Filament\Actions\ActionsServiceProvider;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,7 +29,11 @@ beforeEach(function (): void {
     $this->site = Site::factory()->withTranslations()->create();
     $this->foreign = Site::factory()->withTranslations()->create();
     $this->actor = TeamScopedPanelUser::query()->create(['name' => 'Scoped panel user', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
-    $this->actor->assignRoleForSite($this->site, Role::query()->firstOrCreate(['name' => 'preview-editor', 'guard_name' => 'web']));
+    // Previewing a draft needs permission to view pages on the site, as well as a role there.
+    $role = Role::query()->firstOrCreate(['name' => 'preview-editor', 'guard_name' => 'web']);
+    $role->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
+
+    $this->actor->assignRoleForSite($this->site, $role);
     setPermissionsTeamId(null);
 });
 
