@@ -65,7 +65,7 @@ final class SitePublicationMilestones
 
         // The row is locked while it is read and written, so two requests that
         // both see a home page go public cannot overwrite each other's meta.
-        return DB::transaction(function () use ($siteId, $at): bool {
+        $recorded = DB::transaction(function () use ($siteId, $at): bool {
             $site = Site::query()->lockForUpdate()->find($siteId);
             if (! $site instanceof Site || data_get($site->meta, self::META_KEY) !== null) {
                 return false;
@@ -79,5 +79,11 @@ final class SitePublicationMilestones
 
             return true;
         });
+
+        if ($recorded) {
+            resolve(GuidedSetupStateMemo::class)->flush();
+        }
+
+        return $recorded;
     }
 }

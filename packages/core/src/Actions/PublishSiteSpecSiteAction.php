@@ -13,6 +13,7 @@ use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
 use Capell\Core\Events\SiteSpecPublished;
+use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -63,12 +64,14 @@ final class PublishSiteSpecSiteAction
         /** @var list<array{spec: CapellSiteSpecPageData, page: Page, translation: Translation, home: bool}> $targets */
         $targets = [];
         $problems = [];
+        $problemPages = [];
 
         foreach ($this->orderedPages($spec) as $index => $pageSpec) {
             $found = $existing[SiteSpecPageSlug::for($pageSpec)] ?? null;
 
             if ($found === null) {
                 $problems[] = sprintf('%s (not on this site yet; apply the spec first)', $pageSpec->name);
+                $problemPages[] = $pageSpec->name;
 
                 continue;
             }
@@ -77,16 +80,18 @@ final class PublishSiteSpecSiteAction
 
             if (! $this->authorizer->allows($request)) {
                 $problems[] = sprintf('%s (you are not allowed to publish it)', $pageSpec->name);
+                $problemPages[] = $pageSpec->name;
             } elseif (EvaluatePropertyCompletenessAction::run($found['page'])->blocksPublish()) {
                 $problems[] = sprintf('%s (required properties are missing)', $pageSpec->name);
+                $problemPages[] = $pageSpec->name;
             }
 
             $targets[] = ['spec' => $pageSpec, 'page' => $found['page'], 'translation' => $found['translation'], 'home' => $index === 0];
         }
 
-        throw_if($problems !== [], RuntimeException::class, (string) __('capell-core::message.site_spec_publish_refused', [
+        throw_if($problems !== [], SiteSpecPublishRefusedException::class, (string) __('capell-core::message.site_spec_publish_refused', [
             'pages' => implode('; ', $problems),
-        ]));
+        ]), $problemPages);
 
         $published = DB::transaction(function () use ($targets, $language, $actor, $now): int {
             $count = 0;
@@ -103,8 +108,9 @@ final class PublishSiteSpecSiteAction
 
                 throw_unless(
                     in_array($result->outcome, [PublicationTransitionOutcome::Changed, PublicationTransitionOutcome::AlreadyCorrect], true),
-                    RuntimeException::class,
+                    SiteSpecPublishRefusedException::class,
                     (string) __('capell-core::message.site_spec_publish_refused', ['pages' => sprintf('%s (%s)', $target['spec']->name, $result->reasonKey)]),
+                    [$target['spec']->name],
                 );
 
                 if ($result->changed()) {

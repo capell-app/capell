@@ -13,8 +13,10 @@ use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
@@ -25,6 +27,7 @@ use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -266,17 +269,25 @@ it('never asks about a site that has gone live, even if its home page is private
         ->and(ResolveGuidedSetupStateAction::make()->awaitingPublication($user))->toBeNull();
 });
 
-it('keeps the go-live date and the other site meta when setup is skipped from a stale copy of the site', function (): void {
+it('keeps meta recorded since the site was loaded when setup is skipped from a stale copy', function (): void {
     $site = installedSite();
     $stale = Site::query()->findOrFail($site->getKey());
-    resolve(SitePublicationMilestones::class)->record((int) $site->getKey(), CarbonImmutable::now());
+    RecordInstallSuiteAction::run('marketing');
 
     SkipGuidedSetupAction::run($stale);
 
     $meta = $site->refresh()->meta;
 
-    expect(data_get($meta, 'first_run.published_at'))->toBeString()
+    expect(data_get($meta, 'install_suite'))->toBe('marketing')
         ->and(data_get($meta, 'guided_setup.skipped_at'))->toBeString();
+});
+
+it('refuses to skip setup on a site that has gone live', function (): void {
+    $site = installedSite();
+    resolve(SitePublicationMilestones::class)->record((int) $site->getKey(), CarbonImmutable::now());
+
+    expect(fn (): mixed => SkipGuidedSetupAction::run($site))->toThrow(GuidedSetupRefusedException::class)
+        ->and(data_get($site->refresh()->meta, 'guided_setup.skipped_at'))->toBeNull();
 });
 
 it('tells the first-run checklist and guided setup the same thing about a site being set up', function (): void {
@@ -291,4 +302,96 @@ it('tells the first-run checklist and guided setup the same thing about a site b
     $site->forceFill(['meta' => [...($site->meta ?? []), 'guided_setup' => ['completed_at' => now()->toIso8601String()]]])->save();
 
     expect(ResolveGuidedSetupStateAction::isSetUp($site->refresh()))->toBeTrue();
+});
+
+function guidedSetupInput(): GuidedSetupInputData
+{
+    return new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Harbour Plumbing', pageSlugs: ['about']);
+}
+
+it('refuses to run twice, so a repeated submit cannot overwrite edits made in between', function (): void {
+    $site = installedSite();
+
+    CompleteGuidedSetupAction::run(guidedSetupInput(), $site);
+
+    $about = Page::query()->where('site_id', $site->getKey())->notHomePage()->get()
+        ->first(fn (Page $page): bool => $page->translations->contains(fn (Translation $translation): bool => ($translation->meta['slug'] ?? null) === 'about'));
+    throw_unless($about instanceof Page, LogicException::class, 'Setup should have created the About page.');
+    $translation = $about->translations->first();
+    throw_unless($translation instanceof Translation, LogicException::class, 'The About page should have a translation.');
+    $translation->forceFill(['title' => 'Written by a person'])->save();
+
+    expect(fn (): mixed => CompleteGuidedSetupAction::run(guidedSetupInput(), $site))
+        ->toThrow(GuidedSetupRefusedException::class)
+        ->and($translation->refresh()->title)->toBe('Written by a person');
+});
+
+it('refuses a live site, whatever the request says', function (): void {
+    $site = installedSite();
+    $site->pages()->get()->each(fn (Page $page) => $page->update(['visible_from' => now()->subDay()]));
+    resolve(SitePublicationMilestones::class)->record((int) $site->getKey(), CarbonImmutable::now());
+
+    expect(fn (): mixed => CompleteGuidedSetupAction::run(guidedSetupInput(), $site))
+        ->toThrow(GuidedSetupRefusedException::class)
+        ->and(data_get($site->refresh()->meta, 'guided_setup.completed_at'))->toBeNull()
+        ->and($site->pages()->count())->toBe(1);
+});
+
+it('does not owe setup to an unlaunched site that already holds another page, and refuses it if forced', function (): void {
+    $site = installedSite();
+    $about = Page::factory()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    $user = guidedSetupAdmin();
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::hasExistingWork($site))->toBeTrue();
+
+    expect(fn (): mixed => CompleteGuidedSetupAction::run(guidedSetupInput(), $site))
+        ->toThrow(GuidedSetupRefusedException::class, 'already has pages or edits')
+        ->and($site->pages()->count())->toBe(2)
+        ->and($about->refresh()->exists)->toBeTrue();
+});
+
+it('does not owe setup to a site whose home page a person has edited', function (): void {
+    $site = installedSite();
+    $home = Page::query()->where('site_id', $site->getKey())->homePage()->firstOrFail();
+    PageRevision::query()->create([
+        'page_uuid' => $home->uuid,
+        'version' => 1,
+        'actor_id' => guidedSetupAdmin()->getKey(),
+        'summary' => 'Edited',
+        'is_rollback' => false,
+        'source' => 'edit',
+        'occurred_at' => now(),
+    ]);
+
+    expect(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+});
+
+it('remembers what is owed for the request and forgets it when setup finishes', function (): void {
+    $site = installedSite();
+    $user = guidedSetupAdmin();
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeTrue();
+
+    $queries = 0;
+    DB::listen(function () use (&$queries): void {
+        $queries++;
+    });
+    ResolveGuidedSetupStateAction::run($user);
+    ResolveGuidedSetupStateAction::run($user);
+
+    expect($queries)->toBe(0);
+
+    CompleteGuidedSetupAction::run(guidedSetupInput(), $site);
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse();
+});
+
+it('stores what was chosen so the pages can be published later', function (): void {
+    $site = installedSite();
+
+    CompleteGuidedSetupAction::run(guidedSetupInput(), $site);
+
+    expect(data_get($site->refresh()->meta, 'guided_setup.preset_key'))->toBe('service-business')
+        ->and(data_get($site->meta, 'guided_setup.page_slugs'))->toBe(['about']);
 });

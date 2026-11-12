@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\FirstRun;
 
+use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -20,10 +22,16 @@ final class SkipGuidedSetupAction
         // Read the row under a lock so a go-live recorded at the same moment is not overwritten.
         DB::transaction(function () use ($site): void {
             $fresh = Site::query()->lockForUpdate()->whereKey($site->getKey())->firstOrFail();
+            throw_if(
+                ResolveGuidedSetupStateAction::refusalFor($fresh) === ResolveGuidedSetupStateAction::REASON_SET_UP,
+                GuidedSetupRefusedException::alreadySetUp((int) $fresh->getKey()),
+            );
             $meta = is_array($fresh->meta) ? $fresh->meta : [];
             data_set($meta, 'guided_setup.skipped_at', now()->toIso8601String());
             $fresh->forceFill(['meta' => $meta])->save();
             $site->setRawAttributes($fresh->getAttributes(), true);
         });
+
+        resolve(GuidedSetupStateMemo::class)->flush();
     }
 }

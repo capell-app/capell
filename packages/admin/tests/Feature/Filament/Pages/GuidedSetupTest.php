@@ -16,6 +16,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -226,4 +227,88 @@ it('names the problem and leaves the pages private when publishing is refused', 
     $page->call('publishSite')->assertSet('sitePublished', false);
 
     expect($site->refresh()->pages()->get()->contains(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeFalse();
+});
+
+function liveClientSite(): Site
+{
+    $english = Language::query()->where('code', 'en')->firstOrFail();
+    $site = Site::factory()->language($english)->withTranslations($english)->createOne(['name' => 'Client Co']);
+    Page::factory()->home()->site($site)->createOne(['visible_from' => now()->subMonth()]);
+
+    return $site;
+}
+
+it('refuses a browser that points setup at another site', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    $live = liveClientSite();
+
+    $page = Livewire::test(GuidedSetup::class);
+
+    expect(fn () => $page->set('siteId', $live->getKey()))->toThrow(Exception::class, 'Cannot update locked property')
+        ->and(fn () => $page->set('created', true))->toThrow(Exception::class, 'Cannot update locked property');
+
+    expect($live->refresh()->name)->toBe('Client Co')
+        ->and(data_get($live->meta, 'guided_setup'))->toBeNull();
+});
+
+it('does nothing the second time Create pages is sent, so edits made in between are kept', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $page = Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
+        ->call('createPages')
+        ->assertSet('created', true);
+
+    $site->refresh()->update(['name' => 'Renamed by a person']);
+
+    $page->call('createPages')
+        ->assertNotified(__('capell-admin::setup.create_failed', ['reason' => __('capell-admin::setup.create_refused_already_set_up')]));
+
+    expect($site->refresh()->name)->toBe('Renamed by a person');
+});
+
+it('refuses to publish before the pages have been created', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+
+    Livewire::test(GuidedSetup::class)->call('publishSite')->assertForbidden();
+
+    expect($site->refresh()->pages()->get()->every(fn (Page $page): bool => $page->publishVisibilityState() !== PublishVisibilityStateEnum::published))->toBeTrue();
+});
+
+it('tells the person what to do next without showing internal error text when creation breaks', function (): void {
+    Exceptions::fake();
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    Site::updating(fn () => throw new RuntimeException('SQLSTATE[HY000]: secret table detail'));
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental'])
+        ->call('createPages')
+        ->assertSet('created', false)
+        ->assertNotified(__('capell-admin::setup.create_failed', ['reason' => __('capell-admin::setup.create_failed_unknown')]))
+        ->assertDontSee('secret table detail');
+
+    Exceptions::assertReported(RuntimeException::class);
+});
+
+it('opens again for a site whose pages are waiting to be published, and publishes them from what setup stored', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
+        ->call('createPages')
+        ->assertSet('created', true);
+
+    $this->get(GuidedSetup::getUrl())->assertOk();
+
+    Livewire::test(GuidedSetup::class)
+        ->assertSet('created', true)
+        ->assertSet('createdPageCount', 2)
+        ->assertSet('siteId', $site->getKey())
+        ->call('publishSite')
+        ->assertSet('sitePublished', true);
+
+    expect($site->refresh()->pages()->get()->every(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue();
 });

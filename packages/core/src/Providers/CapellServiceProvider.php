@@ -161,6 +161,7 @@ use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
+use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
@@ -319,6 +320,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->scoped(SiteSpecApplierRegistry::class);
+        $this->app->scoped(GuidedSetupStateMemo::class);
         $this->app->scoped(SiteSpecPresetRegistry::class);
         $this->app->scoped(PageUrlRewriteContext::class);
         $this->app->scoped(PropertyBreachReports::class);

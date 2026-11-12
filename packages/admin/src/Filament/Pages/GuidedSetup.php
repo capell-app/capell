@@ -14,6 +14,8 @@ use Capell\Core\Actions\PublishSiteSpecSiteAction;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\FirstRun\GuidedSetupStateData;
 use Capell\Core\Data\SiteSpec\SiteSpecPresetData;
+use Capell\Core\Exceptions\GuidedSetupRefusedException;
+use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -36,6 +38,7 @@ use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Override;
 use RuntimeException;
@@ -51,15 +54,23 @@ class GuidedSetup extends FilamentPage
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
-    /** Fixed when the page opens: finishing setup ends the state that found the site, so later requests keep this id. */
+    /**
+     * Fixed when the page opens: finishing setup ends the state that found the site, so later requests keep this id.
+     * Locked so a browser cannot point the page at another site.
+     */
+    #[Locked]
     public ?int $siteId = null;
 
+    #[Locked]
     public bool $created = false;
 
+    #[Locked]
     public int $createdPageCount = 0;
 
+    #[Locked]
     public ?string $homeUrl = null;
 
+    #[Locked]
     public bool $sitePublished = false;
 
     protected static bool $shouldRegisterNavigation = false;
@@ -123,8 +134,16 @@ class GuidedSetup extends FilamentPage
     {
         abort_unless(static::canAccess(), 403);
 
-        $site = self::editableSite() ?? abort(403);
+        $actor = auth()->user();
+        $awaiting = ! self::editableSite() instanceof Site && $actor !== null ? ResolveGuidedSetupStateAction::make()->awaitingPublication($actor) : null;
+        $site = self::editableSite() ?? $awaiting ?? abort(403);
         $this->siteId = (int) $site->getKey();
+
+        if ($awaiting instanceof Site) {
+            // Coming back after the pages were created: go straight to opening the homepage or publishing.
+            $this->finish($site, 1 + count($this->storedSlugs($site)));
+        }
+
         $state = GuidedSetupStateData::forSite($site);
         $presets = $this->presets();
 
@@ -222,24 +241,38 @@ class GuidedSetup extends FilamentPage
 
         try {
             CompleteGuidedSetupAction::run($input, $site, $logo);
+        } catch (GuidedSetupRefusedException $refused) {
+            Notification::make()
+                ->danger()
+                ->title((string) __('capell-admin::setup.create_failed', ['reason' => (string) __('capell-admin::setup.create_refused_' . $refused->reason)]))
+                ->persistent()
+                ->send();
+
+            return;
         } catch (Throwable $throwable) {
+            // The detail can hold internal text, so it goes to the log and the person gets what to do next.
             report($throwable);
             Notification::make()
                 ->danger()
-                ->title((string) __('capell-admin::setup.create_failed', ['reason' => '']))
-                ->body($throwable->getMessage())
+                ->title((string) __('capell-admin::setup.create_failed', ['reason' => (string) __('capell-admin::setup.create_failed_unknown')]))
                 ->persistent()
                 ->send();
 
             return;
         }
 
-        $this->finish($site);
+        $this->finish($site, count($this->selectedSlugs()));
     }
 
     public function skip(): void
     {
-        SkipGuidedSetupAction::run($this->site());
+        try {
+            SkipGuidedSetupAction::run($this->site());
+        } catch (GuidedSetupRefusedException) {
+            $this->redirect(CapellDashboard::getUrl(), navigate: false);
+
+            return;
+        }
 
         Notification::make()->success()->title((string) __('capell-admin::setup.skipped'))->send();
 
@@ -267,14 +300,25 @@ class GuidedSetup extends FilamentPage
         $actor = auth()->user();
         throw_if($actor === null, RuntimeException::class, 'A signed-in person is required to publish.');
 
+        // Only for pages this page created, or for the site whose created pages are still waiting to be published.
+        $awaiting = ResolveGuidedSetupStateAction::make()->awaitingPublication($actor);
+        abort_unless($this->created || ($awaiting instanceof Site && (int) $awaiting->getKey() === $this->siteId), 403);
+
+        $site = $this->site();
+
         try {
-            PublishSiteSpecSiteAction::run(BuildGuidedSetupSpecAction::run($this->input(), $this->site()), $this->site(), $actor);
-        } catch (RuntimeException $runtimeException) {
+            PublishSiteSpecSiteAction::run(BuildGuidedSetupSpecAction::run($this->storedInput($site), $site), $site, $actor);
+        } catch (SiteSpecPublishRefusedException $refused) {
             Notification::make()
                 ->danger()
-                ->title((string) __('capell-admin::setup.publish_failed', ['page' => $this->failedPageName($runtimeException)]))
+                ->title((string) __('capell-admin::setup.publish_failed', ['page' => $refused->firstPageName() ?? (string) __('capell-admin::setup.step_pages')]))
                 ->persistent()
                 ->send();
+
+            return;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            Notification::make()->danger()->title((string) __('capell-admin::setup.publish_error'))->persistent()->send();
 
             return;
         }
@@ -376,13 +420,13 @@ class GuidedSetup extends FilamentPage
         return isset($this->selectedPreset()?->spec['packageData']['forms']);
     }
 
-    private function finish(Site $site): void
+    private function finish(Site $site, int $pageCount): void
     {
         $actor = auth()->user();
         $home = $actor === null ? null : SiteAccess::forActor($actor)->query(Page::class)->where('site_id', $site->getKey())->homePage()->orderBy('id')->first();
 
         $this->created = true;
-        $this->createdPageCount = count($this->selectedSlugs());
+        $this->createdPageCount = $pageCount;
         $this->homeUrl = $home instanceof Page ? GetEditPageResourceUrlAction::run($home) : null;
     }
 
@@ -480,8 +524,25 @@ class GuidedSetup extends FilamentPage
         return $presets === [] ? '' : $presets[0]->key;
     }
 
-    private function failedPageName(RuntimeException $exception): string
+    /** What setup recorded when it created the pages, so publishing never depends on what the browser sends. */
+    private function storedInput(Site $site): GuidedSetupInputData
     {
-        return Str::of($exception->getMessage())->after(':')->before(',')->trim()->trim("'\"[]")->toString() ?: (string) __('capell-admin::setup.step_pages');
+        $stored = (array) data_get($site->meta, 'guided_setup', []);
+        abort_if(blank($stored['preset_key'] ?? null), 403);
+
+        return new GuidedSetupInputData(
+            presetKey: (string) $stored['preset_key'],
+            siteName: (string) $site->name,
+            tagline: (string) ($stored['tagline'] ?? ''),
+            themeKey: filled($stored['theme_key'] ?? null) ? (string) $stored['theme_key'] : null,
+            primaryColour: filled($stored['primary_colour'] ?? null) ? (string) $stored['primary_colour'] : null,
+            pageSlugs: $this->storedSlugs($site),
+        );
+    }
+
+    /** @return list<string> */
+    private function storedSlugs(Site $site): array
+    {
+        return array_values(array_map(strval(...), array_filter((array) data_get($site->meta, 'guided_setup.page_slugs', []), is_string(...))));
     }
 }
