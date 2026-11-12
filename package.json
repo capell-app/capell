@@ -4,6 +4,7 @@
         "screenshots": "node scripts/run-core-screenshots.js",
         "screenshots:check": "node scripts/run-core-screenshots.js --dry-run",
         "screenshots:prepare": "bash scripts/screenshots/prepare-workbench.sh",
+        "screenshots:restore": "bash scripts/screenshots/testbench-skeleton.sh restore",
         "docs:screenshot-coverage": "node scripts/check-doc-screenshot-coverage.js && node scripts/check-runner-screenshot-receipts.js",
         "docs:screenshot-receipts": "node scripts/check-runner-screenshot-receipts.js",
         "docs:filament-action-screenshots": "node --test scripts/check-filament-action-screenshots.test.js && node scripts/check-filament-action-screenshots.js",
