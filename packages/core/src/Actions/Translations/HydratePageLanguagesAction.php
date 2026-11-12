@@ -21,6 +21,11 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * caller already holds (the request language) are reused, and the rest come from one
  * query. A single-language page therefore costs no language query at all.
  *
+ * The container holds one instance per request (scoped), and it remembers the languages
+ * it has read: a listing served through a fallback language hydrates every cold page
+ * with the same fallback rows, so it reads them once rather than once per page.
+ * LanguageObserver forgets the instance whenever a language changes.
+ *
  * @method static void run(Model&Pageable<Model> $page, iterable<Language> $known = [])
  */
 class HydratePageLanguagesAction
@@ -29,6 +34,13 @@ class HydratePageLanguagesAction
     use AsObject;
 
     private const array RELATIONS = ['pageUrls', 'translations'];
+
+    /**
+     * Languages this request has already read, keyed by id; null marks an id with no row.
+     *
+     * @var array<int, Language|null>
+     */
+    private array $read = [];
 
     /**
      * @param  Model&Pageable<Model>  $page
@@ -55,15 +67,18 @@ class HydratePageLanguagesAction
             ->mapWithKeys(static fn (Language $language): array => [(int) $language->getKey() => $language->withoutRelations()])
             ->only($ids->all());
 
-        $missing = $ids->diff($languages->keys())->values();
+        $missing = $ids->diff($languages->keys())->reject(fn (int $id): bool => array_key_exists($id, $this->read))->values();
 
         if ($missing->isNotEmpty()) {
-            Language::query()
-                ->whereKey($missing->all())
-                ->get()
-                ->each(static function (Language $language) use ($languages): void {
-                    $languages->put((int) $language->getKey(), $language);
-                });
+            $found = Language::query()->whereKey($missing->all())->get()->keyBy(static fn (Language $language): int => (int) $language->getKey());
+
+            foreach ($missing as $id) {
+                $this->read[$id] = $found->get($id);
+            }
+        }
+
+        foreach ($ids->diff($languages->keys()) as $id) {
+            $languages->put($id, $this->read[$id] ?? null);
         }
 
         $rows->each(static function (Model $row) use ($languages): void {

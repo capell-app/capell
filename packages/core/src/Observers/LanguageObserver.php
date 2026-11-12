@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Actions\Translations\ValidateLanguageFallbackAction;
 use Capell\Core\Enums\CacheEnum;
@@ -38,6 +39,8 @@ class LanguageObserver
 
     public function saved(Language $language): void
     {
+        // The hydrator remembers the languages it read during this request.
+        app()->forgetInstance(HydratePageLanguagesAction::class);
         CapellCore::removeCacheKey(CacheEnum::LanguageLocales->value);
         CapellCore::removeCacheKey(ResolveLanguageFallbackChainAction::CACHE_KEY);
         // Inside a transaction another request can cache the pre-commit map between the
