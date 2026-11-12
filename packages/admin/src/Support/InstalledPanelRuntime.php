@@ -14,7 +14,6 @@ use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
-use Composer\Autoload\ClassLoader;
 use Composer\InstalledVersions;
 use Filament\Auth\Pages\Login;
 use Filament\Auth\Pages\PasswordReset\RequestPasswordReset;
@@ -45,7 +44,6 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\FrontendAssets\FrontendAssets;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
 use Livewire\Mechanisms\HandleRouting\LivewirePageController;
-use LogicException;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionProperty;
@@ -171,8 +169,11 @@ final class InstalledPanelRuntime
     /** @var array<string, string|null>|null The admin packages' source and route directories, with the namespace each source directory holds. */
     private ?array $adminRoots = null;
 
-    /** @var list<string>|null The Capell packages' source and route directories. */
-    private ?array $capellRoots = null;
+    /** @var list<string>|false|null The Capell packages' source and route directories, or false once Composer's map could not be read. */
+    private array|false|null $capellRoots = null;
+
+    /** @var array<string, list<string>>|false|null Composer's PSR-4 map, read once per process, or false when it could not be read. */
+    private array|false|null $psr4Prefixes = null;
 
     /** @var array<string, true> */
     private array $freshApplicationRequired = [];
@@ -189,7 +190,7 @@ final class InstalledPanelRuntime
     /** @var list<mixed>|null Last completely classified route table and security configuration. */
     private ?array $classifiedSignature = null;
 
-    public function __construct(private readonly Router $router)
+    public function __construct(private readonly Router $router, private readonly ComposerPsr4Map $psr4 = new ComposerPsr4Map)
     {
         $this->applied = new WeakMap;
         $this->fullPageOnly = new WeakMap;
@@ -227,8 +228,10 @@ final class InstalledPanelRuntime
         }
 
         // A cached closure is never unserialised to be read, so record now whether it runs Capell code. Classes
-        // stay readable once cached, and are not loaded at registration.
-        if ($ownership?->kind === RouteOwnershipEnum::Panel && $route->getAction('uses') instanceof Closure && $this->runsCapellCode($route)) {
+        // stay readable once cached, and are not loaded at registration. Without Composer's map nothing is
+        // recorded: the route is refused per request instead, and a later process records it correctly.
+        if ($ownership?->kind === RouteOwnershipEnum::Panel && $route->getAction('uses') instanceof Closure
+            && is_array($this->capellRoots()) && $this->runsCapellCode($route)) {
             $route->action[self::CAPELL_CODE_ACTION] = true;
         }
 
@@ -1233,9 +1236,15 @@ final class InstalledPanelRuntime
             return true;
         }
 
+        // Without Composer's map, no route can be shown not to run Capell code, so every one is refused.
+        $roots = $this->capellRoots();
+        if ($roots === false) {
+            return true;
+        }
+
         $file = $this->actionSource($route)[1];
 
-        return $file !== null && array_any($this->capellRoots(), static fn (string $root): bool => str_starts_with($file, $root));
+        return $file !== null && array_any($roots, static fn (string $root): bool => str_starts_with($file, $root));
     }
 
     /**
@@ -1469,7 +1478,7 @@ final class InstalledPanelRuntime
         }
 
         $roots = [];
-        foreach ($this->sourceRoots(self::ADMIN_NAMESPACES) as $source => $prefix) {
+        foreach ($this->sourceRoots(self::ADMIN_NAMESPACES) ?? [] as $source => $prefix) {
             $roots[$source] = $prefix;
             $roots[$this->routesBeside($source)] ??= null;
         }
@@ -1480,18 +1489,24 @@ final class InstalledPanelRuntime
     /**
      * The source and route directories of every package under the Capell namespace, the same way as the admin
      * packages' roots. A host mapping a Capell namespace onto its own root is the host's code, not a package's.
+     * False when Composer's map could not be read.
      *
-     * @return list<string>
+     * @return list<string>|false
      */
-    private function capellRoots(): array
+    private function capellRoots(): array|false
     {
         if ($this->capellRoots !== null) {
             return $this->capellRoots;
         }
 
+        $sources = $this->sourceRoots([self::CAPELL_NAMESPACE]);
+        if ($sources === null) {
+            return $this->capellRoots = false;
+        }
+
         $application = realpath(base_path());
         $roots = [];
-        foreach (array_keys($this->sourceRoots([self::CAPELL_NAMESPACE])) as $source) {
+        foreach (array_keys($sources) as $source) {
             if ($application === false || dirname($source) !== $application) {
                 $roots[$source] = true;
                 $roots[$this->routesBeside($source)] = true;
@@ -1499,43 +1514,79 @@ final class InstalledPanelRuntime
         }
 
         // This class is Capell code, so a list without its own source directory means Composer's map could not
-        // be read. Refuse rather than serve Capell code on panels without the Capell plugin.
+        // be read.
         $self = realpath((string) new ReflectionClass(self::class)->getFileName());
-        throw_unless(
-            $self !== false && array_any(array_keys($roots), static fn (string $root): bool => str_starts_with($self, $root)),
-            LogicException::class,
-            "Capell's package directories could not be read from Composer's autoloader.",
-        );
+        if ($self === false || ! array_any(array_keys($roots), static fn (string $root): bool => str_starts_with($self, $root))) {
+            $this->reportUnreadableMap();
+
+            return $this->capellRoots = false;
+        }
 
         return $this->capellRoots = array_keys($roots);
     }
 
     /**
      * The real `src` directories Composer's PSR-4 map registers for the namespaces, each with its prefix, found
-     * once per process from the registered autoloaders. Test suites and other directories are not package code.
+     * from the registered autoloaders. Test suites and other directories are not package code. Null when the map
+     * could not be read, which is reported once.
      *
      * @param  list<string>  $namespaces
-     * @return array<string, string>
+     * @return array<string, string>|null
      */
-    private function sourceRoots(array $namespaces): array
+    private function sourceRoots(array $namespaces): ?array
     {
-        $roots = [];
-        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
-            foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
-                if (! array_any($namespaces, static fn (string $namespace): bool => str_starts_with($prefix, $namespace))) {
-                    continue;
-                }
+        $prefixes = $this->psr4Prefixes();
+        if ($prefixes === false) {
+            return null;
+        }
 
-                foreach ($directories as $directory) {
-                    $path = realpath($directory);
-                    if ($path !== false && basename($path) === 'src') {
-                        $roots[$path . DIRECTORY_SEPARATOR] = $prefix;
-                    }
+        $roots = [];
+        foreach ($prefixes as $prefix => $directories) {
+            if (! array_any($namespaces, static fn (string $namespace): bool => str_starts_with($prefix, $namespace))) {
+                continue;
+            }
+
+            foreach ($directories as $directory) {
+                $path = realpath($directory);
+                if ($path !== false && basename($path) === 'src') {
+                    $roots[$path . DIRECTORY_SEPARATOR] = $prefix;
                 }
             }
         }
 
         return $roots;
+    }
+
+    /**
+     * Composer's PSR-4 map, read once per process. A map that cannot be read is reported once and never
+     * thrown, so the application still boots and panels without the Capell plugin refuse their routes.
+     *
+     * @return array<string, list<string>>|false
+     */
+    private function psr4Prefixes(): array|false
+    {
+        if ($this->psr4Prefixes !== null) {
+            return $this->psr4Prefixes;
+        }
+
+        try {
+            $prefixes = [];
+            foreach ($this->psr4->prefixes() as $prefix => $directories) {
+                $prefixes[$prefix] = [...$prefixes[$prefix] ?? [], ...$directories];
+            }
+
+            return $this->psr4Prefixes = $prefixes;
+        } catch (Throwable $throwable) {
+            $this->reportUnreadableMap($throwable);
+
+            return $this->psr4Prefixes = false;
+        }
+    }
+
+    /** Report that Capell code cannot be told apart, so panels without the Capell plugin refuse every route. */
+    private function reportUnreadableMap(?Throwable $throwable = null): void
+    {
+        Log::error(__('capell-admin::message.capell_package_map_unreadable'), $throwable instanceof Throwable ? ['exception' => $throwable] : []);
     }
 
     /** A package's route files sit beside its source directory. */

@@ -7,6 +7,7 @@ namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Http\Controllers\AdminAvatarController;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
+use Capell\Admin\Support\ComposerPsr4Map;
 use Capell\Admin\Support\PanelOwnership;
 use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\ForeignPanelProvider;
@@ -18,12 +19,16 @@ use Capell\CompanionFixture\CompanionWorkspacePage;
 use Composer\Autoload\ClassLoader;
 use Filament\Facades\Filament;
 use Filament\Http\Controllers\RedirectToHomeController;
+use Illuminate\Log\LogManager;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
+use Mockery;
+use Mockery\MockInterface;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
 use Override;
 use PHPUnit\Framework\Attributes\TestWith;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -36,6 +41,10 @@ final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
     private const string HOST_ROOT_NAMESPACE = 'Capell\\HostRoot\\';
 
     private const string HOST_ROOT_ROUTES = 'routes/capell-host-root.php';
+
+    private static int $mapReads = 0;
+
+    private static ?MockInterface $log = null;
 
     public function test_a_panel_without_the_capell_plugin_refuses_capell_admin_code(): void
     {
@@ -106,6 +115,21 @@ final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
         $this->get('/portal/host-closure')->assertOk()->assertSee('host closure served');
     }
 
+    /** Without Composer's map the application still boots, and the panel refuses what it cannot tell apart from Capell code. */
+    public function test_a_panel_without_the_capell_plugin_refuses_its_closures_when_composers_map_cannot_be_read(): void
+    {
+        Route::name('filament.portal.')->middleware('panel:portal')->group(static function (): void {
+            Route::get('/portal/host-closure', static fn (): string => 'host closure served');
+            Route::get('/portal/other-host-closure', static fn (): string => 'other host closure served');
+        });
+
+        $this->get('/portal/host-closure')->assertStatus(503)->assertDontSee('host closure served');
+        $this->get('/portal/other-host-closure')->assertStatus(503)->assertDontSee('other host closure served');
+        $this->assertSame(1, self::$mapReads);
+        $this->assertInstanceOf(MockInterface::class, self::$log);
+        self::$log->shouldHaveReceived('error')->withArgs(static fn (string $message): bool => $message === __('capell-admin::message.capell_package_map_unreadable'))->once();
+    }
+
     /** A host mapping a Capell namespace onto its own root keeps its own route files. */
     #[DefineEnvironment('mapCapellNamespaceOntoTheHostRoot')]
     public function test_a_panel_without_the_capell_plugin_serves_a_host_mapping_a_capell_namespace_onto_its_root(): void
@@ -137,6 +161,25 @@ final class InstalledPanelRuntimeUnextendedPanelTest extends AdminTestCase
 
         // Not refused: Capell's panel security answers, sending the signed-out visitor to sign in.
         $this->get('/admin/companion-workspace')->assertRedirect('/admin/login')->assertDontSee(CompanionWorkspacePage::BODY);
+    }
+
+    /** For the unreadable-map test, Composer's map throws when read, and logging is observed, from before the application boots. */
+    #[Override]
+    protected function overrideApplicationBindings($app): array
+    {
+        if ($this->name() === 'test_a_panel_without_the_capell_plugin_refuses_its_closures_when_composers_map_cannot_be_read') {
+            self::$mapReads = 0;
+            $log = Mockery::spy(LogManager::class, [$app])->makePartial();
+            self::$log = $log;
+            $app->instance('log', $log);
+            $app->instance(ComposerPsr4Map::class, new ComposerPsr4Map(static function (): never {
+                self::$mapReads++;
+
+                throw new RuntimeException('The autoloader cannot be read.');
+            }));
+        }
+
+        return parent::overrideApplicationBindings($app);
     }
 
     #[Override]
