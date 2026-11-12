@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Livewire\Header\ClearCacheButton;
+use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
 use Capell\Core\Models\Site;
 use CmsMulti\FilamentClearCache\Jobs\ClearCacheJob;
@@ -45,6 +46,22 @@ it('refuses a site-scoped editor who calls clear and clears nothing', function (
         ->test(ClearCacheButton::class)
         ->assertSet('visible', false)
         ->assertDontSeeHtml('wire:click="clear"')
+        ->call('clear')
+        ->assertForbidden();
+
+    Bus::assertNotDispatchedAfterResponse(ClearCacheJob::class);
+});
+
+it('sends a snapshot replayed under the vendor component name to the guarded button', function (): void {
+    expect(resolve('livewire.finder')->resolveClassComponentClassName(AdminServiceProvider::VENDOR_CLEAR_CACHE_COMPONENT))->toBe(ClearCacheButton::class);
+
+    $editor = clearCacheUserForClearCacheButtonTest();
+    $editor->assignRoleForSite(Site::factory()->withTranslations()->create(), Role::query()->firstOrCreate(['name' => 'site-editor', 'guard_name' => 'web']));
+    setPermissionsTeamId(null);
+
+    // As a page rendered before Capell guarded the button would have named it.
+    Livewire::actingAs($editor)
+        ->test(AdminServiceProvider::VENDOR_CLEAR_CACHE_COMPONENT)
         ->call('clear')
         ->assertForbidden();
 

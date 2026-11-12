@@ -31,6 +31,15 @@ final class ClearCacheButton extends ClearCache
         parent::clear();
     }
 
+    /** Only a global administrator's badge counts pending changes; anyone else's call changes nothing. */
+    #[Override]
+    public function incrementChangesCount(): void
+    {
+        if ($this->actorIsGlobalAdministrator()) {
+            parent::incrementChangesCount();
+        }
+    }
+
     #[Override]
     public function render(): View
     {
