@@ -60,7 +60,8 @@
     "autoload-dev": {
         "psr-4": {
             "Capell\\Admin\\Tests\\": "tests/",
-            "StandalonePackage\\": "tests/Fixtures/StandalonePackage/src/"
+            "StandalonePackage\\": "tests/Fixtures/StandalonePackage/src/",
+            "Capell\\CompanionFixture\\": "tests/Fixtures/CompanionPackage/src/"
         }
     },
     "config": {
