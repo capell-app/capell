@@ -12,6 +12,8 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 
 it('resolves a public page by site language and url', function (): void {
@@ -269,6 +271,58 @@ it('does not resolve an unrelated revision page for a url', function (): void {
     expect($resolution->found())->toBeFalse()
         ->and($resolution->page)->toBeNull()
         ->and($resolution->fields->title)->toBeNull();
+});
+
+it('loads the languages of a resolved page with a single query', function (): void {
+    $fixture = createPublicPageResolutionFixture(['url' => '/about']);
+    $french = Language::factory()->createOne();
+
+    Translation::factory()
+        ->translatable($fixture['page'])
+        ->language($french)
+        ->create(['title' => 'A propos']);
+
+    // Adding a translation rebuilds the page's URLs, so restore the requested one.
+    $fixture['page_url']->refresh()->forceFill(['url' => '/about', 'status' => true, 'type' => null])->save();
+
+    $languageQueries = 0;
+
+    DB::listen(function (QueryExecuted $query) use (&$languageQueries): void {
+        if (str_contains($query->sql, 'from "languages"') || str_contains($query->sql, 'from `languages`')) {
+            $languageQueries++;
+        }
+    });
+
+    $page = expectPresent(ResolvePublicPageByUrlAction::run($fixture['site'], $fixture['language'], '/about')->page);
+
+    $languageKeys = static fn (iterable $rows): array => collect($rows)
+        ->map(fn (Model $row): ?int => $row->relationLoaded('language') ? $row->getRelation('language')?->getKey() : null)
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($languageQueries)->toBe(1)
+        ->and($languageKeys($page->translations))
+        ->toBe(collect([$fixture['language']->getKey(), $french->getKey()])->sort()->values()->all())
+        ->and($languageKeys($page->pageUrls))->not->toContain(null)
+        ->and($page->translation?->language?->getKey())->toBe($fixture['language']->getKey());
+});
+
+it('reuses the request language for a single-language page instead of reading it again', function (): void {
+    $fixture = createPublicPageResolutionFixture(['url' => '/about']);
+    $languageQueries = 0;
+
+    DB::listen(function (QueryExecuted $query) use (&$languageQueries): void {
+        if (str_contains($query->sql, 'from "languages"') || str_contains($query->sql, 'from `languages`')) {
+            $languageQueries++;
+        }
+    });
+
+    $page = expectPresent(ResolvePublicPageByUrlAction::run($fixture['site'], $fixture['language'], '/about')->page);
+
+    expect($languageQueries)->toBe(0)
+        ->and($page->translations->every(fn (Translation $translation): bool => $translation->language?->getKey() === $fixture['language']->getKey()))->toBeTrue()
+        ->and($page->pageUrls->every(fn (PageUrl $url): bool => $url->language?->getKey() === $fixture['language']->getKey()))->toBeTrue();
 });
 
 /**

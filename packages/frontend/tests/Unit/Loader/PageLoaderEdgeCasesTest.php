@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\GetPageVariablesAction;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
@@ -82,6 +84,31 @@ it('getErrorPage with withEvents false returns the page when one exists', functi
 
     expect($result)->toBeInstanceOf(Page::class)
         ->and($result->getKey())->toBe($errorPage->getKey());
+});
+
+it('getErrorPage hydrates the layout theme when the site has several error pages', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->recycle($language)->withTranslations()->create();
+    $errorType = Blueprint::query()->where('key', 'error')->first()
+        ?? Blueprint::factory()->page()->state(['key' => 'error'])->create();
+    $theme = Theme::factory()->createOne();
+
+    foreach (['first', 'second'] as $slug) {
+        Page::factory()
+            ->site($site)
+            ->type($errorType)
+            ->layout(Layout::factory()->createOne(['theme_id' => $theme->getKey()]))
+            ->withTranslations($language, slug: 'error-' . $slug)
+            ->create();
+    }
+
+    $result = expectPresent(PageLoader::getErrorPage(site: $site, language: $language, withEvents: false));
+    $layout = expectPresent($result->layout);
+
+    // Several candidates load as one collection, which arms lazy-loading prevention on
+    // their relations: the public theme resolver must find the theme already loaded.
+    expect($layout->relationLoaded('theme'))->toBeTrue()
+        ->and($layout->getRelation('theme')?->getKey())->toBe($theme->getKey());
 });
 
 // ─────────────────────────────────────────────────────────────
