@@ -363,7 +363,7 @@ The example publishes Nginx only on loopback port `8080`; the external proxy sho
 
 ## Existing users and `--user`
 
-`--user=<email-or-id>` selects an existing account as the default author for generated content. It does not create an account, set a password, or provide login credentials. A fresh database therefore needs `--name`, `--email`, and `--password` together. Use `--user` only when the account already exists in the selected database.
+`--user=<email>` looks up an existing account by email address, makes it the default author for generated content and grants it the global administrator role. It does not create an account, set a password, or provide login credentials. A fresh database therefore needs `--name`, `--email`, and `--password` together. Use `--user` only when the account already exists in the selected database.
 
 ## Filesystem and lifecycle checks
 

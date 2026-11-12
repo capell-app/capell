@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Events\UrlVisitFailed;
 use Capell\Core\Exceptions\UrlVisitFailedException;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Http\PublicAddressPolicy;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -101,10 +102,8 @@ class VisitUrlAction implements ShouldBeUnique
             return null;
         }
 
-        foreach ($addresses as $address) {
-            if ($this->isUnsafeAddress($address)) {
-                return null;
-            }
+        if (! resolve(PublicAddressPolicy::class)->allPublic($addresses)) {
+            return null;
         }
 
         return $addresses[0];
@@ -138,10 +137,6 @@ class VisitUrlAction implements ShouldBeUnique
             return false;
         }
 
-        return filter_var(
-            $address,
-            FILTER_VALIDATE_IP,
-            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
-        ) === false;
+        return ! resolve(PublicAddressPolicy::class)->isPublicAddress($address);
     }
 }

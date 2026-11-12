@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\ResolveInstallRecommendationAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
+use Capell\Core\Data\Install\InstallSkippedPackageData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\InstallPackageLicenceState;
 use Capell\Core\Enums\InstallRecommendationAction;
+use Capell\Core\Enums\InstallSkipReason;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
@@ -407,4 +410,45 @@ it('leaves Site Discovery out of the headless suite, which ships no public front
     $defaults = require dirname(__DIR__, 3) . '/config/capell.php';
 
     expect($defaults['install']['recommendations']['headless'])->not->toHaveKey('recommended');
+});
+
+it('reports recommended packages that are neither installed nor downloadable', function (): void {
+    config([
+        'capell.install.recommendations' => [
+            'site' => [
+                'label' => 'Site',
+                'description' => 'A site bundle.',
+                'packages' => ['capell-app/core'],
+                'recommended' => [
+                    'capell-app/core' => 'Always there.',
+                    'capell-app/preview-only' => 'Not in the public channel.',
+                ],
+            ],
+        ],
+    ]);
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect());
+
+    $suite = collect(resolve(InstallRecommendationRepository::class)->suites())->firstOrFail(fn (InstallRecommendationData $candidate): bool => $candidate->key === 'site');
+
+    expect($suite->recommended)->toHaveKey('capell-app/core')->not->toHaveKey('capell-app/preview-only')
+        ->and($suite->unavailable)->toBe(['capell-app/preview-only'])
+        ->and(array_map(fn (InstallSkippedPackageData $skipped): array => [$skipped->package, $skipped->reason], $suite->skippedRecommended()))
+        ->toBe([['capell-app/preview-only', InstallSkipReason::NotInPublicChannel]]);
+});
+
+it('reports a recommended package left out because it may need a licence', function (): void {
+    $suite = new InstallRecommendationData(
+        key: 'site',
+        label: 'Site',
+        description: 'A site bundle.',
+        packages: [],
+        recommended: ['vendor/paid' => 'Paid.', 'vendor/free' => 'Free.'],
+        packageLicenceStates: [
+            'vendor/paid' => InstallPackageLicenceState::Required,
+            'vendor/free' => InstallPackageLicenceState::Free,
+        ],
+    );
+
+    expect(array_map(fn (InstallSkippedPackageData $skipped): array => [$skipped->package, $skipped->reason], $suite->skippedRecommended()))
+        ->toBe([['vendor/paid', InstallSkipReason::MayNeedLicence]]);
 });

@@ -12,17 +12,21 @@ use Spatie\LaravelData\Data;
  */
 final class InstallPresetData extends Data
 {
-    /** @param list<string> $packages Every package the preset installs, including the always-installed foundation. */
+    /**
+     * @param  list<string>  $packages  Every package the preset installs, including the always-installed foundation.
+     * @param  list<InstallSkippedPackageData>  $skipped  Recommended packages left out, each with the reason.
+     */
     public function __construct(
         public readonly string $key,
         public readonly string $label,
         public readonly array $packages,
         public readonly ?string $theme,
         public readonly ?bool $demo,
+        public readonly array $skipped = [],
     ) {}
 
     public function selection(): InstallSuiteSelectionData
     {
-        return new InstallSuiteSelectionData(packages: $this->packages, theme: $this->theme, demo: $this->demo);
+        return new InstallSuiteSelectionData(packages: $this->packages, theme: $this->theme, demo: $this->demo, skipped: $this->skipped);
     }
 }

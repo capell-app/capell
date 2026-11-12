@@ -13,6 +13,7 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 final class PagePreviewController extends BaseController
@@ -30,6 +31,8 @@ final class PagePreviewController extends BaseController
         abort_unless($site instanceof Site, SymfonyResponse::HTTP_NOT_FOUND);
 
         $this->abortUnlessActorCanPreviewSite($actor, $site);
+        // A signed link can outlive the viewer's permission to read this draft.
+        abort_unless(Gate::forUser($actor)->allows('view', $page), SymfonyResponse::HTTP_FORBIDDEN);
 
         $theme = $site->theme;
         abort_unless($theme instanceof Theme, SymfonyResponse::HTTP_NOT_FOUND);

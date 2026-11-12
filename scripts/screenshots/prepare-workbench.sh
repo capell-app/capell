@@ -35,6 +35,18 @@ for generated_migration_directory in \
         \( -name '*_create_notifications_table.php' -o -name '*_create_sessions_table.php' \) \
         -delete
 done
+# The skeleton's Vite config below imports vendor/capell-app/frontend, and in a
+# monorepo checkout no Composer install ever puts the frontend package there:
+# it is the checkout's own packages/frontend. A fresh worktree therefore failed
+# to resolve the workbench Vite config until someone linked it by hand. Link it
+# relatively so the link stays inside whichever checkout owns it, and leave any
+# existing directory or link (a real install) untouched.
+FRONTEND_PACKAGE_LINK="${REPOSITORY_ROOT}/vendor/capell-app/frontend"
+if [[ -d "${REPOSITORY_ROOT}/packages/frontend" && ! -e "${FRONTEND_PACKAGE_LINK}" && ! -L "${FRONTEND_PACKAGE_LINK}" ]]; then
+    mkdir -p "${REPOSITORY_ROOT}/vendor/capell-app"
+    ln -s ../../packages/frontend "${FRONTEND_PACKAGE_LINK}"
+fi
+
 # IntegrateViteInputsAction resolves base_path('vite.config.{js,mjs,ts}') and
 # throws when none is found. Under Testbench, base_path() is the generated
 # Orchestra skeleton, which ships no Vite config at all, so create one that

@@ -332,7 +332,7 @@ composer require capell-app/installer
 php artisan capell:install --plan
 ```
 
-Then run the guided installer and select only the required foundation packages. Point `--user` at an existing user when that account should be the default author:
+Then run the guided installer and select only the required foundation packages. Point `--user` at an existing account's email address when that person should become the global administrator and default author:
 
 ```bash
 php artisan capell:install \
@@ -340,7 +340,7 @@ php artisan capell:install \
   --url=https://your-site.test
 ```
 
-`--user` does not create an account. To create a new administrator non-interactively, pass `--name`, `--email`, and `--password` together.
+`--user` does not create an account or change its password. It finds the account by email address and grants it the global administrator role, so point it only at the person who should own the installation. To create a new administrator non-interactively, pass `--name`, `--email`, and `--password` together.
 
 Review the Installer's changes to the user model and Filament panel provider before committing them. Preserve host authentication, existing routes, policies, middleware, and frontend assets that Capell does not own.
 
@@ -395,7 +395,7 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 | `--theme=none`                     | Install without activating a theme                                |
 | `--url=https://...`                | Set the site URL without a prompt                                 |
 | `--name= --email= --password=`     | Create the first administrator; pass all three                    |
-| `--user=email-or-id`               | Select an existing default author                                 |
+| `--user=email`                     | Use an existing account by email; grants it global administrator  |
 | `--seed`                           | Run the host application's database seeder                        |
 | `--clear-cache`                    | Clear Laravel and Capell caches after installation                |
 | `--install-welcome-route`          | Remove Laravel's stock welcome route so Capell can own `/`        |

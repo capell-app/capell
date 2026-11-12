@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Routing;
 
+use Capell\Core\Support\Http\PublicAddressPolicy;
 use Illuminate\Contracts\Routing\UrlGenerator;
 use ReflectionProperty;
 
@@ -57,8 +58,10 @@ final class PublicUrlResolver
             return false;
         }
 
-        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+        $address = trim($host, '[]');
+
+        if (filter_var($address, FILTER_VALIDATE_IP) !== false) {
+            return ! resolve(PublicAddressPolicy::class)->isPublicAddress($address);
         }
 
         return $host === 'localhost'

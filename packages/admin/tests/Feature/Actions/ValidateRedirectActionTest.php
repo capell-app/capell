@@ -22,6 +22,8 @@ it('allows relative and http redirect targets', function (string $targetUrl): vo
     ['/new'],
     ['https://example.test/new'],
     ['http://example.test/new'],
+    ['/Pricing?Plan=Annual#Compare'],
+    ['/downloads/report\\final.pdf'],
 ]);
 
 it('rejects unsafe redirect targets', function (string $targetUrl): void {
@@ -41,4 +43,10 @@ it('rejects unsafe redirect targets', function (string $targetUrl): void {
     ['javascript:alert(1)'],
     ["https://example.test/\nLocation: https://evil.test"],
     ['not-a-url'],
+    ['/\\evil.test/path'],
+    ['\\/evil.test/path'],
+    ["/\t/evil.test/path"],
+    ['https://example.test@evil.test/path'],
+    ['https://example.test\\@evil.test/path'],
+    ['https://exa mple.test/path'],
 ]);

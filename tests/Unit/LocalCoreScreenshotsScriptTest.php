@@ -321,3 +321,45 @@ BASH);
         (new Filesystem)->deleteDirectory($temporary);
     }
 })->with(['default scan' => [null], 'empty scan' => [''], 'inherited scan' => ['custom']]);
+
+it('links the checkout frontend package into vendor for the workbench Vite config', function (string $existing, bool $expectLink): void {
+    $fixture = new ScriptFixture;
+    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
+        $fixture->copy($path);
+    }
+
+    $fixture->write('packages/frontend/resources/js/capell-vite-inputs.js', 'export const capellViteInputs = () => [];');
+    $fixture->write('bin/php', "#!/bin/sh\nexit 0\n");
+    $fixture->write('bin/node', "#!/bin/sh\nexit 0\n");
+    chmod($fixture->root . '/bin/php', 0755);
+    chmod($fixture->root . '/bin/node', 0755);
+
+    if ($existing === 'directory') {
+        $fixture->write('vendor/capell-app/frontend/installed.txt', 'installed');
+    }
+
+    try {
+        $process = new Process(['/bin/bash', 'scripts/screenshots/prepare-workbench.sh'], $fixture->root, [
+            'PATH' => $fixture->root . '/bin' . PATH_SEPARATOR . getenv('PATH'),
+        ]);
+        // Hang ceiling only: a busy host must slow this down, never fail it.
+        $process->setTimeout(300);
+
+        expect($process->run())->toBe(0, $process->getErrorOutput());
+
+        $link = $fixture->root . '/vendor/capell-app/frontend';
+        if ($expectLink) {
+            expect(is_link($link))->toBeTrue()
+                ->and(readlink($link))->toBe('../../packages/frontend')
+                ->and(is_file($link . '/resources/js/capell-vite-inputs.js'))->toBeTrue();
+        } else {
+            expect(is_link($link))->toBeFalse()
+                ->and(file_get_contents($link . '/installed.txt'))->toBe('installed');
+        }
+    } finally {
+        $fixture->close();
+    }
+})->with([
+    'fresh worktree' => ['none', true],
+    'real installed package' => ['directory', false],
+]);
