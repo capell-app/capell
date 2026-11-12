@@ -933,17 +933,32 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     /**
      * The package installer registers a newly installed package's providers in its already-booted process
      * (console, queue worker, or the installer's own step request). That process serves no Livewire
-     * update, and the next request boots with the admin package registered in time. Anything that may be
-     * a Livewire update, or any doubt, keeps the late registration refused.
+     * update, and the next request boots with the admin package registered in time. Under Octane the
+     * worker keeps this booted application for later requests, whose Livewire updates would reach the
+     * mechanism captured before the late registration, so it is refused there. Anything that may be a
+     * Livewire update, or any doubt, keeps the late registration refused.
      */
     private function lateRegistrationIsInstallingPackages(): bool
     {
+        if ($this->runningUnderOctane()) {
+            return false;
+        }
+
         if (! $this->app->resolved(PackageSurfaceRegistrar::class)
             || ! $this->app->make(PackageSurfaceRegistrar::class)->isInstallingPackages()) {
             return false;
         }
 
         return ! $this->mayBeServingLivewireUpdate();
+    }
+
+    /**
+     * Octane's start commands give every worker process LARAVEL_OCTANE=1. The 'octane' binding is not used:
+     * it exists wherever the package is installed, including the console and queue processes that install.
+     */
+    private function runningUnderOctane(): bool
+    {
+        return filter_var(getenv('LARAVEL_OCTANE'), FILTER_VALIDATE_BOOLEAN);
     }
 
     private function mayBeServingLivewireUpdate(): bool

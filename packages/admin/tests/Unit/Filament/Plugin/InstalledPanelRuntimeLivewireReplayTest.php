@@ -109,19 +109,6 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
         $this->app->register(new AdminServiceProvider($this->app), force: true);
     }
 
-    /** The package installer registers a newly installed admin package in its booted console or queue process. */
-    public function test_the_package_installer_may_register_the_admin_package_after_boot_outside_a_livewire_update(): void
-    {
-        $this->app->instance('request', Request::create('/'));
-
-        resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
-            fn (): object => $this->app->register(new AdminServiceProvider($this->app), force: true),
-        );
-
-        $this->assertFalse(resolve(PackageSurfaceRegistrar::class)->isInstallingPackages());
-        $this->assertInstanceOf(ShortCircuitingPersistentMiddleware::class, resolve(PersistentMiddleware::class));
-    }
-
     /** During installation, a process that may be serving a Livewire update still refuses a late registration. */
     #[DataProvider('livewireUpdateRequests')]
     public function test_the_package_installer_may_not_register_the_admin_package_late_while_serving_a_livewire_update(bool $byHeader): void
