@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -223,6 +224,11 @@ it('adds a preview token for the selected preset', function (): void {
 
 it('renders signed theme previews for authenticated admins without authoring surface', function (): void {
     [$theme, $site, $page] = createThemePreviewTestRecords();
+
+    // Defence, not a proven cause: a hosted shard once rendered the default colours here. Pin the colours the
+    // preview reads and drop any cached render state, so the assertion cannot depend on earlier tests in the worker.
+    Cache::flush();
+    expect(data_get(Theme::query()->findOrFail($theme->getKey())->meta, 'colors.primary'))->toBe('12, 34, 56');
 
     test()->actingAsAdmin();
 
