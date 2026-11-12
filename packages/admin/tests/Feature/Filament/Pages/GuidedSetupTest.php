@@ -85,7 +85,8 @@ it('offers every installed page set and starts from the one matching the install
     expect(collect($page->instance()->presets())->pluck('key')->all())->toContain('service-business', 'shop-front', 'studio');
     $page->assertSet('data.presetKey', 'service-business')
         ->assertSet('data.siteName', 'My Laravel App')
-        ->assertSee(__('capell-admin::setup.step_business'));
+        ->assertSee(__('capell-admin::setup.step_business'))
+        ->assertSee(__('capell-admin::setup.skip'));
 });
 
 it('previews the answers as they are typed', function (): void {

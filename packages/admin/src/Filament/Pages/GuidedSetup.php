@@ -357,6 +357,19 @@ class GuidedSetup extends FilamentPage
         ]);
     }
 
+    /** @return array<Action> */
+    #[Override]
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('skip')
+                ->label(__('capell-admin::setup.skip'))
+                ->color('gray')
+                ->visible(fn (): bool => ! $this->created)
+                ->action(fn () => $this->skip()),
+        ];
+    }
+
     private function presetHasForm(): bool
     {
         return isset($this->selectedPreset()?->spec['packageData']['forms']);
