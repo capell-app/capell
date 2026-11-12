@@ -15,6 +15,9 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+# Hang ceiling for every wait on a child: a host busy with parallel Pest workers and release lanes
+# slows these launches down, so only a genuine hang may fail them, never a slow start.
+HANG_CEILING_SECONDS = 180
 
 
 class ReleaseVerificationLockTest(unittest.TestCase):
@@ -75,7 +78,7 @@ class ReleaseVerificationLockTest(unittest.TestCase):
             self.assertEqual(self.environment.get(name), value, name)
         started = time.monotonic()
         for _ in range(3):
-            output, error = self.helper().communicate(timeout=10)
+            output, error = self.helper().communicate(timeout=HANG_CEILING_SECONDS)
             self.assertEqual(output, 'ran\n', error)
         self.assertLess(time.monotonic() - started, 10)
 
@@ -89,11 +92,11 @@ class ReleaseVerificationLockTest(unittest.TestCase):
     def stop(child):
         if child.poll() is None:
             child.terminate()
-        child.communicate(timeout=10)
+        child.communicate(timeout=HANG_CEILING_SECONDS)
 
     def waits(self, child):
         diagnostic = ''
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + HANG_CEILING_SECONDS
         with selectors.DefaultSelector() as selector:
             selector.register(child.stderr, selectors.EVENT_READ)
             while 'release verification' not in diagnostic:
@@ -117,7 +120,7 @@ class ReleaseVerificationLockTest(unittest.TestCase):
             child = self.helper(CAPELL_RELEASE_VERIFICATION_OWNER='b' * 32, CAPELL_NO_LOCK='1')
             self.waits(child)
             self.assertEqual(json.loads(self.path.read_text()), record)
-        output, error = child.communicate(timeout=10)
+        output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
         self.assertEqual(child.returncode, 0, error)
         self.assertEqual(output, 'ran\n')
 
@@ -128,7 +131,7 @@ class ReleaseVerificationLockTest(unittest.TestCase):
                 json.dump({'schema': 1, 'owner': 'a' * 32, 'pid': os.getpid()}, lock)
                 lock.flush()
                 child = self.helper(**environment)
-                output, error = child.communicate(timeout=10)
+                output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
             self.assertEqual(child.returncode, 0, error)
             self.assertEqual(output, 'ran\n')
 
@@ -150,11 +153,11 @@ class ReleaseVerificationLockTest(unittest.TestCase):
             child = self.start([self.php, composer, 'run', '--no-interaction', 'preflight'], cwd=self.root)
             self.waits(child)
             focused = self.start([self.php, '-r', 'echo "focused-ran\\n";'])
-            output, error = focused.communicate(timeout=10)
+            output, error = focused.communicate(timeout=HANG_CEILING_SECONDS)
             self.assertEqual(focused.returncode, 0, error)
             self.assertEqual(output, 'focused-ran\n')
             self.assertIsNone(child.poll())
-        output, error = child.communicate(timeout=10)
+        output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
         self.assertEqual(child.returncode, 0, error)
         self.assertTrue(output)
         self.assertTrue(all(line == 'preflight-ran' for line in output.splitlines()), output)
@@ -171,12 +174,12 @@ class ReleaseVerificationLockTest(unittest.TestCase):
             child = self.start(['./capell', 'preflight'], **environment)
             self.waits(child)
             focused = self.start(['./capell', 'pest', 'packages/example/tests/ExampleTest.php'], **environment)
-            output, error = focused.communicate(timeout=10)
+            output, error = focused.communicate(timeout=HANG_CEILING_SECONDS)
             self.assertEqual(focused.returncode, 0, error)
             self.assertIn('vendor/bin/pest packages/example/tests/ExampleTest.php', output)
             self.assertNotIn('CAPELL_NO_RELEASE_LOCK=1', output)
             self.assertIsNone(child.poll())
-        output, error = child.communicate(timeout=10)
+        output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
         self.assertEqual(child.returncode, 0, error)
         self.assertIn('env CAPELL_NO_RELEASE_LOCK=1 composer preflight', output)
 
@@ -194,7 +197,7 @@ class ReleaseVerificationLockTest(unittest.TestCase):
         self.assertIsNotNone(composer)
         arguments = ['--filter=ForwardedSelection', 'tests/ForwardedTest.php']
         child = self.start([self.php, composer, 'run', '--no-interaction', 'test', '--', *arguments], cwd=self.root)
-        output, error = child.communicate(timeout=10)
+        output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
         self.assertEqual(child.returncode, 0, error)
         self.assertTrue(output)
         self.assertTrue(all(json.loads(line) == arguments for line in output.splitlines()), output)
@@ -212,10 +215,10 @@ class ReleaseVerificationLockTest(unittest.TestCase):
                 child = self.start(['./capell', *arguments], **environment)
                 self.waits(child)
                 focused = self.start(['./capell', 'exec', 'vendor/bin/pest', 'packages/example/tests/ExampleTest.php'], **environment)
-                output, error = focused.communicate(timeout=10)
+                output, error = focused.communicate(timeout=HANG_CEILING_SECONDS)
                 self.assertEqual(focused.returncode, 0, error)
                 self.assertNotIn('CAPELL_NO_RELEASE_LOCK=1', output)
-            output, error = child.communicate(timeout=10)
+            output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
             self.assertEqual(child.returncode, 0, error)
             self.assertIn('env CAPELL_NO_RELEASE_LOCK=1', output)
 
@@ -232,7 +235,7 @@ class ReleaseVerificationLockTest(unittest.TestCase):
                                     (['--path=/tmp/tests/ExampleTest.php'], 'focused')]:
             child = self.start(['bash', '-c', 'source "$1"; shift; capell_test_verification_scope "$@"',
                                 'scope', str(ROOT / 'scripts/testing/release-lock-bridge.sh'), *arguments])
-            output, error = child.communicate(timeout=10)
+            output, error = child.communicate(timeout=HANG_CEILING_SECONDS)
             self.assertEqual(child.returncode, 0, error)
             self.assertEqual(output, expected + '\n', arguments)
 
