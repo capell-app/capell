@@ -191,3 +191,33 @@ it('declares a page served from the page model cache to the rendered model track
     expect($tracker->keysFor($page))->toBe([(string) $page->id])
         ->and($tracker->keysFor($translation))->toContain((string) $translation->getKey());
 })->with(['with model events' => true, 'without model events' => false]);
+
+it('loads the languages of a cold page model with a single query', function (): void {
+    $english = Language::factory()->createOne();
+    $french = Language::factory()->createOne();
+    $site = Site::factory()->recycle($english)->withTranslations()->create();
+    $site->load('siteDomains');
+
+    $page = Page::factory()
+        ->site($site)
+        ->type(Blueprint::factory()->page()->create())
+        ->published(CarbonImmutable::now())
+        ->withTranslations($english, ['title' => 'English'], slug: 'english')
+        ->create();
+    Translation::factory()->translatable($page)->language($french)->create(['title' => 'Francais']);
+
+    $languageQueries = 0;
+
+    DB::listen(function (QueryExecuted $query) use (&$languageQueries): void {
+        if (str_contains($query->sql, 'from "languages"') || str_contains($query->sql, 'from `languages`')) {
+            $languageQueries++;
+        }
+    });
+
+    $result = expectPresent(resolve(PageModelCache::class)->get(Page::class, $page->id, $site, $english));
+
+    expect($languageQueries)->toBe(1)
+        ->and($result->translations->map(fn (Translation $translation): int => (int) $translation->language?->getKey())->sort()->values()->all())
+        ->toBe(collect([$english->getKey(), $french->getKey()])->sort()->values()->all())
+        ->and($result->pageUrls->every(fn ($url): bool => $url->relationLoaded('language')))->toBeTrue();
+});
