@@ -48,6 +48,7 @@ final readonly class PublicAddressPolicy
         // IPv6
         '::/96',              // unspecified, loopback and IPv4-compatible
         '::ffff:0:0/96',      // IPv4-mapped
+        '::ffff:0:0:0/96',    // IPv4-translated (SIIT)
         '64:ff9b::/96',       // NAT64 well-known prefix
         '64:ff9b:1::/48',     // NAT64 local-use prefix
         '100::/64',           // discard only
@@ -61,6 +62,12 @@ final readonly class PublicAddressPolicy
         'fec0::/10',          // deprecated site local
         'ff00::/8',           // multicast
     ];
+
+    /**
+     * IPv6 global unicast space. Every other IPv6 prefix (including transition formats
+     * not listed above) is refused before the special-purpose list is consulted.
+     */
+    public const string IPV6_GLOBAL_UNICAST = '2000::/3';
 
     /**
      * Whether the address is a plain, globally routable unicast IP address.
@@ -77,6 +84,10 @@ final readonly class PublicAddressPolicy
         }
 
         if (filter_var($address, FILTER_VALIDATE_IP) === false) {
+            return false;
+        }
+
+        if (str_contains($address, ':') && ! IpUtils::checkIp($address, self::IPV6_GLOBAL_UNICAST)) {
             return false;
         }
 

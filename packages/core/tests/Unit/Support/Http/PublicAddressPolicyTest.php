@@ -35,6 +35,9 @@ it('refuses addresses that PHP private and reserved range flags let through', fu
     'IPv6 documentation' => '2001:db8::1',
     'deprecated IPv6 site local' => 'fec0::1',
     'IPv6 multicast' => 'ff02::1',
+    'IPv4-translated loopback' => '::ffff:0:7f00:1',
+    'IPv4-translated metadata' => '::ffff:0:a9fe:a9fe',
+    'unassigned IPv6 outside global unicast' => '4000::1',
 ]);
 
 it('refuses private, loopback, link-local and metadata addresses', function (string $address): void {
