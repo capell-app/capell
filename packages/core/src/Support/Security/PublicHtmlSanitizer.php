@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Security;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
+use DOMText;
 
 final class PublicHtmlSanitizer
 {
@@ -161,6 +162,14 @@ final class PublicHtmlSanitizer
     {
         foreach (iterator_to_array($parent->childNodes) as $child) {
             if (! $child instanceof DOMElement) {
+                // Keep plain text only. Comments, processing instructions and
+                // CDATA serialise back verbatim, and browsers end a comment at
+                // `<!-->`, `<!--->` or `--!>` where libxml does not, so markup
+                // hidden inside one would reach the page unsanitised.
+                if ($child::class !== DOMText::class) {
+                    $parent->removeChild($child);
+                }
+
                 continue;
             }
 
