@@ -395,6 +395,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     }
 
     #[Override]
+    public function packageRegistered(): void
+    {
+        // Livewire's listeners capture the mechanism when the application boots, so a
+        // late registration would leave updates unguarded. Checked here, after the
+        // bindings are made, so re-running registeringPackage() on a booted app stays valid.
+        throw_if($this->app->isBooted(), LogicException::class, 'The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
+    }
+
+    #[Override]
     public function registeringPackage(): void
     {
         // Filament builds panels while its routes boot, before this provider's
@@ -918,8 +927,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
      */
     private function registerShortCircuitingPersistentMiddleware(): void
     {
-        throw_if($this->app->isBooted(), LogicException::class, 'The admin package must be registered before the application boots so Livewire updates honour middleware responses.');
-
         $this->app->extend(
             PersistentMiddleware::class,
             static fn (PersistentMiddleware $mechanism): PersistentMiddleware => $mechanism instanceof ShortCircuitingPersistentMiddleware
