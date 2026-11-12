@@ -8,7 +8,7 @@ use Symfony\Component\Process\Process;
 
 it('prepares a Core-only screenshot install without a theme', function (): void {
     $fixture = new ScriptFixture;
-    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
+    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/testbench-skeleton.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
         $fixture->copy($path);
     }
 
@@ -130,10 +130,19 @@ BASH);
             'npx playwright install chromium',
             'bash scripts/screenshots/prepare-workbench.sh',
             'npm run screenshots',
+            'bash scripts/screenshots/testbench-skeleton.sh restore',
         ],
     ],
     'capture with installed dependencies' => [
         ['--skip-install'],
+        [
+            'bash scripts/screenshots/prepare-workbench.sh',
+            'npm run screenshots',
+            'bash scripts/screenshots/testbench-skeleton.sh restore',
+        ],
+    ],
+    'capture keeping the prepared workbench' => [
+        ['--skip-install', '--keep-workbench'],
         [
             'bash scripts/screenshots/prepare-workbench.sh',
             'npm run screenshots',
@@ -172,13 +181,13 @@ it('prepares a real Laravel manifest before installation without replacing an ex
     $expectedManifest = $temporary . '/expected-package.json';
     $log = $temporary . '/commands.log';
 
-    // The install needs an application manifest; formatting of its shipped JSON is irrelevant.
+    // The install needs an application manifest whose build script runs without node_modules; formatting of its shipped JSON is irrelevant.
     $applicationManifest = json_decode((string) file_get_contents($fixture), true, flags: JSON_THROW_ON_ERROR);
     expect($applicationManifest)->toEqual([
         '$schema' => 'https://www.schemastore.org/package.json',
         'private' => true,
         'type' => 'module',
-        'scripts' => ['build' => 'vite build', 'dev' => 'vite'],
+        'scripts' => ['build' => 'echo "Screenshot workbench: theme CSS is compiled by scripts/screenshots, so there is no Vite build to run."', 'dev' => 'vite'],
         'devDependencies' => [
             '@tailwindcss/vite' => '^4.0.0',
             'concurrently' => '^10.0.3',
@@ -193,6 +202,7 @@ it('prepares a real Laravel manifest before installation without replacing an ex
     mkdir($root . '/scripts/screenshots', 0777, true);
     mkdir($runtime, 0777, true);
     copy($repository . '/scripts/screenshots/prepare-workbench.sh', $root . '/scripts/screenshots/prepare-workbench.sh');
+    copy($repository . '/scripts/screenshots/testbench-skeleton.sh', $root . '/scripts/screenshots/testbench-skeleton.sh');
     copy($fixture, $root . '/scripts/screenshots/laravel-v13.10.1-package.json');
     file_put_contents($expectedManifest, $existingManifest ?? file_get_contents($fixture));
     if ($existingManifest !== null) {
@@ -268,6 +278,7 @@ it('preserves the host PHP configuration for preparation children', function (?s
     mkdir($temporary . '/inherited', 0777, true);
     file_put_contents($temporary . '/inherited/custom.ini', "precision=11\n");
     copy($repository . '/scripts/screenshots/prepare-workbench.sh', $root . '/scripts/screenshots/prepare-workbench.sh');
+    copy($repository . '/scripts/screenshots/testbench-skeleton.sh', $root . '/scripts/screenshots/testbench-skeleton.sh');
     copy($repository . '/scripts/screenshots/laravel-v13.10.1-package.json', $root . '/scripts/screenshots/laravel-v13.10.1-package.json');
     copy($repository . '/workbench/php/php.ini', $root . '/workbench/php/php.ini');
     $scanDirectory = $inheritedScanDirectory === 'custom' ? $temporary . '/inherited' : $inheritedScanDirectory;
@@ -324,7 +335,7 @@ BASH);
 
 it('links the checkout frontend package into vendor for the workbench Vite config', function (string $existing, bool $expectLink): void {
     $fixture = new ScriptFixture;
-    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
+    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/testbench-skeleton.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
         $fixture->copy($path);
     }
 
@@ -363,3 +374,91 @@ it('links the checkout frontend package into vendor for the workbench Vite confi
     'fresh worktree' => ['none', true],
     'real installed package' => ['directory', false],
 ]);
+it('ships a workbench build script that succeeds where no frontend dependencies are installed', function (): void {
+    $manifest = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/scripts/screenshots/laravel-v13.10.1-package.json'), true, flags: JSON_THROW_ON_ERROR);
+    $empty = sys_get_temp_dir() . '/capell-core-screenshot-build-' . bin2hex(random_bytes(6));
+    mkdir($empty);
+
+    try {
+        // The skeleton has neither node_modules nor vendor/capell-app, so a real Vite build cannot run there.
+        $process = Process::fromShellCommandline($manifest['scripts']['build'], $empty, ['PATH' => '/usr/bin:/bin']);
+        $process->run();
+
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+    } finally {
+        (new Filesystem)->deleteDirectory($empty);
+    }
+});
+
+it('restores the shared Testbench skeleton exactly after preparation rewrote it', function (): void {
+    $repository = dirname(__DIR__, 2);
+    $temporary = sys_get_temp_dir() . '/capell-core-screenshot-skeleton-' . bin2hex(random_bytes(6));
+    $root = $temporary . '/root';
+    $binaryDirectory = $temporary . '/bin';
+    $skeleton = $root . '/vendor/orchestra/testbench-core/laravel';
+
+    mkdir($binaryDirectory, 0777, true);
+    mkdir($root . '/scripts/screenshots', 0777, true);
+    mkdir($skeleton . '/database/migrations', 0777, true);
+    mkdir($skeleton . '/app', 0777, true);
+    file_put_contents($skeleton . '/app/Kept.php', 'original');
+    file_put_contents($skeleton . '/database/migrations/0001_create_users_table.php', 'original');
+    foreach (['prepare-workbench.sh', 'testbench-skeleton.sh', 'laravel-v13.10.1-package.json'] as $file) {
+        copy($repository . '/scripts/screenshots/' . $file, $root . '/scripts/screenshots/' . $file);
+    }
+
+    // The install is stubbed, but it still rewrites the skeleton the way the real one does.
+    file_put_contents($binaryDirectory . '/php', <<<'BASH'
+#!/bin/sh
+if [ "${2:-}" = "capell:install" ]; then
+    echo rewritten > vendor/orchestra/testbench-core/laravel/app/Kept.php
+    echo generated > vendor/orchestra/testbench-core/laravel/app/Generated.php
+fi
+BASH);
+    foreach (['node', 'npm'] as $binary) {
+        file_put_contents($binaryDirectory . '/' . $binary, "#!/bin/sh\nexit 0\n");
+    }
+
+    foreach (['php', 'node', 'npm'] as $binary) {
+        chmod($binaryDirectory . '/' . $binary, 0755);
+    }
+
+    $fingerprint = static function () use ($skeleton): array {
+        $files = [];
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($skeleton, FilesystemIterator::SKIP_DOTS)) as $file) {
+            $files[substr($file->getPathname(), strlen($skeleton))] = md5_file($file->getPathname());
+        }
+
+        ksort($files);
+
+        return $files;
+    };
+    $before = $fingerprint();
+
+    try {
+        $environment = ['PATH' => $binaryDirectory . PATH_SEPARATOR . getenv('PATH')];
+        $prepare = new Process(['/bin/bash', 'scripts/screenshots/prepare-workbench.sh'], $root, $environment);
+        $prepare->setTimeout(300);
+        $prepare->run();
+
+        expect($prepare->getExitCode())->toBe(0, $prepare->getErrorOutput())
+            ->and(file_get_contents($skeleton . '/app/Kept.php'))->toBe("rewritten\n")
+            ->and(is_file($skeleton . '/.capell-workbench-prepared'))->toBeTrue();
+
+        // A second preparation before any restore must keep the first, pristine copy.
+        $again = new Process(['/bin/bash', 'scripts/screenshots/prepare-workbench.sh'], $root, $environment);
+        $again->setTimeout(300);
+        $again->run();
+
+        $restore = new Process(['/bin/bash', 'scripts/screenshots/testbench-skeleton.sh', 'restore'], $root, $environment);
+        $restore->setTimeout(300);
+        $restore->run();
+
+        expect($again->getExitCode())->toBe(0, $again->getErrorOutput())
+            ->and($restore->getExitCode())->toBe(0, $restore->getErrorOutput())
+            ->and($fingerprint())->toBe($before)
+            ->and(is_file($skeleton . '/.capell-workbench-prepared'))->toBeFalse();
+    } finally {
+        (new Filesystem)->deleteDirectory($temporary);
+    }
+});
