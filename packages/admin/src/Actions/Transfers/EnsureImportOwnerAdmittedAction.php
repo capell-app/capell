@@ -18,6 +18,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -28,6 +29,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class EnsureImportOwnerAdmittedAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param class-string<Model> $model */
