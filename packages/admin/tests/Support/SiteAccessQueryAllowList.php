@@ -63,7 +63,11 @@ final class SiteAccessQueryAllowList
             // Installation readiness is global; an actor with no site grants
             // must not be offered installation for an already installed CMS.
             'packages/admin/src/Filament/Pages/CapellDashboard.php' => ['getWidgets|' . Site::class . '::query()->exists()', 'dashboardEnum|' . Site::class . '::query()->exists()'],
-            'packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php' => ['mount|' . Site::class . '::query()->exists()'],
+            'packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php' => [
+                'mount|' . Site::class . '::query()->exists()',
+                // Filament's Livewire hydrate hook, not Model::hydrate(): it re-authorises the create page on every update.
+                'hydrate|parent::hydrate()',
+            ],
             // The status panel authorises the record through its registered view
             // policy instead of SiteAccess: a shared (no-site) record that a
             // package policy allows for a site editor must stay reachable, and a
@@ -185,6 +189,8 @@ final class SiteAccessQueryAllowList
                 'pageTypeContentStructureUpdated|$this->record->translations',
                 // This is the parent-page relation of the page already resolved through PageResource and authorised by Filament.
                 'resolveRecord|$query->with([\'blueprint\', \'translations.language\'])',
+                // Filament's Livewire hydrate hook, not Model::hydrate(): it re-authorises the editor on every update.
+                'hydrate|parent::hydrate()',
             ],
             'packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php' => [
                 // The caller supplies the scoped PageResource query; translation predicates stay correlated to those pages.
