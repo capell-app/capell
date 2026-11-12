@@ -128,7 +128,7 @@ final class AppServiceProvider extends ServiceProvider
 - **Checkpoint is required for progress tracking**: If you generate multiple files or URLs, call `$checkpoint()` for each one so that job progress and totals are accurate. A single call to `$checkpoint()` counts as one processed item.
 - **No return value**: Handlers must return `void`. The registry does not capture or use return values.
 
-## Related
+## Related guides
 
 - [Extending Capell](extending-capell.md) — Overview of extension patterns and extenders
 - [Content Management](content-management.md) — Working with pages and content types

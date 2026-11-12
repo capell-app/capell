@@ -453,7 +453,7 @@ Relation::morphMap([
 ]);
 ```
 
-## Further Reading
+## Related guides
 
 - [Install guide](../getting-started/install.md)
 - [Artisan commands](artisan-commands.md)

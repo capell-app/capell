@@ -16,7 +16,7 @@ Installer extends these Capell surfaces:
 - Install guide patch registry for idempotent host-file setup tasks.
 - Cache-backed installer session state for progress, locking, and reports.
 
-## Why It Matters
+## What Installer gives developers and teams
 
 - **For developers:** Installer keeps bootstrap concerns outside Core. It gives package and app setup a browser flow, preflight checks, patch contracts, typed install input, progress storage, and cleanup Actions.
 - **For teams:** Non-technical operators can complete first-run setup with visible checks and reports, while developers still have command-line and testable Action boundaries underneath.

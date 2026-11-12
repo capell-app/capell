@@ -37,6 +37,6 @@ On a page type's configurator tab you can choose which roles may see and edit pa
 - Remove their roles to revoke access while keeping their account, or
 - Delete the user from the **Users** list to remove the account entirely.
 
-## Notes
+## Approval workflows and the RBAC model
 - Approval workflows (submit → review → approve) are provided by the optional `capell-app/publishing-studio` package, not by core.
 - For the underlying RBAC model (Spatie teams, policies, page-type restrictions) see the developer guide: [permissions and approval](../../packages/admin/docs/permissions-and-approval.md).

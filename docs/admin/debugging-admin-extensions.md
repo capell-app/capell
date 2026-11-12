@@ -91,7 +91,7 @@ Use `Capell\Admin\Filament\Components\Forms\FileUpload` for custom fields, inclu
 - Test the direct registry/tag where possible, then add one Filament render test for the user-facing surface.
 - Do not register admin UI from frontend providers.
 
-## Next
+## Related guides
 
 - [Admin extensions](../packages/admin-extensions.md)
 - [Schema hooks](../../packages/admin/docs/schemas/hooks.md)

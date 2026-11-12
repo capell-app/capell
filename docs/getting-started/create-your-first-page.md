@@ -215,7 +215,7 @@ Do not install every package on day one. Add the next package when the page you 
 
 That order keeps the learning curve sane: create pages first, add structured blocks or Layout Builder when the content needs it, connect pages with Navigation, protect URLs with Redirects, then add SEO or richer operational tooling when the site is real enough to benefit.
 
-## Next
+## Next steps
 
 - [How Capell works](how-capell-works.md#the-core-model) (Learn Capell stage 5) explains the Site, Page, URL, Blueprint, Layout and Theme behind the page you just published.
 

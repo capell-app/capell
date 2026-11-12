@@ -136,7 +136,7 @@ return [
     'review_heading' => 'Review incoming pages',
     'reviewed_at' => 'Reviewed',
     'run_import' => 'Run Import',
-    'session_overview' => 'Session overview',
+    'session_overview' => 'Session details',
     'source_filename' => 'Source filename',
     'start_new_import' => 'Start a new import',
     'status' => 'Status',

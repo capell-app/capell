@@ -43,7 +43,7 @@ Everything below is optional and appears in the docs because someone's site even
 | Frontend or Inertia | [Frontend](../frontend/index.md) | [Capell Interactions](capell-interactions.md), [Capell Inertia runtime](inertia-runtime.md), [Inertia widgets](inertia-widgets.md), [Inertia Bookings showcase](inertia-bookings-showcase.md), [approved packages](../packages/catalog.md) |
 | Operator | [Going live](../operations/going-live.md) | [Operations](../operations/index.md), [Backups](../operations/backups.md), [Upgrading](../operations/upgrading.md) |
 
-## Next
+## Next steps
 
 - [Why Capell](why-capell.md) starts stage 1.
 - [Glossary](../reference/glossary.md) when a term on any stage is new to you.

@@ -54,6 +54,6 @@ shared-user-reference and page rehearsals have passed; complete multi-entity
 conversion and reconciliation remain unverified. Table aliases alone do not
 establish write isolation. Keep the privilege and physical-table checks enabled.
 
-## Next
+## Migration chapter list
 
 Start with [Audit the source](audit.md).

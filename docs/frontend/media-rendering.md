@@ -45,7 +45,7 @@ Captions and credits are available from the media model:
 
 Rendered URLs use generated Spatie conversions when available. Curator remains responsible for its own crop output when configured as the media backend; the frontend component consumes the resulting media URLs rather than duplicating crop logic.
 
-## Next
+## Related guides
 
 - [Frontend](index.md)
 - [Frontend guide](guide.md)

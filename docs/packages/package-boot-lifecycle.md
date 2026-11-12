@@ -113,7 +113,7 @@ it('does not register admin surfaces when the package is unavailable', function 
 });
 ```
 
-## Next
+## Related guides
 
 - [Package anatomy](package-anatomy.md)
 - [Service providers](service-providers.md)

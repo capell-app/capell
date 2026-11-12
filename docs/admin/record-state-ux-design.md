@@ -49,7 +49,7 @@ rather than a broad mechanical rewrite.
 State is not a single enum. Surfaces compose independent facts in a fixed
 priority order.
 
-### 1. Availability
+### Availability
 
 Availability answers whether the record can currently participate in its
 public or authoring role.
@@ -65,7 +65,7 @@ For pages, availability is resolved from accessible `PageUrl` records with
 site and language context. It must never be inferred from a nonexistent page
 status attribute.
 
-### 2. Publication
+### Publication
 
 Publication continues to use the established page visibility resolver and
 exact lifecycle terminology:
@@ -79,7 +79,7 @@ exact lifecycle terminology:
 The phrase "pending publication" is not used as a catch-all. Scheduled details
 include timezone context on detail screens.
 
-### 3. Usage and integrity
+### Usage and integrity
 
 Usage describes known inbound references:
 

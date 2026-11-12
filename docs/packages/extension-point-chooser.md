@@ -70,7 +70,7 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 - Public output must pass the [public HTML safety contract](../frontend/public-html-safety.md).
 - Register new installed extension points from `bootInstalledRuntime()` unless the contract explicitly belongs in discovery/bootstrap or must bind something in `register()`.
 
-## Next
+## Related guides
 
 - [Package authoring](README.md)
 - [Package authoring jobs](package-authoring-jobs.md)

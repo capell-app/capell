@@ -134,7 +134,7 @@ php artisan capell:extension-audit packages/example
 
 Marketplace-ready packages should have aligned `composer.json` and `capell.json` names, clear `marketplace` metadata, screenshots where useful, support notes in the README, and a normal Composer install path through Packagist, private Composer, VCS, or another configured repository.
 
-## Next
+## Related guides
 
 - [Packages](../packages/README.md)
 - [Package anatomy](../packages/package-anatomy.md)

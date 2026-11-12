@@ -6,7 +6,7 @@ For the canonical visual orientation to Core records, use the [Core overview](ov
 
 ---
 
-## Overview
+## What a site is
 
 A **site** in Capell is a distinct website with its own pages, navigation, theme, and settings. You might use multiple sites to manage:
 
@@ -215,7 +215,7 @@ The canonical URL for each page is generated based on the active site domain and
 
 ---
 
-## Further Reading
+## Related guides
 
 - [Adding a language to a live site](../../admin/docs/adding-a-language-to-a-live-site.md) — the editor-facing walkthrough
 - [Admin Multi-Language](../../admin/docs/admin-multi-language.md) — Languages CRUD, translations repeater, admin interface language

@@ -159,7 +159,7 @@ Without Capell, a team would build most of this manually: page nesting, redirect
 
 With Capell, the team spends that time on the parts that make the store unique: page types, theme design, ecommerce links, lesson booking, event integrations, and branch-specific content.
 
-## Next
+## Related guides
 
 - [Build a page](../getting-started/building-pages.md) to choose how each page body is composed.
 - [Packages and extensions](../packages/catalog.md) for the packages this example relies on.

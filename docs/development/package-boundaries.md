@@ -78,7 +78,7 @@ context, optionally with an interactive confirmation). Core evaluates the regist
 factories and applies the patches without importing any installer class — Core never
 depends on `Capell\Installer`, and the Core arch test enforces this.
 
-## Next
+## Related guides
 
 - [Package authoring](../packages/README.md)
 - [Extension point chooser](../packages/extension-point-chooser.md)

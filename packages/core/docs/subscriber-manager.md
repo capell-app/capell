@@ -18,7 +18,7 @@
     - **Class-based subscribers**: Structured, testable listener classes (not one-off closures).
     - **State tracking**: Subscribers that need to accumulate results or side effects.
 
-- **Use the simpler `CapellAdmin` event registry** (see [`extending-capell.md` §5](./extending-capell.md#5-event-registry-callbacks--subscribers)) when you need:
+- **Use the simpler `CapellAdmin` event registry** (see [`extending-capell.md` §5](./extending-capell.md#event-registry-callbacks--subscribers)) when you need:
     - Lightweight admin-panel lifecycle hooks (`afterSave`, `beforeDelete`, etc.).
     - One-off callback functions.
     - No validation logic.
@@ -216,8 +216,8 @@ When `validateWithSubscribers('page.saving', $pageSaved)` is called, if this sub
 
 ---
 
-## Related
+## Related guides
 
-- [Extending Capell: Event Registry (§5)](./extending-capell.md#5-event-registry-callbacks--subscribers) — simpler callback-style API for admin lifecycle events.
+- [Extending Capell: Event Registry (§5)](./extending-capell.md#event-registry-callbacks--subscribers) — simpler callback-style API for admin lifecycle events.
 - [Admin event registry](../../admin/docs/event-registry.md) — admin-layer event subscriptions (higher-level).
 - [Content management](./content-management.md) — domain context where `SubscriberManager` is typically dispatched from.

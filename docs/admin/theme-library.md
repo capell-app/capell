@@ -140,7 +140,7 @@ Theme library changes must not change the public-output safety contract. Anonymo
 
 Runtime reads the selected theme, active preset, brand profile, and package definition server-side. Public output receives ordinary frontend HTML and token CSS only.
 
-## Next
+## Related guides
 
 - [Generated theme images](generated-theme-images.md)
 - [Creating custom themes](../packages/creating-custom-themes.md)

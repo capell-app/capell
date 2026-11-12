@@ -36,6 +36,14 @@ artwork over the erased regions:
   Inertia, and Vue marks rasterized from their official SVGs and rotated to sit on the
   tile faces.
 
+## Tagline removal (2026-11-12)
+
+The original composition carried the tagline "Starts where custom builds end." under the
+wordmark. It was removed to follow the heading rules in `docs/standards/ui-writing.md`: the
+text band was replaced with a grid-aligned patch of the same drafting grid copied 221 px
+lower in the 6336×2688 master, feathered at the edges. No other pixel changed. The prompt
+now asks for the wordmark alone on the left.
+
 ## Export
 
 Downscale the 6336×2688 master to 2880×1222 and export progressive JPEG at quality 86.

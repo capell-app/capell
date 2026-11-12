@@ -76,7 +76,7 @@ The seeder marks removed first-party extensions as hidden, so keep the list comp
 - **PublishingStudio.** Rows inserted without a `workspace_id` land in the live version (workspace 0). If you seed draft content, set `workspace_id` explicitly.
 - **Cache.** Run `php artisan optimize:clear`, and clear the installed page-cache package's cache (for example `capell:html-cache:clear` when `capell-app/html-cache` is installed), after seeding if your app is hot.
 
-## Related
+## Related guides
 
 - [PublishingStudio](https://docs.capell.app/publishing-studio/)
 - [Multi-site, multi-language](../../packages/core/docs/multi-site-multi-lingual.md)

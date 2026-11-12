@@ -99,7 +99,7 @@ During public rendering Capell resolves those selected groups through the same t
 
 Public HTML receives generated resource IDs. Resource group keys and package names stay out of the rendered page.
 
-## Next
+## Related guides
 
 - [Frontend widgets](widgets.md)
 - [Widget state](widget-state.md)

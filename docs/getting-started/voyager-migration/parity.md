@@ -57,6 +57,6 @@ package blueprint with its own Livewire component replaces the host's listing.
 
 Keep the legacy renderer and its baseline available until parity passes. Switch the rehearsal back to its previous release and database together if the replacement cannot render the content.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

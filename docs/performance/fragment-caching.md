@@ -117,6 +117,6 @@ Authorization and version checks always precede caching:
 
 Any malformed, unsupported, unknown-owner, stale, unpublished, deleted, inaccessible, cross-site, cross-language, or mismatched-layout reference returns the same uncached 404. A content or publication change therefore revokes already-issued URLs immediately; a newly rendered page emits a replacement reference.
 
-## Related
+## Related guides
 
 - [Cache invalidation](cache-invalidation.md) — strategies for invalidating caches across your application.

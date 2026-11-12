@@ -47,7 +47,7 @@ Do not leave the host's own `php artisan migrate --force` or `php artisan optimi
 php artisan capell:doctor
 ```
 
-## Next
+## Related guides
 
 - [Deploys and cache refresh](deploy-and-cache-refresh.md)
 - [Upgrading Capell](upgrading.md)

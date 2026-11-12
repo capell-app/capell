@@ -439,7 +439,7 @@ When the origin is correct and the edge is stale, purge it rather than waiting o
 TTL. The purge command belongs to the package that owns the page cache; see
 [Put Cloudflare in front](making-capell-fast.md#put-cloudflare-in-front).
 
-## Further reading
+## Related guides
 
 - [Web server configuration](web-server.md) — the static HTML cache and multi-node hosting
 - [Making Capell fast](making-capell-fast.md) — serving tiers, CDN rules, and PHP tuning

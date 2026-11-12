@@ -66,7 +66,7 @@ and returns `null` for HTML.
 
 Packages may contribute payloads through `Capell\LayoutBuilder\Contracts\PublicLayoutWidgetPayloadContributor::TAG` (`capell.layout_builder.public_layout_widget_payload_contributor`) when they need rendered element HTML or a richer public data shape. Keep contributors public-output focused; do not expose admin/editor-only metadata, raw model ids, or private asset references unless the package deliberately defines them as public API fields.
 
-## Next
+## Related guides
 
 - [Development](index.md)
 - [Frontend guide](../frontend/guide.md)

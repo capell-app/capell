@@ -16,7 +16,7 @@ Think of every interaction as three pieces:
 
 Editors configure those pieces in the admin. Developers register the widget types, resources, defaults, and safe render boundaries. Visitors only receive the trigger plus an encrypted URL for the lazy target. They do not receive widget data, block keys, model IDs, component names, package names, field paths, or editor metadata.
 
-## Why It Matters
+## Why interactions share one content model
 
 Most CMS builds split interactive content into one-off JavaScript, theme-specific modals, hidden page fields, or custom controller endpoints. That works until the second theme, the third campaign page, or the first performance audit.
 
@@ -118,7 +118,7 @@ For Laravel teams, the value is not just that a button can open a modal. The val
 | Admin developer reusing Filament schema helpers              | [Presentation and interactions admin controls](../../packages/admin/docs/presentation-and-interactions.md) |
 | Layout Builder package maintainer                            | [Layout Builder package docs](https://docs.capell.app/packages/layout-builder)                             |
 
-## Next
+## Related guides
 
 - [Frontend widgets](../frontend/widgets.md)
 - [Frontend guide](../frontend/guide.md)

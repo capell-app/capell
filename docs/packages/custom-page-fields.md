@@ -321,7 +321,7 @@ $this->app->bind(Page::class, ExtendedPage::class);
 
 This is a targeted model integration, not an end-to-end custom-field mechanism. A column also needs the correct fillable/cast rules, editor schema and explicit revision/import/API support. Core's revision and import paths have attribute allowlists; arbitrary columns are not automatically included.
 
-The binding affects `app(Page::class)` and other explicit container resolutions. It does not redirect static `Page::query()` calls to your subclass. Inspect every relevant caller before relying on it. Prefer metadata or your own related table when they meet the requirement; never edit a shipped migration or vendor model to add a website-specific field. See [Extending core models](../../packages/core/docs/extending-capell.md#8-extending-core-models).
+The binding affects `app(Page::class)` and other explicit container resolutions. It does not redirect static `Page::query()` calls to your subclass. Inspect every relevant caller before relying on it. Prefer metadata or your own related table when they meet the requirement; never edit a shipped migration or vendor model to add a website-specific field. See [Extending core models](../../packages/core/docs/extending-capell.md#extending-core-models).
 
 ## What integrates automatically?
 
@@ -366,7 +366,7 @@ Before committing to either path:
 6. Test cached output, search and integrations using representative existing content.
 7. Record extension versions, availability, support and removal behaviour. Keep an export and a recovery plan before cutover.
 
-## Next
+## Related guides
 
 - [Add Client name end to end](../getting-started/add-a-custom-page-field.md).
 - [Extension point chooser](extension-point-chooser.md) for settings, tables, hooks and other extension jobs.

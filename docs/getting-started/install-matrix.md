@@ -32,7 +32,7 @@ php artisan capell:install \
 
 This creates the first account and answers every required install decision explicitly. For an existing account, use `--user=<email>` instead of the three account-creation options; `--user` finds the account by email, grants it the global administrator role and makes it the default author. It never creates the account or changes its login credentials.
 
-## Next
+## Related guides
 
 - [Install guide](install.md)
 - [Development](../development/index.md)

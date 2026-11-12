@@ -106,8 +106,8 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
     ])
         ->and($page->translations()->count())->toBe(1)
         ->and($page->translations()->sole()->is($translation))->toBeTrue()
-        ->and($translation->title)->toBe('A slower weekend outdoors')
-        ->and($translation->content)->toContain('A morning by the water', '<img', 'Plan your visit', '<nav ', '<footer>')
+        ->and($translation->title)->toBe('A 6 km coastal walk from the harbour')
+        ->and($translation->content)->toContain('<h2>', '<img', 'Plan your visit', '<nav ', '<footer>')
         ->and($translation->meta)->toEqual([
             'label' => 'Home',
             'slug' => '/',
@@ -192,8 +192,8 @@ it('renders the populated fixture through the anonymous frontend route', functio
     // redirect this to the default domain instead of rendering it.
     $this->get('http://127.0.0.1:8145/')
         ->assertOk()
-        ->assertSee('A slower weekend outdoors')
-        ->assertSee('A morning by the water')
+        ->assertSee('A 6 km coastal walk from the harbour')
+        ->assertSee('<h2>', false)
         ->assertSee('coastal-walk.svg', false)
         ->assertSee('build/screenshots/default-theme.css', false)
         ->assertDontSee('data-capell-authoring', false)
