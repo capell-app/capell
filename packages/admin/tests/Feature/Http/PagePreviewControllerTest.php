@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Pages\IssuePagePreviewTokenAction;
+use Capell\Admin\Actions\Themes\CreateThemePreviewUrlAction;
+use Capell\Admin\Filament\Resources\Pages\Actions\PreviewDraftPageHeaderAction;
 use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Models\Language;
@@ -179,7 +181,7 @@ it('enforces lockdown on a valid signed page preview', function (): void {
     }
 });
 
-it('refuses a signed draft preview to a site editor who may not view its pages', function (): void {
+it('refuses a signed draft preview to a site editor who may not view its pages', function (string $preview): void {
     $theme = Theme::factory()->defaultMeta()->createOne();
     $site = Site::factory()->theme($theme)->withTranslations()->createOne();
     $page = Page::factory()->site($site)->withTranslations(languages: $site->language)->createOne();
@@ -193,13 +195,30 @@ it('refuses a signed draft preview to a site editor who may not view its pages',
     });
 
     test()->actingAsAdmin();
-    $url = IssuePagePreviewTokenAction::run($page);
+    $url = $preview === 'page'
+        ? IssuePagePreviewTokenAction::run($page)
+        : CreateThemePreviewUrlAction::run($theme, $site, $page);
 
     test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: true))
         ->get($url)->assertOk()->assertSee('draft body');
     session()->flush();
     test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: false))
         ->get($url)->assertForbidden()->assertDontSee('draft body');
+})->with(['page', 'theme']);
+
+it('offers the draft preview only to editors who may view the page', function (): void {
+    $site = Site::factory()->withTranslations()->createOne();
+    $page = Page::factory()->site($site)->withTranslations(languages: $site->language)->createOne(['visible_from' => now()->addWeek()]);
+
+    test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: true));
+    // The page editor runs under the page's site scope.
+    setPermissionsTeamId($site->getKey());
+    expect(PreviewDraftPageHeaderAction::make()->record($page)->isVisible())->toBeTrue();
+
+    // Without View:Page the signed preview answers 403, so the editor is not offered it.
+    test()->actingAs(createPagePreviewSiteEditor([$site], canViewPages: false));
+    setPermissionsTeamId($site->getKey());
+    expect(PreviewDraftPageHeaderAction::make()->record($page)->isVisible())->toBeFalse();
 });
 
 it('sends a signed-out visitor to the panel sign-in before the preview signature is checked', function (): void {
