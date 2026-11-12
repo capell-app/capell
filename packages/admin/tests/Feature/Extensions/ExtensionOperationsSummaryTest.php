@@ -39,6 +39,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Route;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\Process\Process;
 
@@ -511,8 +512,61 @@ it('alerts when composer exposes a different extension version than the capell r
         ->and($package->needsAttention)->toBeTrue()
         ->and($alert?->message)->toContain('different from the version Capell last recorded');
 
+    test()->actingAsAdmin();
     $html = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
-    expect($html)->toContain('different from the version Capell last recorded', 'Ask a developer')->not->toContain('Check its licence and activation in Marketplace');
+    expect($html)->toContain('Version Drift needs attention', 'different from the version Capell last recorded', 'Ask your developer to repair this extension')
+        ->not->toContain('Check its licence and activation in Marketplace');
+
+    // The command and Composer package name are for developers, so they sit behind the disclosure only.
+    $plain = preg_replace('#<details\b.*?</details>#s', '', $html);
+    $disclosure = preg_match('#<details\b.*?</details>#s', $html, $matches) === 1 ? $matches[0] : '';
+    expect($plain)->not->toContain('artisan')
+        ->and($plain)->not->toContain('needs attention: vendor/version-drift')
+        ->and($disclosure)->toContain(__('capell-admin::dashboard.extension_developer_detail'), 'php artisan capell:extensions:repair-composer-drift vendor/version-drift');
+
+    $widget = Livewire::test(ExtensionHealthFilamentWidget::class)->html();
+    $widgetPlain = preg_replace('#<details\b.*?</details>#s', '', $widget);
+
+    expect($widget)->toContain('Ask your developer to repair this extension', __('capell-admin::dashboard.extension_developer_detail'), 'repair-composer-drift vendor/version-drift')
+        ->and($widgetPlain)->not->toContain('artisan');
+
+    // Someone who cannot manage extensions gets the plain explanation without the developer detail.
+    test()->actingAsUser();
+    $limited = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $package->toRecord()])->render();
+
+    expect($limited)->toContain('Version Drift needs attention', 'Ask your developer to repair this extension')
+        ->not->toContain('<details')
+        ->not->toContain(__('capell-admin::dashboard.extension_developer_detail'))
+        ->not->toContain('repair-composer-drift');
+});
+
+it('names an unnamed drifting extension neutrally and keeps its package name for developers', function (): void {
+    registerOperationsSummaryManifest('vendor/unnamed-drift', ['version' => '2.0.0']);
+    app()->instance(InstalledExtensionRepository::class, new class
+    {
+        public function isAvailable(string $composerName, ?string $path = null): bool
+        {
+            return true;
+        }
+
+        public function version(string $composerName): string
+        {
+            return '2.0.0';
+        }
+    });
+    CapellExtension::query()->create([
+        'composer_name' => 'vendor/unnamed-drift',
+        'name' => '',
+        'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled,
+        'installed_at' => now(),
+    ]);
+
+    $alert = BuildExtensionOperationsSummaryAction::run()->package('vendor/unnamed-drift')?->healthAlerts[0] ?? null;
+
+    expect($alert?->message)->toStartWith(__('capell-admin::dashboard.extension_unnamed') . ' needs attention')
+        ->not->toContain('vendor/unnamed-drift')
+        ->and($alert?->developerDetail)->toContain('vendor/unnamed-drift');
 });
 
 it('records successful composer drift repair metadata and clears extension caches', function (): void {
