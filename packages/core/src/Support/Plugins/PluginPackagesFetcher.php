@@ -8,6 +8,7 @@ use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Http\OutboundHttpRetry;
+use Capell\Core\Support\Http\PublicAddressPolicy;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -239,31 +240,14 @@ class PluginPackagesFetcher
             $addresses = $dnsRecords === false ? [] : $dnsRecords;
         }
 
-        if ($addresses === []) {
-            return false;
-        }
-
-        foreach ($addresses as $address) {
-            $ip = is_array($address) ? ($address['ip'] ?? $address['ipv6'] ?? null) : $address;
-            if (! is_string($ip) || ! $this->isPublicIp($ip)) {
-                return false;
-            }
-        }
-
-        return true;
+        return resolve(PublicAddressPolicy::class)->allPublic(array_map(
+            static fn (mixed $address): mixed => is_array($address) ? ($address['ip'] ?? $address['ipv6'] ?? null) : $address,
+            $addresses,
+        ));
     }
 
     private function isTestingHost(string $host): bool
     {
         return app()->environment('testing') && str_ends_with($host, '.test');
-    }
-
-    private function isPublicIp(string $ip): bool
-    {
-        return filter_var(
-            $ip,
-            FILTER_VALIDATE_IP,
-            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
-        ) !== false;
     }
 }

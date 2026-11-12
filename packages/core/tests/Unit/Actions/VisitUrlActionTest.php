@@ -122,6 +122,8 @@ it('fails rejected visits without delivering a request or exposing URL credentia
     'scheme' => ['file:///secret', null],
     'unregistered host' => ['https://user:password@93.184.216.34/required?token=secret', null],
     'private address' => ['http://127.0.0.1/required?token=secret', '127.0.0.1'],
+    'carrier-grade NAT address' => ['http://100.64.0.1/required?token=secret', '100.64.0.1'],
+    'benchmarking address' => ['http://198.18.0.1/required?token=secret', '198.18.0.1'],
     'unresolved host' => ['https://unresolvable.invalid/required?token=secret', 'unresolvable.invalid'],
 ]);
 
