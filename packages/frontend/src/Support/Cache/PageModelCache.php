@@ -58,7 +58,13 @@ final class PageModelCache
                     $query->where('site_id', $site->id);
                 }
 
-                return $query->with($this->canonicalRelations($modelClass, $language->id))->first();
+                $loaded = $query->with($this->canonicalRelations($modelClass, $language->id))->first();
+
+                if ($loaded instanceof Pageable && $loaded instanceof Model) {
+                    $this->hydrateLanguages($loaded);
+                }
+
+                return $loaded;
             };
 
             if ($withEvents) {
@@ -197,11 +203,11 @@ final class PageModelCache
     {
         $relations = [
             'layout.theme',
-            'pageUrls.language',
+            'pageUrls',
             // The head's hreflang cluster pairs every pageUrl with a real translation row, so
             // `translations` must travel with `pageUrls`: public Blade may only read hydrated
             // relations (PublicViewQueryGuard). Do not drop this to slim the cached payload.
-            'translations.language',
+            'translations',
             'image.translations',
             'blueprint',
             'canonicalPage.pageUrls',
@@ -223,6 +229,36 @@ final class PageModelCache
         }
 
         return $relations;
+    }
+
+    /**
+     * Attach each URL's and translation's language from one query. Eager-loading
+     * `pageUrls.language` and `translations.language` separately costs one query each
+     * per cold page, for the same few language rows.
+     *
+     * @param  Model&Pageable<Model>  $model
+     */
+    private function hydrateLanguages(Pageable&Model $model): void
+    {
+        $rows = collect();
+
+        foreach (['pageUrls', 'translations'] as $relation) {
+            if ($model->relationLoaded($relation)) {
+                $rows = $rows->concat($model->getRelation($relation));
+            }
+        }
+
+        $ids = $rows->pluck('language_id')->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $languages = Language::query()->whereKey($ids->all())->get()->keyBy(fn (Language $language): int => (int) $language->getKey());
+
+        $rows->each(function (Model $row) use ($languages): void {
+            $row->setRelation('language', $languages->get((int) $row->getAttribute('language_id')));
+        });
     }
 
     /**
