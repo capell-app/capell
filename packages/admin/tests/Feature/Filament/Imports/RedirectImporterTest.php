@@ -6,6 +6,8 @@ use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\TableName;
+use Filament\Actions\ActionsServiceProvider;
 use Filament\Actions\Imports\Models\Import;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /** @param SupportCollection<int, int> $assignedSiteIds */
@@ -55,10 +59,28 @@ function createScopedUserForRedirectImporterTest(SupportCollection $assignedSite
     return $user;
 }
 
+/** An import started in the Capell admin panel by the signed-in user, as the import action records it. */
+function startedRedirectImportForRedirectImporterTest(): Import
+{
+    if (! Schema::hasTable('imports')) {
+        (require dirname((string) new ReflectionClass(ActionsServiceProvider::class)->getFileName(), 2) . '/database/migrations/create_imports_table.php')->up();
+    }
+
+    $user = auth()->user();
+    throw_unless($user instanceof Authenticatable, LogicException::class, 'Expected a signed-in importer.');
+    $user->save();
+
+    $import = new Import;
+    $import->forceFill(['file_name' => 'redirects.csv', 'file_path' => 'redirects.csv', 'importer' => RedirectImporter::class, 'total_rows' => 1, 'user_id' => $user->getKey()])->save();
+    DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'import', 'transfer_key' => (string) $import->getKey(), 'panel' => 'admin', 'host' => 'localhost']);
+
+    return $import;
+}
+
 function runRedirectImporterForRedirectImporterTest(int $siteId, int $languageId, string $targetUrl = '/new-url'): void
 {
     $importer = new RedirectImporter(
-        new Import,
+        startedRedirectImportForRedirectImporterTest(),
         [
             'url' => 'url',
             'target_url' => 'target_url',
@@ -84,7 +106,10 @@ it('rejects redirect imports for sites the actor is not assigned to', function (
     expect(function () use ($site, $language): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $language->getKey());
     })
-        ->toThrow(ValidationException::class);
+        ->toThrow(function (Throwable $exception): void {
+            throw_unless($exception instanceof ValidationException, $exception);
+            expect($exception->errors())->toHaveKey('site_id')->not->toHaveKey('import');
+        });
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });
@@ -99,7 +124,10 @@ it('rejects redirect imports when the language is not attached to the selected s
     expect(function () use ($site, $otherLanguage): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $otherLanguage->getKey());
     })
-        ->toThrow(ValidationException::class);
+        ->toThrow(function (Throwable $exception): void {
+            throw_unless($exception instanceof ValidationException, $exception);
+            expect($exception->errors())->toHaveKey('language_id')->not->toHaveKey('import');
+        });
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });
@@ -113,7 +141,10 @@ it('rejects redirect imports with unsafe targets', function (): void {
     expect(function () use ($site, $language): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $language->getKey(), 'javascript:alert(1)');
     })
-        ->toThrow(ValidationException::class);
+        ->toThrow(function (Throwable $exception): void {
+            throw_unless($exception instanceof ValidationException, $exception);
+            expect($exception->errors())->toHaveKey('target_url')->not->toHaveKey('import');
+        });
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });

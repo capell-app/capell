@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Imports;
 
+use Capell\Admin\Actions\Transfers\EnsureImportOwnerAdmittedAction;
 use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
@@ -116,6 +117,8 @@ class RedirectImporter extends Importer
 
     protected function beforeFill(): void
     {
+        EnsureImportOwnerAdmittedAction::run($this->import, $this->resolveActor());
+
         /** @var PageUrl $record */
         $record = $this->record;
         $siteId = (int) $this->options['site_id'];

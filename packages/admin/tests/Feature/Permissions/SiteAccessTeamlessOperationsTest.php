@@ -14,9 +14,11 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\TableName;
 use Filament\Actions\ActionsServiceProvider;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -76,6 +78,8 @@ it('imports redirects for the queued owner without authentication or a team', fu
     $import->forceFill(['file_name' => 'redirects.csv', 'file_path' => 'redirects.csv', 'importer' => RedirectImporter::class, 'total_rows' => 2]);
     $import->user()->associate($this->actor);
     $import->save();
+    // The import action recorded the Capell admin panel it was started in.
+    DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'import', 'transfer_key' => (string) $import->getKey(), 'panel' => 'admin', 'host' => 'localhost']);
     $import = $import->fresh();
     throw_unless($import instanceof Import, LogicException::class, 'Expected the persisted import');
     $importer = new RedirectImporter($import, ['url' => 'url', 'target_url' => 'target_url'], ['site_id' => $this->site->id, 'language_id' => $this->site->language_id]);

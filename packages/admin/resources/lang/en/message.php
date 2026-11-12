@@ -28,6 +28,8 @@ return [
     'upgrade_route_cache_ownership' => 'Rebuild a route cache that records no route ownership',
     'extension_panel_route_reassigned' => "This route was named, given panel middleware or moved to another domain after it was registered, which does not make it a panel route, so it is refused. Register it through the panel's routes instead.",
     'extension_panel_route_off_domain' => "This route was registered for a panel served on its own domains, but without one of those domains, so it would answer other hosts and is refused. Register it inside the panel's routes.",
+    'import_origin_unknown' => 'This import row was not written because Capell has no record of the admin panel the import was started in, or that panel is no longer available. Start the import again from the panel you use.',
+    'import_owner_not_admitted' => 'This import row was not written because the person who started the import can no longer use that admin panel. Ask an administrator to restore access, then start the import again.',
     'transfer_origin_unknown' => 'This download cannot be served because Capell has no record of the admin panel it was started in, or that panel is no longer available. Run the export or import again from the panel you use, then download the new file.',
     'upgrade_livewire_snapshot_routes' => 'Regenerate stored public pages so their interactive components keep working',
     'upgrade_livewire_snapshot_routes_failed' => 'Stored public pages were not all regenerated, so some visitors still receive pages whose interactive components answer "page expired". Output: :output Finish the refresh, then run the upgrade again: :commands',
