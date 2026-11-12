@@ -208,6 +208,11 @@ class InstallPackageAction
             foreach ($bundle->getRequirements() as $memberName) {
                 $member = CapellCore::getPackage($memberName);
                 if ($member->isInstalled()) {
+                    // A member whose earlier activation failed finishes it now.
+                    if (self::activationPending($member)) {
+                        self::activate($member);
+                    }
+
                     continue;
                 }
 
