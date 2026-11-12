@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Events\UrlVisitFailed;
+use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Capell\Core\Exceptions\UrlVisitFailedException;
 use Capell\Core\Models\SiteDomain;
-use Capell\Core\Support\Http\PublicAddressPolicy;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsJob;
@@ -23,6 +24,9 @@ class VisitUrlAction implements ShouldBeUnique
     use AsFake;
     use AsJob;
     use AsObject;
+
+    /** A visit only warms caches; it never needs more of the page than this. */
+    private const int MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 
     protected string $url;
 
@@ -48,18 +52,17 @@ class VisitUrlAction implements ShouldBeUnique
             throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_registered_host'));
         }
 
-        $safeAddress = $this->safeResolvedAddress($host);
-        if ($safeAddress === null) {
-            Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host]);
+        try {
+            $response = OutboundHttp::guarded(new OutboundHttpPolicy(
+                maxBytes: self::MAX_RESPONSE_BYTES,
+                connectTimeoutSeconds: 3,
+                timeoutSeconds: 10,
+            ))->get($url);
+        } catch (OutboundRequestRefusedException $outboundRequestRefusedException) {
+            Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host, 'reason' => $outboundRequestRefusedException->getMessage()]);
 
             throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_public_address'));
         }
-
-        $response = Http::withOptions($this->pinnedDnsOptions($url, $host, $safeAddress))
-            ->connectTimeout(3)
-            ->timeout(10)
-            ->withoutRedirecting()
-            ->get($url);
 
         if (! $response->ok()) {
             Log::info('Problem accessing url', ['url' => $url, 'status' => $response->status()]);
@@ -85,58 +88,5 @@ class VisitUrlAction implements ShouldBeUnique
                 ->whereNull('domain')
                 ->enabled()
                 ->exists();
-    }
-
-    private function safeResolvedAddress(string $host): ?string
-    {
-        if ($this->isUnsafeAddress($host)) {
-            return null;
-        }
-
-        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            return $host;
-        }
-
-        $addresses = gethostbynamel($host);
-        if ($addresses === false || $addresses === []) {
-            return null;
-        }
-
-        if (! resolve(PublicAddressPolicy::class)->allPublic($addresses)) {
-            return null;
-        }
-
-        return $addresses[0];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function pinnedDnsOptions(string $url, string $host, string $safeAddress): array
-    {
-        if (filter_var($host, FILTER_VALIDATE_IP) !== false || ! defined('CURLOPT_RESOLVE')) {
-            return [];
-        }
-
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        $port = parse_url($url, PHP_URL_PORT);
-        if (! is_int($port)) {
-            $port = $scheme === 'http' ? 80 : 443;
-        }
-
-        return [
-            'curl' => [
-                CURLOPT_RESOLVE => [sprintf('%s:%d:%s', $host, $port, $safeAddress)],
-            ],
-        ];
-    }
-
-    private function isUnsafeAddress(string $address): bool
-    {
-        if (filter_var($address, FILTER_VALIDATE_IP) === false) {
-            return false;
-        }
-
-        return ! resolve(PublicAddressPolicy::class)->isPublicAddress($address);
     }
 }

@@ -15,7 +15,7 @@ return [
     'url_visit_failed' => 'URL visit failed for [:url]: :reason',
     'visit_requires_http' => 'Use an HTTP or HTTPS URL.',
     'visit_requires_registered_host' => 'Register and enable the destination site domain before retrying.',
-    'visit_requires_public_address' => 'The destination must resolve to a public IP address. Check its DNS and network configuration.',
+    'visit_requires_public_address' => 'The destination must use port 80 or 443, resolve only to public IP addresses and return less than 10 MB. Check its DNS, network and response size.',
     'redirect_target_control_character' => 'Remove the tab, line break or hidden character from the destination.',
     'redirect_target_protocol_relative' => 'Start a path on this site with a single slash, or enter the full address including https://.',
     'redirect_target_relative_not_allowed' => 'Enter the full address, including https://.',
