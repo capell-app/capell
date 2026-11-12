@@ -317,6 +317,7 @@
             "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa\\": "tests/fixtures/marketplace-smoke-package/src/",
             "Capell\\Admin\\Tests\\": "packages/admin/tests/",
             "StandalonePackage\\": "packages/admin/tests/Fixtures/StandalonePackage/src/",
+            "Capell\\CompanionFixture\\": "packages/admin/tests/Fixtures/CompanionPackage/src/",
             "Capell\\Core\\Tests\\": "packages/core/tests/",
             "Vendor\\ExtensionConformance\\": "packages/core/tests/Support/ExtensionConformance/",
             "Capell\\Installer\\Tests\\": "packages/installer/tests/",
