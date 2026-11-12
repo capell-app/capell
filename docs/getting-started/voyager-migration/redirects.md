@@ -39,6 +39,6 @@ Separate application redirects from proxy/server rules. A missing Location or an
 
 Restore the versioned redirect configuration and application release together. Do not delete historical URLs while investigating a mapping failure.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

@@ -1,6 +1,6 @@
 # Capell CMS
 
-![The Capell wordmark and the line "Starts where custom builds end." on a dark drafting grid, beside an isometric model of a cream Core foundation stamped with the Laravel mark, forking into separate Admin and Frontend structures with Blade, Livewire, Inertia, and Vue tiles docked beneath the frontend window](docs/images/capell-readme-hero.jpg)
+![The Capell wordmark on a dark drafting grid, beside an isometric model of a cream Core foundation stamped with the Laravel mark, forking into separate Admin and Frontend structures with Blade, Livewire, Inertia, and Vue tiles docked beneath the frontend window](docs/images/capell-readme-hero.jpg)
 
 [![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
@@ -10,7 +10,7 @@
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 
-**The first editable page is easy. Capell solves what comes next.**
+**An open-source Laravel CMS with page blueprints, theme previews, revision history and repeatable upgrades.**
 
 Capell is an open-source CMS for Laravel, built on Filament. A Page model and
 Filament resource are quick; the long-term work is reusable page blueprints,
@@ -56,7 +56,7 @@ Unless the install handoff recorded a successful resource rebuild, run `php arti
 
 Do not run `filament:install --panels` before requiring Capell: the installer brings in and configures the selected Admin package. See the [Quickstart](docs/getting-started/quickstart.md) for SQLite and queue setup, expected prompts, health checks, and first-run recovery.
 
-### Paid package install
+### Install a paid package
 
 Paid packages are served from `https://capell.app/composer` with a short-lived credential that Capell issues for a purchase; the customer account lists and revokes issued credentials but does not reveal them. The site builder handoff lists the exact `composer config`, `composer require` and `php artisan capell:install --spec=...` commands to run, and installing from Marketplace in Admin passes the credential to Composer for you. To install a purchased package by hand, require that package and run `php artisan capell:extension-install <vendor>/<purchased-package>`.
 
@@ -64,7 +64,7 @@ The credential expires 30 minutes after it is issued, so request it immediately 
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
-## From the first screen to a maintained CMS
+## What Capell replaces in a custom Filament build
 
 Custom Filament resources are a good fit for a few stable records. Capell earns
 its place when Pages, URLs, previews, history, upgrades and extensions need one
@@ -78,7 +78,7 @@ maintained contract.
 | Upgrades           | Maintain project-specific migration notes, health checks and recovery steps.                    | Run repeatable install and upgrade commands with durable logs, diagnostics and declared rollback rules.     |
 | Extension          | Accumulate application glue or patch the CMS whenever the project grows.                        | Add Composer packages through typed extension points instead of changing core.                              |
 
-## See it running a real site
+## Screenshots from capell.app
 
 These captures show Capell administering [capell.app](https://capell.app) — the Capell website is itself a Capell site, so what you see below is the product managing real production pages.
 
@@ -92,7 +92,7 @@ Add a website-specific field through Capell's extension contracts. [Add Client n
 
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
 
-### Where an edit goes
+### How a page edit reaches the public site
 
 ![Conceptual page editing workflow from Admin scratch recovery and optional private previews through validated saves, revision history, publication visibility, and public rendering](docs/images/capell-page-editing-workflow.svg)
 
@@ -102,13 +102,13 @@ The panels follow the same editor state: scratch recovery restores the form, opt
 
 [Canonical Mermaid source](docs/images/capell-page-editing-workflow.mmd) · [Page history and rollback](docs/development/page-event-history.md)
 
-### Compact site metrics
+### Site metrics page
 
 [![Site metrics page showing four compact stat cards with daily sparklines](packages/admin/docs/images/screenshots/site-admin-metrics-page.png)](packages/admin/docs/images/screenshots/site-admin-metrics-page.png)
 
 This capture shows the Admin package's registered site metrics surface running in the Capell workbench. The compact cards and daily sparklines shipped in [Core PR #370](https://github.com/capell-app/capell/pull/370). The [Capell homepage](https://capell.app/) is the real site represented by the product captures above.
 
-## Grow through packages, not core patches
+## Optional features ship as Composer packages
 
 Capell keeps Foundation lean and grows through packages, so the CMS can expand
 with the application instead of arriving as a monolith. The free core stands
@@ -119,7 +119,7 @@ Optional capabilities arrive as Laravel packages you add when the work needs the
 
 Package authors should start with the [extension-point chooser](docs/packages/extension-point-chooser.md) and [package authoring guide](docs/packages/README.md). Capell packages extend registries and lifecycle contracts instead of patching host classes.
 
-### Add behaviour through contracts
+### Extension points for package authors
 
 An extension package owns its feature code and contributes through its manifest-scoped providers. The Foundation registrars compose Core, Admin/editor, and Frontend/public surfaces; the Extension Cookbook is a concrete example of a page-schema extension and typed frontend registrations.
 
@@ -131,7 +131,7 @@ The three branches are selected by the Cookbook's [provider buckets](https://git
 
 [Canonical Mermaid source](docs/images/capell-extension-package-surface-map.mmd) · [Package extension platform guide](https://github.com/capell-app/capell-packages/blob/main/docs/package-extension-platform.md)
 
-## Built as a standard Laravel package
+## How Capell is built on Laravel
 
 There is no separate runtime and no parallel framework to learn. Capell is plain Laravel — Eloquent models, Actions, events, queues, and Filament resources — developed in this open monorepo and published to Packagist as ordinary Composer packages.
 
@@ -155,13 +155,13 @@ The public foundation is five packages:
 | Installer   | `capell-app/installer`   | Guided browser installation, install-guide patches, health review, and installer cleanup (the `capell:install` command ships in Core)      |
 | Marketplace | `capell-app/marketplace` | Extension discovery, install authorisation, and package acquisition contracts                                                              |
 
-## Theme it
+## Customise and apply themes
 
 Installed themes use one Admin path: **Theme Library → Customise → Preview → Apply**. Preview a change against real content before making it active, and keep theme presentation in the Laravel application rather than in page records.
 
 Read [Theme Library](docs/admin/theme-library.md) to operate installed themes or [Creating custom themes](docs/packages/creating-custom-themes.md) to own the Blade, assets, settings, and compatibility contract yourself. Marketplace themes are only installable when their listing states a released distribution path and compatible Capell line; the [theme gallery](https://capell.app/extensions/themes) shows what each ships on the public web.
 
-## Operate it
+## Upgrades, rollback and backups
 
 Preview upgrades before applying them:
 

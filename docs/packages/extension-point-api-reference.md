@@ -269,7 +269,7 @@ downstream aliases are removed in the next major release.
 - Public frontend extensions must pass [public HTML safety](../frontend/public-html-safety.md).
 - The HTML sanitizer is rebuilt from `capell-frontend.html_content_allowed_attributes` for each invocation. Site-scoped configuration resolved before rendering therefore remains isolated between requests, including in long-lived workers.
 
-## Next
+## Related guides
 
 - [Build an extension end to end](build-extension-end-to-end.md)
 - [Admin extensions](admin-extensions.md)

@@ -55,7 +55,7 @@ diagnostics and can opt into maker actions where a resource wants that workflow.
 Host-app widgets are auto-discovered from that namespace and can be made
 available to the content builder after `php artisan capell:admin-cache-widgets`.
 
-## Next
+## Related guides
 
 - [Development](index.md)
 - [Command index](commands.md)

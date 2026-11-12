@@ -13,7 +13,7 @@ Admins customize which widgets appear from **Settings**, while package developer
 
 For the lower-level API reference, see [Dashboard Filament widget customization](../../packages/admin/docs/dashboard-widget-customization.md).
 
-## Next
+## Related guides
 
 - [Admin](index.md)
 - [Customise your dashboard](dashboard-customize.md)

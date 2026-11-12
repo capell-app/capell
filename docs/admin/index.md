@@ -34,7 +34,7 @@ These are design and planning records for the record-state work, kept for mainta
 - [Work-first dashboard specification](dashboard-work-first-spec.md) and its
   [implementation acceptance record](dashboard-work-first-implementation.md)
 
-## Next
+## Related guides
 
 - [Admin interface](interface.md) for a tour of every section.
 - [Learn Capell](../getting-started/capell-learn.md) for the guided path.

@@ -89,7 +89,7 @@ Theme views and frontend contributions must not print admin/editor details into 
 
 Use route-backed frontend tests when changing theme runtime. Assert expected public content and assert the absence of authoring surface.
 
-## Next
+## Related guides
 
 - [Frontend](index.md)
 - [Frontend guide](guide.md)

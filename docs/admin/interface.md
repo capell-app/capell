@@ -162,7 +162,7 @@ The Sitemap page gives editors and developers a site-level view of the public pa
 | Review publishing and site health   | Reports             |
 | Review import or recovery work      | Recovery Center     |
 
-## Next
+## Related guides
 
 - [Users and roles](users-and-roles.md)
 - [Media management](media-management.md)

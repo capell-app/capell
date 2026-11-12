@@ -12,8 +12,7 @@ PALETTE: background #071312 with #16302A gridlines; structures in warm cream #F5
 
 COMPOSITION — one idea, unmistakable: Core is the single shared foundation; Admin and Frontend are two completely separate structures that touch nowhere and are joined only by descending into that foundation.
 
-- LEFT ~32%: dark negative space with the grid. Upper-left: the WHITE Capell wordmark, large and confident — the biggest type in frame. Below it, with generous breathing room, in soft warm white modern sans-serif on one or two lines, noticeably smaller than the wordmark: Starts where custom builds end.
-- RIGHT ~68%: the architecture in soft 3D isometric perspective, vertically centred, lit like a museum model against the dark.
+- LEFT ~32%: dark negative space with the grid. Upper-left: the WHITE Capell wordmark, large and confident — the biggest type in frame. No tagline, slogan or other text on the left side.
   - BASE: a single wide low cream plinth with softly rounded corners — the foundation. On its FRONT VERTICAL FACE, the Laravel logomark is DEBOSSED into the cream surface: pressed in like an engraved foundation stone, solid red fill visible inside the recess, with the word CORE etched into the same face beside it in matching debossed capitals. The engraving belongs to the object — no floating labels, no stickers, no pill badges.
   - From the plinth centre a single short stem rises and forks into a clean Y — two arms angling apart, one up-left, one up-right. CRITICAL: no crossbar, no bracket, no bridge joining the arms. Above the fork they diverge and never reconnect; between them a wide wedge of empty dark background widens as it rises.
   - LEFT arm carries the ADMIN panel: a floating content-editing panel with a deep navy sidebar rail down its left edge. At the TOP of that sidebar, in the app's brand slot where a real admin panel shows its logo, sits the white Filament wordmark, small and precise. The panel body shows light input fields, a couple of mint toggle and tag tiles, one image thumbnail. The word ADMIN is printed on the panel's lower bezel edge like hardware badging — part of the object.
@@ -23,7 +22,6 @@ COMPOSITION — one idea, unmistakable: Core is the single shared foundation; Ad
 
 TEXT — render ONLY these strings, spelled exactly:
 CAPELL
-Starts where custom builds end.
 CORE
 ADMIN
 FRONTEND

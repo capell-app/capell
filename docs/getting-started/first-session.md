@@ -120,7 +120,7 @@ SEO defaults such as a fallback description or Open Graph image come from the op
 
 ---
 
-## Next
+## Next steps
 
 - [Create your first page](create-your-first-page.md) (Learn Capell stage 4) walks through the editor field by field.
 

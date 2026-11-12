@@ -22,7 +22,7 @@ Some widgets read a numeric limit that controls how many entries they show or ho
 | `cache_health_refresh_interval_seconds` |    `60` | Cache health refresh interval.                                                       |
 | `ai_orchestrator_spend_window_days`     |    `30` | Lookback window for AI orchestrator spend aggregates when that feature is installed. |
 
-## Next
+## Related guides
 
 - [Admin Dashboard Widgets](dashboard-widgets.md)
 - [Register a dashboard Filament widget](dashboard-widget-development.md)

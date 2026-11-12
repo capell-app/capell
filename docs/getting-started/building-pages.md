@@ -19,7 +19,7 @@ The diagram is an explanatory illustration, not a product screenshot. The screen
 
 The page type supplies the default. A page can opt out for its own body with `content_structure_override`; leave that unset when the page should continue to follow its type. Layout Builder then composes the assigned layout as `page -> layout -> containers -> widgets -> widget assets`.
 
-## 1. Basic HTML content
+## Basic HTML content
 
 Use HTML content for ordinary prose: headings, paragraphs, lists, links, and a page body that does not need editor-managed modules. It is the normal starting point for a simple About, policy, or contact page.
 
@@ -27,7 +27,7 @@ Set the page type's content structure to HTML when that is the normal shape for 
 
 Use the [Create your first page](create-your-first-page.md) guide for the basic page workflow. Keep public rendering on the normal frontend path: templates receive prepared page data and should not query models or lazy-load relationships.
 
-## 2. Structured content blocks
+## Structured content blocks
 
 Move to blocks when a page body needs typed, reorderable units. The page type can default to blocks, while `content_structure_override` lets one page stay in HTML or switch to blocks without changing every page of that type.
 
@@ -39,7 +39,7 @@ Blocks are a body-authoring choice, not a replacement for a page layout. Use the
 
 _The first screen proves block-level editing and ordering. The second proves that editors add from registered block types without opening Layout Builder._
 
-## 3. Layout Builder widgets
+## Layout Builder widgets
 
 Use Layout Builder when the page needs approved section composition: named regions, reusable widgets, and widget assets arranged as a layout. It is appropriate when the page needs a hero plus a main area, sidebar, proof strip, or a repeatable campaign structure.
 
@@ -47,7 +47,7 @@ The layout is shared by every page assigned to it. Create or clone a layout befo
 
 Layout Builder is a companion package, so its implementation details and screenshot evidence remain package-owned. Use the [Layout Builder documentation](https://docs.capell.app/packages/layout-builder) for its real container, widget, asset, and editor surfaces.
 
-## 4. Custom Blade rendering (developers)
+## Custom Blade rendering (developers)
 
 Use a custom Blade layout when a page is genuinely bespoke: a design cannot be expressed safely by the approved containers and widgets, or it needs a dedicated public shell. This remains inside Capell's normal public response path, including its prepared render context and caching rules; do not add a parallel public controller or route just to render one page.
 
@@ -83,7 +83,7 @@ Keep these views public-safe. Blade should use hydrated data prepared by Capell;
 
 Start every new page with HTML unless the content itself needs structured blocks. Add Layout Builder when the team needs reusable section composition. Reach for a dedicated Blade layout only after the page cannot be expressed as a safe layout and widget composition. That keeps page content simple, shared structure reusable, and bespoke code isolated to the layout that needs it.
 
-## Next
+## Next steps
 
 - [Theme Library](../admin/theme-library.md) (Learn Capell stage 6, continued) to preview and apply how the site looks, then [Page history and rollback](../development/page-event-history.md) for stage 7.
 

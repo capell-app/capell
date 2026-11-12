@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Support\Security\PublicHtmlSanitizer;
 
 it('sanitizes public html with the shared allow list', function (): void {
-    $html = '<p onclick="alert(1)"><a href="javascript:alert(2)">Book</a></p><script>alert(3)</script><span class="eyebrow">Safe</span>';
+    $html = '<p onclick="alert(1)"><a href="javascript:alert(2)">Book</a></p><script>alert(3)</script><span class="label">Safe</span>';
 
     expect((new PublicHtmlSanitizer)->sanitize($html))
         ->toBe('<p><a>Book</a></p><span>Safe</span>');

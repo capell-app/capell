@@ -19,7 +19,7 @@ php artisan migrate
 
 Full documentation lives at `https://docs.capell.app/packages/content-sections`.
 
-## Next
+## Related guides
 
 - [Layout Builder](layout-builder.md) — the composition engine Content Sections builds on.
 - [Packages and extensions](catalog.md) — host package boundaries and the full add-on catalogue.

@@ -15,7 +15,7 @@ Core extends these Capell surfaces:
 - Console operations for install, doctor checks, package cache, extension install/uninstall, migration publishing, makers, and upgrades.
 - Package integration through `capell.json`, `CapellCore`, settings classes, subscribers, and extension registries.
 
-## Why It Matters
+## What Core gives developers and teams
 
 - **For developers:** Core is the stable Laravel boundary for content records, migrations, package metadata, upgrade orchestration, and extension points. It gives package developers typed models, Actions, Data objects, settings support, cache helpers, and registry contracts instead of requiring direct changes to the host app.
 - **For teams:** Core keeps the CMS foundation predictable. Editors work in Admin, public pages render through Frontend, and site operations use one shared set of content, package, and upgrade records.

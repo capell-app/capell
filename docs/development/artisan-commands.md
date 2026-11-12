@@ -674,7 +674,7 @@ The source of truth in any app is:
 php artisan list capell
 ```
 
-## Further Reading
+## Related guides
 
 - [Install guide](../getting-started/install.md)
 - [Configuration reference](configuration.md)

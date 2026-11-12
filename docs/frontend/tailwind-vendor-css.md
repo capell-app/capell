@@ -29,7 +29,7 @@ Some Capell-approved packages ship CSS that lives inside the package itself (Tai
 - `capell:frontend-after-install` will append these aliases automatically in a future release.
 - Minimal example snippet.
 
-## Related
+## Related guides
 
 - [Install guide](../getting-started/install.md)
 - [Troubleshooting](../operations/troubleshooting.md)

@@ -186,7 +186,7 @@ Core also registers `ReferencedByProperty` edges from a page or term to every me
 
 If your widget stores embedded pages under different keys, register your own extractor — tag it with `ContentGraphRegistry::TAG` or declare a `content-graph` manifest contribution — and emit `FoundOnPage` edges with the embedding page as the **source** and the embedded page as the **target**. The dependent-page walk follows edges from target to source, so that direction is what makes an embedded-page edit reach the embedding page. See the [extension point API reference](../packages/extension-point-api-reference.md).
 
-## Related
+## Related guides
 
 - [Fragment caching](fragment-caching.md) — cache expensive Blade partials with surrogate key invalidation.
 - [ETag and conditional responses](etag-and-conditional-responses.md) — validate client caches without recomputing.

@@ -43,6 +43,6 @@ repeat, source-immutability and rollback checks all run successfully.
 
 Use the recorded session rollback only after its behaviour is proven. A complete database/storage restore remains necessary for changes outside session provenance.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

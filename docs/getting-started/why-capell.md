@@ -8,7 +8,7 @@ Its strongest practical difference is not another field builder. Capell makes ch
 
 Most Filament CMS projects eventually rebuild the same surrounding foundations: page types, layouts, URLs, redirects, previews, history, and publishing. Capell provides those shared contracts so the application team can spend its time on the parts that make the product different, while still keeping the Laravel runtime, Composer packages, and public rendering under its control.
 
-## The decision in one minute
+## When to choose Capell
 
 Choose Capell when:
 
@@ -74,7 +74,7 @@ WordPress is usually the fastest choice when its mature plugin and theme ecosyst
 
 Capell is the stronger fit when sharing Laravel's runtime and domain services removes more integration work than those ecosystems save. Read the detailed [WordPress and Craft comparison](comparing-capell.md) before deciding.
 
-## The editor/developer contract
+## What editors and developers each control
 
 Editors work with shared page types, layouts, approved widgets, assets, preview, publishing, and history. Developers define the permitted structure and keep ownership of the public output.
 
@@ -86,7 +86,7 @@ This avoids two common extremes: every content change becoming a developer ticke
 
 A case study can have a Client name field even though Core has no built-in client attribute. Your application can add the editor field, choose its storage and prepare its public output through the same contracts extensions use. [Follow the screenshot walkthrough](add-a-custom-page-field.md), or [compare the approaches and existing extension implementations](../packages/custom-page-fields.md). The decision guide also explains which publication, history, API and data-transfer integrations need additional work.
 
-## Packages without catalogue fiction
+## Check an optional package before adopting it
 
 The public foundation consists of Core, Admin, Frontend, Installer, and Marketplace. Optional capabilities may exist as Released, Beta, Labs, private, or source-only packages.
 
@@ -100,7 +100,7 @@ Do not infer availability from a documentation page or source directory. Before 
 
 The [package catalogue](../packages/catalog.md) documents contracts, but the live marketplace/account is the authority for what a customer can currently install.
 
-## Operational fit
+## Upgrade, rollback and health questions Capell answers
 
 Capell helps when a team wants explicit answers to these questions:
 
@@ -113,7 +113,7 @@ Capell helps when a team wants explicit answers to these questions:
 
 Read [Upgrading](../operations/upgrading.md), [Backups](../operations/backups.md), [Site Health](../operations/site-health.md), and [Export and exit](../operations/export-and-exit.md). A buyer should evaluate these alongside the page editor, not after launch.
 
-## Next
+## Next steps
 
 - [Run the verified quickstart](quickstart.md) (Learn Capell stage 2).
 

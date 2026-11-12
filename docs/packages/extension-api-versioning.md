@@ -115,7 +115,7 @@ When using the foundation aggregate instead of the split Core package, use `vend
 
 The latest 1.x minor also retains its existing 24-month commitment. The 1.x end-of-life date depends on the next major's release date and will be published when that date is known. The security policy in [SECURITY.md](../../SECURITY.md) governs vulnerability reporting and support.
 
-## Next
+## Related guides
 
 - [Package anatomy](package-anatomy.md)
 - [Extension surface catalogue](extension-surface-catalog.md)

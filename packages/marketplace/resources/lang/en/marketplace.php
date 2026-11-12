@@ -894,7 +894,6 @@ return [
     ],
     'page' => [
         'description' => 'Search, compare, and install Capell extensions with compatibility checks and dependency review before anything changes.',
-        'eyebrow' => 'Capell Marketplace',
         'heading' => 'Extensions',
         'more_actions' => 'More actions',
         'tabs' => [

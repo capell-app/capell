@@ -519,7 +519,7 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 
 Continue with [Operations troubleshooting](../operations/troubleshooting.md) when the first action does not resolve the cause.
 
-## Next
+## Related guides
 
 - [Your first session](first-session.md)
 - [Create your first page](create-your-first-page.md)

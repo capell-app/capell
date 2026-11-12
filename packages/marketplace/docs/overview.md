@@ -15,7 +15,7 @@ Marketplace extends these Capell surfaces:
 - Marketplace API integration through catalogue, detail, account connection, install authorization, install-flow exchange, heartbeat, and telemetry requests.
 - Site operations through update advisory snapshots, failure classification, cancellation handling, diagnostics, and admin notifications.
 
-## Why It Matters
+## What Marketplace gives developers and teams
 
 - **For developers:** Marketplace is the boundary for remote extension state, local install attempts, protected install authorization, package operation history, and Marketplace API contracts. It keeps package installs auditable instead of treating them as anonymous Composer commands.
 - **For teams:** Operators can see what was requested, what was authorized, what Composer did, what needs attention, and which update advisories apply to the site.

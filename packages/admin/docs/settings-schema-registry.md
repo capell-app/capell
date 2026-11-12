@@ -523,22 +523,22 @@ it('registers schema in registry')
 
 ## Best Practices
 
-### 1. Use Descriptive Group Names
+### Use Descriptive Group Names
 
 Choose clear, unique group names:
 
 - ✅ `'yourpackage'`, `'ai-orchestrator'`, `'ecommerce'`
 - ❌ `'settings'`, `'config'`, `'options'`
 
-### 2. Register Schemas in Boot
+### Register Schemas in Boot
 
 Always register schemas in `bootInstalledPackage()` or similar boot methods, not in `register()`.
 
-### 3. One Settings Class Per Group
+### One Settings Class Per Group
 
 Each group should have exactly one settings class (for form hydration/saving), but can have multiple schema classes (for form building).
 
-### 4. Explicit Keys for Important Schemas
+### Explicit Keys for Important Schemas
 
 When registering schemas that others might intentionally replace, use explicit keys:
 
@@ -546,11 +546,11 @@ When registering schemas that others might intentionally replace, use explicit k
 $this->surface()->settingsSchema('admin', ImportantSchema::class, 'important_feature');
 ```
 
-### 5. Document Extension Points
+### Document Extension Points
 
 If your package allows schema extensions, document which groups and keys are available for keyed contributions.
 
-### 6. Validate Schema Classes
+### Validate Schema Classes
 
 The registry validates that all schemas implement `HasSchema`. Ensure your schemas are properly typed:
 

@@ -1,8 +1,4 @@
 <section class="{{ themeKey }}-section {{ themeKey }}-hero">
-    @isset($eyebrow)
-        <p>{{ $eyebrow }}</p>
-    @endisset
-
     <h1>{{ $heading ?? $title ?? config('app.name') }}</h1>
 
     @isset($body)

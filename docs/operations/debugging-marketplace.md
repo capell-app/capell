@@ -256,7 +256,7 @@ it('does not phone home without a connected instance', function (): void {
 });
 ```
 
-## Next
+## Related guides
 
 - [Marketplace package overview](../../packages/marketplace/docs/overview.md)
 - [Marketplace hosting](marketplace-hosting.md)

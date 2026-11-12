@@ -4,7 +4,7 @@ This document covers production server expectations for Capell Frontend, static 
 
 ---
 
-## Overview
+## How Frontend serves pages and static HTML
 
 Capell Frontend serves public page requests through Laravel. The package can also generate static HTML artifacts with metadata for deployment pipelines, CDNs, or static export tooling:
 
@@ -212,7 +212,7 @@ CAPELL_MINIFY_HTML=false
 
 ---
 
-## Further Reading
+## Related guides
 
 - [Page & Site Loading](page-site-loading.md) - how the frontend request pipeline works
 - [Testing Frontend](testing-frontend.md) - public rendering and cache-safety checks

@@ -55,7 +55,7 @@ All responses matching the skip conditions above (200/404 status with HTML or JS
 - **HEAD requests**: HEAD requests will also receive the `ETag` and `Last-Modified` headers, allowing clients to validate without downloading the body.
 - **Cache-Control interaction**: The middleware does not set `Cache-Control` on the outbound response—it preserves any existing value or defaults to `public` only when returning a 304.
 
-## Related
+## Related guides
 
 - [Fragment caching](fragment-caching.md)
 - [Cache invalidation](cache-invalidation.md)

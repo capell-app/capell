@@ -405,7 +405,7 @@ If `canView()` and widget hydration need the same expensive data, put that looku
 | [`../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php`](../src/Actions/NormalizeDashboardFilamentWidgetSettingsAction.php) | Dashboard layout normalisation.          |
 | [`../src/Contracts/DashboardSettingsContributor.php`](../src/Contracts/DashboardSettingsContributor.php)                                 | Settings metadata contribution contract. |
 
-## Next
+## Related guides
 
 - [Admin dashboard Filament widgets](../../../docs/admin/dashboard-widgets.md)
 - [Customise your dashboard](../../../docs/admin/dashboard-customize.md)

@@ -188,7 +188,7 @@ This command is destructive because `--fresh=force` rebuilds the database. Use i
 
 CI can persist the redacted install handoff with `--handoff-json=storage/app/capell-install-handoff.json`. A successful local evaluation still needs the separate [production verification](install.md#production-verification) checks before deployment.
 
-## Next
+## Next steps
 
 - [Your first session](first-session.md) (Learn Capell stage 3) tours Admin before you create a page.
 

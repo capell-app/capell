@@ -60,6 +60,6 @@ Do not publish a downtime promise from a partial run. A failed phase invalidates
 
 Restore database and files and switch back the release in the rehearsal. Verify the legacy site works after restoration before accepting the rollback procedure.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

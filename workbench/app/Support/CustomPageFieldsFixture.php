@@ -91,7 +91,7 @@ final class CustomPageFieldsFixture
                     'meta' => ['case_study' => ['client_name' => $scenario === 'public' ? 'Field Notes Studio' : 'Field Notes']],
                 ])->save();
                 $page->translations()->updateOrCreate(['language_id' => $site->language_id], [
-                    'title' => 'A clearer website for a growing studio',
+                    'title' => 'Northline Studio identity and website',
                     'content' => '<p>A focused identity and website for the next chapter.</p>',
                     'meta' => ['slug' => 'custom-page-fields-' . $scenario],
                 ]);

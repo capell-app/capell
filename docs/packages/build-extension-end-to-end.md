@@ -781,7 +781,7 @@ If the package is not on the Extensions page at all, it is required but not enab
 - Public output passes anonymous and non-admin safety tests.
 - README links to package docs, extension points, config, tests, and troubleshooting.
 
-## Next
+## Related guides
 
 - [Extension point API reference](extension-point-api-reference.md)
 - [Package boot lifecycle](package-boot-lifecycle.md)

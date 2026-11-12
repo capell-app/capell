@@ -425,7 +425,7 @@ expect($root . '/' . $path)->toBeFile()
 `packages/core/tests/Arch/TestsAssertNoSourcePositionsTest.php` fails when a test pins a 40-character blob permalink to a line
 anchor or indexes source lines by number.
 
-## Next
+## Related guides
 
 - [Build an extension end to end](build-extension-end-to-end.md)
 - [Extension point API reference](extension-point-api-reference.md)

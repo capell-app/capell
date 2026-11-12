@@ -80,6 +80,6 @@ Admin preview surfaces resolve images in this order:
 - A stale queued job will not overwrite a newer signature.
 - Manual image changes do not leave old generated images behind; generated state is cleared when a manual image exists.
 
-## Next
+## Related guides
 
 - [Theme Library](theme-library.md)

@@ -2,7 +2,7 @@
 
 This document explains how Tailwind assets are collected across Capell packages/providers and how the generator produces a single CSS directive file used by Tailwind.
 
-## Overview
+## Where Tailwind inputs come from
 
 Capell aggregates Tailwind asset declarations from multiple sources so your Tailwind build has a unified set of inputs:
 

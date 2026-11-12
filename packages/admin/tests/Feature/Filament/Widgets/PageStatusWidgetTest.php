@@ -18,7 +18,7 @@ it('renders last-seven-day audience stats and hides the inventory counts by defa
 
     Livewire::test(PageStatusFilamentWidget::class)
         ->assertOk()
-        ->assertSee('Capell overview')
+        ->assertSee(__('capell-admin::dashboard.widget_capell_overview'))
         ->assertSee('Visitors')
         ->assertSee('Views per visitor')
         ->assertSee('Last 7 days')

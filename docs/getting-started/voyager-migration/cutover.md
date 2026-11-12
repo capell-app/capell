@@ -39,6 +39,6 @@ Stop before reopening if any acceptance check fails. After the first post-go-liv
 
 The restore window ends before the first post-go-live business write. Within that window restore the database and files and switch the release back, then verify the legacy journeys. The owner records the decision and timestamp.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

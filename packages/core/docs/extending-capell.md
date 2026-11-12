@@ -9,16 +9,16 @@ Capell is designed to be extended without modifying its core source code. This d
 
 ## Table of Contents
 
-1. [Extension Discovery](#1-extension-discovery)
-2. [Page Types And Component Registration](#2-page-types-and-component-registration)
-3. [Model Interceptors](#3-model-interceptors)
-4. [Schema Hook Extenders](#4-schema-hook-extenders)
-5. [Event Registry (Callbacks & Subscribers)](#5-event-registry-callbacks--subscribers)
-6. [Render Hooks](#6-render-hooks)
-7. [Settings Schema Registry](#7-settings-schema-registry)
-8. [Extending core models](#8-extending-core-models)
-9. [Package Metadata And Discovery](#9-package-metadata-and-discovery)
-10. [Further Reading](#10-further-reading)
+- [Extension Discovery](#extension-discovery)
+- [Page Types And Component Registration](#page-types-and-component-registration)
+- [Model Interceptors](#model-interceptors)
+- [Schema Hook Extenders](#schema-hook-extenders)
+- [Event Registry (Callbacks & Subscribers)](#event-registry-callbacks--subscribers)
+- [Render Hooks](#render-hooks)
+- [Settings Schema Registry](#settings-schema-registry)
+- [Extending core models](#extending-core-models)
+- [Package Metadata And Discovery](#package-metadata-and-discovery)
+- [Related guides](#related-guides)
 
 ---
 
@@ -30,19 +30,19 @@ Capell offers several extension mechanisms. Pick by what you're extending:
 
 | I want to…                                                         | Use                                                                           | Section                                                                                       |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Add a page subject type                                            | `BlueprintSubjectRegistry::register(new BlueprintSubjectDescriptorData(...))` | [§2](#2-page-types-and-component-registration)                                                |
-| Register component aliases                                         | `CapellCore::registerComponent()` / `registerComponents()`                    | [§2](#2-page-types-and-component-registration)                                                |
-| Change seed/install data for pages, layouts, themes, or blueprints | `CapellCore::registerModelInterceptor()`                                      | [§3](#3-model-interceptors)                                                                   |
-| Add fields to an existing page or site edit form                   | Schema hook extender                                                          | [§4](#4-schema-hook-extenders)                                                                |
-| React to an admin lifecycle event (e.g. after save)                | Event registry callback / subscriber                                          | [§5](#5-event-registry-callbacks--subscribers)                                                |
-| Block an action based on a condition                               | `ValidationSubscriber`                                                        | [§5](#5-event-registry-callbacks--subscribers)                                                |
+| Add a page subject type                                            | `BlueprintSubjectRegistry::register(new BlueprintSubjectDescriptorData(...))` | [§2](#page-types-and-component-registration)                                                |
+| Register component aliases                                         | `CapellCore::registerComponent()` / `registerComponents()`                    | [§2](#page-types-and-component-registration)                                                |
+| Change seed/install data for pages, layouts, themes, or blueprints | `CapellCore::registerModelInterceptor()`                                      | [§3](#model-interceptors)                                                                   |
+| Add fields to an existing page or site edit form                   | Schema hook extender                                                          | [§4](#schema-hook-extenders)                                                                |
+| React to an admin lifecycle event (e.g. after save)                | Event registry callback / subscriber                                          | [§5](#event-registry-callbacks--subscribers)                                                |
+| Block an action based on a condition                               | `ValidationSubscriber`                                                        | [§5](#event-registry-callbacks--subscribers)                                                |
 | Subscribe to fine-grained lifecycle events                         | `SubscriberManager::subscribe()`                                              | [Subscriber Manager](subscriber-manager.md)                                                   |
 | Hook into static site export                                       | `StaticSiteExtensionRegistry::register()`                                     | [Static Site Extensions](static-site-extensions.md)                                           |
-| Inject HTML into a frontend Blade component                        | Render hook                                                                   | [§6](#6-render-hooks)                                                                         |
+| Inject HTML into a frontend Blade component                        | Render hook                                                                   | [§6](#render-hooks)                                                                         |
 | Register selectable theme header/footer components                 | `ThemeChromeRegistry::register*()`                                            | [Theme Chrome Components](#theme-chrome-components)                                           |
 | Add a custom admin toolbar item                                    | Tag with `AdminToolItem::TAG`                                                 | [Admin Tool Registry](../../admin/docs/admin-tool-registry.md)                                |
 | Add a dashboard Filament widget programmatically                   | `CapellAdmin::registerDashboardFilamentWidget()`                              | [Dashboard Widget Customization](../../admin/docs/dashboard-widget-customization.md)          |
-| Add a tab to the admin Settings page                               | Settings Schema Registry                                                      | [§7](#7-settings-schema-registry)                                                             |
+| Add a tab to the admin Settings page                               | Settings Schema Registry                                                      | [§7](#settings-schema-registry)                                                             |
 | Wire model changes to cache flushes                                | `CacheInvalidationRegistry::registerDependency()`                             | [Cache Invalidation](../../../docs/performance/cache-invalidation.md)                         |
 | Register runtime frontend assets                                   | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG`        | [Frontend Asset Optimization](../../../docs/performance/critical-asset-optimization.md)       |
 | Cache an expensive Blade fragment                                  | `@cache(...) ... @endcache` directive                                         | [Fragment Caching](../../../docs/performance/fragment-caching.md)                             |
@@ -51,14 +51,14 @@ Capell offers several extension mechanisms. Pick by what you're extending:
 | Register Tailwind sources, imports, or plugins                     | `TailwindAssetsRegistry::register*()`                                         | [Tailwind Assets](../../frontend/docs/tailwind-assets.md)                                     |
 | Load vendor build assets only for matching pages                   | `VendorAssetConditionRegistry::register()`                                    | [Conditional Vendor Assets](../../frontend/docs/tailwind-assets.md#conditional-vendor-assets) |
 | Flush singleton state between Octane requests                      | Implement `Resettable` and tag with `Resettable::TAG`                         | [Long-running workers](#long-running-workers)                                                 |
-| Substitute my own subclass for a core model                        | Container binding                                                             | [§8](#8-extending-core-models)                                                                |
-| Register package metadata                                          | `capell.json` plus manifest registration                                      | [§9](#9-package-metadata-and-discovery)                                                       |
+| Substitute my own subclass for a core model                        | Container binding                                                             | [§8](#extending-core-models)                                                                |
+| Register package metadata                                          | `capell.json` plus manifest registration                                      | [§9](#package-metadata-and-discovery)                                                       |
 
 **Rule of thumb:** prefer targeted extension points over publishing or copying host package files. Published files stop receiving upstream fixes.
 
 ---
 
-## 1. Extension Discovery
+## Extension Discovery
 
 The simplest way to add optional product capability is to install a package that already owns that feature. Extension packages follow the normal Composer install pattern:
 
@@ -97,7 +97,7 @@ The service should clear only in-memory request state in `flushOctaneState()`. D
 
 ---
 
-## 2. Page Types And Component Registration
+## Page Types And Component Registration
 
 Blueprint subjects describe the models a Blueprint can target. Core registers the built-in `page`, `site`, and `theme` subjects in `BlueprintSubjectRegistry`.
 
@@ -135,7 +135,7 @@ Renderable definitions may also declare a `viewDataResolver`. Resolvers implemen
 
 For frontend widgets, use `LayoutWidgetRegistry`; for admin content widgets, use `CapellAdmin::registerWidget()` or `registerDiscoverableWidgets()`.
 
-## 3. Model Interceptors
+## Model Interceptors
 
 Model interceptors let packages change default install/setup data without replacing Core actions. They are used for creation flows where Capell owns the write but packages need to adjust data before persistence or react after creation.
 
@@ -183,7 +183,7 @@ Use interceptors for package defaults, not ordinary user writes. Runtime writes 
 
 ---
 
-## 4. Schema Hook Extenders
+## Schema Hook Extenders
 
 Schema hook extenders let you inject form fields into page or site edit form-builder at named positions, without overriding the entire schema.
 
@@ -269,7 +269,7 @@ See [Schema Hooks reference](../../admin/docs/schemas/hooks.md) for full details
 
 ---
 
-## 5. Event Registry (Callbacks & Subscribers)
+## Event Registry (Callbacks & Subscribers)
 
 The Admin package provides an event registry that lets packages and applications subscribe to lifecycle events in the admin panel.
 
@@ -367,7 +367,7 @@ resolve(SubscriberManager::class)->notifySubscribers('myEvent', $context);
 
 ---
 
-## 6. Render Hooks
+## Render Hooks
 
 Render hooks let you inject HTML into named locations in frontend Blade components without overwriting any files.
 
@@ -391,7 +391,7 @@ app(RenderHookRegistry::class)->register(
 
 ---
 
-## 7. Settings Schema Registry
+## Settings Schema Registry
 
 Add your package's settings to the admin Settings page by registering a schema and settings class:
 
@@ -413,7 +413,7 @@ See [Settings Schema Registry](../../admin/docs/settings-schema-registry.md) for
 
 ---
 
-## 8. Extending core models
+## Extending core models
 
 To substitute your own subclass for a core Capell model (e.g. `Page`, `Site`), bind the replacement in your package service provider's `register()` method:
 
@@ -432,7 +432,7 @@ Capell code that resolves the model via `app(Page::class)` receives an instance 
 
 ---
 
-## 9. Package Metadata And Discovery
+## Package Metadata And Discovery
 
 Packages should describe themselves through `capell.json` and Composer metadata. Manifest registration is the source of truth for package name, kind, scopes, providers, commands, requirements, settings ownership, marketplace metadata, and contribution counts.
 
@@ -469,7 +469,7 @@ app(ThemeChromeRegistry::class)->registerLogo('vendor-theme::logo', 'Vendor logo
 
 Model saves validate `header_file` and `footer_file` against the registered options, and public rendering checks them again before selecting a view. Invalid stored layout or theme selectors return a generic 404. Site `logo_blade_view` metadata, including values inherited from Blueprint metadata, must also be registered; both public logo consumers omit unregistered logo views. The built-in `brand.capell-logo` is registered by default, and `false` disables the logo view. Load registrations for HTTP requests, CLI commands, jobs and imports.
 
-## 10. Further Reading
+## Related guides
 
 ### Core Documentation
 

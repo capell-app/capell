@@ -92,7 +92,7 @@ it('boots the package provider without writing host state', function (): void {
 });
 ```
 
-## Next
+## Related guides
 
 - [Package boot lifecycle](package-boot-lifecycle.md)
 - [Extension troubleshooting](extension-troubleshooting.md)

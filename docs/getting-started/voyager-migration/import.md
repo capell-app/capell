@@ -105,6 +105,6 @@ update dates in page meta, because the importer refuses direct timestamp writes.
 
 Roll back site sessions before their prerequisite global sessions. Verify updates restore before-images and unrelated destination rows survive. Restore backup if effects fall outside recorded provenance.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

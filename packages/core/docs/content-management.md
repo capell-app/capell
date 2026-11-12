@@ -91,7 +91,7 @@ Anonymous users, signed-in non-admin users, cached HTML, and static exports must
 
 ---
 
-## Further Reading
+## Related guides
 
 - [Page Management](page-management.md) — hierarchy, URLs, publishing, draft previews
 - [Multi-site & Multi-lingual](multi-site-multi-lingual.md) — per-locale content and URLs

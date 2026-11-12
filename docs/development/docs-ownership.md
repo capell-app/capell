@@ -21,7 +21,7 @@ Use this checklist before adding or moving documentation.
 - Do not document optional package behaviour as built-in host behaviour.
 - Keep package-specific install commands in the package that owns them.
 - Prefer short task pages over broad narrative pages.
-- End leaf docs with a small `Next` section when there is a natural follow-up: one primary next link, then an optional "Dive deeper (optional)" list of at most four links. Pages on the [Learn Capell](../getting-started/capell-learn.md) path open with a stage banner naming the stage, time, previous and next pages.
+- End leaf docs with a `Next steps` section when there is a natural follow-up (one primary next link, then an optional "Dive deeper (optional)" list of at most four links), or a `Related guides` list of links otherwise. Pages on the [Learn Capell](../getting-started/capell-learn.md) path open with a stage banner naming the stage, time, previous and next pages.
 - Skills shipped in `packages/*/resources/boost/skills/` (and their `references/` files) are installed into third-party applications by Composer. Write for that reader: say "the Capell CMS" or "this package", use generic placeholders for local paths, and never mention `capell-4`, `capell-packages-4`, the monorepo, a developer's local absolute paths or "companion packages". Naming a Composer package or a Capell concept is fine.
 
 ## Guards that pin documentation
@@ -44,7 +44,7 @@ After a docs edit run `composer docs:check` (spelling, links, orphans, requireme
 - Does this duplicate another page?
 - Would this be better in a package README?
 
-## Next
+## Related guides
 
 - [Docs route map](../README.md)
 - [Documentation visuals](../standards/documentation-visuals.md)

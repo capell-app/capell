@@ -594,7 +594,7 @@ return [
     'inactive' => 'Inactive',
     'stale_drafts_info' => 'Workspaces that have been left untouched for a while.',
     'success' => 'Success',
-    'summary_info' => 'Short overview of the page content',
+    'summary_info' => 'Two or three sentences that summarise the page',
     'system' => 'System',
     'tab' => 'Tab',
     'target_version' => 'Target version',

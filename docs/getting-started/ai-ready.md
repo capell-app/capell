@@ -107,7 +107,7 @@ Start with the CMS foundation:
 
 The practical rule is simple: let Capell core describe the site, let AIOrchestrator coordinate AI work, and keep public output boring.
 
-## Next
+## Related guides
 
 - [How Capell works](how-capell-works.md) for the model an agent describes.
 - [Extension point API reference](../packages/extension-point-api-reference.md) before exposing package capabilities.

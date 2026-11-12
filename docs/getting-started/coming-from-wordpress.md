@@ -37,7 +37,7 @@ For a site with a **Service** post type and a `price` custom field:
 4. Replace each shortcode with a widget or Blade component.
 5. Request each old address anonymously and check it redirects to the new page.
 
-## Next
+## Related guides
 
 - [Build a client site](build-a-client-site.md)
 - [Comparing Capell](comparing-capell.md)

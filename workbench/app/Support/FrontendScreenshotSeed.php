@@ -70,7 +70,7 @@ final class FrontendScreenshotSeed
             $translationMeta['slug'] = '/';
 
             $translation->fill([
-                'title' => 'A slower weekend outdoors',
+                'title' => 'A 6 km coastal walk from the harbour',
                 'content' => self::content($page),
                 'meta' => $translationMeta,
             ])->save();

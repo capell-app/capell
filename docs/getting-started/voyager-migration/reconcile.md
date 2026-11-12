@@ -39,6 +39,6 @@ Do not repair a mismatch by changing the expected count after import. Find dupli
 
 Retain the failed reconciliation with its session IDs. Roll back affected sessions or restore the rehearsal destination, then run again from the same immutable source.
 
-## Next
+## Migration chapter list
 
 Return to the [migration chapter list](index.md).

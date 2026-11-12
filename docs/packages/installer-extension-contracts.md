@@ -100,7 +100,7 @@ vendor/bin/pest packages/<package>/tests --configuration=phpunit.xml
 vendor/bin/pest packages/installer/tests --configuration=phpunit.xml
 ```
 
-## Next
+## Related guides
 
 - [Package anatomy](package-anatomy.md)
 - [Database and migrations](database-and-migrations.md)

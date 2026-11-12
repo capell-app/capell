@@ -139,7 +139,7 @@ When the admin panel loads, your tool will appear in the dropdown between the bu
 - **Styling:** To match Capell's admin UI, use the `fi-dropdown-list-item` classes shown in the example. See `admin-tools.blade.php` for the exact class structure.
 - **Interactivity:** For Livewire actions (e.g., `wire:click`), route them through the `AdminTools` Livewire component. Custom tools cannot directly define their own Livewire methods — they must delegate to the parent component or use plain JavaScript.
 
-## Related
+## Related guides
 
 - [Resource registration](resource-registration.md)
 - [Settings schema registry](settings-schema-registry.md)

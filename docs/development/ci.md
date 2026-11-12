@@ -247,7 +247,7 @@ host port, and disposable service container. It never uses or mutates a shared
 development database. Evidence is written beneath `.test-all-results/`; a failed
 or timed-out cell is incomplete evidence, not support proof.
 
-## Next
+## Related guides
 
 - [Development commands](commands.md)
 - [Docs ownership rules](docs-ownership.md)

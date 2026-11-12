@@ -103,7 +103,7 @@ it('renders public page from hydrated data', function (): void {
 });
 ```
 
-## Next
+## Related guides
 
 - [Public HTML safety contract](public-html-safety.md)
 - [Frontend extensions](../packages/frontend-extensions.md)

@@ -249,7 +249,6 @@
     max-width: 42rem;
 }
 
-.default-theme-eyebrow,
 .default-theme-card__meta {
     color: var(--theme-primary, #087765);
     font-size: 0.78rem;
@@ -416,10 +415,6 @@
 .default-theme-proof {
     background: var(--theme-foreground, #101715);
     color: #ffffff;
-}
-
-.default-theme-proof .default-theme-eyebrow {
-    color: color-mix(in srgb, var(--theme-accent, #0e91b2) 65%, #ffffff);
 }
 
 .default-theme-proof p {

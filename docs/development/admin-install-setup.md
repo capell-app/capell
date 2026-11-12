@@ -21,7 +21,7 @@ Direct `capell:admin-setup` still syncs permissions unless `--skip-permission-sy
 
 When adding new install or setup behavior, check whether the full install flow will execute both commands. If the behavior belongs to package installation, keep it in the install command and pass an explicit skip flag into setup. If setup needs to run independently, make the setup command's behavior opt out rather than relying on model or role existence heuristics.
 
-## Next
+## Related guides
 
 - [Development](index.md)
 - [Artisan commands](artisan-commands.md)

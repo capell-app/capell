@@ -18,7 +18,6 @@
     <style>
       .title { fill: #16231f; font-family: Georgia, serif; font-size: 58px; font-weight: 700; letter-spacing: -1.6px; }
       .subtitle { fill: #536159; font-family: Verdana, sans-serif; font-size: 18px; }
-      .eyebrow { fill: #7b4b31; font-family: Verdana, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; }
       .panel-title { fill: #16231f; font-family: Georgia, serif; font-size: 28px; font-weight: 700; }
       .panel-copy { fill: #536159; font-family: Verdana, sans-serif; font-size: 15px; line-height: 1.45; }
       .card-title { fill: #18221d; font-family: Verdana, sans-serif; font-size: 16px; font-weight: 700; }
@@ -36,14 +35,11 @@
   <circle cx="1248" cy="106" r="190" fill="#e1cfb6" opacity="0.35"/>
   <circle cx="126" cy="784" r="210" fill="#d7e0d2" opacity="0.52"/>
   <path d="M104 146 C292 66 420 116 534 64 C680 -2 802 48 956 42 C1114 36 1234 -18 1368 54" fill="none" stroke="#d4c7b5" stroke-width="2" opacity="0.7"/>
-
-  <text x="84" y="92" class="eyebrow">Capell Library</text>
-  <text x="84" y="158" class="title">Core explains. Demos persuade.</text>
+  <text x="84" y="158" class="title">Core types, demo starters and artwork variations</text>
   <text x="86" y="198" class="subtitle">Types hold the rules. Layouts compose the page. Artwork gives the same content a point of view.</text>
 
   <g filter="url(#shadow)">
     <rect x="78" y="254" width="384" height="520" rx="34" fill="#fffaf2" stroke="#e2d7c8"/>
-    <text x="112" y="308" class="eyebrow">Core structure</text>
     <text x="112" y="350" class="panel-title">System layer</text>
     <text x="112" y="382" class="panel-copy">Stable records that keep sites predictable, cache-safe, and easy to edit.</text>
 
@@ -65,12 +61,11 @@
 
     <rect x="112" y="634" width="318" height="84" rx="22" class="dark-card"/>
     <text x="134" y="670" class="dark-title">Default, Home, Results, System</text>
-    <text x="134" y="695" class="dark-copy">Core variations should read as useful rules, not templates with decoration.</text>
+    <text x="134" y="695" class="dark-copy">Each core variation sets one rule for structure, layout or results.</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="528" y="254" width="384" height="520" rx="34" fill="#fbf7ee" stroke="#e2d7c8"/>
-    <text x="562" y="308" class="eyebrow">Demo starters</text>
     <text x="562" y="350" class="panel-title">Editorial layer</text>
     <text x="562" y="382" class="panel-copy">Seeded examples combine the same rules with pages, copy, blocks, and media.</text>
 
@@ -93,7 +88,6 @@
 
   <g filter="url(#shadow)">
     <rect x="978" y="254" width="384" height="520" rx="34" fill="#fffaf2" stroke="#e2d7c8"/>
-    <text x="1012" y="308" class="eyebrow">Artwork variations</text>
     <text x="1012" y="350" class="panel-title">Design layer</text>
     <text x="1012" y="382" class="panel-copy">The same content model can carry different visual identities without leaking editor machinery.</text>
 

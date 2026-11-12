@@ -265,7 +265,10 @@ it('renders the marketplace page through the same marketplace browser backend', 
     Livewire::test(MarketplacePage::class)
         ->assertSuccessful()
         ->assertSee(__('capell-marketplace::marketplace.page.heading'))
-        ->assertSee(__('capell-marketplace::marketplace.filters.loading_heading'));
+        ->assertSee(__('capell-marketplace::marketplace.filters.loading_heading'))
+        ->assertDontSee('tracking-wide text-blue-600 uppercase', false);
+
+    expect(trans()->has('capell-marketplace::marketplace.page.eyebrow'))->toBeFalse();
 });
 
 it('serves the marketplace page over the admin route', function (): void {

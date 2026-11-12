@@ -92,7 +92,7 @@ session's uncommitted work.
 | `vendor/bin/`                              | real copy | binary proxies must point at this worktree's autoloader     |
 | `vendor/<vendor>/<package>/`               | real copy | copy-on-write clone, so no package is a link into another checkout |
 
-### Snapshot, not a live view
+### The copied autoloader is a snapshot
 
 The provisioner regenerates the copied autoloader from the worktree's manifest,
 including development source mappings. Autoload regeneration disables Composer scripts
@@ -286,7 +286,7 @@ safe to auto-resolve. Only files with a non-empty end-state diff need judgement;
 those, search both trees for the APIs each side references (`git grep`): the branch is
 usually the stale side.
 
-## Further reading
+## Related guides
 
 - [Development index](index.md)
 - [Local development](local-development.md)

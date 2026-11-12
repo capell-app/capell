@@ -119,7 +119,7 @@ Inertia output follows the same public-output contract as Blade output:
 - package route responses that handle private user intent should set their own cache and robots headers;
 - public page props should reuse the API payload Actions instead of shaping ad hoc arrays in renderers.
 
-## Next
+## Related guides
 
 - [Inertia widgets](inertia-widgets.md)
 - [Inertia Bookings showcase](inertia-bookings-showcase.md)

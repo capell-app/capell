@@ -36,7 +36,10 @@ it('shows critical security advisories on the dashboard Filament widget', functi
         ->assertOk()
         ->assertSee(__('capell-admin::dashboard.update_advisory_title'))
         ->assertSee('Critical blog editor patch')
-        ->assertSee('Upgrade the blog editor package to close the editor bypass.');
+        ->assertSee('Upgrade the blog editor package to close the editor bypass.')
+        ->assertDontSee('Security advisory');
+
+    expect(trans()->has('capell-admin::dashboard.update_advisory_eyebrow'))->toBeFalse();
 });
 
 it('does not show normal package updates as danger dashboard notices', function (): void {

@@ -374,7 +374,7 @@ The example publishes Nginx only on loopback port `8080`; the external proxy sho
 - Use database-backed or another shared cache, session, and queue driver when more than one replica runs. SQLite and `QUEUE_CONNECTION=sync` are for the disposable recipe only.
 - Run `php artisan capell:doctor` in a one-off container after install or upgrade. A process being up does not prove Capell's migrations, packages, assets, permissions, and public routes are ready.
 
-## Related
+## Related guides
 
 - [Quickstart](../getting-started/quickstart.md)
 - [Install guide](../getting-started/install.md)

@@ -118,7 +118,7 @@ Broken references, duplicate manifest IDs, and missing required outputs are fail
 - Is ownership and regeneration discoverable?
 - Would prose, code, or a diagram explain the point more clearly?
 
-## Next
+## Related guides
 
 - [Docs ownership rules](../development/docs-ownership.md)
 - [Screenshot state guide](../development/screenshot-state-guide.md)

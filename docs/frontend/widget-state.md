@@ -64,7 +64,7 @@ The system default keeps existing content server-rendered. Only opt a widget or 
 
 For interaction targets, prefer `interaction` resources unless the target also appears server-rendered elsewhere on the page.
 
-## Next
+## Related guides
 
 - [Frontend widgets](widgets.md)
 - [Widget registration](widget-registration.md)

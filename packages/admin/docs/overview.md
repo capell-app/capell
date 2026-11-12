@@ -27,7 +27,7 @@ The stored Core `default_locale` property remains available for host integration
 
 Site Health marks unused optimiser tool/profile prerequisites **Not configured**. Optimiser capability registration, pipeline configuration, generated artefacts and outstanding database queue work keep active readiness checks applicable. Failed and in-flight critical-CSS diagnostics remain visible independently. Tools must be available to the worker running generation; a web-host check does not prove worker readiness. Normal stylesheet delivery remains available.
 
-## Why It Matters
+## What Admin gives developers and teams
 
 - **For developers:** Admin is the package boundary for Filament resources, schema extension, policies, settings pages, dashboard Filament widgets, and admin events. Packages extend Admin through documented registries instead of editing core resources.
 - **For teams:** Editors get a consistent publishing workflow, media library, settings surface, reports, and operational checks without each package inventing its own admin pattern.

@@ -24,7 +24,7 @@ Widget HTML and interaction placeholders must never expose admin controls, model
 
 When a widget defers below-the-fold HTML, prepare a `DeferredFragmentPlaceholderData` value in PHP and render only that value in Blade. Build references with `PublicFragmentReferenceCodec` and route them through the registered `PublicFragmentUrlResolver` owner; route names and owner-specific authorization remain with the application or package that serves the fragment.
 
-## Next
+## Related guides
 
 - [Frontend](index.md)
 - [Widget registration](widget-registration.md)

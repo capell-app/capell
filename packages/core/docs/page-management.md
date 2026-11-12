@@ -111,7 +111,7 @@ When creating a page, select its blueprint from the dropdown. The blueprint dete
 
 ### Registering custom page blueprints
 
-For an ordinary Page, create a blueprint and add fields through its editor contracts: [add Client name end to end](../../../docs/getting-started/add-a-custom-page-field.md), then [compare all custom-field approaches](../../../docs/packages/custom-page-fields.md). [Blueprints](../../../docs/getting-started/types.md) explains configuration. [Subject registration](extending-capell.md#2-page-types-and-component-registration) is a separate operation for a new model subject; it does not create editor fields or a blueprint record.
+For an ordinary Page, create a blueprint and add fields through its editor contracts: [add Client name end to end](../../../docs/getting-started/add-a-custom-page-field.md), then [compare all custom-field approaches](../../../docs/packages/custom-page-fields.md). [Blueprints](../../../docs/getting-started/types.md) explains configuration. [Subject registration](extending-capell.md#page-types-and-component-registration) is a separate operation for a new model subject; it does not create editor fields or a blueprint record.
 
 ---
 
@@ -151,7 +151,7 @@ A page can be **linked** to another page across sites. This is useful when you h
 
 ---
 
-## Further Reading
+## Related guides
 
 - [Page event history and rollback](../../../docs/development/page-event-history.md) — automatic revision recording, workflow boundaries, validation, and replay
 - [Content Management](content-management.md) — content types, widgets, translations, media

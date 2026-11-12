@@ -113,7 +113,7 @@ composer show capell-app/content-sections -P
 
 Both commands should resolve to your local `capell-4` or `capell-packages-4` checkout rather than a Composer cache path.
 
-## Next
+## Related guides
 
 - [Development](index.md)
 - [Local development](local-development.md)

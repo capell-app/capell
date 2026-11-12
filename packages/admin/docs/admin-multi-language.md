@@ -295,7 +295,7 @@ These are two separate systems with no shared storage and no shared code path:
 
 Translating every page does not translate a single interface string, and vice versa.
 
-## Further Reading
+## Related guides
 
 - [Adding a language to a live site](adding-a-language-to-a-live-site.md) — the editor-facing walkthrough
 - [Multi-site and Multi-lingual](../../core/docs/multi-site-multi-lingual.md) — frontend locale, direction, hreflang, sitemaps, visitor language detection

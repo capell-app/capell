@@ -206,7 +206,7 @@ Before scaling out, account for these operating constraints:
   Livewire uploads backed by a node-local filesystem even if the load balancer normally
   provides session affinity; the storage topology remains correct during failover.
 
-## Further reading
+## Related guides
 
 - [Going live](going-live.md)
 - [Running Capell on Laravel Octane](octane.md)

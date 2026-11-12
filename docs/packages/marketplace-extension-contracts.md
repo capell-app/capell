@@ -58,7 +58,7 @@ vendor/bin/pest packages/marketplace/tests --configuration=phpunit.xml
 
 Use `php artisan marketplace:qa:extensions-lifecycle --dry-run --only=vendor/package` in a consuming app when validating a real package catalogue entry.
 
-## Next
+## Related guides
 
 - [Package anatomy](package-anatomy.md)
 - [Package product groups](product-groups.md)

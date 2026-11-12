@@ -50,7 +50,7 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 
 For website-specific fields, start with [Add a custom field to a page](add-a-custom-page-field.md), then [compare the extension approaches](../packages/custom-page-fields.md).
 
-## Next
+## Related guides
 
 - [Learn Capell](capell-learn.md) for the guided path.
 - [Admin](../admin/index.md) for editor workflows, [Frontend](../frontend/index.md) for public rendering, or [Packages](../packages/README.md) to extend Capell.

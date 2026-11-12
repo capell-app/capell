@@ -135,7 +135,7 @@ Support covers the dependency ranges above. When an upstream release reaches its
 
 Package development and coordinated verification happen in the [capell-app/capell monorepo](https://github.com/capell-app/capell). Split package repositories are release mirrors; use [docs.capell.app](https://docs.capell.app) for cross-package guidance. See the [contribution guide](https://github.com/capell-app/capell/blob/main/CONTRIBUTING.md), [security policy](https://github.com/capell-app/capell/security/policy), and [licence](https://github.com/capell-app/capell/blob/main/LICENSE.md).
 
-## Further Reading
+## Related guides
 
 | Page                                   | Covers                                           |
 | -------------------------------------- | ------------------------------------------------ |

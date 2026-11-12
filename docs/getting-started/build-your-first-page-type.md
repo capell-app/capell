@@ -48,7 +48,7 @@ php artisan cache:clear
 
 Reload `/` and confirm the note appears. Run the placement once, because each run adds another copy to the layout.
 
-## Next
+## Related guides
 
 - [Widget registration](../frontend/widget-registration.md) for resources and defaults
 - [Build a client site](build-a-client-site.md)

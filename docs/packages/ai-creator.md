@@ -49,7 +49,7 @@ Full package docs live in the package repository at `packages/ai-creator/README.
 
 AI Creator output is planning input. Package-owned Actions must own persistence and apply behavior, and no raw AI-generated PHP or Blade should execute directly. Public Blade, cached HTML, and anonymous responses must not expose authoring metadata, model IDs, signed URLs, selectors, package internals, or editor controls.
 
-## Next
+## Related guides
 
 - [Package product groups](product-groups.md) - where AI Creator fits commercially.
 - [Packages and extensions](catalog.md) - host package boundaries and catalogue links.

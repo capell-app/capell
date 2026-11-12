@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\View;
 it('renders registered blade renderables with resolved view data', function (): void {
     $viewPath = storage_path('framework/testing/renderable-views');
     File::ensureDirectoryExists($viewPath);
-    File::put($viewPath . '/hero.blade.php', '<section>{{ $headline }} {{ $renderKey }} {{ $meta["eyebrow"] }}</section>');
+    File::put($viewPath . '/hero.blade.php', '<section>{{ $headline }} {{ $renderKey }} {{ $meta["category"] }}</section>');
     View::addNamespace('renderable-test', $viewPath);
 
     resolve(RenderableRegistry::class)->register(new RenderableDefinitionData(
@@ -29,7 +29,7 @@ it('renders registered blade renderables with resolved view data', function (): 
         key: 'renderable.hero',
         asset: renderRenderableActionTestModel(),
         translation: renderRenderableActionTestModel(),
-        meta: ['eyebrow' => 'CMS'],
+        meta: ['category' => 'CMS'],
     ))->toContain('Resolver headline renderable.hero CMS');
 });
 

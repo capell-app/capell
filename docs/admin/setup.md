@@ -81,7 +81,7 @@ Reruns are idempotent. Existing custom colors are respected, existing Capell plu
 | `existing_conflict` | Existing code needs manual review before Capell calls can be added |
 | `validation`        | Command input such as `--configurators` was invalid                      |
 
-## Next
+## Related guides
 
 - [Admin interface](interface.md)
 - [Users and roles](users-and-roles.md)

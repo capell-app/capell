@@ -22,7 +22,7 @@ php artisan capell:layout-builder-install
 
 Full documentation lives at `https://docs.capell.app/packages/layout-builder`.
 
-## Next
+## Related guides
 
 Before composing a reusable layout, its edit screen sets the name, group, site, theme and availability that identify it in page selection.
 

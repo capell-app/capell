@@ -98,7 +98,7 @@ In either case run `npm run screenshots:restore` when you have finished capturin
 
 After a fresh `composer install`, `post-autoload-dump` removes `vendor/orchestra/testbench-core/laravel/database/migrations`; `prepare-workbench.sh` recreates the directory before the install step, so a manual `testbench capell:install` straight after `composer install` has nowhere to publish vendor migrations to.
 
-## Next
+## Related guides
 
 - [Architecture diagrams](../reference/architecture-diagrams.md)
 - [Marketplace debugging](../operations/debugging-marketplace.md)

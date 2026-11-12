@@ -6,7 +6,7 @@ This guide explains how to use Capell's HasCache trait for caching in your servi
 
 ---
 
-## 1. Overview
+## What HasCache adds to Laravel caching
 
 The `HasCache` trait provides a consistent, testable, and feature-rich caching API for Capell packages. It wraps Laravel's cache system but adds:
 
@@ -20,7 +20,7 @@ You should use HasCache in your domain logic instead of calling Laravel's Cache 
 
 ---
 
-## 2. Basic Usage
+## Basic Usage
 
 Add the trait to your service or model:
 
@@ -43,7 +43,7 @@ class MyService {
 
 ---
 
-## 3. HasCache Methods
+## HasCache Methods
 
 ### rememberCache
 
@@ -95,7 +95,7 @@ $this->flushCache();
 
 ---
 
-## 4. Advanced: TTL, Sentinels, and Tags
+## Advanced: TTL, Sentinels, and Tags
 
 - TTL can be an int (seconds), DateTimeInterface, DateInterval, or Closure returning one.
 - Null values are stored as a sentinel string (`__capell_null__`) so you can distinguish between missing and null.
@@ -103,7 +103,7 @@ $this->flushCache();
 
 ---
 
-## 5. Bypassing Cache for Specific Keys
+## Bypassing Cache for Specific Keys
 
 HasCache respects the `disable_cache_save_keys` config. If a key matches any pattern, it will not be saved to cache (but will still compute and return the value).
 
@@ -125,7 +125,7 @@ CAPELL_DISABLE_CACHE_SAVE_KEYS=page-*,/user-.*$/,my-key
 
 ---
 
-## 6. Example: Using and Bypassing HasCache
+## Example: Using and Bypassing HasCache
 
 ```php
 use Capell\Core\Concerns\HasCache;
@@ -148,7 +148,7 @@ If `disable_cache_save_keys` includes `/^user-\d+$/`, then `user-123` will never
 
 ---
 
-## 7. Example Pest Test: Verifying Bypass
+## Example Pest Test: Verifying Bypass
 
 ```php
 test('HasCache respects disable_cache_save_keys', function () {
@@ -177,7 +177,7 @@ test('HasCache respects disable_cache_save_keys', function () {
 
 ---
 
-## 8. Further Reading
+## Related guides
 
 - [Frontend guide](../../../docs/frontend/guide.md)
 - [Frontend server config](../../frontend/docs/server-config.md)

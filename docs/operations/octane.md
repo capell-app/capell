@@ -116,7 +116,7 @@ request-varying input in the memo key or use a resettable service.
   the problem disappears and then returns after some requests, it is state bleed, and
   the two rules above are where to look.
 
-## Further reading
+## Related guides
 
 - [Web server configuration](web-server.md)
 - [Artisan commands reference](../development/artisan-commands.md)

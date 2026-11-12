@@ -29,7 +29,7 @@ Set `CAPELL_BLAZE_ENABLED=false` (or the fallback `BLAZE_ENABLED=false`) to comp
 Set `BLAZE_DEBUG=true` to use Blaze's debug overlay and profiler.
 Set `CAPELL_BLAZE_THROW=true` in local development when auditing fold candidates.
 
-## Next
+## Related guides
 
 - [Frontend](index.md)
 - [Frontend guide](guide.md)
