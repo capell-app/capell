@@ -33,6 +33,8 @@ final class ResolvePublicPageRequestAction
     use AsFake;
     use AsObject;
 
+    private const int TRANSLATED_REDIRECT_MAX_AGE = 3600;
+
     public function __construct(private readonly FrontendLogger $logger) {}
 
     public function handle(PublicPageResolutionInputData $input): PageResolutionData
@@ -137,7 +139,14 @@ final class ResolvePublicPageRequestAction
 
         $query = (string) $input->request?->getQueryString();
 
-        return new RedirectResponse($query === '' ? $target : $target . '?' . $query, Response::HTTP_MOVED_PERMANENTLY);
+        $response = new RedirectResponse($query === '' ? $target : $target . '?' . $query, Response::HTTP_MOVED_PERMANENTLY);
+
+        // Derived from translation state an editor can reverse (removing or disabling the
+        // translation), unlike a stored redirect row an editor chose. A bounded lifetime
+        // keeps browsers and caches from holding a stale move after that.
+        $response->headers->set('Cache-Control', 'public, max-age=' . self::TRANSLATED_REDIRECT_MAX_AGE);
+
+        return $response;
     }
 
     private function resolvePage(PublicPageResolutionInputData $input, ?PageUrl $pageUrl): PublicPageResolutionData

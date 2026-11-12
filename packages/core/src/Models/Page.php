@@ -321,10 +321,22 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         // A home page the language can serve through its fallback chain still answers.
         ConstrainToServedTranslationAction::run($query, $language);
 
+        // With several home pages, the one translated into the language itself wins over one
+        // that is only served through the fallback chain; then tree order, then id.
+        $model = new self;
+        $ownTranslations = Translation::query()
+            ->selectRaw('count(*)')
+            ->whereColumn('translatable_id', $model->qualifyColumn('id'))
+            ->where('translatable_type', $model->getMorphClass())
+            ->where('language_id', $language->id);
+
         $home = $query
             ->where('site_id', $site->id)
             ->publishedDate()
             ->homePage()
+            ->orderByDesc($ownTranslations)
+            ->orderBy($model->qualifyColumn('_lft'))
+            ->orderBy($model->qualifyColumn('id'))
             ->first();
 
         if (! $home instanceof self) {

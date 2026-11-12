@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Frontend\Actions\ResolvePublicPageRequestAction;
+use Capell\Frontend\Data\PublicPageResolutionInputData;
 use Illuminate\Testing\TestResponse;
 
 beforeEach(function (): void {
@@ -141,6 +144,51 @@ it("moves the fallback language's slug permanently to the translated URL once th
     $this->get($frenchDomain->full_url . '/a-propos')
         ->assertOk()
         ->assertSeeText('Marqueur français body');
+});
+
+it('does not move a fallback slug when the requested language has no domain to move to', function (): void {
+    [$site, $english, $french] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'a-propos', 'Marqueur français'],
+    ]);
+    $freshSite = Site::query()->whereKey($site->getKey())->firstOrFail();
+    SiteDomain::query()->where('site_id', $site->getKey())->where('language_id', $french->getKey())->delete();
+
+    $resolution = ResolvePublicPageByUrlAction::run($freshSite, $french, '/about');
+
+    expect($resolution->found())->toBeFalse()
+        ->and($resolution->translatedUrl)->toBeNull();
+});
+
+it('gives the translated-slug redirect a bounded lifetime', function (): void {
+    [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'a-propos', 'Marqueur français'],
+    ]);
+
+    $response = $this->get($frenchDomain->full_url . '/about')->assertStatus(301);
+
+    expect($response->headers->get('Cache-Control'))->toContain('max-age=3600')
+        ->and($response->headers->get('Cache-Control'))->not->toContain('immutable');
+});
+
+it('never redirects a revision preview of a fallback slug', function (): void {
+    [$site, $english, $french] = translationFallbackSite(frenchFallsBackToEnglish: true);
+    $page = translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'a-propos', 'Marqueur français'],
+    ]);
+
+    $resolution = ResolvePublicPageRequestAction::run(new PublicPageResolutionInputData(
+        site: Site::query()->findOrFail($site->getKey()),
+        language: $french,
+        url: '/about',
+        revisionPageId: $page->getKey(),
+    ));
+
+    expect($resolution->redirect)->toBeNull();
 });
 
 it('still answers 404 for a slug that no page uses in the fallback language either', function (): void {

@@ -7,6 +7,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
@@ -114,32 +115,41 @@ it('sorts an alphabetical listing by the served title, fallback or own', functio
     expect(listingFallbackTitles($listed))->toBe(['Alpha FR', 'Bravo EN', 'Zulu EN']);
 });
 
-it('adds no queries per listed page when pages are served from the fallback', function (): void {
-    [$site, , $french, $type] = listingFallbackSite();
-    $english = Language::query()->where('code', 'en')->firstOrFail();
+it('serves a fallback listing with exactly the queries an own-language listing costs', function (): void {
+    [$site, $english, $french, $type] = listingFallbackSite();
 
     foreach (range(1, 6) as $order) {
         listingFallbackPage($site, $type, [[$english, 'page-' . $order, 'Page ' . $order . ' EN']], order: $order);
     }
 
-    $count = static function () use ($french, $site): int {
+    $count = static function (Language $language) use ($site): int {
         DB::enableQueryLog();
         DB::flushQueryLog();
-        PageLoader::list(PageListingRequestData::fromLegacy(language: $french, site: $site, ordering: PageOrderEnum::Default, useCache: false));
+        PageLoader::list(PageListingRequestData::fromLegacy(language: $language, site: $site, ordering: PageOrderEnum::Default, useCache: false));
         $queries = count(DB::getQueryLog());
         DB::disableQueryLog();
 
         return $queries;
     };
 
-    $six = $count();
+    // The same six pages, listed in their own language and through the fallback: serving
+    // from the fallback must not add a query anywhere in the listing.
+    expect($count($french))->toBe($count($english));
+});
 
-    foreach (range(7, 12) as $order) {
-        listingFallbackPage($site, $type, [[$english, 'page-' . $order, 'Page ' . $order . ' EN']], order: $order);
-    }
+it('sorts by the first language of the chain that has a title', function (): void {
+    [$site, $english, $french, $type] = listingFallbackSite();
+    $german = Language::factory()->german()->createOne(['fallback_language_id' => $english->getKey()]);
+    $french->update(['fallback_language_id' => $german->getKey()]);
+    SiteDomain::factory()->site($site)->language($german)->createOne(['path' => '/de']);
+    // The English title sorts first, the German one last: the chain french -> german -> english
+    // must sort this page by its German title.
+    listingFallbackPage($site, $type, [[$english, 'aaa', 'Aaa EN'], [$german, 'zzz', 'Zzz DE']], order: 1);
+    listingFallbackPage($site, $type, [[$english, 'mmm', 'Mmm EN']], order: 2);
 
-    // Per page the hydrator costs a constant; doubling the pages must not multiply it.
-    expect($count())->toBeLessThanOrEqual($six * 2);
+    $listed = PageLoader::list(PageListingRequestData::fromLegacy(language: $french, site: $site, ordering: PageOrderEnum::Alphabetical));
+
+    expect(listingFallbackTitles($listed))->toBe(['Mmm EN', 'Zzz DE']);
 });
 
 it('keeps fallback-served ancestors in the breadcrumb trail', function (): void {
@@ -176,3 +186,22 @@ it('keeps the site home page available in a language that serves it from the fal
     expect($served?->getKey())->toBe($home->getKey())
         ->and($served?->translation?->language_id)->toBe($english->getKey());
 });
+
+it('prefers the home page translated into the language over one served by fallback', function (bool $ownCreatedFirst): void {
+    [$site, $english, $french] = listingFallbackSite();
+    $makeFallbackOnly = fn (): Page => Page::factory()->site($site)->home()->published()->withTranslations([$english], [], slug: '/home-en')->createOne();
+    $makeOwn = fn (): Page => Page::factory()->site($site)->home()->published()->withTranslations([$french], [], slug: '/accueil')->createOne();
+
+    if ($ownCreatedFirst) {
+        $own = $makeOwn();
+        $makeFallbackOnly();
+    } else {
+        $makeFallbackOnly();
+        $own = $makeOwn();
+    }
+
+    expect(PageLoader::getSiteHomePage($site, $french)?->getKey())->toBe($own->getKey());
+})->with([
+    'own home created first' => [true],
+    'own home created last' => [false],
+]);

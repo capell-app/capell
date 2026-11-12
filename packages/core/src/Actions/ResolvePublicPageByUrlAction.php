@@ -193,7 +193,14 @@ class ResolvePublicPageByUrlAction
         }
 
         $site->loadMissing('siteDomains');
-        $ownUrl->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $language->getKey()));
+        $siteDomain = $site->siteDomains->firstWhere('language_id', $language->getKey());
+
+        // Without a domain for the language the URL has no address to move to: answer not found.
+        if ($siteDomain === null) {
+            return null;
+        }
+
+        $ownUrl->setRelation('siteDomain', $siteDomain);
 
         return $ownUrl;
     }
