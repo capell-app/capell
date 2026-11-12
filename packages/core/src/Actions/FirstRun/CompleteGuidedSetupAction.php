@@ -9,8 +9,11 @@ use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
+use Capell\Core\Support\FirstRun\InstallerPages;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -43,6 +46,12 @@ final class CompleteGuidedSetupAction
 
             throw_if($refusal === ResolveGuidedSetupStateAction::REASON_SET_UP, GuidedSetupRefusedException::alreadySetUp((int) $locked->getKey()));
             throw_if($refusal === ResolveGuidedSetupStateAction::REASON_EXISTING_WORK, GuidedSetupRefusedException::hasExistingWork((int) $locked->getKey()));
+
+            // The installer publishes its placeholder home page. Setup writes the person's home page over it, so it
+            // becomes a private draft with the pages setup adds and goes live only when the person publishes them.
+            Page::query()->where('site_id', $locked->getKey())->homePage()->get()
+                ->filter(fn (Page $home): bool => InstallerPages::isRecorded($locked, $home) && ! PublishSentinel::isDraftValue($home->visible_from))
+                ->each(fn (Page $home): bool => $home->update(['visible_from' => PublishSentinel::draftValue()]));
 
             $plan = ApplySiteSpecToSiteAction::run($spec, $locked);
 

@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\CreateDefaultPagesAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\FirstRun\BuildGuidedSetupSpecAction;
 use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
 use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
+use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
@@ -14,12 +16,15 @@ use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Creator\PageCreator;
+use Capell\Core\Support\FirstRun\InstallerPages;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
@@ -27,6 +32,8 @@ use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -46,22 +53,26 @@ function guidedSetupAdmin(): User
     return test()->createUserWithRole('super_admin');
 }
 
-/** A freshly installed site: one theme, a draft home page, nothing set up yet. */
+/** A freshly installed site, given its default pages by the installer's own action: nothing set up yet. */
 function installedSite(): Site
 {
     $english = Language::query()->where('code', 'en')->firstOrFail();
     $theme = Theme::factory()->createOne(['key' => 'default', 'default' => true]);
     $site = Site::factory()->language($english)->withTranslations($english)->createOne(['theme_id' => $theme->getKey(), 'name' => 'My Laravel App']);
-    $home = Page::factory()->home()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
-    // The installer stores its home page under the slug "/".
-    Translation::factory()->createOne([
-        'translatable_type' => $home->getMorphClass(),
-        'translatable_id' => $home->getKey(),
-        'language_id' => $site->language_id,
-        'meta' => ['slug' => '/'],
-    ]);
+    CreateDefaultPagesAction::run($site->refresh(), $site->languages);
 
     return $site->refresh();
+}
+
+/** The installer's pages beside the home page: not found, maintenance and welcome. */
+const INSTALLER_EXTRA_PAGES = 3;
+
+/** @return array<int, Page> the site's pages that guided setup wrote: its home page and the pages it added */
+function guidedSetupPages(Site $site): array
+{
+    return Page::query()->where('site_id', $site->getKey())->with('translations')->get()
+        ->reject(fn (Page $page): bool => in_array($page->translations->first()?->meta['slug'] ?? null, ['not-found', 'maintenance', 'welcome'], true))
+        ->values()->all();
 }
 
 function guidedInput(string ...$pageSlugs): GuidedSetupInputData
@@ -137,8 +148,8 @@ it('creates the chosen pages as private drafts on the existing site and records 
         ->filter()->sort()->values()->all();
 
     expect($site->name)->toBe('Hartley Dental')
-        ->and($slugs)->toBe(['/', 'about', 'contact'])
-        ->and($site->pages()->get()->every(fn (Page $page): bool => $page->publishVisibilityState() !== PublishVisibilityStateEnum::published))->toBeTrue()
+        ->and($slugs)->toBe(['/', 'about', 'contact', 'maintenance', 'not-found', 'welcome'])
+        ->and(collect(guidedSetupPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() !== PublishVisibilityStateEnum::published))->toBeTrue()
         ->and(data_get($site->meta, 'guided_setup.preset_key'))->toBe('service-business')
         ->and(data_get($site->meta, 'guided_setup.completed_at'))->not->toBeNull()
         ->and(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse();
@@ -180,14 +191,27 @@ it('stops asking once setup is skipped', function (): void {
     SkipGuidedSetupAction::run($site);
 
     expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse()
-        ->and($site->pages()->count())->toBe(1);
+        ->and($site->pages()->count())->toBe(1 + INSTALLER_EXTRA_PAGES);
 });
 
-it('never asks about a site whose home page is already public', function (): void {
+it('still asks while the only public home page is the one the installer published', function (): void {
     $site = installedSite();
-    $site->pages()->get()->each(fn (Page $page) => $page->update(['visible_from' => now()->subDay()]));
+    $home = $site->pages()->homePage()->firstOrFail();
 
-    expect(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+    expect($home->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published)
+        ->and(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeTrue();
+});
+
+it('never asks about a site whose home page went public outside the installer', function (): void {
+    $site = installedSite();
+    // An install from before the installer recorded its pages: its public home page may be a launched site.
+    $site->forceFill(['meta' => Arr::except($site->meta ?? [], InstallerPages::META_KEY)])->save();
+
+    expect(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::refusalFor($site->refresh()))->toBe(ResolveGuidedSetupStateAction::REASON_SET_UP);
+
+    expect(fn (): mixed => CompleteGuidedSetupAction::run(guidedSetupInput(), $site))->toThrow(GuidedSetupRefusedException::class)
+        ->and(data_get($site->refresh()->meta, 'guided_setup.completed_at'))->toBeNull();
 });
 
 it('never asks about a site that was built from an imported site spec', function (): void {
@@ -227,7 +251,7 @@ it('reuses the installer home page instead of creating a second one', function (
     CompleteGuidedSetupAction::run(guidedInput('about'), $site);
 
     expect($site->pages()->homePage()->count())->toBe(1)
-        ->and($site->pages()->count())->toBe(2)
+        ->and($site->pages()->count())->toBe(2 + INSTALLER_EXTRA_PAGES)
         ->and($site->pages()->homePage()->firstOrFail()->is($home))->toBeTrue();
 });
 
@@ -238,10 +262,10 @@ it('applies every shipped preset to a freshly installed site', function (string 
 
     CompleteGuidedSetupAction::run(new GuidedSetupInputData(presetKey: $presetKey, siteName: 'Hartley Dental', pageSlugs: $slugs), $site);
 
-    expect($site->refresh()->pages()->count())->toBe(count($slugs));
+    expect($site->refresh()->pages()->count())->toBe(count($slugs) + INSTALLER_EXTRA_PAGES);
 })->with(['service-business', 'shop-front', 'studio']);
 
-it('keeps a site awaiting publication from the moment its pages are created until its home page is public', function (): void {
+it('keeps a site awaiting publication from the moment its pages are created until it is published', function (): void {
     $site = installedSite();
     $actor = guidedSetupAdmin();
     $state = resolve(ResolveGuidedSetupStateAction::class);
@@ -252,7 +276,8 @@ it('keeps a site awaiting publication from the moment its pages are created unti
 
     expect($state->awaitingPublication($actor)?->is($site))->toBeTrue();
 
-    $site->pages()->get()->each(fn (Page $page) => $page->update(['visible_from' => now()->subDay()]));
+    // Publishing the home page records the go-live, as the publication listener does.
+    RecordSitePublishedAction::run((int) $site->getKey());
 
     expect($state->awaitingPublication($actor))->toBeNull();
 });
@@ -314,7 +339,7 @@ it('refuses to run twice, so a repeated submit cannot overwrite edits made in be
 
     CompleteGuidedSetupAction::run(guidedSetupInput(), $site);
 
-    $about = Page::query()->where('site_id', $site->getKey())->notHomePage()->get()
+    $about = Page::query()->where('site_id', $site->getKey())->notHomePage()->with('translations')->get()
         ->first(fn (Page $page): bool => $page->translations->contains(fn (Translation $translation): bool => ($translation->meta['slug'] ?? null) === 'about'));
     throw_unless($about instanceof Page, LogicException::class, 'Setup should have created the About page.');
     $translation = $about->translations->first();
@@ -334,7 +359,7 @@ it('refuses a live site, whatever the request says', function (): void {
     expect(fn (): mixed => CompleteGuidedSetupAction::run(guidedSetupInput(), $site))
         ->toThrow(GuidedSetupRefusedException::class)
         ->and(data_get($site->refresh()->meta, 'guided_setup.completed_at'))->toBeNull()
-        ->and($site->pages()->count())->toBe(1);
+        ->and($site->pages()->count())->toBe(1 + INSTALLER_EXTRA_PAGES);
 });
 
 it('does not owe setup to an unlaunched site that already holds another page, and refuses it if forced', function (): void {
@@ -347,8 +372,64 @@ it('does not owe setup to an unlaunched site that already holds another page, an
 
     expect(fn (): mixed => CompleteGuidedSetupAction::run(guidedSetupInput(), $site))
         ->toThrow(GuidedSetupRefusedException::class, 'already has pages or edits')
-        ->and($site->pages()->count())->toBe(2)
+        ->and($site->pages()->count())->toBe(2 + INSTALLER_EXTRA_PAGES)
         ->and($about->refresh()->exists)->toBeTrue();
+});
+
+it("owes setup to a fresh install whose only pages are the installer's own, and records them", function (): void {
+    $site = installedSite();
+
+    expect($site->pages()->count())->toBe(1 + INSTALLER_EXTRA_PAGES)
+        ->and(data_get($site->meta, InstallerPages::META_KEY))->toHaveCount(1 + INSTALLER_EXTRA_PAGES)
+        ->and(ResolveGuidedSetupStateAction::hasExistingWork($site))->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeTrue();
+});
+
+it("counts a page added by an extension's default page as the installer's own", function (): void {
+    CapellCore::addDefaultPage('team', 'Team', function (Site $site, Collection $languages): void {
+        resolve(PageCreator::class)->createPage(['name' => 'Team', 'translation' => ['slug' => 'team'], 'visible_from' => PublishSentinel::draftValue()], $site, $languages);
+    });
+    config()->set('capell.default_pages', ['home', 'error_404', 'maintenance', 'welcome', 'team']);
+
+    $site = installedSite();
+
+    expect($site->pages()->count())->toBe(2 + INSTALLER_EXTRA_PAGES)
+        ->and(ResolveGuidedSetupStateAction::hasExistingWork($site))->toBeFalse();
+});
+
+it('owes setup to an install from before the installer recorded its pages while they are untouched and private', function (): void {
+    $site = installedSite();
+    $site->forceFill(['meta' => Arr::except($site->meta ?? [], InstallerPages::META_KEY)])->save();
+    $site->pages()->homePage()->firstOrFail()->update(['visible_from' => PublishSentinel::draftValue()]);
+
+    expect(ResolveGuidedSetupStateAction::hasExistingWork($site->refresh()))->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeTrue();
+});
+
+it("does not owe setup once a person has edited one of the installer's other pages", function (): void {
+    $site = installedSite();
+    $notFound = $site->pages()->notHomePage()->firstOrFail();
+    PageRevision::query()->create([
+        'page_uuid' => $notFound->uuid,
+        'version' => 1,
+        'actor_id' => guidedSetupAdmin()->getKey(),
+        'summary' => 'Edited',
+        'is_rollback' => false,
+        'source' => 'edit',
+        'occurred_at' => now(),
+    ]);
+
+    expect(ResolveGuidedSetupStateAction::hasExistingWork($site))->toBeTrue()
+        ->and(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+});
+
+it("drafts the installer's public home page before writing over it, so nothing goes live until the person publishes", function (): void {
+    $site = installedSite();
+
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site);
+
+    expect($site->pages()->homePage()->firstOrFail()->publishVisibilityState())->not->toBe(PublishVisibilityStateEnum::published)
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeFalse();
 });
 
 it('does not owe setup to a site whose home page a person has edited', function (): void {

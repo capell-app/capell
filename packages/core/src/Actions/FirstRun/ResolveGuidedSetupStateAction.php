@@ -10,6 +10,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
+use Capell\Core\Support\FirstRun\InstallerPages;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -19,10 +20,10 @@ use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * Guided setup is owed to a site the actor can reach that is still exactly as the installer
- * left it: nobody has set it up, skipped it, imported a site spec into it or put it live, and
- * it holds nothing beyond the installer's home page. Anything else is a site someone is
- * already building or running, so an upgraded or half-built install is never sent to a setup
- * screen that would write over its pages.
+ * left it: nobody has set it up, skipped it, imported a site spec into it or put it live, it
+ * holds no page beyond the installer's own, and no person has edited any of its pages.
+ * Anything else is a site someone is already building or running, so an upgraded or
+ * half-built install is never sent to a setup screen that would write over its pages.
  */
 final class ResolveGuidedSetupStateAction
 {
@@ -58,7 +59,7 @@ final class ResolveGuidedSetupStateAction
     {
         if (self::isSetUp($site)
             || filled(data_get($site->meta, 'guided_setup.skipped_at'))
-            || resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey())) {
+            || self::isLive($site)) {
             return self::REASON_SET_UP;
         }
 
@@ -66,17 +67,17 @@ final class ResolveGuidedSetupStateAction
     }
 
     /**
-     * The site holds something beyond the installer's home page: another page, or a home page
-     * a person has edited. Creating the preset's pages would write over it.
+     * The site holds something beyond the installer's pages: a page the installer did not make,
+     * or any page a person has edited. Creating the preset's pages would write over it.
      */
     public static function hasExistingWork(Site $site): bool
     {
-        if (Page::query()->where('site_id', $site->getKey())->notHomePage()->exists()) {
+        if (InstallerPages::siteHasOtherPages($site)) {
             return true;
         }
 
         return PageRevision::query()
-            ->whereIn('page_uuid', Page::query()->where('site_id', $site->getKey())->homePage()->select('uuid'))
+            ->whereIn('page_uuid', Page::query()->where('site_id', $site->getKey())->select('uuid'))
             ->whereNotNull('actor_id')
             ->where('is_rollback', false)
             ->where(fn (Builder $query): Builder => $query->whereNull('source')->orWhere('source', PageVersionSource::Edit->value))
@@ -100,27 +101,29 @@ final class ResolveGuidedSetupStateAction
             return null;
         }
 
-        return $this->isLive($site) ? null : $site;
+        return self::isLive($site) ? null : $site;
+    }
+
+    /**
+     * A site is live once its go-live is recorded or one of its home pages is public now. The
+     * installer publishes the home page it makes, so that page being public does not count until
+     * a person publishes the site; any other public home page does, including one on a site
+     * installed before the installer recorded its pages.
+     */
+    private static function isLive(Site $site): bool
+    {
+        if (resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey())) {
+            return true;
+        }
+
+        return Page::query()->where('site_id', $site->getKey())->homePage()->published()->get()
+            ->contains(fn (Page $home): bool => ! InstallerPages::isRecorded($site, $home));
     }
 
     private function build(Authenticatable $actor): GuidedSetupStateData
     {
         $site = SiteAccess::forActor($actor)->query(Site::class)->excludingPreview()->orderBy('id')->first();
 
-        if (! $site instanceof Site || filled(data_get($site->meta, 'guided_setup.skipped_at')) || ! self::isOwedTo($site)) {
-            return GuidedSetupStateData::notNeeded();
-        }
-
-        return $this->isLive($site) ? GuidedSetupStateData::notNeeded() : GuidedSetupStateData::forSite($site);
-    }
-
-    /** A site is live once its go-live is recorded or one of its home pages is public now. */
-    private function isLive(Site $site): bool
-    {
-        if (resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey())) {
-            return true;
-        }
-
-        return Page::query()->where('site_id', $site->getKey())->homePage()->published()->exists();
+        return $site instanceof Site && self::isOwedTo($site) ? GuidedSetupStateData::forSite($site) : GuidedSetupStateData::notNeeded();
     }
 }

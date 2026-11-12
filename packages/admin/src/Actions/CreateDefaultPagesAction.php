@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Creator\PageCreator;
+use Capell\Core\Support\FirstRun\InstallerPages;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -38,6 +39,18 @@ class CreateDefaultPagesAction
             $pages = CapellCore::getDefaultPages()->keys();
         }
 
+        // Recorded so guided setup can tell these pages from ones a person adds later.
+        InstallerPages::recordCreatedDuring($site, fn () => $this->createPages($site, $languages, $pages));
+    }
+
+    /**
+     * @param  Collection<int, Language>  $languages
+     * @param  iterable<int, string>  $pages
+     *
+     * @throws Exception
+     */
+    private function createPages(Site $site, Collection $languages, iterable $pages): void
+    {
         $pageCreator = resolve(PageCreator::class);
 
         foreach ($pages as $type) {

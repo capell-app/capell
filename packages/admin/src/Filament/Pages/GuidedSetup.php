@@ -37,6 +37,7 @@ use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -303,9 +304,10 @@ class GuidedSetup extends FilamentPage
         $actor = auth()->user();
         throw_if($actor === null, RuntimeException::class, 'A signed-in person is required to publish.');
 
-        // Only for pages this page created, or for the site whose created pages are still waiting to be published.
+        // Only while this site's created pages are still waiting to be published, read from the database rather
+        // than the component state, so a replayed snapshot cannot republish pages after the site has gone live.
         $awaiting = ResolveGuidedSetupStateAction::make()->awaitingPublication($actor);
-        abort_unless($this->created || ($awaiting instanceof Site && (int) $awaiting->getKey() === $this->siteId), 403);
+        abort_unless($awaiting instanceof Site && (int) $awaiting->getKey() === $this->siteId, 403);
 
         $site = $this->site();
 
@@ -474,7 +476,7 @@ class GuidedSetup extends FilamentPage
             return $logo->getRealPath() ?: null;
         }
 
-        return is_string($logo) && $logo !== '' ? storage_path('app/private/' . ltrim($logo, '/')) : null;
+        return is_string($logo) && $logo !== '' ? Storage::disk('local')->path(ltrim($logo, '/')) : null;
     }
 
     private function formSchema(): Schema

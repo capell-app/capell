@@ -20,6 +20,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\FirstRun\InstallerPages;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
@@ -115,15 +116,18 @@ final class ResolveFirstRunStateAction
         $homes = SiteAccess::forActor($actor)->query(Page::class)->homePage()
             ->when($scopedSiteId !== null, fn (Builder $query): Builder => $query->where('site_id', $scopedSiteId))
             ->when($published !== [], fn (Builder $query): Builder => $query->whereNotIn('site_id', $published))
+            ->with('site')
             ->orderBy('id')
             ->get();
 
         // A home page can go public without a publication transition (a scheduled
         // time passing, a form save, an import); record those sites as they are seen.
+        // The installer's own home page is public from the start, so it is not a sign
+        // that anyone has published the site.
         $now = CarbonImmutable::now();
         $live = [];
         foreach ($homes as $home) {
-            if (SitePublicationMilestones::isPublicHome($home, $now)) {
+            if (SitePublicationMilestones::isPublicHome($home, $now) && (! $home->site instanceof Site || ! InstallerPages::isRecorded($home->site, $home))) {
                 $milestones->record((int) $home->site_id, $now);
                 $live[(int) $home->site_id] = true;
             }

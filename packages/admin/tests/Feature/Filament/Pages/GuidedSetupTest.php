@@ -2,24 +2,29 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\CreateDefaultPagesAction;
+use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\GuidedSetup;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
+use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\Models\Translation;
+use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(CreatesAdminUser::class);
 
@@ -31,21 +36,26 @@ beforeEach(function (): void {
     config()->set('capell-admin.dashboard.guided_setup.redirect', true);
 });
 
-/** A freshly installed site: the installer's draft home page under the slug "/", nothing set up yet. */
+/** A freshly installed site, given its default pages by the installer's own action: nothing set up yet. */
 function guidedSetupSite(): Site
 {
     $english = Language::query()->where('code', 'en')->firstOrFail();
     $theme = Theme::factory()->createOne(['key' => 'default', 'default' => true]);
     $site = Site::factory()->language($english)->withTranslations($english)->createOne(['theme_id' => $theme->getKey(), 'name' => 'My Laravel App']);
-    $home = Page::factory()->home()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
-    Translation::factory()->createOne([
-        'translatable_type' => $home->getMorphClass(),
-        'translatable_id' => $home->getKey(),
-        'language_id' => $site->language_id,
-        'meta' => ['slug' => '/'],
-    ]);
+    CreateDefaultPagesAction::run($site->refresh(), $site->languages);
 
     return $site->refresh();
+}
+
+/** The installer's pages beside the home page: not found, maintenance and welcome. */
+const GUIDED_SETUP_INSTALLER_EXTRA_PAGES = 3;
+
+/** @return array<int, Page> the site's pages that guided setup wrote: its home page and the pages it added */
+function guidedSetupWrittenPages(Site $site): array
+{
+    return Page::query()->where('site_id', $site->getKey())->with('translations')->get()
+        ->reject(fn (Page $page): bool => in_array($page->translations->first()?->meta['slug'] ?? null, ['not-found', 'maintenance', 'welcome'], true))
+        ->values()->all();
 }
 
 it('sends an administrator of a new site from the dashboard to guided setup', function (): void {
@@ -98,7 +108,7 @@ it('keeps the dashboard once the site has been set up or skipped', function (): 
 it('offers every installed page set and starts from the one matching the install suite', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
-    $site->forceFill(['meta' => ['install_suite' => 'marketing']])->save();
+    $site->forceFill(['meta' => [...($site->meta ?? []), 'install_suite' => 'marketing']])->save();
 
     $page = Livewire::test(GuidedSetup::class);
 
@@ -155,7 +165,7 @@ it('creates the chosen pages as private drafts and offers to open the homepage o
     $site->refresh();
 
     expect($site->name)->toBe('Hartley Dental')
-        ->and($site->pages()->count())->toBe(3)
+        ->and($site->pages()->count())->toBe(3 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES)
         ->and($site->pages()->homePage()->count())->toBe(1)
         ->and(data_get($site->meta, 'guided_setup.completed_at'))->not->toBeNull();
 });
@@ -169,7 +179,7 @@ it('requires a site name before anything is created', function (): void {
         ->call('createPages')
         ->assertHasFormErrors(['siteName' => 'required']);
 
-    expect($site->refresh()->pages()->count())->toBe(1);
+    expect($site->refresh()->pages()->count())->toBe(1 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES);
 });
 
 it('reports a failed creation and changes nothing', function (): void {
@@ -183,7 +193,7 @@ it('reports a failed creation and changes nothing', function (): void {
         ->assertSet('created', false);
 
     expect($site->refresh()->name)->toBe('My Laravel App')
-        ->and($site->pages()->count())->toBe(1);
+        ->and($site->pages()->count())->toBe(1 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES);
 });
 
 it('says on the review step how many pages will be created and that they stay private', function (): void {
@@ -226,7 +236,7 @@ it('names the problem and leaves the pages private when publishing is refused', 
 
     $page->call('publishSite')->assertSet('sitePublished', false);
 
-    expect($site->refresh()->pages()->get()->contains(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeFalse();
+    expect(collect(guidedSetupWrittenPages($site))->contains(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeFalse();
 });
 
 function liveClientSite(): Site
@@ -271,10 +281,58 @@ it('does nothing the second time Create pages is sent, so edits made in between 
 it('refuses to publish before the pages have been created', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
+    // What setup stores is present, so only the check that the pages are waiting to be published can refuse.
+    $site->forceFill(['meta' => [...($site->meta ?? []), 'guided_setup' => ['preset_key' => 'service-business', 'page_slugs' => ['about']]]])->save();
 
     Livewire::test(GuidedSetup::class)->call('publishSite')->assertForbidden();
 
-    expect($site->refresh()->pages()->get()->every(fn (Page $page): bool => $page->publishVisibilityState() !== PublishVisibilityStateEnum::published))->toBeTrue();
+    expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeFalse();
+});
+
+it('refuses a replayed publish once the site is live, so pages taken down since stay private', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $page = Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
+        ->call('createPages')
+        ->assertSet('created', true)
+        ->call('publishSite')
+        ->assertSet('sitePublished', true);
+    $published = $page->instance();
+
+    $about = Page::query()->where('site_id', $site->getKey())->notHomePage()->with('translations')->get()
+        ->first(fn (Page $created): bool => ($created->translations->first()?->meta['slug'] ?? null) === 'about');
+    throw_unless($about instanceof Page, LogicException::class, 'Setup should have created the About page.');
+    $about->update(['visible_from' => PublishSentinel::draftValue()]);
+
+    // The same component state sent again, as a saved snapshot would be.
+    // The page itself is closed once the site is live; the publish step must refuse on its own as well,
+    // so the same component state sent again, as a saved snapshot would be, cannot republish anything.
+    $page->call('publishSite')->assertForbidden();
+    expect(fn () => $published->publishSite())->toThrow(HttpException::class);
+
+    expect($about->refresh()->publishVisibilityState())->not->toBe(PublishVisibilityStateEnum::published);
+});
+
+it('reads an uploaded logo from the local disk wherever that disk is rooted', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    // Laravel's default local disk before private files moved under storage/app/private.
+    config()->set('filesystems.disks.local.root', storage_path('app'));
+    Storage::forgetDisk('local');
+    $before = Storage::disk('local')->files('guided-setup');
+
+    try {
+        Livewire::test(GuidedSetup::class)
+            ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about'], 'logo' => UploadedFile::fake()->image('logo.png')])
+            ->call('createPages')
+            ->assertHasNoFormErrors()
+            ->assertSet('created', true);
+    } finally {
+        Storage::disk('local')->delete(array_diff(Storage::disk('local')->files('guided-setup'), $before));
+    }
+
+    expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(1);
 });
 
 it('tells the person what to do next without showing internal error text when creation breaks', function (): void {
@@ -311,4 +369,14 @@ it('opens again for a site whose pages are waiting to be published, and publishe
         ->assertSet('sitePublished', true);
 
     expect($site->refresh()->pages()->get()->every(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue();
+});
+
+it("does not take the installer's public home page as a sign the site has gone live", function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+
+    ResolveFirstRunStateAction::run($this->authenticatedUser());
+
+    expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeFalse()
+        ->and(GuidedSetup::isOwed())->toBeTrue();
 });
