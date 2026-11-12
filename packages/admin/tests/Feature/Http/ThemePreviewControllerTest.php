@@ -153,6 +153,16 @@ function createThemePreviewPanelUser(bool $canAccessPanel, SupportCollection $as
 }
 
 beforeEach(function (): void {
+    // The preview renders the full public page, which resolves the published frontend manifest. Provide it here
+    // rather than relying on another test in the same worker having left one in the shared public path.
+    $manifestPath = public_path('vendor/capell-frontend/manifest.json');
+
+    if (! File::exists($manifestPath)) {
+        File::ensureDirectoryExists(dirname($manifestPath));
+        File::copy(dirname(__DIR__, 4) . '/frontend/publishes/build/manifest.json', $manifestPath);
+        test()->beforeApplicationDestroyed(fn (): bool => File::delete($manifestPath));
+    }
+
     app()->register(FrontendServiceProvider::class);
 
     test()->registerAndMigrateSettings(
