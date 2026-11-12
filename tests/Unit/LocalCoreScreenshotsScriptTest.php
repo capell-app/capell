@@ -335,7 +335,7 @@ BASH);
 
 it('links the checkout frontend package into vendor for the workbench Vite config', function (string $existing, bool $expectLink): void {
     $fixture = new ScriptFixture;
-    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
+    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/testbench-skeleton.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
         $fixture->copy($path);
     }
 
