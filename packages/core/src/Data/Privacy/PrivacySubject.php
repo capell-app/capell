@@ -1,0 +1,110 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Core\Data\Privacy;
+
+use Capell\Core\Data\Database\SqlFragment;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use InvalidArgumentException;
+use LogicException;
+
+/**
+ * The person a privacy request is about: a stored record (a user, subscriber or
+ * customer), an email address, or both. Packages that key data by account use
+ * the model; packages that hold guest data (a comment or form entry) use the
+ * email address.
+ *
+ * Building a subject does not check that the email address belongs to the
+ * record, or that anyone may act on it: the caller verifies the person's
+ * identity and authorises the request first.
+ *
+ * A subject cannot be serialised, so it never lands in a queue payload or the
+ * failed-jobs table with the person's email address and record attributes. A
+ * queued job carries the privacy request id and builds the subject when it runs.
+ */
+final readonly class PrivacySubject
+{
+    public ?string $email;
+
+    private function __construct(public ?Model $model, ?string $email)
+    {
+        $email = $email === null ? null : mb_strtolower(trim($email));
+
+        throw_if(! $model instanceof Model && $email === null, InvalidArgumentException::class, 'A privacy subject needs a record or an email address.');
+        throw_if($model instanceof Model && ! $model->exists, InvalidArgumentException::class, 'A privacy subject record must be stored.');
+        throw_if($email !== null && filter_var($email, FILTER_VALIDATE_EMAIL) === false, InvalidArgumentException::class, 'A privacy subject email address must be valid.');
+
+        $this->email = $email;
+    }
+
+    /**
+     * @return never
+     */
+    public function __serialize(): array
+    {
+        throw new LogicException('A privacy subject is not serialised: queue the privacy request id and build the subject when the job runs.');
+    }
+
+    /**
+     * @param  string|null  $email  an address the caller has verified as the person's; not checked against the record
+     */
+    public static function forModel(Model $model, ?string $email = null): self
+    {
+        return new self($model, $email);
+    }
+
+    public static function forEmail(string $email): self
+    {
+        return new self(null, $email);
+    }
+
+    /**
+     * Whether the subject is this kind of record, so an exporter can support
+     * only the models it stores data for.
+     *
+     * @param  class-string<Model>  $class
+     */
+    public function isA(string $class): bool
+    {
+        return $this->model instanceof $class;
+    }
+
+    /**
+     * The morph type and key of the subject record, or null for an email-only
+     * subject.
+     *
+     * @return array{type: string, id: string}|null
+     */
+    public function reference(): ?array
+    {
+        if (! $this->model instanceof Model) {
+            return null;
+        }
+
+        return ['type' => $this->model->getMorphClass(), 'id' => (string) $this->model->getKey()];
+    }
+
+    /**
+     * Narrows a query to rows whose email column matches the subject's address,
+     * ignoring case on every database (SQLite and PostgreSQL compare case
+     * sensitively by default). A subject without an email address matches
+     * nothing. The query is changed in place.
+     *
+     * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query
+     */
+    public function whereEmail(QueryBuilder|EloquentBuilder $query, string $column): void
+    {
+        if ($this->email === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $base = $query instanceof EloquentBuilder ? $query->getQuery() : $query;
+        // The grammar quotes the column name; the address is a binding.
+        new SqlFragment('LOWER(' . $base->getGrammar()->wrap($column) . ') = ?', [$this->email])->applyWhere($base);
+    }
+}
