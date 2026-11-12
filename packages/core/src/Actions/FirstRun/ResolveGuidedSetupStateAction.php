@@ -9,13 +9,16 @@ use Capell\Core\EventSourcing\Enums\PageVersionSource;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 /**
  * Guided setup is owed to a site a first install made (the installer marks it once the install
@@ -94,19 +97,46 @@ final class ResolveGuidedSetupStateAction
     {
         $mark = data_get($site->meta, self::FRESH_INSTALL_META_KEY);
 
-        return is_array($mark)
-            && hash_equals((string) ($mark['home_uuid'] ?? ''), (string) $home->uuid)
-            && hash_equals((string) ($mark['home_hash'] ?? ''), self::homeHash($home));
+        if (! is_array($mark) || ! is_string($mark['home_uuid'] ?? null) || ! is_string($mark['home_hash'] ?? null)) {
+            return false;
+        }
+
+        $hash = hash_equals($mark['home_uuid'], (string) $home->uuid) ? self::homeHash($home) : null;
+
+        return $hash !== null && hash_equals($mark['home_hash'], $hash);
     }
 
-    /** A hash of the home page's copy in every language, so a change by anyone, person or seeder, is seen. */
-    public static function homeHash(Page $home): string
+    /**
+     * A hash of the home page as stored: its name, blueprint and content structure, and the raw
+     * title, content and meta of every translation, deleted ones included. It reads the stored
+     * columns rather than cast values, so content of any shape (HTML or blocks) hashes the same
+     * way, and a change by anyone, person or seeder, is seen. Null when it cannot be worked out,
+     * which every caller takes as "not the placeholder", so a failure never offers setup.
+     */
+    public static function homeHash(Page $home): ?string
     {
-        $copy = $home->translations()->orderBy('language_id')->get()
-            ->map(fn ($translation): array => [$translation->language_id, $translation->title, (string) $translation->content, $translation->meta])
-            ->all();
+        try {
+            $copy = DB::table((new Translation)->getTable())
+                ->where('translatable_type', $home->getMorphClass())
+                ->where('translatable_id', $home->getKey())
+                ->orderBy('language_id')
+                ->orderBy('id')
+                ->get(['language_id', 'title', 'content', 'meta', 'deleted_at'])
+                ->map(fn (object $row): array => [$row->language_id, $row->title, $row->content, $row->meta, $row->deleted_at])
+                ->all();
 
-        return hash('sha256', (string) json_encode([$home->name, $copy]));
+            return hash('sha256', json_encode([
+                $home->getRawOriginal('name'),
+                $home->getRawOriginal('blueprint_id'),
+                $home->getRawOriginal('content_structure_override'),
+                $home->getRawOriginal('deleted_at'),
+                $copy,
+            ], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return null;
+        }
     }
 
     public function handle(Authenticatable $actor): GuidedSetupStateData
@@ -128,7 +158,8 @@ final class ResolveGuidedSetupStateAction
             return null;
         }
 
-        return $site;
+        // Taken public from the editor since: the wait ends here rather than offering to publish over it.
+        return SettleGuidedSetupPublicationAction::run($site) ? $site : null;
     }
 
     /**

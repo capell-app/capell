@@ -20,6 +20,8 @@
                 @unless ($sitePublished)
                     {{ $this->publishAction }}
                 @endunless
+
+                {{ $this->retryLogoAction }}
             </div>
             @if ($sitePublished)
                 <p role="status">{{ __('capell-admin::setup.published') }}</p>

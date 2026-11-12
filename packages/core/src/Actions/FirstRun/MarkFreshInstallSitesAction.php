@@ -37,8 +37,14 @@ final class MarkFreshInstallSitesAction
 
             $home = Page::query()->where('site_id', $site->getKey())->homePage()->orderBy('id')->first();
 
-            // A site without a home page has nothing setup can build on.
+            // A site without a home page, or one whose home page cannot be read, is never offered setup.
             if (! $home instanceof Page) {
+                continue;
+            }
+
+            $hash = ResolveGuidedSetupStateAction::homeHash($home);
+
+            if ($hash === null) {
                 continue;
             }
 
@@ -47,7 +53,7 @@ final class MarkFreshInstallSitesAction
             data_set($meta, ResolveGuidedSetupStateAction::FRESH_INSTALL_META_KEY, [
                 'at' => now()->toIso8601String(),
                 'home_uuid' => (string) $home->uuid,
-                'home_hash' => ResolveGuidedSetupStateAction::homeHash($home),
+                'home_hash' => $hash,
             ]);
             $site->forceFill(['meta' => $meta])->save();
         }

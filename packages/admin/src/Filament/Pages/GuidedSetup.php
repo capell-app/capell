@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
+use Capell\Core\Actions\FirstRun\AttachGuidedSetupLogoAction;
 use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
+use Capell\Core\Actions\FirstRun\SettleGuidedSetupPublicationAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -16,6 +18,7 @@ use Capell\Core\Data\FirstRun\GuidedSetupStateData;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\SiteSpec\SiteSpecPresetData;
 use Capell\Core\Enums\Publishing\PublicationTransition;
+use Capell\Core\Exceptions\GuidedSetupLogoNotAttachedException;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Exceptions\SiteSpecPublishRefusedException;
 use Capell\Core\Models\Page;
@@ -77,6 +80,10 @@ class GuidedSetup extends FilamentPage
     #[Locked]
     public bool $sitePublished = false;
 
+    /** The site was published but the logo held back since setup is still waiting to be attached. */
+    #[Locked]
+    public bool $logoPending = false;
+
     protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $slug = 'setup';
@@ -94,10 +101,20 @@ class GuidedSetup extends FilamentPage
             return false;
         }
 
-        // Still reachable after the pages are created, until they are published, so the person can finish.
-        $site = self::editableSite() ?? ResolveGuidedSetupStateAction::make()->awaitingPublication($actor);
+        // Still reachable after the pages are created, until they are published, so the person can finish,
+        // and after publishing while the logo setup held back is still waiting to be added.
+        $site = self::editableSite() ?? ResolveGuidedSetupStateAction::make()->awaitingPublication($actor) ?? self::siteWithPendingLogo();
 
         return $site instanceof Site && SiteResource::canEdit($site);
+    }
+
+    /** The person's site that setup published without its logo, so adding the logo can be tried again. */
+    public static function siteWithPendingLogo(): ?Site
+    {
+        $actor = auth()->user();
+        $site = $actor === null ? null : SiteAccess::forActor($actor)->query(Site::class)->excludingPreview()->orderBy('id')->first();
+
+        return $site instanceof Site && AttachGuidedSetupLogoAction::pending($site) ? $site : null;
     }
 
     /** Whether the person should be taken to setup now: it is owed (nothing created yet) and they may do it. */
@@ -153,12 +170,20 @@ class GuidedSetup extends FilamentPage
 
         $actor = auth()->user();
         $awaiting = ! self::editableSite() instanceof Site && $actor !== null ? ResolveGuidedSetupStateAction::make()->awaitingPublication($actor) : null;
-        $site = self::editableSite() ?? $awaiting ?? abort(403);
+        $pendingLogo = ! self::editableSite() instanceof Site && ! $awaiting instanceof Site ? self::siteWithPendingLogo() : null;
+        $site = self::editableSite() ?? $awaiting ?? $pendingLogo ?? abort(403);
         $this->siteId = (int) $site->getKey();
+
+        if ($pendingLogo instanceof Site) {
+            // Published, but the logo could not be added: offer to add it again.
+            $this->finish($site, 1 + count(SettleGuidedSetupPublicationAction::setupPageUuids($site)));
+            $this->sitePublished = true;
+            $this->logoPending = true;
+        }
 
         if ($awaiting instanceof Site) {
             // Coming back after the pages were created: go straight to opening the homepage or publishing.
-            $this->finish($site, 1 + count($this->storedSlugs($site)));
+            $this->finish($site, 1 + count(SettleGuidedSetupPublicationAction::setupPageUuids($site)));
         }
 
         $state = GuidedSetupStateData::forSite($site);
@@ -330,10 +355,16 @@ class GuidedSetup extends FilamentPage
         $site = $this->site();
 
         try {
-            PublishGuidedSetupSiteAction::run($this->storedInput($site), $site, $actor);
+            PublishGuidedSetupSiteAction::run($site, $actor);
         } catch (GuidedSetupRefusedException) {
             // Already published, by this request's twin or another person.
             abort(403);
+        } catch (GuidedSetupLogoNotAttachedException) {
+            $this->sitePublished = true;
+            $this->logoPending = true;
+            Notification::make()->warning()->title((string) __('capell-admin::setup.logo_not_attached'))->persistent()->send();
+
+            return;
         } catch (SiteSpecPublishRefusedException $refused) {
             Notification::make()
                 ->danger()
@@ -351,6 +382,33 @@ class GuidedSetup extends FilamentPage
 
         $this->sitePublished = true;
         Notification::make()->success()->title((string) __('capell-admin::setup.published'))->send();
+    }
+
+    public function retryLogoAction(): Action
+    {
+        return Action::make('retryLogo')
+            ->label(__('capell-admin::setup.retry_logo'))
+            ->visible(fn (): bool => $this->logoPending)
+            ->action(fn () => $this->retryLogo());
+    }
+
+    /** Tries again to attach the logo setup held back, after publishing could not attach it. */
+    public function retryLogo(): void
+    {
+        $site = $this->site();
+        abort_unless(AttachGuidedSetupLogoAction::pending($site), 403);
+
+        try {
+            AttachGuidedSetupLogoAction::run($site);
+        } catch (Throwable $throwable) {
+            report($throwable);
+            Notification::make()->warning()->title((string) __('capell-admin::setup.logo_not_attached'))->persistent()->send();
+
+            return;
+        }
+
+        $this->logoPending = false;
+        Notification::make()->success()->title((string) __('capell-admin::setup.logo_attached'))->send();
     }
 
     /** @return list<SiteSpecPresetData> */
@@ -553,27 +611,5 @@ class GuidedSetup extends FilamentPage
         }
 
         return $presets === [] ? '' : $presets[0]->key;
-    }
-
-    /** What setup recorded when it created the pages, so publishing never depends on what the browser sends. */
-    private function storedInput(Site $site): GuidedSetupInputData
-    {
-        $stored = (array) data_get($site->meta, 'guided_setup', []);
-        abort_if(blank($stored['preset_key'] ?? null), 403);
-
-        return new GuidedSetupInputData(
-            presetKey: (string) $stored['preset_key'],
-            siteName: (string) $site->name,
-            tagline: (string) ($stored['tagline'] ?? ''),
-            themeKey: filled($stored['theme_key'] ?? null) ? (string) $stored['theme_key'] : null,
-            primaryColour: filled($stored['primary_colour'] ?? null) ? (string) $stored['primary_colour'] : null,
-            pageSlugs: $this->storedSlugs($site),
-        );
-    }
-
-    /** @return list<string> */
-    private function storedSlugs(Site $site): array
-    {
-        return array_values(array_map(strval(...), array_filter((array) data_get($site->meta, 'guided_setup.page_slugs', []), is_string(...))));
     }
 }

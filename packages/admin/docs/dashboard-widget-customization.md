@@ -52,10 +52,15 @@ finished. The mark records the home page the install left and a hash of its copy
 setup is offered only to a marked site that nobody has set up, skipped or put live, and whose
 pages no person has made or edited; pages that packages seed during the install do not count.
 A site without the mark, such as one installed before it existed or a demo install, is never
-offered setup. The install's home page stays public as a placeholder while its copy is
-unchanged: setup creates its pages as private drafts, and publishing writes the person's home
-page over the placeholder, records the go-live and attaches the uploaded logo. Once the pages
-are created the dashboard opens as usual and offers Publish to people who may publish.
+offered setup. The install's home page stays public as a placeholder while its stored copy is
+unchanged: setup creates its pages as private drafts and keeps the spec it built, and
+publishing works from that spec, writes the person's home page over the placeholder, publishes
+the created pages still private, records the go-live and attaches the uploaded logo. Once the
+pages are created the dashboard opens as usual and offers Publish to people who may publish.
+The offer ends, and the go-live date is written, as soon as the person publishes, schedules or
+unpublishes a created page from the editor, or edits, replaces or removes the placeholder home
+page; setup then publishes nothing. If the logo cannot be attached, the site stays published,
+the file is kept, and guided setup offers to add it again.
 
 The dashboard holds only setup work while no site the person can access is live. Once
 any accessible site is live, a second site still being set up gets the checklist above

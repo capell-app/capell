@@ -4,21 +4,28 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\CreateDefaultPagesAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
+use Capell\Core\Actions\FirstRun\AttachGuidedSetupLogoAction;
 use Capell\Core\Actions\FirstRun\BuildGuidedSetupSpecAction;
 use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
 use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
+use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
 use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
+use Capell\Core\Actions\Publishing\TransitionPublicationAction;
 use Capell\Core\Actions\SiteReplicatedAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Data\SiteSpec\SiteSpecPresetData;
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Exceptions\GuidedSetupLogoNotAttachedException;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -331,8 +338,8 @@ it('stops taking the home page as the placeholder once its copy changes, whoever
     $home->translations->first()?->update(['content' => '<p>Written after the install</p>']);
 
     expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home->refresh()))->toBeFalse()
-        // Publish stays on offer: the pages setup created are still private.
-        ->and(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor)?->is($site))->toBeTrue();
+        // The person's own home page is live, so setup no longer offers to publish over it.
+        ->and(resolve(ResolveGuidedSetupStateAction::class)->awaitingPublication($actor))->toBeNull();
 });
 
 it('does not take another home page with the same copy as the placeholder', function (): void {
@@ -567,4 +574,218 @@ it('stores what was chosen so the pages can be published later', function (): vo
 
     expect(data_get($site->refresh()->meta, 'guided_setup.preset_key'))->toBe('service-business')
         ->and(data_get($site->meta, 'guided_setup.page_slugs'))->toBe(['about']);
+});
+
+it('treats a home page switched to blocks as no longer the placeholder, without failing', function (): void {
+    $site = installedSite();
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $home->forceFill(['content_structure_override' => ContentStructure::Blocks->value])->save();
+    $home->translations->first()?->update(['content' => [['type' => 'text', 'data' => ['content' => '<p>Blocks</p>']]]]);
+
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home->refresh()))->toBeFalse()
+        ->and(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+});
+
+it('marks a first install whose home page holds blocks, without failing the install', function (): void {
+    $english = Language::query()->where('code', 'en')->firstOrFail();
+    $theme = Theme::factory()->createOne(['key' => 'default', 'default' => true]);
+    $site = Site::factory()->language($english)->withTranslations($english)->createOne(['theme_id' => $theme->getKey()]);
+    CreateDefaultPagesAction::run($site->refresh(), $site->languages);
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $home->forceFill(['content_structure_override' => ContentStructure::Blocks->value])->save();
+    $home->translations->first()?->update(['content' => [['type' => 'text', 'data' => ['content' => '<p>Blocks</p>']]]]);
+
+    MarkFreshInstallSitesAction::run();
+
+    expect(ResolveGuidedSetupStateAction::isPlaceholderHome($site->refresh(), $home->refresh()))->toBeTrue();
+});
+
+it('never throws while deciding about a home page of any shape', function (Closure $shape): void {
+    $site = installedSite();
+    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
+    $shape($home);
+    $admin = guidedSetupAdmin();
+    $home = Page::withTrashed()->whereKey($home->getKey())->firstOrFail();
+
+    expect(fn (): mixed => [
+        ResolveGuidedSetupStateAction::isOwedTo($site->refresh()),
+        ResolveGuidedSetupStateAction::refusalFor($site),
+        ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home),
+        ResolveGuidedSetupStateAction::make()->awaitingPublication($admin),
+        ResolveGuidedSetupStateAction::run($admin),
+    ])->not->toThrow(Throwable::class);
+})->with([
+    'html' => [fn (Page $home): bool => (bool) $home->translations->first()?->update(['content' => '<p>Hello</p>'])],
+    'blocks' => [function (Page $home): void {
+        $home->forceFill(['content_structure_override' => ContentStructure::Blocks->value])->save();
+        $home->translations->first()?->update(['content' => [['type' => 'text', 'data' => ['content' => '<p>Blocks</p>']]]]);
+    }],
+    'empty content' => [fn (Page $home): bool => (bool) $home->translations->first()?->update(['content' => null])],
+    'missing translation' => [fn (Page $home): mixed => $home->translations()->forceDelete()],
+    'soft-deleted translation' => [fn (Page $home): mixed => $home->translations()->delete()],
+    'deleted home' => [fn (Page $home): ?bool => $home->delete()],
+]);
+
+/** The page setup created at the given slug. */
+function createdPage(Site $site, string $slug): Page
+{
+    $page = collect(guidedSetupPages($site))->first(fn (Page $page): bool => ($page->translations->first()?->meta['slug'] ?? null) === $slug);
+
+    return $page instanceof Page ? $page : throw new RuntimeException(sprintf('Setup created no page at [%s].', $slug));
+}
+
+/** Lets anyone publish, so these tests turn on what setup does rather than on a role's permissions. */
+function allowPublishing(): void
+{
+    app()->instance(AuthorizesPublicationTransition::class, new readonly class implements AuthorizesPublicationTransition
+    {
+        public function allows(PublicationTransitionRequestData $request): bool
+        {
+            return true;
+        }
+    });
+}
+
+/** A copy of the service business page set under its own key, so a test can change or remove it after setup. */
+function swapTestPreset(?Closure $change = null): void
+{
+    $spec = (resolve(SiteSpecPresetRegistry::class)->get('service-business') ?? throw new RuntimeException('The service business page set is missing.'))->spec;
+    $registry = new SiteSpecPresetRegistry(app());
+
+    if ($change instanceof Closure) {
+        $registry->register(new SiteSpecPresetData(key: 'test-pages', label: 'Test pages', description: 'Test pages', spec: $change($spec)));
+    }
+
+    app()->instance(SiteSpecPresetRegistry::class, $registry);
+}
+
+it('publishes what setup created when the page set is removed after the pages are created', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    swapTestPreset(fn (array $spec): array => $spec);
+    CompleteGuidedSetupAction::run(new GuidedSetupInputData(presetKey: 'test-pages', siteName: 'Hartley Dental', pageSlugs: ['about']), $site);
+    swapTestPreset();
+
+    PublishGuidedSetupSiteAction::run($site->refresh(), guidedSetupAdmin());
+
+    expect(collect(guidedSetupPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue()
+        ->and(guidedSetupPages($site))->toHaveCount(1);
+});
+
+it('publishes what setup created when the page set gains a page after the pages are created', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    swapTestPreset(fn (array $spec): array => $spec);
+    CompleteGuidedSetupAction::run(new GuidedSetupInputData(presetKey: 'test-pages', siteName: 'Hartley Dental', pageSlugs: ['about', 'team']), $site);
+    swapTestPreset(function (array $spec): array {
+        $about = collect($spec['pages'])->firstWhere('slug', 'about');
+        $spec['pages'][] = [...Arr::except($about, ['url']), 'slug' => 'team', 'name' => 'Team', 'title' => 'Team', 'order' => 99];
+
+        return $spec;
+    });
+
+    PublishGuidedSetupSiteAction::run($site->refresh(), guidedSetupAdmin());
+
+    expect(guidedSetupPages($site))->toHaveCount(1)
+        ->and(guidedSetupPages($site)[0]->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published);
+});
+
+it('ends the wait for Publish when a created page is published and unpublished from the editor, and never republishes it', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    $admin = guidedSetupAdmin();
+    CompleteGuidedSetupAction::run(guidedInput('about', 'contact'), $site);
+    $about = createdPage($site, 'about');
+
+    foreach ([PublicationTransition::PublishNow, PublicationTransition::Unpublish] as $transition) {
+        TransitionPublicationAction::run(new PublicationTransitionRequestData($about->refresh(), $transition, $admin, CarbonImmutable::now()));
+    }
+
+    expect(ResolveGuidedSetupStateAction::make()->awaitingPublication($admin))->toBeNull()
+        ->and(data_get($site->refresh()->meta, 'guided_setup.published_at'))->not->toBeNull()
+        ->and(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), $admin))->toThrow(GuidedSetupRefusedException::class)
+        ->and($about->refresh()->publishVisibilityState())->not->toBe(PublishVisibilityStateEnum::published);
+});
+
+it('ends the wait for Publish and records the go-live when the person edits the placeholder home page', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    $admin = guidedSetupAdmin();
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site);
+    $site->pages()->homePage()->with('translations')->firstOrFail()->translations->first()?->update(['content' => '<p>Our own words</p>']);
+
+    expect(ResolveGuidedSetupStateAction::make()->awaitingPublication($admin))->toBeNull()
+        ->and(data_get($site->refresh()->meta, 'guided_setup.published_at'))->not->toBeNull()
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
+});
+
+it('publishes only the created pages still private: a page the person deleted stays deleted', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    $admin = guidedSetupAdmin();
+    CompleteGuidedSetupAction::run(guidedInput('about', 'contact'), $site);
+    $pages = guidedSetupPages($site);
+    $pages[0]->delete();
+
+    PublishGuidedSetupSiteAction::run($site->refresh(), $admin);
+
+    expect(Page::withTrashed()->whereKey($pages[0]->getKey())->firstOrFail()->trashed())->toBeTrue()
+        ->and($pages[1]->refresh()->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published);
+});
+
+it('reports a logo that could not be attached after publishing, and keeps the file so it can be tried again', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    Storage::disk(GuidedSetupLogo::DISK)->put('guided-setup/logo.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site, 'guided-setup/logo.png');
+    config()->set('media-library.disk_name', 'a-disk-that-does-not-exist');
+
+    expect(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), guidedSetupAdmin()))->toThrow(GuidedSetupLogoNotAttachedException::class)
+        ->and(data_get($site->refresh()->meta, 'guided_setup.published_at'))->not->toBeNull()
+        ->and(Storage::disk(GuidedSetupLogo::DISK)->exists('guided-setup/logo.png'))->toBeTrue()
+        ->and(AttachGuidedSetupLogoAction::pending($site))->toBeTrue();
+
+    config()->set('media-library.disk_name', 'public');
+    AttachGuidedSetupLogoAction::run($site->refresh());
+
+    expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(1)
+        ->and(AttachGuidedSetupLogoAction::pending($site))->toBeFalse()
+        ->and(Storage::disk(GuidedSetupLogo::DISK)->exists('guided-setup/logo.png'))->toBeFalse();
+});
+
+it('ends the wait for Publish when a created page is published and put back to draft before anyone looks', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    $admin = guidedSetupAdmin();
+    CompleteGuidedSetupAction::run(guidedInput('about', 'contact'), $site);
+    $about = createdPage($site, 'about');
+
+    foreach ([PublicationTransition::PublishNow, PublicationTransition::RevertToDraft] as $transition) {
+        TransitionPublicationAction::run(new PublicationTransitionRequestData($about->refresh(), $transition, $admin, CarbonImmutable::now()));
+    }
+
+    expect(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), $admin))->toThrow(GuidedSetupRefusedException::class)
+        ->and($about->refresh()->publishVisibilityState())->toBe(PublishVisibilityStateEnum::draft);
+});
+
+it('refuses to publish over a home page the person has edited, even when nothing has looked since', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site);
+    $site->pages()->homePage()->with('translations')->firstOrFail()->translations->first()?->update(['content' => '<p>Our own words</p>']);
+
+    expect(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), guidedSetupAdmin()))->toThrow(GuidedSetupRefusedException::class)
+        ->and(collect(guidedSetupPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::draft))->toBeTrue();
+});
+
+it('keeps the go-live it finds when refusing to publish over a home page the person edited', function (): void {
+    $site = installedSite();
+    allowPublishing();
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site);
+    $site->pages()->homePage()->with('translations')->firstOrFail()->translations->first()?->update(['content' => '<p>Our own words</p>']);
+
+    rescue(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), guidedSetupAdmin()), report: false);
+
+    expect(data_get($site->refresh()->meta, 'guided_setup.published_at'))->not->toBeNull()
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
 });

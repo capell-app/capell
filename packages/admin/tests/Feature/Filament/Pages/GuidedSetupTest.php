@@ -11,8 +11,8 @@ use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
-use Capell\Core\Data\FirstRun\GuidedSetupInputData;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
@@ -512,27 +512,64 @@ it('does not trap anyone on setup when the chosen page set is removed after the 
     $this->get(GuidedSetup::getUrl())->assertOk();
 });
 
-it('still publishes every created page after the person edits the home page first, and keeps their edits', function (): void {
+it('stops offering Publish and records the go-live once the person edits the placeholder home page', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     createGuidedSetupPages();
+    $site->pages()->homePage()->with('translations')->firstOrFail()->translations->first()?->update(['content' => '<p>Written by the person</p>']);
+
+    Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotNotified(__('capell-admin::setup.awaiting_publication'));
+    $this->get(GuidedSetup::getUrl())->assertForbidden();
+
+    expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue()
+        ->and(collect(guidedSetupWrittenPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::draft))->toBeTrue();
+});
+
+it('opens the dashboard for a site whose home page holds blocks, without taking it for the placeholder', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
     $home = $site->pages()->homePage()->with('translations')->firstOrFail();
-    $home->translations->first()?->update(['content' => '<p>Written by the person</p>']);
+    $home->forceFill(['content_structure_override' => ContentStructure::Blocks->value])->save();
+    $home->translations->first()?->update(['content' => [['type' => 'text', 'data' => ['content' => '<p>Blocks</p>']]]]);
 
-    Livewire::test(GuidedSetup::class)->call('publishSite')->assertSet('sitePublished', true);
+    $this->get(CapellDashboard::getUrl())->assertOk();
+    Livewire::test(CapellDashboard::class)->assertNoRedirect();
+});
 
-    expect(collect(guidedSetupWrittenPages($site))->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue()
-        ->and((string) $home->refresh()->translations->first()?->content)->toBe('<p>Written by the person</p>');
+it('says the site is published but the logo was not added, and adds it on a second try', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $before = Storage::disk('local')->files('guided-setup');
+
+    try {
+        $page = Livewire::test(GuidedSetup::class)
+            ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about'], 'logo' => UploadedFile::fake()->image('logo.png')])
+            ->call('createPages');
+        config()->set('media-library.disk_name', 'a-disk-that-does-not-exist');
+
+        $page->call('publishSite')
+            ->assertSet('sitePublished', true)
+            ->assertSet('logoPending', true)
+            ->assertNotified(__('capell-admin::setup.logo_not_attached'));
+
+        expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(0)
+            ->and(array_diff(Storage::disk('local')->files('guided-setup'), $before))->toHaveCount(1);
+
+        config()->set('media-library.disk_name', 'public');
+        $page->call('retryLogo')->assertSet('logoPending', false)->assertNotified(__('capell-admin::setup.logo_attached'));
+    } finally {
+        Storage::disk('local')->delete(array_diff(Storage::disk('local')->files('guided-setup'), $before));
+    }
+
+    expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(1);
 });
 
 it('publishes once: a second publish of the same setup changes nothing and moves no logo twice', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     createGuidedSetupPages();
-    $input = new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Hartley Dental', pageSlugs: ['about']);
+    PublishGuidedSetupSiteAction::run($site->refresh(), $this->authenticatedUser());
 
-    PublishGuidedSetupSiteAction::run($input, $site->refresh(), $this->authenticatedUser());
-
-    expect(fn (): int => PublishGuidedSetupSiteAction::run($input, $site->refresh(), $this->authenticatedUser()))
+    expect(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), $this->authenticatedUser()))
         ->toThrow(GuidedSetupRefusedException::class);
 });

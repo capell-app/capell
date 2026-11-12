@@ -27,7 +27,7 @@ final class BuildGuidedSetupSpecAction
     use AsFake;
     use AsObject;
 
-    private const string HOME_SLUG = 'home';
+    public const string HOME_SLUG = 'home';
 
     public function __construct(
         private readonly SiteSpecPresetRegistry $presets,

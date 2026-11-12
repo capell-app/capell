@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\FirstRun;
 
 use Capell\Core\Actions\ApplySiteSpecToSiteAction;
+use Capell\Core\Actions\PlanSiteSpecAction;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanData;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\FirstRun\GuidedSetupLogo;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
@@ -62,6 +65,9 @@ final class CompleteGuidedSetupAction
                 'primary_colour' => $input->primaryColour,
                 // Held privately until the person publishes: the logo must not reach a live site before then.
                 'logo' => GuidedSetupLogo::path($logo) !== null ? $logo : null,
+                // Publish works from what was created, whatever happens to the preset afterwards.
+                'spec' => $spec->toArray(),
+                'page_uuids' => $this->createdDrafts($spec, $fresh),
                 'completed_at' => now()->toIso8601String(),
             ];
             $fresh->forceFill(['meta' => $meta])->save();
@@ -73,5 +79,25 @@ final class CompleteGuidedSetupAction
         resolve(GuidedSetupStateMemo::class)->flush();
 
         return $plan;
+    }
+
+    /**
+     * The pages this setup created, still private drafts; the install's own home page is not one of them.
+     *
+     * @return list<string>
+     */
+    private function createdDrafts(CapellSiteSpecData $spec, Site $site): array
+    {
+        $uuids = [];
+
+        foreach (PlanSiteSpecAction::make()->existingPagesBySlug($spec, $site) as $found) {
+            $page = $found['page'];
+
+            if (SettleGuidedSetupPublicationAction::isPrivateDraft($page) && ! Page::query()->homePage()->whereKey($page->getKey())->exists()) {
+                $uuids[] = (string) $page->uuid;
+            }
+        }
+
+        return $uuids;
     }
 }

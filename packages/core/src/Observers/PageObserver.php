@@ -6,6 +6,7 @@ namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\AssertPageRestoreUrlsAvailableAction;
 use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
+use Capell\Core\Actions\FirstRun\SettleGuidedSetupPublicationAction;
 use Capell\Core\Actions\Properties\AssertRestoredPagePropertyValuesAreUniqueAction;
 use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Actions\PrunePageDeletionMembershipAction;
@@ -16,6 +17,7 @@ use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\CapellCoreHelper;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
@@ -57,6 +59,12 @@ class PageObserver
     {
         if ($page->isDirty('parent_id')) {
             $this->updateUrl($page);
+        }
+
+        // A page guided setup created was published, scheduled or unpublished from the editor: the site's
+        // wait for setup's Publish ends now, before a later change could make it look untouched again.
+        if (($page->wasChanged('visible_from') || $page->wasChanged('visible_until')) && SettleGuidedSetupPublicationAction::createdBySetup($page)) {
+            SettleGuidedSetupPublicationAction::run(Site::query()->findOrFail($page->site_id));
         }
     }
 
