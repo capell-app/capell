@@ -128,6 +128,7 @@ use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
+use Capell\Admin\Livewire\Header\ClearCacheButton;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
 use Capell\Admin\Macros\Database\BuilderMacros;
@@ -358,6 +359,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 {
     public const string CSS_LAYER_ORDER_ASSET_ID = 'admin-layer-order';
 
+    /** The name Livewire generates for the vendor clear-cache component, which earlier pages' snapshots carry. */
+    public const string VENDOR_CLEAR_CACHE_COMPONENT = 'cms-multi.filament-clear-cache.http.livewire.clear-cache';
+
     public static string $name = 'capell-admin';
 
     public static string $packageName = 'capell-app/admin';
@@ -429,6 +433,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
+
+        // The vendor clear-cache button checks nothing on the server; Capell's subclass allows only global
+        // administrators. Set before any panel registers the plugin, overriding a host's configuration. The
+        // role key is not read, because the subclass decides visibility itself; it only keeps the vendor
+        // default from admitting everyone should the component ever fall back to the vendor class.
+        config([
+            'filament-clear-cache.livewireComponentClass' => ClearCacheButton::class,
+            'filament-clear-cache.role' => config('capell.roles.super_admin', 'super_admin'),
+        ]);
 
         // Native make() and legacy factories use the container too. The native
         // original-path fallback reads model attributes before its allow callback,
@@ -881,6 +894,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     protected function bootInstalledPackage(): self
     {
         FilamentClearCache::addCommand('capell:admin-clear-cache');
+        // Pages rendered before Capell guarded the button carry snapshots under the vendor component's
+        // generated name, and Livewire would resolve that name to the unguarded vendor class. A registered
+        // name wins, so replayed snapshots reach the guarded button.
+        Livewire::component(self::VENDOR_CLEAR_CACHE_COMPONENT, ClearCacheButton::class);
 
         return $this
             ->registerAboutInfo()
