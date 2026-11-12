@@ -52,6 +52,9 @@ final class SiteAccessQueryAllowList
             // A media file is in use when any content, on any site, references it;
             // counting only the actor's visible sites would let the library trash
             // a file another site still displays.
+            // Existence only, to tell a deleted site from a site the owner may not import into; the
+            // permission check then runs in that site's permission scope.
+            'packages/admin/src/Actions/Transfers/EnsureImportOwnerAdmittedAction.php' => ['handle|' . Site::class . '::query()->whereKey((int) $siteId)->exists()'],
             'packages/admin/src/Actions/Media/RepairMediaHealthAction.php' => ['deleteUnused|$media->assetRelations()->exists()'],
             // Compensation checks the captured primary key for any surviving owner,
             // including a trashed row or an owner outside the actor's current grants.

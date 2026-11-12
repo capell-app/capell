@@ -117,7 +117,7 @@ class RedirectImporter extends Importer
 
     protected function beforeFill(): void
     {
-        EnsureImportOwnerAdmittedAction::run($this->import, $this->resolveActor());
+        EnsureImportOwnerAdmittedAction::run($this->import, $this->resolveActor(), static::getModel(), $this->options['site_id'] ?? null);
 
         /** @var PageUrl $record */
         $record = $this->record;

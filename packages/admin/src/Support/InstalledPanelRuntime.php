@@ -72,6 +72,8 @@ final class InstalledPanelRuntime
      * admin-only Filament plugins the panels install. A route whose action is shipped in their source or
      * route files must be registered by a panel or declared public, or it is refused.
      */
+    private const string CAPELL_ADMIN_NAMESPACE = 'Capell\\Admin\\';
+
     private const array ADMIN_NAMESPACES = ['Filament\\', 'Livewire\\', 'Capell\\Admin\\', 'Guava\\IconPicker\\', 'Pboivin\\FilamentPeek\\', 'STS\\FilamentImpersonate\\'];
 
     /**
@@ -1057,10 +1059,11 @@ final class InstalledPanelRuntime
 
         $panel = $this->synchronised[$ownership->panel] ?? null;
         if (! $panel instanceof Panel) {
-            // Standalone declarations and global admin plugin endpoints depend on Capell to add their
-            // security. Native Filament panel groups already carry their own stack.
+            // Standalone declarations, global admin plugin endpoints and Capell's own admin code depend on
+            // Capell to add their security. A native Filament panel's other routes carry their own stack.
             return AdminRouteProvenance::declared($route)['panels'] === []
                 && ! in_array($this->actionCode($route)[0], self::ENTRYPOINT_ACTIONS, true)
+                && ! $this->runsCapellAdminCode($route)
                 && (array_key_exists($ownership->panel, Filament::getPanels()) || $this->isUnavailable($ownership->panel))
                     ? null
                     : 'capell-admin::message.extension_panel_route_unowned';
@@ -1192,28 +1195,66 @@ final class InstalledPanelRuntime
     /** The action is shipped in an admin package's source or route files, or is a Filament page. */
     private function runsAdminCode(Route $route): bool
     {
+        [$class, $file] = $this->actionSource($route);
+        if ($class !== null && is_subclass_of($class, BasePage::class)) {
+            return true;
+        }
+
+        return $file !== null && array_any(array_keys($this->adminRoots()), static fn (string $root): bool => str_starts_with($file, $root));
+    }
+
+    /**
+     * The action is shipped in Capell's own admin source or route files. Filament, Livewire, other admin
+     * plugins and the host's own pages are not Capell code: a panel without the Capell plugin keeps serving
+     * them under its own stack, but cannot serve Capell's admin code without Capell's package security.
+     */
+    private function runsCapellAdminCode(Route $route): bool
+    {
+        $file = $this->actionSource($route)[1];
+        if ($file === null) {
+            return false;
+        }
+
+        foreach ($this->adminRoots() as $root => $prefix) {
+            $capellRoot = $prefix !== null && str_starts_with($prefix, self::CAPELL_ADMIN_NAMESPACE);
+            $capellRoutes = $prefix !== null && $capellRoot ? dirname($root) . DIRECTORY_SEPARATOR . 'routes' . DIRECTORY_SEPARATOR : null;
+            if (($capellRoot && str_starts_with($file, $root)) || ($capellRoutes !== null && str_starts_with($file, $capellRoutes))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The class the route runs, resolving Livewire's page macro to its component, and the file that holds it.
+     *
+     * @return array{0: class-string|null, 1: string|null}
+     */
+    private function actionSource(Route $route): array
+    {
         [$class, $file] = $this->actionCode($route);
         if ($class === LivewirePageController::class) {
             $component = $route->getAction('livewire_component');
             // The macro adds its component after Route::get() has recorded ownership. At that point
             // classification waits for the finished action; it never exempts a panel-owned route.
             if ($component === null) {
-                return false;
+                return [null, null];
             }
 
             $class = LivewireRouteComponentClass::of($component);
         }
 
-        if ($file === null && $class !== null && class_exists($class)) {
-            if (is_subclass_of($class, BasePage::class)) {
-                return true;
-            }
+        if ($class === null || ! class_exists($class)) {
+            return [null, $file];
+        }
 
+        if ($file === null) {
             $file = new ReflectionClass($class)->getFileName();
             $file = $file === false ? null : (realpath($file) ?: $file);
         }
 
-        return $file !== null && array_any(array_keys($this->adminRoots()), static fn (string $root): bool => str_starts_with($file, $root));
+        return [$class, $file];
     }
 
     /** Older caches inferred host ownership, so only retain it with an explicit declaration. */

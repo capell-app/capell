@@ -70,22 +70,81 @@ it('renders signed previews for assigned sites without a team while denying fore
     }
 })->with(['page', 'theme']);
 
-it('imports redirects for the queued owner without authentication or a team', function (): void {
+/** A redirect import started in the admin panel by the scoped owner, waiting for its queued rows. */
+function queuedRedirectImportForTeamlessTest(TeamScopedPanelUser $owner): Import
+{
     (require dirname((string) new ReflectionClass(ActionsServiceProvider::class)->getFileName(), 2) . '/database/migrations/create_imports_table.php')->up();
     auth()->logout();
-    app()->instance(Authenticatable::class, $this->actor);
+    app()->instance(Authenticatable::class, $owner);
     $import = new Import;
     $import->forceFill(['file_name' => 'redirects.csv', 'file_path' => 'redirects.csv', 'importer' => RedirectImporter::class, 'total_rows' => 2]);
-    $import->user()->associate($this->actor);
+    $import->user()->associate($owner);
     $import->save();
     // The import action recorded the Capell admin panel it was started in.
     DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'import', 'transfer_key' => (string) $import->getKey(), 'panel' => 'admin', 'host' => 'localhost']);
     $import = $import->fresh();
     throw_unless($import instanceof Import, LogicException::class, 'Expected the persisted import');
-    $importer = new RedirectImporter($import, ['url' => 'url', 'target_url' => 'target_url'], ['site_id' => $this->site->id, 'language_id' => $this->site->language_id]);
-    $importer(['url' => '/queued-old', 'target_url' => '/queued-new']);
+
+    return $import;
+}
+
+/** @param array<string, mixed> $options */
+function queuedRedirectRowForTeamlessTest(Import $import, array $options, string $url): void
+{
+    new RedirectImporter($import, ['url' => 'url', 'target_url' => 'target_url'], $options)(['url' => $url, 'target_url' => '/queued-new']);
+}
+
+function grantRedirectImportOnSiteForTeamlessTest(TeamScopedPanelUser $owner, Site $site): Role
+{
+    $role = Role::query()->firstOrCreate(['name' => 'redirect-importer', 'guard_name' => 'web']);
+    $role->givePermissionTo(Permission::findOrCreate('Import:PageUrl', 'web'));
+
+    $owner->assignRoleForSite($site, $role);
+    setPermissionsTeamId(null);
+
+    return $role;
+}
+
+it('imports redirects for the queued owner without authentication or a team', function (): void {
+    grantRedirectImportOnSiteForTeamlessTest($this->actor, $this->site);
+    $import = queuedRedirectImportForTeamlessTest($this->actor);
+
+    queuedRedirectRowForTeamlessTest($import, ['site_id' => $this->site->id, 'language_id' => $this->site->language_id], '/queued-old');
+
     expect(PageUrl::query()->where('site_id', $this->site->id)->where('url', '/queued-old')->exists())->toBeTrue();
-    $foreign = new RedirectImporter($import, ['url' => 'url', 'target_url' => 'target_url'], ['site_id' => $this->foreign->id, 'language_id' => $this->foreign->language_id]);
-    expect(fn () => $foreign(['url' => '/foreign-old', 'target_url' => '/foreign-new']))->toThrow(ValidationException::class);
+});
+
+it('writes nothing once the queued owner loses import on the site before the row runs', function (): void {
+    $role = grantRedirectImportOnSiteForTeamlessTest($this->actor, $this->site);
+    $import = queuedRedirectImportForTeamlessTest($this->actor);
+    $role->revokePermissionTo('Import:PageUrl');
+
+    expect(fn () => queuedRedirectRowForTeamlessTest($import, ['site_id' => $this->site->id, 'language_id' => $this->site->language_id], '/revoked-old'))
+        ->toThrow(ValidationException::class, __('capell-admin::message.import_owner_not_permitted'));
+    expect(PageUrl::query()->where('url', '/revoked-old')->exists())->toBeFalse();
+});
+
+it('writes nothing on a site where the queued owner may not import, even with import on another site', function (): void {
+    grantRedirectImportOnSiteForTeamlessTest($this->actor, $this->site);
+    // The owner may also see the foreign site, but only imports on their own.
+    $this->actor->assignRoleForSite($this->foreign, 'preview-editor');
+    setPermissionsTeamId(null);
+    $import = queuedRedirectImportForTeamlessTest($this->actor);
+
+    expect(fn () => queuedRedirectRowForTeamlessTest($import, ['site_id' => $this->foreign->id, 'language_id' => $this->foreign->language_id], '/foreign-old'))
+        ->toThrow(ValidationException::class, __('capell-admin::message.import_owner_not_permitted'));
     expect(PageUrl::query()->where('url', '/foreign-old')->exists())->toBeFalse();
 });
+
+it('writes nothing for a queued row that names no existing site', function (?int $siteId): void {
+    grantRedirectImportOnSiteForTeamlessTest($this->actor, $this->site);
+    $import = queuedRedirectImportForTeamlessTest($this->actor);
+    $options = ['language_id' => $this->site->language_id];
+    if ($siteId !== null) {
+        $options['site_id'] = $siteId;
+    }
+
+    expect(fn () => queuedRedirectRowForTeamlessTest($import, $options, '/siteless-old'))
+        ->toThrow(ValidationException::class, __('capell-admin::message.import_site_unknown'));
+    expect(PageUrl::query()->where('url', '/siteless-old')->exists())->toBeFalse();
+})->with(['no site' => [null], 'a deleted site' => [999_999]]);

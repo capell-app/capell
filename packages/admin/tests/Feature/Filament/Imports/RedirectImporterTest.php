@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -35,6 +36,12 @@ function createScopedUserForRedirectImporterTest(SupportCollection $assignedSite
         public function canAccessPanel(Panel $panel): bool
         {
             return true;
+        }
+
+        /** Filament Shield's gate asks every user whether they hold its super-admin role. */
+        public function hasRole(mixed $roles): bool
+        {
+            return false;
         }
 
         public function isGlobalAdmin(): bool
@@ -73,6 +80,9 @@ function startedRedirectImportForRedirectImporterTest(): Import
     $import = new Import;
     $import->forceFill(['file_name' => 'redirects.csv', 'file_path' => 'redirects.csv', 'importer' => RedirectImporter::class, 'total_rows' => 1, 'user_id' => $user->getKey()])->save();
     DB::table(TableName::resolve('admin_transfer_origins'))->insert(['transfer_type' => 'import', 'transfer_key' => (string) $import->getKey(), 'panel' => 'admin', 'host' => 'localhost']);
+    // These cases cover row validation; the owner's site-scoped import permission is covered with real roles
+    // in SiteAccessTeamlessOperationsTest.
+    Gate::before(static fn (mixed $user, string $ability): ?bool => $ability === 'import' ? true : null);
 
     return $import;
 }
