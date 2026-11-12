@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "echo \"Screenshot workbench: theme CSS is compiled by scripts/screenshots, so there is no Vite build to run.\"",
         "dev": "vite"
     },
     "devDependencies": {
