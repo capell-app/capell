@@ -45,6 +45,7 @@ use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\InstallSkipReason;
 use Capell\Core\Exceptions\UnknownInstallPreset;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
@@ -188,6 +189,9 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private ?string $presetKey = null;
 
+    /** The install suite the run started from, whether it was chosen at the prompt or named with --preset. */
+    private ?string $suiteKey = null;
+
     /** Whether the chosen suite starts with sample content; null when it has no preference. */
     private ?bool $sampleContentDefault = null;
 
@@ -233,6 +237,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->suiteThemeKey = null;
         $this->siteName = null;
         $this->presetKey = null;
+        $this->suiteKey = null;
         $this->sampleContentDefault = null;
         $this->manualInstallChanges = [];
 
@@ -1369,6 +1374,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             siteName: $this->siteName,
             presetKey: $this->presetKey,
             publish: (bool) $this->option('publish'),
+            suiteKey: $this->suiteKey,
         );
     }
 
@@ -1765,10 +1771,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         foreach ($selection->skipped as $skipped) {
-            $this->warn((string) __('capell-core::install.skipped.' . $skipped->reason->value, ['package' => $skipped->package]));
+            $this->warn((string) match ($skipped->reason) {
+                InstallSkipReason::NotInPublicChannel => __('capell-core::install.skipped.not_in_public_channel', ['package' => $skipped->package]),
+                InstallSkipReason::MayNeedLicence => __('capell-core::install.skipped.may_need_licence', ['package' => $skipped->package]),
+            });
         }
 
         $this->suiteThemeKey = $selection->theme;
+        $this->suiteKey = $selection->suiteKey;
 
         // A fresh install with --demo takes the unattended known-credentials path, so a suite
         // must never opt a fresh install into it; sample content stays an explicit --demo choice there.

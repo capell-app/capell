@@ -96,21 +96,25 @@ class CapellDashboard extends Dashboard
 
     /**
      * Restoring a hidden checklist comes first and ends in one redirect to the plain
-     * dashboard address; anything else that must redirect on arrival has to follow it
-     * rather than add a second redirect.
+     * dashboard address. A site nobody has set up yet then opens guided setup instead
+     * of an empty dashboard, for people who may edit it; only one redirect is ever sent.
      */
     public function mount(): void
     {
         $actor = auth()->user();
-        if (request()->query(self::SHOW_FIRST_RUN_CHECKLIST_QUERY) === null || ! $actor instanceof Model) {
+        if (request()->query(self::SHOW_FIRST_RUN_CHECKLIST_QUERY) !== null && $actor instanceof Model) {
+            RestoreFirstRunChecklistAction::run($actor);
+            resolve(AdminDashboardDataRequestCache::class)->forgetFirstRunState($actor);
+
+            // Drop the flag so a reload or a shared link does not restore the list again.
+            $this->redirect(self::getUrl());
+
             return;
         }
 
-        RestoreFirstRunChecklistAction::run($actor);
-        resolve(AdminDashboardDataRequestCache::class)->forgetFirstRunState($actor);
-
-        // Drop the flag so a reload or a shared link does not restore the list again.
-        $this->redirect(self::getUrl());
+        if (config('capell-admin.dashboard.guided_setup.redirect', true) && GuidedSetup::isOwed()) {
+            $this->redirect(GuidedSetup::getUrl());
+        }
     }
 
     public function filtersForm(Schema $schema): Schema

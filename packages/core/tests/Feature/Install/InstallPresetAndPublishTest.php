@@ -257,3 +257,16 @@ it('says nothing about skipped packages when every recommended package is instal
     expect($exit)->toBe(0)
         ->and($output)->not->toContain('was not installed');
 });
+
+it('remembers the chosen suite on the site once the install completes', function (): void {
+    $author = User::factory()->createOne();
+    $site = null;
+    bindPresetScenarioExecutor($author, function () use (&$site): void {
+        $site = Site::factory()->default()->create();
+    });
+
+    [$exit] = runPresetScenario(presetScenarioOptions($author));
+
+    expect($exit)->toBe(0)
+        ->and(data_get($site?->refresh()->meta, 'install_suite'))->toBe('site');
+});

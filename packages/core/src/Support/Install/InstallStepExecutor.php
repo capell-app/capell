@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
 use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\BuildInstallResumeCommandAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
@@ -654,6 +655,8 @@ final class InstallStepExecutor
                 'is_paid_marketplace_extension' => false,
             ],
         );
+
+        RecordInstallSuiteAction::run($state->inputData->suiteKey);
 
         Event::dispatch(new CapellInstallationCompleted);
 

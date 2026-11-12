@@ -26,7 +26,7 @@
                 "slug": "home",
                 "title": "Welcome",
                 "description": "What you sell, what makes it worth buying here and where to start.",
-                "pageType": "page",
+                "pageType": "home",
                 "order": 0,
                 "url": "/",
                 "sections": [
@@ -49,7 +49,7 @@
                 "slug": "products",
                 "title": "Products",
                 "description": "Browse what is for sale, with the details a customer needs to choose.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 1,
                 "url": "/products",
                 "sections": [
@@ -72,7 +72,7 @@
                 "slug": "about",
                 "title": "About us",
                 "description": "Who makes or chooses what you sell, and why.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 2,
                 "url": "/about",
                 "sections": [
@@ -89,7 +89,7 @@
                 "slug": "visit-us",
                 "title": "Visit us",
                 "description": "Where the shop is, when it is open and how to get there.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 3,
                 "url": "/visit-us",
                 "sections": [
@@ -112,7 +112,7 @@
                 "slug": "contact",
                 "title": "Contact us",
                 "description": "How to reach the shop with a question about an order or a product.",
-                "pageType": "page",
+                "pageType": "default",
                 "order": 4,
                 "url": "/contact",
                 "sections": [

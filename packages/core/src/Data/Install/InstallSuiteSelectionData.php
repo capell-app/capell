@@ -17,5 +17,6 @@ final class InstallSuiteSelectionData extends Data
         public readonly ?string $theme,
         public readonly ?bool $demo,
         public readonly array $skipped = [],
+        public readonly ?string $suiteKey = null,
     ) {}
 }

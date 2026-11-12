@@ -27,6 +27,6 @@ final class InstallPresetData extends Data
 
     public function selection(): InstallSuiteSelectionData
     {
-        return new InstallSuiteSelectionData(packages: $this->packages, theme: $this->theme, demo: $this->demo, skipped: $this->skipped);
+        return new InstallSuiteSelectionData(packages: $this->packages, theme: $this->theme, demo: $this->demo, skipped: $this->skipped, suiteKey: $this->key);
     }
 }

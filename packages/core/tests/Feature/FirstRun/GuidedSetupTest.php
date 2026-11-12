@@ -1,0 +1,253 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Actions\CreateDefaultLanguagesAction;
+use Capell\Core\Actions\FirstRun\BuildGuidedSetupSpecAction;
+use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
+use Capell\Core\Actions\FirstRun\RecordInstallSuiteAction;
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
+use Capell\Core\Actions\FirstRun\SkipGuidedSetupAction;
+use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
+use Capell\Core\Data\FirstRun\GuidedSetupInputData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
+use Capell\Core\Models\Translation;
+use Capell\Core\Support\Publishing\PublishSentinel;
+use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
+use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+
+uses(CreatesAdminUser::class);
+
+beforeEach(function (): void {
+    CreateDefaultLanguagesAction::run(['en']);
+    Queue::fake();
+    Storage::fake('public');
+    config()->set('media-library.disk_name', 'public');
+});
+
+function guidedSetupAdmin(): User
+{
+    return test()->createUserWithRole('super_admin');
+}
+
+/** A freshly installed site: one theme, a draft home page, nothing set up yet. */
+function installedSite(): Site
+{
+    $english = Language::query()->where('code', 'en')->firstOrFail();
+    $theme = Theme::factory()->createOne(['key' => 'default', 'default' => true]);
+    $site = Site::factory()->language($english)->withTranslations($english)->createOne(['theme_id' => $theme->getKey(), 'name' => 'My Laravel App']);
+    $home = Page::factory()->home()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    // The installer stores its home page under the slug "/".
+    Translation::factory()->createOne([
+        'translatable_type' => $home->getMorphClass(),
+        'translatable_id' => $home->getKey(),
+        'language_id' => $site->language_id,
+        'meta' => ['slug' => '/'],
+    ]);
+
+    return $site->refresh();
+}
+
+function guidedInput(string ...$pageSlugs): GuidedSetupInputData
+{
+    return new GuidedSetupInputData(
+        presetKey: 'service-business',
+        siteName: 'Hartley Dental',
+        tagline: 'Family dentist in Leeds',
+        primaryColour: '#0f766e',
+        pageSlugs: $pageSlugs,
+    );
+}
+
+/** Stands in for the Navigation extension, which owns the menu part of a spec. */
+function registerNavigationApplier(): void
+{
+    resolve(SiteSpecApplierRegistry::class)->register(new class implements SiteSpecApplier
+    {
+        public function key(): string
+        {
+            return 'navigation';
+        }
+
+        /** @param array<string, Page> $pagesBySlug */
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void {}
+    });
+}
+
+it('leaves the menu out when the Navigation extension is not installed', function (): void {
+    $spec = BuildGuidedSetupSpecAction::run(guidedInput('about'));
+
+    expect($spec->navigations)->toBe([]);
+});
+
+it('lays a name, one-line description, colour and page choices over the chosen preset', function (): void {
+    registerNavigationApplier();
+
+    $spec = BuildGuidedSetupSpecAction::run(guidedInput('about', 'contact'));
+
+    expect($spec->site->name)->toBe('Hartley Dental')
+        ->and($spec->site->description)->toBe('Family dentist in Leeds')
+        ->and($spec->theme->colors->primary)->toBe('#0f766e')
+        ->and(array_map(fn ($page): string => $page->slug, $spec->pages))->toBe(['home', 'about', 'contact'])
+        ->and($spec->navigations[0]->pageSlugs)->toBe(['home', 'about', 'contact'])
+        ->and($spec->initialVisibility)->toBe('private');
+});
+
+it('always creates the home page, even when no page is ticked', function (): void {
+    $spec = BuildGuidedSetupSpecAction::run(guidedInput());
+
+    expect(array_map(fn ($page): string => $page->slug, $spec->pages))->toBe(['home']);
+});
+
+it('refuses a preset that is not registered', function (): void {
+    BuildGuidedSetupSpecAction::run(new GuidedSetupInputData(presetKey: 'missing', siteName: 'Hartley Dental'));
+})->throws(InvalidArgumentException::class);
+
+it('refuses a colour that is not a hex value', function (): void {
+    BuildGuidedSetupSpecAction::run(new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Hartley Dental', primaryColour: 'teal'));
+})->throws(ValidationException::class);
+
+it('creates the chosen pages as private drafts on the existing site and records that setup is done', function (): void {
+    $site = installedSite();
+    $user = guidedSetupAdmin();
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeTrue();
+
+    CompleteGuidedSetupAction::run(guidedInput('about', 'contact'), $site);
+
+    $site->refresh();
+    $slugs = $site->pages()->with('translations')->get()
+        ->map(fn (Page $page): ?string => $page->translations->first()?->meta['slug'] ?? null)
+        ->filter()->sort()->values()->all();
+
+    expect($site->name)->toBe('Hartley Dental')
+        ->and($slugs)->toBe(['/', 'about', 'contact'])
+        ->and($site->pages()->get()->every(fn (Page $page): bool => $page->publishVisibilityState() !== PublishVisibilityStateEnum::published))->toBeTrue()
+        ->and(data_get($site->meta, 'guided_setup.preset_key'))->toBe('service-business')
+        ->and(data_get($site->meta, 'guided_setup.completed_at'))->not->toBeNull()
+        ->and(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse();
+});
+
+it('attaches the uploaded logo to the site', function (): void {
+    $site = installedSite();
+    $logo = tempnam(sys_get_temp_dir(), 'logo') . '.png';
+    file_put_contents($logo, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3h8AAAAASUVORK5CYII=', true));
+
+    try {
+        CompleteGuidedSetupAction::run(guidedInput(), $site, $logo);
+    } finally {
+        unlink($logo);
+    }
+
+    expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(1);
+});
+
+it('leaves the site untouched when the spec is refused', function (): void {
+    $site = installedSite();
+    $pages = $site->pages()->count();
+
+    try {
+        CompleteGuidedSetupAction::run(new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Hartley Dental', primaryColour: 'teal'), $site);
+    } catch (ValidationException) {
+        // Expected: the colour is not a hex value.
+    }
+
+    expect($site->refresh()->name)->toBe('My Laravel App')
+        ->and($site->pages()->count())->toBe($pages)
+        ->and(data_get($site->meta, 'guided_setup'))->toBeNull();
+});
+
+it('stops asking once setup is skipped', function (): void {
+    $site = installedSite();
+    $user = guidedSetupAdmin();
+
+    SkipGuidedSetupAction::run($site);
+
+    expect(ResolveGuidedSetupStateAction::run($user)->needsSetup)->toBeFalse()
+        ->and($site->pages()->count())->toBe(1);
+});
+
+it('never asks about a site whose home page is already public', function (): void {
+    $site = installedSite();
+    $site->pages()->get()->each(fn (Page $page) => $page->update(['visible_from' => now()->subDay()]));
+
+    expect(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+});
+
+it('never asks about a site that was built from an imported site spec', function (): void {
+    $site = installedSite();
+    $site->forceFill(['meta' => ['site_spec_hash' => 'abc123']])->save();
+
+    expect(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+});
+
+it('does not ask when there is no site yet', function (): void {
+    expect(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->needsSetup)->toBeFalse();
+});
+
+it('remembers the install suite once and offers it to guided setup', function (): void {
+    $site = installedSite();
+
+    RecordInstallSuiteAction::run('marketing');
+    RecordInstallSuiteAction::run('blog');
+
+    expect(data_get($site->refresh()->meta, 'install_suite'))->toBe('marketing')
+        ->and(ResolveGuidedSetupStateAction::run(guidedSetupAdmin())->suiteKey)->toBe('marketing');
+});
+
+it('records nothing when the install had no suite', function (): void {
+    $site = installedSite();
+
+    RecordInstallSuiteAction::run(null);
+    RecordInstallSuiteAction::run('  ');
+
+    expect(data_get($site->refresh()->meta, 'install_suite'))->toBeNull();
+});
+
+it('reuses the installer home page instead of creating a second one', function (): void {
+    $site = installedSite();
+    $home = $site->pages()->homePage()->firstOrFail();
+
+    CompleteGuidedSetupAction::run(guidedInput('about'), $site);
+
+    expect($site->pages()->homePage()->count())->toBe(1)
+        ->and($site->pages()->count())->toBe(2)
+        ->and($site->pages()->homePage()->firstOrFail()->is($home))->toBeTrue();
+});
+
+it('applies every shipped preset to a freshly installed site', function (string $presetKey): void {
+    $site = installedSite();
+    $preset = resolve(SiteSpecPresetRegistry::class)->get($presetKey);
+    $slugs = array_column($preset?->spec['pages'] ?? [], 'slug');
+
+    CompleteGuidedSetupAction::run(new GuidedSetupInputData(presetKey: $presetKey, siteName: 'Hartley Dental', pageSlugs: $slugs), $site);
+
+    expect($site->refresh()->pages()->count())->toBe(count($slugs));
+})->with(['service-business', 'shop-front', 'studio']);
+
+it('keeps a site awaiting publication from the moment its pages are created until its home page is public', function (): void {
+    $site = installedSite();
+    $actor = guidedSetupAdmin();
+    $state = resolve(ResolveGuidedSetupStateAction::class);
+
+    expect($state->awaitingPublication($actor))->toBeNull();
+
+    CompleteGuidedSetupAction::run(guidedInput(), $site);
+
+    expect($state->awaitingPublication($actor)?->is($site))->toBeTrue();
+
+    $site->pages()->get()->each(fn (Page $page) => $page->update(['visible_from' => now()->subDay()]));
+
+    expect($state->awaitingPublication($actor))->toBeNull();
+});

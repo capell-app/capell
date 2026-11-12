@@ -143,6 +143,7 @@ final class InstallInputFactory
         ?string $siteName = null,
         ?string $presetKey = null,
         bool $publish = false,
+        ?string $suiteKey = null,
     ): InstallInputData {
         return new InstallInputData(
             siteUrl: $siteUrl,
@@ -170,6 +171,7 @@ final class InstallInputFactory
             siteName: $siteName,
             presetKey: $presetKey,
             publish: $publish,
+            suiteKey: $suiteKey,
         );
     }
 

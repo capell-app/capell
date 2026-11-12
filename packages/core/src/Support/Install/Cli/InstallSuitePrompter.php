@@ -84,6 +84,7 @@ final class InstallSuitePrompter
                 theme: $suite->theme,
                 demo: $suite->demo,
                 skipped: $suite->skippedRecommended(),
+                suiteKey: $suite->key,
             );
         }
 
@@ -119,6 +120,7 @@ final class InstallSuitePrompter
                 $suite->skippedRecommended(),
                 static fn (InstallSkippedPackageData $skipped): bool => $skipped->reason === InstallSkipReason::NotInPublicChannel,
             )),
+            suiteKey: $suite->key,
         );
     }
 
