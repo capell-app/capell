@@ -6,6 +6,7 @@ use Capell\Core\Enums\InboundWebhookEventStatus;
 use Capell\Core\Jobs\Webhooks\ProcessInboundWebhookEventJob;
 use Capell\Core\Models\InboundWebhookEvent;
 use Capell\Core\Support\Webhooks\HmacTimestampSignature;
+use Capell\Core\Support\Webhooks\InboundWebhookReceiver;
 use Capell\Core\Tests\CoreTestCase;
 use Capell\Core\Tests\Feature\Webhooks\Fixtures\RecordingInboundWebhookHandler;
 use Capell\Core\Tests\Feature\Webhooks\Fixtures\TestInboundWebhookProvider;
@@ -14,6 +15,7 @@ use Illuminate\Console\Scheduling\Event as ScheduleEvent;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
+use Illuminate\Queue\SyncQueue;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -200,4 +202,67 @@ it('schedules the daily prune of finished webhook events', function (): void {
         ->map(fn (ScheduleEvent $event): string => (string) $event->command);
 
     expect($commands->contains(fn (string $command): bool => str_contains($command, 'model:prune') && str_contains($command, 'InboundWebhookEvent')))->toBeTrue();
+});
+
+it('queues a stored event again when a redelivery finds its first queue push failed', function (): void {
+    Queue::extend('capell-failing-webhook-queue', fn (): SyncQueue => new class extends SyncQueue
+    {
+        public function push($job, $data = '', $queue = null): mixed
+        {
+            throw new RuntimeException('Queue unavailable.');
+        }
+    });
+    config()->set('queue.connections.capell-failing-webhook-queue', ['driver' => 'capell-failing-webhook-queue']);
+    config()->set('queue.default', 'capell-failing-webhook-queue');
+
+    $event = ['id' => 'evt_lost_push', 'type' => 'order.paid', 'created' => 1_800_000_000];
+
+    deliverTestWebhook($this, $event)->assertServerError();
+    expect(InboundWebhookEvent::query()->sole()->status)->toBe(InboundWebhookEventStatus::Received)
+        ->and(RecordingInboundWebhookHandler::$handled)->toBe([]);
+
+    config()->set('queue.default', 'sync');
+    deliverTestWebhook($this, $event)->assertOk()->assertExactJson(['ok' => true, 'duplicate' => true]);
+    deliverTestWebhook($this, $event)->assertOk();
+
+    expect(RecordingInboundWebhookHandler::$handled)->toBe([['event' => 'evt_lost_push', 'stale' => false]])
+        ->and(InboundWebhookEvent::query()->sole()->status)->toBe(InboundWebhookEventStatus::Processed);
+});
+
+it('refuses a body over the size limit before verifying or decoding it', function (): void {
+    Queue::fake();
+    $event = ['id' => 'evt_big', 'type' => 'order.paid', 'created' => 1_800_000_000, 'padding' => str_repeat('a', InboundWebhookReceiver::MAX_BODY_BYTES)];
+
+    deliverTestWebhook($this, $event)->assertStatus(413)->assertExactJson(['ok' => false]);
+
+    $small = json_encode(['id' => 'evt_declared', 'type' => 'order.paid', 'created' => 1_800_000_000], JSON_THROW_ON_ERROR);
+    $this->call('POST', '/test-webhooks/provider', server: [
+        'CONTENT_TYPE' => 'application/json',
+        'CONTENT_LENGTH' => (string) (InboundWebhookReceiver::MAX_BODY_BYTES + 1),
+        'HTTP_X_TEST_SIGNATURE' => HmacTimestampSignature::sign($small, TestInboundWebhookProvider::SECRET, Date::now()->getTimestamp()),
+    ], content: $small)->assertStatus(413);
+
+    expect(InboundWebhookEvent::query()->count())->toBe(0);
+});
+
+it('answers a signed event the provider cannot describe with a bare 400, not a server error', function (): void {
+    Queue::fake();
+
+    deliverTestWebhook($this, ['id' => str_repeat('e', 300), 'type' => 'order.paid', 'created' => 1_800_000_000])
+        ->assertStatus(400)
+        ->assertExactJson(['ok' => false]);
+
+    expect(InboundWebhookEvent::query()->count())->toBe(0);
+});
+
+it('says so instead of claiming a replay was queued when a copy is already queued', function (): void {
+    Queue::fake();
+    deliverTestWebhook($this, ['id' => 'evt_locked', 'type' => 'order.paid', 'created' => 1_800_000_000]);
+    $event = InboundWebhookEvent::query()->sole();
+    $event->forceFill(['status' => InboundWebhookEventStatus::Failed])->save();
+
+    expect(Artisan::call('capell:webhooks:replay', ['event' => (string) $event->getKey()]))->toBe(1)
+        ->and(Artisan::output())->toContain(__('capell-core::message.webhook_replay_already_queued'))
+        ->and($event->refresh()->status)->toBe(InboundWebhookEventStatus::Failed);
+    Queue::assertPushed(ProcessInboundWebhookEventJob::class, 1);
 });

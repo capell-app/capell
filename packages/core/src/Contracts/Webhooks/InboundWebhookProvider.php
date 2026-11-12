@@ -7,6 +7,7 @@ namespace Capell\Core\Contracts\Webhooks;
 use Capell\Core\Data\Webhooks\InboundWebhookData;
 use Capell\Core\Exceptions\InboundWebhookRejectedException;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 
 /**
  * One webhook sender, such as a payment or email provider, received through
@@ -31,6 +32,7 @@ interface InboundWebhookProvider
 
     /**
      * @throws InboundWebhookRejectedException when the signature, timestamp or body cannot be trusted
+     * @throws InvalidArgumentException when InboundWebhookData refuses the event's id, type or subject; the receiver answers 400
      */
     public function verify(Request $request): InboundWebhookData;
 

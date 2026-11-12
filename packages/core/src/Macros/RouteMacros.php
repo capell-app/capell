@@ -24,6 +24,11 @@ final class RouteMacros
      * signature replaces it), throttled per client address and provider, and handled by the
      * Core receiver for the given provider.
      *
+     * The throttle keys on the client address, so the application must trust its
+     * load balancer or proxy (Laravel's TrustProxies) for the address to be the
+     * sender's. Behind an untrusted proxy every request shares the proxy's
+     * address, and unsigned junk would use up the provider's own allowance.
+     *
      * Usage: `Route::capellWebhook('webhooks/stripe', StripeWebhookProvider::class)`.
      */
     public function capellWebhook(): Closure

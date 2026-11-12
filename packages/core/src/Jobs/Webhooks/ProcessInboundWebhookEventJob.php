@@ -22,6 +22,12 @@ use Throwable;
  *
  * A failure is recorded with the exception class only (messages can carry
  * payload data) and rethrown so the queue retries with backoff.
+ *
+ * The unique lock lives in the default cache store, which must be shared by
+ * every queue worker (Redis, database or Memcached, not array or file on
+ * separate hosts), as for any ShouldBeUnique job. A row left in Processing by a
+ * worker that died is not skipped: the next retry or replay runs it again, so
+ * handlers must be safe to repeat.
  */
 final class ProcessInboundWebhookEventJob implements ShouldBeUnique, ShouldQueue
 {

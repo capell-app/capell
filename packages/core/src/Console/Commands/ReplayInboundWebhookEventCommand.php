@@ -7,7 +7,9 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Enums\InboundWebhookEventStatus;
 use Capell\Core\Jobs\Webhooks\ProcessInboundWebhookEventJob;
 use Capell\Core\Models\InboundWebhookEvent;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Queues a stored webhook event for its handler again, for example after the
@@ -43,8 +45,21 @@ final class ReplayInboundWebhookEventCommand extends Command
             return self::FAILURE;
         }
 
+        $job = new ProcessInboundWebhookEventJob((int) $event->getKey());
+
+        // The dispatch below drops the job silently while a copy holds its unique
+        // lock, so check first and report what actually happened.
+        $probe = Cache::lock(UniqueLock::getKey($job), 1);
+
+        if (! $probe->get()) {
+            $this->error((string) __('capell-core::message.webhook_replay_already_queued'));
+
+            return self::FAILURE;
+        }
+
+        $probe->release();
         $event->forceFill(['status' => InboundWebhookEventStatus::Received])->save();
-        dispatch(new ProcessInboundWebhookEventJob((int) $event->getKey()));
+        dispatch($job);
 
         $this->info((string) __('capell-core::message.webhook_replay_queued', ['id' => $event->getKey()]));
 

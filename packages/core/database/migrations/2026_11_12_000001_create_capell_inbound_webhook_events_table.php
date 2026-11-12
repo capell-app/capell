@@ -24,13 +24,13 @@ return new class extends Migration
             $table->char('payload_hash', 64);
             $table->string('handler')->nullable();
             $table->unsignedInteger('attempts')->default(0);
-            $table->string('last_error')->nullable();
+            $table->text('last_error')->nullable();
             $table->dateTime('processed_at')->nullable();
             $table->timestamps();
 
             $table->unique(['provider', 'event_id'], TableName::namedIndex('capell_inbound_webhook_events', 'capell_inbound_webhook_events_provider_event_unique'));
             $table->index(['provider', 'subject', 'occurred_at'], TableName::namedIndex('capell_inbound_webhook_events', 'capell_inbound_webhook_events_subject_index'));
-            $table->index(['status', 'created_at'], TableName::namedIndex('capell_inbound_webhook_events', 'capell_inbound_webhook_events_status_index'));
+            $table->index(['status', 'updated_at'], TableName::namedIndex('capell_inbound_webhook_events', 'capell_inbound_webhook_events_status_index'));
         });
     }
 
