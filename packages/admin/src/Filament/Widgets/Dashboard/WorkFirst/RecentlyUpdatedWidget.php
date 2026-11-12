@@ -33,7 +33,7 @@ final class RecentlyUpdatedWidget extends Widget implements CapellFilamentWidget
     {
         // The standard dashboard places this only while a site is being set up;
         // otherwise it belongs to the work-first layout, as before.
-        return self::widgetEnabled('recently_updated', requiresWorkFirst: ! FirstRunChecklistFilamentWidget::isFirstRun());
+        return self::widgetEnabled('recently_updated', requiresWorkFirst: ! FirstRunChecklistFilamentWidget::replacesDashboard());
     }
 
     #[Computed]

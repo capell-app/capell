@@ -4,7 +4,7 @@
 @endphp
 <x-filament-widgets::widget>
     <x-filament::section
-        :heading="__('capell-admin::dashboard.first_run_heading')"
+        :heading="$state->siteName === null ? __('capell-admin::dashboard.first_run_heading') : __('capell-admin::dashboard.first_run_heading_site', ['site' => $state->siteName])"
         :description="__('capell-admin::dashboard.first_run_description', ['done' => $state->completedCount(), 'total' => $state->totalCount()])"
     >
         <ol class="divide-y divide-gray-200 dark:divide-white/10">

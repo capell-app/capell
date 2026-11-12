@@ -272,6 +272,7 @@ return [
     'window_published_rolling' => '{1} Published pages: the last 24 hours up to now (UTC).|[2,*] Published pages: the last :days days up to now (UTC).',
     'window_rolling' => '{1} Figures cover the last 24 hours up to now (UTC).|[2,*] Figures cover the last :days days up to now (UTC).',
     'first_run_heading' => 'Get your site ready',
+    'first_run_heading_site' => 'Get :site ready',
     'first_run_description' => ':done of :total steps done. This list ticks itself as you finish each step and disappears once your homepage is public.',
     'first_run_done' => 'Done',
     'first_run_to_do' => 'To do',

@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\ResolveFirstRunStateAction;
+use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Contracts\Dashboard\FirstRunTaskContributor;
 use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
@@ -13,11 +15,16 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PageViewsWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PopularPagesWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\RecentlyUpdatedWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\RisingPagesWidget;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\ContactFormFirstRunTaskContributor;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\EmptyAnalyticsDataProvider;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\FailingFirstRunTaskContributor;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\RecordedVisitsAnalyticsDataProvider;
 use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -377,4 +384,89 @@ it('leads the work-first dashboard a fresh install gets with the checklist until
 
     expect($this->get(CapellDashboard::getUrl())->assertOk()->getContent())
         ->not->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class));
+});
+
+it('keeps a live install on its normal dashboard when a second site is still being set up', function (): void {
+    $this->actingAsAdmin();
+    $live = Site::factory()->createOne(['name' => 'Main brand']);
+    Page::factory()->home()->site($live)->createOne(['visible_from' => now()->subMonth()]);
+    RecordSitePublishedAction::run($live->id);
+    [$draft] = unpublishedDashboardSite();
+    $draft->forceFill(['name' => 'Client launch'])->saveQuietly();
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
+
+    $state = ResolveFirstRunStateAction::run(auth()->user());
+
+    expect($state->isFirstRun)->toBeTrue()
+        ->and($state->hasLiveSite)->toBeTrue()
+        ->and($state->replacesDashboard())->toBeFalse()
+        // With more than one site the list says which one it is about.
+        ->and($state->siteName)->toBe('Client launch');
+
+    $html = Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertSee(__('capell-admin::dashboard.performance_heading'))
+        ->assertSee(__('capell-admin::dashboard.first_run_heading_site', ['site' => 'Client launch']))
+        ->html();
+
+    expect($html)->toContain(firstRunWidgetMarker(AnalyticsOverviewFilamentWidget::class))
+        ->and($html)->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class))
+        // The list leads the page.
+        ->and((int) strpos($html, firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class)))->toBeLessThan((int) strpos($html, firstRunWidgetMarker(AnalyticsOverviewFilamentWidget::class)));
+});
+
+it('names no site in the checklist heading when the person has only one', function (): void {
+    $this->actingAsAdmin();
+    unpublishedDashboardSite();
+
+    $state = ResolveFirstRunStateAction::run(auth()->user());
+
+    expect($state->siteName)->toBeNull()
+        ->and($state->replacesDashboard())->toBeTrue();
+});
+
+function workFirstFreshInstall(): void
+{
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+}
+
+it('holds the work-first visit panels back while the site is being set up', function (): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    unpublishedDashboardSite();
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
+
+    $html = Livewire::test(CapellDashboard::class)->assertOk()->html();
+
+    expect($html)->toContain(firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class));
+
+    foreach ([PageViewsWidget::class, PopularPagesWidget::class, RisingPagesWidget::class] as $visitPanel) {
+        expect($html)->not->toContain(firstRunWidgetMarker($visitPanel));
+    }
+});
+
+it('shows the work-first visit panels after go-live only once visits are recorded', function (): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+    RecordSitePublishedAction::run($site->id);
+    app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider(DashboardAnalyticsAvailabilityEnum::Available));
+    nextDashboardRequest();
+
+    $html = Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertSee(__('capell-admin::dashboard.analytics_no_visits_yet'))
+        ->html();
+
+    foreach ([PageViewsWidget::class, PopularPagesWidget::class, RisingPagesWidget::class] as $visitPanel) {
+        expect($html)->not->toContain(firstRunWidgetMarker($visitPanel));
+    }
+
+    app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
+    app()->forgetInstance(DashboardAnalyticsDataProvider::class);
+    nextDashboardRequest();
+
+    $html = Livewire::test(CapellDashboard::class)->assertOk()->assertDontSee(__('capell-admin::dashboard.analytics_no_visits_yet'))->html();
+
+    expect($html)->toContain(firstRunWidgetMarker(PageViewsWidget::class));
 });

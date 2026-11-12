@@ -110,7 +110,6 @@ trait HasMigrations
             '2026_05_10_190833_01_add_locale_settings',
             '2026_05_10_190833_02_create_theme_studio_settings',
             '2026_05_23_180001_add_image_source_settings',
-            '2026_11_11_000001_01_create_first_run_settings',
         ];
     }
 }

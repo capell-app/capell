@@ -10,7 +10,6 @@ use Capell\Core\Data\UpgradeContext;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
-use Capell\Core\Settings\FirstRunSettings;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\Upgrade\RecordPublishedSitesUpgradeStep;
@@ -29,8 +28,6 @@ beforeEach(function (): void {
 
 function firstRunMilestones(): SitePublicationMilestones
 {
-    app()->forgetInstance(FirstRunSettings::class);
-
     return resolve(SitePublicationMilestones::class);
 }
 
@@ -54,16 +51,22 @@ it('starts a new install with no site recorded as live', function (): void {
 
 it('records each site once and never moves its first go-live time', function (): void {
     $first = CarbonImmutable::parse('2026-11-02 10:00:00', 'UTC');
+    $one = Site::factory()->createOne(['meta' => ['is_preview' => false]]);
+    $two = Site::factory()->createOne();
+    $three = Site::factory()->createOne();
 
-    expect(RecordSitePublishedAction::run(7, $first))->toBeTrue()
-        ->and(RecordSitePublishedAction::run(7, $first->addWeek()))->toBeFalse()
-        ->and(RecordSitePublishedAction::run(9, $first->addDay()))->toBeTrue()
-        ->and(RecordSitePublishedAction::run(0, $first))->toBeFalse();
+    expect(RecordSitePublishedAction::run($one->id, $first))->toBeTrue()
+        ->and(RecordSitePublishedAction::run($one->id, $first->addWeek()))->toBeFalse()
+        ->and(RecordSitePublishedAction::run($two->id, $first->addDay()))->toBeTrue()
+        ->and(RecordSitePublishedAction::run(0, $first))->toBeFalse()
+        ->and(RecordSitePublishedAction::run(999_999, $first))->toBeFalse();
 
-    expect(firstRunMilestones()->publishedSiteIds())->toBe([7, 9])
-        ->and(firstRunMilestones()->publishedAt(7)?->equalTo($first))->toBeTrue()
-        ->and(firstRunMilestones()->publishedAt(9)?->equalTo($first->addDay()))->toBeTrue()
-        ->and(firstRunMilestones()->hasPublished(8))->toBeFalse();
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([$one->id, $two->id])
+        ->and(firstRunMilestones()->publishedAt($one->id)?->equalTo($first))->toBeTrue()
+        ->and(firstRunMilestones()->publishedAt($two->id)?->equalTo($first->addDay()))->toBeTrue()
+        ->and(firstRunMilestones()->hasPublished($three->id))->toBeFalse()
+        // The milestone sits beside, and does not replace, the site's other meta.
+        ->and($one->fresh()->meta)->toMatchArray(['is_preview' => false]);
 });
 
 it('records only the site whose home page is made public', function (): void {
@@ -131,7 +134,17 @@ it('records sites that were already live when the upgrade runs, and only those',
 
     RecordSitePublishedAction::run($draft->id);
     RecordSitePublishedAction::run($hidden->id);
-    app()->forgetInstance(FirstRunSettings::class);
 
     expect($step->shouldRun($context))->toBeFalse();
+});
+
+it("keeps a site's go-live date in that site's own meta so it leaves with the site", function (): void {
+    $site = Site::factory()->createOne();
+    RecordSitePublishedAction::run($site->id, CarbonImmutable::parse('2026-11-02 10:00:00', 'UTC'));
+
+    expect(data_get($site->fresh()->meta, 'first_run.published_at'))->toBeString();
+
+    $site->delete();
+
+    expect(firstRunMilestones()->publishedSiteIds())->not->toContain($site->id);
 });

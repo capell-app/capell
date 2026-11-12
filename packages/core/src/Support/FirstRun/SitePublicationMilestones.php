@@ -6,17 +6,20 @@ namespace Capell\Core\Support\FirstRun;
 
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
-use Capell\Core\Settings\FirstRunSettings;
+use Capell\Core\Models\Site;
 use Carbon\CarbonImmutable;
-use Spatie\LaravelSettings\Exceptions\MissingSettings;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Which sites have gone live. A site goes live the first time one of its home
- * pages is public; the first time is kept, so unpublishing and republishing
- * never resets it. Reads cost no query beyond the cached settings row.
+ * pages is public; the first time is kept in the site's own meta
+ * (`first_run.published_at`), so unpublishing and republishing never resets it
+ * and deleting a site takes its milestone with it.
  */
 final class SitePublicationMilestones
 {
+    public const string META_KEY = 'first_run.published_at';
+
     /** A home page counts as public once it is published and not hidden from search engines. */
     public static function isPublicHome(Page $home, ?CarbonImmutable $now = null): bool
     {
@@ -33,11 +36,12 @@ final class SitePublicationMilestones
     /** @return list<int> */
     public function publishedSiteIds(): array
     {
-        $settings = $this->settings();
+        $ids = [];
+        foreach (Site::query()->whereNotNull('meta->first_run->published_at')->orderBy('id')->pluck('id') as $id) {
+            $ids[] = (int) $id;
+        }
 
-        return $settings instanceof FirstRunSettings
-            ? array_values(array_map(intval(...), array_keys($settings->published_sites)))
-            : [];
+        return $ids;
     }
 
     public function hasPublished(int $siteId): bool
@@ -47,7 +51,7 @@ final class SitePublicationMilestones
 
     public function publishedAt(int $siteId): ?CarbonImmutable
     {
-        $value = $this->settings()?->published_sites[$siteId] ?? null;
+        $value = data_get(Site::query()->whereKey($siteId)->value('meta'), self::META_KEY);
 
         return is_string($value) ? CarbonImmutable::parse($value) : null;
     }
@@ -55,27 +59,25 @@ final class SitePublicationMilestones
     /** @return bool whether this call recorded the milestone */
     public function record(int $siteId, CarbonImmutable $at): bool
     {
-        $settings = $this->settings();
-        if (! $settings instanceof FirstRunSettings || $siteId <= 0 || array_key_exists($siteId, $settings->published_sites)) {
+        if ($siteId <= 0) {
             return false;
         }
 
-        // Assign by key: spreading an integer-keyed array would renumber the site ids.
-        $sites = $settings->published_sites;
-        $sites[$siteId] = $at->toIso8601String();
-        $settings->published_sites = $sites;
-        $settings->save();
+        // The row is locked while it is read and written, so two requests that
+        // both see a home page go public cannot overwrite each other's meta.
+        return DB::transaction(function () use ($siteId, $at): bool {
+            $site = Site::query()->lockForUpdate()->find($siteId);
+            if (! $site instanceof Site || data_get($site->meta, self::META_KEY) !== null) {
+                return false;
+            }
 
-        return true;
-    }
+            $meta = is_array($site->meta) ? $site->meta : [];
+            data_set($meta, self::META_KEY, $at->toIso8601String());
+            $site->timestamps = false;
+            $site->meta = $meta;
+            $site->saveQuietly();
 
-    private function settings(): ?FirstRunSettings
-    {
-        try {
-            return resolve(FirstRunSettings::class);
-        } catch (MissingSettings) {
-            // The settings migration has not run yet; nothing has been recorded.
-            return null;
-        }
+            return true;
+        });
     }
 }

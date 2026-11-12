@@ -48,6 +48,12 @@ final class FirstRunChecklistFilamentWidget extends Widget implements CapellFila
         return self::canViewCheck() && self::resolveState()->isFirstRun;
     }
 
+    /** Whether the dashboard holds only setup work: no site this person can access is live, whether or not they hid the list. */
+    public static function replacesDashboard(): bool
+    {
+        return self::canViewCheck() && self::resolveState()->replacesDashboard();
+    }
+
     /**
      * Whether the account menu should offer the hidden list again. Runs on every
      * admin page, so it reads only this person's preference and the recorded

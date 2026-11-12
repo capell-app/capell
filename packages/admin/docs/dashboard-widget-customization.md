@@ -33,7 +33,13 @@ search engines. Core records that per site through
 transition makes the home page public, when the dashboard first sees a home page
 that became public another way (a scheduled time passing, a form save or an
 import), and for existing sites through the `core.record-published-sites` upgrade
-step. Unpublishing the home page later does not bring the first-run layout back.
+step. The date is kept in the site's own meta (`first_run.published_at`), so it leaves
+with the site. Unpublishing the home page later does not bring the first-run layout
+back.
+
+The dashboard holds only setup work while no site the person can access is live. Once
+any accessible site is live, a second site still being set up gets the checklist above
+the normal dashboard, with the site named in its heading, instead of replacing it.
 
 After that, the dashboard shows filters, a brief Needs attention summary and site
 performance. `Pulse` metrics precede the `Trends` and `Insights` panels, which sit

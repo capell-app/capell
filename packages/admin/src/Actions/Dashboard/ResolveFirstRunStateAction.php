@@ -59,6 +59,8 @@ final class ResolveFirstRunStateAction
         }
 
         $access = SiteAccess::forActor($actor);
+        $accessibleSiteIds = $access->query(Site::class)->pluck('id')->map(intval(...))->all();
+        $hasLiveSite = array_intersect($accessibleSiteIds, resolve(SitePublicationMilestones::class)->publishedSiteIds()) !== [];
         $siteId = (int) $home->site_id;
         $site = $access->query(Site::class)->whereKey($siteId)->first();
 
@@ -88,7 +90,16 @@ final class ResolveFirstRunStateAction
             true,
             [...$builtIn, ...$contributed, $this->task('publish', false, $homeUrl)],
             $actor instanceof Model && resolve(AdminWorkspacePreferenceStore::class)->firstRunChecklistHidden($actor),
+            $hasLiveSite,
+            count($accessibleSiteIds) > 1 && $site instanceof Site ? $this->siteName($site) : null,
         );
+    }
+
+    private function siteName(Site $site): ?string
+    {
+        $name = $site->name;
+
+        return is_string($name) && trim($name) !== '' ? trim($name) : null;
     }
 
     private function homeOfSiteBeingSetUp(Authenticatable $actor): ?Page

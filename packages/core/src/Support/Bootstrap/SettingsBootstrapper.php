@@ -6,7 +6,6 @@ namespace Capell\Core\Support\Bootstrap;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Settings\CoreSettings;
-use Capell\Core\Settings\FirstRunSettings;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
@@ -40,7 +39,7 @@ final readonly class SettingsBootstrapper
 
         $settings = (array) $this->config->get('settings.settings', []);
 
-        foreach ([CoreSettings::class, ThemeStudioSettings::class, FirstRunSettings::class] as $settingsClass) {
+        foreach ([CoreSettings::class, ThemeStudioSettings::class] as $settingsClass) {
             if (! in_array($settingsClass, $settings, true)) {
                 $settings[] = $settingsClass;
             }
