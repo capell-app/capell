@@ -36,8 +36,9 @@ final class ResolveExtensionProviderAlertsAction
                         severity: 'warning',
                         category: 'provider',
                         title: __('capell-admin::dashboard.extension_provider_failed_title'),
-                        message: $throwable->getMessage(),
+                        message: (string) __('capell-admin::dashboard.extension_provider_failed_message'),
                         requiredAction: (string) __('capell-admin::dashboard.extension_provider_failed_action'),
+                        developerDetail: $throwable->getMessage(),
                     )];
                 }
             })

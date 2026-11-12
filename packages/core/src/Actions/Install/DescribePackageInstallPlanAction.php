@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * Lists what InstallPackageAction would run for a package, in the order it runs it,
  * without running any of it.
  */
-class DescribePackageInstallPlanAction
+final class DescribePackageInstallPlanAction
 {
     use AsFake;
     use AsObject;

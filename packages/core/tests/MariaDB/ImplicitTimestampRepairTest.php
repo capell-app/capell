@@ -246,6 +246,11 @@ it('installs Core with host unsigned integer keys and configured table names on 
             $snapshot = [];
             foreach (Schema::getTables() as $table) {
                 $name = $table['name'];
+                // Without a schema Laravel lists every database on the server, but indexes and keys are read from this one only.
+                if (($table['schema'] ?? $database) !== $database) {
+                    continue;
+                }
+
                 if (in_array($name, ['migrations', 'users'], true)) {
                     continue;
                 }

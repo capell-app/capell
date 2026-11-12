@@ -34,6 +34,7 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
         return $this->columnComparison($table, $column, $connection)->caseInsensitive;
     }
 
+    #[Override]
     public function columnComparison(string $table, string $column, Connection $connection): ColumnComparison
     {
         try {

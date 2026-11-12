@@ -1401,3 +1401,37 @@ it('shows a provider-raised alert in the summary and details, and names the exte
         ->and($widget)->not->toContain('vendor/provider-alert')
         ->and($widget)->not->toContain('update_extension');
 });
+
+it('counts a critical provider alert toward needs-attention and the navigation badge, and keeps the raw failure text for developers', function (): void {
+    test()->actingAsAdmin();
+    registerOperationsSummaryManifest('vendor/provider-critical', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/provider-critical', 'name' => 'Provider Critical', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    registerOperationsSummaryManifest('vendor/provider-throws', ['version' => '1.0.0']);
+    CapellExtension::query()->create(['composer_name' => 'vendor/provider-throws', 'name' => 'Provider Throws', 'version' => '1.0.0', 'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now()]);
+    app()->instance('testing.provider-critical-provider', new class implements ExtensionHealthProvider
+    {
+        public function alerts(ExtensionOperationPackageData $package): array
+        {
+            throw_if($package->packageName === 'vendor/provider-throws', RuntimeException::class, 'secret stack detail 7731');
+
+            return $package->packageName === 'vendor/provider-critical'
+                ? [new ExtensionHealthAlertData(id: 'provider-critical-1', packageName: $package->packageName, severity: 'critical', category: 'provider', title: 'Index is corrupt', message: 'Rebuild the index.', requiredAction: 'review')]
+                : [];
+        }
+    });
+    app()->tag(['testing.provider-critical-provider'], ExtensionHealthProvider::TAG);
+
+    $summary = BuildExtensionOperationsSummaryAction::run();
+    $critical = $summary->package('vendor/provider-critical');
+    $throws = $summary->package('vendor/provider-throws');
+    test()->actingAsUser();
+    $limited = view('capell-admin::filament.pages.extensions.extension-details', ['record' => $throws->toRecord()])->render();
+
+    expect($critical->needsAttention)->toBeTrue()
+        ->and($critical->healthState)->toBe('critical')
+        ->and($critical->attentionReasons)->toContain(ExtensionAttentionReason::CriticalAlert)
+        ->and($summary->needsAttentionCount)->toBeGreaterThanOrEqual(1)
+        ->and(BuildExtensionOperationsSummaryAction::make()->navigationCounts()['unhealthy'])->toBe($summary->needsAttentionCount)
+        ->and($limited)->not->toContain('secret stack detail 7731')
+        ->and($throws->healthAlerts[0]->developerDetail)->toBe('secret stack detail 7731');
+});

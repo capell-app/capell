@@ -19,10 +19,6 @@
             }
         ]
     },
-    "activity_log": {
-        "indexes": [],
-        "foreign_keys": []
-    },
     "activity_visitors": {
         "indexes": [
             "activity_visitors_day_index",
@@ -42,14 +38,6 @@
                 ]
             }
         ]
-    },
-    "admin_transfer_origins": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "admin_upload_grants": {
-        "indexes": [],
-        "foreign_keys": []
     },
     "asset_attachments": {
         "indexes": [
@@ -207,14 +195,6 @@
                 ]
             }
         ]
-    },
-    "cache": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "cache_locks": {
-        "indexes": [],
-        "foreign_keys": []
     },
     "capell_admin_notification_subscriptions": {
         "indexes": [
@@ -490,18 +470,6 @@
             }
         ]
     },
-    "failed_jobs": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "job_batches": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "jobs": {
-        "indexes": [],
-        "foreign_keys": []
-    },
     "languages": {
         "indexes": [
             "languages_code_unique",
@@ -675,42 +643,6 @@
                 ]
             }
         ]
-    },
-    "marketplace_account_connection_sessions": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_install_attempt_events": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_install_attempts": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_install_flow_sessions": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_install_intents": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_instances": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_update_advisory_snapshots": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "marketplace_update_notice_dismissals": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "media": {
-        "indexes": [],
-        "foreign_keys": []
     },
     "metric_collection_runs": {
         "indexes": [
@@ -1125,10 +1057,6 @@
             }
         ]
     },
-    "password_reset_tokens": {
-        "indexes": [],
-        "foreign_keys": []
-    },
     "permissions": {
         "indexes": [
             "permissions_name_guard_name_unique",
@@ -1235,10 +1163,6 @@
             "roles_capell_global_team_unique",
             "roles_team_foreign_key_index"
         ],
-        "foreign_keys": []
-    },
-    "sessions": {
-        "indexes": [],
         "foreign_keys": []
     },
     "settings": {
@@ -1413,14 +1337,6 @@
         ],
         "foreign_keys": []
     },
-    "taggables": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "tags": {
-        "indexes": [],
-        "foreign_keys": []
-    },
     "taxonomies": {
         "indexes": [
             "primary",
@@ -1449,18 +1365,6 @@
                 ]
             }
         ]
-    },
-    "telescope_entries": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "telescope_entries_tags": {
-        "indexes": [],
-        "foreign_keys": []
-    },
-    "telescope_monitoring": {
-        "indexes": [],
-        "foreign_keys": []
     },
     "term_property_values": {
         "indexes": [

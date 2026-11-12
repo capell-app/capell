@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\SchemaDialects;
 
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
-use Capell\Core\Data\Database\ColumnComparison;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseCapability;
@@ -16,11 +15,6 @@ final class PostgresSchemaDialect extends AbstractSchemaDialect implements Datab
     public function isColumnCaseInsensitive(string $table, string $column, Connection $connection): bool
     {
         return false;
-    }
-
-    public function columnComparison(string $table, string $column, Connection $connection): ColumnComparison
-    {
-        return ColumnComparison::exact();
     }
 
     public function supports(DatabaseCapability $capability, ?Connection $connection = null): bool

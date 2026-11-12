@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Database\SchemaDialects;
 
+use Capell\Core\Data\Database\ColumnComparison;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Illuminate\Database\Connection;
 use InvalidArgumentException;
@@ -23,6 +24,12 @@ abstract class AbstractSchemaDialect
             ->contains(static fn (array $foreignKey): bool => $foreignKey['columns'] === [$column]
                 && $foreignKey['foreign_table'] === $foreignTable
                 && in_array($foreignKey['foreign_columns'], [[$foreignColumn], []], true));
+    }
+
+    /** Exact comparison unless a dialect knows the column's collation. */
+    public function columnComparison(string $table, string $column, Connection $connection): ColumnComparison
+    {
+        return ColumnComparison::exact();
     }
 
     protected function physicalTableName(string $table, ?Connection $connection = null): string

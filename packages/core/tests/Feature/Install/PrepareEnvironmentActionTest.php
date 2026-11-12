@@ -85,6 +85,9 @@ it('preserves an existing notification migration without generating a duplicate'
 
 it('does not generate a notification migration when an unconventionally named migration already creates the table', function (): void {
     Schema::dropIfExists('notifications');
+    // Testbench registers its own notifications migration path, which would satisfy the check on its own.
+    $migrator = resolve('migrator');
+    app()->instance('migrator', new Migrator($migrator->getRepository(), resolve(ConnectionResolverInterface::class), resolve(Filesystem::class), resolve(Dispatcher::class)));
     $path = database_path('migrations/2035_01_01_000000_add_notification_storage.php');
     File::put($path, <<<'PHP'
         <?php
