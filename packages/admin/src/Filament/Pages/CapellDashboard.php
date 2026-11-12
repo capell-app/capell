@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
+use Capell\Admin\Actions\Dashboard\RestoreFirstRunChecklistAction;
+use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Data\Dashboard\DashboardFilterStateData;
 use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
 use Capell\Admin\Enums\DashboardDateRangeEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
@@ -36,6 +39,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\TeamActivityWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\UrgentSummaryWidget;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
@@ -65,6 +69,7 @@ use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Filament\Widgets\Widget;
 use Filament\Widgets\WidgetConfiguration;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
@@ -77,6 +82,9 @@ class CapellDashboard extends Dashboard
         mountHasFilters as filtersFormMountHasFilters;
     }
 
+    /** Query flag the Help menu uses to bring back a hidden getting-started list. */
+    public const string SHOW_FIRST_RUN_CHECKLIST_QUERY = 'getting-started';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHome;
 
     protected static bool $shouldRegisterNavigation = true;
@@ -85,6 +93,25 @@ class CapellDashboard extends Dashboard
 
     /** @var list<string>|null */
     private ?array $layoutWidgetKeysCache = null;
+
+    /**
+     * Restoring a hidden checklist comes first and ends in one redirect to the plain
+     * dashboard address; anything else that must redirect on arrival has to follow it
+     * rather than add a second redirect.
+     */
+    public function mount(): void
+    {
+        $actor = auth()->user();
+        if (request()->query(self::SHOW_FIRST_RUN_CHECKLIST_QUERY) === null || ! $actor instanceof Model) {
+            return;
+        }
+
+        RestoreFirstRunChecklistAction::run($actor);
+        resolve(AdminDashboardDataRequestCache::class)->forgetFirstRunState($actor);
+
+        // Drop the flag so a reload or a shared link does not restore the list again.
+        $this->redirect(self::getUrl());
+    }
 
     public function filtersForm(Schema $schema): Schema
     {
@@ -207,20 +234,15 @@ class CapellDashboard extends Dashboard
             return $this->workFirstContent($schema, $widgets);
         }
 
-        $welcome = array_values(array_filter($widgets, $this->isWelcomeWidget(...)));
-        $components = [];
-
-        $welcomeComponents = $this->getWidgetsSchemaComponents($welcome);
-        if ($welcomeComponents !== []) {
-            $components[] = Grid::make(['default' => 1, 'lg' => min(2, count($welcomeComponents))])
-                ->schema($welcomeComponents)
-                ->columnSpanFull();
+        if ($this->isFirstRun()) {
+            return $schema->components($this->firstRunRegions($widgets));
         }
 
-        $checklist = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === FirstRunChecklistFilamentWidget::class));
-        $checklistComponents = $this->getWidgetsSchemaComponents($checklist);
-        if ($checklistComponents !== []) {
-            $components[] = Grid::make(1)->schema($checklistComponents)->columnSpanFull();
+        $components = [];
+        // A person with a live site and a second site still being set up keeps the full dashboard, led by the list.
+        $checklist = $this->getWidgetsSchemaComponents(in_array(FirstRunChecklistFilamentWidget::class, array_map($this->normalizeWidgetClass(...), $widgets), true) ? [FirstRunChecklistFilamentWidget::class] : []);
+        if ($checklist !== []) {
+            $components[] = Grid::make(1)->schema($checklist)->columnSpanFull();
         }
 
         $components[] = $this->getFiltersFormContentComponent();
@@ -240,7 +262,7 @@ class CapellDashboard extends Dashboard
         $widgets = array_values(array_filter($this->getWidgets(), fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget)::canView()
             && ! $this->isWelcomeWidget($widget)
             && ! in_array($this->normalizeWidgetClass($widget), [NeedsAttentionFilamentWidget::class, FirstRunChecklistFilamentWidget::class], true)
-            && (! $this->isFirstRun() || ! $this->isAnalyticsWidget($widget))));
+            && (! $this->isAnalyticsWidget($widget) || (! $this->isFirstRun() && $this->analyticsReportsData()))));
         $regions = [];
 
         foreach ([DashboardRegionEnum::Pulse, DashboardRegionEnum::Trends, DashboardRegionEnum::Insights] as $region) {
@@ -261,6 +283,13 @@ class CapellDashboard extends Dashboard
                 ->schema(array_map(fn (Component|Action|ActionGroup $component): Grid => Grid::make(1)
                     ->schema([$component])->columnSpan(1), $this->getWidgetsSchemaComponents($lead)))
                 ->columnSpanFull();
+        }
+
+        $analyticsNotice = $performance === [] && ! $this->isFirstRun() && $this->hasViewableAnalyticsWidget()
+            ? $this->analyticsNotice()
+            : null;
+        if ($analyticsNotice !== null) {
+            $performance[] = Text::make($analyticsNotice);
         }
 
         if ($performance !== []) {
@@ -349,16 +378,99 @@ class CapellDashboard extends Dashboard
             return CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::NotInstalled);
         }
 
-        return $this->configuredDashboardFilamentWidgets(array_values(array_unique([
+        // The account and framework cards repeat the user menu and add nothing for editors.
+        return array_values(array_filter($this->configuredDashboardFilamentWidgets(array_values(array_unique([
             ...($this->workFirstEnabled() ? [...$this->defaultWorkFirstWidgets(), ContentStatusWidget::class, RecentlyUpdatedWidget::class] : []),
+            // While a site is being set up the standard dashboard leads with recent updates too.
+            ...(! $this->workFirstEnabled() && $this->isFirstRun() ? [RecentlyUpdatedWidget::class] : []),
             ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main),
             ...($this->workFirstEnabled() ? [] : CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::MarketingStudio)),
-        ], SORT_REGULAR)));
+        ], SORT_REGULAR))), fn (string|WidgetConfiguration $widget): bool => ! $this->isWelcomeWidget($widget)));
     }
 
     protected function isFirstRun(): bool
     {
-        return FirstRunChecklistFilamentWidget::canView();
+        return $this->dashboardEnum() === DashboardEnum::Main && FirstRunChecklistFilamentWidget::replacesDashboard();
+    }
+
+    /**
+     * Until the site is public the dashboard holds only work: the getting-started
+     * list, recently updated pages and what needs attention. Analytics and
+     * package panels wait until there can be something to show.
+     *
+     * @param  array<class-string<Widget>|WidgetConfiguration>  $widgets
+     * @return list<Component>
+     */
+    protected function firstRunRegions(array $widgets): array
+    {
+        $present = array_map($this->normalizeWidgetClass(...), $widgets);
+        $regions = [];
+
+        $pulse = $this->getWidgetsSchemaComponents(in_array(FirstRunChecklistFilamentWidget::class, $present, true) ? [FirstRunChecklistFilamentWidget::class] : []);
+        if ($pulse !== []) {
+            $regions[] = Grid::make(1)->schema($pulse)->columnSpanFull();
+        }
+
+        $work = [
+            ...$this->getWidgetsSchemaComponents(in_array(RecentlyUpdatedWidget::class, $present, true) ? [RecentlyUpdatedWidget::class] : [], ['dashboardSize' => 'wide']),
+            ...$this->getWidgetsSchemaComponents(in_array(NeedsAttentionFilamentWidget::class, $present, true) ? [NeedsAttentionFilamentWidget::class] : []),
+        ];
+        if ($work !== []) {
+            $regions[] = Grid::make($this->getColumns())->schema($work)->columnSpanFull();
+        }
+
+        if ($regions === []) {
+            $regions[] = Section::make(__('capell-admin::dashboard.empty_heading'))
+                ->schema([Text::make(__('capell-admin::dashboard.empty_description'))])
+                ->columnSpanFull();
+        }
+
+        return $regions;
+    }
+
+    /**
+     * Visit panels appear only once the analytics source has recorded something,
+     * so a new site shows one plain sentence instead of empty charts.
+     */
+    protected function analyticsReportsData(): bool
+    {
+        return $this->analyticsSnapshot()?->hasRecordedVisits() ?? false;
+    }
+
+    /**
+     * The one sentence shown in place of hidden visit panels: why there is
+     * nothing to show for the selected period, without implying zero visits
+     * when the source could not report.
+     */
+    protected function analyticsNotice(): ?string
+    {
+        return match ($this->analyticsSnapshot()?->availability) {
+            DashboardAnalyticsAvailabilityEnum::Available => (string) __('capell-admin::dashboard.analytics_no_visits_yet'),
+            DashboardAnalyticsAvailabilityEnum::Unavailable => (string) __('capell-admin::dashboard.analytics_unavailable_description'),
+            DashboardAnalyticsAvailabilityEnum::NotConfigured => (string) __('capell-admin::dashboard.analytics_not_configured_description'),
+            null => null,
+        };
+    }
+
+    /** The snapshot for the period, site and language the dashboard filters select. */
+    protected function analyticsSnapshot(): ?DashboardAnalyticsSnapshotData
+    {
+        $actor = auth()->user();
+        if (! $actor instanceof Authenticatable) {
+            return null;
+        }
+
+        $filters = DashboardFilterStateData::fromFilters(is_array($this->filters) ? $this->filters : []);
+
+        return resolve(AdminDashboardDataRequestCache::class)
+            ->analyticsSnapshot($actor, $filters->period->value, $filters->siteId, $filters->language);
+    }
+
+    protected function hasViewableAnalyticsWidget(): bool
+    {
+        return array_any($this->getWidgets(), fn (string|WidgetConfiguration $widget): bool => $this->isAnalyticsWidget($widget)
+            && $this->normalizeWidgetClass($widget) !== AnalyticsRecentActivityFilamentWidget::class
+            && $this->normalizeWidgetClass($widget)::canView());
     }
 
     /** @param class-string<Widget>|WidgetConfiguration $widget */
@@ -369,6 +481,16 @@ class CapellDashboard extends Dashboard
             AnalyticsTrendFilamentWidget::class,
             AnalyticsInsightsFilamentWidget::class,
             AnalyticsRecentActivityFilamentWidget::class,
+        ], true);
+    }
+
+    /** @param class-string<Widget>|WidgetConfiguration $widget */
+    protected function isWorkFirstAnalyticsWidget(string|WidgetConfiguration $widget): bool
+    {
+        return in_array($this->normalizeWidgetClass($widget), [
+            PageViewsWidget::class,
+            PopularPagesWidget::class,
+            RisingPagesWidget::class,
         ], true);
     }
 
@@ -433,9 +555,23 @@ class CapellDashboard extends Dashboard
             $ordered = array_column($indexed, 'widget');
         }
 
+        // The checklist always leads during first run, so it never also sits in the personal layout.
+        $ordered = array_values(array_filter($ordered, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) !== FirstRunChecklistFilamentWidget::class));
+        $checklist = $this->getWidgetsSchemaComponents([FirstRunChecklistFilamentWidget::class]);
+
+        // Visit panels wait until the source has counted something; one sentence says why.
+        $analyticsNotice = null;
+        if (array_any($ordered, $this->isWorkFirstAnalyticsWidget(...))
+            && ($this->isFirstRun() || ! $this->analyticsReportsData())) {
+            $ordered = array_values(array_filter($ordered, fn (string|WidgetConfiguration $widget): bool => ! $this->isWorkFirstAnalyticsWidget($widget)));
+            $analyticsNotice = $this->isFirstRun() ? null : $this->analyticsNotice();
+        }
+
         return $schema->components([
+            ...($checklist === [] ? [] : [Grid::make(1)->schema($checklist)->columnSpanFull()]),
             $this->getFiltersFormContentComponent(),
             Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($ordered))->columnSpanFull(),
+            ...($analyticsNotice === null ? [] : [Text::make($analyticsNotice)->columnSpanFull()]),
         ]);
     }
 
