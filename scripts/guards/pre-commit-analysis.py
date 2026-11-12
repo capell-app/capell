@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -75,12 +76,62 @@ def analyse_group(root, files, configuration):
         ) from error
 
 
+def export_vendor(source, target):
+    """Link installed packages but copy Composer's autoload files.
+
+    Composer derives its base directory from the real location of vendor/composer,
+    so a vendor symlink makes every autoloaded class resolve to the working tree,
+    which then diverges from HEAD (for example a provider calling a method that
+    only exists in the staged change). Copying vendor/autoload.php and
+    vendor/composer, and linking everything else, anchors the autoload to the export.
+    """
+    target.mkdir()
+    for child in source.iterdir():
+        destination = target / child.name
+        if child.name == "composer" and child.is_dir():
+            destination.mkdir()
+            for entry in child.iterdir():
+                if entry.is_file() and not entry.is_symlink():
+                    (destination / entry.name).write_bytes(entry.read_bytes())
+                else:
+                    (destination / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+        elif child.name == "autoload.php" and child.is_file() and not child.is_symlink():
+            destination.write_bytes(child.read_bytes())
+        elif child.name == "phpstan" and child.is_dir():
+            # PHPStan locates the project autoloader relative to its own phar, so the
+            # phar must sit inside the export or it would load the working tree's.
+            destination.mkdir()
+            for package in child.iterdir():
+                if package.name == "phpstan":
+                    export_phpstan_package(package, destination / package.name)
+                else:
+                    (destination / package.name).symlink_to(package, target_is_directory=package.is_dir())
+        else:
+            destination.symlink_to(child, target_is_directory=child.is_dir())
+
+
+def export_phpstan_package(source, target):
+    target.mkdir()
+    for entry in source.iterdir():
+        destination = target / entry.name
+        if entry.name in ("phpstan", "phpstan.phar", "bootstrap.php") and entry.is_file():
+            try:
+                os.link(entry, destination)  # the phar is ~30 MB; avoid copying it on every commit
+            except OSError:
+                shutil.copyfile(entry, destination)
+                shutil.copymode(entry, destination)
+        else:
+            destination.symlink_to(entry, target_is_directory=entry.is_dir())
+
+
 def export_head(root, destination, files, head):
-    """Copy HEAD inputs; link unchanged context/config/vendor without copying dependencies.
+    """Copy HEAD inputs; link unchanged context/config without copying dependencies.
 
     Mirror ancestor directories so replacing a file never writes through a symlink.
     Keep config paths relative to the export, including existing ignore paths.
     Copy Core configuration so relative baseline paths resolve inside the export.
+    Give the export its own Composer autoload (see export_vendor) so classes resolve
+    to the export, never through a vendor symlink to the working tree.
     """
     copies = {Path(file) for file in files}
 
@@ -95,6 +146,8 @@ def export_head(root, destination, files, head):
             target.mkdir()
             for child in source.iterdir():
                 mirror(child.relative_to(root))
+        elif relative == Path("vendor") and source.is_dir():
+            export_vendor(source, target)
         elif relative != Path("var"):
             target.symlink_to(source, target_is_directory=source.is_dir())
 
