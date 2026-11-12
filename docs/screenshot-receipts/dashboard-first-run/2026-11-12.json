@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 4,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "admin-dashboard-first-run",
+      "required": false,
+      "output": "/Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "admin-dashboard-first-run-dark",
+      "required": false,
+      "output": "/Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run-dark.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "admin-dashboard-first-run-mobile",
+      "required": false,
+      "output": "/Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "admin-dashboard-first-run-mobile-dark",
+      "required": false,
+      "output": "/Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile-dark.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-11-12T10:44:41.199Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "05503f62ec741226984de302f1e13b6204df8886",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "ae87fbadf140cb6cb80dce47ff8f550f02d4608d",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "95ed15b2213a357d32f16a4a506a9eaf5b0ebbd6cba3e17595242cdd9e8ad61d"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "fae774038d2e31e0de6e52ae05b41a7601deea737925ea4ead258d22a4313d67"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "admin",
+        "id": "admin-dashboard-first-run",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/admin-dashboard-first-run.png",
+          "sha256": "f9db796c467c1fbdc70d65fb5c656c42ad7bd961881834309c40f2157966abb0"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "ae87fbadf140cb6cb80dce47ff8f550f02d4608d"
+        },
+        "capture": {
+          "scenario": "admin-dashboard",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "admin",
+        "id": "admin-dashboard-first-run-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/admin-dashboard-first-run-dark.png",
+          "sha256": "13035291a62bfa6041708f3a4deab1ad5d4d1c16677ba915583cbe3c33d41e9b"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "ae87fbadf140cb6cb80dce47ff8f550f02d4608d"
+        },
+        "capture": {
+          "scenario": "admin-dashboard",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "admin",
+        "id": "admin-dashboard-first-run-mobile",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile.png",
+          "sha256": "8ab92597d782867f8d0bde7ee83fb7729e2353b0272799bc1c09723403f79bc4"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "ae87fbadf140cb6cb80dce47ff8f550f02d4608d"
+        },
+        "capture": {
+          "scenario": "admin-dashboard",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "admin",
+        "id": "admin-dashboard-first-run-mobile-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile-dark.png",
+          "sha256": "6a0902567b8209107286c24cb12640f838fb7f0e902b0aae3f2e460ab813618a"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "ae87fbadf140cb6cb80dce47ff8f550f02d4608d"
+        },
+        "capture": {
+          "scenario": "admin-dashboard",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/",
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 4\nSkipped: 0\nFailed: 0\n- captured admin:admin-dashboard-first-run -> /Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run.png\n- captured admin:admin-dashboard-first-run-dark -> /Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run-dark.png\n- captured admin:admin-dashboard-first-run-mobile -> /Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile.png\n- captured admin:admin-dashboard-first-run-mobile-dark -> /Users/ben/Sites/.capell-wt/core-2320/packages/admin/docs/images/screenshots/admin-dashboard-first-run-mobile-dark.png"
+}

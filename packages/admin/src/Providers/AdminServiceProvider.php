@@ -1014,18 +1014,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         // After every provider has merged its configuration, before Peek loads its preview route.
         $this->app->booting(static function (): void {
-            $middleware = config('filament-peek.internalPreviewUrl.middleware', ['web']);
-            $middleware = is_string($middleware) ? [$middleware] : (is_array($middleware) ? array_values($middleware) : []);
-
-            if (! in_array('web', $middleware, true)) {
-                array_unshift($middleware, 'web');
-            }
-
-            if (! in_array(AuthorisePeekPreview::class, $middleware, true)) {
-                $middleware[] = AuthorisePeekPreview::class;
-            }
-
-            config()->set('filament-peek.internalPreviewUrl.middleware', $middleware);
+            config()->set(
+                'filament-peek.internalPreviewUrl.middleware',
+                AuthorisePeekPreview::around(config('filament-peek.internalPreviewUrl.middleware', ['web'])),
+            );
         });
     }
 
