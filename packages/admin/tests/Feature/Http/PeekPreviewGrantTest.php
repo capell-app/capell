@@ -8,6 +8,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Auth\Factory;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Pboivin\FilamentPeek\CachedPreview;
@@ -116,3 +117,27 @@ it('runs the preview route through the session and its grant check', function ()
     expect($middleware)->toContain('web')
         ->toContain(AuthorisePeekPreview::class);
 });
+
+it('refuses a grant whose expiry has passed even while its cache entry lives on', function (): void {
+    $owner = test()->createUserWithRole('super_admin');
+    $token = issuePeekPreview($owner);
+    $key = 'capell-admin:peek-preview-grant:' . hash('sha256', $token);
+    $grant = Cache::store(CachedPreview::$cacheStore)->get($key);
+    expect($grant)->toBeArray();
+
+    // A cache store that keeps entries past their TTL must not extend the grant.
+    Cache::store(CachedPreview::$cacheStore)->put($key, [...$grant, 'expires_at' => now()->subSecond()->getTimestamp()], 3600);
+    CachedPreview::make('PreviewedPage', 'preview', ['title' => 'Stale draft'])->put($token, 3600);
+
+    test()->actingAs($owner)->getJson(route('filament-peek.preview', ['token' => $token]))->assertNotFound();
+});
+
+it('always runs the preview route through the session and the grant check', function (mixed $configured, array $expected): void {
+    expect(AuthorisePeekPreview::around($configured))->toBe($expected);
+})->with([
+    'nothing configured' => [[], ['web', AuthorisePeekPreview::class]],
+    'a bare string' => ['auth', ['web', 'auth', AuthorisePeekPreview::class]],
+    'a list without web' => [['auth'], ['web', 'auth', AuthorisePeekPreview::class]],
+    'already complete' => [['web', AuthorisePeekPreview::class], ['web', AuthorisePeekPreview::class]],
+    'not a list' => [42, ['web', AuthorisePeekPreview::class]],
+]);

@@ -19,6 +19,27 @@ final readonly class AuthorisePeekPreview
     public function __construct(private PeekPreviewGrants $grants) {}
 
     /**
+     * The preview route's middleware with the session and this grant check always present, whatever the
+     * host configured.
+     *
+     * @return list<mixed>
+     */
+    public static function around(mixed $configured): array
+    {
+        $middleware = is_string($configured) ? [$configured] : (is_array($configured) ? array_values($configured) : []);
+
+        if (! in_array('web', $middleware, true)) {
+            array_unshift($middleware, 'web');
+        }
+
+        if (! in_array(self::class, $middleware, true)) {
+            $middleware[] = self::class;
+        }
+
+        return $middleware;
+    }
+
+    /**
      * @param  Closure(Request): Response  $next
      */
     public function handle(Request $request, Closure $next): Response
