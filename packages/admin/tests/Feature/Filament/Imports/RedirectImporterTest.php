@@ -106,10 +106,7 @@ it('rejects redirect imports for sites the actor is not assigned to', function (
     expect(function () use ($site, $language): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $language->getKey());
     })
-        ->toThrow(function (Throwable $exception): void {
-            throw_unless($exception instanceof ValidationException, $exception);
-            expect($exception->errors())->toHaveKey('site_id')->not->toHaveKey('import');
-        });
+        ->toThrow(ValidationException::class, __('capell-admin::message.redirect_import_invalid_site'));
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });
@@ -124,10 +121,7 @@ it('rejects redirect imports when the language is not attached to the selected s
     expect(function () use ($site, $otherLanguage): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $otherLanguage->getKey());
     })
-        ->toThrow(function (Throwable $exception): void {
-            throw_unless($exception instanceof ValidationException, $exception);
-            expect($exception->errors())->toHaveKey('language_id')->not->toHaveKey('import');
-        });
+        ->toThrow(ValidationException::class, __('capell-admin::message.redirect_import_invalid_language'));
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });
@@ -141,10 +135,7 @@ it('rejects redirect imports with unsafe targets', function (): void {
     expect(function () use ($site, $language): void {
         runRedirectImporterForRedirectImporterTest($site->getKey(), $language->getKey(), 'javascript:alert(1)');
     })
-        ->toThrow(function (Throwable $exception): void {
-            throw_unless($exception instanceof ValidationException, $exception);
-            expect($exception->errors())->toHaveKey('target_url')->not->toHaveKey('import');
-        });
+        ->toThrow(ValidationException::class, __('capell-core::message.redirect_target_invalid'));
 
     expect(PageUrl::query()->where('url', '/old-url')->exists())->toBeFalse();
 });
