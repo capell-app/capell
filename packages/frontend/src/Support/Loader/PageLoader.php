@@ -104,7 +104,9 @@ class PageLoader
 
                 $candidates = $model::query()
                     ->with([
-                        'layout',
+                        // Several candidates load as one collection, which arms lazy-loading
+                        // prevention on their relations; the theme resolver reads the layout's theme.
+                        'layout.theme',
                         'pageUrls.siteDomain',
                         'pageUrls.language',
                         // Paired with pageUrls for the head's hreflang cluster; public Blade only

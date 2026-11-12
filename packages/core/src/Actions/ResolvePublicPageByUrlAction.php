@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Actions\Translations\ResolveLanguageFallbackChainAction;
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Contracts\Pageable;
@@ -52,7 +53,7 @@ class ResolvePublicPageByUrlAction
             return $this->missing($site, $language);
         }
 
-        $page = $this->resolvePage($pageUrl, $site, $revisionPageId);
+        $page = $this->resolvePage($pageUrl, $site, $language, $revisionPageId);
 
         if (! $page instanceof Pageable) {
             // The URL matched a PageUrl row but the page itself was filtered out by
@@ -173,6 +174,7 @@ class ResolvePublicPageByUrlAction
     private function resolvePage(
         PageUrl $pageUrl,
         Site $site,
+        Language $language,
         ?int $revisionPageId,
     ): ?Pageable {
         $pageableId = $revisionPageId ?? $pageUrl->pageable_id;
@@ -196,18 +198,22 @@ class ResolvePublicPageByUrlAction
             ->whereKey($pageableId)
             ->with([
                 'layout',
-                'pageUrls.language',
+                'pageUrls',
                 'blueprint',
                 // Every translation row travels with the page: the head's hreflang cluster
                 // pairs page URLs with real translations, and ResolveTranslationAction picks
                 // the requested or fallback translation from this set without a query.
-                'translations.language',
+                'translations',
             ])
             ->first();
 
         if (! $model instanceof Pageable) {
             return null;
         }
+
+        // Each URL and translation carries its language, reusing the request language
+        // and reading any other languages once (not once per relation).
+        HydratePageLanguagesAction::run($model, [$language]);
 
         $this->setResolvedUrlRelations($model, $pageUrl, $site);
 

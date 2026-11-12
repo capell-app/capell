@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Actions\Translations\ResolveTranslationAction;
 use Capell\Core\Concerns\HasCache;
 use Capell\Core\Contracts\Pageable;
@@ -61,7 +62,9 @@ final class PageModelCache
                 $loaded = $query->with($this->canonicalRelations($modelClass, $language->id))->first();
 
                 if ($loaded instanceof Pageable && $loaded instanceof Model) {
-                    $this->hydrateLanguages($loaded);
+                    // One read at most for the URL and translation languages; the request
+                    // language is reused, so a single-language page costs none.
+                    HydratePageLanguagesAction::run($loaded, [$language]);
                 }
 
                 return $loaded;
@@ -229,36 +232,6 @@ final class PageModelCache
         }
 
         return $relations;
-    }
-
-    /**
-     * Attach each URL's and translation's language from one query. Eager-loading
-     * `pageUrls.language` and `translations.language` separately costs one query each
-     * per cold page, for the same few language rows.
-     *
-     * @param  Model&Pageable<Model>  $model
-     */
-    private function hydrateLanguages(Pageable&Model $model): void
-    {
-        $rows = collect();
-
-        foreach (['pageUrls', 'translations'] as $relation) {
-            if ($model->relationLoaded($relation)) {
-                $rows = $rows->concat($model->getRelation($relation));
-            }
-        }
-
-        $ids = $rows->pluck('language_id')->filter()->unique()->values();
-
-        if ($ids->isEmpty()) {
-            return;
-        }
-
-        $languages = Language::query()->whereKey($ids->all())->get()->keyBy(fn (Language $language): int => (int) $language->getKey());
-
-        $rows->each(function (Model $row) use ($languages): void {
-            $row->setRelation('language', $languages->get((int) $row->getAttribute('language_id')));
-        });
     }
 
     /**
