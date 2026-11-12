@@ -156,6 +156,14 @@ final class BuildExtensionOperationsSummaryAction
             $packages->put($extension->composer_name, $this->driftedPackageSummary($extension));
         }
 
+        $packages = $packages->map(function (ExtensionOperationPackageData $package): ExtensionOperationPackageData {
+            $providerAlerts = ResolveExtensionProviderAlertsAction::run($package);
+
+            return $providerAlerts === []
+                ? $package
+                : $package->withHealthAlerts([...$package->healthAlerts, ...$providerAlerts]);
+        });
+
         $alertRecords = array_values($packages
             ->flatMap(fn (ExtensionOperationPackageData $package): array => $package->healthAlerts)
             ->values()

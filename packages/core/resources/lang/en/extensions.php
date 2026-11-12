@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'install_plan' => [
+        'bundle_members' => 'Installs the bundle members first: :members',
+        'schema_migrations' => 'Publishes and runs the extension database migrations.',
+        'settings_migrations' => 'Publishes and runs the extension settings migrations.',
+        'install_command' => 'Runs the install command :command.',
+        'install_action' => 'Runs the install Action :action.',
+        'nothing_declared' => 'Declares no migrations and no install command or Action.',
+    ],
     'quarantine' => [
         'unavailable' => 'Quarantine state unavailable. Restore access to the quarantine store before enabling extensions.',
         'doctor' => ':package is quarantined after :failing failed verification; quarantined with it: :set',

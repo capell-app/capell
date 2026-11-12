@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Extensions;
 
 use Capell\Admin\Actions\Extensions\BuildExtensionDiagnosticsAction;
+use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Extensions\ExtensionHealthAlertData;
+use Capell\Admin\Data\Extensions\ExtensionOperationPackageData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
@@ -45,6 +47,18 @@ class ExtensionHealthFilamentWidget extends Widget implements CapellFilamentWidg
             ->take(5)
             ->values()
             ->all());
+    }
+
+    /**
+     * The extension's display name, so an alert whose title does not name it still says which extension it is about.
+     * The Composer package name is for developers and is never used here.
+     */
+    public function extensionLabel(ExtensionHealthAlertData $alert): ?string
+    {
+        $package = BuildExtensionOperationsSummaryAction::run()->package($alert->packageName);
+        $label = $package instanceof ExtensionOperationPackageData ? trim($package->label) : '';
+
+        return $label === '' ? null : $label;
     }
 
     private static function hasCriticalOrWarningAlerts(): bool

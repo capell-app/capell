@@ -189,3 +189,39 @@ it('does not re-run installed requirements when reinstalling a selected installe
 
     expect($calls)->toBe(['installed-extension']);
 });
+
+it('lists the install command and declared parameters in the dry run without running them', function (): void {
+    $ran = false;
+
+    Artisan::command('test:dry-run-install {--url=}', function () use (&$ran): int {
+        $ran = true;
+
+        return 0;
+    });
+
+    CapellCore::registerPackage('vendor/dry-run-extension');
+    CapellCore::getPackage('vendor/dry-run-extension')->installCommand = 'test:dry-run-install';
+    CapellCore::getPackage('vendor/dry-run-extension')->installParams = ['url'];
+
+    artisanCommand('capell:extension-install', [
+        'extension' => 'vendor/dry-run-extension',
+        '--url' => 'https://capell.test',
+        '--dry-run' => true,
+    ])
+        ->expectsOutput('Would install vendor/dry-run-extension with {"--url":"https:\/\/capell.test"}')
+        ->expectsOutputToContain('Runs the install command test:dry-run-install.')
+        ->assertSuccessful();
+
+    expect($ran)->toBeFalse();
+});
+
+it('says plainly when a dry run extension declares nothing to run', function (): void {
+    CapellCore::registerPackage('vendor/empty-extension');
+
+    artisanCommand('capell:extension-install', [
+        'extension' => 'vendor/empty-extension',
+        '--dry-run' => true,
+    ])
+        ->expectsOutputToContain('Declares no migrations and no install command or Action.')
+        ->assertSuccessful();
+});

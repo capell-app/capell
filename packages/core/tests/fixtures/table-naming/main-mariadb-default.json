@@ -9,11 +9,19 @@
         "foreign_keys": [
             {
                 "name": "activity_buckets_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
+    },
+    "activity_log": {
+        "indexes": [],
+        "foreign_keys": []
     },
     "activity_visitors": {
         "indexes": [
@@ -25,11 +33,23 @@
         "foreign_keys": [
             {
                 "name": "activity_visitors_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
+    },
+    "admin_transfer_origins": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "admin_upload_grants": {
+        "indexes": [],
+        "foreign_keys": []
     },
     "asset_attachments": {
         "indexes": [
@@ -45,21 +65,33 @@
         "foreign_keys": [
             {
                 "name": "asset_attachments_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "asset_attachments_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "asset_attachments_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -80,15 +112,23 @@
         "foreign_keys": [
             {
                 "name": "blueprint_property_sets_blueprint_id_foreign",
-                "columns": ["blueprint_id"],
+                "columns": [
+                    "blueprint_id"
+                ],
                 "foreign_table": "blueprints",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "blueprint_property_sets_property_set_id_foreign",
-                "columns": ["property_set_id"],
+                "columns": [
+                    "property_set_id"
+                ],
                 "foreign_table": "property_sets",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -102,15 +142,23 @@
         "foreign_keys": [
             {
                 "name": "blueprint_schema_snapshots_actor_id_foreign",
-                "columns": ["actor_id"],
+                "columns": [
+                    "actor_id"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "blueprint_schema_snapshots_blueprint_id_foreign",
-                "columns": ["blueprint_id"],
+                "columns": [
+                    "blueprint_id"
+                ],
                 "foreign_table": "blueprints",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -130,23 +178,43 @@
         "foreign_keys": [
             {
                 "name": "blueprints_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "blueprints_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "blueprints_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
+    },
+    "cache": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "cache_locks": {
+        "indexes": [],
+        "foreign_keys": []
     },
     "capell_admin_notification_subscriptions": {
         "indexes": [
@@ -175,6 +243,13 @@
         ],
         "foreign_keys": []
     },
+    "capell_extension_quarantines": {
+        "indexes": [
+            "capell_extension_quarantines_composer_name_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_extensions": {
         "indexes": [
             "capell_extensions_auto_update_policy_index",
@@ -187,7 +262,10 @@
         "foreign_keys": []
     },
     "capell_marketplace_installs": {
-        "indexes": ["capell_marketplace_installs_install_id_unique", "primary"],
+        "indexes": [
+            "capell_marketplace_installs_install_id_unique",
+            "primary"
+        ],
         "foreign_keys": []
     },
     "capell_public_render_contract_events": {
@@ -217,6 +295,47 @@
         ],
         "foreign_keys": []
     },
+    "capell_security_remediation_approvals": {
+        "indexes": [
+            "capell_security_remediation_approvals_weakness_id_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_security_remediation_runs": {
+        "indexes": [
+            "capell_security_remediation_runs_finding_id_foreign",
+            "capell_security_remediation_runs_weakness_id_index",
+            "primary"
+        ],
+        "foreign_keys": [
+            {
+                "name": "capell_security_remediation_runs_finding_id_foreign",
+                "columns": [
+                    "finding_id"
+                ],
+                "foreign_table": "capell_security_weakness_findings",
+                "foreign_columns": [
+                    "id"
+                ]
+            }
+        ]
+    },
+    "capell_security_scan_runs": {
+        "indexes": [
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_security_weakness_findings": {
+        "indexes": [
+            "capell_security_weakness_findings_fingerprint_unique",
+            "capell_security_weakness_findings_status_severity_index",
+            "capell_security_weakness_findings_weakness_id_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_upgrade_locks": {
         "indexes": [
             "capell_upgrade_locks_expires_at_index",
@@ -242,9 +361,13 @@
         "foreign_keys": [
             {
                 "name": "capell_upgrade_run_events_upgrade_run_id_foreign",
-                "columns": ["upgrade_run_id"],
+                "columns": [
+                    "upgrade_run_id"
+                ],
                 "foreign_table": "capell_upgrade_runs",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -270,15 +393,23 @@
         "foreign_keys": [
             {
                 "name": "content_graph_edges_language_id_foreign",
-                "columns": ["language_id"],
+                "columns": [
+                    "language_id"
+                ],
                 "foreign_table": "languages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "content_graph_edges_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -292,9 +423,13 @@
         "foreign_keys": [
             {
                 "name": "content_locks_user_id_foreign",
-                "columns": ["user_id"],
+                "columns": [
+                    "user_id"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -307,9 +442,13 @@
         "foreign_keys": [
             {
                 "name": "deletion_batch_records_deletion_batch_id_foreign",
-                "columns": ["deletion_batch_id"],
+                "columns": [
+                    "deletion_batch_id"
+                ],
                 "foreign_table": "deletion_batches",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -331,17 +470,37 @@
         "foreign_keys": [
             {
                 "name": "editor_scratch_drafts_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "editor_scratch_drafts_user_id_foreign",
-                "columns": ["user_id"],
+                "columns": [
+                    "user_id"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
+    },
+    "failed_jobs": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "job_batches": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "jobs": {
+        "indexes": [],
+        "foreign_keys": []
     },
     "languages": {
         "indexes": [
@@ -359,27 +518,43 @@
         "foreign_keys": [
             {
                 "name": "languages_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "languages_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "languages_fallback_language_id_foreign",
-                "columns": ["fallback_language_id"],
+                "columns": [
+                    "fallback_language_id"
+                ],
                 "foreign_table": "languages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "languages_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -395,27 +570,43 @@
         "foreign_keys": [
             {
                 "name": "layout_content_snapshots_actor_id_foreign",
-                "columns": ["actor_id"],
+                "columns": [
+                    "actor_id"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layout_content_snapshots_layout_id_foreign",
-                "columns": ["layout_id"],
+                "columns": [
+                    "layout_id"
+                ],
                 "foreign_table": "layouts",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layout_content_snapshots_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layout_content_snapshots_theme_id_foreign",
-                "columns": ["theme_id"],
+                "columns": [
+                    "theme_id"
+                ],
                 "foreign_table": "themes",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -435,35 +626,91 @@
         "foreign_keys": [
             {
                 "name": "layouts_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layouts_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layouts_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layouts_theme_id_foreign",
-                "columns": ["theme_id"],
+                "columns": [
+                    "theme_id"
+                ],
                 "foreign_table": "themes",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "layouts_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
+    },
+    "marketplace_account_connection_sessions": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_install_attempt_events": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_install_attempts": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_install_flow_sessions": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_install_intents": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_instances": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_update_advisory_snapshots": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "marketplace_update_notice_dismissals": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "media": {
+        "indexes": [],
+        "foreign_keys": []
     },
     "metric_collection_runs": {
         "indexes": [
@@ -484,15 +731,23 @@
         "foreign_keys": [
             {
                 "name": "metric_daily_rollups_metric_collection_run_id_foreign",
-                "columns": ["metric_collection_run_id"],
+                "columns": [
+                    "metric_collection_run_id"
+                ],
                 "foreign_table": "metric_collection_runs",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "metric_daily_rollups_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -506,9 +761,13 @@
         "foreign_keys": [
             {
                 "name": "metric_events_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -522,9 +781,13 @@
         "foreign_keys": [
             {
                 "name": "model_has_permissions_permission_id_foreign",
-                "columns": ["permission_id"],
+                "columns": [
+                    "permission_id"
+                ],
                 "foreign_table": "permissions",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -538,9 +801,13 @@
         "foreign_keys": [
             {
                 "name": "model_has_roles_role_id_foreign",
-                "columns": ["role_id"],
+                "columns": [
+                    "role_id"
+                ],
                 "foreign_table": "roles",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -559,39 +826,63 @@
         "foreign_keys": [
             {
                 "name": "page_property_values_page_id_foreign",
-                "columns": ["page_id"],
+                "columns": [
+                    "page_id"
+                ],
                 "foreign_table": "pages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_property_values_property_definition_id_foreign",
-                "columns": ["property_definition_id"],
+                "columns": [
+                    "property_definition_id"
+                ],
                 "foreign_table": "property_definitions",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_property_values_referenced_page_id_foreign",
-                "columns": ["referenced_page_id"],
+                "columns": [
+                    "referenced_page_id"
+                ],
                 "foreign_table": "pages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_property_values_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_property_values_term_id_foreign",
-                "columns": ["term_id"],
+                "columns": [
+                    "term_id"
+                ],
                 "foreign_table": "terms",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_property_values_translation_id_foreign",
-                "columns": ["translation_id"],
+                "columns": [
+                    "translation_id"
+                ],
                 "foreign_table": "translations",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -605,9 +896,13 @@
         "foreign_keys": [
             {
                 "name": "page_revisions_actor_id_foreign",
-                "columns": ["actor_id"],
+                "columns": [
+                    "actor_id"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -621,9 +916,13 @@
         "foreign_keys": [
             {
                 "name": "page_role_restrictions_role_id_foreign",
-                "columns": ["role_id"],
+                "columns": [
+                    "role_id"
+                ],
                 "foreign_table": "roles",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -637,15 +936,23 @@
         "foreign_keys": [
             {
                 "name": "page_term_page_id_foreign",
-                "columns": ["page_id"],
+                "columns": [
+                    "page_id"
+                ],
                 "foreign_table": "pages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_term_term_id_foreign",
-                "columns": ["term_id"],
+                "columns": [
+                    "term_id"
+                ],
                 "foreign_table": "terms",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -666,33 +973,53 @@
         "foreign_keys": [
             {
                 "name": "page_urls_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_urls_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_urls_language_id_foreign",
-                "columns": ["language_id"],
+                "columns": [
+                    "language_id"
+                ],
                 "foreign_table": "languages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_urls_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "page_urls_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -706,9 +1033,13 @@
         "foreign_keys": [
             {
                 "name": "page_workflow_states_approver_id_foreign",
-                "columns": ["approver_id"],
+                "columns": [
+                    "approver_id"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -734,67 +1065,113 @@
         "foreign_keys": [
             {
                 "name": "pages_blueprint_id_foreign",
-                "columns": ["blueprint_id"],
+                "columns": [
+                    "blueprint_id"
+                ],
                 "foreign_table": "blueprints",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "pages_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "pages_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "pages_layout_id_foreign",
-                "columns": ["layout_id"],
+                "columns": [
+                    "layout_id"
+                ],
                 "foreign_table": "layouts",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "pages_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "pages_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
+    "password_reset_tokens": {
+        "indexes": [],
+        "foreign_keys": []
+    },
     "permissions": {
-        "indexes": ["permissions_name_guard_name_unique", "primary"],
+        "indexes": [
+            "permissions_name_guard_name_unique",
+            "primary"
+        ],
         "foreign_keys": []
     },
     "property_definitions": {
-        "indexes": ["primary", "property_definitions_set_key_unique"],
+        "indexes": [
+            "primary",
+            "property_definitions_set_key_unique"
+        ],
         "foreign_keys": [
             {
                 "name": "property_definitions_property_set_id_foreign",
-                "columns": ["property_set_id"],
+                "columns": [
+                    "property_set_id"
+                ],
                 "foreign_table": "property_sets",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
     "property_sets": {
-        "indexes": ["primary", "property_sets_key_unique"],
+        "indexes": [
+            "primary",
+            "property_sets_key_unique"
+        ],
         "foreign_keys": []
     },
     "public_read_eligibility_state": {
-        "indexes": ["primary"],
+        "indexes": [
+            "primary"
+        ],
         "foreign_keys": []
     },
     "public_read_owed_withdrawals": {
-        "indexes": ["primary", "public_read_owed_withdrawals_unique"],
+        "indexes": [
+            "primary",
+            "public_read_owed_withdrawals_unique"
+        ],
         "foreign_keys": []
     },
     "public_read_projection_watermarks": {
@@ -814,26 +1191,41 @@
         "foreign_keys": [
             {
                 "name": "redirect_health_snapshots_page_url_id_foreign",
-                "columns": ["page_url_id"],
+                "columns": [
+                    "page_url_id"
+                ],
                 "foreign_table": "page_urls",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
     "role_has_permissions": {
-        "indexes": ["primary", "role_has_permissions_role_id_foreign"],
+        "indexes": [
+            "primary",
+            "role_has_permissions_role_id_foreign"
+        ],
         "foreign_keys": [
             {
                 "name": "role_has_permissions_permission_id_foreign",
-                "columns": ["permission_id"],
+                "columns": [
+                    "permission_id"
+                ],
                 "foreign_table": "permissions",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "role_has_permissions_role_id_foreign",
-                "columns": ["role_id"],
+                "columns": [
+                    "role_id"
+                ],
                 "foreign_table": "roles",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -845,12 +1237,21 @@
         ],
         "foreign_keys": []
     },
+    "sessions": {
+        "indexes": [],
+        "foreign_keys": []
+    },
     "settings": {
-        "indexes": ["primary", "settings_group_name_unique"],
+        "indexes": [
+            "primary",
+            "settings_group_name_unique"
+        ],
         "foreign_keys": []
     },
     "site_domain_claim_locks": {
-        "indexes": ["primary"],
+        "indexes": [
+            "primary"
+        ],
         "foreign_keys": []
     },
     "site_domains": {
@@ -869,33 +1270,53 @@
         "foreign_keys": [
             {
                 "name": "site_domains_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "site_domains_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "site_domains_language_id_foreign",
-                "columns": ["language_id"],
+                "columns": [
+                    "language_id"
+                ],
                 "foreign_table": "languages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "site_domains_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "site_domains_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -916,44 +1337,71 @@
         "foreign_keys": [
             {
                 "name": "sites_blueprint_id_foreign",
-                "columns": ["blueprint_id"],
+                "columns": [
+                    "blueprint_id"
+                ],
                 "foreign_table": "blueprints",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "sites_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "sites_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "sites_language_id_foreign",
-                "columns": ["language_id"],
+                "columns": [
+                    "language_id"
+                ],
                 "foreign_table": "languages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "sites_theme_id_foreign",
-                "columns": ["theme_id"],
+                "columns": [
+                    "theme_id"
+                ],
                 "foreign_table": "themes",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "sites_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
     "snapshots": {
-        "indexes": ["primary", "snapshots_aggregate_uuid_index"],
+        "indexes": [
+            "primary",
+            "snapshots_aggregate_uuid_index"
+        ],
         "foreign_keys": []
     },
     "stored_events": {
@@ -965,6 +1413,14 @@
         ],
         "foreign_keys": []
     },
+    "taggables": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "tags": {
+        "indexes": [],
+        "foreign_keys": []
+    },
     "taxonomies": {
         "indexes": [
             "primary",
@@ -974,17 +1430,37 @@
         "foreign_keys": [
             {
                 "name": "taxonomies_property_set_id_foreign",
-                "columns": ["property_set_id"],
+                "columns": [
+                    "property_set_id"
+                ],
                 "foreign_table": "property_sets",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "taxonomies_site_id_foreign",
-                "columns": ["site_id"],
+                "columns": [
+                    "site_id"
+                ],
                 "foreign_table": "sites",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
+    },
+    "telescope_entries": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "telescope_entries_tags": {
+        "indexes": [],
+        "foreign_keys": []
+    },
+    "telescope_monitoring": {
+        "indexes": [],
+        "foreign_keys": []
     },
     "term_property_values": {
         "indexes": [
@@ -999,27 +1475,43 @@
         "foreign_keys": [
             {
                 "name": "term_property_values_property_definition_id_foreign",
-                "columns": ["property_definition_id"],
+                "columns": [
+                    "property_definition_id"
+                ],
                 "foreign_table": "property_definitions",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "term_property_values_referenced_page_id_foreign",
-                "columns": ["referenced_page_id"],
+                "columns": [
+                    "referenced_page_id"
+                ],
                 "foreign_table": "pages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "term_property_values_referenced_term_id_foreign",
-                "columns": ["referenced_term_id"],
+                "columns": [
+                    "referenced_term_id"
+                ],
                 "foreign_table": "terms",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "term_property_values_term_id_foreign",
-                "columns": ["term_id"],
+                "columns": [
+                    "term_id"
+                ],
                 "foreign_table": "terms",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -1033,15 +1525,23 @@
         "foreign_keys": [
             {
                 "name": "terms_parent_id_foreign",
-                "columns": ["parent_id"],
+                "columns": [
+                    "parent_id"
+                ],
                 "foreign_table": "terms",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "terms_taxonomy_id_foreign",
-                "columns": ["taxonomy_id"],
+                "columns": [
+                    "taxonomy_id"
+                ],
                 "foreign_table": "taxonomies",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -1061,27 +1561,43 @@
         "foreign_keys": [
             {
                 "name": "themes_blueprint_id_foreign",
-                "columns": ["blueprint_id"],
+                "columns": [
+                    "blueprint_id"
+                ],
                 "foreign_table": "blueprints",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "themes_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "themes_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "themes_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     },
@@ -1097,27 +1613,43 @@
         "foreign_keys": [
             {
                 "name": "translations_created_by_foreign",
-                "columns": ["created_by"],
+                "columns": [
+                    "created_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "translations_deleted_by_foreign",
-                "columns": ["deleted_by"],
+                "columns": [
+                    "deleted_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "translations_language_id_foreign",
-                "columns": ["language_id"],
+                "columns": [
+                    "language_id"
+                ],
                 "foreign_table": "languages",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             },
             {
                 "name": "translations_updated_by_foreign",
-                "columns": ["updated_by"],
+                "columns": [
+                    "updated_by"
+                ],
                 "foreign_table": "users",
-                "foreign_columns": ["id"]
+                "foreign_columns": [
+                    "id"
+                ]
             }
         ]
     }
