@@ -6,11 +6,14 @@ namespace Capell\Core\Support\Privacy;
 
 use Capell\Core\Contracts\Privacy\PrivacySubjectEraser;
 use Capell\Core\Contracts\Privacy\PrivacySubjectExporter;
-use Capell\Core\Data\Privacy\PrivacyErasureReceiptData;
+use Capell\Core\Data\Privacy\PrivacyErasureFailureData;
+use Capell\Core\Data\Privacy\PrivacyErasureResultData;
+use Capell\Core\Data\Privacy\PrivacyExportSectionData;
 use Capell\Core\Data\Privacy\PrivacySubject;
 use Capell\Core\Enums\PrivacyErasureMode;
 use Illuminate\Contracts\Container\Container;
 use LogicException;
+use Throwable;
 
 /**
  * Every package's privacy exporters and erasers, in one Core-owned place.
@@ -77,10 +80,10 @@ final class PrivacySubjectRegistry
     }
 
     /**
-     * Each supporting package's data about the subject, keyed by contributor;
-     * packages that hold nothing are left out.
+     * Each supporting package's export section, keyed by contributor; packages
+     * that hold nothing are left out.
      *
-     * @return array<string, array<string, mixed>>
+     * @return array<string, PrivacyExportSectionData>
      */
     public function export(PrivacySubject $subject): array
     {
@@ -91,10 +94,10 @@ final class PrivacySubjectRegistry
                 continue;
             }
 
-            $data = $exporter->export($subject);
+            $section = $exporter->export($subject);
 
-            if ($data !== []) {
-                $sections[$contributor] = $data;
+            if (! $section->isEmpty()) {
+                $sections[$contributor] = $section;
             }
         }
 
@@ -104,30 +107,48 @@ final class PrivacySubjectRegistry
     }
 
     /**
-     * Runs every supporting eraser for the subject and returns their receipts,
-     * in contributor order.
-     *
-     * @return list<PrivacyErasureReceiptData>
+     * Runs every supporting eraser for the subject, in contributor order. A
+     * package that throws, or returns a receipt Core cannot accept, becomes a
+     * failure in the result and the remaining packages still run, so no
+     * finished erasure goes unrecorded. Any failure means the erasure is
+     * incomplete and must be run again (erasers are safe to repeat).
      */
-    public function erase(PrivacySubject $subject, PrivacyErasureMode $mode): array
+    public function erase(PrivacySubject $subject, PrivacyErasureMode $mode): PrivacyErasureResultData
     {
         $erasers = $this->erasers();
         ksort($erasers);
         $receipts = [];
+        $failures = [];
 
         foreach ($erasers as $contributor => $eraser) {
-            if (! $eraser->supports($subject)) {
+            try {
+                if (! $eraser->supports($subject)) {
+                    continue;
+                }
+
+                $receipt = $eraser->erase($subject, $mode);
+            } catch (Throwable $throwable) {
+                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_ERASER_FAILED, $throwable::class);
+
                 continue;
             }
 
-            $receipt = $eraser->erase($subject, $mode);
-            throw_if($receipt->contributor !== $contributor || $receipt->mode !== $mode, LogicException::class, sprintf('The privacy eraser [%s] returned a receipt for another contributor or mode.', $contributor));
-            throw_if($receipt->suppressionMarkerRetained && ! $eraser->retainsSuppressionMarker(), LogicException::class, sprintf('The privacy eraser [%s] kept a suppression marker it did not declare.', $contributor));
+            if ($receipt->contributor !== $contributor) {
+                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_RECEIPT_CONTRIBUTOR);
+
+                continue;
+            }
+
+            if ($receipt->suppressionMarkerRetained && ! $eraser->retainsSuppressionMarker()) {
+                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_UNDECLARED_MARKER);
+
+                continue;
+            }
 
             $receipts[] = $receipt;
         }
 
-        return $receipts;
+        return new PrivacyErasureResultData($receipts, $failures);
     }
 
     /**
@@ -169,6 +190,11 @@ final class PrivacySubjectRegistry
         return $registered;
     }
 
+    /**
+     * Resolves tagged contributors in container tag order, once each. Order does
+     * not matter: exports and erasures are keyed and run by contributor key, and
+     * a second package claiming a key is refused whichever registers first.
+     */
     private function discoverTagged(): void
     {
         $exporters = iterator_to_array($this->container->tagged(self::EXPORTER_TAG), false);

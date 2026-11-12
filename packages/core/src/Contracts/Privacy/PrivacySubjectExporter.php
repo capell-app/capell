@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts\Privacy;
 
+use Capell\Core\Data\Privacy\PrivacyExportSectionData;
 use Capell\Core\Data\Privacy\PrivacySubject;
 
 /**
@@ -14,6 +15,14 @@ use Capell\Core\Data\Privacy\PrivacySubject;
  * PrivacySubjectRegistry::registerExporter()). A privacy request handler, such as
  * the privacy-center package, collects every exporter from the Core registry, so a
  * package never needs to know which handler is installed.
+ *
+ * The caller has already verified the person's identity and authorised the
+ * request; an exporter never authorises. Match an email address
+ * case-insensitively (PrivacySubject::whereEmail()).
+ *
+ * Compatibility: methods are added to this interface only in a major Core
+ * release. A new capability arrives as a separate, optional interface that an
+ * exporter may also implement.
  */
 interface PrivacySubjectExporter
 {
@@ -30,10 +39,8 @@ interface PrivacySubjectExporter
     public function supports(PrivacySubject $subject): bool;
 
     /**
-     * The package's data about the subject, as a JSON-serialisable array. An
-     * empty array means the package holds nothing about them.
-     *
-     * @return array<string, mixed>
+     * The package's data about the subject and the stored files that belong in
+     * the export. An empty section means the package holds nothing about them.
      */
-    public function export(PrivacySubject $subject): array;
+    public function export(PrivacySubject $subject): PrivacyExportSectionData;
 }

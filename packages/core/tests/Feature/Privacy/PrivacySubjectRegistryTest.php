@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 use Capell\Core\Contracts\Privacy\PrivacySubjectExporter;
+use Capell\Core\Data\Privacy\PrivacyErasureFailureData;
 use Capell\Core\Data\Privacy\PrivacyErasureReceiptData;
+use Capell\Core\Data\Privacy\PrivacyExportSectionData;
 use Capell\Core\Data\Privacy\PrivacySubject;
 use Capell\Core\Enums\PrivacyErasureMode;
 use Capell\Core\Models\Site;
@@ -10,6 +12,10 @@ use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Tests\Feature\Privacy\Fixtures\EmailListPrivacyContributor;
 use Capell\Core\Tests\Feature\Privacy\Fixtures\MisreportingPrivacyEraser;
 use Capell\Core\Tests\Feature\Privacy\Fixtures\SitePrivacyContributor;
+use Capell\Core\Tests\Feature\Privacy\Fixtures\ThrowingPrivacyEraser;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
     EmailListPrivacyContributor::$entries = ['jane@example.test' => ['news', 'offers']];
@@ -26,15 +32,21 @@ it('collects exporters and erasers that packages tag, without naming the privacy
         ->and(resolve(PrivacySubjectRegistry::class))->toBe($registry);
 });
 
-it('exports each supporting package section and leaves out packages with nothing or no support', function (): void {
+it('exports each supporting package section with its files and leaves out packages with nothing or no support', function (): void {
     $site = Site::factory()->createOne();
     $registry = resolve(PrivacySubjectRegistry::class)
         ->registerExporter(new EmailListPrivacyContributor)
         ->registerExporter(new SitePrivacyContributor);
 
-    expect($registry->export(PrivacySubject::forEmail(' Jane@Example.TEST ')))->toBe(['mailing-list' => ['lists' => ['news', 'offers']]])
+    $byEmail = $registry->export(PrivacySubject::forEmail(' Jane@Example.TEST '));
+    $bySite = $registry->export(PrivacySubject::forModel($site));
+
+    expect(array_keys($byEmail))->toBe(['mailing-list'])
+        ->and($byEmail['mailing-list']->data)->toBe(['lists' => ['news', 'offers']])
         ->and($registry->export(PrivacySubject::forEmail('nobody@example.test')))->toBe([])
-        ->and($registry->export(PrivacySubject::forModel($site)))->toBe(['site-notes' => ['site' => ['type' => $site->getMorphClass(), 'id' => (string) $site->getKey()]]]);
+        ->and(array_keys($bySite))->toBe(['site-notes'])
+        ->and($bySite['site-notes']->data)->toBe(['site' => ['type' => $site->getMorphClass(), 'id' => (string) $site->getKey()]])
+        ->and($bySite['site-notes']->files)->toBe(['local:site notes/' . $site->getKey() . '/My CV.pdf']);
 });
 
 it('erases through every supporting eraser from outside a request and returns receipts without personal data', function (): void {
@@ -43,14 +55,33 @@ it('erases through every supporting eraser from outside a request and returns re
         ->registerEraser(new SitePrivacyContributor)
         ->registerEraser(new EmailListPrivacyContributor);
 
-    $receipts = $registry->erase(PrivacySubject::forModel($site, 'jane@example.test'), PrivacyErasureMode::Delete);
+    $result = $registry->erase(PrivacySubject::forModel($site, 'jane@example.test'), PrivacyErasureMode::Delete);
 
-    expect(array_map(static fn (PrivacyErasureReceiptData $receipt): array => $receipt->toArray(), $receipts))->toBe([
-        ['contributor' => 'mailing-list', 'mode' => 'delete', 'affected_records' => 2, 'erased_files' => [], 'suppression_marker_retained' => true],
-        ['contributor' => 'site-notes', 'mode' => 'delete', 'affected_records' => 1, 'erased_files' => ['local:site-notes/' . $site->getKey() . '.txt'], 'suppression_marker_retained' => false],
-    ])
+    expect($result->isComplete())->toBeTrue()
+        ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): array => $receipt->toArray(), $result->receipts))->toBe([
+            ['contributor' => 'mailing-list', 'mode' => 'delete', 'affected_records' => 2, 'erased_files' => [], 'suppression_marker_retained' => true],
+            // Asked to delete, the package anonymised the records it must keep, and says so.
+            ['contributor' => 'site-notes', 'mode' => 'anonymize', 'affected_records' => 1, 'erased_files' => ['local:site notes/' . $site->getKey() . '/My CV.pdf'], 'suppression_marker_retained' => false],
+        ])
         ->and(EmailListPrivacyContributor::$entries)->toBe([])
-        ->and(json_encode(array_map(static fn (PrivacyErasureReceiptData $receipt): array => $receipt->toArray(), $receipts), JSON_THROW_ON_ERROR))->not->toContain('jane@example.test');
+        ->and(json_encode(array_map(static fn (PrivacyErasureReceiptData $receipt): array => $receipt->toArray(), $result->receipts), JSON_THROW_ON_ERROR))->not->toContain('jane@example.test');
+});
+
+it('keeps the other packages receipts and runs the rest when one eraser fails', function (): void {
+    $registry = resolve(PrivacySubjectRegistry::class)
+        ->registerEraser(new SitePrivacyContributor)
+        ->registerEraser(new ThrowingPrivacyEraser)
+        ->registerEraser(new EmailListPrivacyContributor);
+
+    $result = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Delete);
+
+    expect($result->isComplete())->toBeFalse()
+        ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): string => $receipt->contributor, $result->receipts))->toBe(['mailing-list'])
+        ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures))->toBe([
+            ['contributor' => 'broken-store', 'code' => PrivacyErasureFailureData::CODE_ERASER_FAILED, 'exception_class' => RuntimeException::class],
+        ])
+        ->and(EmailListPrivacyContributor::$entries)->toBe([])
+        ->and(json_encode(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures), JSON_THROW_ON_ERROR))->not->toContain('jane@example.test');
 });
 
 it('says which packages keep a suppression marker before erasure runs', function (): void {
@@ -62,14 +93,39 @@ it('says which packages keep a suppression marker before erasure runs', function
         ->and(EmailListPrivacyContributor::$entries)->not->toBe([]);
 });
 
-it('refuses an eraser receipt for another package or an undeclared suppression marker', function (MisreportingPrivacyEraser $eraser): void {
-    $registry = resolve(PrivacySubjectRegistry::class)->registerEraser($eraser);
+it('records an eraser receipt for another package or an undeclared suppression marker as a failure', function (string $case, string $code): void {
+    $eraser = $case === 'marker' ? new MisreportingPrivacyEraser('misreporting', true) : new MisreportingPrivacyEraser;
+    $registry = resolve(PrivacySubjectRegistry::class)->registerEraser($eraser)->registerEraser(new EmailListPrivacyContributor);
 
-    expect(fn (): array => $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Anonymize))->toThrow(LogicException::class);
+    $result = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Anonymize);
+
+    expect($result->isComplete())->toBeFalse()
+        ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures))->toBe([['contributor' => 'misreporting', 'code' => $code, 'exception_class' => null]])
+        ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): string => $receipt->contributor, $result->receipts))->toBe(['mailing-list']);
 })->with([
-    'another contributor' => fn (): MisreportingPrivacyEraser => new MisreportingPrivacyEraser,
-    'undeclared marker' => fn (): MisreportingPrivacyEraser => new MisreportingPrivacyEraser('misreporting', true),
+    'another contributor' => ['contributor', PrivacyErasureFailureData::CODE_RECEIPT_CONTRIBUTOR],
+    'undeclared marker' => ['marker', PrivacyErasureFailureData::CODE_UNDECLARED_MARKER],
 ]);
+
+it('matches a subject email case-insensitively in a package query', function (): void {
+    Schema::create('privacy_test_entries', function (Blueprint $table): void {
+        $table->id();
+        $table->string('email');
+    });
+    DB::table('privacy_test_entries')->insert([['email' => 'Jane@Example.TEST'], ['email' => 'jane@example.test'], ['email' => 'john@example.test']]);
+
+    $byEmail = DB::table('privacy_test_entries');
+    PrivacySubject::forEmail('JANE@example.test')->whereEmail($byEmail, 'email');
+    $withoutEmail = DB::table('privacy_test_entries');
+    PrivacySubject::forModel(Site::factory()->createOne())->whereEmail($withoutEmail, 'email');
+
+    expect($byEmail->count())->toBe(2)
+        ->and($withoutEmail->count())->toBe(0);
+});
+
+it('refuses to serialise a subject into a queue payload', function (): void {
+    expect(fn (): string => serialize(PrivacySubject::forEmail('jane@example.test')))->toThrow(LogicException::class, 'privacy request id');
+});
 
 it('refuses two different packages with the same key and malformed keys', function (): void {
     $registry = resolve(PrivacySubjectRegistry::class)->registerExporter(new EmailListPrivacyContributor);
@@ -86,9 +142,9 @@ it('refuses two different packages with the same key and malformed keys', functi
             return true;
         }
 
-        public function export(PrivacySubject $subject): array
+        public function export(PrivacySubject $subject): PrivacyExportSectionData
         {
-            return ['stolen' => true];
+            return new PrivacyExportSectionData(['stolen' => true]);
         }
     };
 
@@ -104,9 +160,9 @@ it('refuses two different packages with the same key and malformed keys', functi
             return true;
         }
 
-        public function export(PrivacySubject $subject): array
+        public function export(PrivacySubject $subject): PrivacyExportSectionData
         {
-            return [];
+            return new PrivacyExportSectionData;
         }
     };
 
@@ -127,7 +183,10 @@ it('refuses a subject without a stored record or a valid email address', functio
     expect($make)->toThrow(InvalidArgumentException::class);
 })->with(['unsaved record', 'invalid email']);
 
-it('refuses a receipt that would carry file contents or a negative count', function (): void {
-    expect(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, -1))->toThrow(InvalidArgumentException::class)
-        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, ['jane@example.test, 1 Main Street']))->toThrow(InvalidArgumentException::class);
+it('accepts stored file paths with spaces and refuses control characters or a negative count', function (): void {
+    expect(new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 1, ['public:uploads/My CV (final).pdf'])->erasedFiles)->toBe(['public:uploads/My CV (final).pdf'])
+        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, -1))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, ["public:uploads/a\nb.pdf"]))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, ['no-disk-separator']))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): PrivacyExportSectionData => new PrivacyExportSectionData([], ["local:a\tb"]))->toThrow(InvalidArgumentException::class);
 });

@@ -15,7 +15,16 @@ use Capell\Core\Enums\PrivacyErasureMode;
  * PrivacySubjectRegistry::ERASER_TAG (or
  * PrivacySubjectRegistry::registerEraser()). Erasure can run from the admin, a
  * console command or a queued job, so an eraser must not depend on a request or
- * a signed-in user, and must be safe to run again for the same subject.
+ * a signed-in user, and must be safe to run again for the same subject: a
+ * failed erasure is retried as a whole.
+ *
+ * The caller has already verified the person's identity and authorised the
+ * request; an eraser never authorises. Match an email address
+ * case-insensitively (PrivacySubject::whereEmail()).
+ *
+ * Compatibility: methods are added to this interface only in a major Core
+ * release. A new capability arrives as a separate, optional interface that an
+ * eraser may also implement.
  */
 interface PrivacySubjectEraser
 {
@@ -28,8 +37,9 @@ interface PrivacySubjectEraser
     public function supports(PrivacySubject $subject): bool;
 
     /**
-     * Deletes or anonymises the package's data about the subject, including the
-     * files it stored for them, and says what it did.
+     * Removes the package's data about the subject, including the files it
+     * stored for them, and says what it did. Asked to delete, it may anonymise
+     * records it is required to keep, and reports that mode in the receipt.
      */
     public function erase(PrivacySubject $subject, PrivacyErasureMode $mode): PrivacyErasureReceiptData;
 

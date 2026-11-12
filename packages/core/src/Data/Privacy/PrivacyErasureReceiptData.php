@@ -8,10 +8,12 @@ use Capell\Core\Enums\PrivacyErasureMode;
 use InvalidArgumentException;
 
 /**
- * What one package erased for a privacy request: how many records it deleted
- * or anonymised, which stored files it removed (as `disk:path`, never their
- * contents), and whether it kept a suppression marker. Kept with the request as
- * evidence; it must not contain the erased personal data itself.
+ * What one package erased for a privacy request: whether it deleted or
+ * anonymised (an eraser asked to delete may anonymise records it must keep,
+ * such as orders needed for accounting, and says so here), how many records it
+ * changed, which stored files it removed (as `disk:path`, never their contents)
+ * and whether it kept a suppression marker. Kept with the request as evidence;
+ * it must not contain the erased personal data itself.
  */
 final readonly class PrivacyErasureReceiptData
 {
@@ -26,10 +28,7 @@ final readonly class PrivacyErasureReceiptData
         public bool $suppressionMarkerRetained = false,
     ) {
         throw_if($affectedRecords < 0, InvalidArgumentException::class, 'An erasure receipt cannot report a negative record count.');
-
-        foreach ($erasedFiles as $file) {
-            throw_unless(preg_match('/^[A-Za-z0-9_.-]+:[^\s]+$/D', $file) === 1, InvalidArgumentException::class, 'An erased file is reported as disk:path.');
-        }
+        PrivacyFileReference::assertAllValid($erasedFiles);
     }
 
     /**

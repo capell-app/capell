@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Feature\Privacy\Fixtures;
 use Capell\Core\Contracts\Privacy\PrivacySubjectEraser;
 use Capell\Core\Contracts\Privacy\PrivacySubjectExporter;
 use Capell\Core\Data\Privacy\PrivacyErasureReceiptData;
+use Capell\Core\Data\Privacy\PrivacyExportSectionData;
 use Capell\Core\Data\Privacy\PrivacySubject;
 use Capell\Core\Enums\PrivacyErasureMode;
 use Capell\Core\Models\Site;
@@ -31,15 +32,16 @@ final class SitePrivacyContributor implements PrivacySubjectEraser, PrivacySubje
     }
 
     #[Override]
-    public function export(PrivacySubject $subject): array
+    public function export(PrivacySubject $subject): PrivacyExportSectionData
     {
-        return ['site' => $subject->reference()];
+        return new PrivacyExportSectionData(['site' => $subject->reference()], ['local:site notes/' . $subject->model?->getKey() . '/My CV.pdf']);
     }
 
     #[Override]
     public function erase(PrivacySubject $subject, PrivacyErasureMode $mode): PrivacyErasureReceiptData
     {
-        return new PrivacyErasureReceiptData($this->contributor(), $mode, 1, ['local:site-notes/' . $subject->model?->getKey() . '.txt']);
+        // Sites are kept for the business, so a delete request anonymises them.
+        return new PrivacyErasureReceiptData($this->contributor(), PrivacyErasureMode::Anonymize, 1, ['local:site notes/' . $subject->model?->getKey() . '/My CV.pdf']);
     }
 
     #[Override]

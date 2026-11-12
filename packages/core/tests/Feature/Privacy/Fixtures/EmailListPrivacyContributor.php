@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Feature\Privacy\Fixtures;
 use Capell\Core\Contracts\Privacy\PrivacySubjectEraser;
 use Capell\Core\Contracts\Privacy\PrivacySubjectExporter;
 use Capell\Core\Data\Privacy\PrivacyErasureReceiptData;
+use Capell\Core\Data\Privacy\PrivacyExportSectionData;
 use Capell\Core\Data\Privacy\PrivacySubject;
 use Capell\Core\Enums\PrivacyErasureMode;
 use Override;
@@ -33,11 +34,11 @@ final class EmailListPrivacyContributor implements PrivacySubjectEraser, Privacy
     }
 
     #[Override]
-    public function export(PrivacySubject $subject): array
+    public function export(PrivacySubject $subject): PrivacyExportSectionData
     {
         $lists = self::$entries[(string) $subject->email] ?? [];
 
-        return $lists === [] ? [] : ['lists' => $lists];
+        return new PrivacyExportSectionData($lists === [] ? [] : ['lists' => $lists]);
     }
 
     #[Override]
