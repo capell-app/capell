@@ -87,8 +87,8 @@ it('registers package metadata and providers', function (): void {
 
 ```php
 it('boots the package provider without writing host state', function (): void {
-    expect(fn (): array => $this->app->getLoadedProviders())
-        ->not->toThrow(Throwable::class);
+    expect($this->app->getLoadedProviders())
+        ->toHaveKey(ExampleServiceProvider::class);
 });
 ```
 
