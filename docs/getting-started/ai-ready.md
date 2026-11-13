@@ -102,7 +102,7 @@ Start with the CMS foundation:
 2. Read [Blueprints](types.md) for how page, widget, layout, and package behaviour is shaped.
 3. Read [Package product groups](../packages/product-groups.md) to understand where AIOrchestrator belongs commercially.
 4. Read [Extension point API reference](../packages/extension-point-api-reference.md) before exposing package capabilities.
-5. Use the core Boost skill's SiteSpec reference when generating or applying deterministic site contracts.
+5. Install the [Capell skills](ai-skills.md) and use the core Boost skill's SiteSpec reference when generating or applying deterministic site contracts.
 6. Keep the [public HTML safety contract](../frontend/public-html-safety.md) close when touching public rendering, cache, themes, authoring, or AI-assisted output.
 
 The practical rule is simple: let Capell core describe the site, let AIOrchestrator coordinate AI work, and keep public output boring.

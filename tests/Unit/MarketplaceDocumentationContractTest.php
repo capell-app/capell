@@ -41,13 +41,21 @@ it('does not document the removed marketplace domain verification flow', functio
     }
 });
 
-it('keeps the consumer boost skill free of internal repository language', function (): void {
+it('keeps every consumer boost skill free of internal repository language', function (): void {
     $root = dirname(__DIR__, 2);
-    $skill = (string) file_get_contents($root . '/packages/core/resources/boost/skills/capell/SKILL.md');
+    $files = array_merge(
+        glob($root . '/packages/core/resources/boost/skills/*/SKILL.md') ?: [],
+        glob($root . '/packages/core/resources/boost/skills/*/references/*.md') ?: [],
+    );
 
-    expect($skill)
-        ->not->toContain('capell-4')
-        ->not->toContain('capell-packages-4')
-        ->not->toContain('monorepo')
-        ->not->toContain('/Users/');
+    expect($files)->not->toBeEmpty();
+
+    foreach ($files as $file) {
+        expect((string) file_get_contents($file))
+            ->not->toContain('capell-4')
+            ->not->toContain('capell-packages-4')
+            ->not->toContain('monorepo')
+            ->not->toContain('/Users/')
+            ->not->toContain('./capell');
+    }
 });
