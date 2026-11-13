@@ -83,7 +83,9 @@ it('skips providers for non-existent classes gracefully', function (): void {
     CapellCore::registerPackage('capell-app/ghost');
     CapellCore::markPackageInstalled('capell-app/ghost');
 
-    expect(fn (): array => packageLoader($registry)->loadProviders())->not->toThrow(Throwable::class);
+    packageLoader($registry)->loadProviders();
+
+    expect(CapellCore::isPackageInstalled('capell-app/ghost'))->toBeTrue();
 });
 
 it('quarantines an optional package when provider registration fails', function (): void {
@@ -104,10 +106,7 @@ it('quarantines an optional package when provider registration fails', function 
     CapellCore::registerPackage('vendor/failing-extension');
     CapellCore::markPackageInstalled('vendor/failing-extension');
 
-    expect(function () use ($application, $registry): void {
-        new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
-    })
-        ->not->toThrow(Throwable::class);
+    new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
 
     $extension = CapellExtension::query()->where('composer_name', 'vendor/failing-extension')->firstOrFail();
     expect($extension->provider_recovery_state)->toBe(ExtensionProviderRecoveryStateEnum::Quarantined)
@@ -134,9 +133,7 @@ it('keeps booting and quarantines in memory when a provider fails while the data
 
     Schema::shouldReceive('hasTable')->andThrow(new RuntimeException('database unavailable'));
 
-    expect(function () use ($application, $registry): void {
-        new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
-    })->not->toThrow(Throwable::class);
+    new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
 
     expect(CapellCore::isPackageInstalled('vendor/offline-failing-extension'))->toBeFalse();
 });

@@ -45,8 +45,9 @@ it('quarantines a provider without failing when the extensions table cannot be p
 
     $repository = new ExtensionLifecycleRepository(new RuntimeSchemaState);
 
-    expect(fn () => $repository->recordProviderQuarantined('vendor/example', 'Vendor\\Example\\ExampleServiceProvider', 'Provider failed.', null))
-        ->not->toThrow(Throwable::class);
+    $repository->recordProviderQuarantined('vendor/example', 'Vendor\\Example\\ExampleServiceProvider', 'Provider failed.', null);
+
+    expect(DB::table('capell_extensions')->where('composer_name', 'vendor/example')->exists())->toBeFalse();
 });
 
 it('records a provider quarantine when the extensions table can be probed', function (): void {
