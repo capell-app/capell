@@ -6,6 +6,8 @@ New here? Follow [Learn Capell](getting-started/capell-learn.md), a guided path 
 
 For a local Docker environment, see [Mac and Windows local development](getting-started/local-development.md).
 
+The public Foundation line is **1.x**. Read the [support window and LTS policy](operations/support-policy.md) for security coverage, upgrade commitments and dates still to be confirmed.
+
 ## Choose Your Path
 
 | I want to...                  | Start with                                                              | Then read                                                                                                                                        |
