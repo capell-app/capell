@@ -93,34 +93,38 @@ afterEach(function (): void {
     DemoPackageAction::resetProcessFactory();
 });
 
-final class RecordingInstallReporter implements ProgressReporter
+/** @return ProgressReporter&object{steps: list<string>, lines: list<string>, errors: list<string>} */
+function recordingInstallReporter(): ProgressReporter
 {
-    /** @var list<string> */
-    public array $steps = [];
-
-    /** @var list<string> */
-    public array $lines = [];
-
-    /** @var list<string> */
-    public array $errors = [];
-
-    #[Override]
-    public function step(string $label): void
+    return new class implements ProgressReporter
     {
-        $this->steps[] = $label;
-    }
+        /** @var list<string> */
+        public array $steps = [];
 
-    #[Override]
-    public function report(string $line): void
-    {
-        $this->lines[] = $line;
-    }
+        /** @var list<string> */
+        public array $lines = [];
 
-    #[Override]
-    public function error(string $line): void
-    {
-        $this->errors[] = $line;
-    }
+        /** @var list<string> */
+        public array $errors = [];
+
+        #[Override]
+        public function step(string $label): void
+        {
+            $this->steps[] = $label;
+        }
+
+        #[Override]
+        public function report(string $line): void
+        {
+            $this->lines[] = $line;
+        }
+
+        #[Override]
+        public function error(string $line): void
+        {
+            $this->errors[] = $line;
+        }
+    };
 }
 
 function makeInstallInputData(array $packages, bool $demoContent = false, bool $seedDefaultData = true, ?string $siteName = null): InstallInputData
@@ -160,7 +164,7 @@ function bootstrapInstallPackagesTest(array $packageNames = ['test']): FakeMigra
 
 it('does nothing when packages list is empty', function (): void {
     $inputData = makeInstallInputData(packages: []);
-    $reporter = new RecordingInstallReporter;
+    $reporter = recordingInstallReporter();
 
     InstallPackagesAction::run($inputData, null, $reporter);
 
@@ -516,7 +520,7 @@ it('passes skip permission sync into package setup commands during full install'
     );
 
     $inputData = makeInstallInputData(packages: ['test'], seedDefaultData: true);
-    $reporter = new RecordingInstallReporter;
+    $reporter = recordingInstallReporter();
 
     InstallPackagesAction::run($inputData, null, $reporter);
 
