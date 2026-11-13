@@ -192,7 +192,8 @@ return [
         'rate_limit_per_minute' => (int) env('CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE', 30),
     ],
 
-    // Consent decisions when no consent manager (such as Privacy Center) is installed.
+    // Consent decisions when no consent manager (such as Privacy Center) is installed, and the
+    // key for hashed privacy identifiers.
     // Pages load window.CapellPrivacy from a cacheable script; it sets no cookie.
     'privacy' => [
         // Counts aggregate page views without consent: no cookie and no visitor identifier.
@@ -215,6 +216,13 @@ return [
             // Named purposes mapped to their category, for example 'youtube' => 'marketing'.
             'purposes' => [],
         ],
+        // Key for the hashes packages store people's email addresses under, so they look
+        // people up without keeping the address in an index. Falls back to app.key. Lookups
+        // also try the previous keys below, app.key and app.previous_keys. Never remove a key
+        // until RehashPrivacyIdentifiersAction has moved every row off it: rows hashed under a
+        // removed key can no longer be found by an export or erasure.
+        'identifier_key' => env('CAPELL_PRIVACY_IDENTIFIER_KEY'),
+        'identifier_previous_keys' => array_values(array_filter(array_map(trim(...), explode(',', (string) env('CAPELL_PRIVACY_IDENTIFIER_PREVIOUS_KEYS', ''))))),
     ],
 
     'agent' => [
