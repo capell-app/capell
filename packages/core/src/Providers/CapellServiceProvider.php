@@ -212,6 +212,7 @@ use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
+use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
 use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -886,6 +887,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(ActivitySettingsReader::class, DefaultActivitySettingsReader::class);
         // A consent manager binds its own provider; Core's honours GPC and DNT and records nothing.
         $this->app->singletonIf(ConsentDecisionProvider::class, DefaultConsentDecisionProvider::class);
+        // Scoped: it memoises the purposes enabled packages declare, which must not outlive a request under Octane.
+        $this->app->scopedIf(ConsentSettings::class);
 
         return $this;
     }

@@ -349,11 +349,22 @@
                     "propertyNames": {
                         "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
                         "not": {
-                            "enum": ["essential", "functional", "preferences", "analytics", "marketing"]
+                            "enum": [
+                                "essential",
+                                "functional",
+                                "preferences",
+                                "analytics",
+                                "marketing"
+                            ]
                         }
                     },
                     "additionalProperties": {
-                        "enum": ["functional", "preferences", "analytics", "marketing"]
+                        "enum": [
+                            "functional",
+                            "preferences",
+                            "analytics",
+                            "marketing"
+                        ]
                     }
                 }
             }
