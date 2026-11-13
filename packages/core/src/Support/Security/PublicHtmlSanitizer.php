@@ -4,82 +4,35 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
+use Capell\Core\Contracts\Security\SanitizesPublicHtml;
+use Capell\Core\Enums\HtmlSanitizerProfile;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
+use Illuminate\Container\Container;
+use Override;
 
-final class PublicHtmlSanitizer
+/**
+ * Sanitises HTML for public output under a named HtmlSanitizerProfile. Strict is
+ * the default; URL attributes are validated here whatever the profile allows.
+ */
+final class PublicHtmlSanitizer implements SanitizesPublicHtml
 {
-    /**
-     * @var array<string, array<int, string>>
-     */
-    private const array ALLOWED_ATTRIBUTES = [
-        'a' => ['href', 'title'],
-        'img' => ['src', 'alt', 'title', 'width', 'height'],
-        'section' => ['id', 'data-top-extensions-showcase'],
+    /** @var array<string, true> */
+    private const array NUMERIC_ATTRIBUTES = [
+        'colspan' => true,
+        'height' => true,
+        'rowspan' => true,
+        'start' => true,
+        'width' => true,
     ];
 
     /**
-     * Keyed by tag name for O(1) isset() lookups on the per-node hot path.
-     *
-     * @var array<string, true>
+     * Applied to every embedded frame: the embed keeps its own origin and can play
+     * media, but cannot navigate the page or open forms and modals on it.
      */
-    private const array ALLOWED_TAGS = [
-        'a' => true,
-        'blockquote' => true,
-        'br' => true,
-        'code' => true,
-        'dd' => true,
-        'div' => true,
-        'dl' => true,
-        'dt' => true,
-        'em' => true,
-        'h1' => true,
-        'h2' => true,
-        'h3' => true,
-        'h4' => true,
-        'h5' => true,
-        'h6' => true,
-        'hr' => true,
-        'img' => true,
-        'li' => true,
-        'ol' => true,
-        'p' => true,
-        'pre' => true,
-        'section' => true,
-        'span' => true,
-        'strong' => true,
-        'table' => true,
-        'tbody' => true,
-        'td' => true,
-        'th' => true,
-        'thead' => true,
-        'tr' => true,
-        'ul' => true,
-    ];
-
-    /**
-     * Keyed by tag name for O(1) isset() lookups on the per-node hot path.
-     *
-     * @var array<string, true>
-     */
-    private const array DISCARD_WITH_CONTENT = [
-        'applet' => true,
-        'audio' => true,
-        'canvas' => true,
-        'embed' => true,
-        'form' => true,
-        'iframe' => true,
-        'math' => true,
-        'noscript' => true,
-        'object' => true,
-        'script' => true,
-        'style' => true,
-        'svg' => true,
-        'template' => true,
-        'video' => true,
-    ];
+    private const string EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
     /**
      * @var array<string, true>|null
@@ -88,14 +41,21 @@ final class PublicHtmlSanitizer
 
     public function __construct(
         private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
+        private ?HtmlSanitizerProfileRegistry $profiles = null,
     ) {}
 
-    public function sanitize(string $html): string
+    #[Override]
+    public function sanitize(string $html, HtmlSanitizerProfile $profile = HtmlSanitizerProfile::Strict): string
     {
         if (trim($html) === '') {
             return '';
         }
 
+        if ($profile === HtmlSanitizerProfile::SvgUpload) {
+            return (new SvgUploadSanitizer)->sanitizeOrEmpty($html);
+        }
+
+        $policy = $this->profiles()->policy($profile);
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
 
@@ -115,7 +75,7 @@ final class PublicHtmlSanitizer
             return '';
         }
 
-        $this->sanitizeChildren($root);
+        $this->sanitizeChildren($root, $policy);
 
         return $this->innerHtml($root);
     }
@@ -158,7 +118,20 @@ final class PublicHtmlSanitizer
         return $sanitized;
     }
 
-    private function sanitizeChildren(DOMNode $parent): void
+    private function profiles(): HtmlSanitizerProfileRegistry
+    {
+        if ($this->profiles instanceof HtmlSanitizerProfileRegistry) {
+            return $this->profiles;
+        }
+
+        $container = Container::getInstance();
+
+        return $this->profiles = $container->bound(HtmlSanitizerProfileRegistry::class)
+            ? $container->make(HtmlSanitizerProfileRegistry::class)
+            : new HtmlSanitizerProfileRegistry;
+    }
+
+    private function sanitizeChildren(DOMNode $parent, HtmlSanitizerPolicy $policy): void
     {
         foreach (iterator_to_array($parent->childNodes) as $child) {
             if (! $child instanceof DOMElement) {
@@ -175,50 +148,115 @@ final class PublicHtmlSanitizer
 
             $tagName = strtolower($child->tagName);
 
-            if (isset(self::DISCARD_WITH_CONTENT[$tagName])) {
+            if ($policy->discardsWithContent($tagName)) {
                 $parent->removeChild($child);
 
                 continue;
             }
 
-            if (! isset(self::ALLOWED_TAGS[$tagName])) {
+            if (! $policy->allowsElement($tagName)) {
                 // Sanitize before unwrapping: hoisted children are inserted into the
                 // already-captured sibling snapshot and would never be revisited.
-                $this->sanitizeChildren($child);
+                $this->sanitizeChildren($child, $policy);
                 $this->unwrapElement($child);
 
                 continue;
             }
 
-            $this->sanitizeAttributes($child, $tagName);
-            $this->sanitizeChildren($child);
+            if (! $this->sanitizeAttributes($child, $tagName, $policy)) {
+                continue;
+            }
+
+            $this->sanitizeChildren($child, $policy);
         }
     }
 
-    private function sanitizeAttributes(DOMElement $element, string $tagName): void
+    /**
+     * Returns whether the element's children still need sanitising: false when the
+     * element was removed or, like a frame, may not keep any children.
+     */
+    private function sanitizeAttributes(DOMElement $element, string $tagName, HtmlSanitizerPolicy $policy): bool
     {
-        $allowedAttributes = self::ALLOWED_ATTRIBUTES[$tagName] ?? [];
+        $allowedAttributes = $policy->attributesFor($tagName);
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
-            if (! in_array($attribute->name, $allowedAttributes, true)) {
-                $element->removeAttribute($attribute->name);
+            $name = $attribute->name;
+            $allowed = in_array($name, $allowedAttributes, true)
+                || ($name === 'id' && $policy->allowsIdentifierOn($tagName))
+                || ($name === 'class' && $policy->allowsClasses);
+
+            if (! $allowed) {
+                $element->removeAttribute($name);
             }
         }
 
+        if ($element->hasAttribute('id') && preg_match($this->identifierPattern($tagName, $policy), $element->getAttribute('id')) !== 1) {
+            $element->removeAttribute('id');
+        }
+
+        if ($element->hasAttribute('class')) {
+            $this->sanitizeClasses($element);
+        }
+
+        foreach (array_keys(self::NUMERIC_ATTRIBUTES) as $numeric) {
+            if ($element->hasAttribute($numeric) && preg_match('/^[1-9]\d{0,3}$/', $element->getAttribute($numeric)) !== 1) {
+                $element->removeAttribute($numeric);
+            }
+        }
+
+        if ($element->hasAttribute('scope') && ! in_array($element->getAttribute('scope'), ['col', 'colgroup', 'row', 'rowgroup'], true)) {
+            $element->removeAttribute('scope');
+        }
+
         if ($tagName === 'a') {
-            $this->sanitizeAnchor($element);
+            $this->sanitizeAnchor($element, $policy);
         }
 
         if ($tagName === 'img') {
-            $this->sanitizeImage($element);
+            return $this->sanitizeImage($element);
         }
 
-        if ($element->hasAttribute('id') && ! preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,80}$/', $element->getAttribute('id'))) {
-            $element->removeAttribute('id');
+        if ($tagName === 'iframe') {
+            // Removed, or kept without any children of its own.
+            $this->sanitizeEmbed($element, $policy);
+
+            return false;
         }
+
+        return true;
     }
 
-    private function sanitizeAnchor(DOMElement $element): void
+    /**
+     * Profile-granted heading ids must be lower-case slugs, the shape a table of
+     * contents produces, so they cannot shadow camel-case page globals such as
+     * window.CapellPrivacy or window.Livewire. An element that names id itself keeps
+     * the historical pattern.
+     */
+    private function identifierPattern(string $tagName, HtmlSanitizerPolicy $policy): string
+    {
+        return in_array('id', $policy->attributesFor($tagName), true)
+            ? '/^[A-Za-z][A-Za-z0-9_-]{0,80}$/'
+            : '/^[a-z][a-z0-9-]{0,80}$/';
+    }
+
+    private function sanitizeClasses(DOMElement $element): void
+    {
+        // Utility class names only: no characters that could close the attribute or form CSS escapes.
+        $classes = array_filter(
+            preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [],
+            static fn (string $class): bool => preg_match('/^[A-Za-z0-9_:\/.\-\[\]%#]{1,80}$/', $class) === 1,
+        );
+
+        if ($classes === []) {
+            $element->removeAttribute('class');
+
+            return;
+        }
+
+        $element->setAttribute('class', implode(' ', array_unique($classes)));
+    }
+
+    private function sanitizeAnchor(DOMElement $element, HtmlSanitizerPolicy $policy): void
     {
         $href = trim(html_entity_decode($element->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
@@ -229,27 +267,54 @@ final class PublicHtmlSanitizer
         }
 
         if (preg_match('#^https?://#i', $href) === 1) {
-            $element->setAttribute('rel', 'nofollow noopener noreferrer');
+            $element->setAttribute('rel', $policy->externalLinkRel);
             $element->setAttribute('target', '_blank');
         }
     }
 
-    private function sanitizeImage(DOMElement $element): void
+    private function sanitizeEmbed(DOMElement $element, HtmlSanitizerPolicy $policy): void
     {
-        if (! $this->isSafeImageUrl($element->getAttribute('src'))) {
+        $source = trim(html_entity_decode($element->getAttribute('src'), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $parts = parse_url($source);
+        $host = is_array($parts) && isset($parts['host']) ? $parts['host'] : null;
+
+        $safe = is_array($parts)
+            && is_string($host)
+            && preg_match('#^https://#', $source) === 1
+            && preg_match('/[\x00-\x20\\\\]/', $source) !== 1
+            && ! isset($parts['user'])
+            && ! isset($parts['port'])
+            && $policy->allowsEmbedHost(strtolower($host));
+
+        if (! $safe) {
             $element->parentNode?->removeChild($element);
 
             return;
         }
 
-        foreach (['width', 'height'] as $dimension) {
-            if (
-                $element->hasAttribute($dimension)
-                && ! preg_match('/^[1-9]\d{0,3}$/', $element->getAttribute($dimension))
-            ) {
-                $element->removeAttribute($dimension);
-            }
+        if ($element->hasAttribute('allowfullscreen')) {
+            $element->setAttribute('allowfullscreen', '');
         }
+
+        $element->setAttribute('sandbox', self::EMBED_SANDBOX);
+        $element->setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        $element->setAttribute('loading', 'lazy');
+
+        // A frame never carries inline content of its own.
+        while ($element->firstChild instanceof DOMNode) {
+            $element->removeChild($element->firstChild);
+        }
+    }
+
+    private function sanitizeImage(DOMElement $element): bool
+    {
+        if (! $this->isSafeImageUrl($element->getAttribute('src'))) {
+            $element->parentNode?->removeChild($element);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

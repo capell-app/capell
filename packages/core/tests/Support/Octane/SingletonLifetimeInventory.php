@@ -73,6 +73,7 @@ use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
+use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -185,6 +186,7 @@ final class SingletonLifetimeInventory
             MetricEventRegistry::class => self::boot('Metric event definitions are package boot registrations.'),
             MetricCollectorRegistry::class => self::boot('Metric collectors are package boot registrations.'),
             OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
+            HtmlSanitizerProfileRegistry::class => self::boot('Packages extend HTML sanitiser profiles at boot; resolved policies are derived from those registrations only.'),
             SecurityWeaknessRegistry::class => self::boot('Security weakness checks and remediations are package boot registrations, frozen on booted and re-opened only during package installation.'),
             BlueprintSubjectRegistry::class => self::boot('Blueprint subjects are package boot registrations, frozen on booted.'),
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),

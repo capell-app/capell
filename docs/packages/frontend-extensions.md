@@ -329,6 +329,47 @@ public function boot(CacheInvalidationRegistry $cacheInvalidation): void
 
 Prefer exact keys. A pattern containing `*` intentionally flushes the whole `capell-frontend` cache tag because wildcard matching is not portable across cache drivers.
 
+## Sanitising Public HTML
+
+Do not build your own HTML allowlist. Type-hint `Capell\Core\Contracts\Security\SanitizesPublicHtml` and choose the narrowest `Capell\Core\Enums\HtmlSanitizerProfile` for the content:
+
+| Profile            | Use it for                  | Allows                                                                                                          |
+| ------------------ | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `Strict` (default) | Short public copy           | Inline formatting, headings, lists, tables, safe links and images                                               |
+| `RichText`         | Editor-authored articles    | Strict plus figures, captions, inline semantics, validated `class` tokens and heading ids                       |
+| `Comment`          | Visitor-authored text       | Paragraphs, emphasis, quotes, code and lists; links get `rel="nofollow ugc noopener noreferrer"`                |
+| `Embed`            | Rich text with video embeds | RichText plus sandboxed `iframe` elements from allowlisted HTTPS hosts                                          |
+| `SvgUpload`        | Uploaded SVG files          | An SVG element and attribute allowlist parsed as XML; returns an empty string when the file cannot be made safe |
+
+```php
+use Capell\Core\Contracts\Security\SanitizesPublicHtml;
+use Capell\Core\Enums\HtmlSanitizerProfile;
+
+$html = app(SanitizesPublicHtml::class)->sanitize($comment->body, HtmlSanitizerProfile::Comment);
+```
+
+No profile keeps scripts, `style` elements or attributes, event handlers, framework bindings such as `x-on:` or `wire:`, `name` attributes, or `javascript:` and `data:` URLs. Links and images are validated by the sanitiser whatever a profile allows.
+
+A package that needs more markup extends a profile while it boots. The extension constructor refuses anything that could execute, load a resource, restyle the page or clobber page globals, so an extension can widen a profile but never bypass it. Embed inherits every RichText extension; SvgUpload cannot be extended.
+
+```php
+use Capell\Core\Enums\HtmlSanitizerProfile;
+use Capell\Core\Support\Security\HtmlSanitizerProfileExtension;
+use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
+
+$this->app->make(HtmlSanitizerProfileRegistry::class)->extend(
+    HtmlSanitizerProfile::RichText,
+    new HtmlSanitizerProfileExtension(['details' => ['open'], 'summary' => []]),
+);
+
+$this->app->make(HtmlSanitizerProfileRegistry::class)->extend(
+    HtmlSanitizerProfile::Embed,
+    new HtmlSanitizerProfileExtension(embedHosts: ['embed.example.org']),
+);
+```
+
+Use `Capell\Core\Support\Security\SvgContentSniffer::streamIsSvg()` before storing an upload: it reads the whole stream, so a long prologue cannot hide an SVG from the check.
+
 ## Layout Builder Areas
 
 Use Layout Builder areas when a frontend package or theme needs editor-managed widgets outside the standard page body. Areas keep the normal Layout Builder storage model: widgets live in containers, and containers set `meta.area`. Missing `meta.area` values render as `main`.
