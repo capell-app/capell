@@ -2,16 +2,16 @@
 
 ## Core Tables
 
-| Table | Purpose |
-| --- | --- |
-| `sites` | Publishing surface with default language/theme/type. |
-| `languages` | Locale records used by URLs and translations. |
-| `types` | Polymorphic type catalogue. Key columns: `type`, `key`, `group`, `meta`, `admin`. |
-| `layouts` | Page render layout. Core columns: `key`, `site_id`, `theme_id`, `meta`, `admin`; LayoutBuilder adds `containers` and `widgets`. |
-| `pages` | Tree of page records. Points to `site_id`, `type_id`, `layout_id`. |
-| `page_urls` | Public URL records for pages. Uses `pageable_type`, `pageable_id`, `language_id`, `site_id`, `url`. |
-| `translations` | Translatable title/content/meta for any translated model. Uses `language_id`, `translatable_type`, `translatable_id`. |
-| `asset_relations` | Generic ordered asset links for models that use Capell assets. |
+| Table             | Purpose                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `sites`           | Publishing surface with default language/theme/type.                                                                            |
+| `languages`       | Locale records used by URLs and translations.                                                                                   |
+| `types`           | Polymorphic type catalogue. Key columns: `type`, `key`, `group`, `meta`, `admin`.                                               |
+| `layouts`         | Page render layout. Core columns: `key`, `site_id`, `theme_id`, `meta`, `admin`; LayoutBuilder adds `containers` and `widgets`. |
+| `pages`           | Tree of page records. Points to `site_id`, `type_id`, `layout_id`.                                                              |
+| `page_urls`       | Public URL records for pages. Uses `pageable_type`, `pageable_id`, `language_id`, `site_id`, `url`.                             |
+| `translations`    | Translatable title/content/meta for any translated model. Uses `language_id`, `translatable_type`, `translatable_id`.           |
+| `asset_relations` | Generic ordered asset links for models that use Capell assets.                                                                  |
 
 ## Idempotent Page Seeder Shape
 

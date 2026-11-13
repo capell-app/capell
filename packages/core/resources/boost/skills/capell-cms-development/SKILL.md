@@ -1,6 +1,6 @@
 ---
 name: capell-cms-development
-description: "Builds site content and rendering in a Capell application: converting static routes and Blade views into CMS records, seeding pages, layouts, translations, widgets and sections, and installing packages. Use when converting a Laravel or Blade site to Capell CMS content, seeding content, or debugging seeded content."
+description: 'Builds site content and rendering in a Capell application: converting static routes and Blade views into CMS records, seeding pages, layouts, translations, widgets and sections, and installing packages. Use when converting a Laravel or Blade site to Capell CMS content, seeding content, or debugging seeded content.'
 ---
 
 # Capell CMS Development

@@ -22,13 +22,13 @@ Legacy docs and older apps may call the same mental model Mosaic. In current Cap
 
 LayoutBuilder adds:
 
-| Table / column | Purpose |
-| --- | --- |
-| `widgets` | Reusable widget instances. Key columns: `workspace_id`, `name`, `type_id`, `key`, `content`, `meta`, `admin`, `status`. |
-| `widget_assets` | Ordered content assets for widgets. Scopes by `widget_id`, optional `pageable`, `container`, `occurrence`, and polymorphic `asset`. |
-| `sections` | Reusable/nested content records. Key columns: `workspace_id`, `shadowed_by_workspace_id`, `name`, `type_id`, `site_id`, `meta`, nested-set columns, visible dates. |
-| `layouts.containers` | Ordered container map used by the frontend renderer. Each container owns layout meta and a `widgets` list. |
-| `layouts.widgets` | Cached/derived widget key list maintained from containers. |
+| Table / column       | Purpose                                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `widgets`            | Reusable widget instances. Key columns: `workspace_id`, `name`, `type_id`, `key`, `content`, `meta`, `admin`, `status`.                                            |
+| `widget_assets`      | Ordered content assets for widgets. Scopes by `widget_id`, optional `pageable`, `container`, `occurrence`, and polymorphic `asset`.                                |
+| `sections`           | Reusable/nested content records. Key columns: `workspace_id`, `shadowed_by_workspace_id`, `name`, `type_id`, `site_id`, `meta`, nested-set columns, visible dates. |
+| `layouts.containers` | Ordered container map used by the frontend renderer. Each container owns layout meta and a `widgets` list.                                                         |
+| `layouts.widgets`    | Cached/derived widget key list maintained from containers.                                                                                                         |
 
 ## Container Shape
 
