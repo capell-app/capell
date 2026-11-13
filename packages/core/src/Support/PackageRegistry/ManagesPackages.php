@@ -19,12 +19,9 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
-use Illuminate\Database\ConnectionException;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
-use PDOException;
 use RuntimeException;
 use Throwable;
 
@@ -500,7 +497,7 @@ trait ManagesPackages
     public function markPackageProviderQuarantined(string $name, string $provider, string $reason): void
     {
         if ($this->isCorePackageName($name)) {
-            $this->clearExtensionCache();
+            $this->clearExtensionCacheContained();
 
             return;
         }
@@ -517,8 +514,10 @@ trait ManagesPackages
                 reason: $reason,
                 package: $this->packageOrNull($name),
             );
-        } catch (QueryException|ConnectionException|PDOException $exception) {
-            report($exception);
+            // The cache can repopulate from the database between the early clear and the write.
+            $this->clearExtensionCacheContained();
+        } catch (Throwable $throwable) {
+            report($throwable);
         }
     }
 
