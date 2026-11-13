@@ -225,3 +225,32 @@ it('treats a consent provider that fails as a refusal', function (): void {
         ->and(ActivityVisitor::query()->exists())->toBeFalse()
         ->and($reported)->toBe(['Consent store unavailable.']);
 });
+
+it('refuses opt-out signals even when a consent manager grants analytics', function (string $header): void {
+    activityBeaconPageForTest();
+    $granting = new class implements ConsentDecisionProvider
+    {
+        public function categories(): array
+        {
+            return ['essential', 'analytics'];
+        }
+
+        public function purposes(): array
+        {
+            return [];
+        }
+
+        public function decide(string $purposeOrCategory, Request $request): ConsentDecision
+        {
+            return ConsentDecision::Granted;
+        }
+    };
+
+    expect(makeActivityBeaconControllerForTest(consent: $granting)(activityBeaconRequestForTest($header))->getStatusCode())->toBe(204)
+        ->and(ActivityBucket::query()->exists())->toBeFalse()
+        ->and(ActivityVisitor::query()->exists())->toBeFalse();
+
+    expect(makeActivityBeaconControllerForTest(consent: $granting)(activityBeaconRequestForTest())->getStatusCode())->toBe(204)
+        ->and(ActivityBucket::query()->exists())->toBeTrue()
+        ->and(ActivityVisitor::query()->exists())->toBeTrue();
+})->with(['HTTP_SEC_GPC', 'HTTP_DNT']);

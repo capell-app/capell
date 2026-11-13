@@ -102,7 +102,7 @@ The counter records two things: an aggregate page-view count per page in five-mi
 | Refused, Global Privacy Control or Do Not Track | No                                | No             |
 | Unreadable: no runtime, or the provider fails   | No                                | No             |
 
-The browser and the collection endpoint each apply this table, so a forged beacon still gets no visitor marker without granted analytics.
+The browser and the collection endpoint each apply this table, so a forged beacon still gets no visitor marker without granted analytics. Both treat a Global Privacy Control or Do Not Track signal as a refusal even when a consent manager reports analytics as granted.
 
 ## Content Security Policy
 
@@ -116,6 +116,6 @@ The server decision reads the request, so use it only in responses that are neve
 
 ## Replace the provider
 
-A consent manager binds its own `ConsentDecisionProvider` in its service provider and renders its own `window.CapellPrivacy` runtime at `RenderHookLocation::HeadOpen` with a priority below 5. The default runtime then sees the existing object and leaves it in place.
+A consent manager binds its own `ConsentDecisionProvider` in its service provider and renders its own `window.CapellPrivacy` runtime at `RenderHookLocation::HeadOpen` with a priority below 5. The default runtime then sees the existing object and leaves it in place. Its provider and runtime should refuse the categories in `capell.privacy.consent.opt_out_signal_categories` under a Global Privacy Control or Do Not Track signal and treat an undecided category as not granted, as Core's do.
 
 The runtime fragment is cached with the page. Keep it free of request state: render the configuration as JSON in a `<script type="application/json">` element and load the code from a same-origin, versioned script URL. The configuration element is data, which a Content Security Policy does not block. Set no consent cookie on a page response. A cookie the consent manager sets from its own endpoint must stay host-only unless the site configures a domain for it. Build that cookie with `Symfony\Component\HttpFoundation\Cookie::create()` and a `null` domain rather than `cookie()`: Laravel's cookie jar substitutes `config('session.domain')` for a `null` domain, which shares the cookie with every subdomain.
