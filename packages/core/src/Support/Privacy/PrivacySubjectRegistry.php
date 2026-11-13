@@ -111,14 +111,32 @@ final class PrivacySubjectRegistry
      * package that throws, or returns a receipt Core cannot accept, becomes a
      * failure in the result and the remaining packages still run, so no
      * finished erasure goes unrecorded. Any failure means the erasure is
-     * incomplete and must be run again (erasers are safe to repeat).
+     * incomplete and must be run again (erasers are safe to repeat): pass the
+     * failed contributors as $only to run those alone. A named contributor
+     * with no registered eraser is a failure, never a silent success. A thrown
+     * exception goes to the application's exception handler; the result keeps
+     * only its class.
+     *
+     * @param  list<string>|null  $only  contributor keys to run; null runs every eraser
      */
-    public function erase(PrivacySubject $subject, PrivacyErasureMode $mode): PrivacyErasureResultData
+    public function erase(PrivacySubject $subject, PrivacyErasureMode $mode, ?array $only = null): PrivacyErasureResultData
     {
         $erasers = $this->erasers();
-        ksort($erasers);
         $receipts = [];
         $failures = [];
+
+        if ($only !== null) {
+            $only = array_values(array_unique($only));
+            sort($only);
+
+            foreach (array_diff($only, array_keys($erasers)) as $missing) {
+                $failures[] = new PrivacyErasureFailureData($missing, PrivacyErasureFailureData::CODE_CONTRIBUTOR_MISSING);
+            }
+
+            $erasers = array_intersect_key($erasers, array_flip($only));
+        }
+
+        ksort($erasers);
 
         foreach ($erasers as $contributor => $eraser) {
             try {
@@ -128,19 +146,20 @@ final class PrivacySubjectRegistry
 
                 $receipt = $eraser->erase($subject, $mode);
             } catch (Throwable $throwable) {
+                report($throwable);
                 $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_ERASER_FAILED, $throwable::class);
 
                 continue;
             }
 
             if ($receipt->contributor !== $contributor) {
-                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_RECEIPT_CONTRIBUTOR);
+                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_RECEIPT_CONTRIBUTOR, rejectedReceipt: $receipt);
 
                 continue;
             }
 
             if ($receipt->suppressionMarkerRetained && ! $eraser->retainsSuppressionMarker()) {
-                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_UNDECLARED_MARKER);
+                $failures[] = new PrivacyErasureFailureData($contributor, PrivacyErasureFailureData::CODE_UNDECLARED_MARKER, rejectedReceipt: $receipt);
 
                 continue;
             }
