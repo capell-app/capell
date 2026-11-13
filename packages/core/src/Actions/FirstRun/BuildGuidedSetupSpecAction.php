@@ -12,6 +12,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -29,6 +30,9 @@ final class BuildGuidedSetupSpecAction
 
     public const string HOME_SLUG = 'home';
 
+    /** The SiteSpec package data key the Form Builder extension applies. */
+    public const string FORMS_KEY = 'forms';
+
     public function __construct(
         private readonly SiteSpecPresetRegistry $presets,
         private readonly SiteSpecApplierRegistry $appliers,
@@ -40,6 +44,13 @@ final class BuildGuidedSetupSpecAction
      */
     public function handle(GuidedSetupInputData $input, ?Site $site = null): CapellSiteSpecData
     {
+        $contactEmail = $input->contactEmail !== null && trim($input->contactEmail) !== '' ? trim($input->contactEmail) : null;
+
+        Validator::make(
+            ['contactEmail' => $contactEmail],
+            ['contactEmail' => ['nullable', 'string', 'email', 'max:255']],
+        )->validate();
+
         $preset = $this->presets->get($input->presetKey);
 
         throw_if(! $preset instanceof SiteSpecPresetData, InvalidArgumentException::class, sprintf('Guided setup has no preset called [%s].', $input->presetKey));
@@ -100,6 +111,12 @@ final class BuildGuidedSetupSpecAction
             $payload['navigations'] = [];
         }
 
+        $payload['packageData'] = $this->packageData((array) ($payload['packageData'] ?? []), $wanted, $contactEmail);
+
+        if ($payload['packageData'] === []) {
+            unset($payload['packageData']);
+        }
+
         $payload['initialVisibility'] = 'private';
         $payload['acknowledgePublic'] = false;
 
@@ -110,6 +127,70 @@ final class BuildGuidedSetupSpecAction
         }
 
         return CapellSiteSpecData::from($validation['normalized']);
+    }
+
+    /**
+     * Keeps only the package data an installed extension can apply, so a preset that offers a contact
+     * form still applies on a site without the Form Builder extension. A form is kept only when the
+     * page it belongs on is being created, and it sends its messages to the address the person gave.
+     *
+     * @param  array<array-key, mixed>  $packageData
+     * @param  list<string>  $wanted
+     * @return array<string, array<array-key, mixed>>
+     */
+    private function packageData(array $packageData, array $wanted, ?string $contactEmail): array
+    {
+        $kept = [];
+
+        foreach ($packageData as $key => $data) {
+            if (! is_string($key)) {
+                continue;
+            }
+
+            if (! is_array($data)) {
+                continue;
+            }
+
+            if (! $this->appliers->has($key)) {
+                continue;
+            }
+
+            if ($key === self::FORMS_KEY) {
+                $data = $this->forms($data, $wanted, $contactEmail);
+            }
+
+            if ($data !== []) {
+                $kept[$key] = $data;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $forms
+     * @param  list<string>  $wanted
+     * @return list<array<array-key, mixed>>
+     */
+    private function forms(array $forms, array $wanted, ?string $contactEmail): array
+    {
+        $kept = [];
+
+        foreach ($forms as $form) {
+            if (! is_array($form)) {
+                continue;
+            }
+
+            $page = $form['placeOnPage'] ?? null;
+
+            if (is_string($page) && ! in_array($page, $wanted, true)) {
+                continue;
+            }
+
+            $kept[] = $contactEmail === null ? $form : [...$form, 'notify' => $contactEmail];
+        }
+
+        return $kept;
     }
 
     private function existingHomeSlug(?Site $site, ?Language $language): ?string

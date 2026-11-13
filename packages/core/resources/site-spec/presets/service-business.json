@@ -144,6 +144,22 @@
                 "pageSlugs": ["home", "about", "services", "reviews", "contact"]
             }
         ],
+        "packageData": {
+            "forms": [
+                {
+                    "handle": "contact",
+                    "name": "Contact form",
+                    "placeOnPage": "contact",
+                    "successMessage": "Thank you. Your message has been sent.",
+                    "fields": [
+                        { "key": "name", "label": "Your name", "type": "text", "required": true },
+                        { "key": "email", "label": "Email address", "type": "email", "required": true },
+                        { "key": "phone", "label": "Phone number", "type": "text", "required": false },
+                        { "key": "message", "label": "How can we help?", "type": "textarea", "required": true }
+                    ]
+                }
+            ]
+        },
         "initialVisibility": "private",
         "acknowledgePublic": false
     }
