@@ -69,7 +69,7 @@ Paid packages are served from `https://capell.app/composer` with a short-lived c
 
 The credential expires 30 minutes after it is issued, so request it immediately before use. Do not paste it into tickets, logs, source control, or shared shell history. See [Paid package access](docs/getting-started/install.md#paid-package-access) for the details.
 
-Capell Foundation renders Pages inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Foundation does not include a public content-delivery API. The optional API package is a free Beta for reading published Page and layout data; review its [current contract and maturity](https://docs.capell.app/packages/) before choosing a separate frontend.
+Capell Foundation renders Pages inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Foundation does not include a public content-delivery API. The optional API package reads published Page and layout data; its Marketplace listing carries the current status, so review its [current contract](https://docs.capell.app/packages/) before choosing a separate frontend.
 
 ## What Capell replaces in a custom Filament build
 

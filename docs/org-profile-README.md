@@ -30,7 +30,7 @@ Capell is an open-source CMS for Laravel, built on Filament.
 
 Every page save appends a full-state revision: editors compare changes field by field, roll back, and roll forward without erasing history. Page types, layouts, URLs, and publishing rules are structured records in your Laravel app — managed in a Filament admin, rendered by your own frontend. And Capell is Composer packages, not a monolith: a free, MIT-licensed **Capell Foundation** plus verified extensions — search, SEO, publishing workflow, forms, themes, and more — whose migrations, data access, and removal paths you can inspect before they install.
 
-Capell Foundation renders Pages inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Foundation does not include a public content-delivery API. The optional API package is a free Beta for reading published Page and layout data; review its [current contract and maturity](https://docs.capell.app/packages/) before choosing a separate frontend.
+Capell Foundation renders Pages inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Foundation does not include a public content-delivery API. The optional API package reads published Page and layout data; its Marketplace listing carries the current status, so review its [current contract](https://docs.capell.app/packages/) before choosing a separate frontend.
 
 [capell.app](https://capell.app) · [Documentation](https://docs.capell.app) · [Live demo](https://capell.app/demo) · [Install instructions](https://github.com/capell-app/capell/blob/main/docs/getting-started/install.md) · [Roadmap](https://capell.app/roadmap) · [X](https://x.com/capell_app)
 
