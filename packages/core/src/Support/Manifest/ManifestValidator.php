@@ -31,6 +31,7 @@ use Capell\Core\Enums\ExtensionManifestVersion;
 use Capell\Core\Enums\ExtensionSurface;
 use Capell\Core\Support\Agent\AgentToolDefinitionNormalizer;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
+use Capell\Core\Support\Manifest\Validation\CapabilityContractsSectionValidator;
 use Capell\Core\Support\Manifest\Validation\CommercialSectionValidator;
 use Capell\Core\Support\Manifest\Validation\ManifestValidationRules;
 use Capell\Core\Support\Manifest\Validation\MarketplaceSectionValidator;
@@ -86,6 +87,7 @@ final class ManifestValidator
         'settings',
         'permissions',
         'capabilities',
+        'capabilityContracts',
         'security',
         'performance',
         'healthChecks',
@@ -120,6 +122,7 @@ final class ManifestValidator
             new PerformanceSectionValidator($this->rules),
             new CommercialSectionValidator,
             new MarketplaceSectionValidator($this->rules),
+            new CapabilityContractsSectionValidator,
         ];
     }
 
@@ -239,6 +242,7 @@ final class ManifestValidator
         $this->validateHealthChecks($data, $namespacePrefixes, $isTrustedCore);
         $this->sectionValidators[2]->validate($data);
         $this->sectionValidators[3]->validate($data);
+        $this->sectionValidators[4]->validate($data);
     }
 
     /**
