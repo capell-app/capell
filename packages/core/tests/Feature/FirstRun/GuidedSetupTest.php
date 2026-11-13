@@ -311,6 +311,96 @@ it('applies every shipped preset to a freshly installed site', function (string 
     expect($site->refresh()->pages()->count())->toBe(count($slugs) + INSTALLER_EXTRA_PAGES);
 })->with(['service-business', 'shop-front', 'studio']);
 
+/**
+ * Stands in for the Form Builder extension, which owns the contact form part of a spec.
+ *
+ * @return ArrayObject<int, array<string, mixed>> what each apply received under `packageData.forms`
+ */
+function registerFormsApplier(): ArrayObject
+{
+    $received = new ArrayObject;
+
+    resolve(SiteSpecApplierRegistry::class)->register(new readonly class($received) implements SiteSpecApplier
+    {
+        /** @param ArrayObject<int, array<string, mixed>> $received */
+        public function __construct(private ArrayObject $received) {}
+
+        public function key(): string
+        {
+            return 'forms';
+        }
+
+        /** @param array<string, Page> $pagesBySlug */
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
+        {
+            $this->received->append(['forms' => $spec->packageData['forms'] ?? null, 'pages' => array_keys($pagesBySlug)]);
+        }
+    });
+
+    return $received;
+}
+
+it('gives every shipped preset a contact form placed on its contact page', function (string $presetKey): void {
+    $forms = resolve(SiteSpecPresetRegistry::class)->get($presetKey)?->spec['packageData']['forms'] ?? null;
+
+    expect($forms)->toBeArray()->toHaveCount(1)
+        ->and($forms[0]['handle'])->toBe('contact')
+        ->and($forms[0]['placeOnPage'])->toBe('contact')
+        ->and(array_column($forms[0]['fields'], 'type'))->toContain('email', 'textarea');
+})->with(['service-business', 'shop-front', 'studio']);
+
+it('adds the contact form, sent to the address given, when the Form Builder extension is installed', function (): void {
+    registerFormsApplier();
+
+    $spec = BuildGuidedSetupSpecAction::run(new GuidedSetupInputData(
+        presetKey: 'service-business',
+        siteName: 'Hartley Dental',
+        pageSlugs: ['contact'],
+        contactEmail: 'reception@hartley.test',
+    ));
+
+    expect($spec->packageData['forms'])->toHaveCount(1)
+        ->and($spec->packageData['forms'][0]['handle'])->toBe('contact')
+        ->and($spec->packageData['forms'][0]['placeOnPage'])->toBe('contact')
+        ->and($spec->packageData['forms'][0]['notify'])->toBe('reception@hartley.test');
+});
+
+it('leaves the contact form out when the Form Builder extension is not installed', function (): void {
+    $spec = BuildGuidedSetupSpecAction::run(new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Hartley Dental', pageSlugs: ['contact'], contactEmail: 'reception@hartley.test'));
+
+    expect($spec->packageData)->not->toHaveKey('forms');
+});
+
+it('leaves the contact form out when the contact page is not chosen', function (): void {
+    registerFormsApplier();
+
+    $spec = BuildGuidedSetupSpecAction::run(guidedInput('about'));
+
+    expect($spec->packageData)->not->toHaveKey('forms');
+});
+
+it('refuses a contact address that is not an email address', function (): void {
+    registerFormsApplier();
+
+    BuildGuidedSetupSpecAction::run(new GuidedSetupInputData(presetKey: 'service-business', siteName: 'Hartley Dental', pageSlugs: ['contact'], contactEmail: 'reception'));
+})->throws(ValidationException::class);
+
+it('hands the contact form to the Form Builder extension with the created contact page', function (): void {
+    $site = installedSite();
+    $received = registerFormsApplier();
+
+    CompleteGuidedSetupAction::run(new GuidedSetupInputData(
+        presetKey: 'service-business',
+        siteName: 'Hartley Dental',
+        pageSlugs: ['about', 'contact'],
+        contactEmail: 'reception@hartley.test',
+    ), $site);
+
+    expect($received)->toHaveCount(1)
+        ->and(data_get($received->getArrayCopy(), '0.forms.0.notify'))->toBe('reception@hartley.test')
+        ->and(data_get($received->getArrayCopy(), '0.pages'))->toContain('contact');
+});
+
 it('keeps a site awaiting publication from the moment its pages are created until it is published', function (): void {
     $site = installedSite();
     $actor = guidedSetupAdmin();

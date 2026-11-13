@@ -11,6 +11,7 @@ final class GuidedSetupInputData extends Data
 {
     /**
      * @param  list<string>  $pageSlugs  Slugs of the preset's pages to create. The home page is always created.
+     * @param  string|null  $contactEmail  Where the preset's contact form sends its messages, when the Form Builder extension creates one.
      */
     public function __construct(
         public readonly string $presetKey,
@@ -19,5 +20,6 @@ final class GuidedSetupInputData extends Data
         public readonly ?string $themeKey = null,
         public readonly ?string $primaryColour = null,
         public readonly array $pageSlugs = [],
+        public readonly ?string $contactEmail = null,
     ) {}
 }
