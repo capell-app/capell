@@ -12,9 +12,9 @@ use Spatie\Permission\Models\Role;
  * every permission the role carries at the moment of granting. A role later
  * widened on the Roles screen is therefore re-checked on every grant.
  */
-final class RoleGrantGuard
+class RoleGrantGuard
 {
-    public static function canGrant(Authenticatable $actor, Role $role): bool
+    public function canGrant(Authenticatable $actor, Role $role): bool
     {
         if (method_exists($actor, 'isGlobalAdmin') && $actor->isGlobalAdmin()) {
             return true;

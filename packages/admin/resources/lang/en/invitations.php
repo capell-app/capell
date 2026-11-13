@@ -45,7 +45,7 @@ return [
         'password_confirmation' => 'Type the password again',
         'submit' => 'Save password and sign in',
         'invalid_heading' => 'This invitation link no longer works',
-        'invalid_title' => 'This invitation link no longer works',
+        'invalid_title' => 'We could not use this invitation link',
         'invalid_body' => 'It may have been used already or be more than :days days old. Ask the person who invited you to send a new invitation.',
         'saved_no_access_title' => 'Your password is saved',
         'saved_no_access_body' => 'Your account cannot open the admin yet. Ask the person who invited you to check what you can do.',

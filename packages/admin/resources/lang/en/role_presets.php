@@ -10,7 +10,7 @@ return [
             'publish_pages' => 'Add, edit and publish pages',
             'bin_pages' => 'Move pages to the bin and bring them back',
             'page_addresses' => 'Change the web address of a page',
-            'roll_back' => 'Undo a page back to an earlier version',
+            'roll_back' => 'Restore an earlier version of a page',
             'media' => 'Upload, replace and remove images and files',
             'menus' => 'Add menu links, rename them and change their order',
         ],

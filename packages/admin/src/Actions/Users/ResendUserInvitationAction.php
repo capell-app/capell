@@ -26,8 +26,9 @@ final class ResendUserInvitationAction
     use AsObject;
 
     /**
-     * Only for people who have not accepted their invitation yet; anyone who
-     * has signed in uses the normal password reset. The actor must also be able
+     * Only for people who have never signed in or set a password (their
+     * invitation row survives exactly that long); anyone else uses the normal
+     * password reset. The actor must also be able
      * to grant every role the invitee holds now, since accepting activates them.
      */
     public static function canResend(Authenticatable $user, Authenticatable $actor): bool
@@ -49,7 +50,7 @@ final class ResendUserInvitationAction
         }
 
         foreach ($user->roles()->get() as $role) {
-            if ($role instanceof Role && ! RoleGrantGuard::canGrant($actor, $role)) {
+            if ($role instanceof Role && ! resolve(RoleGrantGuard::class)->canGrant($actor, $role)) {
                 return false;
             }
         }

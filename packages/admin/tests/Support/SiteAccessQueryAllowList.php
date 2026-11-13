@@ -113,7 +113,7 @@ final class SiteAccessQueryAllowList
             // duplicate check must see every user.
             'packages/admin/src/Actions/Users/InviteUserAction.php' => ['emailIsTaken|$userModel::query()->whereRaw(\'LOWER(email) = ?\', [mb_strtolower(trim($email))])->exists()'],
             // Invitation tokens belong to an account, not to a site.
-            'packages/admin/src/Support/Users/InvitationPasswordBroker.php' => ['hasPendingInvitation|' . DB::class . '::table(self::table())->where(\'email\', $user->getEmailForPasswordReset())->exists()'],
+            'packages/admin/src/Support/Users/InvitationPasswordBroker.php' => ['hasPendingInvitation|' . DB::class . '::table(self::table())->where(\'email\', $user->getEmailForPasswordReset())->exists()', 'revoke|' . DB::class . '::table($table)->where(\'email\', $user->getEmailForPasswordReset())->delete()'],
             'packages/admin/src/Actions/Users/ResolveAdminLocaleForUserAction.php' => ['handle|$user->newQuery()->whereKey($user->getKey())->value(\'preferred_admin_language_id\')'],
             'packages/admin/src/Actions/Users/ResolvePreferredAdminLanguageIdAction.php' => ['handle|$user->newQuery()->whereKey($user->getKey())->value(\'preferred_admin_language_id\')'],
             'packages/marketplace/src/Actions/ResolveMarketplaceInstallAttemptUserAction.php' => ['handle|$user->newQuery()->whereKey($attempt->user_id)->first()'],

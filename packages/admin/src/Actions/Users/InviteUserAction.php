@@ -61,7 +61,7 @@ final class InviteUserAction
      */
     public static function canGrantPreset(Authenticatable $actor, RolePreset $preset): bool
     {
-        return self::canInvite($actor) && RoleGrantGuard::canGrant($actor, self::roleFor($preset));
+        return self::canInvite($actor) && resolve(RoleGrantGuard::class)->canGrant($actor, self::roleFor($preset));
     }
 
     /**
@@ -75,7 +75,7 @@ final class InviteUserAction
 
         return array_values(array_filter(
             RolePreset::cases(),
-            static fn (RolePreset $preset): bool => RoleGrantGuard::canGrant($actor, self::roleFor($preset)),
+            static fn (RolePreset $preset): bool => resolve(RoleGrantGuard::class)->canGrant($actor, self::roleFor($preset)),
         ));
     }
 
@@ -121,7 +121,7 @@ final class InviteUserAction
 
         $role = self::roleFor($invitation->preset);
 
-        throw_unless(RoleGrantGuard::canGrant($actor, $role), AuthorizationException::class);
+        throw_unless(resolve(RoleGrantGuard::class)->canGrant($actor, $role), AuthorizationException::class);
 
         if (self::emailIsTaken($userModel, $invitation->email)) {
             throw ValidationException::withMessages([

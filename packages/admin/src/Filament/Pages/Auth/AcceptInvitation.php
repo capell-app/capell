@@ -89,7 +89,7 @@ class AcceptInvitation extends SimplePage
 
     public function accept(): void
     {
-        $rateLimitKey = 'capell-admin:accept-invitation:' . request()->ip();
+        $rateLimitKey = 'capell-admin:accept-invitation:' . hash('sha256', request()->ip() . '|' . mb_strtolower((string) $this->email));
 
         if (RateLimiter::tooManyAttempts($rateLimitKey, self::MAX_ATTEMPTS_PER_MINUTE)) {
             Notification::make()

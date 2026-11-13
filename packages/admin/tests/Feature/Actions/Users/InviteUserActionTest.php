@@ -13,13 +13,18 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Enums\RolePreset;
 use Capell\Admin\Notifications\UserInvitationNotification;
 use Capell\Admin\Support\Users\InvitationPasswordBroker;
+use Capell\Admin\Support\Users\RoleGrantGuard;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Role;
 
 uses(CreatesAdminUser::class);
 
@@ -173,4 +178,73 @@ it('offers resend only while the invitation is pending', function (): void {
     AcceptUserInvitationAction::run($query['email'], $query['token'], 'a-long-new-password');
 
     expect(ResendUserInvitationAction::canResend($user->fresh() ?? $user, $actor))->toBeFalse();
+});
+
+it('kills the invitation link once the invitee signs in another way', function (): void {
+    $actor = test()->createUserWithRole('super_admin');
+    $user = inviteClient($actor);
+    $token = invitationQuery(invitationUrlFor($user))['token'];
+
+    event(new Login('web', $user, false));
+
+    expect(InvitationPasswordBroker::isValid('client@example.test', $token))->toBeFalse()
+        ->and(ResendUserInvitationAction::canResend($user, $actor))->toBeFalse();
+});
+
+it('kills the invitation link after a normal password reset', function (): void {
+    $user = inviteClient();
+    $token = invitationQuery(invitationUrlFor($user))['token'];
+
+    $status = Password::broker()->reset(
+        ['email' => 'client@example.test', 'token' => Password::broker()->createToken($user), 'password' => 'reset-password-123'],
+        function (User $resetUser, string $password): void {
+            $resetUser->forceFill(['password' => Hash::make($password)])->save();
+            event(new PasswordReset($resetUser));
+        },
+    );
+
+    expect($status)->toBe(Password::PASSWORD_RESET)
+        ->and(AcceptUserInvitationAction::run('client@example.test', $token, 'taken-over-password'))->toBeNull();
+});
+
+it('kills the invitation link when someone saves a password for the invitee', function (): void {
+    $user = inviteClient();
+    $token = invitationQuery(invitationUrlFor($user))['token'];
+
+    $user->forceFill(['password' => Hash::make('set-by-an-admin-123')])->save();
+
+    expect(AcceptUserInvitationAction::run('client@example.test', $token, 'taken-over-password'))->toBeNull();
+});
+
+it('refuses an inviter who may invite but lacks a permission the preset grants', function (): void {
+    $actor = test()->createUserWithRole('super_admin');
+
+    // Today only global administrators pass canInvite, and they hold every
+    // permission; stand in a guard that says the inviter lacks one.
+    app()->instance(RoleGrantGuard::class, new class extends RoleGrantGuard
+    {
+        public function canGrant(Authenticatable $actor, Role $role): bool
+        {
+            return false;
+        }
+    });
+
+    expect(InviteUserAction::canInvite($actor))->toBeTrue();
+
+    try {
+        inviteClient($actor);
+    } finally {
+        expect(User::query()->where('email', 'client@example.test')->exists())->toBeFalse();
+        Notification::assertNothingSent();
+    }
+})->throws(AuthorizationException::class);
+
+it('keeps Capell defaults for anything a host invitation broker config leaves out', function (): void {
+    config(['auth.passwords.' . InvitationPasswordBroker::NAME => ['expire' => 120]]);
+
+    InvitationPasswordBroker::ensureConfigured();
+
+    expect(InvitationPasswordBroker::expiresInMinutes())->toBe(120)
+        ->and(InvitationPasswordBroker::table())->toContain('admin_user_invitation_tokens')
+        ->and(config('auth.passwords.' . InvitationPasswordBroker::NAME . '.provider'))->toBe('users');
 });

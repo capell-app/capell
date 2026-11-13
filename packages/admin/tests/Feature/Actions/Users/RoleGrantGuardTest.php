@@ -27,14 +27,14 @@ it('refuses an inviter who can manage users but has no page or media rights', fu
         ResourceEnum::User->permission('create'),
     ]);
 
-    expect(RoleGrantGuard::canGrant($actor, Role::query()->where('name', RolePreset::ClientEditor->roleName())->firstOrFail()))->toBeFalse();
+    expect((new RoleGrantGuard)->canGrant($actor, Role::query()->where('name', RolePreset::ClientEditor->roleName())->firstOrFail()))->toBeFalse();
 });
 
 it('allows an inviter who holds every permission the role carries', function (): void {
     $role = Role::query()->where('name', RolePreset::ClientEditor->roleName())->firstOrFail();
     $actor = test()->createUserWithPermission($role->permissions->pluck('name')->all());
 
-    expect(RoleGrantGuard::canGrant($actor, $role))->toBeTrue();
+    expect((new RoleGrantGuard)->canGrant($actor, $role))->toBeTrue();
 });
 
 it('re-checks a role that was widened after the inviter last qualified', function (): void {
@@ -44,5 +44,5 @@ it('re-checks a role that was widened after the inviter last qualified', functio
     $role->givePermissionTo(ResourceEnum::Site->permission('update'));
     resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 
-    expect(RoleGrantGuard::canGrant($actor->fresh() ?? $actor, $role->fresh() ?? $role))->toBeFalse();
+    expect((new RoleGrantGuard)->canGrant($actor->fresh() ?? $actor, $role->fresh() ?? $role))->toBeFalse();
 });
