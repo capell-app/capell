@@ -52,7 +52,7 @@ final class ViteInputsCheck extends AbstractDoctorCheck
                 'Capell Vite inputs are integrated',
                 false,
                 'Generated Capell Vite entries are not included in the application Vite configuration.',
-                "Import capellViteInputs from '@capell/frontend/capell-vite-inputs' and spread ...capellViteInputs() into the Laravel Vite input array.",
+                "Import capellViteInputs from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js' and spread ...capellViteInputs() into the Laravel Vite input array.",
             );
         }
 
