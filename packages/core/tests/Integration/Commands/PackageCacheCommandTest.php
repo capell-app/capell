@@ -268,10 +268,9 @@ it('falls back to discovery when package cache returns invalid data', function (
 
     file_put_contents($cachePath, '<?php return "not an array";');
 
-    expect(function (): void {
-        resolve(PackageRegistryBootstrapper::class)->bootstrap();
-    })->not->toThrow(Throwable::class)
-        ->and(file_exists($cachePath))->toBeFalse();
+    resolve(PackageRegistryBootstrapper::class)->bootstrap();
+
+    expect(file_exists($cachePath))->toBeFalse();
 });
 
 it('falls back to discovery when package cache contains invalid php', function (): void {
@@ -279,10 +278,9 @@ it('falls back to discovery when package cache contains invalid php', function (
 
     file_put_contents($cachePath, '<?php this is not valid php');
 
-    expect(function (): void {
-        resolve(PackageRegistryBootstrapper::class)->bootstrap();
-    })->not->toThrow(Throwable::class)
-        ->and(file_exists($cachePath))->toBeFalse();
+    resolve(PackageRegistryBootstrapper::class)->bootstrap();
+
+    expect(file_exists($cachePath))->toBeFalse();
 });
 
 function packageCacheThemeManifest(string $name, string $installPath, ?string $extends = null, ?string $themeKey = null): CapellManifestData

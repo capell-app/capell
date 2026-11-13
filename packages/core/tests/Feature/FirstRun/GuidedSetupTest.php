@@ -21,6 +21,7 @@ use Capell\Core\Actions\SiteReplicatedAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\FirstRun\GuidedSetupInputData;
+use Capell\Core\Data\FirstRun\GuidedSetupStateData;
 use Capell\Core\Data\Properties\PropertyValueData;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
@@ -735,17 +736,22 @@ it('never throws while deciding about a home page of any shape', function (Closu
     $admin = guidedSetupAdmin();
     $home = Page::withTrashed()->whereKey($home->getKey())->firstOrFail();
 
-    expect(fn (): mixed => [
-        ResolveGuidedSetupStateAction::isOwedTo($site->refresh()),
-        ResolveGuidedSetupStateAction::refusalFor($site),
-        ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home),
-        ResolveGuidedSetupStateAction::placeholderHome($site),
-        ResolveGuidedSetupStateAction::untouchedSetupPages($site),
-        ResolveGuidedSetupStateAction::awaitsPublication($site),
-        ResolveGuidedSetupStateAction::make()->awaitingPublication($admin),
-        ResolveGuidedSetupStateAction::make()->strandedSetup($admin),
-        ResolveGuidedSetupStateAction::run($admin),
-    ])->not->toThrow(Throwable::class);
+    // Each call runs directly, so an exception escaping any of them errors the test.
+    $isOwedTo = ResolveGuidedSetupStateAction::isOwedTo($site->refresh());
+    ResolveGuidedSetupStateAction::refusalFor($site);
+    $isPlaceholderHome = ResolveGuidedSetupStateAction::isPlaceholderHome($site, $home);
+    ResolveGuidedSetupStateAction::placeholderHome($site);
+    $untouchedSetupPages = ResolveGuidedSetupStateAction::untouchedSetupPages($site);
+    $awaitsPublication = ResolveGuidedSetupStateAction::awaitsPublication($site);
+    ResolveGuidedSetupStateAction::make()->awaitingPublication($admin);
+    ResolveGuidedSetupStateAction::make()->strandedSetup($admin);
+    $state = ResolveGuidedSetupStateAction::run($admin);
+
+    expect($isOwedTo)->toBeBool()
+        ->and($isPlaceholderHome)->toBeBool()
+        ->and($untouchedSetupPages)->toBeArray()
+        ->and($awaitsPublication)->toBeBool()
+        ->and($state)->toBeInstanceOf(GuidedSetupStateData::class);
 })->with([
     'html' => [fn (Page $home): bool => (bool) $home->translations->first()?->update(['content' => '<p>Hello</p>'])],
     'blocks' => [function (Page $home): void {

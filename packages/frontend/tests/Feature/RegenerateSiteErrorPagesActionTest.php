@@ -161,7 +161,7 @@ it('is a no-op for a disabled site', function (): void {
 });
 
 it('swallows a renderer throwable and logs a warning once', function (): void {
-    recordingStaticErrorPageStore();
+    $store = recordingStaticErrorPageStore();
     bindThrowingRenderer();
 
     $language = Language::factory()->english()->create();
@@ -171,8 +171,9 @@ it('swallows a renderer throwable and logs a warning once', function (): void {
 
     Log::shouldReceive('warning')->once();
 
-    expect(fn () => RegenerateSiteErrorPagesAction::run($siteDomain->site_id))
-        ->not->toThrow(Throwable::class);
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id);
+
+    expect($store->files)->toBeEmpty();
 });
 
 it('renders once for repeated change-driven triggers while the inputs are unchanged', function (): void {
