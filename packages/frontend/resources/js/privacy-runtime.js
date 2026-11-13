@@ -7,6 +7,12 @@
 // leaves it in place. The stable API is allows, consent, choose and open.
 // Either way, a gated frame shows a short notice in its place until its purpose is granted.
 ;(() => {
+    // A page that includes the runtime twice (a cached fragment, a second render hook)
+    // runs it once, so frames never get a second notice.
+    const installed = Symbol.for('capell.privacy-runtime')
+    if (window[installed]) return
+    Object.defineProperty(window, installed, { value: true })
+
     const configElement = document.getElementById(
         'capell-privacy-runtime-config',
     )

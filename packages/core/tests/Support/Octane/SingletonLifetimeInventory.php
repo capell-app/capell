@@ -76,6 +76,7 @@ use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
+use Capell\Core\Support\Security\SiteOwnedHosts;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -260,6 +261,7 @@ final class SingletonLifetimeInventory
     public static function mutableStaticState(): array
     {
         return [
+            SiteOwnedHosts::class => 'Site-domain answers live in a WeakMap keyed by the request object, so they are dropped with each request and never answer for the next one.',
             SignalDispatchGuard::class => 'Weak application and fibre keys isolate in-flight reporting; finally releases completed dispatches without retaining request containers.',
             HasModelRelations::class => 'This trait provides a deliberate boot registry shared by every operation.',
             PublicRenderDataScope::class => 'Render-local data set only inside during(), which restores the previous value in finally, so nothing outlives a public render or crosses requests.',

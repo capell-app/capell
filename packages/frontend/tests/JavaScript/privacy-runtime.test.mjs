@@ -184,7 +184,9 @@ function fakePage({
 
     vm.runInNewContext(source, context)
 
-    return { window, root, listeners, cookieWrites, events }
+    const runAgain = () => vm.runInNewContext(source, context)
+
+    return { window, root, listeners, cookieWrites, events, runAgain }
 }
 
 test('grants only what the site allows and leaves marketing undecided', () => {
@@ -464,4 +466,20 @@ test('adds no notice when the page carries no notice text', () => {
 
     assert.deepEqual(root.children, [frame])
     assert.equal(frame.hidden, false)
+})
+
+test('runs once when the page includes the runtime twice', () => {
+    const frame = gatedVideo()
+    const { window, root, listeners, runAgain } = fakePage({
+        config: { ...siteConfig, framePlaceholder },
+        children: [frame],
+    })
+    const privacy = window.CapellPrivacy
+
+    runAgain()
+    listeners.get('capell:privacy-consent-changed')?.()
+
+    assert.equal(window.CapellPrivacy, privacy)
+    assert.equal(root.children.length, 2)
+    assert.equal(root.children[0].childNodes.length, 1)
 })

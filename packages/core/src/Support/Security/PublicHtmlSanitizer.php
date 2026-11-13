@@ -299,8 +299,9 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
             return true;
         }
 
-        // Arbitrary values that are negative or viewport-sized (mt-[-100vh], h-[100vh]).
-        if (preg_match('/\[(?:-|[^\]]*(?:vh|vw|vmin|vmax|dvh|svh|lvh)\b)/i', $utility) === 1) {
+        // Arbitrary values that can be negative (mt-[-100vh], mt-[calc(0px-200px)], mt-[min(-10rem,0px)])
+        // or sized to the viewport or container (h-[100vh], h-[100cqh]). Plain lengths such as text-[13px] stay.
+        if (preg_match('/\[[^\]]*(?:-|\(|(?:vh|vw|vi|vb|vmin|vmax|dvh|svh|lvh|dvw|svw|lvw|cqh|cqw|cqi|cqb|cqmin|cqmax)\b)/i', $utility) === 1) {
             return true;
         }
 
@@ -362,6 +363,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
             && is_string($host)
             && preg_match('#^https://#', $source) === 1
             && ! $this->containsUnsafeUrlCharacter($source)
+            && ! str_contains($source, ' ')
             && ! isset($parts['user'])
             && ! isset($parts['port'])
             && $policy->allowsEmbed(strtolower($host), $parts['path'] ?? '')
@@ -399,11 +401,12 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
 
     /**
      * Browsers strip tabs and newlines inside URLs and read a backslash as a slash,
-     * so "/\t/evil.example" or "/\\evil.example" would leave the site.
+     * so "/\t/evil.example" or "/\\evil.example" would leave the site. A plain space
+     * cannot, so "/storage/Team Photo.jpg" stays; embeds refuse spaces separately.
      */
     private function containsUnsafeUrlCharacter(string $url): bool
     {
-        return preg_match('/[\x00-\x20\x7F\\\\]/', $url) === 1;
+        return preg_match('/[\x00-\x1F\x7F\\\\]/', $url) === 1;
     }
 
     private function sanitizeImage(DOMElement $element): bool

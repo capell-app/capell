@@ -144,10 +144,11 @@ it('drops utilities that could cover the page with an overlay', function (string
     '-top-4', '[position:fixed]', 'md:[&>*]:fixed', 'max-[600px]:fixed', 'aria-[x]:fixed', 'supports-[display:grid]:z-50',
     '-mt-96', 'h-screen', 'w-screen', 'min-h-screen', 'md:min-h-dvh', '-translate-y-full', 'translate-x-1/2', 'scale-150', 'hover:scale-110',
     'h-[100vh]', 'mt-[-100px]', 'w-[100dvw]', 'unbalanced]:fixed',
+    'mt-[calc(0px-200px)]', 'mt-[min(-10rem,0px)]', 'h-[100cqh]', 'w-[50cqw]',
 ]);
 
 it('keeps ordinary layout and typography utilities, with variants', function (): void {
-    $classes = 'relative mx-auto mt-4 max-w-prose md:grid-cols-2 max-[600px]:p-2 supports-[display:grid]:grid hover:text-teal-700 h-64 w-full text-[13px]';
+    $classes = 'relative mx-auto mt-4 max-w-prose md:grid-cols-2 max-[600px]:p-2 supports-[display:grid]:grid hover:text-teal-700 h-64 w-full text-[13px] bg-[#0f766e] grid-cols-[1fr_2fr]';
 
     expect(profileSanitizer()->sanitize('<p class="' . $classes . '">Body</p>', HtmlSanitizerProfile::RichText))
         ->toBe('<p class="' . $classes . '">Body</p>');
@@ -192,6 +193,7 @@ it('keeps Strict output byte-identical to the sanitiser it replaced', function (
     'comments and external links' => ['<h2>Title</h2><!-- editor note --><p>Body with <a href="https://example.com">a link</a> &amp; text</p><ul><li>One</li></ul>', '<h2>Title</h2><p>Body with <a href="https://example.com" rel="nofollow noopener noreferrer" target="_blank">a link</a> &amp; text</p><ul><li>One</li></ul>'],
     'table attributes' => ['<table><thead><tr><th scope="col" colspan="2">H</th></tr></thead><tbody><tr><td rowspan="2">C</td></tr></tbody></table>', '<table><thead><tr><th>H</th></tr></thead><tbody><tr><td>C</td></tr></tbody></table>'],
     'safe links and images' => ['<a href="/pricing#plans" title="Plans">Plans</a><a href="mailto:hi@example.com">Mail</a><a href="#top">Top</a><img src="https://cdn.example.com/x.png" alt="X">', '<a href="/pricing#plans" title="Plans">Plans</a><a href="mailto:hi@example.com">Mail</a><a href="#top">Top</a><img src="https://cdn.example.com/x.png" alt="X">'],
+    'links and images with spaces in their paths' => ['<a href="/my page">Team</a><img src="/storage/Team Photo.jpg" alt="Team"><a href="https://example.com/a b">Ext</a>', '<a href="/my%20page">Team</a><img src="/storage/Team%20Photo.jpg" alt="Team"><a href="https://example.com/a%20b" rel="nofollow noopener noreferrer" target="_blank">Ext</a>'],
     'stray closing tags and block elements' => ['<p>a</p></div><p>b tail kept</p><dl><dt>T</dt><dd>D</dd></dl><pre><code>x</code></pre><blockquote>q</blockquote><hr><br>', '<p>a</p><p>b tail kept</p><dl><dt>T</dt><dd>D</dd></dl><pre><code>x</code></pre><blockquote>q</blockquote><hr><br>'],
 ]);
 
@@ -209,6 +211,7 @@ it('keeps an embed when its own output is sanitised again', function (): void {
     expect($once)->toContain('data-src="https://www.youtube-nocookie.com/embed/abc"')
         ->and(profileSanitizer()->sanitize($once, HtmlSanitizerProfile::Embed))->toBe($once)
         ->and(profileSanitizer()->sanitize('<iframe data-src="https://www.youtube.com/redirect?q=https://evil.example"></iframe>', HtmlSanitizerProfile::Embed))->toBe('')
+        ->and(profileSanitizer()->sanitize('<iframe src="https://www.youtube-nocookie.com/embed/a b"></iframe>', HtmlSanitizerProfile::Embed))->toBe('')
         ->and(profileSanitizer()->sanitize('<iframe src="https://evil.example/x" data-src="https://www.youtube-nocookie.com/embed/abc"></iframe>', HtmlSanitizerProfile::Embed))->toBe('');
 });
 
