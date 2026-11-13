@@ -411,3 +411,19 @@ it('keeps freshly loaded permissions available to navigation in the unchanged te
     $user->permissions()->detach();
     expect(resolve(PaletteAccess::class)->coreCommands())->not->toHaveKey('capell.settings');
 });
+
+it('renders only authorised site commands when permission middleware is replaced', function (bool $allowed): void {
+    $site = Site::factory()->createOne();
+    $user = SiteScopedUserFactory::create($site, $allowed ? ['View:SettingsPage'] : []);
+    $this->actingAs($user);
+    $this->withoutMiddleware(SetSitePermissionScope::class);
+
+    $response = $this->get('/palette-site/' . $site->getKey())->assertOk();
+    $url = 'href="' . SettingsPage::getUrl() . '"';
+
+    if ($allowed) {
+        $response->assertSee($url, false);
+    } else {
+        $response->assertDontSee($url, false);
+    }
+})->with([true, false]);
