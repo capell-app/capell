@@ -48,7 +48,7 @@ final class BuildCapellSiteFromSpecAction
             null,
             function () use ($spec, $repairPrivate, $keepPublished, $auditPrivate): Site {
                 // One build per site name at a time, so the name check and the create cannot interleave.
-                $site = Cache::lock('capell:site-spec-build:' . sha1(mb_strtolower($spec->site->name)), 120)
+                $site = Cache::lock('capell:site-spec-build:' . hash('xxh128', mb_strtolower($spec->site->name)), 120)
                     ->block(30, fn (): Site => $this->build($spec, $repairPrivate, $keepPublished, $auditPrivate));
 
                 if (! $auditPrivate) {
