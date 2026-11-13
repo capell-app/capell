@@ -9,6 +9,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -23,6 +24,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class RehashPrivacyIdentifiersAction
 {
+    use AsFake;
     use AsObject;
 
     /**
