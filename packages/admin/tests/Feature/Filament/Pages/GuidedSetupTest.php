@@ -20,6 +20,7 @@ use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Exceptions\GuidedSetupRefusedException;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -27,12 +28,19 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
+use Capell\Core\ThemeStudio\Data\ThemePresetData;
+use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FirstRun\GuidedSetupFixtureNavigationRenderer;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use PHPUnit\Framework\Assert;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -142,6 +150,171 @@ it('previews the answers as they are typed', function (): void {
         ->assertSee('Hartley Dental')
         ->assertSee('Family dentist in Leeds')
         ->assertSee('#0f766e', false);
+});
+
+it('renders the unsaved site in a sandboxed frame without writing anything', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $before = $site->getRawOriginal();
+    $writes = [];
+    DB::listen(function (QueryExecuted $query) use (&$writes): void {
+        if (preg_match('/^\s*(insert|update|delete|replace)\b/i', $query->sql) === 1) {
+            $writes[] = $query->sql;
+        }
+    });
+
+    $page = Livewire::test(GuidedSetup::class)
+        ->set('data.siteName', 'Hartley Dental')
+        ->set('data.tagline', 'Family dentist in Leeds')
+        ->set('data.primaryColour', '#0f766e');
+    $document = new DOMDocument;
+    @$document->loadHTML($page->html() ?: '<html></html>');
+    $frame = $document->getElementsByTagName('iframe')->item(0);
+
+    Assert::assertInstanceOf(DOMElement::class, $frame);
+    expect($frame->getAttribute('sandbox'))->toBe('')
+        ->and($frame->hasAttribute('sandbox'))->toBeTrue()
+        ->and($frame->getAttribute('title'))->toBe(__('capell-admin::setup.preview_title'));
+    $html = $frame->getAttribute('srcdoc');
+    expect($html)->toContain('Hartley Dental')->toContain('Family dentist in Leeds')->toContain('#0f766e')
+        ->toContain('Why people choose us')->toContain('About us')
+        ->not->toContain('wire:')->not->toContain('data-capell-edit')->not->toContain('signature=')
+        ->not->toContain('contactEmail')->not->toContain('site_id')->not->toContain('<script');
+
+    $page->set('data.pageSlugs', ['about']);
+    @$document->loadHTML($page->html() ?: '<html></html>');
+    expect($document->getElementsByTagName('iframe')->item(0)?->getAttribute('srcdoc'))->not->toContain('Our services')
+        ->and($site->refresh()->getRawOriginal())->toBe($before)
+        ->and($writes)->toBe([]);
+
+    $page->call('skip')->assertRedirect(CapellDashboard::getUrl());
+    expect(data_get($site->refresh()->meta, 'guided_setup.skipped_at'))->not->toBeNull();
+});
+
+it('updates the selected theme stylesheet and tokens without exposing theme authoring settings', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    Theme::factory()->createOne(['key' => 'test-look', 'meta' => ['editor' => ['tokens' => ['primaryColor' => '#abcdef']], 'internal' => 'secret-authoring-value']]);
+    resolve(ThemeRegistry::class)->register(new ThemeDefinitionData(
+        key: 'test-look',
+        name: 'Test look',
+        description: '',
+        package: 'test-theme',
+        previewImage: '',
+        tags: [],
+        bestFit: [],
+        presets: [new ThemePresetData(key: 'default', name: 'Default', description: '', previewImage: '', values: ['surfaceColor' => '#eefaff'])],
+        assets: ['css' => 'vendor/test-look/theme.css', 'js' => 'vendor/test-look/editor.js'],
+        frontend: ['setupPreviewNavigationRenderer' => GuidedSetupFixtureNavigationRenderer::class],
+    ));
+
+    CapellCore::registerPackage('test-theme', path: dirname(__DIR__, 6) . '/tests/fixtures/guided-setup-theme');
+    resolve(SiteSpecApplierRegistry::class)->register(new class implements SiteSpecApplier
+    {
+        #[Override]
+        public function key(): string
+        {
+            return 'navigation';
+        }
+
+        #[Override]
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
+        {
+            throw new RuntimeException('Preview must not apply navigation.');
+        }
+    });
+    $page = Livewire::test(GuidedSetup::class)->set('data.themeKey', 'test-look');
+    $html = $page->instance()->previewHtml();
+
+    expect($html)->toContain('fixture-theme-navigation')->toContain('fixture-theme-shell')->toContain('vendor/test-look/theme.css')->toContain('#abcdef')->toContain('#eefaff')
+        ->not->toContain('secret-authoring-value')->not->toContain('editor.js');
+
+    $page->set('data.primaryColour', '#123456');
+    expect($page->instance()->previewHtml())->toContain('#123456');
+
+    $page->set('data.themeKey', 'default');
+    expect($page->instance()->previewHtml())->not->toContain('vendor/test-look/theme.css');
+});
+
+it('preserves the preview identity and menu for partial or incompatible theme templates', function (string $fixture): void {
+    resolve(SiteSpecApplierRegistry::class)->register(new class implements SiteSpecApplier
+    {
+        #[Override]
+        public function key(): string
+        {
+            return 'navigation';
+        }
+
+        #[Override]
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
+        {
+            throw new RuntimeException('A preview must not apply navigation.');
+        }
+    });
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    Theme::factory()->createOne(['key' => 'partial-theme']);
+    resolve(ThemeRegistry::class)->register(new ThemeDefinitionData(
+        key: 'partial-theme',
+        name: 'Partial theme',
+        description: '',
+        package: 'partial-theme',
+        previewImage: '',
+        tags: [],
+        bestFit: [],
+        presets: [],
+        frontend: ['setupPreviewNavigationRenderer' => GuidedSetupFixtureNavigationRenderer::class],
+    ));
+    CapellCore::registerPackage('partial-theme', path: dirname(__DIR__, 6) . '/tests/fixtures/guided-setup-theme/' . $fixture);
+
+    $html = Livewire::test(GuidedSetup::class)
+        ->set('data.siteName', 'Hartley Dental')
+        ->set('data.tagline', 'Family dentist in Leeds')
+        ->set('data.themeKey', 'partial-theme')
+        ->instance()->previewHtml();
+    $document = new DOMDocument;
+    @$document->loadHTML($html);
+    $xpath = new DOMXPath($document);
+
+    $body = $document->getElementsByTagName('body')->item(0);
+    $aboutLinks = $xpath->query('//nav//a[@href="#page-about"]');
+    $homeArticles = $xpath->query('//article[@id="page-home"]');
+    Assert::assertInstanceOf(DOMElement::class, $body);
+    Assert::assertNotFalse($aboutLinks);
+    Assert::assertNotFalse($homeArticles);
+    $about = $aboutLinks->item(0);
+    Assert::assertInstanceOf(DOMElement::class, $about);
+    expect($body->textContent)->toContain('Hartley Dental')->toContain('Family dentist in Leeds')
+        ->and($about->textContent)->toBe('About')
+        ->and($homeArticles->length)->toBe(1);
+    if ($fixture === 'navigation-only') {
+        expect($html)->toContain('fixture-theme-navigation');
+    }
+
+    if ($fixture === 'page-only') {
+        expect($html)->toContain('fixture-public-fonts')->toContain('data-heading-font="inter"');
+    }
+})->with(['navigation-only', 'page-only', 'incompatible-page', 'incompatible-navigation']);
+
+it('keeps the preview usable while answers are incomplete and escapes typed markup', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    $page = Livewire::test(GuidedSetup::class)
+        ->set('data.siteName', '')
+        ->set('data.primaryColour', '#12')
+        ->set('data.contactEmail', 'unfinished@');
+
+    expect($page->instance()->previewHtml())->toContain(__('capell-admin::setup.preview_empty_name'));
+
+    $page->set('data.siteName', '<script>parent.alert(1)</script>')
+        ->set('data.tagline', '</iframe><img src=x onerror=alert(1)>');
+    $document = new DOMDocument;
+    @$document->loadHTML($page->instance()->previewHtml());
+    expect($document->getElementsByTagName('script')->length)->toBe(0)
+        ->and($document->getElementsByTagName('img')->length)->toBe(0)
+        ->and($document->getElementsByTagName('h1')->item(0)?->textContent)->toBe('<script>parent.alert(1)</script>');
+
+    $page->set('data.presetKey', 'removed-preset')->call('skip')->assertRedirect(CapellDashboard::getUrl());
 });
 
 it('lists the pages of the chosen page set, all ticked, and follows a change of set', function (): void {

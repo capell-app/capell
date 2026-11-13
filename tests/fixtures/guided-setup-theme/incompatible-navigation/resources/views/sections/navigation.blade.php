@@ -1,0 +1,1 @@
+<nav>{{ $section->requiredContext }}</nav>
