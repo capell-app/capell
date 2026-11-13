@@ -27,6 +27,7 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Support\AdminGlossary;
 use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
@@ -217,7 +218,10 @@ class CapellAdminPlugin implements Plugin
             hook: function (): ?View {
                 $entry = ResolveAdminHelpAction::run();
 
-                return $entry === null ? null : view('capell-admin::components.admin-help', ['entry' => $entry]);
+                return $entry === null ? null : view('capell-admin::components.admin-help', [
+                    'entry' => $entry,
+                    'glossary' => AdminGlossary::terms(),
+                ]);
             },
         );
 

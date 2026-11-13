@@ -31,7 +31,7 @@ it('shows and controls only the current editor recovery draft', function (): voi
 
     Livewire::test(PageScratchDraftPanel::class, ['pageId' => $page->getKey()])
         ->assertSuccessful()
-        ->assertSee('Recovery draft')
+        ->assertSee(__('capell-admin::scratch_drafts.title'))
         ->assertSee('Restore changes')
         ->call('discard')
         ->assertDontSee('Restore changes');

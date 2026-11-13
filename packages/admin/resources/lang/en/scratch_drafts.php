@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'title' => 'Recovery draft',
+    'title' => 'Unsaved changes',
     'creation_site_required' => 'Choose a site to enable recovery for this form.',
     'creation_unavailable' => 'Recovery could not be saved. Save your work before leaving.',
     'changed' => 'The recovery changed. Review the latest version before restoring it.',
@@ -22,6 +22,6 @@ return [
     'local_restore' => 'Restore browser changes',
     'local_discard' => 'Discard browser changes',
     'restore_incompatible' => 'This recovery has blocks the current editor cannot show, so it was not restored. Your form is unchanged and the recovery is kept. Switch this page back to blocks to restore it.',
-    'restored' => 'Recovery draft restored.',
-    'discarded' => 'Recovery draft discarded.',
+    'restored' => 'Unsaved changes restored.',
+    'discarded' => 'Unsaved changes discarded.',
 ];

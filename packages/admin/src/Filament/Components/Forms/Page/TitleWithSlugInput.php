@@ -151,7 +151,7 @@ class TitleWithSlugInput
                             $set($namePath, $state);
                         }
                     },
-                    slugLabel: '',
+                    slugLabel: (string) __('capell-admin::form.page_address'),
                     slugStatePath: 'meta.slug',
                     slugRuleUniqueParameters: [
                         'column' => 'meta->slug',
