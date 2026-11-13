@@ -13,6 +13,7 @@ use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
@@ -52,6 +53,8 @@ final class PackageSurfaceRegistrar
         private readonly ExtensionContributionReceiptRegistry $receipts,
         private readonly SecurityWeaknessRegistry $securityWeaknesses,
         private readonly Container $app,
+        // Optional so packages that build the registrar in their own tests keep working.
+        private readonly ?CapabilityRegistry $capabilities = null,
     ) {}
 
     /**
@@ -74,15 +77,19 @@ final class PackageSurfaceRegistrar
     {
         $this->installationDepth++;
 
+        $capabilities = $this->capabilities ?? $this->app->make(CapabilityRegistry::class);
+
         try {
             return $this->outboundEvents->duringPackageInstallation(
                 fn (): mixed => $this->blueprintSubjects->duringPackageInstallation(
-                    fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
-                        $result = $callback();
-                        $this->securityWeaknesses->adoptTagged($this->app);
+                    fn (): mixed => $capabilities->duringPackageInstallation(
+                        fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
+                            $result = $callback();
+                            $this->securityWeaknesses->adoptTagged($this->app);
 
-                        return $result;
-                    }),
+                            return $result;
+                        }),
+                    ),
                 ),
             );
         } finally {
