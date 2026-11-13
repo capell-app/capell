@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Shield;
 
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Enums\RolePreset;
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -41,6 +42,30 @@ class ResolveDefaultRolePermissionsAction
                 self::permission('view', 'Media'),
                 self::permission('create', 'Media'),
                 self::permission('update', 'Media'),
+            ], $guardName),
+            RolePreset::ClientEditor->roleName() => $this->existing([
+                self::permission('view_any', 'Page'),
+                self::permission('view', 'Page'),
+                self::permission('create', 'Page'),
+                self::permission('edit_content', 'Page'),
+                self::permission('update', 'Page'),
+                self::permission('delete', 'Page'),
+                self::permission('restore', 'Page'),
+                self::permission('view_any', 'PageUrl'),
+                self::permission('view', 'PageUrl'),
+                self::permission('create', 'PageUrl'),
+                self::permission('update', 'PageUrl'),
+                CapellPermission::RollbackPage->name(),
+                self::permission('view_any', 'Navigation'),
+                self::permission('view', 'Navigation'),
+                self::permission('create', 'Navigation'),
+                self::permission('update', 'Navigation'),
+                self::permission('reorder', 'Navigation'),
+                self::permission('view_any', 'Media'),
+                self::permission('view', 'Media'),
+                self::permission('create', 'Media'),
+                self::permission('update', 'Media'),
+                self::permission('delete', 'Media'),
             ], $guardName),
             'admin' => $this->existing([
                 ...ResolveDefaultGlobalResourcePermissionsAction::run(),
