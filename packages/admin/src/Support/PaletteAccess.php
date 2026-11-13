@@ -10,7 +10,6 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Filament\Pages\SettingsPage;
-use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Closure;
 use Filament\Facades\Filament;
@@ -164,7 +163,7 @@ final class PaletteAccess
         // restored the registrar's team. It is independent of permission grants.
         $teamId = resolve(PaletteRequestState::class)->resolvedTeamId(
             $user,
-            fn (): ?int => resolve(SetSitePermissionScope::class)->permissionTeamId(request()),
+            fn (): ?int => resolve(SitePermissionScopeResolver::class)->permissionTeamId(request()),
         );
 
         return PermissionTeamContext::run($teamId, function () use ($resolve): mixed {
