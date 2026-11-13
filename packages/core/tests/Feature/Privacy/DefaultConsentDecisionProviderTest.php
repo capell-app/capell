@@ -6,6 +6,7 @@ use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
 use Capell\Core\Enums\ConsentDecision;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
 use Illuminate\Http\Request;
 
@@ -132,4 +133,18 @@ it('keeps the stricter category when two packages declare one purpose differentl
     CapellCore::forcePackageInstalled('vendor/b-maps');
 
     expect(resolve(ConsentDecisionProvider::class)->purposes())->toBe(['maps' => 'marketing']);
+})->after(fn () => CapellCore::clearPackages());
+
+it('reads package purposes once per settings instance rather than for every decision', function (): void {
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/widget-video', ['youtube' => 'marketing']));
+    CapellCore::forcePackageInstalled('vendor/widget-video');
+    $settings = new ConsentSettings;
+
+    expect($settings->purposes())->toBe(['youtube' => 'marketing']);
+
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/late-map', ['openstreetmap' => 'functional']));
+    CapellCore::forcePackageInstalled('vendor/late-map');
+
+    expect($settings->purposes())->toBe(['youtube' => 'marketing'])
+        ->and(new ConsentSettings()->purposes())->toBe(['youtube' => 'marketing', 'openstreetmap' => 'functional']);
 })->after(fn () => CapellCore::clearPackages());

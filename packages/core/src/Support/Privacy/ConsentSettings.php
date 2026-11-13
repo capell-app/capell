@@ -15,6 +15,9 @@ use Capell\Core\Support\Manifest\CapellManifestData;
  */
 final class ConsentSettings
 {
+    /** @var array<string, string>|null */
+    private ?array $packagePurposes = null;
+
     public function runtimeEnabled(): bool
     {
         return filter_var(config('capell.privacy.consent.runtime', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) !== false;
@@ -68,11 +71,40 @@ final class ConsentSettings
      * Named purposes mapped to their category: those enabled packages declare in
      * capell.json privacy.purposes, then capell.privacy.consent.purposes, which wins
      * so a site can move a purpose to another category. When two packages declare
-     * one purpose differently, the stricter category is kept.
+     * one purpose differently, the stricter category is kept. The package walk
+     * runs once per instance, since a page can ask for every purpose it gates;
+     * configuration is read on each call.
      *
      * @return array<string, string>
      */
     public function purposes(): array
+    {
+        $purposes = $this->packagePurposes ??= $this->resolvePackagePurposes();
+
+        return $this->withConfiguredPurposes($purposes);
+    }
+
+    /**
+     * @param  array<string, string>  $purposes
+     * @return array<string, string>
+     */
+    private function withConfiguredPurposes(array $purposes): array
+    {
+        $configured = config('capell.privacy.consent.purposes', []);
+
+        foreach (is_array($configured) ? $configured : [] as $purpose => $value) {
+            $category = is_string($value) ? ConsentCategory::tryFrom($value) : null;
+
+            if (is_string($purpose) && $purpose !== '' && ConsentCategory::tryFrom($purpose) === null && $category instanceof ConsentCategory) {
+                $purposes[$purpose] = $category->value;
+            }
+        }
+
+        return $purposes;
+    }
+
+    /** @return array<string, string> */
+    private function resolvePackagePurposes(): array
     {
         $purposes = [];
 
@@ -109,16 +141,6 @@ final class ConsentSettings
                 if (! $current instanceof ConsentCategory || $this->strictness($category) > $this->strictness($current)) {
                     $purposes[$purpose] = $category->value;
                 }
-            }
-        }
-
-        $configured = config('capell.privacy.consent.purposes', []);
-
-        foreach (is_array($configured) ? $configured : [] as $purpose => $value) {
-            $category = is_string($value) ? ConsentCategory::tryFrom($value) : null;
-
-            if (is_string($purpose) && $purpose !== '' && ConsentCategory::tryFrom($purpose) === null && $category instanceof ConsentCategory) {
-                $purposes[$purpose] = $category->value;
             }
         }
 

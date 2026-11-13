@@ -88,6 +88,8 @@ A package declares the purposes it asks about in its `capell.json`, so a site ne
 
 Each purpose maps to `functional`, `preferences`, `analytics` or `marketing`. The manifest validator refuses `essential` (a purpose that never asks), category names and malformed keys. Only enabled packages count. Where two packages map one purpose differently, the stricter category wins, and `capell.privacy.consent.purposes` overrides any package declaration.
 
+A purpose's category decides when it loads. A purpose mapped to `functional` loads without asking wherever the site sets `capell.privacy.consent.defaults.functional` to `granted`, so map an embed that sets cookies or shares visitor data with a third party to `preferences`, `analytics` or `marketing`. Override a package's mapping in `capell.privacy.consent.purposes` if the site needs stricter handling.
+
 | Config key                                         | Environment variable                 | Default                      |
 | -------------------------------------------------- | ------------------------------------ | ---------------------------- |
 | `capell.privacy.first_party_counter`               | `CAPELL_PRIVACY_FIRST_PARTY_COUNTER` | `true`                       |
