@@ -243,3 +243,16 @@ it('prefers an exact redirect over the wildcard home redirect', function (): voi
         ->and($decision->targetUrl)->toBe('/specific-target')
         ->and($exactRedirect->refresh()->hit_count)->toBe(1);
 });
+
+it('refuses an unsafe canonical fallback read from an older row', function (string $target): void {
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->site($site)->createOne();
+    PageUrl::factory()->page($page)->site($site)->language($language)->createOne(['url' => $target]);
+    $redirect = PageUrl::factory()->page($page)->site($site)->language($language)->type(UrlTypeEnum::Redirect)->createOne([
+        'url' => '/former', 'target_url' => null,
+    ]);
+
+    expect(resolve(PageUrlRedirectResolver::class)->resolve($site, $language, '/former'))->toBeNull()
+        ->and($redirect->refresh()->hit_count)->toBe(0);
+})->with(['/\\evil.example', 'https://site@evil.example']);

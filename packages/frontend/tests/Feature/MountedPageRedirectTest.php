@@ -125,6 +125,14 @@ it('keeps automatic absolute targets outside the site url generator', function (
         'url' => '/absolute', 'target_url' => $target, 'is_manual' => false, 'status_code' => RedirectStatusCodeEnum::Temporary,
     ]);
 
+    if ($resolverClass === PageUrlRedirectResolver::class && str_starts_with($target, '//')) {
+        $response = $this->get($frenchDomain->full_url . '/absolute')->assertNotFound();
+        expect($response->headers->get('Location'))->toBeNull()
+            ->and($redirect->refresh()->hit_count)->toBe(0);
+
+        return;
+    }
+
     $response = $this->get($frenchDomain->full_url . '/absolute')->assertStatus(302);
 
     expect($response->headers->get('Location'))->toBe($target)
@@ -222,3 +230,17 @@ function mountedRedirectPage(Site $site, array $languages, string $slug, string 
 
     return $page;
 }
+
+it('refuses unsafe stored redirect targets on an anonymous request', function (string $target, bool $wildcard, bool $manual): void {
+    config(['capell-frontend.html_cache' => false, 'capell-frontend.write_html_cache' => false]);
+    app()->instance(RedirectResolver::class, resolve(PageUrlRedirectResolver::class));
+    [$site, , $french, , $frenchDomain] = mountedRedirectSite();
+    $redirect = PageUrl::factory()->site($site)->language($french)->type(UrlTypeEnum::Redirect)->createOne([
+        'url' => $wildcard ? '/*' : '/legacy', 'target_url' => $target, 'is_manual' => $manual,
+    ]);
+
+    $response = $this->get($frenchDomain->full_url . '/legacy')->assertNotFound();
+
+    expect($response->headers->get('Location'))->toBeNull()
+        ->and($redirect->refresh()->hit_count)->toBe(0);
+})->with(['/\\evil.example', 'https://site@evil.example'])->with([false, true])->with([false, true]);

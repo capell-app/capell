@@ -11,6 +11,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Url\RedirectTargetPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Override;
 
@@ -18,6 +19,7 @@ final class PageUrlRedirectResolver implements RedirectResolver
 {
     public function __construct(
         private readonly PageUrlRedirectHitRecorder $redirectRecorder,
+        private readonly RedirectTargetPolicy $targetPolicy = new RedirectTargetPolicy,
     ) {}
 
     #[Override]
@@ -35,15 +37,20 @@ final class PageUrlRedirectResolver implements RedirectResolver
             return null;
         }
 
-        $this->redirectRecorder->recordHit($pageUrl);
-
         if ($pageUrl->hasTargetUrl()) {
+            $targetUrl = $isWildcardHomeRedirect
+                ? $this->appendRequestedPath((string) $pageUrl->target_url, $url)
+                : (string) $pageUrl->target_url;
+
+            if (! $this->targetPolicy->validate($targetUrl)->allowed()) {
+                return null;
+            }
+
+            $this->redirectRecorder->recordHit($pageUrl);
             $statusCode = $pageUrl->getAttribute('status_code');
 
             return new RedirectDecisionData(
-                targetUrl: $isWildcardHomeRedirect
-                    ? $this->appendRequestedPath((string) $pageUrl->target_url, $url)
-                    : (string) $pageUrl->target_url,
+                targetUrl: $targetUrl,
                 statusCode: $statusCode instanceof RedirectStatusCodeEnum ? $statusCode->value : 301,
                 useSiteDomain: ! $pageUrl->isManualRedirect(),
             );
@@ -51,9 +58,11 @@ final class PageUrlRedirectResolver implements RedirectResolver
 
         $targetPageUrl = $this->findCurrentPageUrl($site, $language, $pageUrl);
 
-        if (! $targetPageUrl instanceof PageUrl) {
+        if (! $targetPageUrl instanceof PageUrl || ! $this->targetPolicy->validate($targetPageUrl->url)->allowed()) {
             return null;
         }
+
+        $this->redirectRecorder->recordHit($pageUrl);
 
         return new RedirectDecisionData(targetUrl: $targetPageUrl->url, statusCode: 301, useSiteDomain: true);
     }

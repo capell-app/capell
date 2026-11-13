@@ -133,6 +133,10 @@ final class OutboundHttp
         $host = self::host($request);
         $scheme = strtolower($uri->getScheme());
 
+        if (! defined('CURLOPT_RESOLVE')) {
+            throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_PINNING, 'DNS pinning is unavailable');
+        }
+
         if ($host === '' || ! $policy->allowsScheme($scheme)) {
             throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_SCHEME, 'the scheme is not allowed');
         }
