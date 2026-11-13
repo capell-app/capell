@@ -11,7 +11,6 @@ use DOMElement;
 use DOMNode;
 use DOMText;
 use Illuminate\Container\Container;
-use Illuminate\Http\Request;
 use Override;
 
 /**
@@ -29,31 +28,44 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         'width' => true,
     ];
 
+    /** Strict keeps the id shape it has always accepted, so existing in-page anchors keep working. */
+    private const string STRICT_IDENTIFIER_PATTERN = '/^[A-Za-z][A-Za-z0-9_-]{0,80}$/';
+
     /**
-     * Applied to every embedded frame: the embed keeps its own origin and can play
-     * media, but cannot navigate the page or open forms and modals on it.
-     */
-    /**
-     * Ids must be lower-case slugs, the shape a table of contents produces, so they
-     * cannot shadow camel-case page globals such as window.CapellPrivacy or window.Livewire.
+     * Ids from the newer profiles must be lower-case slugs, the shape a table of contents
+     * produces, so they cannot shadow camel-case page globals such as window.CapellPrivacy.
      */
     private const string IDENTIFIER_PATTERN = '/^[a-z][a-z0-9-]{0,80}$/';
 
     /**
-     * Positioning utilities let content cover the page (a fake login overlay), so a
-     * class granted by a profile can never pin, layer or offset an element.
+     * Utilities that let content escape its box and cover the page (a fake login
+     * overlay): positioning, layering and offsets, translation and scaling.
      */
-    private const string POSITIONING_UTILITY = '/^(?:fixed|absolute|sticky|inset|top|right|bottom|left|start|end|z)(?:-|$)/';
+    private const string OVERLAY_UTILITY = '/^(?:fixed|absolute|sticky|inset|top|right|bottom|left|start|end|z|translate|scale)(?:-|$)/';
+
+    /** Viewport-sized boxes cover the page without any positioning. */
+    private const string VIEWPORT_SIZE_UTILITY = '/^(?:min-|max-)?(?:h|w|size)-(?:screen|dvh|svh|lvh|dvw|svw|lvw)$/';
 
     /** Consent category third-party frames wait for before they load. */
     private const string EMBED_CONSENT = 'marketing';
 
+    /**
+     * Applied to every embedded frame: the embed keeps its own origin and can play
+     * media, but cannot navigate the page or open forms and modals on it.
+     */
     private const string EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
     /**
      * @var array<string, true>|null
      */
     private ?array $blockedPublicKeySet = null;
+
+    /**
+     * Site-owned host answers for the sanitise call in progress only.
+     *
+     * @var array<string, bool>
+     */
+    private array $siteOwnedHosts = [];
 
     public function __construct(
         private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
@@ -72,6 +84,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         }
 
         $policy = $this->profiles()->policy($profile);
+        $this->siteOwnedHosts = [];
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
 
@@ -194,6 +207,10 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
     private function sanitizeAttributes(DOMElement $element, string $tagName, HtmlSanitizerPolicy $policy): bool
     {
         $allowedAttributes = $policy->attributesFor($tagName);
+        // A frame this sanitiser already wrote carries its address in data-src; read it before attributes are filtered.
+        $embedSource = $tagName === 'iframe'
+            ? ($element->getAttribute('src') !== '' ? $element->getAttribute('src') : $element->getAttribute('data-src'))
+            : '';
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
             $name = $attribute->name;
@@ -206,7 +223,9 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
             }
         }
 
-        if ($element->hasAttribute('id') && preg_match(self::IDENTIFIER_PATTERN, $element->getAttribute('id')) !== 1) {
+        $identifierPattern = $policy->profile === HtmlSanitizerProfile::Strict ? self::STRICT_IDENTIFIER_PATTERN : self::IDENTIFIER_PATTERN;
+
+        if ($element->hasAttribute('id') && preg_match($identifierPattern, $element->getAttribute('id')) !== 1) {
             $element->removeAttribute('id');
         }
 
@@ -234,7 +253,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
 
         if ($tagName === 'iframe') {
             // Removed, or kept without any children of its own.
-            $this->sanitizeEmbed($element, $policy);
+            $this->sanitizeEmbed($element, $embedSource, $policy);
 
             return false;
         }
@@ -247,7 +266,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         // Utility class names only: no characters that could close the attribute or form CSS escapes.
         $classes = array_filter(
             preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [],
-            fn (string $class): bool => preg_match('/^[A-Za-z0-9_:\/.\-\[\]%#]{1,80}$/', $class) === 1 && ! $this->isPositioningClass($class),
+            fn (string $class): bool => preg_match('/^[A-Za-z0-9_:\/.\-\[\]%#!]{1,80}$/', $class) === 1 && ! $this->isOverlayClass($class),
         );
 
         if ($classes === []) {
@@ -259,13 +278,62 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         $element->setAttribute('class', implode(' ', array_unique($classes)));
     }
 
-    private function isPositioningClass(string $class): bool
+    private function isOverlayClass(string $class): bool
     {
-        // Strip variant prefixes (md:, hover:, group-hover:) and the important/negative markers.
-        $utility = ltrim((string) preg_replace('/^(?:[^\[\]:]+:)+/', '', $class), '!-');
+        $utility = $this->utilityOf($class);
 
-        // Arbitrary properties and arbitrary variants ([position:fixed], [&>*]:fixed) can set anything.
-        return str_starts_with($utility, '[') || preg_match(self::POSITIONING_UTILITY, $utility) === 1;
+        if ($utility === null) {
+            return true;
+        }
+
+        // Important markers (!fixed, fixed!) change nothing about what the utility does.
+        $utility = trim($utility, '!');
+
+        // Negative utilities (-mt-96, -translate-y-full, -z-10) pull content over its neighbours.
+        if (str_starts_with($utility, '-')) {
+            return true;
+        }
+
+        // Arbitrary properties ([position:fixed]) can set anything.
+        if (str_starts_with($utility, '[')) {
+            return true;
+        }
+
+        // Arbitrary values that are negative or viewport-sized (mt-[-100vh], h-[100vh]).
+        if (preg_match('/\[(?:-|[^\]]*(?:vh|vw|vmin|vmax|dvh|svh|lvh)\b)/i', $utility) === 1) {
+            return true;
+        }
+
+        return preg_match(self::OVERLAY_UTILITY, $utility) === 1 || preg_match(self::VIEWPORT_SIZE_UTILITY, $utility) === 1;
+    }
+
+    /**
+     * The utility after any chain of variants, splitting on colons outside brackets so
+     * md:, max-[600px]:, supports-[display:grid]: and [&>*]: are all stripped. Null when
+     * the brackets do not balance.
+     */
+    private function utilityOf(string $class): ?string
+    {
+        $depth = 0;
+        $start = 0;
+
+        for ($index = 0, $length = strlen($class); $index < $length; $index++) {
+            $character = $class[$index];
+
+            if ($character === '[') {
+                $depth++;
+            } elseif ($character === ']') {
+                $depth--;
+
+                if ($depth < 0) {
+                    return null;
+                }
+            } elseif ($character === ':' && $depth === 0) {
+                $start = $index + 1;
+            }
+        }
+
+        return $depth === 0 ? substr($class, $start) : null;
     }
 
     private function sanitizeAnchor(DOMElement $element, HtmlSanitizerPolicy $policy): void
@@ -284,9 +352,9 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         }
     }
 
-    private function sanitizeEmbed(DOMElement $element, HtmlSanitizerPolicy $policy): void
+    private function sanitizeEmbed(DOMElement $element, string $source, HtmlSanitizerPolicy $policy): void
     {
-        $source = trim(html_entity_decode($element->getAttribute('src'), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $source = trim(html_entity_decode($source, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $parts = parse_url($source);
         $host = is_array($parts) && isset($parts['host']) ? $parts['host'] : null;
 
@@ -297,7 +365,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
             && ! isset($parts['user'])
             && ! isset($parts['port'])
             && $policy->allowsEmbed(strtolower($host), $parts['path'] ?? '')
-            && ! $this->isRequestHost(strtolower($host));
+            && ! $this->isSiteOwnedHost(strtolower($host));
 
         if (! $safe) {
             $element->parentNode?->removeChild($element);
@@ -324,21 +392,9 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         }
     }
 
-    /**
-     * A frame on the page's own origin with allow-scripts and allow-same-origin can
-     * remove its own sandbox, so the rendering host is never an embed host.
-     */
-    private function isRequestHost(string $host): bool
+    private function isSiteOwnedHost(string $host): bool
     {
-        $container = Container::getInstance();
-
-        if (! $container->bound('request')) {
-            return false;
-        }
-
-        $request = $container->make('request');
-
-        return $request instanceof Request && strtolower($request->getHost()) === $host;
+        return $this->siteOwnedHosts[$host] ??= SiteOwnedHosts::contains($host);
     }
 
     /**

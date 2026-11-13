@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use Capell\Core\Contracts\Security\SanitizesPublicHtml;
 use Capell\Core\Enums\HtmlSanitizerProfile;
+use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Security\HtmlSanitizerProfileExtension;
 use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
 use Capell\Core\Support\Security\PublicHtmlSanitizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 function profileSanitizer(?HtmlSanitizerProfileRegistry $registry = null): PublicHtmlSanitizer
 {
@@ -134,11 +136,21 @@ it('refuses embed hosts that serve this site, its assets or its uploads', functi
     ))->toThrow(InvalidArgumentException::class, 'same origin');
 })->with(['site.example.com', 'assets.example.com', 'uploads.example.com']);
 
-it('drops positioning utilities that could cover the page with an overlay', function (): void {
-    $html = '<p class="fixed inset-0 z-50 md:absolute hover:sticky !fixed -top-4 inset-x-0 left-1/2 [position:fixed] md:[&>*]:fixed bg-white p-4 text-lg">Overlay</p>';
+it('drops utilities that could cover the page with an overlay', function (string $class): void {
+    expect(profileSanitizer()->sanitize('<p class="' . $class . ' bg-white p-4">Overlay</p>', HtmlSanitizerProfile::RichText))
+        ->toBe('<p class="bg-white p-4">Overlay</p>');
+})->with([
+    'fixed', 'absolute', 'sticky', 'inset-0', 'inset-x-0', 'left-1/2', 'z-50', 'md:absolute', 'hover:sticky', '!fixed', 'fixed!',
+    '-top-4', '[position:fixed]', 'md:[&>*]:fixed', 'max-[600px]:fixed', 'aria-[x]:fixed', 'supports-[display:grid]:z-50',
+    '-mt-96', 'h-screen', 'w-screen', 'min-h-screen', 'md:min-h-dvh', '-translate-y-full', 'translate-x-1/2', 'scale-150', 'hover:scale-110',
+    'h-[100vh]', 'mt-[-100px]', 'w-[100dvw]', 'unbalanced]:fixed',
+]);
 
-    expect(profileSanitizer()->sanitize($html, HtmlSanitizerProfile::RichText))
-        ->toBe('<p class="bg-white p-4 text-lg">Overlay</p>');
+it('keeps ordinary layout and typography utilities, with variants', function (): void {
+    $classes = 'relative mx-auto mt-4 max-w-prose md:grid-cols-2 max-[600px]:p-2 supports-[display:grid]:grid hover:text-teal-700 h-64 w-full text-[13px]';
+
+    expect(profileSanitizer()->sanitize('<p class="' . $classes . '">Body</p>', HtmlSanitizerProfile::RichText))
+        ->toBe('<p class="' . $classes . '">Body</p>');
 });
 
 it('removes raw-text elements with everything inside them', function (string $element): void {
@@ -163,10 +175,67 @@ it('refuses links and images whose URL a browser would read as another host', fu
     'tab inside an absolute url' => ['https://good.example&#9;.evil.example/'],
 ]);
 
-it('keeps ids lower-case slugs on every profile, sections included', function (HtmlSanitizerProfile $profile): void {
+it('keeps ids from the newer profiles to lower-case slugs, sections included', function (HtmlSanitizerProfile $profile): void {
     expect(profileSanitizer()->sanitize('<section id="Livewire">a</section><section id="pricing">b</section>', $profile))
         ->toBe('<section>a</section><section id="pricing">b</section>');
-})->with([HtmlSanitizerProfile::Strict, HtmlSanitizerProfile::RichText]);
+})->with([HtmlSanitizerProfile::RichText, HtmlSanitizerProfile::Embed]);
+
+it('keeps Strict output byte-identical to the sanitiser it replaced', function (string $html, string $expected): void {
+    expect(profileSanitizer()->sanitize($html))->toBe($expected)
+        ->and(profileSanitizer()->sanitize($html, HtmlSanitizerProfile::Strict))->toBe($expected);
+})->with([
+    // Expected values are the output of PublicHtmlSanitizer on main before profiles existed.
+    'mixed-case section anchors' => ['<section id="Section_1">a</section><section id="FAQ">b</section><section id="faq-2" data-top-extensions-showcase="1">c</section>', '<section id="Section_1">a</section><section id="FAQ">b</section><section id="faq-2" data-top-extensions-showcase="1">c</section>'],
+    'handlers and scripts' => ['<p onclick="alert(1)"><a href="javascript:alert(2)">Book</a></p><script>alert(3)</script><span class="label">Safe</span>', '<p><a>Book</a></p><span>Safe</span>'],
+    'figures unwrapped, classes dropped' => ['<h2 class="lead" id="intro">Title</h2><figure><img src="/a.png" alt="A" width="640" height="abc"><figcaption>Caption</figcaption></figure>', '<h2>Title</h2><img src="/a.png" alt="A" width="640">Caption'],
+    'positioning classes and frames' => ['<div class="fixed inset-0 z-50 sticky absolute">x</div><iframe src="https://www.youtube.com/embed/abc"></iframe><iframe src="https://www.youtube-nocookie.com/embed/abc"></iframe>', '<div>x</div>'],
+    'comments and external links' => ['<h2>Title</h2><!-- editor note --><p>Body with <a href="https://example.com">a link</a> &amp; text</p><ul><li>One</li></ul>', '<h2>Title</h2><p>Body with <a href="https://example.com" rel="nofollow noopener noreferrer" target="_blank">a link</a> &amp; text</p><ul><li>One</li></ul>'],
+    'table attributes' => ['<table><thead><tr><th scope="col" colspan="2">H</th></tr></thead><tbody><tr><td rowspan="2">C</td></tr></tbody></table>', '<table><thead><tr><th>H</th></tr></thead><tbody><tr><td>C</td></tr></tbody></table>'],
+    'safe links and images' => ['<a href="/pricing#plans" title="Plans">Plans</a><a href="mailto:hi@example.com">Mail</a><a href="#top">Top</a><img src="https://cdn.example.com/x.png" alt="X">', '<a href="/pricing#plans" title="Plans">Plans</a><a href="mailto:hi@example.com">Mail</a><a href="#top">Top</a><img src="https://cdn.example.com/x.png" alt="X">'],
+    'stray closing tags and block elements' => ['<p>a</p></div><p>b tail kept</p><dl><dt>T</dt><dd>D</dd></dl><pre><code>x</code></pre><blockquote>q</blockquote><hr><br>', '<p>a</p><p>b tail kept</p><dl><dt>T</dt><dd>D</dd></dl><pre><code>x</code></pre><blockquote>q</blockquote><hr><br>'],
+]);
+
+it('differs from the replaced Strict sanitiser only where it closed a bypass', function (string $html, string $before, string $after): void {
+    expect(profileSanitizer()->sanitize($html))->toBe($after)->not->toBe($before);
+})->with([
+    // Main kept these; a browser reads the first as //evil.example and the second as markup.
+    'tab inside a relative link' => ['<a href="/&#9;/evil.example">Go</a>', '<a href="/%09/evil.example">Go</a>', '<a>Go</a>'],
+    'raw-text element body' => ['<xmp><p>Raw</p></xmp>', '<p>Raw</p>', ''],
+]);
+
+it('keeps an embed when its own output is sanitised again', function (): void {
+    $once = profileSanitizer()->sanitize('<iframe src="https://www.youtube-nocookie.com/embed/abc" title="Video"></iframe>', HtmlSanitizerProfile::Embed);
+
+    expect($once)->toContain('data-src="https://www.youtube-nocookie.com/embed/abc"')
+        ->and(profileSanitizer()->sanitize($once, HtmlSanitizerProfile::Embed))->toBe($once)
+        ->and(profileSanitizer()->sanitize('<iframe data-src="https://www.youtube.com/redirect?q=https://evil.example"></iframe>', HtmlSanitizerProfile::Embed))->toBe('')
+        ->and(profileSanitizer()->sanitize('<iframe src="https://evil.example/x" data-src="https://www.youtube-nocookie.com/embed/abc"></iframe>', HtmlSanitizerProfile::Embed))->toBe('');
+});
+
+it('never frames another site served by this installation', function (): void {
+    $registry = new HtmlSanitizerProfileRegistry;
+    $registry->extend(HtmlSanitizerProfile::Embed, new HtmlSanitizerProfileExtension(embedHosts: ['brand.example.net' => ['/player/']]));
+    SiteDomain::factory()->create(['domain' => 'brand.example.net']);
+
+    expect(profileSanitizer($registry)->sanitize('<iframe src="https://brand.example.net/player/1"></iframe>', HtmlSanitizerProfile::Embed))->toBe('');
+});
+
+it('looks each site domain up once per request', function (): void {
+    app()->instance('request', Request::create('https://shop.example.org/page'));
+    $html = '<iframe src="https://www.youtube-nocookie.com/embed/a"></iframe><iframe src="https://www.youtube-nocookie.com/embed/b"></iframe>';
+    DB::enableQueryLog();
+
+    profileSanitizer()->sanitize($html, HtmlSanitizerProfile::Embed);
+    profileSanitizer()->sanitize($html, HtmlSanitizerProfile::Embed);
+
+    $lookups = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'domain'))->count();
+
+    app()->instance('request', Request::create('https://shop.example.org/next'));
+    profileSanitizer()->sanitize($html, HtmlSanitizerProfile::Embed);
+
+    expect($lookups)->toBe(1)
+        ->and(collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'domain'))->count())->toBe(2);
+});
 
 it('lets a package extend a profile with safe markup and embed hosts', function (): void {
     $registry = new HtmlSanitizerProfileRegistry;

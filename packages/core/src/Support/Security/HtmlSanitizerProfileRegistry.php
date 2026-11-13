@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Security;
 
 use Capell\Core\Enums\HtmlSanitizerProfile;
-use Illuminate\Container\Container;
-use Illuminate\Contracts\Config\Repository;
 use InvalidArgumentException;
 
 /**
@@ -33,7 +31,7 @@ final class HtmlSanitizerProfileRegistry
 
         foreach (array_keys($extension->embedHosts) as $host) {
             throw_if(
-                in_array($host, $this->siteHosts(), true),
+                in_array($host, SiteOwnedHosts::configured(), true),
                 InvalidArgumentException::class,
                 sprintf('[%s] serves this site or its assets; a sandboxed frame on the same origin can remove its own sandbox.', $host),
             );
@@ -46,39 +44,6 @@ final class HtmlSanitizerProfileRegistry
     public function policy(HtmlSanitizerProfile $profile): HtmlSanitizerPolicy
     {
         return $this->policies[$profile->value] ??= $this->resolve($profile);
-    }
-
-    /**
-     * The application, asset and storage hosts this installation serves from.
-     *
-     * @return list<string>
-     */
-    private function siteHosts(): array
-    {
-        $container = Container::getInstance();
-
-        if (! $container->bound('config')) {
-            return [];
-        }
-
-        $config = $container->make(Repository::class);
-        $urls = [$config->get('app.url'), $config->get('app.asset_url')];
-
-        foreach ((array) $config->get('filesystems.disks', []) as $disk) {
-            $urls[] = is_array($disk) ? ($disk['url'] ?? null) : null;
-        }
-
-        $hosts = [];
-
-        foreach ($urls as $url) {
-            $host = is_string($url) ? parse_url($url, PHP_URL_HOST) : null;
-
-            if (is_string($host) && $host !== '') {
-                $hosts[] = strtolower($host);
-            }
-        }
-
-        return array_values(array_unique($hosts));
     }
 
     private function resolve(HtmlSanitizerProfile $profile): HtmlSanitizerPolicy
