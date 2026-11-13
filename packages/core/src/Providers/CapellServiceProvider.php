@@ -671,6 +671,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(ExtensionContributionReceiptRegistry::class),
             $app->make(SecurityWeaknessRegistry::class),
             $app,
+            $app->make(CapabilityRegistry::class),
         ));
         $this->app->singleton(SecurityWeaknessRegistry::class);
         // Optional packages provide Core capability contracts while booting; consumers resolve them by interface.
@@ -693,6 +694,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $security->freeze();
             $this->app->make(OutboundEventRegistry::class)->freeze();
             $this->app->make(BlueprintSubjectRegistry::class)->freeze();
+            $this->app->make(CapabilityRegistry::class)->freeze();
         });
         $this->app->singleton(SubscriberRegistry::class);
         $this->app->alias(SubscriberRegistry::class, SubscriberManager::class);

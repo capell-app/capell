@@ -6,18 +6,23 @@ namespace Capell\Core\Support\Capabilities;
 
 use Capell\Core\Contracts\Capabilities\FormCatalogue;
 use Capell\Core\Enums\CapabilityContract;
+use Capell\Core\Exceptions\CapabilityRegistrationException;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
-use Closure;
 use Illuminate\Container\Container;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Resolves request-style capability contracts by interface. A providing package
- * registers its implementation while booting; consumers always get an object
- * that implements the contract, the null implementation when nothing provides it.
- */
-/**
- * @extends AbstractKeyedRegistry<class-string|Closure(Container): object, class-string>
+ * registers its implementation class while booting; the container freezes the
+ * registry on `booted`, so a request-time registration cannot leak across Octane
+ * requests, and package installation reopens it through
+ * {@see self::duringPackageInstallation()}. Consumers always get an object that
+ * implements the contract: the null implementation when nothing provides it, or
+ * when the provider fails to resolve, which is reported rather than thrown so a
+ * broken optional package cannot take a consumer's page down.
+ *
+ * @extends AbstractKeyedRegistry<class-string, class-string>
  */
 final class CapabilityRegistry extends AbstractKeyedRegistry
 {
@@ -26,24 +31,40 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
         FormCatalogue::class => NullFormCatalogue::class,
     ];
 
+    private bool $frozen = false;
+
+    private int $installationDepth = 0;
+
     /**
      * @template TContract of object
      *
      * @param  class-string<TContract>  $contract
-     * @param  class-string<TContract>|Closure(Container): TContract  $provider
+     * @param  class-string<TContract>  $provider
+     *
+     * @throws CapabilityRegistrationException when the registry is frozen or another provider is registered
+     * @throws InvalidArgumentException when the contract is not a capability or the provider does not implement it
      */
-    public function provide(string $contract, string|Closure $provider): void
+    public function provide(string $contract, string $provider): void
     {
         $capability = $this->capability($contract);
 
-        throw_if(
-            $this->hasItem($contract),
-            InvalidArgumentException::class,
-            sprintf('The [%s] capability already has a provider; only one package may provide it.', $capability->value),
-        );
-
-        if (is_string($provider) && ! is_a($provider, $contract, true)) {
+        if (! is_a($provider, $contract, true)) {
             throw new InvalidArgumentException(sprintf('[%s] does not implement %s.', $provider, $contract));
+        }
+
+        if ($this->frozen && $this->installationDepth === 0) {
+            throw CapabilityRegistrationException::frozen($capability);
+        }
+
+        $existing = $this->getItem($contract);
+
+        if ($existing === $provider) {
+            // A package re-booted by the install lifecycle registers the same provider again.
+            return;
+        }
+
+        if ($existing !== null) {
+            throw CapabilityRegistrationException::alreadyProvided($capability, $existing, $provider);
         }
 
         $this->setItem($contract, $provider);
@@ -58,14 +79,20 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
     public function get(string $contract): object
     {
         $this->capability($contract);
-        $provider = $this->getItem($contract) ?? self::NULL_IMPLEMENTATIONS[$contract];
-        // Resolved through the current container on every call, so a long-lived worker never hands out a boot-time instance.
-        $container = Container::getInstance();
-        $resolved = $provider instanceof Closure ? $provider($container) : $container->make($provider);
+        $provider = $this->getItem($contract);
+        $null = self::NULL_IMPLEMENTATIONS[$contract];
 
-        throw_unless($resolved instanceof $contract, InvalidArgumentException::class, sprintf('The provider for %s returned an object that does not implement it.', $contract));
+        if ($provider === null) {
+            return $this->resolve($null, $contract);
+        }
 
-        return $resolved;
+        try {
+            return $this->resolve($provider, $contract);
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return $this->resolve($null, $contract);
+        }
     }
 
     /**
@@ -87,6 +114,56 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
             CapabilityContract::cases(),
             fn (CapabilityContract $capability): bool => $capability->contract() !== null && $this->hasItem($capability->contract()),
         ));
+    }
+
+    public function freeze(): void
+    {
+        $this->frozen = true;
+    }
+
+    public function isFrozen(): bool
+    {
+        return $this->frozen;
+    }
+
+    /**
+     * Reopen the registry for the package-install lifecycle.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function duringPackageInstallation(callable $callback): mixed
+    {
+        $this->installationDepth++;
+
+        try {
+            return $callback();
+        } finally {
+            $this->installationDepth--;
+        }
+    }
+
+    /**
+     * Resolved through the current container on every call, so a long-lived worker
+     * never hands out a boot-time instance.
+     *
+     * @template TContract of object
+     *
+     * @param  class-string  $implementation
+     * @param  class-string<TContract>  $contract
+     * @return TContract
+     */
+    private function resolve(string $implementation, string $contract): object
+    {
+        $resolved = Container::getInstance()->make($implementation);
+
+        if (! $resolved instanceof $contract) {
+            throw CapabilityRegistrationException::wrongType($implementation, $contract);
+        }
+
+        return $resolved;
     }
 
     private function capability(string $contract): CapabilityContract

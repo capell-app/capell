@@ -7,6 +7,7 @@ use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
@@ -53,6 +54,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
         $receipts,
         new SecurityWeaknessRegistry,
         app(),
+        new CapabilityRegistry,
     );
 
     $receipts->rememberNamespaceContext(

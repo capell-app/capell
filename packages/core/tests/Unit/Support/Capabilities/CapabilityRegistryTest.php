@@ -13,24 +13,16 @@ use Capell\Core\Events\Capabilities\CampaignConversionRecorded;
 use Capell\Core\Events\Capabilities\FormSubmissionReceived;
 use Capell\Core\Events\Capabilities\PublishingWorkspaceTransitioned;
 use Capell\Core\Events\Capabilities\SiteAccessRegistrationApproved;
+use Capell\Core\Exceptions\CapabilityRegistrationException;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\Capabilities\NullFormCatalogue;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Tests\Support\CapabilityFormCatalogueFixture;
+use Capell\Core\Tests\Support\FailingCapabilityFormCatalogueFixture;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Support\Facades\Event;
-
-final class CapabilityRegistryTestFormCatalogue implements FormCatalogue
-{
-    public function forms(?int $siteId = null): array
-    {
-        return [new FormReferenceData(7, 'contact', 'Contact', $siteId, ['email' => 'Email'])];
-    }
-
-    public function find(int $formId): ?FormReferenceData
-    {
-        return $formId === 7 ? $this->forms()[0] : null;
-    }
-}
 
 it('gives consumers the null catalogue when no package provides forms', function (): void {
     $registry = new CapabilityRegistry;
@@ -44,36 +36,73 @@ it('gives consumers the null catalogue when no package provides forms', function
 
 it('resolves the providing package through the contract', function (): void {
     $registry = new CapabilityRegistry;
-    $registry->provide(FormCatalogue::class, CapabilityRegistryTestFormCatalogue::class);
+    $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class);
 
     expect($registry->get(FormCatalogue::class)->find(7)?->key)->toBe('contact')
         ->and($registry->isProvided(FormCatalogue::class))->toBeTrue()
         ->and($registry->provided())->toBe([CapabilityContract::FormCatalogue]);
 });
 
-it('resolves the container binding through the booted registry', function (): void {
-    expect(resolve(FormCatalogue::class))->toBeInstanceOf(NullFormCatalogue::class);
+it('resolves the container binding through the booted registry, which is frozen after boot', function (): void {
+    $registry = resolve(CapabilityRegistry::class);
 
-    resolve(CapabilityRegistry::class)->provide(FormCatalogue::class, static fn (): FormCatalogue => new CapabilityRegistryTestFormCatalogue);
+    expect(resolve(FormCatalogue::class))->toBeInstanceOf(NullFormCatalogue::class)
+        ->and($registry->isFrozen())->toBeTrue()
+        ->and(fn () => $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class))
+        ->toThrow(CapabilityRegistrationException::class, 'cannot be provided after boot');
 
-    expect(resolve(FormCatalogue::class)->forms(3)[0]->siteId)->toBe(3);
+    resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(function () use ($registry): void {
+        $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class);
+        // A package re-booted by the install lifecycle registers the same provider again.
+        $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class);
+    });
+
+    expect(resolve(FormCatalogue::class)->forms(3)[0]->siteId)->toBe(3)
+        ->and(fn () => $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class))
+        ->toThrow(CapabilityRegistrationException::class, 'cannot be provided after boot');
 });
 
-it('refuses providers that would make the contract ambiguous or untyped', function (Closure $register, string $message): void {
-    expect($register)->toThrow(InvalidArgumentException::class, $message);
+it('reports a provider that fails and gives consumers the null catalogue', function (string $failure, Closure $arrange): void {
+    $reported = [];
+    $handler = Mockery::mock(ExceptionHandler::class);
+    $handler->shouldReceive('report')->andReturnUsing(function (Throwable $throwable) use (&$reported): void {
+        $reported[] = $throwable;
+    });
+    app()->instance(ExceptionHandler::class, $handler);
+
+    $registry = new CapabilityRegistry;
+    $registry->provide(FormCatalogue::class, $arrange());
+
+    expect($registry->get(FormCatalogue::class))->toBeInstanceOf(NullFormCatalogue::class)
+        ->and($reported)->toHaveCount(1)
+        ->and($reported[0]->getMessage())->toContain($failure);
+})->with([
+    'a provider that throws while resolving' => ['The form package is misconfigured.', fn (): string => FailingCapabilityFormCatalogueFixture::class],
+    'a container binding of the wrong type' => ['does not implement', function (): string {
+        app()->bind(CapabilityFormCatalogueFixture::class, static fn (): stdClass => new stdClass);
+
+        return CapabilityFormCatalogueFixture::class;
+    }],
+]);
+
+it('refuses providers that would make the contract ambiguous or untyped', function (Closure $register, string $exception, string $message): void {
+    expect($register)->toThrow($exception, $message);
 })->with([
     'a second provider' => [function (): void {
         $registry = new CapabilityRegistry;
-        $registry->provide(FormCatalogue::class, CapabilityRegistryTestFormCatalogue::class);
+        $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class);
         $registry->provide(FormCatalogue::class, NullFormCatalogue::class);
-    }, 'only one package may provide it'],
-    'a class that does not implement the contract' => [fn () => new CapabilityRegistry()->provide(FormCatalogue::class, stdClass::class), 'does not implement'],
-    'a closure that returns the wrong type' => [function (): void {
+    }, CapabilityRegistrationException::class, 'only one package may provide it'],
+    'a second provider during installation' => [function (): void {
         $registry = new CapabilityRegistry;
-        $registry->provide(FormCatalogue::class, static fn (): object => new stdClass);
-        $registry->get(FormCatalogue::class);
-    }, 'does not implement it'],
-    'an interface that is not a capability contract' => [fn (): object => new CapabilityRegistry()->get(Countable::class), 'is not a Core capability contract'],
+        $registry->freeze();
+        $registry->duringPackageInstallation(function () use ($registry): void {
+            $registry->provide(FormCatalogue::class, CapabilityFormCatalogueFixture::class);
+            $registry->provide(FormCatalogue::class, NullFormCatalogue::class);
+        });
+    }, CapabilityRegistrationException::class, 'only one package may provide it'],
+    'a class that does not implement the contract' => [fn () => new CapabilityRegistry()->provide(FormCatalogue::class, stdClass::class), InvalidArgumentException::class, 'does not implement'],
+    'an interface that is not a capability contract' => [fn (): object => new CapabilityRegistry()->get(Countable::class), InvalidArgumentException::class, 'is not a Core capability contract'],
 ]);
 
 it('carries capability signals as Core events with model-free payloads', function (): void {
