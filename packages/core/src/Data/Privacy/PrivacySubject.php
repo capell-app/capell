@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Data\Privacy;
 
 use Capell\Core\Data\Database\SqlFragment;
+use Capell\Core\Support\Privacy\PrivacyIdentifierHasher;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -88,9 +89,40 @@ final readonly class PrivacySubject
     }
 
     /**
+     * The keyed hash a package stores the subject's email address under
+     * (PrivacyIdentifierHasher::hash()), or null for a subject without one.
+     */
+    public function emailHash(): ?string
+    {
+        return $this->email === null ? null : PrivacyIdentifierHasher::hash($this->email);
+    }
+
+    /**
+     * Narrows a query to rows whose hash column holds the subject's email address
+     * hashed with PrivacyIdentifierHasher::hash(), under the current key or a
+     * previous one. Only the hashes reach the query, so the address stays out of
+     * query logs. A subject without an email address matches nothing. The query is
+     * changed in place.
+     *
+     * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query
+     */
+    public function whereEmailHash(QueryBuilder|EloquentBuilder $query, string $column): void
+    {
+        if ($this->email === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->whereIn($column, PrivacyIdentifierHasher::candidates($this->email));
+    }
+
+    /**
      * Narrows a query to rows whose email column matches the subject's address,
      * ignoring case on every database (SQLite and PostgreSQL compare case
-     * sensitively by default). A subject without an email address matches
+     * sensitively by default). The address is a query binding, so it can reach
+     * query logs: a package that looks people up often stores a keyed hash and
+     * uses whereEmailHash() instead. A subject without an email address matches
      * nothing. The query is changed in place.
      *
      * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query
