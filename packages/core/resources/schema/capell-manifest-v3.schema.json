@@ -327,6 +327,18 @@
         "capabilities": {
             "$ref": "#/$defs/stringList"
         },
+        "capabilityContracts": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "provides": {
+                    "$ref": "#/$defs/capabilityContractVersions"
+                },
+                "consumes": {
+                    "$ref": "#/$defs/capabilityContractVersions"
+                }
+            }
+        },
         "security": {
             "type": "object",
             "additionalProperties": false,
@@ -652,6 +664,22 @@
         }
     },
     "$defs": {
+        "capabilityContractVersions": {
+            "type": "object",
+            "propertyNames": {
+                "enum": [
+                    "form-catalogue",
+                    "form-submissions",
+                    "site-access-registrations",
+                    "publishing-workflow",
+                    "campaign-conversions"
+                ]
+            },
+            "additionalProperties": {
+                "type": "integer",
+                "minimum": 1
+            }
+        },
         "stringList": {
             "type": "array",
             "items": {

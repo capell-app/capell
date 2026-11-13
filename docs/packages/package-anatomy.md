@@ -174,6 +174,29 @@ The manifest above shows both lifecycle blocks so you can recognise them, but a 
 
 Declare the Capell API range your package supports with `capellApiVersion` — see [Extension API versioning](extension-api-versioning.md).
 
+### Capability contracts between optional packages
+
+Never reach another optional package by class name (`class_exists('Capell\\FormBuilder\\…')`, `implode('\\', ['Capell', …])`). Core owns a typed seam for each cross-package capability in `Capell\Core\Enums\CapabilityContract`, and a package declares the ones it provides and consumes with the major version it implements:
+
+```json
+"capabilityContracts": {
+    "provides": { "form-submissions": 1, "form-catalogue": 1 },
+    "consumes": { "campaign-conversions": 1 }
+}
+```
+
+The manifest validator rejects unknown keys, class names and versions Core does not define.
+
+| Capability                  | Provider does                                                                                                              | Consumer uses                                                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `form-catalogue`            | `CapabilityRegistry::provide(FormCatalogue::class, YourCatalogue::class)` while booting; the registry is frozen after boot | Type-hint `Capell\Core\Contracts\Capabilities\FormCatalogue`; it resolves to `NullFormCatalogue` when nothing provides it, or when the provider fails, which is reported |
+| `form-submissions`          | Dispatches `FormSubmissionReceived`                                                                                        | Listens to `Capell\Core\Events\Capabilities\FormSubmissionReceived`                                                                                                      |
+| `site-access-registrations` | Dispatches `SiteAccessRegistrationApproved`                                                                                | Listens to that Core event                                                                                                                                               |
+| `publishing-workflow`       | Dispatches `PublishingWorkspaceTransitioned` (after commit)                                                                | Listens to that Core event                                                                                                                                               |
+| `campaign-conversions`      | Dispatches `CampaignConversionRecorded`                                                                                    | Listens to that Core event                                                                                                                                               |
+
+Event payloads are Data objects of scalar values, never the providing package's models, so a queued listener never loads the provider's classes. A Core event listener simply never fires when no installed package provides the capability. Only one package may provide a request-style contract; the registry refuses a second provider and any class that does not implement the contract.
+
 For the full install/audit flow, see [Extension lifecycle](extension-lifecycle.md).
 
 ## Naming
