@@ -40,7 +40,7 @@ final class GeneratedTailwindCssCheck extends AbstractDoctorCheck
             'Generated frontend Tailwind CSS',
             false,
             'No generated Capell frontend CSS file was found.',
-            'Run php artisan capell:frontend-install, then npm run build if the application Vite bundle is not current.',
+            'Run php artisan capell:frontend-after-install --apply to generate the stylesheet and run the Vite build. Generated CSS is not kept in Git, so run this on every deploy.',
         );
     }
 }

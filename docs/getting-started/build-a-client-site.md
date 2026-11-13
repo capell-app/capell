@@ -16,7 +16,7 @@ php artisan serve
 
 Open `http://localhost:8000` for the site and `http://localhost:8000/admin` for Admin. Sign in as `admin@example.test` with the password in `storage/app/private/starter-admin-password`, then store it securely and delete that file. Keep port 8000 free, because the site is bound to `APP_URL`.
 
-`laravel new` also suggests `npm install`, `npm run build` and `composer run dev`. The build step only prints a confirmation, and `composer run dev` runs `php artisan serve`.
+`laravel new` also suggests `npm install`, `npm run build` and `composer run dev`. Run `npm install && npm run build` to build the Capell frontend stylesheet with Vite, and again after you change theme templates. `composer run dev` runs `php artisan serve`.
 
 ## 2. Set the name and colours
 

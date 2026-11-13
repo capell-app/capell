@@ -385,11 +385,11 @@ it('requires generated frontend tailwind css when a generator is registered', fu
     $check = $report->checks->firstWhere('label', 'Generated frontend Tailwind CSS');
 
     expect($check?->remediation)
-        ->toBe('Run php artisan capell:frontend-install, then npm run build if the application Vite bundle is not current.');
+        ->toBe('Run php artisan capell:frontend-after-install --apply to generate the stylesheet and run the Vite build. Generated CSS is not kept in Git, so run this on every deploy.');
 
     artisanCommand('capell:doctor')
         ->expectsOutputToContain('No generated Capell frontend CSS file was found.')
-        ->expectsOutputToContain('capell:frontend-install')
+        ->expectsOutputToContain('capell:frontend-after-install --apply')
         ->assertExitCode(Command::FAILURE);
 });
 

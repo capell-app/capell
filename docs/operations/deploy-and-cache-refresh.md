@@ -8,10 +8,12 @@ On each node, after the new release is in place:
 
 ```bash
 php artisan capell:upgrade --force --no-interaction
+npm ci --no-audit --no-fund
+php artisan capell:frontend-after-install --apply --no-interaction
 php artisan capell:runtime-refresh --no-interaction
 ```
 
-`capell:upgrade` runs migrations and upgrade steps. [Deploy recipes](deploy-recipes.md) give this order for Deployer, Forge and Ploi.
+`capell:upgrade` runs migrations and upgrade steps. `capell:frontend-after-install --apply` generates the frontend stylesheet and builds it with Vite, because generated CSS is not kept in Git. [Deploy recipes](deploy-recipes.md) give this order for Deployer, Forge and Ploi.
 
 `capell:runtime-refresh` rebuilds the Capell package cache, clears compiled views, rebuilds the configuration and route caches, warms critical pages, runs Capell Doctor (only failed checks fail this stage; warnings are reported and leave it passed, list them with `php artisan capell:doctor --warnings`), and finally runs `queue:restart` so workers pick up the release. It exits non-zero if any stage fails, and a stage that throws is recorded as failed without stopping the others. Prefer it to calling the cache commands yourself. The configuration stage only rebuilds the cache if the configuration was already cached; an uncached install stays uncached.
 
