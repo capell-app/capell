@@ -15,4 +15,6 @@ return [
     'pagination_info' => 'Showing :from to :to of :total results',
     'results_found' => 'results',
     'showing' => 'Showing',
+    'consent_frame_waiting' => 'This embedded content loads once you allow the cookies it needs.',
+    'consent_frame_manage' => 'Choose cookie settings',
 ];

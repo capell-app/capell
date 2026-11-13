@@ -12,6 +12,7 @@ use Capell\Frontend\Support\Privacy\PrivacyRuntimeScript;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Foundation\Vite;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 
 /** @return array<string, mixed> */
@@ -83,12 +84,14 @@ it('renders the same configuration for every visitor, with no nonce or request s
         ->and($anonymous)->not->toContain('nonce')
         ->not->toContain('per-request-nonce')
         ->not->toContain('visitor-session')
-        ->and(privacyRuntimeConfig($anonymous))->toBe([
+        ->and(Arr::except(privacyRuntimeConfig($anonymous), 'framePlaceholder'))->toBe([
             'categories' => ['essential', 'functional', 'preferences', 'analytics', 'marketing'],
             'purposes' => ['youtube' => 'marketing'],
             'defaults' => ['essential' => true, 'functional' => true, 'preferences' => false, 'analytics' => true, 'marketing' => null],
             'optOutCategories' => ['analytics', 'marketing'],
         ])
+        ->and(array_keys(privacyRuntimeConfig($anonymous)['framePlaceholder']))->toBe(['message', 'manage'])
+        ->and(privacyRuntimeConfig($anonymous)['framePlaceholder'])->each->toBeString()->not->toBeEmpty()->not->toStartWith('capell-frontend::')
         ->and($anonymous)->toContain('<script src="' . resolve(PrivacyRuntimeScript::class)->url() . '"></script>');
 });
 

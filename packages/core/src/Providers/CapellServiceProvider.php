@@ -82,6 +82,7 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Contracts\Security\ResolvesHostAddresses;
+use Capell\Core\Contracts\Security\SanitizesPublicHtml;
 use Capell\Core\Contracts\Security\SecurityWeaknessAnalyser;
 use Capell\Core\Contracts\Security\SecurityWeaknessCheck;
 use Capell\Core\Contracts\Security\SecurityWeaknessRemediation;
@@ -239,9 +240,11 @@ use Capell\Core\Support\Security\Checks\InstallerEnabledCheck;
 use Capell\Core\Support\Security\Checks\KeyMissingCheck;
 use Capell\Core\Support\Security\Checks\SecurityAdvisoryCheck;
 use Capell\Core\Support\Security\Checks\UrlNotHttpsCheck;
+use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
+use Capell\Core\Support\Security\PublicHtmlSanitizer;
 use Capell\Core\Support\Security\Remediations\AutoUpdatesForAdvisoryRemediation;
 use Capell\Core\Support\Security\Remediations\DebugEnabledRemediation;
 use Capell\Core\Support\Security\Remediations\InsecureCookieRemediation;
@@ -674,6 +677,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(CapabilityRegistry::class),
         ));
         $this->app->singleton(SecurityWeaknessRegistry::class);
+        // Packages extend sanitiser profiles while booting; the contract resolves a fresh sanitiser over them.
+        $this->app->singleton(HtmlSanitizerProfileRegistry::class);
+        $this->app->bindIf(SanitizesPublicHtml::class, PublicHtmlSanitizer::class);
         // Optional packages provide Core capability contracts while booting; consumers resolve them by interface.
         $this->app->singleton(CapabilityRegistry::class);
         $this->app->bind(FormCatalogue::class, static fn (Application $app): FormCatalogue => $app->make(CapabilityRegistry::class)->get(FormCatalogue::class));
