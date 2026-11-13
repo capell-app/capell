@@ -5,10 +5,10 @@
 - `marketplace.summary`: non-empty buyer-facing text that names the outcome and the workflow the package improves.
 - `marketplace.categories`: a list of strings.
 - `marketplace.screenshots`: a list. Each entry needs `path`, `alt` and `caption`. `path` is package-relative with no leading slash, no `..` and no backslashes; `alt` and `caption` are at least 12 characters of descriptive text. Commit every referenced file.
-- Optional `marketplace.problem`, `marketplace.outcome` (at least 12 characters each) and `marketplace.faq` (a list of objects with only `question` and `answer`).
+- Optional `marketplace.problem`, `marketplace.outcome` (at least 12 characters each) and `marketplace.faq` (a list of objects with only `question` and `answer`, at least 12 characters each).
 - `marketplace.hidden` is a boolean that keeps a package out of the catalogue.
-- `product.group` and `product.tier` are required and group the listing; `product.bundle` is optional. `commercial` carries the proposed licence, requested certification, support policy and whether private docs are requested.
-- `documentationUrl` points at documentation that is not in the package.
+- `product.group` and `product.tier` are required and group the listing; `product.bundle` is optional. `commercial` is required. It may contain only `proposedLicense`, `requestedCertification`, `supportPolicy` and a boolean `privateDocsRequested`, and it is author proposal metadata, not a price or certification.
+- `documentationUrl` is optional and overrides the documentation link taken from `composer.json` `support.docs`.
 
 ## Copy
 

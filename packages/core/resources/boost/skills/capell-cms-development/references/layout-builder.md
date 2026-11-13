@@ -60,7 +60,7 @@ $blueprint = Blueprint::query()->firstOrCreate(
 );
 
 $widget = Widget::query()->updateOrCreate(
-    ['key' => 'feature-grid', 'workspace_id' => 0],
+    ['key' => 'feature-grid'],
     [
         'name' => 'Feature Grid',
         'blueprint_id' => $blueprint->id,
@@ -70,7 +70,7 @@ $widget = Widget::query()->updateOrCreate(
 );
 ```
 
-For Livewire widgets, set `is_livewire` and point `component` at the Livewire component alias/class expected by the package.
+`workspace_id` defaults to 0, and `content` is not mass-assignable, so set it by property assignment. For Livewire widgets, set `is_livewire` and point `component` at the Livewire component alias/class expected by the package.
 
 ## Attaching A Widget To A Layout
 
@@ -94,7 +94,14 @@ The action requires `layouts.containers[$container]['widgets']` to exist. Seed t
 Use `widget_assets` when the widget needs selectable content such as sections, pages, media, or content blocks.
 
 ```php
+use Capell\ContentSections\Models\Section;
 use Capell\LayoutBuilder\Models\WidgetAsset;
+
+// $sectionBlueprint is a blueprint with type = section; $page is a persisted Page.
+$section = Section::query()->create([
+    'name' => 'Feature list',
+    'blueprint_id' => $sectionBlueprint->id,
+]);
 
 WidgetAsset::query()->updateOrCreate(
     [
@@ -110,6 +117,8 @@ WidgetAsset::query()->updateOrCreate(
     ['order' => 0, 'meta' => []],
 );
 ```
+
+`asset_id` holds the asset model's key even though the column is a 36-character string.
 
 Leave `pageable_*` null for global widget assets shared everywhere the widget appears.
 

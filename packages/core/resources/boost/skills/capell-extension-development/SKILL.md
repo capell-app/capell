@@ -30,7 +30,7 @@ php artisan capell:make:extension vendor/example-tools --profile=full --path=pac
 
 ## Manifest (`capell.json`)
 
-Manifest v3 requires `manifest-version`, `name`, `slug`, `displayName`, `kind`, `capellApiVersion`, `version`, `surfaces`, `dependencies`, `providers` and `product` (with `group` and `tier`), and a `marketplace` object with `summary`, `categories` and `screenshots`. Keep `name` and `version` aligned with `composer.json`.
+Manifest v3 requires `manifest-version`, `name`, `slug`, `displayName`, `kind` (`package`, `plugin`, `theme`, `integration` or `bundle`), `capellApiVersion`, `version`, `surfaces`, `dependencies` (with `requires`, `supports` and `conflicts` lists), `providers` (all of the `metadata`, `install`, `runtime`, `admin` and `frontend` buckets, which may be empty), `contributes` (a list, which may be empty), `product` (with `group` and `tier`), `commercial` (with a boolean `privateDocsRequested`) and a `marketplace` object with `summary`, `categories` and `screenshots`. `name` must equal the `composer.json` name, `slug` its package segment (lowercase letters, numbers and hyphens), and `version` must be a valid Composer version.
 
 - `dependencies.requires` lists hard requirements. A package that registers admin pages, resources or admin translations must require `capell-app/admin`.
 - `providers` buckets: `metadata`, `install`, `runtime`, `admin`, `frontend`. They do not filter by request context; guard admin-only work in the provider.
