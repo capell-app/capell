@@ -28,20 +28,9 @@ final class RevokePendingInvitation
         $this->revoke($event->user);
     }
 
-    /**
-     * @param  array<int, mixed>  $payload
-     */
-    public function handleSaved(string $event, array $payload): void
+    public function handleUpdated(mixed $user): void
     {
-        $userModel = config('auth.providers.users.model');
-        $user = $payload[0] ?? null;
-
-        if (! is_string($userModel) || ! $user instanceof $userModel || ! $user instanceof Model) {
-            return;
-        }
-
-        // An insert records no changes, so only a later password save revokes.
-        if ($user->wasChanged('password')) {
+        if ($user instanceof Model && $user->wasChanged('password')) {
             $this->revoke($user);
         }
     }

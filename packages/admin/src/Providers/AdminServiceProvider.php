@@ -1622,8 +1622,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         Event::listen(Login::class, [RevokePendingInvitation::class, 'handleLogin']);
         Event::listen(PasswordReset::class, [RevokePendingInvitation::class, 'handlePasswordReset']);
 
-        // The user model is resolved per event so a host that swaps it after boot is still covered.
-        Event::listen('eloquent.saved: *', [RevokePendingInvitation::class, 'handleSaved']);
+        // Scoped to the user model's updates; an insert never revokes.
+        $userModel = config('auth.providers.users.model');
+
+        if (is_string($userModel) && $userModel !== '') {
+            Event::listen('eloquent.updated: ' . $userModel, [RevokePendingInvitation::class, 'handleUpdated']);
+        }
 
         return $this;
     }
