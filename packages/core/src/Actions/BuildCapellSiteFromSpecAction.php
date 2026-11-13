@@ -27,6 +27,7 @@ use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -46,7 +47,9 @@ final class BuildCapellSiteFromSpecAction
             PageVersionSource::Import,
             null,
             function () use ($spec, $repairPrivate, $keepPublished, $auditPrivate): Site {
-                $site = $this->build($spec, $repairPrivate, $keepPublished, $auditPrivate);
+                // One build per site name at a time, so the name check and the create cannot interleave.
+                $site = Cache::lock('capell:site-spec-build:' . hash('xxh128', mb_strtolower($spec->site->name)), 120)
+                    ->block(30, fn (): Site => $this->build($spec, $repairPrivate, $keepPublished, $auditPrivate));
 
                 if (! $auditPrivate) {
                     RecordImportedPageVersionsAction::run($site);
@@ -86,6 +89,16 @@ final class BuildCapellSiteFromSpecAction
         throw_if($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic, RuntimeException::class, 'Public site specs require explicit acknowledgement.');
         AssertSiteSpecCanBeAppliedAction::run($spec);
 
+        $named = $this->siteNamed($spec);
+
+        if ($named instanceof Site) {
+            // An edited spec updates the site an earlier spec import created; any other site is refused.
+            $this->assertCreatedFromSpec($named, $spec);
+            ApplySiteSpecToSiteAction::run($spec, $named);
+
+            return $named->refresh();
+        }
+
         if ($spec->initialVisibility === 'private') {
             resolve(PrivateSiteSpecSourceStore::class)->put($hash, $spec);
         }
@@ -98,6 +111,15 @@ final class BuildCapellSiteFromSpecAction
                 $theme = $this->buildTheme($spec);
 
                 resolve(ThemeInstallDefaultsRegistry::class)->install($spec->theme->key);
+
+                // Re-checked under the transaction: CreateSiteAction reuses a site by name.
+                $raced = $this->siteNamed($spec, lock: true);
+
+                if ($raced instanceof Site) {
+                    $this->assertCreatedFromSpec($raced, $spec);
+
+                    throw new RuntimeException((string) __('capell-core::message.site_spec_site_name_raced', ['name' => $spec->site->name, 'id' => $raced->getKey()]));
+                }
 
                 $site = CreateSiteAction::run($spec->site->name, null, $language, collect([$language]), $theme);
                 $site->meta = array_merge($site->meta ?? [], array_filter([
@@ -142,6 +164,32 @@ final class BuildCapellSiteFromSpecAction
         } finally {
             $this->deleteDownloads($downloads);
         }
+    }
+
+    private function siteNamed(CapellSiteSpecData $spec, bool $lock = false): ?Site
+    {
+        $query = Site::query()->where('name', $spec->site->name);
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * A site an earlier spec import created carries that import's hash. A site
+     * without one was made some other way, so the import must not write into it.
+     */
+    private function assertCreatedFromSpec(Site $site, CapellSiteSpecData $spec): void
+    {
+        $meta = $site->meta ?? [];
+        $fromSpec = is_string($meta['site_spec_hash'] ?? null) || is_string($meta['site_spec_applied_hash'] ?? null);
+
+        throw_unless($fromSpec, RuntimeException::class, (string) __('capell-core::message.site_spec_site_name_taken', [
+            'name' => $spec->site->name,
+            'id' => $site->getKey(),
+        ]));
     }
 
     /** @param list<SiteSpecMediaDownload> $downloads */
