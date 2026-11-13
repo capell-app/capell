@@ -333,7 +333,7 @@ return [
     'page_name_placeholder' => 'Enter page name',
     'page_title' => 'Page title',
     'page_type' => 'Page type',
-    'page_address' => 'Page address:',
+    'page_address' => 'Page address',
     'page_type_access' => 'Access',
     'page_type_behaviour' => 'Behaviour',
     'page_setup' => 'Setup',

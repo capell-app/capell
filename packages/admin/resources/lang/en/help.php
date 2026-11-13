@@ -22,7 +22,7 @@ return [
             ],
             'move_page' => [
                 'question' => 'How do I move a page under another page?',
-                'answer' => 'Open the page, change its parent page and save. Its web address changes to match, and Capell keeps the old address working.',
+                'answer' => 'Open the page, change its parent page and save. Its web address changes to match. Unless automatic redirects are turned off for your site, Capell adds a redirect from the old address, and you can check it under Redirects.',
             ],
             'remove_page' => [
                 'question' => 'How do I remove a page?',
@@ -45,7 +45,7 @@ return [
             ],
             'change_address' => [
                 'question' => 'How do I change the page’s web address?',
-                'answer' => 'Edit the page address under the title. Capell keeps the old address working so existing links still reach this page.',
+                'answer' => 'Edit the page address under the title. Unless automatic redirects are turned off for your site, Capell adds a redirect from the old address so existing links still reach this page.',
             ],
             'restore_version' => [
                 'question' => 'How do I get back an earlier version?',
