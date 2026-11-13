@@ -25,7 +25,7 @@ No Foundation line is designated LTS yet; this page will name one when it is. Un
 
 Optional packages have their own versions and maturity. A Foundation support window does not establish the support lifetime or compatibility of every optional package.
 
-Each optional package records its own compatibility range and release dates in its release notes. This page does not state support windows for optional packages.
+For an optional package, read its Composer constraints on Core to see which Foundation releases it supports, and its published release notes where they exist. This page does not state release dates or support windows for optional packages.
 
 ## One public version line
 

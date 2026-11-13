@@ -18,7 +18,7 @@ cd my-studio
 php artisan serve
 ```
 
-Open `http://localhost:8000` and `/admin`. Keep port 8000 free and follow the [starter kit sign-in instructions](install.md#new-project-from-the-starter-kit) for the administrator password. Continue at [Publish your first page and inspect history](#4-publish-your-first-page-and-inspect-history).
+Open `http://localhost:8000` and `/admin`. Keep port 8000 free and follow the [starter kit sign-in instructions](install.md#new-project-from-the-starter-kit) for the administrator password. Continue at [Publish your first page and inspect history](#4-publish-your-first-page-and-inspect-history) and follow the starter-kit steps there.
 
 The following Installer route selects Core, Admin, Frontend, Installer and Marketplace, with the default theme and demo content. Use it in a disposable Laravel application; use the [existing-application review](install.md#existing-laravel-applications) before changing an app you already run.
 
@@ -123,6 +123,8 @@ _Your first check: Pages opens with its normal styling and the seeded records ar
 ## 4. Publish your first page and inspect history
 
 Demo content lets you inspect the workspace. Create your own saved page for this check; leave any read-only demo records alone.
+
+**Starter-kit projects:** the default Studio layout renders only the title, summary and Studio fields, so a paragraph added to a page does not appear publicly. Edit the title or summary of a page, publish it, and check that change at the page's public URL. Then follow steps 2 to 4 using the title or summary instead of a paragraph. The paragraph check below is for the Installer route and existing applications.
 
 1. Select the intended site, open **Pages**, and create a page using the [first-page guide](create-your-first-page.md). Choose a suitable page type, title and slug, then add a short paragraph and **Save as draft**.
 2. Follow [Preview and publish](create-your-first-page.md#preview-and-publish): check the signed draft preview, inspect the Publish panel and its blockers, then **Publish now**. Saving a draft or scheduling it for later does not make it public now.
