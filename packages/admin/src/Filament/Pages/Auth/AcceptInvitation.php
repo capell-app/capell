@@ -7,8 +7,6 @@ namespace Capell\Admin\Filament\Pages\Auth;
 use Capell\Admin\Actions\Users\AcceptUserInvitationAction;
 use Capell\Admin\Http\Middleware\SendNoReferrer;
 use Capell\Admin\Support\Users\InvitationPasswordBroker;
-use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
-use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
@@ -22,6 +20,7 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -38,9 +37,9 @@ use SensitiveParameter;
  */
 class AcceptInvitation extends SimplePage
 {
-    use WithRateLimiting;
-
     public const string ROUTE_NAME = 'auth.invitation.accept';
+
+    private const int MAX_ATTEMPTS_PER_MINUTE = 5;
 
     #[Locked]
     public ?string $email = null;
@@ -90,16 +89,18 @@ class AcceptInvitation extends SimplePage
 
     public function accept(): void
     {
-        try {
-            $this->rateLimit(5);
-        } catch (TooManyRequestsException $tooManyRequestsException) {
+        $rateLimitKey = 'capell-admin:accept-invitation:' . request()->ip();
+
+        if (RateLimiter::tooManyAttempts($rateLimitKey, self::MAX_ATTEMPTS_PER_MINUTE)) {
             Notification::make()
-                ->title(__('capell-admin::invitations.accept.throttled', ['seconds' => $tooManyRequestsException->secondsUntilAvailable]))
+                ->title(__('capell-admin::invitations.accept.throttled', ['seconds' => RateLimiter::availableIn($rateLimitKey)]))
                 ->danger()
                 ->send();
 
             return;
         }
+
+        RateLimiter::hit($rateLimitKey, 60);
 
         if (! $this->linkIsValid) {
             $this->sendInvalidLinkNotification();
