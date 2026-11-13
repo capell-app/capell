@@ -18,6 +18,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Privacy\ConsentSettings;
+use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
 use Capell\Frontend\Support\Http\CrawlerDetector;
 use Capell\Frontend\Support\Loader\SiteLoader;
 use Illuminate\Http\JsonResponse;
@@ -130,9 +131,17 @@ final class ActivityBeaconController
         return $siteDomain;
     }
 
-    /** A provider that cannot decide is treated as a refusal, never as consent. */
+    /**
+     * A Global Privacy Control or Do Not Track signal refuses the counter whatever the provider
+     * decides, as the browser beacon does. A provider that cannot decide is treated as a
+     * refusal, never as consent.
+     */
     private function analyticsDecision(Request $request): ConsentDecision
     {
+        if (DefaultConsentDecisionProvider::hasOptOutSignal($request)) {
+            return ConsentDecision::Denied;
+        }
+
         try {
             return $this->consent->decide(ConsentCategory::Analytics->value, $request);
         } catch (Throwable $throwable) {
