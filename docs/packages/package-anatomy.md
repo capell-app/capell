@@ -197,6 +197,10 @@ The manifest validator rejects unknown keys, class names and versions Core does 
 
 Event payloads are Data objects of scalar values, never the providing package's models, so a queued listener never loads the provider's classes. A Core event listener simply never fires when no installed package provides the capability. Only one package may provide a request-style contract; the registry refuses a second provider and any class that does not implement the contract.
 
+### Consent purposes
+
+A package that loads an embed or third-party script declares each consent purpose it checks with `CapellPrivacy.allows()` and its category, for example `"privacy": { "purposes": { "youtube": "marketing" } }`. See [Privacy consent](../../packages/frontend/docs/privacy-consent.md).
+
 For the full install/audit flow, see [Extension lifecycle](extension-lifecycle.md).
 
 ## Naming

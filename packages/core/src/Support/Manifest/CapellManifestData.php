@@ -37,6 +37,7 @@ final class CapellManifestData
      * @param  list<string>  $marketplaceCategories
      * @param  list<string>  $scopes
      * @param  list<array<string, mixed>>  $agentTools
+     * @param  array<string, string>  $privacyPurposes  consent purpose => category, from privacy.purposes
      */
     public function __construct(
         public int $manifestVersion,
@@ -86,6 +87,7 @@ final class CapellManifestData
         public array $agentTools = [],
         public ?string $agentToolsWaiverReason = null,
         public ?ExtensionCapabilityContractsData $capabilityContracts = null,
+        public array $privacyPurposes = [],
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -169,6 +171,7 @@ final class CapellManifestData
             capabilityContracts: is_array($data['capabilityContracts'] ?? null)
                 ? ExtensionCapabilityContractsData::fromArray($data['capabilityContracts'])
                 : null,
+            privacyPurposes: self::privacyPurposes($data['privacy'] ?? null),
         );
     }
 
@@ -234,6 +237,10 @@ final class CapellManifestData
 
         if ($this->capabilityContracts instanceof ExtensionCapabilityContractsData) {
             $data['capabilityContracts'] = $this->capabilityContracts->toArray();
+        }
+
+        if ($this->privacyPurposes !== []) {
+            $data['privacy'] = ['purposes' => $this->privacyPurposes];
         }
 
         if ($this->namespace !== null) {
@@ -386,6 +393,28 @@ final class CapellManifestData
 
         /** @var class-string<ServiceProvider> $provider */
         return $provider;
+    }
+
+    /**
+     * The string purpose => category pairs of privacy.purposes, sorted by purpose.
+     * ManifestValidator checks the names and categories; this only keeps strings.
+     *
+     * @return array<string, string>
+     */
+    private static function privacyPurposes(mixed $privacy): array
+    {
+        $purposes = is_array($privacy) && is_array($privacy['purposes'] ?? null) ? $privacy['purposes'] : [];
+        $declared = [];
+
+        foreach ($purposes as $purpose => $category) {
+            if (is_string($purpose) && is_string($category)) {
+                $declared[$purpose] = $category;
+            }
+        }
+
+        ksort($declared);
+
+        return $declared;
     }
 
     private static function stringValue(mixed $value): ?string

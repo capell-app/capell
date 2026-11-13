@@ -17,8 +17,6 @@ use Override;
  */
 final readonly class DefaultConsentDecisionProvider implements ConsentDecisionProvider
 {
-    public function __construct(private ConsentSettings $settings) {}
-
     /** Whether the request carries a Global Privacy Control or Do Not Track opt-out. */
     public static function hasOptOutSignal(Request $request): bool
     {
@@ -38,7 +36,7 @@ final readonly class DefaultConsentDecisionProvider implements ConsentDecisionPr
     #[Override]
     public function purposes(): array
     {
-        return $this->settings->purposes();
+        return $this->settings()->purposes();
     }
 
     #[Override]
@@ -55,10 +53,19 @@ final readonly class DefaultConsentDecisionProvider implements ConsentDecisionPr
             return ConsentDecision::Granted;
         }
 
-        if (self::hasOptOutSignal($request) && in_array($category, $this->settings->optOutSignalCategories(), true)) {
+        if (self::hasOptOutSignal($request) && in_array($category, $this->settings()->optOutSignalCategories(), true)) {
             return ConsentDecision::Denied;
         }
 
-        return $this->settings->defaultDecision($category);
+        return $this->settings()->defaultDecision($category);
+    }
+
+    /**
+     * Request-scoped (see CapellServiceProvider), so this long-lived provider holds no
+     * state and each request sees the packages enabled when it starts.
+     */
+    private function settings(): ConsentSettings
+    {
+        return resolve(ConsentSettings::class);
     }
 }

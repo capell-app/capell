@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
 use Capell\Core\Enums\ConsentDecision;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
 use Illuminate\Http\Request;
 
@@ -100,3 +103,48 @@ it('asks before every optional category by default', function (): void {
         ->and($provider->decide('analytics', consentRequest()))->toBe(ConsentDecision::Undecided)
         ->and($provider->decide('marketing', consentRequest()))->toBe(ConsentDecision::Undecided);
 });
+
+function consentPurposeManifest(string $name, array $purposes): CapellManifestData
+{
+    return CapellManifestData::fromArray(capellManifestV3Array(name: $name, surfaces: ['frontend'], overrides: ['privacy' => ['purposes' => $purposes]]));
+}
+
+it('decides the purposes enabled packages declare, with site configuration winning', function (): void {
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/widget-video', ['youtube' => 'marketing', 'vimeo' => 'marketing']));
+    CapellCore::forcePackageInstalled('vendor/widget-video');
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/disabled-map', ['openstreetmap' => 'functional']));
+    config([
+        'capell.privacy.consent.defaults' => ['marketing' => 'granted', 'preferences' => 'granted'],
+        'capell.privacy.consent.purposes' => ['vimeo' => 'preferences'],
+    ]);
+    $provider = resolve(ConsentDecisionProvider::class);
+
+    expect($provider->purposes())->toBe(['vimeo' => 'preferences', 'youtube' => 'marketing'])
+        ->and($provider->decide('youtube', consentRequest()))->toBe(ConsentDecision::Granted)
+        // Without any site configuration, an opt-out signal still refuses a declared marketing purpose.
+        ->and($provider->decide('youtube', consentRequest(['Sec-GPC' => '1'])))->toBe(ConsentDecision::Denied)
+        ->and($provider->decide('openstreetmap', consentRequest()))->toBe(ConsentDecision::Undecided);
+})->after(fn () => CapellCore::clearPackages());
+
+it('keeps the stricter category when two packages declare one purpose differently', function (): void {
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/a-maps', ['maps' => 'functional']));
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/b-maps', ['maps' => 'marketing']));
+    CapellCore::forcePackageInstalled('vendor/a-maps');
+    CapellCore::forcePackageInstalled('vendor/b-maps');
+
+    expect(resolve(ConsentDecisionProvider::class)->purposes())->toBe(['maps' => 'marketing']);
+})->after(fn () => CapellCore::clearPackages());
+
+it('reads package purposes once per settings instance rather than for every decision', function (): void {
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/widget-video', ['youtube' => 'marketing']));
+    CapellCore::forcePackageInstalled('vendor/widget-video');
+    $settings = new ConsentSettings;
+
+    expect($settings->purposes())->toBe(['youtube' => 'marketing']);
+
+    CapellCore::registerManifestPackage(consentPurposeManifest('vendor/late-map', ['openstreetmap' => 'functional']));
+    CapellCore::forcePackageInstalled('vendor/late-map');
+
+    expect($settings->purposes())->toBe(['youtube' => 'marketing'])
+        ->and(new ConsentSettings()->purposes())->toBe(['youtube' => 'marketing', 'openstreetmap' => 'functional']);
+})->after(fn () => CapellCore::clearPackages());
