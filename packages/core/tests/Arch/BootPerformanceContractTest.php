@@ -130,20 +130,28 @@ it('never leaves a production web request unable to boot after capell:package-ca
         expect(Artisan::call('capell:package-cache:clear'))->toBe(0)
             ->and(file_exists($cachePath))->toBeTrue();
 
-        $bootstrapper = bootstrapperForWebRequest($cachePath, isProduction: true);
+        $registry = new CapellPackageRegistry;
+        $bootstrapper = bootstrapperForWebRequest($cachePath, isProduction: true, registry: $registry);
 
-        expect(fn () => $bootstrapper->bootstrap())->not->toThrow(Throwable::class);
+        $bootstrapper->bootstrap();
+
+        expect($registry->all())->not->toBeEmpty();
     } finally {
         app()->useBootstrapPath($originalBootstrapPath);
         File::deleteDirectory($isolatedBootstrapPath);
     }
 });
 
-function bootstrapperForWebRequest(string $cachePath, bool $isProduction): PackageRegistryBootstrapper
+function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?CapellPackageRegistry $registry = null): PackageRegistryBootstrapper
 {
-    $registry = new CapellPackageRegistry;
+    $registry ??= new CapellPackageRegistry;
     $application = Mockery::mock(Application::class);
-    $application->shouldReceive('make')->with(CapellPackageRegistry::class)->andReturn($registry);
+    // Everything but the registry resolves from the real container, so the loader's own
+    // collaborators exist and a failure inside bootstrap() is a real failure.
+    $application->shouldReceive('make')->andReturnUsing(
+        fn (string $abstract): mixed => $abstract === CapellPackageRegistry::class ? $registry : app()->make($abstract),
+    );
+    $application->shouldReceive('register')->andReturnUsing(fn (mixed $provider): ServiceProvider => app()->register($provider));
     $application->shouldReceive('bootstrapPath')->with('cache/capell-package-manifests.php')->andReturn($cachePath);
     $application->shouldReceive('runningInConsole')->andReturnFalse();
     $application->shouldReceive('environment')->with('production')->andReturn($isProduction);
