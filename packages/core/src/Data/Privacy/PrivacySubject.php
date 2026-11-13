@@ -99,9 +99,9 @@ final readonly class PrivacySubject
 
     /**
      * Narrows a query to rows whose hash column holds the subject's email address
-     * hashed with PrivacyIdentifierHasher::hash(), under the current key or a
-     * previous one. Only the hashes reach the query, so the address stays out of
-     * query logs. A subject without an email address matches nothing. The query is
+     * hashed with PrivacyIdentifierHasher::hash(), under the current key or any
+     * earlier one (including app.key after a dedicated key is set). Only the hashes
+     * reach the query, so the address stays out of query logs. A subject without an email address matches nothing. The query is
      * changed in place.
      *
      * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query

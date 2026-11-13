@@ -217,11 +217,12 @@ return [
             'purposes' => [],
         ],
         // Key for the hashes packages store people's email addresses under, so they look
-        // people up without keeping the address in an index. Falls back to app.key (and
-        // app.previous_keys). List earlier keys here after rotating it, so existing hashes
-        // still match.
+        // people up without keeping the address in an index. Falls back to app.key. Lookups
+        // also try the previous keys below, app.key and app.previous_keys. Never remove a key
+        // until RehashPrivacyIdentifiersAction has moved every row off it: rows hashed under a
+        // removed key can no longer be found by an export or erasure.
         'identifier_key' => env('CAPELL_PRIVACY_IDENTIFIER_KEY'),
-        'identifier_previous_keys' => array_values(array_filter(explode(',', (string) env('CAPELL_PRIVACY_IDENTIFIER_PREVIOUS_KEYS', '')))),
+        'identifier_previous_keys' => array_values(array_filter(array_map(trim(...), explode(',', (string) env('CAPELL_PRIVACY_IDENTIFIER_PREVIOUS_KEYS', ''))))),
     ],
 
     'agent' => [

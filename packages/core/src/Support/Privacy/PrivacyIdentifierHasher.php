@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Privacy;
 
+use Normalizer;
 use RuntimeException;
 
 /**
@@ -11,10 +12,12 @@ use RuntimeException;
  * people up by a hash instead of the address itself: the address then never appears in an
  * index, a query log or a slow-query report.
  *
- * The key is capell.privacy.identifier_key, or the application key when that is unset. Keys
- * listed in capell.privacy.identifier_previous_keys (or app.previous_keys when the application
- * key is used) still match, so rotating the key does not hide rows hashed under the old one;
- * rehash those rows to the current key when convenient.
+ * The key is capell.privacy.identifier_key, or the application key when that is unset. Lookups
+ * also try every earlier key: capell.privacy.identifier_previous_keys, the application key and
+ * app.previous_keys. A site that ran on the application key and later sets a dedicated key
+ * therefore still finds the rows it hashed before. Never remove a key from those lists until
+ * every row hashed under it has been rehashed with RehashPrivacyIdentifiersAction: a row hashed
+ * under a removed key can no longer be found, so an export or erasure would silently miss it.
  */
 final class PrivacyIdentifierHasher
 {
@@ -26,25 +29,42 @@ final class PrivacyIdentifierHasher
 
     /**
      * Every hash the identifier may be stored under: the current key's first, then each
-     * previous key's.
+     * earlier key's.
      *
      * @return non-empty-list<string>
      */
     public static function candidates(string $identifier): array
     {
         $normalised = self::normalise($identifier);
-        $hashes = [self::hashWith($normalised, self::currentKey())];
+        $hashes = [];
 
-        foreach (self::previousKeys() as $key) {
+        foreach ([self::currentKey(), ...self::previousKeys()] as $key) {
             $hashes[] = self::hashWith($normalised, $key);
         }
 
         return array_values(array_unique($hashes));
     }
 
-    private static function normalise(string $identifier): string
+    /**
+     * One form per address: trimmed, Unicode-composed (NFC), lower case, with an
+     * internationalised domain in its ASCII (punycode) form. Plus addressing is kept, because
+     * whether jane+news@ and jane@ reach the same person depends on the mail provider.
+     */
+    public static function normalise(string $identifier): string
     {
-        return mb_strtolower(trim($identifier));
+        $identifier = trim($identifier);
+        $composed = Normalizer::normalize($identifier, Normalizer::FORM_C);
+        $identifier = mb_strtolower(is_string($composed) ? $composed : $identifier);
+        $at = strrpos($identifier, '@');
+
+        if ($at === false) {
+            return $identifier;
+        }
+
+        $domain = substr($identifier, $at + 1);
+        $ascii = $domain === '' ? false : idn_to_ascii($domain, IDNA_NONTRANSITIONAL_TO_ASCII, INTL_IDNA_VARIANT_UTS46);
+
+        return substr($identifier, 0, $at + 1) . (is_string($ascii) ? strtolower($ascii) : $domain);
     }
 
     private static function hashWith(string $identifier, string $key): string
@@ -54,15 +74,15 @@ final class PrivacyIdentifierHasher
 
     private static function currentKey(): string
     {
-        $configured = config('capell.privacy.identifier_key');
+        $dedicated = self::dedicatedKey();
 
-        if (is_string($configured) && $configured !== '') {
-            return $configured;
+        if ($dedicated !== null) {
+            return $dedicated;
         }
 
-        $appKey = config('app.key');
+        $appKey = self::applicationKey();
 
-        if (is_string($appKey) && $appKey !== '') {
+        if ($appKey !== null) {
             return $appKey;
         }
 
@@ -70,17 +90,50 @@ final class PrivacyIdentifierHasher
         throw new RuntimeException('Capell cannot hash privacy identifiers: set capell.privacy.identifier_key (CAPELL_PRIVACY_IDENTIFIER_KEY) or app.key.');
     }
 
-    /** @return list<string> */
+    /**
+     * Earlier keys, newest first: the dedicated previous keys, then (when a dedicated key is
+     * set) the application key it replaced, then the application's previous keys.
+     *
+     * @return list<string>
+     */
     private static function previousKeys(): array
     {
-        $configured = config('capell.privacy.identifier_key');
-        $previous = is_string($configured) && $configured !== ''
-            ? config('capell.privacy.identifier_previous_keys', [])
-            : config('app.previous_keys', []);
+        $keys = self::keyList(config('capell.privacy.identifier_previous_keys', []));
 
-        return array_values(array_filter(
-            is_array($previous) ? $previous : [],
-            static fn (mixed $key): bool => is_string($key) && $key !== '',
-        ));
+        $applicationKey = self::applicationKey();
+
+        if (self::dedicatedKey() !== null && $applicationKey !== null) {
+            $keys[] = $applicationKey;
+        }
+
+        return [...$keys, ...self::keyList(config('app.previous_keys', []))];
+    }
+
+    private static function dedicatedKey(): ?string
+    {
+        $key = config('capell.privacy.identifier_key');
+
+        return is_string($key) && trim($key) !== '' ? trim($key) : null;
+    }
+
+    private static function applicationKey(): ?string
+    {
+        $key = config('app.key');
+
+        return is_string($key) && $key !== '' ? $key : null;
+    }
+
+    /** @return list<string> */
+    private static function keyList(mixed $keys): array
+    {
+        $list = [];
+
+        foreach (is_array($keys) ? $keys : [] as $key) {
+            if (is_string($key) && trim($key) !== '') {
+                $list[] = trim($key);
+            }
+        }
+
+        return $list;
     }
 }
