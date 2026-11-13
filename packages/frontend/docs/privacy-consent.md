@@ -78,6 +78,16 @@ The default runtime records nothing and sets no cookie. Configure it in `config/
 
 Nobody has been asked, so every optional category starts `undecided` and its gated scripts and frames stay off. Set a category to `granted` only where the site does not need a visitor's consent for it. Each default is `granted`, `denied` or `undecided`; anything else is `undecided`. A Global Privacy Control (`Sec-GPC: 1`, `navigator.globalPrivacyControl`) or Do Not Track (`DNT: 1`) signal refuses the opt-out categories whatever their default. Map each named purpose your package asks about to its category; an unmapped purpose is `null`.
 
+A package declares the purposes it asks about in its `capell.json`, so a site needs no configuration for them:
+
+```json
+"privacy": {
+    "purposes": { "youtube": "marketing" }
+}
+```
+
+Each purpose maps to `functional`, `preferences`, `analytics` or `marketing`. The manifest validator refuses `essential` (a purpose that never asks), category names and malformed keys. Only enabled packages count. Where two packages map one purpose differently, the stricter category wins, and `capell.privacy.consent.purposes` overrides any package declaration.
+
 | Config key                                         | Environment variable                 | Default                      |
 | -------------------------------------------------- | ------------------------------------ | ---------------------------- |
 | `capell.privacy.first_party_counter`               | `CAPELL_PRIVACY_FIRST_PARTY_COUNTER` | `true`                       |

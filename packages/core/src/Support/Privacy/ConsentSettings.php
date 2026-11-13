@@ -6,6 +6,8 @@ namespace Capell\Core\Support\Privacy;
 
 use Capell\Core\Enums\ConsentCategory;
 use Capell\Core\Enums\ConsentDecision;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Manifest\CapellManifestData;
 
 /**
  * Reads capell.privacy.consent. Anything malformed fails closed: an unknown default is
@@ -62,11 +64,55 @@ final class ConsentSettings
         return array_values($categories);
     }
 
-    /** @return array<string, string> */
+    /**
+     * Named purposes mapped to their category: those enabled packages declare in
+     * capell.json privacy.purposes, then capell.privacy.consent.purposes, which wins
+     * so a site can move a purpose to another category. When two packages declare
+     * one purpose differently, the stricter category is kept.
+     *
+     * @return array<string, string>
+     */
     public function purposes(): array
     {
-        $configured = config('capell.privacy.consent.purposes', []);
         $purposes = [];
+
+        foreach (CapellCore::getPackages(withoutCore: false) as $package) {
+            if (! $package->manifest instanceof CapellManifestData) {
+                continue;
+            }
+
+            if ($package->manifest->privacyPurposes === []) {
+                continue;
+            }
+
+            if (! CapellCore::isPackageEnabled($package->name)) {
+                continue;
+            }
+
+            foreach ($package->manifest->privacyPurposes as $purpose => $value) {
+                $category = ConsentCategory::tryFrom($value);
+
+                if (! $category instanceof ConsentCategory) {
+                    continue;
+                }
+
+                if ($category === ConsentCategory::Essential) {
+                    continue;
+                }
+
+                if (ConsentCategory::tryFrom($purpose) !== null) {
+                    continue;
+                }
+
+                $current = isset($purposes[$purpose]) ? ConsentCategory::from($purposes[$purpose]) : null;
+
+                if (! $current instanceof ConsentCategory || $this->strictness($category) > $this->strictness($current)) {
+                    $purposes[$purpose] = $category->value;
+                }
+            }
+        }
+
+        $configured = config('capell.privacy.consent.purposes', []);
 
         foreach (is_array($configured) ? $configured : [] as $purpose => $value) {
             $category = is_string($value) ? ConsentCategory::tryFrom($value) : null;
@@ -77,5 +123,11 @@ final class ConsentSettings
         }
 
         return $purposes;
+    }
+
+    /** Later cases in ConsentCategory need more care before they load. */
+    private function strictness(ConsentCategory $category): int
+    {
+        return (int) array_search($category, ConsentCategory::cases(), true);
     }
 }

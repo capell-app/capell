@@ -1200,3 +1200,41 @@ it('declares capability contracts with the Core keys in the manifest v3 json sch
         ->toBe(array_map(static fn (CapabilityContract $capability): string => $capability->value, CapabilityContract::cases()))
         ->and(data_get($schema, 'properties.capabilityContracts.properties.provides.$ref'))->toBe('#/$defs/capabilityContractVersions');
 });
+
+it('accepts and reads the consent purposes a package asks about', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['privacy'] = ['purposes' => ['youtube' => 'marketing', 'openstreetmap' => 'functional']];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class)
+        ->and(CapellManifestData::fromArray($manifest)->privacyPurposes)->toBe(['openstreetmap' => 'functional', 'youtube' => 'marketing'])
+        ->and(CapellManifestData::fromArray($manifest)->toArray()['privacy'])->toBe(['purposes' => ['openstreetmap' => 'functional', 'youtube' => 'marketing']])
+        ->and(CapellManifestData::fromArray(manifestV3Fixture('valid-premium-package'))->toArray())->not->toHaveKey('privacy');
+});
+
+it('rejects consent purpose declarations that could skip or confuse consent', function (mixed $section, string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['privacy'] = $section;
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $field);
+})->with([
+    'a list' => [['youtube'], 'privacy'],
+    'an unknown section' => [['cookies' => []], 'privacy.cookies'],
+    'a purposes list' => [['purposes' => ['youtube']], 'privacy.purposes'],
+    'an essential purpose, which would never ask' => [['purposes' => ['youtube' => 'essential']], 'privacy.purposes.youtube'],
+    'an unknown category' => [['purposes' => ['youtube' => 'ads']], 'privacy.purposes.youtube'],
+    'a category name as a purpose' => [['purposes' => ['marketing' => 'functional']], 'privacy.purposes.marketing'],
+    'a malformed purpose key' => [['purposes' => ['YouTube Video' => 'marketing']], 'privacy.purposes.YouTube Video'],
+]);
+
+it('declares consent purposes in the manifest v3 json schema with the categories a package may use', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.privacy.properties.purposes.additionalProperties.enum'))
+        ->toBe(['functional', 'preferences', 'analytics', 'marketing']);
+});

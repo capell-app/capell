@@ -36,6 +36,7 @@ use Capell\Core\Support\Manifest\Validation\CommercialSectionValidator;
 use Capell\Core\Support\Manifest\Validation\ManifestValidationRules;
 use Capell\Core\Support\Manifest\Validation\MarketplaceSectionValidator;
 use Capell\Core\Support\Manifest\Validation\PerformanceSectionValidator;
+use Capell\Core\Support\Manifest\Validation\PrivacySectionValidator;
 use Capell\Core\Support\Manifest\Validation\SecuritySectionValidator;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Support\ServiceProvider;
@@ -88,6 +89,7 @@ final class ManifestValidator
         'permissions',
         'capabilities',
         'capabilityContracts',
+        'privacy',
         'security',
         'performance',
         'healthChecks',
@@ -123,6 +125,7 @@ final class ManifestValidator
             new CommercialSectionValidator,
             new MarketplaceSectionValidator($this->rules),
             new CapabilityContractsSectionValidator,
+            new PrivacySectionValidator,
         ];
     }
 
@@ -243,6 +246,7 @@ final class ManifestValidator
         $this->sectionValidators[2]->validate($data);
         $this->sectionValidators[3]->validate($data);
         $this->sectionValidators[4]->validate($data);
+        $this->sectionValidators[5]->validate($data);
     }
 
     /**
