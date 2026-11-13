@@ -2,16 +2,16 @@
 
 ## Core Tables
 
-| Table             | Purpose                                                                                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sites`           | Publishing surface. Points to `blueprint_id`, `theme_id` and `language_id`; has `default` and `status`.                                                            |
-| `languages`       | Locale records used by URLs and translations.                                                                                                                      |
-| `blueprints`      | Catalogue of page, widget and section kinds. Key columns: `type`, `key`, `group`, `component`, `view_file`, `meta`, `default`, `status`. Unique on `type` + `key`. |
-| `layouts`         | Page render layout. Columns: `key`, `site_id`, `theme_id`, `group`, `meta`, `containers`, `elements`, `default`, `status`. LayoutBuilder uses `containers`.        |
-| `pages`           | Nested-set tree of pages. Points to `site_id`, `blueprint_id`, `layout_id`; has `uuid`, `meta` and visibility dates (`visible_from`, `visible_until`).             |
-| `page_urls`       | Public URL records. Uses `pageable_type`, `pageable_id`, `language_id`, `site_id`, `url`, `type` (`alias` or `redirect`), `status_code` and `is_manual`.           |
-| `translations`    | Translatable title, content and meta for any translated model. Unique on `language_id`, `translatable_type` and `translatable_id`.                                 |
-| `asset_relations` | Generic ordered asset links for models that use Capell assets.                                                                                                     |
+| Table               | Purpose                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sites`             | Publishing surface. Points to `blueprint_id`, `theme_id` and `language_id`; has `default` and `status`.                                                            |
+| `languages`         | Locale records used by URLs and translations.                                                                                                                      |
+| `blueprints`        | Catalogue of page, widget and section kinds. Key columns: `type`, `key`, `group`, `component`, `view_file`, `meta`, `default`, `status`. Unique on `type` + `key`. |
+| `layouts`           | Page render layout. Columns: `key`, `site_id`, `theme_id`, `group`, `meta`, `containers`, `elements`, `default`, `status`. LayoutBuilder uses `containers`.        |
+| `pages`             | Nested-set tree of pages. Points to `site_id`, `blueprint_id`, `layout_id`; has `uuid`, `meta` and visibility dates (`visible_from`, `visible_until`).             |
+| `page_urls`         | Public URL records. Uses `pageable_type`, `pageable_id`, `language_id`, `site_id`, `url`, `type` (`alias` or `redirect`), `status_code` and `is_manual`.           |
+| `translations`      | Translatable title, content and meta for any translated model. Unique on `language_id`, `translatable_type` and `translatable_id`.                                 |
+| `asset_attachments` | Generic ordered asset links for models that use Capell assets.                                                                                                     |
 
 Optional packages add their own tables, so inspect the schema before assuming one exists.
 
