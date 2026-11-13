@@ -200,6 +200,8 @@ return RectorConfig::configure()
         ],
         EnvVariableToEnvHelperRector::class => [
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
+            // Seeds and restores the raw superglobals a child process inherits; Env::get() would hide the bug it proves.
+            __DIR__ . '/tests/Unit/WorkerCompiledViewPathTest.php',
         ],
         // Everything under scripts/ is a framework-free executable. The cold-install
         // fixture validates CLI arguments before loading its temporary application's
@@ -212,6 +214,8 @@ return RectorConfig::configure()
             __DIR__ . '/scripts',
             // Reads the PHPUnit command line before any application exists, so the Request facade is unavailable.
             __DIR__ . '/tests/Support/ComposerLockedConstraintGuard.php',
+            // Seeds the raw $_SERVER value a child process inherits; the Request facade reads a different copy.
+            __DIR__ . '/tests/Unit/WorkerCompiledViewPathTest.php',
         ],
         ThrowIfRector::class => [
             __DIR__ . '/packages/core/tests/fixtures/cold-cloud-install-provider.php',
