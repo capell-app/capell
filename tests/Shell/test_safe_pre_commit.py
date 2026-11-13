@@ -316,6 +316,37 @@ while not (p / 'continue').exists():
         self.assertEqual(self.git('show', ':file.txt').stdout, 'staged\n')
         self.assertIn('snapshot', (result.stdout + result.stderr).lower())
 
+    def test_stash_guard_refuses_the_stock_hook_and_allows_the_snapshot_runner(self):
+        shutil.copy2(SOURCE / 'scripts/hooks/require-no-stash-runner.sh', self.root / 'scripts/hooks/require-no-stash-runner.sh')
+        config = self.root / '.pre-commit-config.yaml'
+        config.write_text(config.read_text().replace('repos:\n', '''repos:
+- repo: local
+  hooks:
+  - id: require-no-stash-runner
+    name: require-no-stash-runner
+    entry: scripts/hooks/require-no-stash-runner.sh
+    language: script
+    always_run: true
+    pass_filenames: false
+    stages: [pre-commit]
+''', 1))
+        self.git('add', '.')
+        self.git('commit', '-qm', 'guard', '--no-verify')
+        (self.events / 'continue').write_text('go')
+        env = {key: value for key, value in self.env.items() if key not in ('CI', 'CAPELL_NO_STASH_HOOK')}
+        (self.root / 'file.txt').write_text('staged\n')
+        self.git('add', 'file.txt')
+        (self.root / 'other.txt').write_text('unstaged edit\n')
+        subprocess.run(['pre-commit', 'install'], cwd=self.root, capture_output=True, env=env, check=True)
+        stock = subprocess.run(['git', 'commit', '-qm', 'stock'], cwd=self.root, text=True, capture_output=True, env=env)
+        self.assertNotEqual(stock.returncode, 0)
+        self.assertIn('stashes the whole worktree', stock.stdout + stock.stderr)
+        self.assertEqual(self.install().returncode, 0)
+        result = subprocess.run(['git', 'commit', '-qm', 'snapshot'], cwd=self.root, text=True, capture_output=True, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'staged\n')
+        self.assertEqual((self.root / 'other.txt').read_text(), 'unstaged edit\n')
+
     def test_install_is_idempotent_and_keeps_framework_legacy(self):
         hook = self.root / '.git/hooks/pre-commit'
         hook.write_text('''#!/usr/bin/env bash

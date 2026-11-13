@@ -17,13 +17,14 @@ class HookFailure(RuntimeError):
 
 # Refresh this fingerprint when reviewing a change to the repository hook set.
 # Unknown configurations keep the conservative all-dependencies behaviour.
-KNOWN_HOOK_CONFIG_SHA256 = '43e22aac5af2004092b4888cfb06af479002e3e055508f46f5e7afb4a8f449cd'
-KNOWN_HOOK_IMPLEMENTATION_SHA256 = '4e86b25c784ccb4a10037f16efa2417cc90ab57989971113b3f343cdfa2603af'
+KNOWN_HOOK_CONFIG_SHA256 = '4a2884b48252ba73822186b1b94ab3bdf95cc6918de0f110df478d345263ccf5'
+KNOWN_HOOK_IMPLEMENTATION_SHA256 = 'e5feda6009b1dddb79e2ef6115c1581ec49909f319beecefd056025611622c4e'
 HOOK_IMPLEMENTATIONS = (
     'scripts/guards/index-integrity.sh', 'scripts/guards/pre-commit-analysis.sh',
     'scripts/guards/pre-push-analysis.sh', 'scripts/check-debugging.py',
     '.pre-commit/pint.sh', '.pre-commit/rector.sh', '.pre-commit/prettier.sh',
     'scripts/check-composer-local-paths.php', 'tests/Shell/test_safe_pre_commit.py',
+    'scripts/hooks/require-no-stash-runner.sh',
 )
 
 
@@ -215,6 +216,8 @@ def main():
         snapshot = Path(directory) / 'snapshot'
         snapshot.mkdir()
         env = clean_environment()
+        # The config's first hook refuses any run that did not come through this runner.
+        env['CAPELL_NO_STASH_HOOK'] = '1'
         preferred_php = Path('/opt/homebrew/opt/php@8.4/bin/php')
         if preferred_php.is_file() and os.access(preferred_php, os.X_OK):
             env['PATH'] = str(preferred_php.parent) + os.pathsep + env.get('PATH', '')
