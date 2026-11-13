@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Notifications;
 
 use Capell\Admin\Enums\RolePreset;
+use Capell\Admin\Support\Users\InvitationPasswordBroker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -57,7 +58,7 @@ final class UserInvitationNotification extends Notification
 
         return $message
             ->action((string) __('capell-admin::invitations.mail.action'), $this->acceptUrl)
-            ->line((string) __('capell-admin::invitations.mail.expiry', ['days' => 7]))
+            ->line((string) __('capell-admin::invitations.mail.expiry', ['days' => InvitationPasswordBroker::expiresInDays()]))
             ->line((string) __('capell-admin::invitations.mail.ignore'));
     }
 }

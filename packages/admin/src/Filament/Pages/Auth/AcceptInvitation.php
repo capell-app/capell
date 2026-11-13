@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages\Auth;
 
 use Capell\Admin\Actions\Users\AcceptUserInvitationAction;
+use Capell\Admin\Http\Middleware\SendNoReferrer;
 use Capell\Admin\Support\Users\InvitationPasswordBroker;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
@@ -47,6 +48,9 @@ class AcceptInvitation extends SimplePage
     #[Locked]
     public ?string $token = null;
 
+    #[Locked]
+    public bool $linkIsValid = false;
+
     public ?string $password = '';
 
     public ?string $passwordConfirmation = '';
@@ -54,7 +58,7 @@ class AcceptInvitation extends SimplePage
     public static function registerInvitationRoute(Panel $panel): void
     {
         Route::get('/invitation/accept', static::class)
-            ->middleware(['signed'])
+            ->middleware(['signed', SendNoReferrer::class])
             ->name(self::ROUTE_NAME);
     }
 
@@ -64,7 +68,7 @@ class AcceptInvitation extends SimplePage
 
         return URL::temporarySignedRoute(
             $panel->generateRouteName(self::ROUTE_NAME),
-            now()->addMinutes(InvitationPasswordBroker::EXPIRES_IN_MINUTES),
+            now()->addMinutes(InvitationPasswordBroker::expiresInMinutes()),
             ['token' => $token, 'email' => $email],
         );
     }
@@ -79,6 +83,7 @@ class AcceptInvitation extends SimplePage
 
         $this->token = (string) request()->query('token');
         $this->email = (string) request()->query('email');
+        $this->linkIsValid = InvitationPasswordBroker::isValid($this->email, $this->token);
 
         $this->form->fill();
     }
@@ -96,6 +101,12 @@ class AcceptInvitation extends SimplePage
             return;
         }
 
+        if (! $this->linkIsValid) {
+            $this->sendInvalidLinkNotification();
+
+            return;
+        }
+
         $data = $this->form->getState();
 
         $user = AcceptUserInvitationAction::run(
@@ -105,22 +116,29 @@ class AcceptInvitation extends SimplePage
         );
 
         if (! $user instanceof Authenticatable) {
-            Notification::make()
-                ->title(__('capell-admin::invitations.accept.invalid_title'))
-                ->body(__('capell-admin::invitations.accept.invalid_body'))
-                ->danger()
-                ->persistent()
-                ->send();
+            $this->linkIsValid = false;
+            $this->sendInvalidLinkNotification();
 
             return;
         }
 
         $panel = self::panel();
 
-        if (! $user instanceof FilamentUser || $user->canAccessPanel($panel)) {
-            Filament::auth()->login($user);
-            session()->regenerate();
+        if ($user instanceof FilamentUser && ! $user->canAccessPanel($panel)) {
+            Notification::make()
+                ->title(__('capell-admin::invitations.accept.saved_no_access_title'))
+                ->body(__('capell-admin::invitations.accept.saved_no_access_body'))
+                ->warning()
+                ->persistent()
+                ->send();
+
+            $this->redirect($panel->getLoginUrl() ?? $panel->getUrl());
+
+            return;
         }
+
+        Filament::auth()->login($user);
+        session()->regenerate();
 
         $this->redirect($panel->getUrl());
     }
@@ -134,13 +152,17 @@ class AcceptInvitation extends SimplePage
     #[Override]
     public function getHeading(): string|Htmlable|null
     {
-        return __('capell-admin::invitations.accept.heading');
+        return $this->linkIsValid
+            ? __('capell-admin::invitations.accept.heading')
+            : __('capell-admin::invitations.accept.invalid_heading');
     }
 
     #[Override]
     public function getSubheading(): string|Htmlable|null
     {
-        return __('capell-admin::invitations.accept.subheading', ['email' => (string) $this->email]);
+        return $this->linkIsValid
+            ? __('capell-admin::invitations.accept.subheading', ['email' => (string) $this->email])
+            : __('capell-admin::invitations.accept.invalid_body', ['days' => InvitationPasswordBroker::expiresInDays()]);
     }
 
     public function form(Schema $schema): Schema
@@ -167,6 +189,10 @@ class AcceptInvitation extends SimplePage
 
     public function content(Schema $schema): Schema
     {
+        if (! $this->linkIsValid) {
+            return $schema->components([]);
+        }
+
         return $schema->components([
             Form::make([EmbeddedSchema::make('form')])
                 ->id('form')
@@ -188,5 +214,15 @@ class AcceptInvitation extends SimplePage
         throw_unless($panel instanceof Panel, LogicException::class, 'Invitations need a Filament panel.');
 
         return $panel;
+    }
+
+    private function sendInvalidLinkNotification(): void
+    {
+        Notification::make()
+            ->title(__('capell-admin::invitations.accept.invalid_title'))
+            ->body(__('capell-admin::invitations.accept.invalid_body', ['days' => InvitationPasswordBroker::expiresInDays()]))
+            ->danger()
+            ->persistent()
+            ->send();
     }
 }

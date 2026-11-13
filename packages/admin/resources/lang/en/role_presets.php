@@ -12,7 +12,7 @@ return [
             'Change the web address of a page',
             'Undo a page back to an earlier version',
             'Upload, replace and remove images and files',
-            'Add and reorder menu links',
+            'Add menu links, rename them and change their order',
         ],
         'cannot' => [
             'Change the page layout or design',

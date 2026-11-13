@@ -9,12 +9,12 @@ return [
         'description' => 'We email them a link to choose their own password. You never need to set or share one.',
         'submit' => 'Send invitation',
         'sent_title' => 'Invitation sent',
-        'sent_body' => 'We emailed :email a link to set their password. The link works once and expires in 7 days.',
+        'sent_body' => 'We emailed :email a link to set their password. The link works once and expires in :days days.',
     ],
     'resend' => [
-        'label' => 'Email a set-password link',
-        'heading' => 'Email a set-password link',
-        'description' => 'We email :email a new link to choose their password. Any earlier link stops working. Their current password keeps working until they choose a new one.',
+        'label' => 'Send the invitation again',
+        'heading' => 'Send the invitation again',
+        'description' => 'We email :email a new invitation link. Their earlier link stops working.',
         'submit' => 'Send link',
         'sent_title' => 'Link sent',
     ],
@@ -25,7 +25,7 @@ return [
         'preset' => 'What they can do',
     ],
     'validation' => [
-        'email_taken' => 'Someone already uses this email address. To send them a new link, use "Email a set-password link" on their row in the list.',
+        'email_taken' => 'Someone already uses this email address. If they have not accepted their invitation yet, use "Send the invitation again" on their row in the list.',
     ],
     'mail' => [
         'subject' => 'You have been invited to edit :site',
@@ -44,8 +44,11 @@ return [
         'password_help' => 'Choose a password you do not use on any other website.',
         'password_confirmation' => 'Type the password again',
         'submit' => 'Save password and sign in',
+        'invalid_heading' => 'This invitation link no longer works',
         'invalid_title' => 'This invitation link no longer works',
-        'invalid_body' => 'It may have been used already or be more than 7 days old. Ask the person who invited you to send a new invitation.',
+        'invalid_body' => 'It may have been used already or be more than :days days old. Ask the person who invited you to send a new invitation.',
+        'saved_no_access_title' => 'Your password is saved',
+        'saved_no_access_body' => 'Your account cannot open the admin yet. Ask the person who invited you to check what you can do.',
         'throttled' => 'Too many attempts. Try again in :seconds seconds.',
     ],
 ];

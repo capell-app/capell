@@ -6,9 +6,11 @@ namespace Capell\Admin\Actions\Users;
 
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Data\Users\UserInvitationData;
+use Capell\Admin\Enums\RolePreset;
 use Capell\Admin\Filament\Pages\Auth\AcceptInvitation;
 use Capell\Admin\Notifications\UserInvitationNotification;
 use Capell\Admin\Support\Users\InvitationPasswordBroker;
+use Capell\Admin\Support\Users\RoleGrantGuard;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\CanResetPassword;
@@ -53,6 +55,63 @@ final class InviteUserAction
         return SiteAccess::forActor($actor)->isGlobal();
     }
 
+    /**
+     * The actor may only hand out a preset whose every current permission they
+     * hold themselves; see RoleGrantGuard.
+     */
+    public static function canGrantPreset(Authenticatable $actor, RolePreset $preset): bool
+    {
+        return self::canInvite($actor) && RoleGrantGuard::canGrant($actor, self::roleFor($preset));
+    }
+
+    /**
+     * @return list<RolePreset>
+     */
+    public static function grantablePresets(Authenticatable $actor): array
+    {
+        if (! self::canInvite($actor)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            RolePreset::cases(),
+            static fn (RolePreset $preset): bool => RoleGrantGuard::canGrant($actor, self::roleFor($preset)),
+        ));
+    }
+
+    /**
+     * Matches sign-in, which treats addresses that differ only in case as the
+     * same person.
+     *
+     * @param  class-string<Authenticatable>  $userModel
+     */
+    public static function emailIsTaken(string $userModel, string $email): bool
+    {
+        return $userModel::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($email))])
+            ->exists();
+    }
+
+    public static function roleFor(RolePreset $preset): Role
+    {
+        $guardName = (string) config('auth.defaults.guard', 'web');
+        $role = Role::query()
+            ->where('name', $preset->roleName())
+            ->where('guard_name', $guardName)
+            ->first();
+
+        if ($role instanceof Role) {
+            return $role;
+        }
+
+        SeedRolePresetRolesAction::run(syncExisting: false);
+
+        return Role::query()
+            ->where('name', $preset->roleName())
+            ->where('guard_name', $guardName)
+            ->firstOrFail();
+    }
+
     public function handle(UserInvitationData $invitation, Authenticatable $actor): Authenticatable
     {
         /** @var class-string<Authenticatable> $userModel */
@@ -60,21 +119,14 @@ final class InviteUserAction
 
         throw_unless(self::canInvite($actor, $userModel), AuthorizationException::class);
 
-        if ($userModel::query()->where('email', $invitation->email)->exists()) {
+        $role = self::roleFor($invitation->preset);
+
+        throw_unless(RoleGrantGuard::canGrant($actor, $role), AuthorizationException::class);
+
+        if (self::emailIsTaken($userModel, $invitation->email)) {
             throw ValidationException::withMessages([
                 'email' => __('capell-admin::invitations.validation.email_taken'),
             ]);
-        }
-
-        $guardName = (string) config('auth.defaults.guard', 'web');
-        $role = Role::query()
-            ->where('name', $invitation->preset->roleName())
-            ->where('guard_name', $guardName)
-            ->first();
-
-        if (! $role instanceof Role) {
-            SeedRolePresetRolesAction::run(syncExisting: false);
-            $role = Role::findByName($invitation->preset->roleName(), $guardName);
         }
 
         /** @var Authenticatable&CanResetPassword $user */

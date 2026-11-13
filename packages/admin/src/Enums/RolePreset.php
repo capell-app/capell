@@ -20,20 +20,6 @@ enum RolePreset: string
         return self::tryFrom($roleName);
     }
 
-    /**
-     * @return array<string, string>
-     */
-    public static function options(): array
-    {
-        $options = [];
-
-        foreach (self::cases() as $preset) {
-            $options[$preset->value] = $preset->label();
-        }
-
-        return $options;
-    }
-
     public function roleName(): string
     {
         return $this->value;
