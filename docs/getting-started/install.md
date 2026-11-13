@@ -1,6 +1,6 @@
 # Install Capell
 
-This guide installs the current 1.x Capell foundation into a Laravel application. Use the Installer package for the normal path: it selects and requires the public packages, runs their lifecycle commands, configures Admin and Frontend, creates the first site and user, and refuses to report success when required health checks fail.
+Start a new project with the starter kit or add the current 1.x Capell Foundation to an existing Laravel application with the Installer package. The Installer selects and requires the public packages, runs their lifecycle commands, configures Admin and Frontend, creates the first site and user, and refuses to report success when required health checks fail.
 
 [![Capell guided installer showing environment and package checks](../images/generated/package-surfaces/install-guide-page.png)](../images/generated/package-surfaces/install-guide-page.png)
 
