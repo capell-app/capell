@@ -27,12 +27,16 @@ enum RolePreset: string
 
     public function label(): string
     {
-        return (string) __('capell-admin::role_presets.' . $this->value . '.label');
+        return match ($this) {
+            self::ClientEditor => (string) __('capell-admin::role_presets.client_editor.label'),
+        };
     }
 
     public function description(): string
     {
-        return (string) __('capell-admin::role_presets.' . $this->value . '.description');
+        return match ($this) {
+            self::ClientEditor => (string) __('capell-admin::role_presets.client_editor.description'),
+        };
     }
 
     /**
@@ -40,7 +44,16 @@ enum RolePreset: string
      */
     public function canDo(): array
     {
-        return $this->lines('can');
+        return match ($this) {
+            self::ClientEditor => [
+                (string) __('capell-admin::role_presets.client_editor.can.publish_pages'),
+                (string) __('capell-admin::role_presets.client_editor.can.bin_pages'),
+                (string) __('capell-admin::role_presets.client_editor.can.page_addresses'),
+                (string) __('capell-admin::role_presets.client_editor.can.roll_back'),
+                (string) __('capell-admin::role_presets.client_editor.can.media'),
+                (string) __('capell-admin::role_presets.client_editor.can.menus'),
+            ],
+        };
     }
 
     /**
@@ -48,16 +61,13 @@ enum RolePreset: string
      */
     public function cannotDo(): array
     {
-        return $this->lines('cannot');
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function lines(string $kind): array
-    {
-        $lines = __('capell-admin::role_presets.' . $this->value . '.' . $kind);
-
-        return is_array($lines) ? array_values(array_map(strval(...), $lines)) : [];
+        return match ($this) {
+            self::ClientEditor => [
+                (string) __('capell-admin::role_presets.client_editor.cannot.design'),
+                (string) __('capell-admin::role_presets.client_editor.cannot.settings'),
+                (string) __('capell-admin::role_presets.client_editor.cannot.users'),
+                (string) __('capell-admin::role_presets.client_editor.cannot.extensions'),
+            ],
+        };
     }
 }
