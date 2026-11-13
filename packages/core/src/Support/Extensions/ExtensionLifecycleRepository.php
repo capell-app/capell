@@ -129,7 +129,7 @@ final class ExtensionLifecycleRepository
         // not turn a contained provider failure into a failed boot. The caller keeps
         // the in-memory quarantine; the record is written only when the table can be
         // probed, and is not retried until the next boot that can reach the database.
-        if (! $this->probedTableExists()) {
+        if (! $this->tableExists(refresh: true)) {
             return;
         }
 
@@ -338,12 +338,6 @@ final class ExtensionLifecycleRepository
     private function tableName(): string
     {
         return $this->tableName ??= TableName::resolve('capell_extensions');
-    }
-
-    private function probedTableExists(): bool
-    {
-        return app()->bound('db')
-            && $this->schemaState->tableResult($this->tableName(), refresh: true)->exists();
     }
 
     private function writableTableExists(): bool

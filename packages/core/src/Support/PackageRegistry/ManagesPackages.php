@@ -19,10 +19,14 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
+use Illuminate\Database\ConnectionException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use PDOException;
 use RuntimeException;
+use Throwable;
 
 trait ManagesPackages
 {
@@ -501,14 +505,21 @@ trait ManagesPackages
             return;
         }
 
-        $this->extensionLifecycle()->recordProviderQuarantined(
-            name: $name,
-            provider: $provider,
-            reason: $reason,
-            package: $this->packageOrNull($name),
-        );
-        $this->clearExtensionCache();
+        // Contain the provider in memory first: the persisted record is best-effort, so a
+        // database or cache failure here must never fail boot or leave the package loaded.
+        $this->clearExtensionCacheContained();
         $this->forcePackageInstalled($name, false);
+
+        try {
+            $this->extensionLifecycle()->recordProviderQuarantined(
+                name: $name,
+                provider: $provider,
+                reason: $reason,
+                package: $this->packageOrNull($name),
+            );
+        } catch (QueryException|ConnectionException|PDOException $exception) {
+            report($exception);
+        }
     }
 
     public function markPackageDisabled(string $name): void
@@ -665,8 +676,26 @@ trait ManagesPackages
             }
 
             $this->persistedExtensionCacheRemovalDeferred = false;
-            $this->removePersistedExtensionCacheKeys();
+
+            try {
+                $this->removePersistedExtensionCacheKeys();
+            } catch (Throwable $throwable) {
+                report($throwable);
+            }
         });
+    }
+
+    /**
+     * Quarantine can run while the database is down, and the cache store may be database
+     * backed, so a store failure must not stop the in-memory quarantine completing.
+     */
+    private function clearExtensionCacheContained(): void
+    {
+        try {
+            $this->clearExtensionCache();
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
     }
 
     private function removePersistedExtensionCacheKeys(): void
