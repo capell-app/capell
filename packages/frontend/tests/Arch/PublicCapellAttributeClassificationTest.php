@@ -75,6 +75,8 @@ function isPublicSafeCapellAttribute(string $attribute): bool
         'data-capell-stylesheet-fallback-active',
         // Names the consent purpose a gated script or frame waits for.
         'data-capell-consent',
+        // Marks the notice the privacy runtime shows while a frame waits for consent.
+        'data-capell-consent-placeholder',
     ];
 
     if (in_array($attribute, $exact, true)) {
