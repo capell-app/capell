@@ -101,13 +101,17 @@ final readonly class PrivacySubject
      * Narrows a query to rows whose hash column holds the subject's email address
      * hashed with PrivacyIdentifierHasher::hash(), under the current key or any
      * earlier one (including app.key after a dedicated key is set). Only the hashes
-     * reach the query, so the address stays out of query logs. A subject without an email address matches nothing. The query is
-     * changed in place.
+     * reach the query, so the address stays out of query logs. A subject without
+     * an email address matches nothing. The query is changed in place, with its
+     * existing conditions grouped first so an earlier orWhere cannot widen the
+     * match to other people's rows.
      *
      * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query
      */
     public function whereEmailHash(QueryBuilder|EloquentBuilder $query, string $column): void
     {
+        $query = $this->groupExistingConditions($query);
+
         if ($this->email === null) {
             $query->whereRaw('1 = 0');
 
@@ -123,20 +127,48 @@ final readonly class PrivacySubject
      * sensitively by default). The address is a query binding, so it can reach
      * query logs: a package that looks people up often stores a keyed hash and
      * uses whereEmailHash() instead. A subject without an email address matches
-     * nothing. The query is changed in place.
+     * nothing. The query is changed in place, with its existing conditions
+     * grouped first so an earlier orWhere cannot widen the match.
      *
      * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query
      */
     public function whereEmail(QueryBuilder|EloquentBuilder $query, string $column): void
     {
+        $base = $this->groupExistingConditions($query);
+
         if ($this->email === null) {
-            $query->whereRaw('1 = 0');
+            $base->whereRaw('1 = 0');
 
             return;
         }
 
-        $base = $query instanceof EloquentBuilder ? $query->getQuery() : $query;
         // The grammar quotes the column name; the address is a binding.
         new SqlFragment('LOWER(' . $base->getGrammar()->wrap($column) . ') = ?', [$this->email])->applyWhere($base);
+    }
+
+    /**
+     * Moves the query's existing where conditions into one nested group, so a
+     * condition added after it is ANDed with the whole group: "a OR b" becomes
+     * "(a OR b) AND subject", not "a OR (b AND subject)". Returns the base query
+     * the subject condition is added to.
+     *
+     * @param  QueryBuilder|EloquentBuilder<covariant Model>  $query
+     */
+    private function groupExistingConditions(QueryBuilder|EloquentBuilder $query): QueryBuilder
+    {
+        $base = $query instanceof EloquentBuilder ? $query->getQuery() : $query;
+
+        if ($base->wheres === []) {
+            return $base;
+        }
+
+        $group = $base->forNestedWhere();
+        $group->wheres = $base->wheres;
+        $group->bindings['where'] = $base->bindings['where'];
+        $base->wheres = [];
+        $base->bindings['where'] = [];
+        $base->addNestedWhereQuery($group);
+
+        return $base;
     }
 }

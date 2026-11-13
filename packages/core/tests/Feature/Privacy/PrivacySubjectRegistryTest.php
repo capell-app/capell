@@ -15,6 +15,7 @@ use Capell\Core\Tests\Feature\Privacy\Fixtures\SitePrivacyContributor;
 use Capell\Core\Tests\Feature\Privacy\Fixtures\ThrowingPrivacyEraser;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
@@ -78,7 +79,7 @@ it('keeps the other packages receipts and runs the rest when one eraser fails', 
     expect($result->isComplete())->toBeFalse()
         ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): string => $receipt->contributor, $result->receipts))->toBe(['mailing-list'])
         ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures))->toBe([
-            ['contributor' => 'broken-store', 'code' => PrivacyErasureFailureData::CODE_ERASER_FAILED, 'exception_class' => RuntimeException::class],
+            ['contributor' => 'broken-store', 'code' => PrivacyErasureFailureData::CODE_ERASER_FAILED, 'exception_class' => RuntimeException::class, 'rejected_receipt' => null],
         ])
         ->and(EmailListPrivacyContributor::$entries)->toBe([])
         ->and(json_encode(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures), JSON_THROW_ON_ERROR))->not->toContain('jane@example.test');
@@ -98,9 +99,11 @@ it('records an eraser receipt for another package or an undeclared suppression m
     $registry = resolve(PrivacySubjectRegistry::class)->registerEraser($eraser)->registerEraser(new EmailListPrivacyContributor);
 
     $result = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Anonymize);
+    // The receipt the package returned is kept, so an operator can see what it says it erased.
+    $rejected = ['contributor' => $case === 'marker' ? 'misreporting' : 'someone-else', 'mode' => 'anonymize', 'affected_records' => 0, 'erased_files' => [], 'suppression_marker_retained' => $case === 'marker'];
 
     expect($result->isComplete())->toBeFalse()
-        ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures))->toBe([['contributor' => 'misreporting', 'code' => $code, 'exception_class' => null]])
+        ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures))->toBe([['contributor' => 'misreporting', 'code' => $code, 'exception_class' => null, 'rejected_receipt' => $rejected]])
         ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): string => $receipt->contributor, $result->receipts))->toBe(['mailing-list']);
 })->with([
     'another contributor' => ['contributor', PrivacyErasureFailureData::CODE_RECEIPT_CONTRIBUTOR],
@@ -190,3 +193,62 @@ it('accepts stored file paths with spaces and refuses control characters or a ne
         ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, ['no-disk-separator']))->toThrow(InvalidArgumentException::class)
         ->and(fn (): PrivacyExportSectionData => new PrivacyExportSectionData([], ["local:a\tb"]))->toThrow(InvalidArgumentException::class);
 });
+
+it('reports a failing eraser to the exception handler and still records the failure', function (): void {
+    Exceptions::fake();
+    $registry = resolve(PrivacySubjectRegistry::class)->registerEraser(new ThrowingPrivacyEraser);
+
+    $result = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Delete);
+
+    expect($result->failures)->toHaveCount(1);
+    Exceptions::assertReported(RuntimeException::class);
+});
+
+it('erases through only the named packages so a failed erasure can be run again for those alone', function (): void {
+    $registry = resolve(PrivacySubjectRegistry::class)
+        ->registerEraser(new ThrowingPrivacyEraser)
+        ->registerEraser(new EmailListPrivacyContributor);
+
+    $result = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Delete, only: ['mailing-list']);
+    $missing = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Delete, only: ['uninstalled-package']);
+
+    expect($result->isComplete())->toBeTrue()
+        ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): string => $receipt->contributor, $result->receipts))->toBe(['mailing-list'])
+        ->and(EmailListPrivacyContributor::$entries)->toBe([])
+        // A named package that is no longer registered is a failure, never a silent success.
+        ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $missing->failures))->toBe([
+            ['contributor' => 'uninstalled-package', 'code' => PrivacyErasureFailureData::CODE_CONTRIBUTOR_MISSING, 'exception_class' => null, 'rejected_receipt' => null],
+        ]);
+});
+
+it('says whether any package handled the subject', function (): void {
+    $registry = resolve(PrivacySubjectRegistry::class)->registerEraser(new EmailListPrivacyContributor);
+    $site = Site::factory()->createOne();
+
+    expect($registry->erase(PrivacySubject::forModel($site), PrivacyErasureMode::Delete)->ranAny())->toBeFalse()
+        ->and($registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Delete)->ranAny())->toBeTrue()
+        ->and(resolve(PrivacySubjectRegistry::class)->registerEraser(new ThrowingPrivacyEraser)->erase(PrivacySubject::forModel($site), PrivacyErasureMode::Delete)->ranAny())->toBeTrue();
+});
+
+it('keeps the subject match inside its own group when the query already has an or condition', function (string $method): void {
+    Schema::create('privacy_test_grouped', function (Blueprint $table): void {
+        $table->id();
+        $table->string('email');
+        $table->string('email_hash');
+        $table->string('status');
+    });
+    $subject = PrivacySubject::forEmail('jane@example.test');
+    DB::table('privacy_test_grouped')->insert([
+        ['email' => 'jane@example.test', 'email_hash' => $subject->emailHash(), 'status' => 'archived'],
+        // Ungrouped, "active OR (archived AND subject)" would return John's row too.
+        ['email' => 'john@example.test', 'email_hash' => 'other', 'status' => 'active'],
+    ]);
+
+    $query = DB::table('privacy_test_grouped')->where('status', 'active')->orWhere('status', 'archived');
+    $method === 'email' ? $subject->whereEmail($query, 'email') : $subject->whereEmailHash($query, 'email_hash');
+    $withoutEmail = DB::table('privacy_test_grouped')->where('status', 'active')->orWhere('status', 'archived');
+    PrivacySubject::forModel(Site::factory()->createOne())->whereEmail($withoutEmail, 'email');
+
+    expect($query->pluck('email')->all())->toBe(['jane@example.test'])
+        ->and($withoutEmail->count())->toBe(0);
+})->with(['email', 'hash']);

@@ -25,4 +25,14 @@ final readonly class PrivacyErasureResultData
     {
         return $this->failures === [];
     }
+
+    /**
+     * Whether any package handled the subject, finished or not. False means no
+     * registered eraser holds data for the subject, which a caller should tell
+     * apart from a completed erasure.
+     */
+    public function ranAny(): bool
+    {
+        return $this->receipts !== [] || $this->failures !== [];
+    }
 }
