@@ -25,6 +25,8 @@ return [
     'review_body_menu' => 'Capell will create :count pages and a menu. The pages stay private until you publish them, so you can change anything first.',
     'review_body_form' => 'Capell will create :count pages and a contact form. The pages stay private until you publish them, so you can change anything first.',
     'review_body_menu_form' => 'Capell will create :count pages, a menu and a contact form. The pages stay private until you publish them, so you can change anything first.',
+    'contact_form_preview_on_page' => 'The contact form on your :page page will ask visitors for: :fields.',
+    'contact_form_preview' => 'The contact form will ask visitors for: :fields.',
     'contact_email' => 'Send contact form messages to',
     'contact_email_help' => 'Messages from the contact form go to this address and are also kept in Form submissions. You can change it later in the form settings.',
     'create_pages' => 'Create pages',

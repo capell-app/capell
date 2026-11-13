@@ -279,6 +279,57 @@ it('sends the contact form address the person chose to the Form Builder extensio
         ->and($received[0][0]['placeOnPage'])->toBe('contact');
 });
 
+it('shows or hides the contact form address as the Contact page is chosen or left out', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    guidedSetupFormsApplier();
+
+    $page = Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business'])
+        ->assertFormFieldVisible('contactEmail');
+
+    $page->set('data.pageSlugs', ['about'])
+        ->assertFormFieldHidden('contactEmail')
+        ->assertDontSee((string) __('capell-admin::setup.contact_email'));
+
+    $page->set('data.pageSlugs', ['about', 'contact'])
+        ->assertFormFieldVisible('contactEmail')
+        ->assertSee((string) __('capell-admin::setup.contact_email'));
+});
+
+it('creates the pages without asking for an address once the Contact page is left out', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    $received = guidedSetupFormsApplier();
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'contactEmail' => ''])
+        ->set('data.pageSlugs', ['about'])
+        ->call('createPages')
+        ->assertHasNoFormErrors()
+        ->assertSet('created', true);
+
+    expect(array_filter($received->getArrayCopy()))->toBeEmpty();
+});
+
+it('previews what the contact form will ask before anything is created', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    guidedSetupFormsApplier();
+
+    $page = Livewire::test(GuidedSetup::class)->fillForm(['presetKey' => 'service-business']);
+    $preview = $page->instance()->contactFormPreview();
+
+    expect($preview)->toContain('Contact')
+        ->toContain('Email address')
+        ->and($page->html())->toContain(e($preview));
+
+    $page->set('data.pageSlugs', ['about']);
+
+    expect($page->instance()->contactFormPreview())->toBe('')
+        ->and($page->html())->not->toContain(e($preview));
+});
+
 it('requires a real address for contact form messages before anything is created', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
