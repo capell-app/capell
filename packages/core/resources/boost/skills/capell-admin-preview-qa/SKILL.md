@@ -13,20 +13,20 @@ Use this for the page edit screen's preview workflows. Keep the `capell` skill's
 - `Capell\Admin\Filament\Resources\Pages\Actions\PreviewDraftPageHeaderAction` (`previewDraftPage`) shows only for a pending page the editor may view. It opens a signed preview URL in a new tab, issued by `IssuePagePreviewTokenAction`.
 - When `capell-app/filament-peek` is installed, `PeekPagePreviewAction` (`peekPagePreview`) is the "Preview changes" action. On click it calls `CreatePagePreviewSnapshotAction` with the current Livewire form state, stores a snapshot in the cache, and dispatches `open-capell-page-preview-modal` with a temporary signed URL (route `capell-filament-peek.preview`).
 - Layout Builder state that is not yet saved is carried by `StoreLayoutBuilderPreviewStateAction` and `LayoutBuilderPreviewStateData`, per user and page. Saving or resetting the layout must clear it.
-- Peek settings live in `config/capell-filament-peek.php` under `preview`: `cache_store`, `ttl_minutes` (default 15), `max_payload_kb` (default 512), `route_prefix`, `middleware` and the modal device presets.
+- Peek settings live in `config/capell-filament-peek.php` under `preview`: `cache_store`, `ttl_minutes` (default 15), `max_payload_kb` (default 512), `route_prefix`, `middleware` and `modal_device_presets`.
 
 ## Safety rules
 
 - A snapshot is a temporary admin preview, not a persisted workflow draft. Nothing is written to content until the editor saves.
-- The preview response must be `Cache-Control: no-store, private` with `X-Robots-Tag: noindex, nofollow`.
-- A snapshot belongs to the user who created it. Another user, an unauthenticated request, an unsigned URL, an expired signature and an expired or missing snapshot must each fail with a friendly private error page and no content.
+- The Peek preview response must be `Cache-Control: no-store, private` with `X-Robots-Tag: noindex, nofollow`.
+- A snapshot belongs to the user who created it. An unsigned URL or an expired signature is refused with a 403 by the `signed` middleware before the controller runs. Another user, an unauthenticated request and an expired or missing snapshot each get a friendly private error page and no content.
 - Oversized payloads are rejected before they are cached.
 - Use disposable pages and an admin test user. Do not mutate real content to test a preview.
 - Accept a preview screenshot as evidence only when browser diagnostics are clean. Do not replace a failed capture with a fixture.
 
 ## Debug flow
 
-1. Confirm the page, the signed-in role, and that `capell-app/filament-peek` is installed and enabled (`php artisan capell:doctor`).
+1. Confirm the page, the signed-in role, and that `capell-app/filament-peek` is installed (`php artisan capell:doctor`) and that `capell-filament-peek.enabled` is true.
 2. Check the page edit header actions and the extender registration.
 3. Check the browser console and `storage/logs` for missing assets, Livewire errors or modal dispatch failures.
 4. Edit a field without saving, click the Peek action, and confirm the modal shows the unsaved value and the saved page is unchanged.
@@ -51,8 +51,10 @@ Write focused Pest tests for:
 - A successful preview renders the unsaved value without saving it, with private cache headers.
 - Anonymous public responses contain no preview or editor markers.
 
+Admin classes live in `capell-app/admin` and Peek classes in `capell-app/filament-peek`. Run the Peek tests from the checkout that holds that package:
+
 ```bash
-vendor/bin/pest tests/Feature/PagePreviewRouteTest.php
+vendor/bin/pest packages/filament-peek/tests/Feature/PagePreviewRouteTest.php
 ```
 
 Run the single test file for the behaviour you changed. Use browser QA on the real edit page for final confidence.
