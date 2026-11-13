@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Manifest;
 
+use Capell\Core\Data\Manifest\ExtensionCapabilityContractsData;
 use Capell\Core\Data\Manifest\ExtensionCommercialData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityData;
@@ -84,6 +85,7 @@ final class CapellManifestData
         public ?ExtensionContributionTraceabilityData $contributionTraceability = null,
         public array $agentTools = [],
         public ?string $agentToolsWaiverReason = null,
+        public ?ExtensionCapabilityContractsData $capabilityContracts = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -164,6 +166,9 @@ final class CapellManifestData
                 : null,
             agentTools: $agentTools,
             agentToolsWaiverReason: $agentToolsWaiverReason,
+            capabilityContracts: is_array($data['capabilityContracts'] ?? null)
+                ? ExtensionCapabilityContractsData::fromArray($data['capabilityContracts'])
+                : null,
         );
     }
 
@@ -225,6 +230,10 @@ final class CapellManifestData
 
         if ($this->scopes !== []) {
             $data['scopes'] = $this->scopes;
+        }
+
+        if ($this->capabilityContracts instanceof ExtensionCapabilityContractsData) {
+            $data['capabilityContracts'] = $this->capabilityContracts->toArray();
         }
 
         if ($this->namespace !== null) {

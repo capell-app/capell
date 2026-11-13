@@ -14,6 +14,7 @@ use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
 use Capell\Core\Contracts\Extensions\RegistersExtensionSetting;
 use Capell\Core\Contracts\Extensions\RunsScheduledExtensionJob;
 use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
+use Capell\Core\Enums\CapabilityContract;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
@@ -1150,3 +1151,52 @@ it('rejects outcome copy that would render blank or malformed', function (array 
     'faq entry without answer' => [['faq' => [['question' => 'Does it work with every theme?']]], 'marketplace.faq.0.answer'],
     'faq entry with stray key' => [['faq' => [['question' => 'Does it work with every theme?', 'answer' => 'Yes, through the theme notice slot.', 'link' => 'x']]], 'marketplace.faq.0.link'],
 ]);
+
+it('accepts and reads the capability contracts a package provides and consumes', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['capabilityContracts'] = [
+        'provides' => ['form-submissions' => 1, 'form-catalogue' => 1],
+        'consumes' => ['campaign-conversions' => 1],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+
+    $contracts = CapellManifestData::fromArray($manifest)->capabilityContracts;
+
+    expect($contracts?->provides(CapabilityContract::FormSubmissions))->toBeTrue()
+        ->and($contracts?->provides(CapabilityContract::CampaignConversions))->toBeFalse()
+        ->and($contracts?->consumes(CapabilityContract::CampaignConversions))->toBeTrue()
+        ->and(CapellManifestData::fromArray($manifest)->toArray()['capabilityContracts'])->toBe([
+            'provides' => ['form-catalogue' => 1, 'form-submissions' => 1],
+            'consumes' => ['campaign-conversions' => 1],
+        ]);
+});
+
+it('rejects capability contract declarations Core does not define', function (mixed $section, string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['capabilityContracts'] = $section;
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $field);
+})->with([
+    'a list of strings' => [['form-submissions'], 'capabilityContracts'],
+    'an unknown section' => [['implements' => ['form-submissions' => 1]], 'capabilityContracts.implements'],
+    'a package class name' => [['consumes' => ['Capell\\FormBuilder\\Models\\Form' => 1]], 'capabilityContracts.consumes.Capell\\FormBuilder\\Models\\Form'],
+    'an unknown capability' => [['provides' => ['payments' => 1]], 'capabilityContracts.provides.payments'],
+    'a future major version' => [['provides' => ['form-submissions' => 2]], 'capabilityContracts.provides.form-submissions'],
+    'a string version' => [['provides' => ['form-submissions' => '1']], 'capabilityContracts.provides.form-submissions'],
+    'a version list' => [['provides' => [1]], 'capabilityContracts.provides'],
+]);
+
+it('declares capability contracts with the Core keys in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, '$defs.capabilityContractVersions.propertyNames.enum'))
+        ->toBe(array_map(static fn (CapabilityContract $capability): string => $capability->value, CapabilityContract::cases()))
+        ->and(data_get($schema, 'properties.capabilityContracts.properties.provides.$ref'))->toBe('#/$defs/capabilityContractVersions');
+});

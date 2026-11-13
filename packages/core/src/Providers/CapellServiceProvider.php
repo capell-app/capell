@@ -68,6 +68,7 @@ use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
+use Capell\Core\Contracts\Capabilities\FormCatalogue;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
@@ -148,6 +149,7 @@ use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
@@ -671,6 +673,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app,
         ));
         $this->app->singleton(SecurityWeaknessRegistry::class);
+        // Optional packages provide Core capability contracts while booting; consumers resolve them by interface.
+        $this->app->singleton(CapabilityRegistry::class);
+        $this->app->bind(FormCatalogue::class, static fn (Application $app): FormCatalogue => $app->make(CapabilityRegistry::class)->get(FormCatalogue::class));
         $this->app->bindIf(SecurityWeaknessAnalyser::class, NullSecurityWeaknessAnalyser::class);
         $this->app->tag([DebugEnabledCheck::class, UrlNotHttpsCheck::class, KeyMissingCheck::class,
             InsecureCookieCheck::class, InstallerEnabledCheck::class, SecurityAdvisoryCheck::class,
