@@ -23,17 +23,19 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Facades\View;
 use Illuminate\View\Component;
 use Illuminate\View\Factory;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 /** Renders draft content with the selected theme's styles without applying a spec or publishing token files. */
 final class BuildGuidedSetupPreviewAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(GuidedSetupInputData $input, Site $site): string
     {
-        $spec = resolve(BuildGuidedSetupSpecAction::class)->handle($input, $site);
+        $spec = BuildGuidedSetupSpecAction::run($input, $site);
         $originalViews = resolve(\Illuminate\Contracts\View\Factory::class);
         $engines = clone $originalViews->getEngineResolver();
         foreach (array_unique($originalViews->getExtensions()) as $engineName) {
