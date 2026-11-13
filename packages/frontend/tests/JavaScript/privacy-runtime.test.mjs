@@ -34,6 +34,34 @@ class FakeElement {
         this.text = text
         this.nonce = ''
         this.parent = null
+        this.hidden = false
+        this.textContent = ''
+        this.childNodes = []
+        this.listeners = new Map()
+    }
+
+    append(child) {
+        this.childNodes.push(child)
+    }
+
+    addEventListener(type, listener) {
+        this.listeners.set(type, listener)
+    }
+
+    click() {
+        this.listeners.get('click')?.()
+    }
+
+    before(element) {
+        const index = this.parent.children.indexOf(this)
+        this.parent.children.splice(index, 0, element)
+        element.parent = this.parent
+    }
+
+    remove() {
+        const index = this.parent.children.indexOf(this)
+        this.parent.children.splice(index, 1)
+        this.parent = null
     }
 
     get attributes() {
@@ -156,7 +184,9 @@ function fakePage({
 
     vm.runInNewContext(source, context)
 
-    return { window, root, listeners, cookieWrites, events }
+    const runAgain = () => vm.runInNewContext(source, context)
+
+    return { window, root, listeners, cookieWrites, events, runAgain }
 }
 
 test('grants only what the site allows and leaves marketing undecided', () => {
@@ -370,4 +400,86 @@ test('never loads a frame from a non-web address', () => {
 
     for (const frame of frames) assert.equal(frame.src, '')
     assert.equal(relative.src, '/embed/map')
+})
+
+const framePlaceholder = {
+    message: 'This embedded content loads once you allow the cookies it needs.',
+    manage: 'Choose cookie settings',
+}
+
+const gatedVideo = () =>
+    new FakeElement('iframe', {
+        'data-capell-consent': 'marketing',
+        'data-src': 'https://www.youtube-nocookie.com/embed/x',
+    })
+
+test('shows a notice instead of an empty frame until its purpose is granted', async () => {
+    const frame = gatedVideo()
+    const { window, root } = fakePage({
+        config: { ...siteConfig, framePlaceholder },
+        children: [frame],
+    })
+    const [notice] = root.children
+
+    assert.equal(root.children.length, 2)
+    assert.equal(notice.tagName, 'div')
+    assert.equal(notice.getAttribute('role'), 'note')
+    assert.equal(notice.childNodes[0].textContent, framePlaceholder.message)
+    // The default runtime has no choices panel, so it offers no button that does nothing.
+    assert.equal(notice.childNodes.length, 1)
+    assert.equal(frame.hidden, true)
+
+    await window.CapellPrivacy.choose(['marketing'])
+
+    assert.equal(frame.src, 'https://www.youtube-nocookie.com/embed/x')
+    assert.deepEqual(root.children, [frame])
+    assert.equal(frame.hidden, false)
+})
+
+test('offers the consent manager choices panel and clears the notice once it loads the frame', () => {
+    let opened = 0
+    const manager = { allows: () => null, open: () => opened++ }
+    const frame = gatedVideo()
+    const { root, listeners } = fakePage({
+        config: { ...siteConfig, framePlaceholder },
+        existing: manager,
+        children: [frame],
+    })
+    const [notice] = root.children
+    const button = notice.childNodes[1]
+
+    assert.equal(button.textContent, framePlaceholder.manage)
+    button.click()
+    assert.equal(opened, 1)
+    assert.equal(frame.hidden, true)
+
+    frame.src = 'https://www.youtube-nocookie.com/embed/x'
+    listeners.get('capell:privacy-consent-changed')()
+
+    assert.deepEqual(root.children, [frame])
+    assert.equal(frame.hidden, false)
+})
+
+test('adds no notice when the page carries no notice text', () => {
+    const frame = gatedVideo()
+    const { root } = fakePage({ children: [frame] })
+
+    assert.deepEqual(root.children, [frame])
+    assert.equal(frame.hidden, false)
+})
+
+test('runs once when the page includes the runtime twice', () => {
+    const frame = gatedVideo()
+    const { window, root, listeners, runAgain } = fakePage({
+        config: { ...siteConfig, framePlaceholder },
+        children: [frame],
+    })
+    const privacy = window.CapellPrivacy
+
+    runAgain()
+    listeners.get('capell:privacy-consent-changed')?.()
+
+    assert.equal(window.CapellPrivacy, privacy)
+    assert.equal(root.children.length, 2)
+    assert.equal(root.children[0].childNodes.length, 1)
 })

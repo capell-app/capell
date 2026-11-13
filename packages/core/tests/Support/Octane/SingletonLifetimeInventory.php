@@ -74,8 +74,10 @@ use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
+use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
+use Capell\Core\Support\Security\SiteOwnedHosts;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -186,6 +188,7 @@ final class SingletonLifetimeInventory
             MetricEventRegistry::class => self::boot('Metric event definitions are package boot registrations.'),
             MetricCollectorRegistry::class => self::boot('Metric collectors are package boot registrations.'),
             OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
+            HtmlSanitizerProfileRegistry::class => self::boot('Packages extend HTML sanitiser profiles at boot; resolved policies are derived from those registrations only.'),
             CapabilityRegistry::class => self::boot('Optional packages provide capability contracts at boot; consumers resolve a fresh provider per call.'),
             SecurityWeaknessRegistry::class => self::boot('Security weakness checks and remediations are package boot registrations, frozen on booted and re-opened only during package installation.'),
             BlueprintSubjectRegistry::class => self::boot('Blueprint subjects are package boot registrations, frozen on booted.'),
@@ -260,6 +263,7 @@ final class SingletonLifetimeInventory
     public static function mutableStaticState(): array
     {
         return [
+            SiteOwnedHosts::class => 'Site-domain answers live in a WeakMap keyed by the request object, so they are dropped with each request and never answer for the next one.',
             SignalDispatchGuard::class => 'Weak application and fibre keys isolate in-flight reporting; finally releases completed dispatches without retaining request containers.',
             HasModelRelations::class => 'This trait provides a deliberate boot registry shared by every operation.',
             PublicRenderDataScope::class => 'Render-local data set only inside during(), which restores the previous value in finally, so nothing outlives a public render or crosses requests.',

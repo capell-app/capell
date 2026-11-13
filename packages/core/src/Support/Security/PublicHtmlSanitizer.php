@@ -4,98 +4,87 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
+use Capell\Core\Contracts\Security\SanitizesPublicHtml;
+use Capell\Core\Enums\HtmlSanitizerProfile;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
+use Illuminate\Container\Container;
+use Override;
 
-final class PublicHtmlSanitizer
+/**
+ * Sanitises HTML for public output under a named HtmlSanitizerProfile. Strict is
+ * the default; URL attributes are validated here whatever the profile allows.
+ */
+final class PublicHtmlSanitizer implements SanitizesPublicHtml
 {
-    /**
-     * @var array<string, array<int, string>>
-     */
-    private const array ALLOWED_ATTRIBUTES = [
-        'a' => ['href', 'title'],
-        'img' => ['src', 'alt', 'title', 'width', 'height'],
-        'section' => ['id', 'data-top-extensions-showcase'],
+    /** @var array<string, true> */
+    private const array NUMERIC_ATTRIBUTES = [
+        'colspan' => true,
+        'height' => true,
+        'rowspan' => true,
+        'start' => true,
+        'width' => true,
     ];
 
-    /**
-     * Keyed by tag name for O(1) isset() lookups on the per-node hot path.
-     *
-     * @var array<string, true>
-     */
-    private const array ALLOWED_TAGS = [
-        'a' => true,
-        'blockquote' => true,
-        'br' => true,
-        'code' => true,
-        'dd' => true,
-        'div' => true,
-        'dl' => true,
-        'dt' => true,
-        'em' => true,
-        'h1' => true,
-        'h2' => true,
-        'h3' => true,
-        'h4' => true,
-        'h5' => true,
-        'h6' => true,
-        'hr' => true,
-        'img' => true,
-        'li' => true,
-        'ol' => true,
-        'p' => true,
-        'pre' => true,
-        'section' => true,
-        'span' => true,
-        'strong' => true,
-        'table' => true,
-        'tbody' => true,
-        'td' => true,
-        'th' => true,
-        'thead' => true,
-        'tr' => true,
-        'ul' => true,
-    ];
+    /** Strict keeps the id shape it has always accepted, so existing in-page anchors keep working. */
+    private const string STRICT_IDENTIFIER_PATTERN = '/^[A-Za-z][A-Za-z0-9_-]{0,80}$/';
 
     /**
-     * Keyed by tag name for O(1) isset() lookups on the per-node hot path.
-     *
-     * @var array<string, true>
+     * Ids from the newer profiles must be lower-case slugs, the shape a table of contents
+     * produces, so they cannot shadow camel-case page globals such as window.CapellPrivacy.
      */
-    private const array DISCARD_WITH_CONTENT = [
-        'applet' => true,
-        'audio' => true,
-        'canvas' => true,
-        'embed' => true,
-        'form' => true,
-        'iframe' => true,
-        'math' => true,
-        'noscript' => true,
-        'object' => true,
-        'script' => true,
-        'style' => true,
-        'svg' => true,
-        'template' => true,
-        'video' => true,
-    ];
+    private const string IDENTIFIER_PATTERN = '/^[a-z][a-z0-9-]{0,80}$/';
+
+    /**
+     * Utilities that let content escape its box and cover the page (a fake login
+     * overlay): positioning, layering and offsets, translation and scaling.
+     */
+    private const string OVERLAY_UTILITY = '/^(?:fixed|absolute|sticky|inset|top|right|bottom|left|start|end|z|translate|scale)(?:-|$)/';
+
+    /** Viewport-sized boxes cover the page without any positioning. */
+    private const string VIEWPORT_SIZE_UTILITY = '/^(?:min-|max-)?(?:h|w|size)-(?:screen|dvh|svh|lvh|dvw|svw|lvw)$/';
+
+    /** Consent category third-party frames wait for before they load. */
+    private const string EMBED_CONSENT = 'marketing';
+
+    /**
+     * Applied to every embedded frame: the embed keeps its own origin and can play
+     * media, but cannot navigate the page or open forms and modals on it.
+     */
+    private const string EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
     /**
      * @var array<string, true>|null
      */
     private ?array $blockedPublicKeySet = null;
 
+    /**
+     * Site-owned host answers for the sanitise call in progress only.
+     *
+     * @var array<string, bool>
+     */
+    private array $siteOwnedHosts = [];
+
     public function __construct(
         private readonly PublicOutputLeakPolicy $leakPolicy = new PublicOutputLeakPolicy,
+        private ?HtmlSanitizerProfileRegistry $profiles = null,
     ) {}
 
-    public function sanitize(string $html): string
+    #[Override]
+    public function sanitize(string $html, HtmlSanitizerProfile $profile = HtmlSanitizerProfile::Strict): string
     {
         if (trim($html) === '') {
             return '';
         }
 
+        if ($profile === HtmlSanitizerProfile::SvgUpload) {
+            return (new SvgUploadSanitizer)->sanitizeOrEmpty($html);
+        }
+
+        $policy = $this->profiles()->policy($profile);
+        $this->siteOwnedHosts = [];
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
 
@@ -115,7 +104,7 @@ final class PublicHtmlSanitizer
             return '';
         }
 
-        $this->sanitizeChildren($root);
+        $this->sanitizeChildren($root, $policy);
 
         return $this->innerHtml($root);
     }
@@ -158,7 +147,20 @@ final class PublicHtmlSanitizer
         return $sanitized;
     }
 
-    private function sanitizeChildren(DOMNode $parent): void
+    private function profiles(): HtmlSanitizerProfileRegistry
+    {
+        if ($this->profiles instanceof HtmlSanitizerProfileRegistry) {
+            return $this->profiles;
+        }
+
+        $container = Container::getInstance();
+
+        return $this->profiles = $container->bound(HtmlSanitizerProfileRegistry::class)
+            ? $container->make(HtmlSanitizerProfileRegistry::class)
+            : new HtmlSanitizerProfileRegistry;
+    }
+
+    private function sanitizeChildren(DOMNode $parent, HtmlSanitizerPolicy $policy): void
     {
         foreach (iterator_to_array($parent->childNodes) as $child) {
             if (! $child instanceof DOMElement) {
@@ -175,50 +177,167 @@ final class PublicHtmlSanitizer
 
             $tagName = strtolower($child->tagName);
 
-            if (isset(self::DISCARD_WITH_CONTENT[$tagName])) {
+            if ($policy->discardsWithContent($tagName)) {
                 $parent->removeChild($child);
 
                 continue;
             }
 
-            if (! isset(self::ALLOWED_TAGS[$tagName])) {
+            if (! $policy->allowsElement($tagName)) {
                 // Sanitize before unwrapping: hoisted children are inserted into the
                 // already-captured sibling snapshot and would never be revisited.
-                $this->sanitizeChildren($child);
+                $this->sanitizeChildren($child, $policy);
                 $this->unwrapElement($child);
 
                 continue;
             }
 
-            $this->sanitizeAttributes($child, $tagName);
-            $this->sanitizeChildren($child);
+            if (! $this->sanitizeAttributes($child, $tagName, $policy)) {
+                continue;
+            }
+
+            $this->sanitizeChildren($child, $policy);
         }
     }
 
-    private function sanitizeAttributes(DOMElement $element, string $tagName): void
+    /**
+     * Returns whether the element's children still need sanitising: false when the
+     * element was removed or, like a frame, may not keep any children.
+     */
+    private function sanitizeAttributes(DOMElement $element, string $tagName, HtmlSanitizerPolicy $policy): bool
     {
-        $allowedAttributes = self::ALLOWED_ATTRIBUTES[$tagName] ?? [];
+        $allowedAttributes = $policy->attributesFor($tagName);
+        // A frame this sanitiser already wrote carries its address in data-src; read it before attributes are filtered.
+        $embedSource = $tagName === 'iframe'
+            ? ($element->getAttribute('src') !== '' ? $element->getAttribute('src') : $element->getAttribute('data-src'))
+            : '';
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
-            if (! in_array($attribute->name, $allowedAttributes, true)) {
-                $element->removeAttribute($attribute->name);
+            $name = $attribute->name;
+            $allowed = in_array($name, $allowedAttributes, true)
+                || ($name === 'id' && $policy->allowsIdentifierOn($tagName))
+                || ($name === 'class' && $policy->allowsClasses);
+
+            if (! $allowed) {
+                $element->removeAttribute($name);
             }
         }
 
+        $identifierPattern = $policy->profile === HtmlSanitizerProfile::Strict ? self::STRICT_IDENTIFIER_PATTERN : self::IDENTIFIER_PATTERN;
+
+        if ($element->hasAttribute('id') && preg_match($identifierPattern, $element->getAttribute('id')) !== 1) {
+            $element->removeAttribute('id');
+        }
+
+        if ($element->hasAttribute('class')) {
+            $this->sanitizeClasses($element);
+        }
+
+        foreach (array_keys(self::NUMERIC_ATTRIBUTES) as $numeric) {
+            if ($element->hasAttribute($numeric) && preg_match('/^[1-9]\d{0,3}$/', $element->getAttribute($numeric)) !== 1) {
+                $element->removeAttribute($numeric);
+            }
+        }
+
+        if ($element->hasAttribute('scope') && ! in_array($element->getAttribute('scope'), ['col', 'colgroup', 'row', 'rowgroup'], true)) {
+            $element->removeAttribute('scope');
+        }
+
         if ($tagName === 'a') {
-            $this->sanitizeAnchor($element);
+            $this->sanitizeAnchor($element, $policy);
         }
 
         if ($tagName === 'img') {
-            $this->sanitizeImage($element);
+            return $this->sanitizeImage($element);
         }
 
-        if ($element->hasAttribute('id') && ! preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,80}$/', $element->getAttribute('id'))) {
-            $element->removeAttribute('id');
+        if ($tagName === 'iframe') {
+            // Removed, or kept without any children of its own.
+            $this->sanitizeEmbed($element, $embedSource, $policy);
+
+            return false;
         }
+
+        return true;
     }
 
-    private function sanitizeAnchor(DOMElement $element): void
+    private function sanitizeClasses(DOMElement $element): void
+    {
+        // Utility class names only: no characters that could close the attribute or form CSS escapes.
+        $classes = array_filter(
+            preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [],
+            fn (string $class): bool => preg_match('/^[A-Za-z0-9_:\/.\-\[\]%#!]{1,80}$/', $class) === 1 && ! $this->isOverlayClass($class),
+        );
+
+        if ($classes === []) {
+            $element->removeAttribute('class');
+
+            return;
+        }
+
+        $element->setAttribute('class', implode(' ', array_unique($classes)));
+    }
+
+    private function isOverlayClass(string $class): bool
+    {
+        $utility = $this->utilityOf($class);
+
+        if ($utility === null) {
+            return true;
+        }
+
+        // Important markers (!fixed, fixed!) change nothing about what the utility does.
+        $utility = trim($utility, '!');
+
+        // Negative utilities (-mt-96, -translate-y-full, -z-10) pull content over its neighbours.
+        if (str_starts_with($utility, '-')) {
+            return true;
+        }
+
+        // Arbitrary properties ([position:fixed]) can set anything.
+        if (str_starts_with($utility, '[')) {
+            return true;
+        }
+
+        // Arbitrary values that can be negative (mt-[-100vh], mt-[calc(0px-200px)], mt-[min(-10rem,0px)])
+        // or sized to the viewport or container (h-[100vh], h-[100cqh]). Plain lengths such as text-[13px] stay.
+        if (preg_match('/\[[^\]]*(?:-|\(|(?:vh|vw|vi|vb|vmin|vmax|dvh|svh|lvh|dvw|svw|lvw|cqh|cqw|cqi|cqb|cqmin|cqmax)\b)/i', $utility) === 1) {
+            return true;
+        }
+
+        return preg_match(self::OVERLAY_UTILITY, $utility) === 1 || preg_match(self::VIEWPORT_SIZE_UTILITY, $utility) === 1;
+    }
+
+    /**
+     * The utility after any chain of variants, splitting on colons outside brackets so
+     * md:, max-[600px]:, supports-[display:grid]: and [&>*]: are all stripped. Null when
+     * the brackets do not balance.
+     */
+    private function utilityOf(string $class): ?string
+    {
+        $depth = 0;
+        $start = 0;
+
+        for ($index = 0, $length = strlen($class); $index < $length; $index++) {
+            $character = $class[$index];
+
+            if ($character === '[') {
+                $depth++;
+            } elseif ($character === ']') {
+                $depth--;
+
+                if ($depth < 0) {
+                    return null;
+                }
+            } elseif ($character === ':' && $depth === 0) {
+                $start = $index + 1;
+            }
+        }
+
+        return $depth === 0 ? substr($class, $start) : null;
+    }
+
+    private function sanitizeAnchor(DOMElement $element, HtmlSanitizerPolicy $policy): void
     {
         $href = trim(html_entity_decode($element->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
@@ -229,27 +348,76 @@ final class PublicHtmlSanitizer
         }
 
         if (preg_match('#^https?://#i', $href) === 1) {
-            $element->setAttribute('rel', 'nofollow noopener noreferrer');
+            $element->setAttribute('rel', $policy->externalLinkRel);
             $element->setAttribute('target', '_blank');
         }
     }
 
-    private function sanitizeImage(DOMElement $element): void
+    private function sanitizeEmbed(DOMElement $element, string $source, HtmlSanitizerPolicy $policy): void
     {
-        if (! $this->isSafeImageUrl($element->getAttribute('src'))) {
+        $source = trim(html_entity_decode($source, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $parts = parse_url($source);
+        $host = is_array($parts) && isset($parts['host']) ? $parts['host'] : null;
+
+        $safe = is_array($parts)
+            && is_string($host)
+            && preg_match('#^https://#', $source) === 1
+            && ! $this->containsUnsafeUrlCharacter($source)
+            && ! str_contains($source, ' ')
+            && ! isset($parts['user'])
+            && ! isset($parts['port'])
+            && $policy->allowsEmbed(strtolower($host), $parts['path'] ?? '')
+            && ! $this->isSiteOwnedHost(strtolower($host));
+
+        if (! $safe) {
             $element->parentNode?->removeChild($element);
 
             return;
         }
 
-        foreach (['width', 'height'] as $dimension) {
-            if (
-                $element->hasAttribute($dimension)
-                && ! preg_match('/^[1-9]\d{0,3}$/', $element->getAttribute($dimension))
-            ) {
-                $element->removeAttribute($dimension);
-            }
+        // The frame waits for consent: the privacy runtime copies data-src into src once granted.
+        $element->removeAttribute('src');
+        $element->setAttribute('data-src', $source);
+        $element->setAttribute('data-capell-consent', self::EMBED_CONSENT);
+
+        if ($element->hasAttribute('allowfullscreen')) {
+            $element->setAttribute('allowfullscreen', '');
         }
+
+        $element->setAttribute('sandbox', self::EMBED_SANDBOX);
+        $element->setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        $element->setAttribute('loading', 'lazy');
+
+        // A frame never carries inline content of its own.
+        while ($element->firstChild instanceof DOMNode) {
+            $element->removeChild($element->firstChild);
+        }
+    }
+
+    private function isSiteOwnedHost(string $host): bool
+    {
+        return $this->siteOwnedHosts[$host] ??= SiteOwnedHosts::contains($host);
+    }
+
+    /**
+     * Browsers strip tabs and newlines inside URLs and read a backslash as a slash,
+     * so "/\t/evil.example" or "/\\evil.example" would leave the site. A plain space
+     * cannot, so "/storage/Team Photo.jpg" stays; embeds refuse spaces separately.
+     */
+    private function containsUnsafeUrlCharacter(string $url): bool
+    {
+        return preg_match('/[\x00-\x1F\x7F\\\\]/', $url) === 1;
+    }
+
+    private function sanitizeImage(DOMElement $element): bool
+    {
+        if (! $this->isSafeImageUrl($element->getAttribute('src'))) {
+            $element->parentNode?->removeChild($element);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -258,6 +426,7 @@ final class PublicHtmlSanitizer
     private function isSafeAnchorUrl(string $url): bool
     {
         return $url !== ''
+            && ! $this->containsUnsafeUrlCharacter($url)
             && (
                 str_starts_with($url, '#')
                 || $this->isSafeRelativePath($url)
@@ -270,8 +439,8 @@ final class PublicHtmlSanitizer
     {
         $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
-        return preg_match('#^https?://#i', $url) === 1
-            || $this->isSafeRelativePath($url);
+        return ! $this->containsUnsafeUrlCharacter($url)
+            && (preg_match('#^https?://#i', $url) === 1 || $this->isSafeRelativePath($url));
     }
 
     private function isSafeRelativePath(string $url): bool

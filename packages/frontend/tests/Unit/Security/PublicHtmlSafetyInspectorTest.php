@@ -301,6 +301,7 @@ describe('undocumented data-capell-* runtime attributes', function (): void {
         'widget runtime' => '<div data-capell-widget-runtime="carousel" data-capell-widget-assets="[]">x</div>',
         'interaction' => '<button data-capell-interaction data-capell-interaction-event="click" data-capell-interaction-id="cta">Go</button>',
         'stylesheet recovery' => '<link data-capell-stylesheet-recovery data-capell-stylesheet-fallback="/build/fallback/app.css" data-capell-stylesheet-fallback-active><script data-capell-stylesheet-recovery-runtime></script>',
+        'consent notice for a waiting frame' => '<div data-capell-consent-placeholder role="note"><p>Waiting for consent</p><button type="button">Choose cookie settings</button></div><iframe data-capell-consent="marketing" data-src="https://www.youtube-nocookie.com/embed/x" hidden></iframe>',
         'consent-gated embed and script' => '<iframe data-capell-consent="youtube" data-src="https://www.youtube-nocookie.com/embed/x"></iframe><script type="text/plain" data-capell-consent="analytics" src="/analytics.js"></script>',
         // The insights package renders a public, anonymous-facing consent banner
         // and analytics tracker. These data-capell-insights-* attributes are

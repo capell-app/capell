@@ -35,7 +35,7 @@ final readonly class PrivacyRuntimeRenderHook implements RenderHookExtensionInte
     }
 
     /**
-     * @return array{categories: list<string>, purposes: array<string, string>|object, defaults: array<string, bool|null>, optOutCategories: list<string>}
+     * @return array{categories: list<string>, purposes: array<string, string>|object, defaults: array<string, bool|null>, optOutCategories: list<string>, framePlaceholder: array{message: string, manage: string}}
      */
     private function config(): array
     {
@@ -57,6 +57,11 @@ final readonly class PrivacyRuntimeRenderHook implements RenderHookExtensionInte
             'purposes' => $purposes === [] ? (object) [] : $purposes,
             'defaults' => $defaults,
             'optOutCategories' => array_map(static fn (ConsentCategory $category): string => $category->value, $this->settings->optOutSignalCategories()),
+            // Shown in place of a frame that waits for consent, in the page's language.
+            'framePlaceholder' => [
+                'message' => (string) __('capell-frontend::messages.consent_frame_waiting'),
+                'manage' => (string) __('capell-frontend::messages.consent_frame_manage'),
+            ],
         ];
     }
 }

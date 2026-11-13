@@ -64,6 +64,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/Registries/AbstractKeyedRegistry.php',
         'packages/core/src/Support/Registries/TaggedProviderRegistry.php',
         'packages/core/src/Support/Renderables/RenderableRegistry.php',
+        // Accumulates validated extensions per sanitiser profile and folds them into one resolved policy; nothing is looked up by a free-form key.
+        'packages/core/src/Support/Security/HtmlSanitizerProfileRegistry.php',
         // Two keyed maps (checks and remediations) that the scan joins by weakness id; it is frozen on booted and re-opened only during package installation.
         'packages/core/src/Support/Security/SecurityWeaknessRegistry.php',
         // Fleet membership kept in the shared cache store under a lock; nodes are registered and expired by time, never looked up as keyed contributions.
