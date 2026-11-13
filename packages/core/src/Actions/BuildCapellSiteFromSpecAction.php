@@ -85,6 +85,7 @@ final class BuildCapellSiteFromSpecAction
 
         throw_if($spec->initialVisibility === 'public' && ! $spec->acknowledgePublic, RuntimeException::class, 'Public site specs require explicit acknowledgement.');
         AssertSiteSpecCanBeAppliedAction::run($spec);
+        $this->assertSiteNameIsFree($spec);
 
         if ($spec->initialVisibility === 'private') {
             resolve(PrivateSiteSpecSourceStore::class)->put($hash, $spec);
@@ -99,6 +100,8 @@ final class BuildCapellSiteFromSpecAction
 
                 resolve(ThemeInstallDefaultsRegistry::class)->install($spec->theme->key);
 
+                // Re-checked under the transaction: CreateSiteAction reuses a site by name.
+                $this->assertSiteNameIsFree($spec);
                 $site = CreateSiteAction::run($spec->site->name, null, $language, collect([$language]), $theme);
                 $site->meta = array_merge($site->meta ?? [], array_filter([
                     'business_name' => $spec->site->businessName,
@@ -142,6 +145,21 @@ final class BuildCapellSiteFromSpecAction
         } finally {
             $this->deleteDownloads($downloads);
         }
+    }
+
+    /**
+     * An import only ever writes into the site its own spec hash identifies.
+     * A different site that already holds the spec's name is refused, so the
+     * import cannot merge meta or pages into it.
+     */
+    private function assertSiteNameIsFree(CapellSiteSpecData $spec): void
+    {
+        $clash = Site::query()->where('name', $spec->site->name)->first();
+
+        throw_if($clash instanceof Site, RuntimeException::class, (string) __('capell-core::message.site_spec_site_name_taken', [
+            'name' => $spec->site->name,
+            'id' => $clash?->getKey(),
+        ]));
     }
 
     /** @param list<SiteSpecMediaDownload> $downloads */
