@@ -121,8 +121,11 @@ function fakePage({
         )
     }
 
+    const events = []
     const document = {
         readyState,
+        baseURI: 'https://example.test/about',
+        dispatchEvent: (event) => events.push(event),
         getElementById: (id) =>
             id === 'capell-privacy-runtime-config' ? configElement : null,
         querySelectorAll: (selector) =>
@@ -142,11 +145,18 @@ function fakePage({
         document,
         navigator,
         Element: FakeElement,
+        URL,
+        CustomEvent: class CustomEvent {
+            constructor(type, init) {
+                this.type = type
+                this.detail = init?.detail
+            }
+        },
     }
 
     vm.runInNewContext(source, context)
 
-    return { window, root, listeners, cookieWrites }
+    return { window, root, listeners, cookieWrites, events }
 }
 
 test('grants only what the site allows and leaves marketing undecided', () => {
@@ -161,9 +171,17 @@ test('grants only what the site allows and leaves marketing undecided', () => {
     assert.equal(privacy.allows('youtube'), null)
     assert.equal(privacy.allows('openstreetmap'), true)
     assert.equal(privacy.consent(), null)
-    assert.equal(privacy.globalPrivacyControl, false)
-    assert.equal(privacy.doNotTrack, false)
-    assert.deepEqual([...privacy.categories], siteConfig.categories)
+})
+
+test('exposes only the API a consent manager also provides', () => {
+    const privacy = fakePage().window.CapellPrivacy
+
+    assert.deepEqual(Object.keys(privacy).sort(), [
+        'allows',
+        'choose',
+        'consent',
+        'open',
+    ])
 })
 
 test('refuses the opt-out categories under Global Privacy Control or Do Not Track', () => {
@@ -185,12 +203,6 @@ test('refuses the opt-out categories under Global Privacy Control or Do Not Trac
         assert.equal(privacy.allows('functional'), true)
         assert.equal(privacy.allows('essential'), true)
     }
-
-    assert.equal(
-        fakePage({ navigator: { globalPrivacyControl: true } }).window
-            .CapellPrivacy.globalPrivacyControl,
-        true,
-    )
 })
 
 test('leaves unknown and inherited names undecided', () => {
@@ -229,7 +241,6 @@ test('cannot be changed by page scripts', () => {
     const privacy = window.CapellPrivacy
 
     assert.equal(Object.isFrozen(privacy), true)
-    assert.equal(Object.isFrozen(privacy.categories), true)
     assert.throws(() => {
         privacy.allows = () => true
     }, TypeError)
@@ -298,4 +309,65 @@ test('waits for the document before activating, then activates new content', () 
     listeners.get('DOMContentLoaded')()
     assert.equal(frame.src, '/embed')
     assert.equal(typeof listeners.get('capell:content-ready'), 'function')
+})
+
+test('applies a choice for the page, announces it and still honours opt-out signals', async () => {
+    const frame = new FakeElement('iframe', {
+        'data-capell-consent': 'youtube',
+        'data-src': 'https://www.youtube-nocookie.com/embed/x',
+    })
+    const { window, events, cookieWrites } = fakePage({ children: [frame] })
+    const privacy = window.CapellPrivacy
+
+    assert.equal(frame.src, '')
+    assert.equal(
+        await privacy.choose(['marketing', 'essential', 'unknown']),
+        true,
+    )
+    assert.equal(privacy.allows('marketing'), true)
+    assert.equal(privacy.allows('youtube'), true)
+    assert.equal(privacy.allows('analytics'), false)
+    assert.equal(privacy.allows('essential'), true)
+    assert.deepEqual(
+        { ...privacy.consent(), granted: [...privacy.consent().granted] },
+        {
+            id: '',
+            version: '',
+            granted: ['marketing'],
+        },
+    )
+    assert.equal(frame.src, 'https://www.youtube-nocookie.com/embed/x')
+    assert.equal(events.length, 1)
+    assert.equal(events[0].type, 'capell:privacy-consent-changed')
+    assert.deepEqual([...events[0].detail.granted], ['marketing'])
+    assert.equal(await privacy.choose('marketing'), false)
+    assert.equal(events.length, 1)
+    assert.deepEqual(cookieWrites, [])
+
+    const optedOut = fakePage({ navigator: { globalPrivacyControl: true } })
+        .window.CapellPrivacy
+    await optedOut.choose(['marketing'])
+    assert.equal(optedOut.allows('marketing'), false)
+})
+
+test('never loads a frame from a non-web address', () => {
+    const frames = [
+        'javascript:alert(1)',
+        'data:text/html,x',
+        ' JavaScript:alert(1)',
+    ].map(
+        (src) =>
+            new FakeElement('iframe', {
+                'data-capell-consent': 'functional',
+                'data-src': src,
+            }),
+    )
+    const relative = new FakeElement('iframe', {
+        'data-capell-consent': 'functional',
+        'data-src': '/embed/map',
+    })
+    fakePage({ children: [...frames, relative] })
+
+    for (const frame of frames) assert.equal(frame.src, '')
+    assert.equal(relative.src, '/embed/map')
 })

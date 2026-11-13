@@ -90,3 +90,13 @@ it('fails closed on malformed configuration', function (): void {
         // A purpose cannot reassign a category name, and an invalid category drops the purpose.
         ->and($provider->purposes())->toBe(['maps' => 'functional']);
 });
+
+it('asks before every optional category by default', function (): void {
+    $provider = resolve(ConsentDecisionProvider::class);
+
+    expect($provider->decide('essential', consentRequest()))->toBe(ConsentDecision::Granted)
+        ->and($provider->decide('functional', consentRequest()))->toBe(ConsentDecision::Undecided)
+        ->and($provider->decide('preferences', consentRequest()))->toBe(ConsentDecision::Undecided)
+        ->and($provider->decide('analytics', consentRequest()))->toBe(ConsentDecision::Undecided)
+        ->and($provider->decide('marketing', consentRequest()))->toBe(ConsentDecision::Undecided);
+});

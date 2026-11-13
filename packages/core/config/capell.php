@@ -195,14 +195,19 @@ return [
     // Consent decisions when no consent manager (such as Privacy Center) is installed.
     // Pages load window.CapellPrivacy from a cacheable script; it sets no cookie.
     'privacy' => [
+        // Counts aggregate page views without consent: no cookie and no visitor identifier.
+        // Visitor markers are still recorded only when analytics consent is granted, and an
+        // explicit refusal, Global Privacy Control or Do Not Track stops the count.
+        'first_party_counter' => env('CAPELL_PRIVACY_FIRST_PARTY_COUNTER', true),
         'consent' => [
             'runtime' => env('CAPELL_PRIVACY_CONSENT_RUNTIME', true),
             // granted, denied or undecided per category; essential is always granted.
-            // Undecided and denied both keep a category's scripts and signals off.
+            // Nobody has been asked, so every optional category starts undecided, which
+            // keeps its scripts and signals off.
             'defaults' => [
-                'functional' => env('CAPELL_PRIVACY_CONSENT_FUNCTIONAL', 'granted'),
-                'preferences' => env('CAPELL_PRIVACY_CONSENT_PREFERENCES', 'granted'),
-                'analytics' => env('CAPELL_PRIVACY_CONSENT_ANALYTICS', 'granted'),
+                'functional' => env('CAPELL_PRIVACY_CONSENT_FUNCTIONAL', 'undecided'),
+                'preferences' => env('CAPELL_PRIVACY_CONSENT_PREFERENCES', 'undecided'),
+                'analytics' => env('CAPELL_PRIVACY_CONSENT_ANALYTICS', 'undecided'),
                 'marketing' => env('CAPELL_PRIVACY_CONSENT_MARKETING', 'undecided'),
             ],
             // A Global Privacy Control or Do Not Track signal refuses these categories.

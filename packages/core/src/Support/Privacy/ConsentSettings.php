@@ -18,6 +18,15 @@ final class ConsentSettings
         return filter_var(config('capell.privacy.consent.runtime', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) !== false;
     }
 
+    /**
+     * Whether Capell's own counter records aggregate page views while analytics is undecided.
+     * It stores no cookie and no visitor identifier; a refusal still stops it.
+     */
+    public function firstPartyCounterEnabled(): bool
+    {
+        return filter_var(config('capell.privacy.first_party_counter', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) !== false;
+    }
+
     /** What a category resolves to when no consent manager has recorded a choice. */
     public function defaultDecision(ConsentCategory $category): ConsentDecision
     {

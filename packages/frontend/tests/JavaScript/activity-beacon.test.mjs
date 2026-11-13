@@ -8,13 +8,20 @@ const source = readFileSync(
     'utf8',
 )
 
-function pageViews({ privacy, navigator = {} } = {}) {
+// The server substitutes the site's first-party counter setting into this line.
+const withCounter = (enabled) =>
+    source.replace(
+        'const firstPartyCounter = false',
+        `const firstPartyCounter = ${enabled}`,
+    )
+
+function pageViews({ privacy, navigator = {}, counter = false } = {}) {
     const beacons = []
     const fetches = []
     const window = { location: { pathname: '/about' } }
     if (privacy !== undefined) window.CapellPrivacy = privacy
 
-    vm.runInNewContext(source, {
+    vm.runInNewContext(withCounter(counter), {
         window,
         navigator: {
             ...navigator,
@@ -35,6 +42,8 @@ function pageViews({ privacy, navigator = {} } = {}) {
     return [...beacons, ...fetches]
 }
 
+const decides = (decision) => ({ allows: () => decision })
+
 test('sends a page view when analytics is granted', () => {
     const sent = pageViews({
         privacy: { allows: (name) => name === 'analytics' },
@@ -48,27 +57,36 @@ test('sends a page view when analytics is granted', () => {
     })
 })
 
-test('sends nothing while analytics is undecided or refused', () => {
-    assert.deepEqual(pageViews({ privacy: { allows: () => null } }), [])
-    assert.deepEqual(pageViews({ privacy: { allows: () => false } }), [])
-    assert.deepEqual(pageViews({ privacy: {} }), [])
+test('sends nothing for a refusal, with or without the counter', () => {
+    assert.deepEqual(pageViews({ privacy: decides(false) }), [])
+    assert.deepEqual(pageViews({ privacy: decides(false), counter: true }), [])
 })
 
-test('follows the consent runtime over the browser signals when one is defined', () => {
-    assert.equal(
-        pageViews({
-            privacy: { allows: () => true },
-            navigator: { globalPrivacyControl: true },
-        }).length,
-        1,
-    )
+test('counts an undecided visitor only under the first-party counter', () => {
+    assert.deepEqual(pageViews({ privacy: decides(null) }), [])
+    assert.equal(pageViews({ privacy: decides(null), counter: true }).length, 1)
 })
 
-test('honours Global Privacy Control and Do Not Track without a consent runtime', () => {
-    assert.equal(pageViews().length, 1)
-    assert.deepEqual(
-        pageViews({ navigator: { globalPrivacyControl: true } }),
-        [],
-    )
-    assert.deepEqual(pageViews({ navigator: { doNotTrack: '1' } }), [])
+test('stops the first-party counter for Global Privacy Control or Do Not Track', () => {
+    for (const navigator of [
+        { globalPrivacyControl: true },
+        { doNotTrack: '1' },
+    ]) {
+        assert.deepEqual(
+            pageViews({ privacy: decides(null), counter: true, navigator }),
+            [],
+        )
+    }
+})
+
+test('sends nothing when it cannot read consent', () => {
+    const throwing = {
+        allows: () => {
+            throw new Error('Consent store unavailable')
+        },
+    }
+
+    assert.deepEqual(pageViews({ counter: true }), [])
+    assert.deepEqual(pageViews({ privacy: {}, counter: true }), [])
+    assert.deepEqual(pageViews({ privacy: throwing, counter: true }), [])
 })

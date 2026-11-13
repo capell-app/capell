@@ -1,9 +1,10 @@
 // Capell's default consent runtime: defines window.CapellPrivacy when no consent manager
 // has. Loaded from the page head as a same-origin script, never inline, so cached pages
 // carry no per-request CSP nonce. It records nothing and sets no cookie: each category
-// resolves to the site's configured default, and a Global Privacy Control or Do Not Track
-// signal refuses the opt-out categories. A consent manager (such as Privacy Center) renders
-// its runtime first, and this one then leaves it in place.
+// resolves to the site's configured default, or to a choose() call for the rest of the
+// page, and a Global Privacy Control or Do Not Track signal refuses the opt-out categories.
+// A consent manager (such as Privacy Center) renders its runtime first, and this one then
+// leaves it in place. The stable API is allows, consent, choose and open.
 ;(() => {
     if (window.CapellPrivacy) return
 
@@ -21,7 +22,7 @@
         Array.isArray(value)
             ? value.filter((item) => typeof item === 'string')
             : []
-    const categories = Object.freeze(strings(config.categories))
+    const categories = strings(config.categories)
     const purposes =
         config.purposes && typeof config.purposes === 'object'
             ? config.purposes
@@ -34,6 +35,9 @@
 
     const globalPrivacyControl = navigator.globalPrivacyControl === true
     const doNotTrack = navigator.doNotTrack === '1' || window.doNotTrack === '1'
+
+    // A choice made through choose() lasts for this page only: nothing is stored.
+    let choice = null
 
     // true: granted. false: refused. null: not decided. Send analytics or marketing
     // signals only for true.
@@ -52,6 +56,7 @@
             optOutCategories.includes(category)
         )
             return false
+        if (choice) return choice.granted.includes(category)
         const decision = Object.hasOwn(defaults, category)
             ? defaults[category]
             : null
@@ -82,20 +87,58 @@
         root.querySelectorAll('iframe[data-capell-consent][data-src]').forEach(
             (frame) => {
                 if (allows(frame.dataset.capellConsent) !== true) return
+                if (!isWebAddress(frame.dataset.src)) return
                 frame.src = frame.dataset.src
                 frame.removeAttribute('data-src')
             },
         )
     }
 
+    // Frames load only http and https addresses, never javascript: or data: URLs.
+    const isWebAddress = (value) => {
+        try {
+            const { protocol } = new URL(value, document.baseURI)
+            return protocol === 'https:' || protocol === 'http:'
+        } catch {
+            return false
+        }
+    }
+
+    const consent = () =>
+        choice
+            ? {
+                  id: choice.id,
+                  version: choice.version,
+                  granted: [...choice.granted],
+              }
+            : null
+
+    // Records the visitor's granted categories for this page, loads what they now allow and
+    // tells listeners, in the same shape a consent manager uses.
+    const choose = (granted) => {
+        if (!Array.isArray(granted)) return Promise.resolve(false)
+        choice = {
+            id: '',
+            version: '',
+            granted: categories.filter(
+                (category) =>
+                    category !== 'essential' && granted.includes(category),
+            ),
+        }
+        activate()
+        document.dispatchEvent(
+            new CustomEvent('capell:privacy-consent-changed', {
+                detail: consent(),
+            }),
+        )
+        return Promise.resolve(true)
+    }
+
     window.CapellPrivacy = Object.freeze({
         allows,
-        categories,
-        globalPrivacyControl,
-        doNotTrack,
-        // No consent manager is installed, so there is no saved choice to read or change.
-        consent: () => null,
-        choose: () => Promise.resolve(false),
+        consent,
+        choose,
+        // No consent manager is installed, so there is no choices panel to open.
         open: () => {},
     })
 
