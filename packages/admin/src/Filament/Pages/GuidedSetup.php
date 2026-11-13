@@ -276,7 +276,7 @@ class GuidedSetup extends FilamentPage
                         ->schema([
                             Text::make(fn (): string => $this->reviewBody()),
                             Text::make(fn (): string => $this->contactFormPreview())
-                                ->visible(fn (): bool => $this->createsContactForm()),
+                                ->visible(fn (): bool => $this->contactFormPreview() !== ''),
                             TextInput::make('contactEmail')
                                 ->label(__('capell-admin::setup.contact_email'))
                                 ->helperText(__('capell-admin::setup.contact_email_help'))
@@ -515,7 +515,7 @@ class GuidedSetup extends FilamentPage
 
     /**
      * What the contact form will ask visitors, so the person can check it before anything is created.
-     * Empty when setup creates no contact form.
+     * Empty when setup creates no contact form or the form has no labelled fields.
      */
     public function contactFormPreview(): string
     {
@@ -531,6 +531,10 @@ class GuidedSetup extends FilamentPage
             if (is_array($field) && is_string($field['label'] ?? null) && trim($field['label']) !== '') {
                 $labels[] = trim($field['label']);
             }
+        }
+
+        if ($labels === []) {
+            return '';
         }
 
         $page = is_string($form['placeOnPage'] ?? null) ? ($this->pageOptions()[$form['placeOnPage']] ?? $form['placeOnPage']) : null;
