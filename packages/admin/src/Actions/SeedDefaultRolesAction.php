@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Actions\Shield\ResolveDefaultRolePermissionsAction;
+use Capell\Admin\Actions\Users\SeedRolePresetRolesAction;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -21,6 +22,8 @@ use Spatie\Permission\Models\Role;
  *  - admin       : full content management
  *  - super_admin  : all permissions for the role guard
  *
+ * Also seeds the plain-words role presets (see RolePreset).
+ *
  * Safe to run multiple times (uses findOrCreate + syncPermissions).
  * Must be called after AssignPermissionsToRole so permissions exist.
  */
@@ -35,6 +38,8 @@ class SeedDefaultRolesAction
         $this->seedEditor();
         $this->seedAdmin();
         $this->seedSuperAdmin();
+
+        SeedRolePresetRolesAction::run();
     }
 
     private function seedPanelUser(): void

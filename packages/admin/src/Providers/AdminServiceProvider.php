@@ -126,6 +126,7 @@ use Capell\Admin\Http\Middleware\AuthorisePeekPreview;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
+use Capell\Admin\Listeners\RevokePendingInvitation;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
 use Capell\Admin\Livewire\Header\ClearCacheButton;
@@ -316,6 +317,8 @@ use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -909,6 +912,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerSubscribers()
             ->registerModelInterceptors()
             ->registerPageUrlRewritePrompt()
+            ->registerInvitationRevocation()
             ->registerExtensionNavigationBadgeInvalidation()
             ->registerActAsOwnerAuditing()
             ->registerEventSourcingBridges()
@@ -1609,6 +1613,21 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     private function registerPageUrlRewritePrompt(): self
     {
         Event::listen(PageUrlsRewritten::class, [RememberPageUrlRewriteForPrompt::class, 'handle']);
+
+        return $this;
+    }
+
+    private function registerInvitationRevocation(): self
+    {
+        Event::listen(Login::class, [RevokePendingInvitation::class, 'handleLogin']);
+        Event::listen(PasswordReset::class, [RevokePendingInvitation::class, 'handlePasswordReset']);
+
+        // Scoped to the user model's updates; an insert never revokes.
+        $userModel = config('auth.providers.users.model');
+
+        if (is_string($userModel) && $userModel !== '') {
+            Event::listen('eloquent.updated: ' . $userModel, [RevokePendingInvitation::class, 'handleUpdated']);
+        }
 
         return $this;
     }

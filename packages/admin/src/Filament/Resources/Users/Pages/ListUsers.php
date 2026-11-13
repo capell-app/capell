@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Users\Pages;
 
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\CreateAction;
+use Capell\Admin\Filament\Resources\Users\Actions\InviteUserHeaderAction;
 use Capell\Admin\Filament\Resources\Users\UserResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Filament\Resources\Pages\ListRecords;
@@ -27,6 +28,7 @@ class ListUsers extends ListRecords
     protected function getActions(): array
     {
         return [
+            InviteUserHeaderAction::make(),
             CreateAction::make(),
         ];
     }

@@ -17,6 +17,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
 use Capell\Admin\Filament\Pages\AbstractPackageSettingsPage;
+use Capell\Admin\Filament\Pages\Auth\AcceptInvitation;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
@@ -164,6 +165,8 @@ class CapellAdminPlugin implements Plugin
         $panel->authMiddleware(self::authMiddleware());
         // Filament's global export and import downloads are served through the panel they were started in.
         $panel->authenticatedRoutes(TransferDownloadEnum::registerPanelRoutes(...));
+        // Invited people choose their password here before they have an account session.
+        $panel->routes(AcceptInvitation::registerInvitationRoute(...));
 
         $panel->renderHook(
             name: PanelsRenderHook::STYLES_BEFORE,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Users\Tables;
 
+use Capell\Admin\Actions\Users\ResendUserInvitationAction;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
@@ -16,6 +17,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\BaseFilter;
@@ -24,6 +26,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Override;
 use Spatie\Permission\Models\Role;
 use STS\FilamentImpersonate\Actions\Impersonate;
@@ -86,6 +89,29 @@ class UsersTable implements TableConfigurator
                 ...self::extenderRecordActions(),
                 EditAction::make()->label(__('capell-admin::button.edit_user')),
                 ActionGroup::make([
+                    Action::make('resend-invitation')
+                        ->label(__('capell-admin::invitations.resend.label'))
+                        ->icon('heroicon-o-envelope')
+                        ->requiresConfirmation()
+                        ->modalHeading(__('capell-admin::invitations.resend.heading'))
+                        ->modalDescription(fn (?Model $record): string => __('capell-admin::invitations.resend.description', ['email' => (string) $record?->getAttribute('email')]))
+                        ->modalSubmitActionLabel(__('capell-admin::invitations.resend.submit'))
+                        ->visible(fn (?Model $record): bool => $record instanceof Model && self::canResendInvitation($record))
+                        ->action(function (Model $record): void {
+                            $actor = auth()->user();
+
+                            abort_unless(
+                                $actor instanceof Authenticatable && $record instanceof Authenticatable,
+                                403,
+                            );
+
+                            ResendUserInvitationAction::run($record, $actor);
+
+                            Notification::make()
+                                ->title(__('capell-admin::invitations.resend.sent_title'))
+                                ->success()
+                                ->send();
+                        }),
                     Action::make('edit-role')
                         ->label(__('capell-admin::button.edit_role_permissions'))
                         ->modalDescription(__('capell-admin::generic.shared_role_permissions_notice'))
@@ -122,6 +148,15 @@ class UsersTable implements TableConfigurator
             ->emptyStateHeading(__('capell-admin::generic.no_users'))
             ->emptyStateDescription(__('capell-admin::generic.no_users_description'))
             ->emptyStateIcon('heroicon-o-users');
+    }
+
+    private static function canResendInvitation(Model $record): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof Authenticatable
+            && $record instanceof Authenticatable
+            && ResendUserInvitationAction::canResend($record, $actor);
     }
 
     /**

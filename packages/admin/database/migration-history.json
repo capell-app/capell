@@ -16,6 +16,14 @@
             "e3e4f9e043451f3fb6929ba12fdeb7eb8178d463736abfebe37d7f52ca3125d1"
         ]
     },
+    "create_admin_user_invitation_tokens_table": {
+        "names": [
+            "2026_11_13_000001_create_admin_user_invitation_tokens_table"
+        ],
+        "sha256": [
+            "e2ae38d11e8cc138b7618372dff8fe89d513c0bda64eeed0e58abbd62b25fffc"
+        ]
+    },
     "create_ai_generation_histories_table": {
         "names": [
             "2025_12_26_000000_create_ai_generation_histories_table"

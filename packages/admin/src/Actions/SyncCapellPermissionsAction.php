@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Capell\Admin\Actions\Users\SeedRolePresetRolesAction;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\PermissionSyncMode;
@@ -49,6 +50,7 @@ class SyncCapellPermissionsAction
 
         if ($mode === PermissionSyncMode::Upgrade) {
             GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
+            SeedRolePresetRolesAction::run(syncExisting: false);
         }
 
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
