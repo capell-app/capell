@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Capell\Admin\Data\Users;
 
 use Capell\Admin\Enums\RolePreset;
+use Spatie\LaravelData\Data;
 
-final readonly class UserInvitationData
+final class UserInvitationData extends Data
 {
     public function __construct(
-        public string $name,
-        public string $email,
-        public RolePreset $preset,
+        public readonly string $name,
+        public readonly string $email,
+        public readonly RolePreset $preset,
     ) {}
 
     /**

@@ -109,6 +109,11 @@ final class SiteAccessQueryAllowList
             // User preferences and operation notification recipients are global
             // user data, not CMS records owned by a local site.
             'packages/admin/src/Actions/Notifications/ResolveDefaultPackageOperationRecipientsAction.php' => ['handle|$model->newQuery()->orderBy($model->qualifyColumn($model->getKeyName()))'],
+            // Email addresses identify one account across every site, so the invitation
+            // duplicate check must see every user.
+            'packages/admin/src/Actions/Users/InviteUserAction.php' => ['emailIsTaken|$userModel::query()->whereRaw(\'LOWER(email) = ?\', [mb_strtolower(trim($email))])->exists()'],
+            // Invitation tokens belong to an account, not to a site.
+            'packages/admin/src/Support/Users/InvitationPasswordBroker.php' => ['hasPendingInvitation|' . DB::class . '::table(self::table())->where(\'email\', $user->getEmailForPasswordReset())->exists()'],
             'packages/admin/src/Actions/Users/ResolveAdminLocaleForUserAction.php' => ['handle|$user->newQuery()->whereKey($user->getKey())->value(\'preferred_admin_language_id\')'],
             'packages/admin/src/Actions/Users/ResolvePreferredAdminLanguageIdAction.php' => ['handle|$user->newQuery()->whereKey($user->getKey())->value(\'preferred_admin_language_id\')'],
             'packages/marketplace/src/Actions/ResolveMarketplaceInstallAttemptUserAction.php' => ['handle|$user->newQuery()->whereKey($attempt->user_id)->first()'],
