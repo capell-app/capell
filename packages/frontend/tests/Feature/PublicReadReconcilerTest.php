@@ -243,6 +243,9 @@ it('withdraws static exports while a CDN purge keeps failing, and retries only t
 });
 
 it('takes the least recently attempted work first, so one failing store cannot starve the others', function (): void {
+    // One instant for the first run: the CDN is attempted first by key, so a wall-clock
+    // second ticking over after it would make it genuinely older and due first.
+    $this->freezeTime();
     $domain = SiteDomain::factory()->default()->create();
     reconcilerCdn(false);
     reconcilerRules();
