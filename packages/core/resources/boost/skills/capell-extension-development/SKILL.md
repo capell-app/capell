@@ -1,6 +1,6 @@
 ---
 name: capell-extension-development
-description: "Builds a Capell package or extension: scaffolding, the capell.json manifest, provider, migrations, settings, translations, lifecycle actions, tests, and what a Marketplace listing needs. Use when creating, wiring, testing or preparing to publish a Capell package or extension."
+description: 'Builds a Capell package or extension: scaffolding, the capell.json manifest, provider, migrations, settings, translations, lifecycle actions, tests, and what a Marketplace listing needs. Use when creating, wiring, testing or preparing to publish a Capell package or extension.'
 ---
 
 # Capell Extension Development

@@ -1,6 +1,6 @@
 ---
 name: capell-theme-development
-description: "Builds and proves Capell themes: scaffolding a theme package, registering its definition and presets, deciding what belongs in theme settings and blueprints versus markup, and verifying the theme on real public routes. Use when creating or changing a Capell theme, theme presets, theme assets, page or widget presentation, or when proving a theme renders safely on public routes."
+description: 'Builds and proves Capell themes: scaffolding a theme package, registering its definition and presets, deciding what belongs in theme settings and blueprints versus markup, and verifying the theme on real public routes. Use when creating or changing a Capell theme, theme presets, theme assets, page or widget presentation, or when proving a theme renders safely on public routes.'
 ---
 
 # Capell Theme Development

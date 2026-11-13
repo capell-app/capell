@@ -1,6 +1,6 @@
 ---
 name: capell-admin-preview-qa
-description: "Tests admin-only Capell page preview behaviour: edit-page preview actions, Peek snapshots of unsaved changes, draft previews and signed snapshot safety. Use when testing or debugging Capell admin preview flows, Peek previews, unsaved page or Layout Builder state, signed preview URLs, or preview actions contributed by a package."
+description: 'Tests admin-only Capell page preview behaviour: edit-page preview actions, Peek snapshots of unsaved changes, draft previews and signed snapshot safety. Use when testing or debugging Capell admin preview flows, Peek previews, unsaved page or Layout Builder state, signed preview URLs, or preview actions contributed by a package.'
 ---
 
 # Capell Admin Preview QA
