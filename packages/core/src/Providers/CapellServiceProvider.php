@@ -76,6 +76,7 @@ use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
+use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
@@ -208,6 +209,7 @@ use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
+use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
 use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
@@ -869,6 +871,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerActivitySettings(): self
     {
         $this->app->singletonIf(ActivitySettingsReader::class, DefaultActivitySettingsReader::class);
+        // A consent manager binds its own provider; Core's honours GPC and DNT and records nothing.
+        $this->app->singletonIf(ConsentDecisionProvider::class, DefaultConsentDecisionProvider::class);
 
         return $this;
     }

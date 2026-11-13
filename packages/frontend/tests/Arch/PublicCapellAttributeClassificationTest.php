@@ -73,6 +73,8 @@ function isPublicSafeCapellAttribute(string $attribute): bool
         'data-capell-stylesheet-fallback',
         'data-capell-stylesheet-recovery-runtime',
         'data-capell-stylesheet-fallback-active',
+        // Names the consent purpose a gated script or frame waits for.
+        'data-capell-consent',
     ];
 
     if (in_array($attribute, $exact, true)) {

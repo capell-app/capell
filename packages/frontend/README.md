@@ -130,14 +130,15 @@ Package development and coordinated verification happen in the [capell-app/capel
 
 ## Related guides
 
-| Page                                               | Covers                                                |
-| -------------------------------------------------- | ----------------------------------------------------- |
-| [Frontend overview](docs/overview.md)              | Frontend responsibilities and the package docs index. |
-| [Page and site loading](docs/page-site-loading.md) | Site, page, language, theme, and layout resolution.   |
-| [Security](docs/security.md)                       | Package-specific public rendering safety notes.       |
-| [Server configuration](docs/server-config.md)      | Static-cache fallback and web server routing rules.   |
-| [Tailwind assets](docs/tailwind-assets.md)         | Package Tailwind source and import registration.      |
-| [Render hooks](docs/extending-render-hooks.md)     | Public render hook registration.                      |
-| [Testing frontend](docs/testing-frontend.md)       | Frontend package test patterns.                       |
+| Page                                               | Covers                                                 |
+| -------------------------------------------------- | ------------------------------------------------------ |
+| [Frontend overview](docs/overview.md)              | Frontend responsibilities and the package docs index.  |
+| [Page and site loading](docs/page-site-loading.md) | Site, page, language, theme, and layout resolution.    |
+| [Security](docs/security.md)                       | Package-specific public rendering safety notes.        |
+| [Server configuration](docs/server-config.md)      | Static-cache fallback and web server routing rules.    |
+| [Tailwind assets](docs/tailwind-assets.md)         | Package Tailwind source and import registration.       |
+| [Render hooks](docs/extending-render-hooks.md)     | Public render hook registration.                       |
+| [Privacy consent](docs/privacy-consent.md)         | Asking `window.CapellPrivacy` before loading tracking. |
+| [Testing frontend](docs/testing-frontend.md)       | Frontend package test patterns.                        |
 
 The complete frontend and public-output safety guides are published at [docs.capell.app](https://docs.capell.app).

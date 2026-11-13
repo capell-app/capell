@@ -110,6 +110,7 @@ Deletion and retention:
 - [Page and site loading](page-site-loading.md)
 - [Public HTML safety](../../../docs/frontend/public-html-safety.md)
 - [Extending render hooks](extending-render-hooks.md)
+- [Privacy consent](privacy-consent.md)
 - [Frontend extensions](../../../docs/packages/frontend-extensions.md)
 - [Presentation delivery](presentation-delivery.md)
 - [Capell Interactions](../../../docs/getting-started/capell-interactions.md)

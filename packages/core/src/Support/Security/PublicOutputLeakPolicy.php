@@ -54,6 +54,8 @@ final class PublicOutputLeakPolicy
         'data-capell-stylesheet-fallback',
         'data-capell-stylesheet-recovery-runtime',
         'data-capell-stylesheet-fallback-active',
+        // Names the consent purpose a gated script or frame waits for.
+        'data-capell-consent',
     ];
 
     private const array BLOCKED_PUBLIC_VALUE_PATTERNS = [

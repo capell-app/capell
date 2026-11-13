@@ -23,6 +23,7 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Registries\TaggedProviderRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
@@ -139,6 +140,8 @@ use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
 use Capell\Frontend\Support\Maintenance\MaintenancePagePathResolver;
 use Capell\Frontend\Support\ModelServing\NullRenderedModelTracker;
 use Capell\Frontend\Support\Pagination\StatelessPaginationResolver;
+use Capell\Frontend\Support\Privacy\PrivacyRuntimeRenderHook;
+use Capell\Frontend\Support\Privacy\PrivacyRuntimeScript;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
@@ -299,6 +302,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         }
 
         $this->app->singleton(FrontendHookRegistrar::class);
+        $this->app->singleton(PrivacyRuntimeScript::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
         $this->app->singleton(FrontendEventBootstrapper::class);
         $this->app->singleton(FrontendRuleConditionRegistry::class);
@@ -746,12 +750,26 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                     ExtensionContributionReceiptContext::foundation(self::$packageName, 'frontend', self::class),
                 ];
                 $receipts->withContexts($contexts, function (): void {
-                    $this->app->make(FrontendHookRegistrar::class)->contribute(
+                    $registrar = $this->app->make(FrontendHookRegistrar::class);
+                    $registrar->contribute(
                         RenderHookLocation::HeadClose,
                         ThemeTokenHeadCloseHook::class,
                         owner: self::$packageName,
                         key: 'theme-token-css',
                     );
+
+                    if ($this->app->make(ConsentSettings::class)->runtimeEnabled()) {
+                        // After a consent manager's runtime (Privacy Center uses priority 1), which
+                        // then wins, and before theme and widget scripts that ask for consent.
+                        $registrar->contribute(
+                            RenderHookLocation::HeadOpen,
+                            PrivacyRuntimeRenderHook::class,
+                            owner: self::$packageName,
+                            key: 'privacy-runtime',
+                            priority: 5,
+                            cacheSafe: true,
+                        );
+                    }
                 });
             },
         );

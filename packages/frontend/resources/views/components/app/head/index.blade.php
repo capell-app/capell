@@ -187,6 +187,8 @@
 
     @php
         $collector = new HeadMetadataCollector;
+        // Rendered first, so runtimes defined here (such as window.CapellPrivacy) exist before any other head script.
+        $headOpenHook = $collector->collect(app(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeadOpen, item: ['page' => $page, 'site' => $site, 'language' => $language]));
         $resourceHead = $collector->collect($renderedFrontendResources instanceof RenderedFrontendResourcesData ? $renderedFrontendResources->headHtml : '');
         $stylesHead = $collector->collect($__env->yieldPushContent('styles'));
         $headHook = $collector->collect(app(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeadClose, item: ['page' => $page, 'site' => $site, 'language' => $language], scenario: RenderHookScenario::SeoMeta->value));
@@ -197,6 +199,7 @@
         $sectionHead = $collector->collect($__env->yieldContent('meta'));
         $headMetadata = BuildHeadMetadataAction::run($socialTitle, $description, $canonicalUrl, $safeStringAttribute($siteTranslation, 'title'), $robots, Frontend::isError(), $collector->values());
     @endphp
+    {!! $headOpenHook !!}
     <title>{{ $metaTitle }}</title>
     @foreach ($headMetadata->meta as $key => $value)
         <meta

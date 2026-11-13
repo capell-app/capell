@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Assets;
 
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResourceContributor;
 use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
@@ -14,14 +15,20 @@ use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Http\CrawlerDetector;
 use Illuminate\Contracts\Routing\UrlGenerator;
+use RuntimeException;
 
 final class ActivityBeaconResourceContributor implements FrontendResourceContributor
 {
+    private const string ENDPOINT_PLACEHOLDER = "'/_capell/activity'";
+
+    private const string COUNTER_PLACEHOLDER = 'const firstPartyCounter = false';
+
     public function __construct(
         private readonly ActivitySettingsReader $settings,
         private readonly FrontendContextReader $frontendContext,
         private readonly CrawlerDetector $crawlers,
         private readonly UrlGenerator $url,
+        private readonly ConsentSettings $consentSettings,
     ) {}
 
     public function resources(FrontendResourceContextData $context): array
@@ -41,21 +48,18 @@ final class ActivityBeaconResourceContributor implements FrontendResourceContrib
         }
 
         $endpoint = json_encode($this->url->to('/_capell/activity'), JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        $script = <<<JS
-(() => {
-    if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true) return;
-    const endpoint = {$endpoint};
-    const payload = JSON.stringify({ type: 'page_view', path: window.location.pathname });
-    const send = () => {
-        if (navigator.sendBeacon) {
-            navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }));
-            return;
-        }
-        fetch(endpoint, { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }, credentials: 'omit', keepalive: true }).catch(() => {});
-    };
-    send();
-})();
-JS;
+        $source = file_get_contents(dirname(__DIR__, 3) . '/resources/js/activity-beacon.js');
+
+        throw_if(
+            ! is_string($source) || substr_count($source, self::ENDPOINT_PLACEHOLDER) !== 1 || substr_count($source, self::COUNTER_PLACEHOLDER) !== 1,
+            RuntimeException::class,
+            'The Capell activity beacon script is missing from the Frontend package.',
+        );
+
+        $script = strtr($source, [
+            self::ENDPOINT_PLACEHOLDER => $endpoint,
+            self::COUNTER_PLACEHOLDER => 'const firstPartyCounter = ' . ($this->consentSettings->firstPartyCounterEnabled() ? 'true' : 'false'),
+        ]);
 
         return [new FrontendResourceContributionData(FrontendResourceData::inlineScript(
             handle: 'capell-app/frontend:activity-beacon',

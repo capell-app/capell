@@ -49,7 +49,9 @@ final class RecordActivityBucketAction
             'created_at',
             'updated_at',
         ])->map(fn (string $column): string => $connection->getQueryGrammar()->wrap($column))->implode(', ');
-        $timestamp = CarbonImmutable::now('UTC')->toDateTimeString();
+        // The row's timestamps are the bucket start too, so it never records when within the
+        // bucket a visit happened.
+        $timestamp = $bucketStartedAt->toDateTimeString();
         $values = [$site->getKey(), $language, $subjectType->value, $subjectKey, $bucketStartedAt->toDateTimeString(), 1, $timestamp, $timestamp];
 
         $placeholders = implode(', ', array_fill(0, count($values), '?'));

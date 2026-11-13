@@ -98,3 +98,19 @@ it('does not prune expired buckets when their daily rollup failed', function ():
         ->toThrow(RuntimeException::class)
         ->and(ActivityBucket::query()->count())->toBe(1);
 });
+
+it('stamps a bucket row with its bucket start, never the moment of a visit', function (): void {
+    CarbonImmutable::setTestNow('2026-08-06 11:03:27 UTC');
+    $site = Site::factory()->createOne();
+    $action = resolve(RecordActivityBucketAction::class);
+
+    $action->execute($site, 'en', ActivityBucketSubjectEnum::PageView, '42');
+    CarbonImmutable::setTestNow('2026-08-06 11:04:51 UTC');
+    $action->execute($site, 'en', ActivityBucketSubjectEnum::PageView, '42');
+
+    $bucket = ActivityBucket::query()->sole();
+
+    expect($bucket->count)->toBe(2)
+        ->and($bucket->created_at?->toIso8601String())->toBe('2026-08-06T11:00:00+00:00')
+        ->and($bucket->updated_at?->toIso8601String())->toBe('2026-08-06T11:00:00+00:00');
+});
