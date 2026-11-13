@@ -11,6 +11,7 @@ use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Container\Container;
 use InvalidArgumentException;
 use Throwable;
+use WeakMap;
 
 /**
  * Resolves request-style capability contracts by interface. A providing package
@@ -34,6 +35,14 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
     private bool $frozen = false;
 
     private int $installationDepth = 0;
+
+    /**
+     * Providers already reported as failing, per request object, so a broken
+     * provider is reported once per request rather than on every resolution.
+     *
+     * @var WeakMap<object, array<class-string, true>>|null
+     */
+    private ?WeakMap $reportedFailures = null;
 
     /**
      * @template TContract of object
@@ -89,7 +98,7 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
         try {
             return $this->resolve($provider, $contract);
         } catch (Throwable $throwable) {
-            report($throwable);
+            $this->reportOnce($provider, $throwable);
 
             return $this->resolve($null, $contract);
         }
@@ -164,6 +173,32 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
         }
 
         return $resolved;
+    }
+
+    /**
+     * @param  class-string  $provider
+     */
+    private function reportOnce(string $provider, Throwable $throwable): void
+    {
+        $container = Container::getInstance();
+        $request = $container->bound('request') ? $container->make('request') : null;
+
+        if (! is_object($request)) {
+            report($throwable);
+
+            return;
+        }
+
+        $this->reportedFailures ??= new WeakMap;
+        $reported = $this->reportedFailures[$request] ?? [];
+
+        if (isset($reported[$provider])) {
+            return;
+        }
+
+        $reported[$provider] = true;
+        $this->reportedFailures[$request] = $reported;
+        report($throwable);
     }
 
     private function capability(string $contract): CapabilityContract

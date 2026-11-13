@@ -22,6 +22,7 @@ use Capell\Core\Tests\Support\FailingCapabilityFormCatalogueFixture;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 
 it('gives consumers the null catalogue when no package provides forms', function (): void {
@@ -74,8 +75,15 @@ it('reports a provider that fails and gives consumers the null catalogue', funct
     $registry->provide(FormCatalogue::class, $arrange());
 
     expect($registry->get(FormCatalogue::class))->toBeInstanceOf(NullFormCatalogue::class)
+        ->and($registry->get(FormCatalogue::class))->toBeInstanceOf(NullFormCatalogue::class)
         ->and($reported)->toHaveCount(1)
         ->and($reported[0]->getMessage())->toContain($failure);
+
+    // The next request reports the still-broken provider again.
+    app()->instance('request', Request::create('https://example.test/next'));
+    $registry->get(FormCatalogue::class);
+
+    expect($reported)->toHaveCount(2);
 })->with([
     'a provider that throws while resolving' => ['The form package is misconfigured.', fn (): string => FailingCapabilityFormCatalogueFixture::class],
     'a container binding of the wrong type' => ['does not implement', function (): string {
