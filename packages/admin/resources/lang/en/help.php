@@ -4,35 +4,77 @@ declare(strict_types=1);
 
 return [
     'open' => 'Help for this screen',
-    'glossary' => 'Words explained',
+    'glossary' => 'Words you may see',
     'documentation' => 'Read the documentation',
-    'terms' => [
-        'blueprint' => 'Blueprint',
-        'schema' => 'Schema',
-        'interceptor' => 'Interceptor',
-        'page_type' => 'Page type',
-        'workspace' => 'Workspace',
-        'lockdown' => 'Lockdown',
-        'fragment' => 'Fragment',
-        'hydration' => 'Hydration',
-        'canonical' => 'Canonical',
-        'slug' => 'Slug',
-        'locale' => 'Locale',
-    ],
+    'answers' => 'Common questions',
     'pages' => [
         'title' => 'Pages',
         'summary' => 'Find and organise your site’s pages. Changes to a page can affect what visitors see.',
         'next' => 'Choose a page to review its content.',
+        'answers' => [
+            'add_page' => [
+                'question' => 'How do I add a page?',
+                'answer' => 'Select New page, choose what kind of page it is, then give it a title. It stays a draft until you publish it.',
+            ],
+            'find_page' => [
+                'question' => 'How do I find a page?',
+                'answer' => 'Type part of its title in the search box. You can also filter the list by site, language or whether the page is published.',
+            ],
+            'move_page' => [
+                'question' => 'How do I move a page under another page?',
+                'answer' => 'Open the page, change its parent page and save. Its web address changes to match, and Capell keeps the old address working.',
+            ],
+            'remove_page' => [
+                'question' => 'How do I remove a page?',
+                'answer' => 'Open the page and move it to the bin. Visitors can no longer see it, and you can bring it back from Recently deleted.',
+            ],
+        ],
     ],
     'page_edit' => [
         'title' => 'Edit page',
         'summary' => 'Change this page’s content and settings. Published changes can affect visitors.',
         'next' => 'Review your changes and preview the page before publishing.',
+        'answers' => [
+            'change_content' => [
+                'question' => 'How do I change what visitors see?',
+                'answer' => 'Edit the content, then select Preview to check it. Visitors see your changes only after you publish.',
+            ],
+            'publish' => [
+                'question' => 'How do I publish my changes?',
+                'answer' => 'Select Publish now, or choose Schedule to publish at a set date and time.',
+            ],
+            'change_address' => [
+                'question' => 'How do I change the page’s web address?',
+                'answer' => 'Edit the page address under the title. Capell keeps the old address working so existing links still reach this page.',
+            ],
+            'restore_version' => [
+                'question' => 'How do I get back an earlier version?',
+                'answer' => 'Select Revisions at the top of the page, choose the version you want and restore it. Your current version is kept in the list too.',
+            ],
+        ],
     ],
     'media' => [
         'title' => 'Media',
         'summary' => 'Find images and files used on your site. Removing a file can affect pages that use it.',
         'next' => 'Choose a file to check its details and usage.',
+        'answers' => [
+            'upload' => [
+                'question' => 'How do I add an image or file?',
+                'answer' => 'Select Upload and choose the file. You can then use it on any page.',
+            ],
+            'describe_image' => [
+                'question' => 'How do I describe an image for people who cannot see it?',
+                'answer' => 'Open the image and fill in the alternative text with a short description of what it shows. Mark it decorative if it adds nothing to the page.',
+            ],
+            'find_usage' => [
+                'question' => 'How do I see where a file is used?',
+                'answer' => 'Open the file. The usage list shows every page and layout that uses it, so you can check before changing it.',
+            ],
+            'delete_used_file' => [
+                'question' => 'Can I delete a file that pages use?',
+                'answer' => 'Check the usage list first. If you remove a file that pages still use, those pages show a gap until you choose another file.',
+            ],
+        ],
     ],
     'sites' => [
         'title' => 'Sites',
@@ -58,6 +100,24 @@ return [
         'title' => 'Users',
         'summary' => 'Manage who can sign in. Changes to access affect what a person can do.',
         'next' => 'Choose a user to review their access.',
+        'answers' => [
+            'invite' => [
+                'question' => 'How do I give someone access?',
+                'answer' => 'Select Invite someone, enter their name and email address and choose what they can do. We email them a link to set their own password.',
+            ],
+            'invitation_missing' => [
+                'question' => 'Their invitation has not arrived. What now?',
+                'answer' => 'Ask them to check their spam folder, then use Send the invitation again. Their earlier link stops working.',
+            ],
+            'change_role' => [
+                'question' => 'How do I change what someone can do?',
+                'answer' => 'Select Edit user next to the person and change their role. The change applies the next time they open a screen.',
+            ],
+            'remove_access' => [
+                'question' => 'How do I stop someone signing in?',
+                'answer' => 'Select the person in the list and delete them. They can no longer sign in, and the pages they changed stay as they are.',
+            ],
+        ],
     ],
     'roles' => [
         'title' => 'Roles',
@@ -68,6 +128,24 @@ return [
         'title' => 'Settings',
         'summary' => 'Review settings for the admin and site. Some changes affect everyone using them.',
         'next' => 'Open a settings section and review it before saving.',
+        'answers' => [
+            'what_changes' => [
+                'question' => 'What can I change here?',
+                'answer' => 'Settings that apply to the whole admin or site, such as the site name, languages and email details.',
+            ],
+            'visitor_impact' => [
+                'question' => 'Will a change affect visitors?',
+                'answer' => 'Some settings change what visitors see straight away. Read the description under each setting before you save.',
+            ],
+            'undo_change' => [
+                'question' => 'How do I undo a settings change?',
+                'answer' => 'Set the value back to what it was and save. Make a note of the old value before you change anything important.',
+            ],
+            'hidden_settings' => [
+                'question' => 'Why can I not see some settings?',
+                'answer' => 'Your role decides which settings you can change. Ask the site owner if you need one that is hidden.',
+            ],
+        ],
     ],
     'extensions' => [
         'title' => 'Extensions',

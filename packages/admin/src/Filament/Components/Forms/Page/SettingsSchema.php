@@ -170,6 +170,7 @@ class SettingsSchema
     private static function blueprintField(Schema $schema, string|Closure $pageGroup = 'page'): BlueprintSelect
     {
         return BlueprintSelect::make('blueprint_id')
+            ->label(__('capell-admin::form.page_type'))
             ->pageGroup($pageGroup)
             ->withRelation()
             ->withSystemTypes(function (?Pageable $record, Get $get): bool {

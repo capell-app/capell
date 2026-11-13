@@ -18,7 +18,7 @@ Manage images and files for your sites from **Media** in the admin sidebar.
 ## Add alt text and captions (per language)
 
 1. Open a media item using **Manage media**.
-2. In **Localized metadata**, choose **Add locale metadata** if needed and select a **Language** for each entry.
+2. In **Details for each language**, choose **Add details for another language** if needed and select a **Language** for each entry.
 3. Fill **Alt text** (a short description of the image), and optionally caption and credit.
 4. Mark an image **Decorative image** only when it adds no information — this leaves the alt text empty on purpose so screen readers skip it.
 5. Repeat for each language you will publish, then save.

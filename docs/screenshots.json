@@ -42,11 +42,11 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
+                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Details for each language'))"
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
+                    "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Details for each language'))"
                 },
                 {
                     "type": "waitFor",
