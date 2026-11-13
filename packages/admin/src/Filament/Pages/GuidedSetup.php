@@ -275,6 +275,8 @@ class GuidedSetup extends FilamentPage
                         ->label(__('capell-admin::setup.step_review'))
                         ->schema([
                             Text::make(fn (): string => $this->reviewBody()),
+                            Text::make(fn (): string => $this->contactFormPreview())
+                                ->visible(fn (): bool => $this->createsContactForm()),
                             TextInput::make('contactEmail')
                                 ->label(__('capell-admin::setup.contact_email'))
                                 ->helperText(__('capell-admin::setup.contact_email_help'))
@@ -508,21 +510,35 @@ class GuidedSetup extends FilamentPage
     /** Whether setup will create a contact form: the Form Builder extension is installed and a chosen page holds the preset's form. */
     public function createsContactForm(): bool
     {
-        if (! resolve(SiteSpecApplierRegistry::class)->has(BuildGuidedSetupSpecAction::FORMS_KEY)) {
-            return false;
+        return $this->contactForm() !== null;
+    }
+
+    /**
+     * What the contact form will ask visitors, so the person can check it before anything is created.
+     * Empty when setup creates no contact form.
+     */
+    public function contactFormPreview(): string
+    {
+        $form = $this->contactForm();
+
+        if ($form === null) {
+            return '';
         }
 
-        $forms = $this->selectedPreset()?->spec['packageData'][BuildGuidedSetupSpecAction::FORMS_KEY] ?? [];
+        $labels = [];
 
-        foreach (is_array($forms) ? $forms : [] as $form) {
-            $page = is_array($form) ? ($form['placeOnPage'] ?? null) : null;
-
-            if (is_array($form) && (! is_string($page) || in_array($page, $this->selectedSlugs(), true))) {
-                return true;
+        foreach (is_array($form['fields'] ?? null) ? $form['fields'] : [] as $field) {
+            if (is_array($field) && is_string($field['label'] ?? null) && trim($field['label']) !== '') {
+                $labels[] = trim($field['label']);
             }
         }
 
-        return false;
+        $page = is_string($form['placeOnPage'] ?? null) ? ($this->pageOptions()[$form['placeOnPage']] ?? $form['placeOnPage']) : null;
+
+        return (string) __($page === null ? 'capell-admin::setup.contact_form_preview' : 'capell-admin::setup.contact_form_preview_on_page', [
+            'page' => $page,
+            'fields' => implode(', ', $labels),
+        ]);
     }
 
     /** @return array<Action> */
@@ -536,6 +552,31 @@ class GuidedSetup extends FilamentPage
                 ->visible(fn (): bool => ! $this->created)
                 ->action(fn () => $this->skip()),
         ];
+    }
+
+    /**
+     * The preset's first contact form that setup will create, or null when the Form Builder
+     * extension is not installed or the page the form goes on was not chosen.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function contactForm(): ?array
+    {
+        if (! resolve(SiteSpecApplierRegistry::class)->has(BuildGuidedSetupSpecAction::FORMS_KEY)) {
+            return null;
+        }
+
+        $forms = $this->selectedPreset()?->spec['packageData'][BuildGuidedSetupSpecAction::FORMS_KEY] ?? [];
+
+        foreach (is_array($forms) ? $forms : [] as $form) {
+            $page = is_array($form) ? ($form['placeOnPage'] ?? null) : null;
+
+            if (is_array($form) && (! is_string($page) || in_array($page, $this->selectedSlugs(), true))) {
+                return $form;
+            }
+        }
+
+        return null;
     }
 
     private function finish(Site $site, int $pageCount): void

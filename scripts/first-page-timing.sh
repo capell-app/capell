@@ -15,6 +15,7 @@
 #                       removed after a passing run and kept after a failing one).
 #   --summary FILE      Append the markdown timing table here
 #                       (default: $GITHUB_STEP_SUMMARY when set, otherwise only printed).
+#   --minimal           Run capell:install --minimal (Core, Admin, Frontend and the default theme only).
 #   --keep              Keep the generated app after the run.
 #   -h, --help          Show this help.
 #
@@ -41,6 +42,7 @@ PORT=8000
 WORKDIR=""
 SUMMARY="${GITHUB_STEP_SUMMARY:-}"
 KEEP=0
+MINIMAL=0
 # Higher than any released 1.x, so every ^1.0.x constraint in the Packagist packages accepts it.
 PATH_VERSION="1.999.0"
 
@@ -79,6 +81,10 @@ parse_args() {
                 ;;
             --keep)
                 KEEP=1
+                shift
+                ;;
+            --minimal)
+                MINIMAL=1
                 shift
                 ;;
             --core-path | --skeleton | --budget | --port | --workdir | --summary)
@@ -186,12 +192,18 @@ step_install() {
     password="$(openssl rand -hex 16)"
     (
         cd "$APP_DIR"
-        php artisan capell:install --no-interaction \
+        # shellcheck disable=SC2046 # an empty profile must add no argument
+        php artisan capell:install --no-interaction $(install_profile_args) \
             --url="http://127.0.0.1:$PORT" \
             --name="First Page Check" \
             --email="first-page-$(openssl rand -hex 4)@example.test" \
             --password="$password" >"$LOG_DIR/install.log" 2>&1
     )
+}
+
+install_profile_args() {
+    ((MINIMAL == 1)) && printf '%s' '--minimal'
+    return 0
 }
 
 step_start_server() {

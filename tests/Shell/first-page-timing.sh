@@ -78,6 +78,17 @@ check 'failing step exits 1' 1 $?
 contains 'failing step is marked' "$scratch/broken.md" 'failed'
 contains 'later steps are marked skipped' "$scratch/broken.md" 'skipped'
 
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root"
+    printf 'default=[%s]\n' "$(install_profile_args)"
+    parse_args --core-path "$root" --minimal
+    printf 'minimal=[%s]\n' "$(install_profile_args)"
+) >"$scratch/profile.out" 2>&1
+contains 'default install passes no profile' "$scratch/profile.out" 'default=[]'
+contains '--minimal passes --minimal to capell:install' "$scratch/profile.out" 'minimal=[--minimal]'
+
 if ((failures > 0)); then
     printf '%d check(s) failed\n' "$failures"
     exit 1
