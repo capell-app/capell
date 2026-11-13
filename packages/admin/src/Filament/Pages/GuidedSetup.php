@@ -539,10 +539,13 @@ class GuidedSetup extends FilamentPage
 
         $page = is_string($form['placeOnPage'] ?? null) ? ($this->pageOptions()[$form['placeOnPage']] ?? $form['placeOnPage']) : null;
 
-        return (string) __($page === null ? 'capell-admin::setup.contact_form_preview' : 'capell-admin::setup.contact_form_preview_on_page', [
-            'page' => $page,
-            'fields' => implode(', ', $labels),
-        ]);
+        $fields = implode(', ', $labels);
+
+        if ($page === null) {
+            return (string) __('capell-admin::setup.contact_form_preview', ['fields' => $fields]);
+        }
+
+        return (string) __('capell-admin::setup.contact_form_preview_on_page', ['page' => $page, 'fields' => $fields]);
     }
 
     /** @return array<Action> */
