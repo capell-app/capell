@@ -15,8 +15,8 @@
     const optedOut =
         navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true
     const counts =
-        decision === true ||
-        (decision === null && firstPartyCounter && !optedOut)
+        !optedOut &&
+        (decision === true || (decision === null && firstPartyCounter))
     if (!counts) return
 
     const endpoint = '/_capell/activity'

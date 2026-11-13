@@ -67,13 +67,17 @@ test('counts an undecided visitor only under the first-party counter', () => {
     assert.equal(pageViews({ privacy: decides(null), counter: true }).length, 1)
 })
 
-test('stops the first-party counter for Global Privacy Control or Do Not Track', () => {
+test('sends nothing under Global Privacy Control or Do Not Track, whatever the decision', () => {
     for (const navigator of [
         { globalPrivacyControl: true },
         { doNotTrack: '1' },
     ]) {
         assert.deepEqual(
             pageViews({ privacy: decides(null), counter: true, navigator }),
+            [],
+        )
+        assert.deepEqual(
+            pageViews({ privacy: decides(true), counter: true, navigator }),
             [],
         )
     }

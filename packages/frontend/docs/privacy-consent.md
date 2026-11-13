@@ -93,7 +93,7 @@ Setting `runtime` to `false` removes the default runtime from every page; widget
 
 ## Capell's page-view counter
 
-The counter records two things: an aggregate page-view count per page and day, and a daily visitor marker (a truncated HMAC of site, address and user agent that rotates each day). It sets no cookie. The marker is a pseudonymous visitor identifier, so it is recorded only when `analytics` is granted. The aggregate count holds no identifier, so `capell.privacy.first_party_counter` (on by default) lets it count while `analytics` is undecided.
+The counter records two things: an aggregate page-view count per page in five-minute buckets (each row is stamped with its bucket start, never the moment of a visit), and a daily visitor marker (a truncated HMAC of site, address and user agent that rotates each day). It sets no cookie. The marker is a pseudonymous visitor identifier, so it is recorded only when `analytics` is granted. The aggregate count holds no identifier, so `capell.privacy.first_party_counter` (on by default) lets it count while `analytics` is undecided.
 
 | Analytics decision                              | Page-view count                   | Visitor marker |
 | ----------------------------------------------- | --------------------------------- | -------------- |
