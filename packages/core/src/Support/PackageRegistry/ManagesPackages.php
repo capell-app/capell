@@ -23,6 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 trait ManagesPackages
 {
@@ -496,19 +497,28 @@ trait ManagesPackages
     public function markPackageProviderQuarantined(string $name, string $provider, string $reason): void
     {
         if ($this->isCorePackageName($name)) {
-            $this->clearExtensionCache();
+            $this->clearExtensionCacheContained();
 
             return;
         }
 
-        $this->extensionLifecycle()->recordProviderQuarantined(
-            name: $name,
-            provider: $provider,
-            reason: $reason,
-            package: $this->packageOrNull($name),
-        );
-        $this->clearExtensionCache();
+        // Contain the provider in memory first: the persisted record is best-effort, so a
+        // database or cache failure here must never fail boot or leave the package loaded.
+        $this->clearExtensionCacheContained();
         $this->forcePackageInstalled($name, false);
+
+        try {
+            $this->extensionLifecycle()->recordProviderQuarantined(
+                name: $name,
+                provider: $provider,
+                reason: $reason,
+                package: $this->packageOrNull($name),
+            );
+            // The cache can repopulate from the database between the early clear and the write.
+            $this->clearExtensionCacheContained();
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
     }
 
     public function markPackageDisabled(string $name): void
@@ -665,8 +675,26 @@ trait ManagesPackages
             }
 
             $this->persistedExtensionCacheRemovalDeferred = false;
-            $this->removePersistedExtensionCacheKeys();
+
+            try {
+                $this->removePersistedExtensionCacheKeys();
+            } catch (Throwable $throwable) {
+                report($throwable);
+            }
         });
+    }
+
+    /**
+     * Quarantine can run while the database is down, and the cache store may be database
+     * backed, so a store failure must not stop the in-memory quarantine completing.
+     */
+    private function clearExtensionCacheContained(): void
+    {
+        try {
+            $this->clearExtensionCache();
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
     }
 
     private function removePersistedExtensionCacheKeys(): void

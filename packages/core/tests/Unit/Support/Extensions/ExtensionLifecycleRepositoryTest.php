@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Exceptions\SchemaProbeFailedException;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Illuminate\Support\Collection;
@@ -36,6 +37,44 @@ it('surfaces schema probe failures instead of silently dropping lifecycle writes
         $repository->delete('vendor/example');
     },
 ]);
+
+it('quarantines a provider without failing when the extensions table cannot be probed', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->with('capell_extensions')
+        ->andThrow(new RuntimeException('database unavailable'));
+
+    $repository = new ExtensionLifecycleRepository(new RuntimeSchemaState);
+
+    $repository->recordProviderQuarantined('vendor/example', 'Vendor\\Example\\ExampleServiceProvider', 'Provider failed.', null);
+
+    expect(DB::table('capell_extensions')->where('composer_name', 'vendor/example')->exists())->toBeFalse();
+});
+
+it('records a provider quarantine when the extensions table can be probed', function (): void {
+    $repository = new ExtensionLifecycleRepository(new RuntimeSchemaState);
+
+    $repository->recordProviderQuarantined('vendor/example', 'Vendor\\Example\\ExampleServiceProvider', 'Provider failed.', null);
+
+    expect(DB::table('capell_extensions')->where('composer_name', 'vendor/example')->value('status'))
+        ->toBe(ExtensionStatusEnum::Failed->value);
+});
+
+it('keeps a provider quarantined in memory when the database is unreachable', function (): void {
+    CapellCore::registerPackage('vendor/offline-extension', version: '1.0.0');
+    CapellCore::markPackageInstalled('vendor/offline-extension');
+
+    Schema::shouldReceive('hasTable')
+        ->with('capell_extensions')
+        ->andThrow(new RuntimeException('database unavailable'));
+
+    CapellCore::markPackageProviderQuarantined(
+        name: 'vendor/offline-extension',
+        provider: 'Vendor\\Offline\\OfflineServiceProvider',
+        reason: 'Provider registration failed.',
+    );
+
+    expect(CapellCore::isPackageInstalled('vendor/offline-extension'))->toBeFalse();
+});
 
 it('keeps extension reads fail closed when schema probing fails', function (Closure $operation): void {
     Schema::shouldReceive('hasTable')

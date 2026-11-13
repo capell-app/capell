@@ -125,7 +125,11 @@ final class ExtensionLifecycleRepository
         string $reason,
         ?PackageData $package,
     ): void {
-        if (! $this->writableTableExists()) {
+        // Quarantine runs while providers register, so an unreachable database must
+        // not turn a contained provider failure into a failed boot. The caller keeps
+        // the in-memory quarantine; the record is written only when the table can be
+        // probed, and is not retried until the next boot that can reach the database.
+        if (! $this->tableExists(refresh: true)) {
             return;
         }
 

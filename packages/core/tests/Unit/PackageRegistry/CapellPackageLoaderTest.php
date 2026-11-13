@@ -15,6 +15,7 @@ use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\FilesystemServiceProvider;
+use Illuminate\Support\Facades\Schema;
 use Mockery\MockInterface;
 
 it('always includes metadata and install providers for discovered packages', function (): void {
@@ -82,7 +83,9 @@ it('skips providers for non-existent classes gracefully', function (): void {
     CapellCore::registerPackage('capell-app/ghost');
     CapellCore::markPackageInstalled('capell-app/ghost');
 
-    expect(fn (): array => packageLoader($registry)->loadProviders())->not->toThrow(Throwable::class);
+    packageLoader($registry)->loadProviders();
+
+    expect(CapellCore::isPackageInstalled('capell-app/ghost'))->toBeTrue();
 });
 
 it('quarantines an optional package when provider registration fails', function (): void {
@@ -103,15 +106,36 @@ it('quarantines an optional package when provider registration fails', function 
     CapellCore::registerPackage('vendor/failing-extension');
     CapellCore::markPackageInstalled('vendor/failing-extension');
 
-    expect(function () use ($application, $registry): void {
-        new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
-    })
-        ->not->toThrow(Throwable::class);
+    new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
 
     $extension = CapellExtension::query()->where('composer_name', 'vendor/failing-extension')->firstOrFail();
     expect($extension->provider_recovery_state)->toBe(ExtensionProviderRecoveryStateEnum::Quarantined)
         ->and($extension->provider_recovery_reason)->toContain('failed during registration')
         ->and(CapellCore::isPackageEnabled('vendor/failing-extension'))->toBeFalse();
+});
+
+it('keeps booting and quarantines in memory when a provider fails while the database is unreachable', function (): void {
+    $registry = packageLoaderRegistry('vendor/offline-failing-extension', [
+        'runtime' => [AuthServiceProvider::class],
+    ]);
+
+    /** @var Application&MockInterface $application */
+    $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(InstalledRuntimeLifecycle::class)->andReturn(new InstalledRuntimeLifecycle($application));
+    $application->shouldReceive('isBooted')->andReturnFalse();
+    $application->shouldReceive('register')
+        ->with(AuthServiceProvider::class)
+        ->andThrow(new RuntimeException('provider registration failed'));
+    $application->shouldReceive('resolved')->with(InstalledRuntimeLifecycle::class)->andReturnFalse();
+
+    CapellCore::registerPackage('vendor/offline-failing-extension');
+    CapellCore::markPackageInstalled('vendor/offline-failing-extension');
+
+    Schema::shouldReceive('hasTable')->andThrow(new RuntimeException('database unavailable'));
+
+    new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
+
+    expect(CapellCore::isPackageInstalled('vendor/offline-failing-extension'))->toBeFalse();
 });
 
 it('does not quarantine trusted core packages when provider registration fails', function (): void {
