@@ -254,6 +254,9 @@
         "capell-app/marketplace": "self.version"
     },
     "extra": {
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        },
         "laravel": {
             "providers": [
                 "Capell\\Core\\Providers\\CapellServiceProvider",

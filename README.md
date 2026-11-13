@@ -2,7 +2,7 @@
 
 ![The Capell wordmark on a dark drafting grid, beside an isometric model of a cream Core foundation stamped with the Laravel mark, forking into separate Admin and Frontend structures with Blade, Livewire, Inertia, and Vue tiles docked beneath the frontend window](docs/images/capell-readme-hero.jpg)
 
-[![Latest Tag](https://img.shields.io/github/v/tag/capell-app/capell?style=flat-square&label=release)](https://github.com/capell-app/capell/tags)
+[![Foundation 1.x](https://img.shields.io/badge/Foundation-1.x-2F855A?style=flat-square)](docs/operations/support-policy.md)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)
 [![First-party packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcapell-app%2Fcapell%2Fmain%2Fdocs%2Freference%2Freadme-engineering-metrics.json&query=%24.package_count&label=first-party%20packages&style=flat-square&color=2F855A)](docs/packages/catalog.md)
 [![Core Pest tests](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcapell-app%2Fcapell%2Fmain%2Fdocs%2Freference%2Freadme-engineering-metrics.json&query=%24.test_count&label=Core%20Pest%20tests&style=flat-square&color=2F855A)](docs/standards/coding-standards.md)
@@ -22,18 +22,23 @@ MIT-licensed contract. Editors preview, publish and recover pages in Filament;
 the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or
 its own stack.
 
-Install it into an existing Laravel application with two commands:
+Start a new Laravel project with the [starter kit](docs/getting-started/install.md#new-project-from-the-starter-kit):
 
 ```bash
-composer require capell-app/installer
-php artisan capell:install
+laravel new my-studio --using=capell-app/starter-kit
+cd my-studio
+php artisan serve
 ```
+
+This path needs PHP 8.4+, Composer, SQLite and the Laravel installer. It includes Core, Admin and Frontend, with no Node build or queue worker. Follow the [starter kit sign-in instructions](docs/getting-started/install.md#new-project-from-the-starter-kit) for the local administrator password.
+
+Adding Capell to an existing application? Use the [Installer workflow](docs/getting-started/install.md#existing-laravel-applications), starting with `composer require capell-app/installer` and `php artisan capell:install --plan`. Review routes, authentication and backups before applying the install.
 
 [Open the guided demo](https://capell.app/demo) · [Decide if Capell fits](docs/getting-started/why-capell.md) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Learn Capell step by step](docs/getting-started/capell-learn.md) · [Documentation](docs/README.md)
 
 ## Verified quickstart
 
-Start from a fresh supported Laravel application. The installer adds the selected foundation packages, runs each package lifecycle, creates the first site and administrator, generates frontend assets, synchronises permissions, and finishes only when its required health summary passes.
+Use the starter kit above for a new project. The [Quickstart](docs/getting-started/quickstart.md) also provides the following guided Installer route for a disposable demo in a fresh Laravel application. The installer adds the selected foundation packages, runs each package lifecycle, creates the first site and administrator, generates frontend assets, synchronises permissions, and finishes only when its required health summary passes.
 
 ```bash
 composer create-project laravel/laravel capell-site
@@ -41,10 +46,12 @@ cd capell-site
 
 # Configure APP_URL and a supported database in .env first.
 composer require capell-app/installer
-php artisan capell:install --demo
+php artisan capell:install --demo --package-mode=all --theme=default --url=http://localhost:8000 --update-app-url
 ```
 
-The guided command asks for the site URL and first administrator. A successful run prints `All checks passed` and `Installation complete`, followed by the Capell Install Handoff. If a required step fails, the command exits non-zero and does not print the success message.
+The command sets the local site URL explicitly and asks for the first administrator. A successful run prints `All checks passed` and `Installation complete`, followed by the Capell Install Handoff. If a required step fails, the command exits non-zero and does not print the success message.
+
+The public Foundation line is **1.x**, as recorded in the [changelog](CHANGELOG.md) and split-package Composer aliases. Read the [support window and LTS policy](docs/operations/support-policy.md) for security coverage, upgrade commitments and dates still to be confirmed.
 
 The canonical installation entry point for an existing Laravel application is `capell-app/installer`. The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line; it does not replace the guided Installer workflow.
 
@@ -62,7 +69,7 @@ Paid packages are served from `https://capell.app/composer` with a short-lived c
 
 The credential expires 30 minutes after it is issued, so request it immediately before use. Do not paste it into tickets, logs, source control, or shared shell history. See [Paid package access](docs/getting-started/install.md#paid-package-access) for the details.
 
-Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
+Capell Foundation renders Pages inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack. Foundation does not include a public content-delivery API. The optional API package is a free Beta for reading published Page and layout data; review its [current contract and maturity](https://docs.capell.app/packages/) before choosing a separate frontend.
 
 ## What Capell replaces in a custom Filament build
 
@@ -202,7 +209,7 @@ Read these before production:
 
 Required PHP extensions and writable paths are listed in the [Install guide](docs/getting-started/install.md). The shipped product line is 1.x; use the latest compatible tag rather than a branch name in customer applications.
 
-For the shipped 1.x line, each minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. See the [security policy](SECURITY.md) and [Core support policy](packages/core/README.md#requirements-and-support-policy) for the exact contract.
+For the shipped 1.x line, each minor receives security fixes for at least 24 months from its release date. The latest 1.x minor remains supported while 1.x is current and for at least 12 months after the next major release; the 24-month minimum still applies. See the [support window and LTS policy](docs/operations/support-policy.md) and [security policy](SECURITY.md) for the exact contract.
 
 ## Pricing, support, security, and licence
 

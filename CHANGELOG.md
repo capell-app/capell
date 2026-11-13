@@ -41,8 +41,9 @@ installer, marketplace).
 
 ## Pre-reset releases (2025-06-09 to 2026-07-09)
 
-Changelog entries for the pre-reset `v2.0.x` and original `v1.0.x` release
-lines were removed as part of the 2026-07-11 re-baseline: those tags no longer
-exist on this repository, so their version numbers and GitHub compare links no
-longer resolve. The work they described is included in the consolidated 1.0.0
-baseline above.
+The pre-reset `v2.0.x` and original `v1.0.x` numbers describe releases before
+the 2026-07-11 re-baseline. Local clones may still retain these historical tags;
+their presence does not establish a supported 2.x line. Their work is included
+in the consolidated 1.0.0 baseline above. Use the 1.x release notes and the
+split-package tags for the current Foundation line; a historical tag or commit
+date does not establish a current package publication or application deployment.
