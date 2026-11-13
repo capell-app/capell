@@ -157,6 +157,15 @@
             "9a7e56d13c8483c0a682b055e0a7b33616180b0236372f39fe0eac16bab977ee"
         ]
     },
+    "create_capell_inbound_webhook_events_table": {
+        "names": [
+            "2026_11_12_000001_create_capell_inbound_webhook_events_table"
+        ],
+        "sha256": [
+            "0e36fac65426619ef4c94db95b8c9fca31f439d8c66d2294eb581342cf7123bb",
+            "5be34950d42c159d1f8a0770984f28a210952e6032bfac9357030676e3c2a6cc"
+        ]
+    },
     "create_capell_marketplace_installs_table": {
         "names": [
             "2026_05_10_190832_26_create_capell_marketplace_installs_table"

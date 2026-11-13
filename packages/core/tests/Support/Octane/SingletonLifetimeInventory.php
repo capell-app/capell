@@ -66,6 +66,7 @@ use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
+use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
@@ -163,6 +164,7 @@ final class SingletonLifetimeInventory
             ExtensionContributionReceiptRegistry::class => self::boot('Contribution receipts and boot contexts are package boot registrations.'),
             ExtensionOrderingAudit::class => self::boot('Ordering audit sources are package boot registrations and collect diagnostics from boot registries.'),
             PresentationPresetRegistry::class => self::boot('Presentation presets are package boot registrations.'),
+            PrivacySubjectRegistry::class => self::boot('Privacy exporters and erasers are package boot registrations or container tags discovered once; export and erase hold no request state.'),
             PublicationReadinessRegistry::class => self::boot('Publication readiness contributors are package boot registrations; explicit clear is reserved for test/runtime reset boundaries.'),
             PublicBladeSourceGuard::class => self::boot('Public view roots are registered by providers at boot; the guard only reads them afterwards.'),
             VendorAssetConditionRegistry::class => self::boot('Vendor asset conditions are package boot registrations.'),

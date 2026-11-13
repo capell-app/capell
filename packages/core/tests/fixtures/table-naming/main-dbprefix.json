@@ -194,6 +194,15 @@
         ],
         "foreign_keys": []
     },
+    "capell_inbound_webhook_events": {
+        "indexes": [
+            "capell_inbound_webhook_events_provider_event_unique",
+            "capell_inbound_webhook_events_status_index",
+            "capell_inbound_webhook_events_subject_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_marketplace_installs": {
         "indexes": ["capell_marketplace_installs_install_id_unique", "primary"],
         "foreign_keys": []

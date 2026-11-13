@@ -54,6 +54,7 @@ use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\ReconcilePublicReadProjectionsCommand;
 use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
+use Capell\Core\Console\Commands\ReplayInboundWebhookEventCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
 use Capell\Core\Console\Commands\RollbackCommand;
 use Capell\Core\Console\Commands\RollupActivityMetricsCommand;
@@ -111,10 +112,12 @@ use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
 use Capell\Core\Macros\BlueprintMacros;
+use Capell\Core\Macros\RouteMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\InboundWebhookEvent;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
@@ -207,6 +210,7 @@ use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
+use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
@@ -379,6 +383,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             CacheComponentsCommand::class,
             BackupHealthCommand::class,
             ReconcilePublicReadProjectionsCommand::class,
+            ReplayInboundWebhookEventCommand::class,
             CloudBootstrapCommand::class,
             ClearComponentsCacheCommand::class,
             CoreFakerCommand::class,
@@ -443,6 +448,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
+            ->registerInboundWebhookPruneSchedule()
             ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
@@ -610,6 +616,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerMacros(): self
     {
         SchemaBlueprint::mixin(new BlueprintMacros);
+        Router::mixin(new RouteMacros);
 
         return $this;
     }
@@ -696,6 +703,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 : null,
         ));
         $this->app->singleton(PublicationReadinessRegistry::class, fn ($app): PublicationReadinessRegistry => new PublicationReadinessRegistry($app));
+        $this->app->singleton(PrivacySubjectRegistry::class, fn ($app): PrivacySubjectRegistry => new PrivacySubjectRegistry($app));
         $this->app->singleton(HealthCheckRegistry::class);
         $this->callAfterResolving(HealthCheckRegistry::class, function (HealthCheckRegistry $registry): void {
             $path = config('capell.health.disk.path');
@@ -902,6 +910,19 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->withoutOverlapping()
                 ->onOneServer();
 
+        });
+
+        return $this;
+    }
+
+    private function registerInboundWebhookPruneSchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('model:prune', ['--model' => [InboundWebhookEvent::class]])
+                ->dailyAt('01:30')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
         });
 
         return $this;
