@@ -19,14 +19,18 @@ enum HtmlSanitizerProfile: string
     /** Visitor-authored text: paragraphs, emphasis, quotes, code, lists and user-generated links only. */
     case Comment = 'comment';
 
-    /** Rich text plus sandboxed iframes from an allowlist of HTTPS embed hosts. */
+    /** Rich text plus sandboxed, consent-gated iframes from allowlisted HTTPS player paths. */
     case Embed = 'embed';
 
     /** Uploaded SVG documents: an SVG element and attribute allowlist parsed as XML, never as HTML. */
     case SvgUpload = 'svg_upload';
 
+    /**
+     * Strict and Comment carry content from many packages and from visitors, so no
+     * single package may widen them; SVG has its own XML allowlist.
+     */
     public function isExtensible(): bool
     {
-        return $this !== self::SvgUpload;
+        return $this === self::RichText || $this === self::Embed;
     }
 }

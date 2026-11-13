@@ -338,7 +338,7 @@ Do not build your own HTML allowlist. Type-hint `Capell\Core\Contracts\Security\
 | `Strict` (default) | Short public copy           | Inline formatting, headings, lists, tables, safe links and images                                               |
 | `RichText`         | Editor-authored articles    | Strict plus figures, captions, inline semantics, validated `class` tokens and heading ids                       |
 | `Comment`          | Visitor-authored text       | Paragraphs, emphasis, quotes, code and lists; links get `rel="nofollow ugc noopener noreferrer"`                |
-| `Embed`            | Rich text with video embeds | RichText plus sandboxed `iframe` elements from allowlisted HTTPS hosts                                          |
+| `Embed`            | Rich text with video embeds | RichText plus sandboxed `iframe` elements for allowlisted HTTPS player paths, loaded after marketing consent    |
 | `SvgUpload`        | Uploaded SVG files          | An SVG element and attribute allowlist parsed as XML; returns an empty string when the file cannot be made safe |
 
 ```php
@@ -350,7 +350,9 @@ $html = app(SanitizesPublicHtml::class)->sanitize($comment->body, HtmlSanitizerP
 
 No profile keeps scripts, `style` elements or attributes, event handlers, framework bindings such as `x-on:` or `wire:`, `name` attributes, or `javascript:` and `data:` URLs. Links and images are validated by the sanitiser whatever a profile allows.
 
-A package that needs more markup extends a profile while it boots. The extension constructor refuses anything that could execute, load a resource, restyle the page or clobber page globals, so an extension can widen a profile but never bypass it. Embed inherits every RichText extension; SvgUpload cannot be extended.
+A package that needs more markup extends a profile while it boots. The extension constructor refuses anything that could execute, load a resource, restyle the page or clobber page globals, so an extension can widen a profile but never bypass it. Only RichText and Embed can be extended, and Embed inherits every RichText extension; Strict and Comment carry content from many packages and from visitors, so no single package may widen them.
+
+Embed frames only player paths, never a whole host, so a redirect endpoint on the same host is refused. The default hosts are `www.youtube-nocookie.com/embed/` and `player.vimeo.com/video/`. The registry refuses the application, asset and storage hosts, and the sanitiser refuses the host rendering the page, because a frame on the page's own origin could remove its sandbox. Frames are written with `data-src` and `data-capell-consent="marketing"`, so the privacy runtime loads them once marketing consent is granted.
 
 ```php
 use Capell\Core\Enums\HtmlSanitizerProfile;
@@ -364,7 +366,7 @@ $this->app->make(HtmlSanitizerProfileRegistry::class)->extend(
 
 $this->app->make(HtmlSanitizerProfileRegistry::class)->extend(
     HtmlSanitizerProfile::Embed,
-    new HtmlSanitizerProfileExtension(embedHosts: ['embed.example.org']),
+    new HtmlSanitizerProfileExtension(embedHosts: ['embed.example.org' => ['/player/']]),
 );
 ```
 

@@ -15,6 +15,17 @@ final class SvgContentSniffer
 {
     private const int CHUNK_BYTES = 65_536;
 
+    /**
+     * "<svg" in UTF-8, UTF-16LE and UTF-16BE: a UTF-16 upload interleaves NUL bytes
+     * and would never match the single-byte form.
+     *
+     * @var list<string>
+     */
+    private const array SVG_TAGS = ['<svg', "<\0s\0v\0g\0", "\0<\0s\0v\0g"];
+
+    /** Bytes kept between chunks so a tag split across two reads is still found. */
+    private const int CARRY_BYTES = 8;
+
     public static function declaresSvg(?string $declaredMimeType, ?string $declaredExtension): bool
     {
         $extension = strtolower(ltrim(trim((string) $declaredExtension), '.'));
@@ -31,7 +42,7 @@ final class SvgContentSniffer
 
         $sniffed = self::sniffMimeType(substr($contents, 0, self::CHUNK_BYTES));
 
-        return ($sniffed !== null && str_contains($sniffed, 'svg')) || stripos($contents, '<svg') !== false;
+        return ($sniffed !== null && str_contains($sniffed, 'svg')) || self::containsSvgTag($contents);
     }
 
     /**
@@ -70,13 +81,13 @@ final class SvgContentSniffer
             }
 
             // Keep the tail so a tag split across two chunks is still seen.
-            if (stripos($carry . $chunk, '<svg') !== false) {
+            if (self::containsSvgTag($carry . $chunk)) {
                 $found = true;
 
                 break;
             }
 
-            $carry = substr($chunk, -3);
+            $carry = substr($carry . $chunk, -self::CARRY_BYTES);
         }
 
         if (is_int($position) && stream_get_meta_data($stream)['seekable']) {
@@ -84,6 +95,11 @@ final class SvgContentSniffer
         }
 
         return $found;
+    }
+
+    private static function containsSvgTag(string $contents): bool
+    {
+        return array_any(self::SVG_TAGS, static fn (string $tag): bool => stripos($contents, $tag) !== false);
     }
 
     private static function sniffMimeType(string $contents): ?string

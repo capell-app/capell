@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Security;
 use Capell\Core\Exceptions\UnsafeSvgUploadException;
 use DOMAttr;
 use DOMDocument;
+use DOMDocumentType;
 use DOMElement;
 use DOMNode;
 use DOMText;
@@ -85,6 +86,8 @@ final class SvgUploadSanitizer
     {
         throw_if(trim($contents) === '', UnsafeSvgUploadException::class, 'The SVG upload is empty.');
         throw_if(strlen($contents) > self::MAX_BYTES, UnsafeSvgUploadException::class, 'The SVG upload is too large to check safely.');
+        // The byte checks below only read UTF-8: UTF-16 or UTF-32 would hide a DOCTYPE from them.
+        throw_unless($this->isUtf8($contents), UnsafeSvgUploadException::class, 'SVG uploads must be UTF-8 encoded.');
         // Checked over the whole document: entity expansion and external entities start in a DOCTYPE wherever it sits.
         throw_if(stripos($contents, '<!DOCTYPE') !== false || stripos($contents, '<!ENTITY') !== false, UnsafeSvgUploadException::class, 'SVG uploads may not contain a DOCTYPE or ENTITY declaration.');
 
@@ -99,6 +102,8 @@ final class SvgUploadSanitizer
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
+
+        throw_if($document->doctype instanceof DOMDocumentType, UnsafeSvgUploadException::class, 'SVG uploads may not contain a DOCTYPE or ENTITY declaration.');
 
         $root = $document->documentElement;
 
@@ -123,6 +128,25 @@ final class SvgUploadSanitizer
         } catch (UnsafeSvgUploadException) {
             return '';
         }
+    }
+
+    private function isUtf8(string $contents): bool
+    {
+        // UTF-16 and UTF-32 byte-order marks, or NUL bytes from either without a mark.
+        if (str_starts_with($contents, "\xFF\xFE") || str_starts_with($contents, "\xFE\xFF") || str_contains($contents, "\0")) {
+            return false;
+        }
+
+        if (! mb_check_encoding($contents, 'UTF-8')) {
+            return false;
+        }
+
+        // A declared encoding other than UTF-8 makes libxml re-read the bytes differently.
+        if (preg_match('/^(?:\xEF\xBB\xBF)?\s*<\?xml[^>]*\bencoding\s*=\s*["\']([^"\']*)["\']/i', $contents, $matches) === 1) {
+            return in_array(strtolower($matches[1]), ['utf-8', 'utf8'], true);
+        }
+
+        return true;
     }
 
     private function sanitizeChildren(DOMNode $parent): void

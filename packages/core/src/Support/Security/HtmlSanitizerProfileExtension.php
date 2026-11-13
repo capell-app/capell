@@ -23,11 +23,11 @@ final readonly class HtmlSanitizerProfileExtension
         'applet' => true, 'audio' => true, 'base' => true, 'body' => true, 'button' => true,
         'canvas' => true, 'dialog' => true, 'embed' => true, 'fieldset' => true, 'form' => true,
         'frame' => true, 'frameset' => true, 'head' => true, 'html' => true, 'iframe' => true,
-        'input' => true, 'link' => true, 'math' => true, 'meta' => true,
-        'noscript' => true, 'object' => true, 'option' => true, 'param' => true, 'picture' => true,
-        'portal' => true, 'script' => true, 'select' => true, 'slot' => true, 'source' => true,
+        'input' => true, 'link' => true, 'listing' => true, 'math' => true, 'meta' => true,
+        'noembed' => true, 'noframes' => true, 'noscript' => true, 'object' => true, 'option' => true, 'param' => true, 'picture' => true,
+        'plaintext' => true, 'portal' => true, 'script' => true, 'select' => true, 'slot' => true, 'source' => true,
         'style' => true, 'svg' => true, 'template' => true, 'textarea' => true, 'title' => true,
-        'track' => true, 'video' => true,
+        'track' => true, 'video' => true, 'xmp' => true,
     ];
 
     /**
@@ -38,7 +38,7 @@ final readonly class HtmlSanitizerProfileExtension
      * @var array<string, true>
      */
     public const array FORBIDDEN_ATTRIBUTES = [
-        'action' => true, 'allow' => true, 'autofocus' => true, 'background' => true, 'cite' => true,
+        'action' => true, 'allow' => true, 'attributionsrc' => true, 'autofocus' => true, 'background' => true, 'cite' => true,
         'class' => true, 'codebase' => true, 'content' => true, 'contenteditable' => true, 'data' => true,
         'dynsrc' => true, 'form' => true, 'formaction' => true, 'href' => true, 'http-equiv' => true,
         'id' => true, 'integrity' => true, 'is' => true, 'longdesc' => true, 'lowsrc' => true,
@@ -57,7 +57,7 @@ final readonly class HtmlSanitizerProfileExtension
 
     /**
      * @param  array<string, list<string>>  $elements  element name => extra attribute names
-     * @param  list<string>  $embedHosts  exact HTTPS hosts the Embed profile may frame
+     * @param  array<string, list<string>>  $embedHosts  exact HTTPS host => player path prefixes the Embed profile may frame
      */
     public function __construct(
         public array $elements = [],
@@ -71,8 +71,9 @@ final readonly class HtmlSanitizerProfileExtension
             }
         }
 
-        foreach ($embedHosts as $host) {
+        foreach ($embedHosts as $host => $pathPrefixes) {
             $this->assertEmbedHost($host);
+            $this->assertEmbedPaths($host, $pathPrefixes);
         }
     }
 
@@ -92,6 +93,22 @@ final readonly class HtmlSanitizerProfileExtension
 
         if ($forbidden) {
             throw new InvalidArgumentException(sprintf('A sanitiser profile cannot allow the [%s] attribute on [%s].', $attribute, $element));
+        }
+    }
+
+    /**
+     * @param  list<string>  $pathPrefixes
+     */
+    private function assertEmbedPaths(string $host, array $pathPrefixes): void
+    {
+        // A whole host is never framed: a player host also serves redirects and pages.
+        $valid = $pathPrefixes !== [] && array_all(
+            $pathPrefixes,
+            static fn (string $prefix): bool => preg_match('#^/[a-z0-9_-]+(?:/[a-z0-9_-]+)*/$#', $prefix) === 1,
+        );
+
+        if (! $valid) {
+            throw new InvalidArgumentException(sprintf('Embed host [%s] needs one or more player path prefixes such as "/embed/".', $host));
         }
     }
 

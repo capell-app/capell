@@ -11,6 +11,7 @@ use DOMElement;
 use DOMNode;
 use DOMText;
 use Illuminate\Container\Container;
+use Illuminate\Http\Request;
 use Override;
 
 /**
@@ -32,6 +33,21 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
      * Applied to every embedded frame: the embed keeps its own origin and can play
      * media, but cannot navigate the page or open forms and modals on it.
      */
+    /**
+     * Ids must be lower-case slugs, the shape a table of contents produces, so they
+     * cannot shadow camel-case page globals such as window.CapellPrivacy or window.Livewire.
+     */
+    private const string IDENTIFIER_PATTERN = '/^[a-z][a-z0-9-]{0,80}$/';
+
+    /**
+     * Positioning utilities let content cover the page (a fake login overlay), so a
+     * class granted by a profile can never pin, layer or offset an element.
+     */
+    private const string POSITIONING_UTILITY = '/^(?:fixed|absolute|sticky|inset|top|right|bottom|left|start|end|z)(?:-|$)/';
+
+    /** Consent category third-party frames wait for before they load. */
+    private const string EMBED_CONSENT = 'marketing';
+
     private const string EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
     /**
@@ -190,7 +206,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
             }
         }
 
-        if ($element->hasAttribute('id') && preg_match($this->identifierPattern($tagName, $policy), $element->getAttribute('id')) !== 1) {
+        if ($element->hasAttribute('id') && preg_match(self::IDENTIFIER_PATTERN, $element->getAttribute('id')) !== 1) {
             $element->removeAttribute('id');
         }
 
@@ -226,25 +242,12 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         return true;
     }
 
-    /**
-     * Profile-granted heading ids must be lower-case slugs, the shape a table of
-     * contents produces, so they cannot shadow camel-case page globals such as
-     * window.CapellPrivacy or window.Livewire. An element that names id itself keeps
-     * the historical pattern.
-     */
-    private function identifierPattern(string $tagName, HtmlSanitizerPolicy $policy): string
-    {
-        return in_array('id', $policy->attributesFor($tagName), true)
-            ? '/^[A-Za-z][A-Za-z0-9_-]{0,80}$/'
-            : '/^[a-z][a-z0-9-]{0,80}$/';
-    }
-
     private function sanitizeClasses(DOMElement $element): void
     {
         // Utility class names only: no characters that could close the attribute or form CSS escapes.
         $classes = array_filter(
             preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [],
-            static fn (string $class): bool => preg_match('/^[A-Za-z0-9_:\/.\-\[\]%#]{1,80}$/', $class) === 1,
+            fn (string $class): bool => preg_match('/^[A-Za-z0-9_:\/.\-\[\]%#]{1,80}$/', $class) === 1 && ! $this->isPositioningClass($class),
         );
 
         if ($classes === []) {
@@ -254,6 +257,15 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         }
 
         $element->setAttribute('class', implode(' ', array_unique($classes)));
+    }
+
+    private function isPositioningClass(string $class): bool
+    {
+        // Strip variant prefixes (md:, hover:, group-hover:) and the important/negative markers.
+        $utility = ltrim((string) preg_replace('/^(?:[^\[\]:]+:)+/', '', $class), '!-');
+
+        // Arbitrary properties and arbitrary variants ([position:fixed], [&>*]:fixed) can set anything.
+        return str_starts_with($utility, '[') || preg_match(self::POSITIONING_UTILITY, $utility) === 1;
     }
 
     private function sanitizeAnchor(DOMElement $element, HtmlSanitizerPolicy $policy): void
@@ -281,16 +293,22 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         $safe = is_array($parts)
             && is_string($host)
             && preg_match('#^https://#', $source) === 1
-            && preg_match('/[\x00-\x20\\\\]/', $source) !== 1
+            && ! $this->containsUnsafeUrlCharacter($source)
             && ! isset($parts['user'])
             && ! isset($parts['port'])
-            && $policy->allowsEmbedHost(strtolower($host));
+            && $policy->allowsEmbed(strtolower($host), $parts['path'] ?? '')
+            && ! $this->isRequestHost(strtolower($host));
 
         if (! $safe) {
             $element->parentNode?->removeChild($element);
 
             return;
         }
+
+        // The frame waits for consent: the privacy runtime copies data-src into src once granted.
+        $element->removeAttribute('src');
+        $element->setAttribute('data-src', $source);
+        $element->setAttribute('data-capell-consent', self::EMBED_CONSENT);
 
         if ($element->hasAttribute('allowfullscreen')) {
             $element->setAttribute('allowfullscreen', '');
@@ -304,6 +322,32 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
         while ($element->firstChild instanceof DOMNode) {
             $element->removeChild($element->firstChild);
         }
+    }
+
+    /**
+     * A frame on the page's own origin with allow-scripts and allow-same-origin can
+     * remove its own sandbox, so the rendering host is never an embed host.
+     */
+    private function isRequestHost(string $host): bool
+    {
+        $container = Container::getInstance();
+
+        if (! $container->bound('request')) {
+            return false;
+        }
+
+        $request = $container->make('request');
+
+        return $request instanceof Request && strtolower($request->getHost()) === $host;
+    }
+
+    /**
+     * Browsers strip tabs and newlines inside URLs and read a backslash as a slash,
+     * so "/\t/evil.example" or "/\\evil.example" would leave the site.
+     */
+    private function containsUnsafeUrlCharacter(string $url): bool
+    {
+        return preg_match('/[\x00-\x20\x7F\\\\]/', $url) === 1;
     }
 
     private function sanitizeImage(DOMElement $element): bool
@@ -323,6 +367,7 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
     private function isSafeAnchorUrl(string $url): bool
     {
         return $url !== ''
+            && ! $this->containsUnsafeUrlCharacter($url)
             && (
                 str_starts_with($url, '#')
                 || $this->isSafeRelativePath($url)
@@ -335,8 +380,8 @@ final class PublicHtmlSanitizer implements SanitizesPublicHtml
     {
         $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
-        return preg_match('#^https?://#i', $url) === 1
-            || $this->isSafeRelativePath($url);
+        return ! $this->containsUnsafeUrlCharacter($url)
+            && (preg_match('#^https?://#i', $url) === 1 || $this->isSafeRelativePath($url));
     }
 
     private function isSafeRelativePath(string $url): bool

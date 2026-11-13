@@ -26,14 +26,19 @@ final readonly class HtmlSanitizerPolicy
         'embed' => true,
         'form' => true,
         'iframe' => true,
+        'listing' => true,
         'math' => true,
+        'noembed' => true,
+        'noframes' => true,
         'noscript' => true,
         'object' => true,
+        'plaintext' => true,
         'script' => true,
         'style' => true,
         'svg' => true,
         'template' => true,
         'video' => true,
+        'xmp' => true,
     ];
 
     /** @var array<string, list<string>> */
@@ -122,13 +127,21 @@ final readonly class HtmlSanitizerPolicy
         'section' => true,
     ];
 
-    /** @var list<string> */
-    private const array DEFAULT_EMBED_HOSTS = ['player.vimeo.com', 'www.youtube-nocookie.com', 'www.youtube.com'];
+    /**
+     * Exact host => the path prefixes that serve a player. Paths outside them
+     * (for example a redirect endpoint) are refused.
+     *
+     * @var array<string, list<string>>
+     */
+    private const array DEFAULT_EMBED_HOSTS = [
+        'player.vimeo.com' => ['/video/'],
+        'www.youtube-nocookie.com' => ['/embed/'],
+    ];
 
     /**
      * @param  array<string, list<string>>  $elements  element name => allowed attribute names
      * @param  array<string, true>  $identifierElements  elements whose validated id survives
-     * @param  list<string>  $embedHosts  exact HTTPS hosts an iframe may load
+     * @param  array<string, list<string>>  $embedHosts  exact HTTPS host => player path prefixes an iframe may load
      */
     private function __construct(
         public HtmlSanitizerProfile $profile,
@@ -173,7 +186,7 @@ final readonly class HtmlSanitizerPolicy
             $this->allowsClasses,
             $this->identifierElements,
             $this->externalLinkRel,
-            array_values(array_unique([...$this->embedHosts, ...$extension->embedHosts])),
+            self::merge($this->embedHosts, $extension->embedHosts),
         );
     }
 
@@ -200,9 +213,17 @@ final readonly class HtmlSanitizerPolicy
         return isset($this->identifierElements[$element]) || in_array('id', $this->attributesFor($element), true);
     }
 
-    public function allowsEmbedHost(string $host): bool
+    public function allowsEmbed(string $host, string $path): bool
     {
-        return in_array($host, $this->embedHosts, true);
+        // Dot segments and encoded separators would leave the player prefix once the browser normalises the path.
+        if (preg_match('#/\.|%2e|%2f|%5c#i', $path) === 1) {
+            return false;
+        }
+
+        return array_any(
+            $this->embedHosts[$host] ?? [],
+            static fn (string $prefix): bool => str_starts_with($path, $prefix) && strlen($path) > strlen($prefix),
+        );
     }
 
     /**
