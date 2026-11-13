@@ -2,13 +2,27 @@
 
 > **Learn Capell · Stage 2 of 8 · about 20 min** · Previous: [Why Capell](why-capell.md) · [All stages](capell-learn.md) · Next: [Your first session](first-session.md)
 
-Use this path to install the current 1.x Foundation in a fresh Laravel application, open the styled Pages screen, publish your own page, and inspect its history. It selects Core, Admin, Frontend, Installer, and Marketplace, with the default theme and demo content.
+Start a new Laravel project with the starter kit, or use the guided Installer route below for a disposable Foundation 1.x demo. Then open the styled Pages screen, publish your own page and inspect its history.
 
 The current 1.x Capell Foundation release is MIT-licensed and available through public Packagist packages without a Capell account. Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access.
 
 For a new project you intend to keep, use the [starter kit](install.md#new-project-from-the-starter-kit). For an existing application, use the [Install guide](install.md#existing-laravel-applications) and take a database and media backup before running migrations.
 
-## Before you start
+## Start a new project with the starter kit
+
+The starter kit includes Core, Admin and Frontend. It needs PHP 8.4+, Composer, SQLite and the Laravel installer, with no Node build or queue worker.
+
+```bash
+laravel new my-studio --using=capell-app/starter-kit
+cd my-studio
+php artisan serve
+```
+
+Open `http://localhost:8000` and `/admin`. Keep port 8000 free and follow the [starter kit sign-in instructions](install.md#new-project-from-the-starter-kit) for the administrator password. Continue at [Publish your first page and inspect history](#4-publish-your-first-page-and-inspect-history) and follow the starter-kit steps there.
+
+The following Installer route selects Core, Admin, Frontend, Installer and Marketplace, with the default theme and demo content. Use it in a disposable Laravel application; use the [existing-application review](install.md#existing-laravel-applications) before changing an app you already run.
+
+## Before you start the Installer route
 
 Allow about ten minutes for the first Composer install.
 
@@ -32,11 +46,9 @@ Capell renders through this Laravel application. This quickstart does not create
 ```bash
 composer create-project laravel/laravel capell-site
 cd capell-site
-cp .env.example .env
-php artisan key:generate
 ```
 
-Configure `APP_URL` and a database in `.env`. SQLite is enough for a disposable local evaluation; its CLI and web PHP runtimes need `pdo_sqlite`:
+Laravel's `create-project` scripts prepare `.env` and the application key. Configure `APP_URL` and a database in `.env`. SQLite is enough for a disposable local evaluation; its CLI and web PHP runtimes need `pdo_sqlite`:
 
 ```bash
 touch database/database.sqlite
@@ -112,6 +124,8 @@ _Your first check: Pages opens with its normal styling and the seeded records ar
 
 Demo content lets you inspect the workspace. Create your own saved page for this check; leave any read-only demo records alone.
 
+**Starter-kit projects:** the default Studio layout renders only the title, summary and Studio fields, so a paragraph added to a page does not appear publicly. Edit the title or summary of a page, publish it, and check that change at the page's public URL. Then follow steps 2 to 4 using the title or summary instead of a paragraph. The paragraph check below is for the Installer route and existing applications.
+
 1. Select the intended site, open **Pages**, and create a page using the [first-page guide](create-your-first-page.md). Choose a suitable page type, title and slug, then add a short paragraph and **Save as draft**.
 2. Follow [Preview and publish](create-your-first-page.md#preview-and-publish): check the signed draft preview, inspect the Publish panel and its blockers, then **Publish now**. Saving a draft or scheduling it for later does not make it public now.
 3. Open the page's canonical public URL in a private browser window with no Admin session. Your paragraph should appear at the ordinary site URL; the signed preview is a separate check.
@@ -139,14 +153,14 @@ Before production, also configure and prove the separate [database and media bac
 
 ## First-run fixes
 
-| Symptom                                                | Action                                                                                                          | Read next                                                                                                         |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `php artisan` is not executable or writable paths fail | `chmod +x artisan && chmod -R u+rwX storage bootstrap/cache`                                                    | [Permissions troubleshooting](../operations/troubleshooting.md#php-artisan-says-permission-denied)                |
-| A queued publish never finishes                        | Start `php artisan queue:work`                                                                                  | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate)                 |
-| The public page remains stale                          | Follow the refresh procedure for the installed cache package, then verify the canonical response                | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
-| A package class is missing after Composer              | `composer dump-autoload && php artisan optimize:clear`                                                          | [Package discovery](../packages/debugging-package-discovery.md)                                                   |
+| Symptom                                                | Action                                                                                                                     | Read next                                                                                                         |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `php artisan` is not executable or writable paths fail | `chmod +x artisan && chmod -R u+rwX storage bootstrap/cache`                                                               | [Permissions troubleshooting](../operations/troubleshooting.md#php-artisan-says-permission-denied)                |
+| A queued publish never finishes                        | Start `php artisan queue:work`                                                                                             | [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate)                 |
+| The public page remains stale                          | Follow the refresh procedure for the installed cache package, then verify the canonical response                           | [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content) |
+| A package class is missing after Composer              | `composer dump-autoload && php artisan optimize:clear`                                                                     | [Package discovery](../packages/debugging-package-discovery.md)                                                   |
 | Frontend CSS is missing                                | Review the [frontend asset recovery plan and writes](install.md#recover-missing-frontend-css), then verify the styled page | [Themes and frontend assets](install.md#themes-and-frontend-assets)                                               |
-| The installer stops at health review                   | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor`                                      | [Site Health](../operations/site-health.md)                                                                       |
+| The installer stops at health review                   | Run the exact `Fix:` command shown, then rerun `php artisan capell:doctor`                                                 | [Site Health](../operations/site-health.md)                                                                       |
 
 ## Other install paths
 

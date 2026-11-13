@@ -13,7 +13,9 @@ use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
+use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
@@ -24,6 +26,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 use Capell\Core\Support\Publishing\PublishSentinel;
+use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Exceptions;
@@ -212,7 +215,134 @@ it('says on the review step how many pages will be created and that they stay pr
     $body = Livewire::test(GuidedSetup::class)->instance()->reviewBody();
 
     expect($body)->toContain('5')
-        ->and($body)->toBe((string) __('capell-admin::setup.review_body', ['count' => 5, 'extras' => '']));
+        ->and($body)->toBe((string) __('capell-admin::setup.review_body', ['count' => 5]));
+});
+
+/**
+ * Stands in for the Form Builder extension, which owns the contact form part of a spec.
+ *
+ * @return ArrayObject<int, mixed> the `packageData.forms` each apply received
+ */
+function guidedSetupFormsApplier(): ArrayObject
+{
+    $received = new ArrayObject;
+
+    resolve(SiteSpecApplierRegistry::class)->register(new readonly class($received) implements SiteSpecApplier
+    {
+        /** @param ArrayObject<int, mixed> $received */
+        public function __construct(private ArrayObject $received) {}
+
+        public function key(): string
+        {
+            return 'forms';
+        }
+
+        /** @param array<string, Page> $pagesBySlug */
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
+        {
+            $this->received->append($spec->packageData['forms'] ?? null);
+        }
+    });
+
+    return $received;
+}
+
+it("asks where contact form messages go, starting from the person's own address, when a contact form will be created", function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    guidedSetupFormsApplier();
+
+    $page = Livewire::test(GuidedSetup::class);
+
+    expect($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body_form', ['count' => 5]))
+        ->and($page->get('data.contactEmail'))->toBe($this->authenticatedUser()->email);
+
+    $page->fillForm(['pageSlugs' => ['about']]);
+
+    expect($page->instance()->createsContactForm())->toBeFalse()
+        ->and($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body', ['count' => 2]));
+});
+
+it('sends the contact form address the person chose to the Form Builder extension', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    $received = guidedSetupFormsApplier();
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about', 'contact'], 'contactEmail' => 'reception@hartley.test'])
+        ->call('createPages')
+        ->assertHasNoFormErrors()
+        ->assertSet('created', true);
+
+    expect($received)->toHaveCount(1)
+        ->and($received[0][0]['notify'])->toBe('reception@hartley.test')
+        ->and($received[0][0]['placeOnPage'])->toBe('contact');
+});
+
+it('shows or hides the contact form address as the Contact page is chosen or left out', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    guidedSetupFormsApplier();
+
+    $page = Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business'])
+        ->assertFormFieldVisible('contactEmail');
+
+    $page->set('data.pageSlugs', ['about'])
+        ->assertFormFieldHidden('contactEmail')
+        ->assertDontSee((string) __('capell-admin::setup.contact_email'));
+
+    $page->set('data.pageSlugs', ['about', 'contact'])
+        ->assertFormFieldVisible('contactEmail')
+        ->assertSee((string) __('capell-admin::setup.contact_email'));
+});
+
+it('creates the pages without asking for an address once the Contact page is left out', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    $received = guidedSetupFormsApplier();
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'contactEmail' => ''])
+        ->set('data.pageSlugs', ['about'])
+        ->call('createPages')
+        ->assertHasNoFormErrors()
+        ->assertSet('created', true);
+
+    expect(array_filter($received->getArrayCopy()))->toBeEmpty();
+});
+
+it('previews what the contact form will ask before anything is created', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+    guidedSetupFormsApplier();
+
+    $page = Livewire::test(GuidedSetup::class)->fillForm(['presetKey' => 'service-business']);
+    $preview = $page->instance()->contactFormPreview();
+
+    expect($preview)->toContain('Contact')
+        ->toContain('Email address')
+        ->and($page->html())->toContain(e($preview));
+
+    $page->set('data.pageSlugs', ['about']);
+
+    expect($page->instance()->contactFormPreview())->toBe('')
+        ->and($page->html())->not->toContain(e($preview));
+});
+
+it('requires a real address for contact form messages before anything is created', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $received = guidedSetupFormsApplier();
+
+    Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['contact'], 'contactEmail' => 'reception'])
+        ->call('createPages')
+        ->assertHasFormErrors(['contactEmail'])
+        ->assertSet('created', false);
+
+    expect($received)->toHaveCount(0)
+        ->and($site->pages()->count())->toBe(1 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES);
 });
 
 it('publishes every created page when the person confirms', function (): void {

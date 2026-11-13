@@ -1,5 +1,7 @@
 # Upgrading Capell
 
+Check the [support window and LTS policy](support-policy.md) for supported Foundation lines, security coverage and stable API deprecation commitments before choosing a target release.
+
 ## Admin route ownership, export downloads and Livewire snapshots
 
 This Admin update decides who serves a route, an export or an import from one fact recorded when each

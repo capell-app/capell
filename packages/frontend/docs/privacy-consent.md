@@ -53,7 +53,7 @@ Mark a script or frame with `data-capell-consent` and the runtime loads it once 
 ></iframe>
 ```
 
-The script keeps its attributes and nonce; `data-type` becomes its `type`. Content added later is activated when it dispatches `capell:content-ready`, and gated content is activated again after a choice. A frame loads only an `http` or `https` address.
+The script keeps its attributes and nonce; `data-type` becomes its `type`. Content added later is activated when it dispatches `capell:content-ready`, and gated content is activated again after a choice. A frame loads only an `http` or `https` address. Until it loads, the runtime hides the empty frame and shows a short notice before it (`[data-capell-consent-placeholder]`, `role="note"`, in the page's language); when a consent manager is installed the notice also carries a button that opens its choices panel.
 
 ## Defaults when no consent manager is installed
 

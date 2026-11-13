@@ -21,6 +21,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Fixtures\Policies\RolePolicy;
 use Capell\Tests\Support\IsolatedTestbenchSkeleton;
 use Capell\Tests\Support\PackageTestDatabaseGuard;
+use Capell\Tests\Support\WorkerCompiledViewPath;
 use Filament\SpatieLaravelSettingsPluginServiceProvider;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
@@ -96,7 +97,7 @@ abstract class AbstractTestCase extends TestCase
         $this->ignoreDeprecatedPdoMysqlConstants();
 
         if (getenv('TEST_TOKEN')) {
-            putenv('VIEW_COMPILED_PATH=storage/framework/views/phpunit-' . $this->getPackageServiceName() . '-parallel-' . getenv('TEST_TOKEN') . '-' . getmypid());
+            WorkerCompiledViewPath::apply('storage/framework/views/phpunit-' . $this->getPackageServiceName() . '-parallel-' . getenv('TEST_TOKEN') . '-' . getmypid());
         }
 
         $this->clearTestbenchConfigCacheFile();

@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Actions\FirstRun\AttachGuidedSetupLogoAction;
+use Capell\Core\Actions\FirstRun\BuildGuidedSetupSpecAction;
 use Capell\Core\Actions\FirstRun\CompleteGuidedSetupAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
@@ -203,6 +204,8 @@ class GuidedSetup extends FilamentPage
             'themeKey' => null,
             'primaryColour' => null,
             'pageSlugs' => [],
+            // The person setting up the site is the safest first guess for where enquiries should go.
+            'contactEmail' => is_string(data_get($actor, 'email')) ? data_get($actor, 'email') : null,
         ]);
         $this->selectAllPages();
     }
@@ -272,6 +275,15 @@ class GuidedSetup extends FilamentPage
                         ->label(__('capell-admin::setup.step_review'))
                         ->schema([
                             Text::make(fn (): string => $this->reviewBody()),
+                            Text::make(fn (): string => $this->contactFormPreview())
+                                ->visible(fn (): bool => $this->contactFormPreview() !== ''),
+                            TextInput::make('contactEmail')
+                                ->label(__('capell-admin::setup.contact_email'))
+                                ->helperText(__('capell-admin::setup.contact_email_help'))
+                                ->email()
+                                ->maxLength(255)
+                                ->visible(fn (): bool => $this->createsContactForm())
+                                ->required(fn (): bool => $this->createsContactForm()),
                         ]),
                 ])
                     ->submitAction(Action::make('createPages')
@@ -483,14 +495,57 @@ class GuidedSetup extends FilamentPage
 
     public function reviewBody(): string
     {
-        $appliers = resolve(SiteSpecApplierRegistry::class);
-        $extras = ($appliers->has('navigation') ? __('capell-admin::setup.review_extra_menu') : '')
-            . ($appliers->has('forms') && $this->presetHasForm() ? __('capell-admin::setup.review_extra_form') : '');
+        $menu = resolve(SiteSpecApplierRegistry::class)->has('navigation');
+        $form = $this->createsContactForm();
+        $count = ['count' => count($this->selectedSlugs())];
 
-        return (string) __('capell-admin::setup.review_body', [
-            'count' => count($this->selectedSlugs()),
-            'extras' => $extras,
-        ]);
+        return (string) match (true) {
+            $menu && $form => __('capell-admin::setup.review_body_menu_form', $count),
+            $menu => __('capell-admin::setup.review_body_menu', $count),
+            $form => __('capell-admin::setup.review_body_form', $count),
+            default => __('capell-admin::setup.review_body', $count),
+        };
+    }
+
+    /** Whether setup will create a contact form: the Form Builder extension is installed and a chosen page holds the preset's form. */
+    public function createsContactForm(): bool
+    {
+        return $this->contactForm() !== null;
+    }
+
+    /**
+     * What the contact form will ask visitors, so the person can check it before anything is created.
+     * Empty when setup creates no contact form or the form has no labelled fields.
+     */
+    public function contactFormPreview(): string
+    {
+        $form = $this->contactForm();
+
+        if ($form === null) {
+            return '';
+        }
+
+        $labels = [];
+
+        foreach (is_array($form['fields'] ?? null) ? $form['fields'] : [] as $field) {
+            if (is_array($field) && is_string($field['label'] ?? null) && trim($field['label']) !== '') {
+                $labels[] = trim($field['label']);
+            }
+        }
+
+        if ($labels === []) {
+            return '';
+        }
+
+        $page = is_string($form['placeOnPage'] ?? null) ? ($this->pageOptions()[$form['placeOnPage']] ?? $form['placeOnPage']) : null;
+
+        $fields = implode(', ', $labels);
+
+        if ($page === null) {
+            return (string) __('capell-admin::setup.contact_form_preview', ['fields' => $fields]);
+        }
+
+        return (string) __('capell-admin::setup.contact_form_preview_on_page', ['page' => $page, 'fields' => $fields]);
     }
 
     /** @return array<Action> */
@@ -506,9 +561,29 @@ class GuidedSetup extends FilamentPage
         ];
     }
 
-    private function presetHasForm(): bool
+    /**
+     * The preset's first contact form that setup will create, or null when the Form Builder
+     * extension is not installed or the page the form goes on was not chosen.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function contactForm(): ?array
     {
-        return isset($this->selectedPreset()?->spec['packageData']['forms']);
+        if (! resolve(SiteSpecApplierRegistry::class)->has(BuildGuidedSetupSpecAction::FORMS_KEY)) {
+            return null;
+        }
+
+        $forms = $this->selectedPreset()?->spec['packageData'][BuildGuidedSetupSpecAction::FORMS_KEY] ?? [];
+
+        foreach (is_array($forms) ? $forms : [] as $form) {
+            $page = is_array($form) ? ($form['placeOnPage'] ?? null) : null;
+
+            if (is_array($form) && (! is_string($page) || in_array($page, $this->selectedSlugs(), true))) {
+                return $form;
+            }
+        }
+
+        return null;
     }
 
     private function finish(Site $site, int $pageCount): void
@@ -550,6 +625,7 @@ class GuidedSetup extends FilamentPage
             themeKey: filled($state['themeKey'] ?? null) ? (string) $state['themeKey'] : null,
             primaryColour: filled($state['primaryColour'] ?? null) ? (string) $state['primaryColour'] : null,
             pageSlugs: array_values(array_map(strval(...), (array) ($state['pageSlugs'] ?? []))),
+            contactEmail: $this->createsContactForm() && filled($state['contactEmail'] ?? null) ? (string) $state['contactEmail'] : null,
         );
     }
 

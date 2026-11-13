@@ -13,7 +13,7 @@ The operations surface brings the pre-deployment checks together: Site Health re
 | Back up or restore data                              | [Backups and restore](backups.md)                        |
 | Block public traffic during an incident              | [Lockdown](lockdown.md)                                  |
 | Upgrade packages and plan rollback                   | [Upgrades](upgrading.md)                                 |
-| Review security weaknesses                          | [Security weakness scans](security-weaknesses.md)          |
+| Review security weaknesses                           | [Security weakness scans](security-weaknesses.md)        |
 | Diagnose an installed site                           | [Troubleshooting](troubleshooting.md)                    |
 | Debug Marketplace connection or installs             | [Debugging Marketplace](debugging-marketplace.md)        |
 | Prepare a host for Marketplace operations            | [Marketplace hosting](marketplace-hosting.md)            |
@@ -66,6 +66,8 @@ Lockdown blocks public frontend traffic and most admin access during a suspected
 After enabling or disabling Lockdown, clear runtime caches and verify public routes from a signed-out browser. The [Lockdown runbook](lockdown.md) covers enable/disable commands, break-glass access, and verification steps.
 
 ## Upgrades
+
+Check the [support window and LTS policy](support-policy.md) for the Foundation line, security coverage and upgrade commitments before planning maintenance.
 
 Standard host upgrade flow:
 
