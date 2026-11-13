@@ -132,7 +132,15 @@ it('scans only a newly registered widget source after initial discovery', functi
 });
 
 it('registerDiscoverableWidgets silently skips a non-existent directory', function (): void {
+    $discovery = new WidgetDiscovery(new Filesystem);
+    $discovery->registerDiscoverableWidgets('/non/existent/path', 'App\\Widgets');
+
+    expect($discovery->registeredWidgets())->toBeEmpty()
+        ->and($discovery->filamentWidgets())->toBeEmpty();
+
     CapellAdmin::registerDiscoverableWidgets('/non/existent/path', 'App\\Widgets');
 
-    expect(fn (): array => CapellAdmin::getFilamentWidgets())->not->toThrow(Throwable::class);
+    $widgetNames = array_map(fn (Block $widget): string => $widget->getName(), CapellAdmin::getFilamentWidgets());
+
+    expect($widgetNames)->toContain('content', 'cards');
 });

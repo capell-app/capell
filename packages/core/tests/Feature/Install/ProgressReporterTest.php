@@ -181,7 +181,13 @@ it('FileCacheStoreDirectory retries cache-sensitive callbacks after missing dire
 it('NullProgressReporter discards all output without error', function (): void {
     $reporter = new NullProgressReporter;
 
-    expect(fn () => $reporter->step('x'))->not->toThrow(Throwable::class);
-    expect(fn () => $reporter->report('x'))->not->toThrow(Throwable::class);
-    expect(fn () => $reporter->error('x'))->not->toThrow(Throwable::class);
+    ob_start();
+    $reporter->step('x');
+    $reporter->report('x');
+    $reporter->error('x');
+
+    $output = (string) ob_get_clean();
+
+    expect($output)->toBe('')
+        ->and(Cache::get('capell.install.x.output'))->toBeNull();
 });
