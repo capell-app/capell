@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Pages;
 
+use Capell\Admin\Actions\FirstRun\BuildGuidedSetupPreviewAction;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Actions\FirstRun\AttachGuidedSetupLogoAction;
 use Capell\Core\Actions\FirstRun\BuildGuidedSetupSpecAction;
@@ -44,7 +45,6 @@ use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Override;
@@ -464,33 +464,28 @@ class GuidedSetup extends FilamentPage
         return $descriptions;
     }
 
-    /**
-     * What the preview sketch shows, from the answers so far.
-     *
-     * @return array{name: string, tagline: string, colour: string, menu: list<string>, intro: string}
-     */
-    public function previewData(): array
+    /** The frame gets only rendered site content, never a Livewire snapshot or an editor URL. */
+    public function previewHtml(): string
     {
         $preset = $this->selectedPreset();
-        $options = $this->pageOptions();
-        $chosen = array_values(array_unique(['home', ...array_map(strval(...), (array) ($this->data['pageSlugs'] ?? []))]));
-        $intro = '';
 
-        foreach ($preset instanceof SiteSpecPresetData ? $preset->spec['pages'] ?? [] : [] as $page) {
-            if (is_array($page) && ($page['slug'] ?? null) === 'home') {
-                $intro = (string) data_get($page, 'sections.0.content', '');
-            }
+        if (! $preset instanceof SiteSpecPresetData) {
+            return '';
         }
 
         $colour = (string) ($this->data['primaryColour'] ?? '');
+        $themeKey = (string) ($this->data['themeKey'] ?? '');
+        $theme = $themeKey !== '' ? Theme::query()->where('key', $themeKey)->first() : null;
+        $name = trim((string) ($this->data['siteName'] ?? ''));
 
-        return [
-            'name' => trim((string) ($this->data['siteName'] ?? '')),
-            'tagline' => trim((string) ($this->data['tagline'] ?? '')),
-            'colour' => preg_match('/^#[0-9a-fA-F]{6}$/', $colour) === 1 ? $colour : '',
-            'menu' => array_values(array_filter(array_map(static fn (string $slug): ?string => $options[$slug] ?? null, $chosen))),
-            'intro' => Str::limit(trim(strip_tags($intro)), 220),
-        ];
+        return BuildGuidedSetupPreviewAction::run(new GuidedSetupInputData(
+            presetKey: $preset->key,
+            siteName: $name !== '' ? mb_substr($name, 0, 255) : (string) __('capell-admin::setup.preview_empty_name'),
+            tagline: mb_substr((string) ($this->data['tagline'] ?? ''), 0, 500),
+            themeKey: $theme->key ?? $this->site()->theme?->key,
+            primaryColour: preg_match('/^#[0-9a-fA-F]{6}$/', $colour) === 1 ? $colour : null,
+            pageSlugs: $this->selectedSlugs(),
+        ), $this->site());
     }
 
     public function reviewBody(): string
