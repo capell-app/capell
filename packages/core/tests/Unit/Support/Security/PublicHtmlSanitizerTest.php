@@ -114,14 +114,13 @@ it('removes comment, processing-instruction and CDATA nodes so no markup can hid
         ->not->toMatch('/<img\b[^>]*\bonerror/i')
         ->not->toMatch('/<script\b/i');
 })->with([
+    'unterminated empty comment opener' => ['<!--><img src=x onerror=alert(1)>'],
     'empty comment opener' => ['<!--><img src=x onerror=alert(2)>-->'],
     'three-dash comment opener' => ['<!---><img src=x onerror=alert(2)>-->'],
     'bang close' => ['<!-- x --!><img src=x onerror=alert(2)>-->'],
     'conditional comment' => ['<!--[if IE]><img src=x onerror=alert(2)><![endif]-->'],
-    'downlevel-revealed conditional comment' => ['<![if !IE]><img src=x onerror=alert(2)><![endif]>'],
     'comment wrapping a script' => ['<p>Safe</p><!-- <script>alert(1)</script> -->'],
     'processing instruction' => ['<?xml-stylesheet href="x"?><p>Safe</p><?php echo 1; ?>'],
-    'cdata section' => ['<![CDATA[<img src=x onerror=alert(2)>]]><p>Safe</p>'],
     'comment nested in an unwrapped element' => ['<b><!--><img src=x onerror=alert(2)>--></b>'],
     'comment nested in an allowed element' => ['<p><!--><img src=x onerror=alert(2)>--></p>'],
 ]);
@@ -131,4 +130,31 @@ it('keeps legitimate content around the comments it removes', function (): void 
 
     expect((new PublicHtmlSanitizer)->sanitize($html))
         ->toBe('<h2>Title</h2><p>Body with <a href="https://example.com" rel="nofollow noopener noreferrer" target="_blank">a link</a> &amp; text</p><ul><li>One</li></ul>');
+});
+
+// libxml already parses these declarations into text/elements rather than opaque
+// nodes. These are regression guards, not reproductions of the comment bypass.
+it('keeps declaration parsing regression guards free of executable markup', function (string $payload): void {
+    expect((new PublicHtmlSanitizer)->sanitize($payload))
+        ->not->toContain('onerror')
+        ->not->toContain('<script')
+        ->toContain('<p>Safe</p>');
+})->with([
+    'downlevel-revealed conditional declaration' => ['<![if !IE]><img src=x onerror=alert(2)><![endif]><p>Safe</p>'],
+    'HTML cdata declaration' => ['<![CDATA[<img src=x onerror=alert(2)>]]><p>Safe</p>'],
+]);
+
+it('preserves ordinary markup and text without opaque nodes', function (): void {
+    expect((new PublicHtmlSanitizer)->sanitize('<h2>Title</h2><p>Hello <strong>world</strong> &amp; friends.</p>'))
+        ->toBe('<h2>Title</h2><p>Hello <strong>world</strong> &amp; friends.</p>');
+});
+
+it('sanitises the retained prefix when libxml truncates excessively nested HTML', function (): void {
+    // Without LIBXML_PARSEHUGE, libxml truncates 5000+ nested elements before the
+    // sanitizer walks them. This does not prove that all input nodes were visited.
+    $html = '<p>Retained</p>' . str_repeat('<div>', 5001) . '<p>Beyond parser depth</p>' . str_repeat('</div>', 5001);
+
+    expect((new PublicHtmlSanitizer)->sanitize($html))
+        ->toContain('<p>Retained</p>')
+        ->not->toContain('Beyond parser depth');
 });

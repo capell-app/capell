@@ -14,6 +14,24 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\TextUI\Configuration\Registry;
+use Symfony\Component\Process\Process;
+
+function runVisitTransportProbe(string $mode): Process
+{
+    $configuration = tempnam(dirname(__DIR__, 5) . '/.cache/phpunit', 'visit-config-');
+    throw_if($configuration === false, RuntimeException::class, 'Could not create the subprocess PHPUnit configuration.');
+
+    try {
+        throw_unless(Registry::saveTo($configuration), RuntimeException::class, 'Could not save the subprocess PHPUnit configuration.');
+        $process = new Process([PHP_BINARY, __DIR__ . '/../../fixtures/http/visit-transport.php', $mode, $configuration]);
+        $process->setTimeout(60)->run();
+
+        return $process;
+    } finally {
+        unlink($configuration);
+    }
+}
 
 it('rejects localhost URLs before issuing an HTTP request', function (): void {
     Http::fake();
@@ -223,3 +241,32 @@ it('stops a visit whose page is larger than the download limit and says so', fun
     expect(fn () => VisitUrlAction::run('https://93.184.216.38/large'))
         ->toThrow(UrlVisitFailedException::class, __('capell-core::message.visit_response_too_large'));
 });
+
+it('refuses visits clearly when DNS pinning is unavailable', function (): void {
+    $process = runVisitTransportProbe('no-pin');
+
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput() . $process->getOutput());
+    $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+    expect($result['sent'])->toBe(0)
+        ->and($result['error'])->toContain('DNS pinning')
+        ->and($result['pin'])->toBeNull();
+});
+
+it('checks AAAA answers and pins visits to IPv6-only site domains', function (string $mode, bool $allowed): void {
+    $process = runVisitTransportProbe($mode);
+
+    expect($process->getExitCode())->toBe(0, $process->getErrorOutput() . $process->getOutput());
+    $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+
+    if ($allowed) {
+        expect($result)->toBe([
+            'error' => null,
+            'sent' => 1,
+            'pin' => ['ipv6-only.example.test:443:[2606:2800:220:1:248:1893:25c8:1946]'],
+        ]);
+    } else {
+        expect($result['sent'])->toBe(0)
+            ->and($result['error'])->toContain('public IP address')
+            ->and($result['pin'])->toBeNull();
+    }
+})->with(['public AAAA' => ['public-ipv6', true], 'private AAAA' => ['private-ipv6', false]]);

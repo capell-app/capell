@@ -30,6 +30,8 @@ final class OutboundRequestRefusedException extends RuntimeException
 
     public const string REASON_CREDENTIALS = 'credentials';
 
+    public const string REASON_PINNING = 'pinning';
+
     private function __construct(string $message, public readonly string $reason, ?Throwable $previous = null)
     {
         parent::__construct($message, previous: $previous);

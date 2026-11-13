@@ -65,6 +65,7 @@ class VisitUrlAction implements ShouldBeUnique
                 OutboundRequestRefusedException::REASON_SCHEME, OutboundRequestRefusedException::REASON_PORT => __('capell-core::message.visit_requires_standard_port'),
                 OutboundRequestRefusedException::REASON_SIZE => __('capell-core::message.visit_response_too_large'),
                 OutboundRequestRefusedException::REASON_CREDENTIALS => __('capell-core::message.visit_must_not_contain_credentials'),
+                OutboundRequestRefusedException::REASON_PINNING => __('capell-core::message.visit_requires_dns_pinning'),
                 default => __('capell-core::message.visit_requires_public_address'),
             });
         }

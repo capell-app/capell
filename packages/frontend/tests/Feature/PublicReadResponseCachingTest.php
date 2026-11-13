@@ -167,7 +167,7 @@ it('gives browsers an explicit lifetime when only shared caches were given one',
         ->and($directives['max-age'])->toBeLessThanOrEqual(120);
 });
 
-it('never answers a no-store preview response with 304, whatever validators the client sends', function (Closure $conditionalHeaders): void {
+it('never answers a no-store preview response with 304, whatever validators the client sends', function (Closure $conditionalHeaders, string $query): void {
     responseCachingRules();
     Route::get('/response-caching-preview', static function (): ResponseFactory|Response {
         resolve(PublicPageReadEligibilityRegistry::class)->allowsMany([new PublicPageReadCandidateData(url: 'https://example.test/draft', siteId: 7)]);
@@ -179,14 +179,15 @@ it('never answers a no-store preview response with 304, whatever validators the 
         ]);
     });
 
-    $first = $this->get('/response-caching-preview?token=preview-token')->assertOk();
-    $repeat = $this->get('/response-caching-preview?token=preview-token', $conditionalHeaders($first));
+    $first = $this->get('/response-caching-preview?' . $query)->assertOk();
+    $repeat = $this->get('/response-caching-preview?' . $query, $conditionalHeaders($first));
 
     $repeat->assertOk();
     expect($repeat->getContent())->toBe('{"draft":true}')
         ->and($first->headers->get('ETag'))->toBeNull()
-        ->and(responseCachingDirectives((string) $repeat->headers->get('Cache-Control')))->toHaveKey('no-store');
+        ->and(responseCachingDirectives((string) $repeat->headers->get('Cache-Control')))->toHaveKey('no-store')
+        ->and(responseCachingDirectives((string) $repeat->headers->get('Cache-Control')))->toHaveKey('private');
 })->with([
     'If-None-Match wildcard' => [static fn (TestResponse $first): array => ['If-None-Match' => '*']],
     'If-Modified-Since after the last change' => [static fn (TestResponse $first): array => ['If-Modified-Since' => CarbonImmutable::now()->toRfc7231String()]],
-]);
+])->with(['preview' => 'preview=1', 'token read' => 'token=preview-token']);

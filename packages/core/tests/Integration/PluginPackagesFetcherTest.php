@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Contracts\Security\ResolvesHostAddresses;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 
@@ -266,4 +268,29 @@ it('stops a catalogue response at the one megabyte limit through the guarded cli
     Http::fake(['*' => Http::response(str_repeat('a', 1048577))]);
 
     expect(resolve(PluginPackagesFetcher::class)->fetch(force: true))->toHaveCount(0);
+});
+
+it('pins every catalogue page to the vetted public address at the transport boundary', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.example.com/extensions', 'capell.disable_cache' => true]);
+    app()->instance(ResolvesHostAddresses::class, new readonly class implements ResolvesHostAddresses
+    {
+        #[Override]
+        public function resolve(string $host): array
+        {
+            return ['93.184.216.34'];
+        }
+    });
+    $pins = [];
+    Http::fake(function (Request $request, array $options) use (&$pins): PromiseInterface {
+        $pins[] = $options['curl'][CURLOPT_RESOLVE] ?? null;
+
+        return Http::response(['data' => [['composer_name' => 'vendor/package']], 'meta' => ['last_page' => 2]]);
+    });
+
+    expect(resolve(PluginPackagesFetcher::class)->fetch(force: true))->toHaveCount(2);
+    expect($pins)->toBe([
+        ['catalogue.example.com:443:93.184.216.34'],
+        ['catalogue.example.com:443:93.184.216.34'],
+    ]);
+    Http::assertSentCount(2);
 });
