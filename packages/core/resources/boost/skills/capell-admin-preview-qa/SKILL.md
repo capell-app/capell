@@ -13,7 +13,7 @@ Use this for the page edit screen's preview workflows. Keep the `capell` skill's
 - `Capell\Admin\Filament\Resources\Pages\Actions\PreviewDraftPageHeaderAction` (`previewDraftPage`) shows only for a pending page the editor may view. It opens a signed preview URL in a new tab, issued by `IssuePagePreviewTokenAction`.
 - When `capell-app/filament-peek` is installed, `PeekPagePreviewAction` (`peekPagePreview`) is the "Preview changes" action. On click it calls `CreatePagePreviewSnapshotAction` with the current Livewire form state, stores a snapshot in the cache, and dispatches `open-capell-page-preview-modal` with a temporary signed URL (route `capell-filament-peek.preview`).
 - Layout Builder state that is not yet saved is carried by `StoreLayoutBuilderPreviewStateAction` and `LayoutBuilderPreviewStateData`, per user and page. Saving or resetting the layout must clear it.
-- Peek settings live in `config/capell-filament-peek.php` under `preview`: `cache_store`, `ttl_minutes` (default 15), `max_payload_kb` (default 512), `route_prefix`, `middleware` and the modal device presets.
+- Peek settings live in `config/capell-filament-peek.php` under `preview`: `cache_store`, `ttl_minutes` (default 15), `max_payload_kb` (default 512), `route_prefix`, `middleware` and `modal_device_presets`.
 
 ## Safety rules
 
@@ -51,8 +51,10 @@ Write focused Pest tests for:
 - A successful preview renders the unsaved value without saving it, with private cache headers.
 - Anonymous public responses contain no preview or editor markers.
 
+Admin classes live in `capell-app/admin` and Peek classes in `capell-app/filament-peek`. Run the Peek tests from the checkout that holds that package:
+
 ```bash
-vendor/bin/pest tests/Feature/PagePreviewRouteTest.php
+vendor/bin/pest packages/filament-peek/tests/Feature/PagePreviewRouteTest.php
 ```
 
 Run the single test file for the behaviour you changed. Use browser QA on the real edit page for final confidence.

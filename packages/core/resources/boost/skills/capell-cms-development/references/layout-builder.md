@@ -16,19 +16,18 @@
 
 Canonical package: `capell-app/layout-builder`.
 
-Legacy docs and older apps may call the same mental model Mosaic. In current Capell 4 packages, use `Capell\LayoutBuilder\...` namespaces.
+Use the `Capell\LayoutBuilder\...` namespaces.
 
 ## Tables And Columns
 
 LayoutBuilder adds:
 
-| Table / column       | Purpose                                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `widgets`            | Reusable widget instances. Key columns: `workspace_id`, `name`, `type_id`, `key`, `content`, `meta`, `admin`, `status`.                                            |
-| `widget_assets`      | Ordered content assets for widgets. Scopes by `widget_id`, optional `pageable`, `container`, `occurrence`, and polymorphic `asset`.                                |
-| `sections`           | Reusable/nested content records. Key columns: `workspace_id`, `shadowed_by_workspace_id`, `name`, `type_id`, `site_id`, `meta`, nested-set columns, visible dates. |
-| `layouts.containers` | Ordered container map used by the frontend renderer. Each container owns layout meta and a `widgets` list.                                                         |
-| `layouts.widgets`    | Cached/derived widget key list maintained from containers.                                                                                                         |
+| Table / column       | Purpose                                                                                                                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `widgets`            | Reusable widget instances. Key columns: `workspace_id`, `name`, `blueprint_id`, `key`, `content`, `meta`, `component`, `view_file`, `status`.                                                                                                           |
+| `widget_assets`      | Ordered content assets for widgets. Scopes by `widget_id`, optional `pageable`, `container`, `occurrence`, and polymorphic `asset`.                                                                                                                     |
+| `sections`           | Reusable, nested content records from `capell-app/content-sections` (`Capell\ContentSections\Models\Section`), which LayoutBuilder suggests. Key columns: `workspace_id`, `name`, `blueprint_id`, `site_id`, `meta`, nested-set columns, visible dates. |
+| `layouts.containers` | Ordered container map used by the frontend renderer. Each container owns layout meta and a `widgets` list.                                                                                                                                              |
 
 ## Container Shape
 
@@ -49,13 +48,13 @@ Use stable container keys in seeders. If a layout is shared across many pages, p
 
 ## Creating A Widget
 
-Create a type with `type = widget`, then create a widget with a unique `key`.
+Create a blueprint with `type = widget`, then create a widget with a unique `key`.
 
 ```php
-use Capell\Core\Models\Type;
+use Capell\Core\Models\Blueprint;
 use Capell\LayoutBuilder\Models\Widget;
 
-$type = Type::query()->firstOrCreate(
+$blueprint = Blueprint::query()->firstOrCreate(
     ['type' => 'widget', 'key' => 'feature-grid'],
     ['name' => 'Feature Grid', 'group' => 'marketing', 'status' => true],
 );
@@ -64,14 +63,14 @@ $widget = Widget::query()->updateOrCreate(
     ['key' => 'feature-grid', 'workspace_id' => 0],
     [
         'name' => 'Feature Grid',
-        'type_id' => $type->id,
-        'meta' => ['component' => 'widgets.feature-grid'],
+        'blueprint_id' => $blueprint->id,
+        'component' => 'widgets.feature-grid',
         'status' => true,
     ],
 );
 ```
 
-For Livewire widgets, set `meta.livewire = true` and point `meta.component` at the Livewire component alias/class expected by the package.
+For Livewire widgets, set `is_livewire` and point `component` at the Livewire component alias/class expected by the package.
 
 ## Attaching A Widget To A Layout
 
@@ -116,14 +115,14 @@ Leave `pageable_*` null for global widget assets shared everywhere the widget ap
 
 ## Sections
 
-Sections are reusable content records and can be nested. Create a `Type` with `type = section`, then create a `Section` and its `Translation` rows.
+Sections are reusable content records and can be nested. Create a blueprint with `type = section`, then create a `Section` and its `Translation` rows.
 
 ## Frontend Rendering Path
 
 1. Capell frontend resolves the current `Page` and `Layout`.
 2. LayoutBuilder loops `layout->containers`.
 3. Each container renders its widget references by `widget_key` and `occurrence`.
-4. The widget resolves its component from `widget.meta.component`, then `widget.type.meta.component`, then the package default.
+4. The widget resolves its component from its `component` column, then `meta.component`, then the blueprint's `component`, then the blueprint's `meta.component`, then the package default.
 5. Widget assets are resolved by `widget_id`, `pageable`, `container`, and `occurrence`.
 
 When debugging missing content, check page layout, container key, widget key, occurrence, widget status, component view existence, then page-specific `widget_assets`.

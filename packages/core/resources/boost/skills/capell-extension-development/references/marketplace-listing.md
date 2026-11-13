@@ -7,7 +7,7 @@
 - `marketplace.screenshots`: a list. Each entry needs `path`, `alt` and `caption`. `path` is package-relative with no leading slash, no `..` and no backslashes; `alt` and `caption` are at least 12 characters of descriptive text. Commit every referenced file.
 - Optional `marketplace.problem`, `marketplace.outcome` (at least 12 characters each) and `marketplace.faq` (a list of objects with only `question` and `answer`).
 - `marketplace.hidden` is a boolean that keeps a package out of the catalogue.
-- `product.group`, `product.tier` and `product.bundle` group the listing. `commercial` carries the proposed licence, requested certification, support policy and whether private docs are requested.
+- `product.group` and `product.tier` are required and group the listing; `product.bundle` is optional. `commercial` carries the proposed licence, requested certification, support policy and whether private docs are requested.
 - `documentationUrl` points at documentation that is not in the package.
 
 ## Copy

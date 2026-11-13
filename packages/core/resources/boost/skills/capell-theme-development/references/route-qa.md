@@ -18,6 +18,8 @@ Static renderer or direct Blade output does not prove a theme. Prove it through 
 - Public Blade runs no queries and lazy-loads no relationships.
 - Optional integrations behave both installed and uninstalled.
 
+Preset, registry and token behaviour is usually covered only by unit tests, so a route-level test is normally yours to write: seed a database token override and a stale preset id, request the public URL, and assert the resolved theme, the token output and the fallback. To prove the no-queries rule, run a query listener around the request and assert that rendering the view issues none.
+
 ## Public safety
 
 Fail the check if public output contains any of these:
