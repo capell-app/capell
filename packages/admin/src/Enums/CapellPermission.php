@@ -22,6 +22,7 @@ enum CapellPermission
     case RevertActivityLog;
     case DeleteActivityLog;
     case RollbackPage;
+    case PublishPage;
 
     // NOTE: A `ManagePageWorkflow` (page.workflow.manage) permission was
     // intentionally NOT added here. The editorial workflow ships backend-only:
@@ -57,6 +58,7 @@ enum CapellPermission
             self::RevertActivityLog => 'activity_log.revert',
             self::DeleteActivityLog => 'activity_log.delete',
             self::RollbackPage => 'page.rollback',
+            self::PublishPage => self::shieldPermission('publish', 'Page'),
         };
     }
 
@@ -78,7 +80,8 @@ enum CapellPermission
             self::ExportSite,
             self::RevertActivityLog,
             self::DeleteActivityLog => ['super_admin'],
-            self::RollbackPage => ['editor', 'admin', 'super_admin'],
+            self::RollbackPage,
+            self::PublishPage => ['editor', 'admin', 'super_admin'],
         };
     }
 

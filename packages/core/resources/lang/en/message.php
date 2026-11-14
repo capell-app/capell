@@ -62,4 +62,5 @@ return [
     'site_spec_plan_nothing' => 'Nothing to change: the site already matches this SiteSpec.',
     'site_spec_plan_summary' => 'Plan: :created to create, :updated to update, :skipped unchanged. Nothing was written.',
     'site_spec_site_not_found' => 'No site with the ID :id was found.',
+    'page_review_not_allowed' => 'You cannot do this to the page. Ask someone who can publish it.',
 ];
