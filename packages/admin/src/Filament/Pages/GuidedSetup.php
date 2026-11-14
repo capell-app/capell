@@ -267,7 +267,9 @@ class GuidedSetup extends FilamentPage
                             CheckboxList::make('pageSlugs')
                                 ->label(__('capell-admin::setup.step_pages'))
                                 ->helperText(__('capell-admin::setup.pages_help'))
-                                ->options(fn (): array => $this->pageOptions())
+                                // Home is always created (see the help text), so it is not offered:
+                                // a checkbox for it could only ever look unticked.
+                                ->options(fn (): array => array_diff_key($this->pageOptions(), ['home' => true]))
                                 ->descriptions(fn (): array => $this->pageDescriptions())
                                 ->live(),
                         ]),

@@ -317,6 +317,16 @@ it('keeps the preview usable while answers are incomplete and escapes typed mark
     $page->set('data.presetKey', 'removed-preset')->call('skip')->assertRedirect(CapellDashboard::getUrl());
 });
 
+it('does not offer Home as a checkbox, since it is always created and could only look unticked', function (): void {
+    $this->actingAsAdmin();
+    guidedSetupSite();
+
+    Livewire::test(GuidedSetup::class)
+        ->assertSeeHtml('value="about"')
+        ->assertDontSeeHtml('value="home"')
+        ->assertSee(__('capell-admin::setup.pages_help'));
+});
+
 it('lists the pages of the chosen page set, all ticked, and follows a change of set', function (): void {
     $this->actingAsAdmin();
     guidedSetupSite();
