@@ -1,4 +1,5 @@
 {
+    "$schema": "https://capell.app/schema/capell-manifest-v3.schema.json",
     "manifest-version": 3,
     "name": "{{ packageName }}",
     "slug": "{{ slug }}",
@@ -59,7 +60,7 @@
     },
     "healthChecks": [],
     "commercial": {
-        "proposedLicense": "{{ tier }}",
+        "proposedLicense": "{{ proposedLicense }}",
         "requestedCertification": "community",
         "supportPolicy": "community",
         "privateDocsRequested": false

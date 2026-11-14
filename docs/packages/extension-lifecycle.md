@@ -107,6 +107,8 @@ Keep the Composer-discovered provider safe. It can publish metadata, but it shou
     "permissions": [],
     "capabilities": [],
     "performance": {
+        "frontendRenderBudgetMs": 50,
+        "adminQueryBudget": 25,
         "cacheTags": [],
         "cacheSafety": {
             "cacheable": false,
@@ -229,21 +231,21 @@ When a Marketplace install or update fails verification for the extension or for
 
 In the CLI, a refusal reports the package, the first failure and the next action. In Admin, the installation failure reports the same reason and next action; ask the server administrator or extension author to correct it before retrying. A failed install is recorded as failed; an enable refusal leaves the existing state in place.
 
-| Failure code | Author or administrator action |
-| --- | --- |
-| `not_installed` | Install the intended Composer package and retry. |
-| `version_outside_constraint` | Install a release matching the requested constraint. |
-| `not_an_upgrade` | Select a release newer than the previous version. |
-| `composer_plugin` | Remove the plugin declaration or have the administrator review and explicitly allow it. |
-| `manifest_missing` | Include `capell.json` in the distributed package and reinstall it. |
-| `manifest_invalid` | Correct the manifest against the version 3 contract and reinstall it. |
-| `manifest_identity_mismatch` | Make the manifest name and requested slug match the intended extension. |
-| `autoload_escapes_package` | Point every autoload entry to an existing path inside the package. |
-| `provider_file_missing` | Include the declared provider, contribution or health-check class at its PSR-4 path. |
-| `checksum_missing` | Supply the expected distribution checksum through a trusted package source. |
-| `content_hash_mismatch` | Obtain the intended release from a trusted source and resolve the content mismatch. |
-| `content_hash_unreadable` | Check that the package contains readable regular files and no symbolic links. |
-| `checksum_mismatch` | Obtain the intended distribution from a trusted source and resolve the checksum mismatch before retrying. |
+| Failure code                 | Author or administrator action                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `not_installed`              | Install the intended Composer package and retry.                                                          |
+| `version_outside_constraint` | Install a release matching the requested constraint.                                                      |
+| `not_an_upgrade`             | Select a release newer than the previous version.                                                         |
+| `composer_plugin`            | Remove the plugin declaration or have the administrator review and explicitly allow it.                   |
+| `manifest_missing`           | Include `capell.json` in the distributed package and reinstall it.                                        |
+| `manifest_invalid`           | Correct the manifest against the version 3 contract and reinstall it.                                     |
+| `manifest_identity_mismatch` | Make the manifest name and requested slug match the intended extension.                                   |
+| `autoload_escapes_package`   | Point every autoload entry to an existing path inside the package.                                        |
+| `provider_file_missing`      | Include the declared provider, contribution or health-check class at its PSR-4 path.                      |
+| `checksum_missing`           | Supply the expected distribution checksum through a trusted package source.                               |
+| `content_hash_mismatch`      | Obtain the intended release from a trusted source and resolve the content mismatch.                       |
+| `content_hash_unreadable`    | Check that the package contains readable regular files and no symbolic links.                             |
+| `checksum_mismatch`          | Obtain the intended distribution from a trusted source and resolve the checksum mismatch before retrying. |
 
 ## Uninstall Flow
 

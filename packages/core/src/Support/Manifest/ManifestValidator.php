@@ -67,6 +67,7 @@ final class ManifestValidator
 
     /** @var list<string> */
     private const array VALID_ROOT_FIELDS = [
+        ManifestVocabulary::SCHEMA_KEY,
         'manifest-version',
         'name',
         'slug',
@@ -113,15 +114,20 @@ final class ManifestValidator
 
     private readonly ManifestValidationRules $rules;
 
-    /** @var list<ManifestSectionValidator> */
-    private readonly array $sectionValidators;
+    /** @var list<ManifestSectionValidator> Run before the health check declarations are judged. */
+    private readonly array $sectionValidatorsBeforeHealthChecks;
+
+    /** @var list<ManifestSectionValidator> Run after the health check declarations are judged. */
+    private readonly array $sectionValidatorsAfterHealthChecks;
 
     public function __construct()
     {
         $this->rules = new ManifestValidationRules;
-        $this->sectionValidators = [
+        $this->sectionValidatorsBeforeHealthChecks = [
             new SecuritySectionValidator($this->rules),
             new PerformanceSectionValidator($this->rules),
+        ];
+        $this->sectionValidatorsAfterHealthChecks = [
             new CommercialSectionValidator,
             new MarketplaceSectionValidator($this->rules),
             new CapabilityContractsSectionValidator,
@@ -240,13 +246,16 @@ final class ManifestValidator
         $this->validateClassList($data['providers'], $namespacePrefixes, $isTrustedCore, ServiceProvider::class);
         $this->validateContributions($data, $namespacePrefixes, $isTrustedCore);
         $this->validateContributionTraceability($data);
-        $this->sectionValidators[0]->validate($data);
-        $this->sectionValidators[1]->validate($data);
+
+        foreach ($this->sectionValidatorsBeforeHealthChecks as $sectionValidator) {
+            $sectionValidator->validate($data);
+        }
+
         $this->validateHealthChecks($data, $namespacePrefixes, $isTrustedCore);
-        $this->sectionValidators[2]->validate($data);
-        $this->sectionValidators[3]->validate($data);
-        $this->sectionValidators[4]->validate($data);
-        $this->sectionValidators[5]->validate($data);
+
+        foreach ($this->sectionValidatorsAfterHealthChecks as $sectionValidator) {
+            $sectionValidator->validate($data);
+        }
     }
 
     /**
@@ -261,6 +270,10 @@ final class ManifestValidator
         }
 
         $this->rules->requiredStrings($data['product'], ['group', 'tier']);
+
+        if (! in_array($data['product']['tier'], ManifestVocabulary::PRODUCT_TIERS, strict: true)) {
+            throw InvalidManifestException::invalidField('product.tier', 'must be one of: ' . implode(', ', ManifestVocabulary::PRODUCT_TIERS));
+        }
     }
 
     /** @param array<string, mixed> $data */

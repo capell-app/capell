@@ -22,6 +22,7 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
+use Capell\Core\Support\Manifest\ManifestVocabulary;
 use Illuminate\Support\ServiceProvider;
 
 beforeAll(function (): void {
@@ -1238,3 +1239,97 @@ it('declares consent purposes in the manifest v3 json schema with the categories
     expect(data_get($schema, 'properties.privacy.properties.purposes.additionalProperties.enum'))
         ->toBe(['functional', 'preferences', 'analytics', 'marketing']);
 });
+
+it('accepts every documented product and commercial value and rejects any other', function (string $path, string $value, bool $accepted): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    data_set($manifest, $path, $value);
+    $problems = (new ManifestValidator)->structureProblems($manifest, manifestV3ComposerJson());
+
+    expect($problems === [])->toBe($accepted);
+
+    if (! $accepted) {
+        expect(array_keys($problems))->toBe([$path]);
+    }
+})->with(function (): Generator {
+    $vocabulary = [
+        'product.tier' => ManifestVocabulary::PRODUCT_TIERS,
+        'commercial.proposedLicense' => ManifestVocabulary::PROPOSED_LICENSES,
+        'commercial.requestedCertification' => ManifestVocabulary::REQUESTED_CERTIFICATIONS,
+        'commercial.supportPolicy' => ManifestVocabulary::SUPPORT_POLICIES,
+    ];
+
+    foreach ($vocabulary as $path => $values) {
+        foreach ($values as $value) {
+            yield $path . ' ' . $value => [$path, $value, true];
+        }
+
+        yield $path . ' invented' => [$path, 'invented', false];
+    }
+});
+
+it('keeps the manifest schema enums identical to the validator vocabulary', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.product.properties.tier.enum'))->toBe(ManifestVocabulary::PRODUCT_TIERS)
+        ->and(data_get($schema, 'properties.commercial.properties.proposedLicense.enum'))->toBe([...ManifestVocabulary::PROPOSED_LICENSES, null])
+        ->and(data_get($schema, 'properties.commercial.properties.requestedCertification.enum'))->toBe([...ManifestVocabulary::REQUESTED_CERTIFICATIONS, null])
+        ->and(data_get($schema, 'properties.commercial.properties.supportPolicy.enum'))->toBe([...ManifestVocabulary::SUPPORT_POLICIES, null])
+        ->and(data_get($schema, 'properties.$schema.type'))->toBe('string');
+});
+
+it('accepts model, settings and event cache invalidation sources and rejects malformed ones', function (array $sources, ?string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['performance']['cacheSafety']['cacheable'] = true;
+    $manifest['performance']['cacheSafety']['invalidationSources'] = $sources;
+    $problems = (new ManifestValidator)->structureProblems($manifest, manifestV3ComposerJson());
+
+    expect($field === null ? $problems : array_keys($problems))->toBe($field === null ? [] : [$field]);
+})->with([
+    'model with events' => [[['model' => 'Vendor\\Example\\Models\\Item', 'events' => ['saved']]], null],
+    'settings class' => [[['settings' => 'Vendor\\Example\\Settings\\ExampleSettings']], null],
+    'event class' => [[['event' => 'Vendor\\Example\\Events\\ItemChanged']], null],
+    'all three shapes' => [[['model' => 'Vendor\\Example\\Models\\Item', 'events' => []], ['settings' => 'S'], ['event' => 'E']], null],
+    'empty settings class' => [[['settings' => '']], 'settings'],
+    'settings beside an event' => [[['settings' => 'S', 'event' => 'E']], 'cacheSafety.invalidationSources.0'],
+    'settings with a stray key' => [[['settings' => 'S', 'note' => 'x']], 'cacheSafety.invalidationSources.0'],
+    'unknown shape' => [[['table' => 'items']], 'cacheSafety.invalidationSources.0'],
+    'model without events' => [[['model' => 'Vendor\\Example\\Models\\Item']], 'events'],
+]);
+
+it('declares the settings and event invalidation sources in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+    $shapes = array_map(
+        static fn (array $shape): array => array_keys($shape['properties']),
+        data_get($schema, 'properties.performance.properties.cacheSafety.properties.invalidationSources.items.oneOf'),
+    );
+
+    expect($shapes)->toBe([['model', 'events'], ['settings'], ['event']]);
+});
+
+it('ignores the schema pointer a manifest may start with', function (): void {
+    $manifest = ['$schema' => 'https://capell.app/schema/capell-manifest-v3.schema.json', ...manifestV3Fixture('valid-premium-package')];
+
+    expect((new ManifestValidator)->structureProblems($manifest, manifestV3ComposerJson()))->toBe([]);
+});
+
+it('runs every registered manifest section validator', function (string $section, string $field): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest[$section] = 'not an object';
+
+    expect(array_keys((new ManifestValidator)->structureProblems($manifest, manifestV3ComposerJson())))->toBe([$field]);
+})->with([
+    'security' => ['security', 'security'],
+    'performance' => ['performance', 'performance'],
+    'commercial' => ['commercial', 'commercial'],
+    'marketplace' => ['marketplace', 'marketplace'],
+    'capability contracts' => ['capabilityContracts', 'capabilityContracts'],
+    'privacy' => ['privacy', 'privacy'],
+]);

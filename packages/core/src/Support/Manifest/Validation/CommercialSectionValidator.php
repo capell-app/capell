@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Manifest\Validation;
 
 use Capell\Core\Contracts\ManifestSectionValidator;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
+use Capell\Core\Support\Manifest\ManifestVocabulary;
 
 final class CommercialSectionValidator implements ManifestSectionValidator
 {
@@ -25,6 +26,20 @@ final class CommercialSectionValidator implements ManifestSectionValidator
 
         if (! array_key_exists('privateDocsRequested', $data['commercial']) || ! is_bool($data['commercial']['privateDocsRequested'])) {
             throw InvalidManifestException::invalidField('commercial.privateDocsRequested', 'must be explicit boolean proposal metadata');
+        }
+
+        $vocabulary = [
+            'proposedLicense' => ManifestVocabulary::PROPOSED_LICENSES,
+            'requestedCertification' => ManifestVocabulary::REQUESTED_CERTIFICATIONS,
+            'supportPolicy' => ManifestVocabulary::SUPPORT_POLICIES,
+        ];
+
+        foreach ($vocabulary as $field => $allowed) {
+            $value = $data['commercial'][$field] ?? null;
+
+            if ($value !== null && ! in_array($value, $allowed, strict: true)) {
+                throw InvalidManifestException::invalidField('commercial.' . $field, 'must be one of: ' . implode(', ', $allowed));
+            }
         }
     }
 }

@@ -52,12 +52,41 @@ final readonly class PerformanceSectionValidator implements ManifestSectionValid
                 throw InvalidManifestException::invalidField('cacheSafety.invalidationSources.' . $index, 'must be an object');
             }
 
-            $this->rules->requiredStrings($source, ['model']);
-            $this->rules->stringList($source, 'events');
+            $this->validateInvalidationSource($source, 'cacheSafety.invalidationSources.' . $index);
         }
 
         if ($cacheSafety['cacheable'] && $cacheSafety['invalidationSources'] === []) {
             throw InvalidManifestException::invalidField('cacheSafety.invalidationSources', 'cacheable frontend surfaces need invalidation metadata');
         }
+    }
+
+    /**
+     * A source is a model with the events that change it, a settings class, or a single event.
+     *
+     * @param  array<string, mixed>  $source
+     */
+    private function validateInvalidationSource(array $source, string $field): void
+    {
+        $shapes = array_values(array_filter(
+            ['model', 'settings', 'event'],
+            static fn (string $key): bool => array_key_exists($key, $source),
+        ));
+
+        if (count($shapes) !== 1) {
+            throw InvalidManifestException::invalidField($field, 'must declare exactly one of model with events, settings or event');
+        }
+
+        if ($shapes[0] === 'model') {
+            $this->rules->requiredStrings($source, ['model']);
+            $this->rules->stringList($source, 'events');
+
+            return;
+        }
+
+        if (array_diff(array_keys($source), $shapes) !== []) {
+            throw InvalidManifestException::invalidField($field, 'a ' . $shapes[0] . ' source takes only the ' . $shapes[0] . ' class');
+        }
+
+        $this->rules->requiredStrings($source, [$shapes[0]]);
     }
 }
