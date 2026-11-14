@@ -267,3 +267,30 @@ function writeLocalThemeManifest(string $contents): void
     $files->ensureDirectoryExists($path);
     $files->put($path . '/theme.json', $contents);
 }
+
+it('maps whole-look preset fields from a local app theme manifest', function (): void {
+    $preset = [
+        'key' => 'editorial',
+        'name' => 'Editorial',
+        'description' => 'Editorial preset.',
+        'previewImage' => '/images/local-test-editorial.jpg',
+        'version' => 2,
+        'typePairing' => 'serif-display',
+        'layout' => ' ',
+        'sectionVariants' => ['hero' => 'split', 'features' => '', 0 => 'ignored', 'cta' => ['nested']],
+    ];
+
+    $definition = resolve(LocalAppThemeDefinitionMapper::class)->fromManifest(localAppThemeManifest(['presets' => [$preset]]));
+
+    expect($definition->presets[0]->version)->toBe(2)
+        ->and($definition->presets[0]->typePairing)->toBe('serif-display')
+        ->and($definition->presets[0]->layout)->toBeNull()
+        ->and($definition->presets[0]->sectionVariants)->toBe(['hero' => 'split']);
+
+    $fallback = resolve(LocalAppThemeDefinitionMapper::class)->fromManifest(localAppThemeManifest([
+        'presets' => [[...$preset, 'version' => 0, 'sectionVariants' => 'split']],
+    ]));
+
+    expect($fallback->presets[0]->version)->toBe(1)
+        ->and($fallback->presets[0]->sectionVariants)->toBe([]);
+});
