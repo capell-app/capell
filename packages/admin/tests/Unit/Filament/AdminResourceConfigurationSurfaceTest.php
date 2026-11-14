@@ -63,7 +63,9 @@ it('hides the technical media columns until an editor turns them on', function (
         ->all();
 
     expect($hidden)->toContain('collection_name', 'mime_type', 'model_type', 'model_id', 'disk')
-        ->and($hidden)->not->toContain('name', 'owner_label', 'usage_count');
+        ->and($hidden)->not->toContain('name')
+        ->and($hidden)->not->toContain('owner_label')
+        ->and($hidden)->not->toContain('usage_count');
 });
 
 it('builds the primary admin resource table surfaces with their expected controls', function (): void {
