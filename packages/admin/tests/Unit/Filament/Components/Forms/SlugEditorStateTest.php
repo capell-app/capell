@@ -7,6 +7,7 @@ use Capell\Admin\Filament\Components\Forms\TitleWithSlugInput;
 use Capell\Admin\Tests\Fixtures\Autoload\SlugEditorClientForTest;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Filament\Schemas\Schema;
+use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
 use Sinnbeck\DomAssertions\Asserts\AssertElement;
 
@@ -105,6 +106,53 @@ it('binds the manual choice to native input and prevents Enter from submitting t
             ->has('x-on:input', 'updateAutoUpdateDisabled($event.target.value)')
             ->has('x-on:keydown.enter.prevent', 'submitModification()');
     });
+});
+
+it('names the permalink controls and returns focus to the edit button after Apply or Cancel', function (): void {
+    $html = mountedSlugEditorForTest()->toHtml();
+
+    new AssertElement($html)->find('input', function (AssertElement $input): void {
+        $input->has('aria-label', __('capell-admin::generic.permalink_input_label'));
+    });
+    new AssertElement($html)->find('button.page-title-with-slug-edit-slug', function (AssertElement $button): void {
+        $button->has('x-ref', 'editButton')
+            ->has('aria-label', __('capell-admin::generic.permalink_action_edit_label'));
+    });
+
+    expect($html)->toContain('returnFocusToEditButton()')
+        ->and(substr_count($html, 'this.returnFocusToEditButton()'))->toBe(2)
+        ->and($html)->toContain('this.$refs.editButton?.focus()');
+});
+
+it('ties a validation error to the permalink input so it is announced', function (): void {
+    $errors = new ViewErrorBag;
+    $errors->put('default', new MessageBag(['data.meta.slug' => ['Use lower-case letters, numbers and hyphens only.']]));
+
+    view()->share('errors', $errors);
+
+    $html = mountedSlugEditorForTest()->toHtml();
+
+    new AssertElement($html)->find('input', function (AssertElement $input): void {
+        $input->has('aria-invalid', 'true');
+    });
+    expect($html)->toMatch('/aria-describedby="([^"]+)-error".*<p\s+id="\1-error"\s+role="alert"/s');
+    new AssertElement($html)->find('p[role="alert"]', function (AssertElement $error): void {
+        $error->containsText('Use lower-case letters, numbers and hyphens only.');
+    });
+});
+
+it('explains an address clash and a badly formatted address in plain words', function (): void {
+    $messages = mountedSlugEditorForTest()->getValidationMessages();
+
+    expect($messages['unique'])->toBe(__('capell-admin::form.slug_taken'))
+        ->and($messages['regex'])->toBe(__('capell-admin::form.slug_format'))
+        ->and($messages['unique'])->toContain('under the same parent')
+        ->and($messages['regex'])->toContain('lower-case letters, numbers and hyphens');
+});
+
+it('shows the locked address helper only when the address cannot be edited', function (): void {
+    expect(mountedSlugEditorForTest(readonly: true)->getHelperText())->toBe(__('capell-admin::form.slug_lock_helper'))
+        ->and(mountedSlugEditorForTest()->getHelperText())->toBeNull();
 });
 
 it('renders a readonly URL without manual input controls', function (): void {

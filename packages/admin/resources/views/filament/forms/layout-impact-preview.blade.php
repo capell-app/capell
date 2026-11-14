@@ -60,7 +60,7 @@
                     </div>
 
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ __('capell-admin::generic.layout_impact_preview_locales_for_page', ['locales' => implode(', ', $page->locales)]) }}
+                        {{ __('capell-admin::generic.layout_impact_preview_locales_for_page', ['locales' => implode(', ', $page->languageLabels())]) }}
                     </p>
 
                     <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -71,7 +71,7 @@
                                 rel="noreferrer"
                                 class="text-primary-600 hover:text-primary-500 dark:text-primary-400"
                             >
-                                {{ $url->locale }}: {{ $url->url }}
+                                {{ $url->languageLabel() }}: {{ $url->url }}
                             </a>
                         @endforeach
 

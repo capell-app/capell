@@ -156,13 +156,17 @@ class TitleWithSlugInput
             ->slugInputBaseUrl($urlHost)
             ->slugInputShowUrl($urlHostVisible)
             ->slugInputSlugLabelPostfix($slugLabelPostfix)
-            ->slugInputHelperText((string) __('capell-admin::form.slug_lock_helper'))
+            ->slugInputHelperText(fn (SlugInput $component): ?string => $component->getReadOnly() ? (string) __('capell-admin::form.slug_lock_helper') : null)
 
             // Default TextInput methods
             ->readOnly($slugIsReadonly)
             ->autocomplete(false)
             ->hiddenLabel()
             ->regex($slugRuleRegex)
+            ->validationMessages([
+                'regex' => (string) __('capell-admin::form.slug_format'),
+                'unique' => (string) __('capell-admin::form.slug_taken'),
+            ])
             ->rules($slugRules)
             ->statePath($slugStatePath)
             ->afterStateUpdated(

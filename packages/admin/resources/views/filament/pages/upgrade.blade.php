@@ -138,7 +138,7 @@
                     {{ __('capell-admin::generic.updates_to_review') }}
                 </h2>
                 <a
-                    href="https://docs.capell.app/upgrading/"
+                    href="https://docs.capell.app/core/platform/upgrade-operations/"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-primary-700 dark:text-primary-300 text-sm font-medium underline-offset-4 hover:underline"

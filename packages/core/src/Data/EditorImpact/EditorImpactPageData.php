@@ -19,4 +19,16 @@ final class EditorImpactPageData extends Data
         public readonly array $locales,
         public readonly array $urls,
     ) {}
+
+    /**
+     * Language names for the pages this item appears on, falling back to the codes when no names are known.
+     *
+     * @return list<string>
+     */
+    public function languageLabels(): array
+    {
+        $labels = array_values(array_unique(array_map(static fn (EditorImpactUrlData $url): string => $url->languageLabel(), $this->urls)));
+
+        return $labels === [] ? $this->locales : $labels;
+    }
 }

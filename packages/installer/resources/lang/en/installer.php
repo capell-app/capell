@@ -36,7 +36,7 @@ return [
     'admin_access_security_title' => 'Credentials stay local',
     'admin_panel_changes_included' => 'Changes included',
     'admin_setup_docs_link' => 'Manual setup guide',
-    'admin_setup_docs_url' => 'https://docs.capell.app/admin-setup/',
+    'admin_setup_docs_url' => 'https://docs.capell.app/core/admin/setup/',
     'already_installed_heading' => 'Capell has been installed',
     'already_installed_message' => 'This site is already marked as installed. Reinstall access is disabled by default to protect your existing data.',
     'back_to_installer' => 'Back to installer',

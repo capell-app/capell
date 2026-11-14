@@ -74,18 +74,31 @@ foreach ($markdownFiles as $markdownFile) {
     }
 }
 
+// In-product help links live in PHP, Blade and config files, outside the markdown the loop above reads.
+$sourceDocsLinkCount = 0;
+
+foreach (collectSourceDocsLinks($repositoryRoot) as [$sourceFile, $lineNumber, $docsUrl]) {
+    $sourceDocsLinkCount++;
+    $problem = sourceDocsLinkProblem($repositoryRoot, $docsUrl, $anchorsByMarkdownFile);
+
+    if ($problem !== null) {
+        $brokenLinks[] = sprintf('%s:%d -> %s (%s)', relativeToRoot($sourceFile, $repositoryRoot), $lineNumber, $docsUrl, $problem);
+    }
+}
+
 $fileCount = count($markdownFiles);
 $brokenCount = count($brokenLinks);
 
 printf(
-    "%d files, %d relative links, %d broken\n",
+    "%d files, %d relative links, %d in-product docs links, %d broken\n",
     $fileCount,
     $relativeLinkCount,
+    $sourceDocsLinkCount,
     $brokenCount,
 );
 
 if ($brokenCount === 0) {
-    fwrite(STDOUT, "All relative documentation links resolve.\n");
+    fwrite(STDOUT, "All relative documentation links and in-product docs links resolve.\n");
 
     exit(0);
 }
@@ -93,7 +106,7 @@ if ($brokenCount === 0) {
 $displayLimit = 50;
 $displayedLinks = array_slice($brokenLinks, 0, $displayLimit);
 
-fwrite(STDERR, "Broken relative documentation links found:\n");
+fwrite(STDERR, "Broken documentation links found:\n");
 
 foreach ($displayedLinks as $brokenLink) {
     fwrite(STDERR, sprintf('- %s%s', $brokenLink, PHP_EOL));
@@ -174,6 +187,95 @@ function recursiveMarkdownFiles(string $directory): array
     }
 
     return $markdownFiles;
+}
+
+/**
+ * Every docs.capell.app link written into product source, with its file and line.
+ *
+ * @return list<array{0: string, 1: int, 2: string}>
+ */
+function collectSourceDocsLinks(string $repositoryRoot): array
+{
+    $links = [];
+
+    foreach (glob($repositoryRoot . '/packages/*', GLOB_ONLYDIR) ?: [] as $packageDirectory) {
+        foreach (['src', 'resources', 'config'] as $sourceDirectory) {
+            $directory = $packageDirectory . '/' . $sourceDirectory;
+
+            if (! is_dir($directory)) {
+                continue;
+            }
+
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+
+            foreach ($iterator as $entry) {
+                if (! $entry instanceof SplFileInfo) {
+                    continue;
+                }
+
+                if (! $entry->isFile()) {
+                    continue;
+                }
+
+                if (! in_array(strtolower($entry->getExtension()), ['php', 'js', 'ts', 'json'], true)) {
+                    continue;
+                }
+
+                $lines = file($entry->getPathname(), FILE_IGNORE_NEW_LINES) ?: [];
+
+                foreach ($lines as $lineIndex => $line) {
+                    if (preg_match_all('#https://docs\.capell\.app/[A-Za-z0-9_./\#-]*#', $line, $matches) < 1) {
+                        continue;
+                    }
+
+                    foreach ($matches[0] as $docsUrl) {
+                        $links[] = [$entry->getPathname(), $lineIndex + 1, rtrim($docsUrl, '.')];
+                    }
+                }
+            }
+        }
+    }
+
+    return $links;
+}
+
+/**
+ * Pages under /core/ are built from this repository's docs directory, so they can be checked here.
+ * Links to other documentation sets cannot be resolved without building the site and are left alone.
+ *
+ * @param  array<string, array<string, true>>  $anchorsByMarkdownFile
+ */
+function sourceDocsLinkProblem(string $repositoryRoot, string $docsUrl, array &$anchorsByMarkdownFile): ?string
+{
+    $path = substr($docsUrl, strlen('https://docs.capell.app'));
+
+    if (! str_starts_with($path, '/core/')) {
+        return null;
+    }
+
+    $anchor = null;
+
+    if (str_contains($path, '#')) {
+        [$path, $anchor] = explode('#', $path, 2);
+    }
+
+    $relative = trim(substr($path, strlen('/core/')), '/');
+
+    foreach ([$relative . '.md', $relative . '/index.md', $relative . '/README.md'] as $candidate) {
+        $markdownFile = $repositoryRoot . '/docs/' . $candidate;
+
+        if (! is_file($markdownFile)) {
+            continue;
+        }
+
+        if ($anchor === null || $anchor === '' || anchorExists($markdownFile, $anchorsByMarkdownFile, $anchor)) {
+            return null;
+        }
+
+        return 'the page has no such heading';
+    }
+
+    return 'no such page in docs/';
 }
 
 function isRelativeLink(string $target): bool
