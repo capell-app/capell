@@ -74,6 +74,26 @@ final class PageModelCache
     }
 
     /**
+     * Prepare a breadcrumb trail without filling the full page-model cache with
+     * partial models. Translation and URL selection match fully hydrated reads.
+     *
+     * @param  Collection<int, Page>  $pages
+     * @return Collection<int, Page>
+     */
+    public function prepareAncestors(Collection $pages, Site $site, Language $language): Collection
+    {
+        HydratePageLanguagesAction::make()->handleMany($pages, [$language]);
+
+        foreach ($pages as $page) {
+            $this->setRequestedRelations($page, $language);
+            $served = $this->applyTranslationFallback($page, $language);
+            $this->injectTransientRelations($page, $site, $language, $served);
+        }
+
+        return $pages;
+    }
+
+    /**
      * Remove the cached entry for a specific model so the next call re-warms it.
      *
      * @param  class-string  $type
@@ -106,17 +126,23 @@ final class PageModelCache
 
         if ($reuseRelations) {
             foreach ($models as $model) {
-                $translation = $model->translations->firstWhere('language_id', $language->id);
-                $url = $model->pageUrls->first(fn (PageUrl $url): bool => (int) $url->language_id === (int) $language->id && $url->type === null && $url->status);
-                // Keep the singular relations detached, as in the individual eager load.
-                $model->setRelation('translation', $translation instanceof Translation ? clone $translation : null);
-                $model->setRelation('pageUrl', $url instanceof PageUrl ? (clone $url)->unsetRelation('pageable') : null);
+                $this->setRequestedRelations($model, $language);
             }
         }
 
         HydratePageLanguagesAction::make()->handleMany($models, [$language]);
 
         return $models->keyBy('id');
+    }
+
+    /** @param Model&Pageable<Model> $model */
+    private function setRequestedRelations(Pageable&Model $model, Language $language): void
+    {
+        $translation = $model->translations->firstWhere('language_id', $language->id);
+        $url = $model->pageUrls->first(fn (PageUrl $url): bool => (int) $url->language_id === (int) $language->id && $url->type === null && $url->status);
+        // Keep the singular relations detached, as in the individual eager load.
+        $model->setRelation('translation', $translation instanceof Translation ? clone $translation : null);
+        $model->setRelation('pageUrl', $url instanceof PageUrl ? (clone $url)->unsetRelation('pageable') : null);
     }
 
     /**
