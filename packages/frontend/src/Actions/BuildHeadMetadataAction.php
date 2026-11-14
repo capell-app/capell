@@ -22,13 +22,14 @@ final class BuildHeadMetadataAction
 
     /**
      * @param  array<int, string>  $robots
-     * @param  array<string, string|array<string, mixed>>  $legacy
+     * @param  array<string, string|array<string, mixed>>  $legacy  values from head hooks and authored tags (such as the SEO Suite), which replace the defaults
      */
-    public function handle(string $title, ?string $description, ?string $url, ?string $siteName, array $robots, bool $isError, array $legacy = []): HeadMetadataData
+    public function handle(string $title, ?string $description, ?string $url, ?string $siteName, array $robots, bool $isError, array $legacy = [], ?string $image = null): HeadMetadataData
     {
         $description = strip_tags($description ?? '');
         $siteName = strip_tags($siteName ?? '');
         $url ??= '';
+        $image = trim($image ?? '');
         $legacyRobots = $legacy['robots'] ?? '';
         unset($legacy['robots']);
         $pageRobots = $isError ? 'noindex' : implode(', ', $robots);
@@ -40,9 +41,10 @@ final class BuildHeadMetadataAction
             'og:type' => 'website',
             'og:url' => $url,
             'og:site_name' => $siteName,
-            'twitter:card' => 'summary',
+            'twitter:card' => $image === '' ? 'summary' : 'summary_large_image',
             'twitter:title' => $title,
             'twitter:description' => $description,
+            ...($image === '' ? [] : ['og:image' => $image, 'twitter:image' => $image]),
             'robots' => $mergedRobots === '' ? 'index, follow' : $mergedRobots,
             'jsonld:WebSite' => ['@type' => 'WebSite', 'name' => $siteName],
             'jsonld:WebPage' => ['@type' => 'WebPage', 'name' => $title, 'description' => $description, 'url' => $url],

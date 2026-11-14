@@ -13,6 +13,7 @@
     use Illuminate\Database\Eloquent\Collection as EloquentCollection;
     use Illuminate\Database\Eloquent\Model;
     use Capell\Frontend\Actions\BuildHeadMetadataAction;
+    use Capell\Frontend\Actions\ResolveHeadImageUrlAction;
     use Capell\Frontend\Actions\ResolvePageCanonicalUrlAction;
     use Capell\Frontend\Actions\ResolvePageRobotsDirectivesAction;
     use Capell\Frontend\Actions\RenderCustomHeadAction;
@@ -197,7 +198,7 @@
         $pageHead = $collector->collect(HeadContentSanitizer::headSnippet(data_get($pageMeta, 'meta_tags')));
         $customHead = $collector->collect(RenderCustomHeadAction::run($title, $description, $keywords));
         $sectionHead = $collector->collect($__env->yieldContent('meta'));
-        $headMetadata = BuildHeadMetadataAction::run($socialTitle, $description, $canonicalUrl, $safeStringAttribute($siteTranslation, 'title'), $robots, Frontend::isError(), $collector->values());
+        $headMetadata = BuildHeadMetadataAction::run($socialTitle, $description, $canonicalUrl, $safeStringAttribute($siteTranslation, 'title'), $robots, Frontend::isError(), $collector->values(), ResolveHeadImageUrlAction::run($page, $site));
     @endphp
     {!! $headOpenHook !!}
     <title>{{ $metaTitle }}</title>

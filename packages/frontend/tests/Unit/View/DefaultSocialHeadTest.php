@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
@@ -189,4 +191,83 @@ it('uses plain text for social titles', function (): void {
     $title = $titles->item(0);
     throw_unless($title instanceof DOMElement, RuntimeException::class, 'Missing title');
     expect($title->getAttribute('content'))->toBe('Example');
+});
+
+/**
+ * @return array<string, string>
+ */
+function renderedShareImageTags(): array
+{
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+    $document = new DOMDocument;
+    @$document->loadHTML($html);
+    $xpath = new DOMXPath($document);
+    $tags = [];
+
+    foreach (['og:image' => 'property', 'twitter:image' => 'name', 'twitter:card' => 'name'] as $key => $attribute) {
+        $nodes = $xpath->query('//meta[@' . $attribute . '="' . $key . '"]') ?: throw new RuntimeException('Invalid XPath');
+        expect($nodes->length)->toBeLessThan(2);
+        $node = $nodes->item(0);
+
+        if ($node instanceof DOMElement) {
+            $tags[$key] = $node->getAttribute('content');
+        }
+    }
+
+    return $tags;
+}
+
+it('shares the page featured image, else the site default image', function (): void {
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Example Site'])->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => 'Example Page'])->create();
+    $siteImage = Media::factory()->model($site)->collection(MediaCollectionEnum::Image)->create();
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation', 'image']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation', 'image']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+
+    expect(renderedShareImageTags())->toBe([
+        'og:image' => $siteImage->getFullUrl(),
+        'twitter:image' => $siteImage->getFullUrl(),
+        'twitter:card' => 'summary_large_image',
+    ]);
+
+    $pageImage = Media::factory()->model($page)->collection(MediaCollectionEnum::Image)->create();
+    $page->load('image');
+
+    expect(renderedShareImageTags())->toMatchArray(['og:image' => $pageImage->getFullUrl(), 'twitter:image' => $pageImage->getFullUrl()]);
+});
+
+it('emits no share image or large card when nothing is hydrated', function (): void {
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Example Site'])->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => 'Example Page'])->create();
+    Media::factory()->model($page)->collection(MediaCollectionEnum::Image)->create();
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+
+    expect(renderedShareImageTags())->toBe(['twitter:card' => 'summary']);
+});
+
+it('lets an SEO head hook replace the default share image', function (): void {
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Example Site'])->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => 'Example Page'])->create();
+    Media::factory()->model($page)->collection(MediaCollectionEnum::Image)->create();
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation', 'image']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+    resolve(RenderHookRegistry::class)->register(RenderHookLocation::HeadClose, fn (): string => '<meta property="og:image" content="https://cdn.example.test/seo-card.png"><meta name="twitter:image" content="https://cdn.example.test/seo-card.png">');
+
+    expect(renderedShareImageTags())->toMatchArray([
+        'og:image' => 'https://cdn.example.test/seo-card.png',
+        'twitter:image' => 'https://cdn.example.test/seo-card.png',
+    ]);
 });
