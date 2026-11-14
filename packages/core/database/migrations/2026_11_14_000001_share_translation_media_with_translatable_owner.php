@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Models\Media;
-use Capell\Core\Models\Translation;
 use Capell\Core\Support\TableName;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Migrations\Migration;
@@ -29,9 +27,9 @@ return new class extends Migration
             return;
         }
 
-        // Class names, not imports: a migration must keep working whatever the models later become.
-        $translationTypes = $this->morphTypes(Translation::class);
-        $mediaTypes = $this->morphTypes(Media::class);
+        // Morph aliases, not imports: a migration must keep working whatever the models later become.
+        $translationTypes = $this->morphTypes('translation');
+        $mediaTypes = $this->morphTypes('media');
         /** @var array<string, array{type: string, id: int, rows: list<array{id: int, uuid: string, fingerprint: string}>}> $owners */
         $owners = [];
 
@@ -120,11 +118,11 @@ return new class extends Migration
     }
 
     /** @return list<string> */
-    private function morphTypes(string $class): array
+    private function morphTypes(string $alias): array
     {
-        $aliases = array_keys(Relation::morphMap(), $class, true);
+        $class = Relation::getMorphedModel($alias);
 
-        return array_values(array_unique([...array_filter($aliases, is_string(...)), $class]));
+        return array_values(array_unique(is_string($class) ? [$alias, $class] : [$alias]));
     }
 
     private function holdsMedia(string $type): bool
