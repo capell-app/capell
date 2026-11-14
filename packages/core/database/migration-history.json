@@ -129,6 +129,14 @@
             "c6c5034d8d5f11c54371c2a502b5b6ae8312ca54917714f537071b3d2876e94d"
         ]
     },
+    "create_capell_ai_provenance_table": {
+        "names": [
+            "2026_11_14_000010_create_capell_ai_provenance_table"
+        ],
+        "sha256": [
+            "472c8a0d9972837982145eff3f205e41826a98dc9a04c476fc620c33a7ec5ef6"
+        ]
+    },
     "create_capell_extension_health_alerts_table": {
         "names": [
             "2026_05_10_190832_27_create_capell_extension_health_alerts_table"
