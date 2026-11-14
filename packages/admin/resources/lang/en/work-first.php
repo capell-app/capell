@@ -10,7 +10,7 @@ return [
     'no_attention' => 'No content issues found by the enabled checks.',
     'public_page_blocked' => 'This page is set to be public but is missing required publishing information.',
     'content_setup' => 'Required publishing information is missing. Review it before publishing.',
-    'reason_blueprint' => 'Missing page blueprint',
+    'reason_blueprint' => 'No page type chosen',
     'reason_layout' => 'Missing page layout',
     'reason_translation' => 'No content translation',
     'reason_url' => 'No active public URL',

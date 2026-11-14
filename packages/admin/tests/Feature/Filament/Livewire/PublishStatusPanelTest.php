@@ -113,6 +113,18 @@ it('unpublishes a live page via the unpublish action', function (): void {
     expect($page->fresh()->isExpired())->toBeTrue();
 });
 
+it('explains the different outcomes of unpublishing and moving a live page back to draft', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create(['visible_from' => now()->subDay(), 'visible_until' => null]);
+
+    $unpublish = panelFor($page)->mountAction('unpublish')->instance()->getMountedAction()?->getModalDescription();
+    $draft = panelFor($page)->mountAction('revertToDraft')->instance()->getMountedAction()?->getModalDescription();
+
+    expect($unpublish)->toBe(__('capell-admin::message.unpublish_page_confirmation'))
+        ->and($draft)->toBe(__('capell-admin::publish_panel.switch_to_draft_confirmation'))
+        ->and($unpublish)->not->toBe($draft);
+});
+
 it('shows unpublish only for live pages', function (): void {
     test()->actingAsAdmin();
     $live = Page::factory()->create(['visible_from' => now()->subDay(), 'visible_until' => null]);

@@ -179,6 +179,6 @@ return [
     'user_who_logged_in' => 'User',
     'verified' => 'Verified',
     'version' => 'Version',
-    'visible_from' => 'Visible From',
-    'visible_until' => 'Visible Until',
+    'visible_from' => 'Publish on',
+    'visible_until' => 'Unpublish on',
 ];

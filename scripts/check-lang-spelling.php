@@ -39,6 +39,23 @@ $reviewedPhrases = [
     'she licenses it', // British third-person verb.
 ];
 $reviewedPattern = '/\b(?:' . implode('|', array_map(static fn (string $phrase): string => preg_quote($phrase, '/'), $reviewedPhrases)) . ')\b/u';
+// Hyphenated Capell package slugs and their class-style names are developer identifiers; an editor-facing value
+// that contains one is a replacement mistake, not copy. Single-word slugs are ordinary English and stay out.
+$packageSlugs = [
+    'access-gate', 'agent-bridge', 'agent-delivery', 'ai-creator', 'ai-orchestrator', 'ai-spend-caps', 'automation-studio',
+    'block-library', 'campaign-studio', 'content-sections', 'customer-portal', 'dashboard-reports', 'demo-kit',
+    'discovery-foundation', 'document-lifecycle', 'email-studio', 'exception-reports', 'extension-cookbook', 'filament-peek',
+    'form-builder', 'frontend-authoring', 'frontend-optimizer', 'ga4-reports', 'html-cache', 'inertia-react-adapter',
+    'inertia-vue-adapter', 'knowledge-base', 'layout-builder', 'live-chat', 'login-audit', 'media-ai',
+    'migration-assistant', 'password-policy', 'privacy-center', 'public-actions', 'publishing-studio', 'record-switcher',
+    'security-analyser', 'seo-suite', 'shopify-commerce', 'site-discovery', 'site-monitor', 'site-stats', 'smart-404',
+    'social-feeds', 'statamic-importer', 'structured-content-library', 'translation-manager', 'url-manager',
+    'voyager-importer', 'welcome-tour', 'wordpress-importer',
+];
+$packageSlugPattern = '/(?<![\w-])(?:' . implode('|', array_map(
+    static fn (string $slug): string => preg_quote($slug, '/') . '|' . preg_quote(str_replace(' ', '', ucwords(str_replace('-', ' ', $slug))), '/'),
+    $packageSlugs,
+)) . ')(?![\w-])/';
 $parser = new ParserFactory()->createForNewestSupportedVersion();
 $finder = new NodeFinder;
 $failures = [];
@@ -84,6 +101,15 @@ foreach ($directories as $directory) {
             $value = (string) preg_replace('/<(code|pre)\b[^>]*>.*?<\/\1\s*>|(`+)[^`]*?\2/is', '', $value);
             $value = (string) preg_replace($reviewedPattern, '', $value);
             $value = (string) preg_replace('/:[a-zA-Z_]\w*/', '', $value);
+
+            // Composer names legitimately carry a slug after capell-app/.
+            $withoutPackageNames = (string) preg_replace('#capell-app/[a-z0-9-]+#', '', $value);
+
+            if (preg_match_all($packageSlugPattern, $withoutPackageNames, $slugMatches) > 0) {
+                foreach ($slugMatches[0] as $match) {
+                    $failures[] = sprintf('%s:%d: "%s" is a package name; write what the person sees instead.', substr($path, strlen($root) + 1), $item->value->getStartLine(), $match);
+                }
+            }
 
             foreach ($spellings as $preferred => $pattern) {
                 if (preg_match_all('/\b(?:' . $pattern . ')\b/i', $value, $matches) === 0) {
