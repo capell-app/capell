@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceSetupMilestones;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildMarketplaceSetupMilestonesPayloadAction
 {
+    use AsFake;
     use AsObject;
 
     /**
