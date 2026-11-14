@@ -6,6 +6,7 @@ use Capell\Core\Actions\BuildPackageCacheAction;
 use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
+use Capell\Core\Data\Extensions\ReleaseDigestMapData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Models\Site;
@@ -1749,6 +1750,33 @@ it('records the failing content-hash comparison on the quarantine', function ():
 
     $record = ExtensionQuarantine::query()->where('composer_name', $name)->firstOrFail();
     expect([$record->failing_comparison, $record->expected_digest, $record->actual_digest])->toBe(['content_sha256', $expected, $actual]);
+});
+
+it('verifies and quarantines against the published digest for the version Composer resolved', function (): void {
+    Notification::fake();
+    recordMarketplaceRollbacks(new RuntimeException('restore failed'));
+    $name = 'vendor/older-resolved';
+    $listingDigest = str_repeat('a', 64);
+    $resolvedDigest = str_repeat('c', 64);
+    $actual = str_repeat('b', 64);
+    $attempt = marketplaceOperationAttempt(['composer_name' => $name, 'extension_slug' => 'older-resolved', 'context' => [
+        'release_content_sha256' => $listingDigest,
+        'release_checksum_version' => '2.0.0',
+        'release_digests' => ['2.0.0' => ['release_content_sha256' => $listingDigest], '1.0.0' => ['release_content_sha256' => $resolvedDigest]],
+    ]]);
+    $issue = new ExtensionVerificationIssueData(ExtensionVerificationIssueData::CONTENT_HASH_MISMATCH, 'mismatch', 'reinstall');
+    VerifyInstalledExtensionAction::shouldRun()
+        ->withArgs(fn (string $composerName, ...$arguments): bool => $composerName === $name
+            && ($arguments[6] ?? null) instanceof ReleaseDigestMapData
+            && $arguments[6]->forInstalledVersion('1.0.0') === ['content_sha256' => $resolvedDigest, 'dist_sha' => null])
+        ->andReturn(new ExtensionVerificationReportData($name, '1.0.0', null, null, false, [$issue], [], CarbonImmutable::now(), comparisons: ['content_sha256'], contentHash: $actual));
+
+    withMarketplaceVerificationTree([], [], function (string $root) use ($attempt): void {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle(marketplaceFixtureComposerRunner($root, [], []));
+    });
+
+    $record = ExtensionQuarantine::query()->where('composer_name', $name)->firstOrFail();
+    expect([$record->failing_comparison, $record->expected_digest, $record->actual_digest])->toBe(['content_sha256', $resolvedDigest, $actual]);
 });
 
 it('quarantines every package whose installed state changed when the lock cannot be parsed', function (): void {

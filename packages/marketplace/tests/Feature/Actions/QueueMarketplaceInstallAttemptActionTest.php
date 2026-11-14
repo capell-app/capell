@@ -301,3 +301,36 @@ it('carries a catalogue checksum through acquisition into the queued attempt', f
         ->and($attempt->context['release_checksum'])->toBe($checksum)
         ->and(ExtensionListingData::fromApiResponse(['slug' => 'old'])->releaseChecksum)->toBeNull();
 });
+
+it('carries the published per-version digest map through acquisition into the queued attempt', function (): void {
+    Queue::fake();
+    config()->set('queue.connections.database.retry_after', 900);
+    $older = str_repeat('c', 64);
+    $listing = ExtensionListingData::fromApiResponse([
+        'slug' => 'digest-map-test', 'name' => 'Digest Map Test', 'composer_name' => 'capell-app/digest-map-test',
+        'kind' => 'tool', 'latest_version' => '2.0.0', 'release_content_sha256' => str_repeat('a', 64),
+        'release_digests' => [
+            '2.0.0' => ['release_content_sha256' => str_repeat('A', 64)],
+            '1.0.0' => ['release_content_sha256' => $older, 'release_checksum' => str_repeat('d', 40)],
+            '0.9.0' => ['release_content_sha256' => 'not-a-hash'],
+        ],
+    ]);
+    $acquisition = CreateExtensionAcquisitionAction::run($listing);
+    $arguments = queueMarketplaceAttemptArguments('digest-map-test');
+    $arguments['listing'] = $listing;
+    $arguments['acquisition'] = $acquisition;
+    $arguments['afterResponse'] = false;
+    $attempt = QueueMarketplaceInstallAttemptAction::run(...$arguments);
+
+    $expected = [
+        '2.0.0' => ['release_content_sha256' => str_repeat('a', 64)],
+        '1.0.0' => ['release_content_sha256' => $older, 'release_checksum' => str_repeat('d', 40)],
+        '0.9.0' => ['release_content_sha256' => 'invalid'],
+    ];
+    expect($listing->releaseDigests)->toBe($expected)
+        ->and($acquisition->releaseDigests)->toBe($expected)
+        // JSON columns (MySQL) may reorder object keys; digests are looked up by version.
+        ->and($attempt->context['release_digests'])->toEqual($expected)
+        ->and(ExtensionListingData::fromApiResponse(['slug' => 'old'])->releaseDigests)->toBeNull()
+        ->and(array_key_exists('release_digests', $listing->metadata))->toBeFalse();
+});
