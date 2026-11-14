@@ -55,6 +55,19 @@ beforeEach(function (): void {
     $registerConfigurators->invoke(CapellAdminPlugin::make());
 });
 
+it('hides the technical media columns until an editor turns them on', function (): void {
+    $table = MediaTable::configure(Table::make(new AdminResourceConfigurationTableLivewire));
+    $hidden = collect($table->getColumns())
+        ->filter(static fn (object $column): bool => $column->isToggledHiddenByDefault())
+        ->keys()
+        ->all();
+
+    expect($hidden)->toContain('collection_name', 'mime_type', 'model_type', 'model_id', 'disk')
+        ->and($hidden)->not->toContain('name')
+        ->and($hidden)->not->toContain('owner_label')
+        ->and($hidden)->not->toContain('usage_count');
+});
+
 it('builds the primary admin resource table surfaces with their expected controls', function (): void {
     assertAdminTableSurface(
         surface: adminTableSurface(MediaTable::class),

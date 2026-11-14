@@ -294,7 +294,7 @@ class MediaTable implements TableConfigurator
                 ->label(__('capell-admin::table.collection'))
                 ->sortable()
                 ->searchable()
-                ->toggleable(),
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('disk')
                 ->label(__('capell-admin::table.storage_disk'))
                 ->sortable()
@@ -303,7 +303,7 @@ class MediaTable implements TableConfigurator
                 ->label(__('capell-admin::table.file_type'))
                 ->sortable()
                 ->searchable()
-                ->toggleable(),
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('size')
                 ->label(__('capell-admin::table.size'))
                 ->alignRight()
@@ -314,13 +314,11 @@ class MediaTable implements TableConfigurator
             TextColumn::make('model_type')
                 ->label(__('capell-admin::table.type'))
                 ->formatStateUsing(fn (?string $state): ?string => $state !== null ? Str::of(class_basename($state))->headline()->toString() : null)
-                ->toggleable(isToggledHiddenByDefault: true)
-                ->toggleable(),
+                ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('model_id')
                 ->label(__('capell-admin::table.record'))
                 ->toggleable(isToggledHiddenByDefault: true)
-                ->alignCenter()
-                ->toggleable(),
+                ->alignCenter(),
             TextColumn::make('owner_label')
                 ->label(__('capell-admin::table.owner'))
                 ->getStateUsing(fn (Media $record): ?string => self::getOwnerLabel($record))
