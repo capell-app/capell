@@ -102,6 +102,8 @@ use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Events\PublicationTransitioned;
 use Capell\Core\Events\PublicReadEligibilityChanged;
 use Capell\Core\Events\ServingCapell;
+use Capell\Core\EventSourcing\Contracts\PageStateContributor;
+use Capell\Core\EventSourcing\Contributors\AiProvenancePageStateContributor;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
@@ -500,6 +502,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen(PublicationTransitioned::class, RecordSitePublishedOnHomePagePublication::class);
         // Sites that were live before go-live dates were recorded.
         $this->app->tag([RecordPublishedSitesUpgradeStep::class], 'capell.upgrade-steps');
+        $this->app->tag([AiProvenancePageStateContributor::class], PageStateContributor::TAG);
 
         return $this;
     }
