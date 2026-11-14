@@ -329,7 +329,8 @@ it('carries the published per-version digest map through acquisition into the qu
     ];
     expect($listing->releaseDigests)->toBe($expected)
         ->and($acquisition->releaseDigests)->toBe($expected)
-        ->and($attempt->context['release_digests'])->toBe($expected)
+        // JSON columns (MySQL) may reorder object keys; digests are looked up by version.
+        ->and($attempt->context['release_digests'])->toEqual($expected)
         ->and(ExtensionListingData::fromApiResponse(['slug' => 'old'])->releaseDigests)->toBeNull()
         ->and(array_key_exists('release_digests', $listing->metadata))->toBeFalse();
 });
