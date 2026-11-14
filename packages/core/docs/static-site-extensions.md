@@ -3,7 +3,7 @@
 > **Who is this for?**
 > Developers adding custom output files (RSS feeds, alternate sitemaps, custom JSON exports) to the static-site export, or transforming the export process itself.
 
-> **TL;DR:** Register a callable with `StaticSiteExtensionRegistry` to inject custom handlers into the static-site generation pipeline. Your handler receives the Site and SiteDomain being exported, plus a callback to mark URLs as processed.
+> **TL;DR:** The HTML Cache package (`capell-app/html-cache`) owns static-site export. Resolve its `StaticSiteExtensionRegistry` from the container and register a callable. Your handler receives the Site and SiteDomain being exported, plus a callback to mark URLs as processed.
 
 ---
 
@@ -24,29 +24,24 @@ Using the registry is preferred over post-export shell scripts because:
 
 ## How it's wired
 
-The registry is a **singleton** accessed via `StaticSiteExtensionRegistry::instance()`. Handlers are registered early (typically in a service provider's `boot()` method) before the static-site generation job runs.
+The registry belongs to the HTML Cache package, so it only exists where that package is installed. The package binds `Capell\HtmlCache\Support\StaticSite\StaticSiteExtensionRegistry` as a singleton. Resolve it from the container inside an installed-package gate, and declare `capell-app/html-cache` in `dependencies.requires` of your `capell.json` so Capell installs it first. Register handlers early, in the `bootInstalledRuntime()` hook of your provider, before the static-site generation job runs.
 
-When `StaticSiteGenerator->process()` executes (invoked by the `StaticSiteExportAction` or related pipeline):
+When `StaticSiteGenerator` runs, it iterates over the registered handlers for each site and domain:
 
-1. **Prepare phase**: `StaticSiteGenerator::processExtensionHandlers()` iterates over all registered handlers.
-2. **Invocation**: Each handler callable is invoked with `($site, $siteDomain, $checkpoint)`.
-3. **Progress**: Your handler calls the checkpoint callback for each URL/file it processes, updating progress.
-4. **Totals**: The count of items your handler processes is added to the total URL count for accurate progress reporting.
+1. **Invocation**: Each handler callable is invoked with `($site, $siteDomain, $checkpoint)`.
+2. **Progress**: Your handler calls the checkpoint callback for each URL it processes, updating progress.
+3. **Totals**: The count of items your handler processes is added to the total URL count for accurate progress reporting.
 
-**File references:**
-
-- Registry definition: `packages/core/src/Support/StaticSite/StaticSiteExtensionRegistry.php`
-- Consumer/invocation: `packages/core/src/Support/StaticSite/StaticSiteGenerator.php`, lines 74–88 (the `processExtensionHandlers()` method)
+Without the HTML Cache package there is no registry, nothing calls your handler, and your extension must not fail: guard the registration so it is skipped when the package is absent.
 
 ## Public API
 
-| Method                                             | Returns                       | Purpose                                           |
-| -------------------------------------------------- | ----------------------------- | ------------------------------------------------- |
-| `instance(): self`                                 | `StaticSiteExtensionRegistry` | Returns the singleton instance                    |
-| `register(string $key, callable $extension): void` | void                          | Registers a handler (no-op if key already exists) |
-| `has(string $key): bool`                           | bool                          | Checks if a key is registered                     |
-| `all(): array`                                     | `array<string, callable>`     | Returns all registered handlers                   |
-| `reset(): void`                                    | void                          | Clears all handlers (testing only)                |
+| Method                                         | Returns                   | Purpose                                                      |
+| ---------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| `register(string $key, callable $handler): void` | void                      | Registers a handler; a second registration of a key replaces the first |
+| `has(string $key): bool`                       | bool                      | Checks if a key is registered                                |
+| `all(): array`                                 | `array<string, callable>` | Returns all registered handlers                              |
+| `clear(): void`                                | void                      | Removes every handler (tests only)                           |
 
 ## Hook contract
 
@@ -75,14 +70,18 @@ namespace App\Providers;
 
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
-use Capell\Core\Support\StaticSite\StaticSiteExtensionRegistry;
+use Capell\HtmlCache\Support\StaticSite\StaticSiteExtensionRegistry;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        StaticSiteExtensionRegistry::instance()->register('feed.xml', function (
+        if (! class_exists(StaticSiteExtensionRegistry::class)) {
+            return;
+        }
+
+        resolve(StaticSiteExtensionRegistry::class)->register('feed.xml', function (
             Site $site,
             SiteDomain $siteDomain,
             \Closure $checkpoint,
@@ -122,6 +121,7 @@ final class AppServiceProvider extends ServiceProvider
 
 ## Gotchas
 
+- **Rejected visits throw**: A visitor accepts absolute HTTP(S) URLs or paths relative to the site domain base, including its path prefix. Anything else throws.
 - **Key naming**: Choose keys that don't collide with built-in exports (e.g., avoid keys that resolve to the same filename as generated page URLs). Consider prefixing with `custom:` or your app name.
 - **Synchronous execution**: Handlers run in the main request/job context. Long-running operations block the entire export job. For expensive operations, consider dispatching to a separate queue or deferring to a post-export step.
 - **Directory/file handling**: The registry does not manage filesystem operations. Your handler must ensure the export directory exists and has write permissions. Consider using Laravel's `Storage` facade or explicitly creating directories.

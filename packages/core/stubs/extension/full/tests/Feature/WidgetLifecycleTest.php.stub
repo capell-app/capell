@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Testing\ExtensionTestHarness;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\LayoutBuilder\Actions\WidgetExtensions\RenderPublicWidgetExtensionAction;
@@ -30,7 +31,7 @@ it('keeps the widget out of the editor, assets and public output until Capell en
 });
 
 it('registers the widget and renders escaped public output once enabled', function (): void {
-    CapellCore::forcePackageInstalled(TestCase::PACKAGE);
+    ExtensionTestHarness::markPackageInstalled(TestCase::PACKAGE);
     RefreshInstalledPackageRuntimeAction::run(CapellCore::getPackage(TestCase::PACKAGE));
 
     $html = renderExampleWidget('<script>alert(1)</script>Launch');

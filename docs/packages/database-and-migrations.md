@@ -2,6 +2,24 @@
 
 Packages own their database tables. Core tables should not grow package-specific columns unless the column is part of a stable extension contract.
 
+## Declare Database Needs In The Manifest
+
+Declare what the package ships in the `database` section of `capell.json`:
+
+```json
+"database": {
+    "migrations": true,
+    "settings": true,
+    "requiredTables": ["example_items"]
+}
+```
+
+- `migrations` is `true` when the package ships migrations in `database/migrations`.
+- `settings` is `true` when the package ships settings migrations.
+- `requiredTables` lists tables the package expects to exist before it runs.
+
+Install previews and the package lifecycle read these flags to show what an install changes, so keep them in step with the files the package ships.
+
 ## Package Migrations
 
 Place normal migrations in `database/migrations`.

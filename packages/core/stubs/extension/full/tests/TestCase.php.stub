@@ -6,6 +6,7 @@ namespace {{ namespace }}\Tests;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Testing\ExtensionTestHarness;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Override;
@@ -48,7 +49,7 @@ abstract class TestCase extends Orchestra
         $app->booted(static function (): void {
             foreach (CapellCore::getPackages()->keys() as $packageName) {
                 if ($packageName !== self::PACKAGE) {
-                    CapellCore::forcePackageInstalled($packageName);
+                    ExtensionTestHarness::markPackageInstalled($packageName);
                 }
             }
         });
