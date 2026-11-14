@@ -65,10 +65,28 @@ final class LocalAppThemeDefinitionMapper
                     description: $preset['description'],
                     previewImage: $preset['previewImage'],
                     values: is_array($preset['values'] ?? null) ? $preset['values'] : [],
+                    version: is_int($preset['version'] ?? null) && $preset['version'] > 0 ? $preset['version'] : 1,
+                    typePairing: $this->optionalString($preset['typePairing'] ?? null),
+                    layout: $this->optionalString($preset['layout'] ?? null),
+                    sectionVariants: $this->stringMap($preset['sectionVariants'] ?? null),
                 );
             })
             ->values()
             ->all();
+    }
+
+    /** @return array<string, string> */
+    private function stringMap(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_filter(
+            $value,
+            static fn (mixed $variant, mixed $section): bool => is_string($section) && is_string($variant) && $variant !== '',
+            ARRAY_FILTER_USE_BOTH,
+        );
     }
 
     /** @return array<int, string> */
