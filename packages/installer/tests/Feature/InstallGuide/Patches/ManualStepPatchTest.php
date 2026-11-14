@@ -29,7 +29,7 @@ it('configures the queue worker manual step', function (): void {
 
     expect($patch->id())->toBe('doc_only_queue_worker')
         ->and($patch->group())->toBe('Manual steps')
-        ->and($patch->label())->toBe('Setup Queue Worker')
+        ->and($patch->label())->toBe('Setup queue worker')
         ->and($patch->description())->toBe('Setup a queue worker to process queued jobs')
         ->and($patch->reason())->toBe('This step requires manual installer using Supervisor or a process manager.')
         ->and($patch->docUrl())->toBe('https://docs.capell.app/operations/troubleshooting/#queue-worker')

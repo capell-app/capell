@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'admin_language_updated' => 'Admin language updated.',
-    'clear_cached' => 'Clear Cache',
+    'clear_cached' => 'Clear cache',
     'created_successfully' => ':name created successfully.',
     'dashboard_customised' => 'Dashboard Filament widgets updated.',
     'detected_cache' => 'Detected stale cache',
@@ -12,7 +12,7 @@ return [
     'detected_cached_pages' => '{1} Detected :count stale cached page|[0,*] Detected :count stale cached pages',
     'others_count' => '(:count others)',
     'page_cache_cleared' => 'Page cache has been deleted successfully',
-    'page_cache_refreshed' => 'Page Cache Refreshed',
+    'page_cache_refreshed' => 'Page cache refreshed',
     'theme_colors_updated' => 'Theme changes applied; rebuild may be needed.',
     'updated_successfully' => ':name updated successfully.',
     'upgrade_summary_cta' => 'Review upgrades',

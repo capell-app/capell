@@ -18,9 +18,9 @@ return [
     'navigations' => 'Navigations',
     'none' => 'None',
     'pages' => 'Pages',
-    'seo_settings' => 'SEO Settings',
+    'seo_settings' => 'SEO settings',
     'settings' => 'Settings',
     'siblings' => 'Siblings',
-    'site_domains' => 'Site Domains',
+    'site_domains' => 'Site domains',
     'urls' => 'URLs',
 ];

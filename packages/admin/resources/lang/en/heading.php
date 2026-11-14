@@ -32,7 +32,7 @@ return [
     'page_not_found' => 'Missing pages',
     'page_siblings' => 'Other pages under :parent',
     'page_layout_element_asset' => 'Page Layout Element Asset: :name',
-    'related_pages' => 'Related Pages',
+    'related_pages' => 'Related pages',
     'settings' => 'Settings',
     'site_type' => 'Site type',
     'stale_drafts' => 'Stale drafts',

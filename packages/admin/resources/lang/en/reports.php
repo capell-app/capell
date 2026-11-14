@@ -20,7 +20,7 @@ return [
     'category_structure' => 'Structure',
     'category_workflow' => 'Workflow',
 
-    'accessibility_readiness_label' => 'Accessibility Readiness',
+    'accessibility_readiness_label' => 'Accessibility readiness',
     'accessibility_readiness_description' => 'Find required-language content, localized media metadata, decorative intent, and localized URL gaps before publishing.',
     'empty_state_accessibility_readiness' => 'Required translations, localized media metadata, decorative intent, and URLs are complete.',
     'accessibility_metric_pages' => 'Pages checked',
@@ -43,7 +43,7 @@ return [
     'accessibility_media_field_caption' => 'caption',
     'accessibility_media_field_credit' => 'credit',
 
-    'publishing_readiness_label' => 'Publishing Readiness',
+    'publishing_readiness_label' => 'Publishing readiness',
     'publishing_readiness_description' => 'List content that is close to launch but still blocked by schedules, missing translations, disabled URLs, workflow state, or required fields.',
     'publishing_readiness_current_state' => 'Current state',
     'publishing_readiness_blockers' => 'Publishing blockers',
@@ -87,7 +87,7 @@ return [
     'publishing_readiness_disabled_url_title' => ':language URL is disabled',
     'publishing_readiness_disabled_url_description' => 'This page has a :language URL record, but no active public URL is available for that language.',
 
-    'demo_install_health_label' => 'Demo / Install Health',
+    'demo_install_health_label' => 'Demo / install health',
     'demo_install_health_description' => 'Check whether a fresh or demo install has the expected sites, languages, domains, pages, layouts, settings, and package surfaces.',
     'empty_state_demo_install_health' => 'No demo or install setup issues have been reported.',
     'demo_install_health_metric_sites' => 'Sites',
@@ -121,7 +121,7 @@ return [
     'demo_install_health_schema_probe_remediation' => 'Restore database connectivity, then rerun this report.',
     'demo_install_health_settings_rows_remediation' => 'Rerun php artisan capell:install so settings defaults are published.',
 
-    'package_readiness_label' => 'Package Readiness',
+    'package_readiness_label' => 'Package readiness',
     'package_readiness_description' => 'Check installed package manifests, migrations, frontend asset declarations, settings schemas, Marketplace metadata, and public render safety status.',
     'empty_state_package_readiness' => 'All package readiness checks are clear.',
     'package_readiness_metric_packages_checked' => 'Packages checked',
@@ -160,7 +160,7 @@ return [
     'package_readiness_public_render_failed' => 'Latest attributed public render contract check failed. Matched: :matched.',
     'package_readiness_public_render_passed' => 'Latest attributed public render contract check passed.',
 
-    'public_render_safety_label' => 'Public Render Safety',
+    'public_render_safety_label' => 'Public render safety',
     'public_render_safety_description' => 'Review recent public render contract failures without exposing raw HTML, signed URLs, request cookies, or user-specific payloads.',
     'empty_state_public_render_safety' => 'No public render safety failures have been reported.',
     'public_render_safety_table_missing_title' => 'Render diagnostics table is missing',

@@ -19,8 +19,8 @@ return [
     'unauthorized_headline' => 'Please sign in to continue',
     'unauthorized_description' => 'You need to be signed in to view this page.',
 
-    'payment_required_title' => 'Payment Required',
-    'payment_required_message' => 'Payment Required',
+    'payment_required_title' => 'Payment required',
+    'payment_required_message' => 'Payment required',
     'payment_required_headline' => 'Payment required',
     'payment_required_description' => 'Access to this page requires an active subscription or payment.',
 
@@ -29,28 +29,28 @@ return [
     'forbidden_headline' => 'You don’t have access to this page',
     'forbidden_description' => 'You don’t have permission to view this page. If you think this is a mistake, please contact your administrator.',
 
-    'not_found_title' => 'Not Found',
-    'not_found_message' => 'Not Found',
+    'not_found_title' => 'Not found',
+    'not_found_message' => 'Not found',
     'not_found_headline' => 'We can’t find that page',
     'not_found_description' => 'The page you’re looking for may have moved or no longer exists.',
 
-    'page_expired_title' => 'Page Expired',
-    'page_expired_message' => 'Page Expired',
+    'page_expired_title' => 'Page expired',
+    'page_expired_message' => 'Page expired',
     'page_expired_headline' => 'Your session expired',
     'page_expired_description' => 'For your security, this page timed out. Please go back and try again.',
 
-    'too_many_requests_title' => 'Too Many Requests',
-    'too_many_requests_message' => 'Too Many Requests',
+    'too_many_requests_title' => 'Too many requests',
+    'too_many_requests_message' => 'Too many requests',
     'too_many_requests_headline' => 'Slow down a moment',
     'too_many_requests_description' => 'You’ve made a few too many requests. Please wait a little while before trying again.',
 
-    'server_error_title' => 'Server Error',
-    'server_error_message' => 'Server Error',
+    'server_error_title' => 'Server error',
+    'server_error_message' => 'Server error',
     'server_error_headline' => 'Something went wrong on our end',
     'server_error_description' => 'We hit an unexpected problem and our team has been notified. Try again later.',
 
-    'maintenance_title' => 'Service Unavailable',
-    'maintenance_message' => 'Service Unavailable',
+    'maintenance_title' => 'Service unavailable',
+    'maintenance_message' => 'Service unavailable',
     'maintenance_headline' => 'We’ll be right back',
     'maintenance_description' => 'The site is down for brief maintenance. Please check back again shortly.',
 ];

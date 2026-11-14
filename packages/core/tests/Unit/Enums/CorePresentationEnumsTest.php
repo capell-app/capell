@@ -27,8 +27,8 @@ it('provides presentation metadata for redirect status codes', function (): void
         ->and(RedirectStatusCodeEnum::Temporary->getColor())->toBe('warning')
         ->and(RedirectStatusCodeEnum::Permanent->getIcon())->toBe(Heroicon::ArrowRight)
         ->and(RedirectStatusCodeEnum::Temporary->getIcon())->toBe(Heroicon::OutlinedArrowRight)
-        ->and(__('capell-core::generic.redirect_301'))->toBe('301 Permanent')
-        ->and(RedirectStatusCodeEnum::Permanent->getLabel())->toBe('301 Permanent')
+        ->and(__('capell-core::generic.redirect_301'))->toBe('301 permanent')
+        ->and(RedirectStatusCodeEnum::Permanent->getLabel())->toBe('301 permanent')
         ->and(RedirectStatusCodeEnum::Temporary->getDescription())->toBe('Temporarily redirects to the target URL');
 });
 

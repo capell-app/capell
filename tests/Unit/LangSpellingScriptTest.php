@@ -140,3 +140,22 @@ it('accepts trans_choice plurals and ordinary punctuation', function (): void {
 
     expect($exit)->toBe(0);
 });
+
+it('rejects Title Case labels and accepts sentence case, product names and sentences', function (string $value, int $expectedExit): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . var_export($value, true) . '];');
+
+    expect($exit)->toBe($expectedExit);
+
+    if ($expectedExit === 1) {
+        expect($output)->toContain('Title Case');
+    }
+})->with([
+    'title case action' => ['Save Changes', 1],
+    'title case with placeholder' => [':name Container Settings', 1],
+    'sentence case action' => ['Save changes', 0],
+    'product name' => ['Open Marketplace', 0],
+    'named product' => ['Theme Studio', 0],
+    'single word' => ['Dashboard', 0],
+    'acronym' => ['Edit page URL', 0],
+    'full sentence' => ['Pages Were Saved.', 0],
+]);
