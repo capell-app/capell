@@ -877,7 +877,7 @@ it('renders admin panel changes as a grouped automatic or manual choice', functi
 it('shows the admin installer docs link with the manual admin panel changes option', function (): void {
     get(route('capell-installer.show'))
         ->assertOk()
-        ->assertSee('href="https://docs.capell.app/admin-setup/"', false)
+        ->assertSee('href="https://docs.capell.app/core/admin/setup/"', false)
         ->assertSee('Manual setup guide')
         ->assertSee('Connect the selected Filament panel to Capell and discover its authoring resources.')
         ->assertSee('Use the Capell colour palette in the selected admin panel.')

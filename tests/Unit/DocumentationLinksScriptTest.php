@@ -58,6 +58,45 @@ it('reports a missing heading link target', function (): void {
     }
 });
 
+it('reports an in-product docs link whose page or heading is missing', function (string $url, string $problem): void {
+    $root = documentationLinksFixture([
+        'docs/admin/setup.md' => '# Admin setup',
+        'packages/example/resources/views/help.blade.php' => '<a href="' . $url . '">Help</a>',
+    ]);
+
+    try {
+        $process = documentationLinksProcess($root);
+
+        $process->run();
+
+        expect($process->getExitCode())->toBe(1)
+            ->and($process->getErrorOutput())->toContain('packages/example/resources/views/help.blade.php:1 -> ' . $url)
+            ->and($process->getErrorOutput())->toContain($problem);
+    } finally {
+        documentationLinksDeleteDirectory($root);
+    }
+})->with([
+    'missing page' => ['https://docs.capell.app/core/upgrading/', 'no such page in docs/'],
+    'missing heading' => ['https://docs.capell.app/core/admin/setup/#nothing-here', 'the page has no such heading'],
+]);
+
+it('accepts in-product docs links that resolve and links to other documentation sets', function (): void {
+    $root = documentationLinksFixture([
+        'docs/admin/setup.md' => '# Admin setup',
+        'packages/example/config/example.php' => "<?php return ['a' => 'https://docs.capell.app/core/admin/setup/#admin-setup', 'b' => 'https://docs.capell.app/packages/block-library'];",
+    ]);
+
+    try {
+        $process = documentationLinksProcess($root);
+
+        $process->mustRun();
+
+        expect($process->getOutput())->toContain('2 in-product docs links, 0 broken');
+    } finally {
+        documentationLinksDeleteDirectory($root);
+    }
+});
+
 /**
  * @param  array<string, string>  $files
  */

@@ -65,7 +65,7 @@ return [
         'catalogue_page_limit' => env('CAPELL_MARKETPLACE_CATALOGUE_PAGE_LIMIT', 3),
         'webhook_url' => env('CAPELL_MARKETPLACE_WEBHOOK_URL'),
         'webhook_secret' => env('CAPELL_MARKETPLACE_WEBHOOK_SECRET'),
-        'troubleshooting_url' => env('CAPELL_MARKETPLACE_TROUBLESHOOTING_URL', 'https://docs.capell.app/extensions/marketplace-heartbeat'),
+        'troubleshooting_url' => env('CAPELL_MARKETPLACE_TROUBLESHOOTING_URL', 'https://docs.capell.app/core/operations/debugging-marketplace/'),
     ],
     /*
      * The scheduled heartbeat. Until this existed the heartbeat was

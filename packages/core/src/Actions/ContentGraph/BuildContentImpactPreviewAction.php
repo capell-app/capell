@@ -227,7 +227,7 @@ final class BuildContentImpactPreviewAction
             ? ((string) ($language->locale ?: $language->code ?: $language->name))
             : '';
 
-        return $locale === '' ? null : new EditorImpactUrlData($locale, $url);
+        return $locale === '' ? null : new EditorImpactUrlData($locale, $url, $language->name);
     }
 
     private function name(Model $model): string

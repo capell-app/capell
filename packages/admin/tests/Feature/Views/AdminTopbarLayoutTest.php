@@ -55,7 +55,7 @@ it('keeps mobile header controls in navigation and desktop controls in the topba
                 ->find('[data-capell-site-switcher]', fn (AssertElement $switcher): BaseAssert => $switcher
                     ->doesntHave('class', 'hidden')
                     ->containsText($site->name)
-                    ->find('a[href*="site=' . $site->getKey() . '"]'))
+                    ->find('[aria-current="true"]'))
                 ->find('[data-capell-header-actions]', fn (AssertElement $actions): BaseAssert => $actions
                     ->has('class', 'flex')
                     ->doesntHave('class', 'hidden')

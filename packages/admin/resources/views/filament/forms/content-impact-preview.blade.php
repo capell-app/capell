@@ -63,9 +63,9 @@
                                     </p>
                                 </div>
 
-                                @if ($dependency->locales !== [])
+                                @if ($dependency->languageLabels() !== [])
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        {{ __('capell-admin::media.impact_preview_locales', ['locales' => implode(', ', $dependency->locales)]) }}
+                                        {{ __('capell-admin::media.impact_preview_locales', ['locales' => implode(', ', $dependency->languageLabels())]) }}
                                     </p>
                                 @endif
 
@@ -79,7 +79,7 @@
                                             rel="noreferrer"
                                             class="text-primary-600 hover:text-primary-500 dark:text-primary-400"
                                         >
-                                            {{ $url->locale }}: {{ $url->url }}
+                                            {{ $url->languageLabel() }}: {{ $url->url }}
                                         </a>
                                     @endforeach
 

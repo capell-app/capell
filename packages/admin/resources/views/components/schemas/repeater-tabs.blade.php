@@ -192,6 +192,30 @@
                 @endif
             </x-filament::tabs>
 
+            {{-- The status sentence is also a tooltip on the tab; touch and keyboard users need it as text. --}}
+            @if (! $isVertical)
+                <div
+                    aria-live="polite"
+                    class="text-sm text-gray-600 dark:text-gray-400"
+                >
+                    @foreach ($items as $itemKey => $item)
+                        @php
+                            $statusText = $getTabPresentation($itemKey)['badgeTooltip'];
+                        @endphp
+
+                        @if (filled($statusText))
+                            <p
+                                class="mt-2"
+                                x-show="tab === {{ $loop->iteration }}"
+                                x-cloak
+                            >
+                                {{ $statusText }}
+                            </p>
+                        @endif
+                    @endforeach
+                </div>
+            @endif
+
             <div @class(['min-w-0 flex-1' => $isVertical])>
                 @foreach ($items as $itemKey => $item)
                     @php

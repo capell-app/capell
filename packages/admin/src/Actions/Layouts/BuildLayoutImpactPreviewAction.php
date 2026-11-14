@@ -92,6 +92,7 @@ final class BuildLayoutImpactPreviewAction
             ->map(fn (PageUrl $pageUrl): EditorImpactUrlData => new EditorImpactUrlData(
                 locale: $this->locale($pageUrl),
                 url: $this->publicUrl($pageUrl),
+                languageName: $this->languageName($pageUrl),
             ))
             ->sortBy(fn (EditorImpactUrlData $url): string => $url->locale . '|' . $url->url)
             ->values();
@@ -137,6 +138,13 @@ final class BuildLayoutImpactPreviewAction
         return is_string($locale) && $locale !== ''
             ? $locale
             : (string) $language->getAttribute('name');
+    }
+
+    private function languageName(PageUrl $pageUrl): ?string
+    {
+        $name = $pageUrl->getRelation('language')->getAttribute('name');
+
+        return is_string($name) && $name !== '' ? $name : null;
     }
 
     private function canUpdateLayout(Layout $layout): bool

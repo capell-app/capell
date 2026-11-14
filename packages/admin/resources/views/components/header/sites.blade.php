@@ -22,6 +22,7 @@
             :icon="Heroicon::OutlinedBuildingStorefront"
             color="info"
             type="button"
+            :aria-label="__('capell-admin::generic.site_switcher_label', ['site' => $currentSite?->name ?? __('capell-admin::generic.all_sites')])"
             :class="($inSidebar ?? false) ? 'max-w-full' : null"
         >
             <span @class(['block max-w-40 truncate' => $inSidebar ?? false])>
@@ -30,21 +31,41 @@
         </x-filament::button>
     </x-slot>
     @foreach ($sites as $site)
-        <x-filament::dropdown.header
-            class="font-semibold"
-            tag="a"
-            :href="AdminSurfaceLookup::resource(ResourceEnum::Site)::getUrl('edit', ['record' => $site->id])"
-        >
+        @php
+            $isCurrentSite = $currentSiteId === (int) $site->id;
+            $canEditSite = auth()->user()?->can('update', $site) ?? false;
+        @endphp
+
+        <x-filament::dropdown.header class="font-semibold">
             {{ $site->name }}
         </x-filament::dropdown.header>
         <x-filament::dropdown.list>
-            <x-filament::dropdown.list.item
-                :href="request()->fullUrlWithQuery(['site' => $site->id])"
-                :icon="$currentSiteId === (int) $site->id ? Heroicon::CheckCircle : Heroicon::OutlinedBuildingStorefront"
-                tag="a"
-            >
-                {{ __('capell-admin::generic.use_site_in_admin') }}
-            </x-filament::dropdown.list.item>
+            @if ($isCurrentSite)
+                <x-filament::dropdown.list.item
+                    :icon="Heroicon::CheckCircle"
+                    aria-current="true"
+                >
+                    {{ __('capell-admin::generic.current_site') }}
+                </x-filament::dropdown.list.item>
+            @else
+                <x-filament::dropdown.list.item
+                    :href="request()->fullUrlWithQuery(['site' => $site->id])"
+                    :icon="Heroicon::OutlinedBuildingStorefront"
+                    tag="a"
+                >
+                    {{ __('capell-admin::generic.use_site_in_admin', ['site' => $site->name]) }}
+                </x-filament::dropdown.list.item>
+            @endif
+
+            @if ($canEditSite)
+                <x-filament::dropdown.list.item
+                    :href="AdminSurfaceLookup::resource(ResourceEnum::Site)::getUrl('edit', ['record' => $site->id])"
+                    :icon="Heroicon::OutlinedCog6Tooth"
+                    tag="a"
+                >
+                    {{ __('capell-admin::generic.edit_site_settings') }}
+                </x-filament::dropdown.list.item>
+            @endif
         </x-filament::dropdown.list>
 
         @if ($site->siteDomains->isNotEmpty())

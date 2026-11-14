@@ -71,6 +71,7 @@
                 this.$set('{{ $relativeStatePath }}', slug)
                 this.modified = slug !== this.initialState
                 this.editing = false
+                this.returnFocusToEditButton()
             },
             cancelModification() {
                 this.$set('{{ $relativeStatePath }}', this.openingState)
@@ -79,6 +80,11 @@
                 }
                 this.modified = this.openingState !== this.initialState
                 this.editing = false
+                this.returnFocusToEditButton()
+            },
+            returnFocusToEditButton() {
+                // Hiding the input drops focus to the page body; return it to the control that opened the editor.
+                this.$nextTick(() => this.$refs.editButton?.focus())
             },
             resetModification() {
                 this.$set('{{ $relativeStatePath }}', this.initialState ?? '')
@@ -158,6 +164,8 @@
 
                     <button
                         type="button"
+                        x-ref="editButton"
+                        aria-label="{{ __('capell-admin::generic.permalink_action_edit_label') }}"
                         x-on:click.prevent="initModification()"
                         class="page-title-with-slug-edit-slug hover:border-primary-300 hover:text-primary-600 focus-visible:ring-primary-500 dark:hover:border-primary-600 dark:hover:text-primary-400 ml-2 inline-flex shrink-0 cursor-pointer items-center rounded-sm border border-gray-300 bg-white px-1.5 py-0.5 text-xs leading-none font-medium text-gray-600 transition focus-visible:ring-2 focus-visible:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
                     >
@@ -202,6 +210,8 @@
                                 x-on:keydown.escape.prevent.stop="cancelModification()"
                                 @if ($autocomplete = $getAutocomplete()) autocomplete="{{ $autocomplete }}" @endif
                                 id="{{ $getId() }}"
+                                aria-label="{{ __('capell-admin::generic.permalink_input_label') }}"
+                                @if ($errors->has($statePath)) aria-invalid="true" aria-describedby="{{ $getId() }}-error" @endif
                                 {{ $wireModelAttribute }}="{{ $statePath }}"
                                 @if ($placeholder = $getPlaceholder()) placeholder="{{ $placeholder }}" @endif
                                 {!! $isRequired() ? 'required' : null !!}
@@ -256,7 +266,13 @@
         @endif
 
         @error($statePath)
-            <p class="text-danger-600 dark:text-danger-400 mt-1 text-sm">{{ $message }}</p>
+            <p
+                id="{{ $getId() }}-error"
+                role="alert"
+                class="text-danger-600 dark:text-danger-400 mt-1 text-sm"
+            >
+                {{ $message }}
+            </p>
         @enderror
     </div>
 </div>
