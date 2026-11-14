@@ -40,6 +40,8 @@ final class ExtensionVerificationIssueData extends Data
 
     public const string RELEASE_DIGEST_NOT_COMPARED = 'release_digest_not_compared';
 
+    public const string RELEASE_DIGEST_MISSING_FOR_INSTALLED_VERSION = 'release_digest_missing_for_installed_version';
+
     public const string QUARANTINE_EVIDENCE_STILL_FAILS = 'quarantine_evidence_still_fails';
 
     public function __construct(
@@ -117,6 +119,10 @@ final class ExtensionVerificationIssueData extends Data
             self::RELEASE_DIGEST_NOT_COMPARED => [
                 'message' => (string) __('capell-core::extensions.verification.release_digest_not_compared.message', $replace),
                 'next_action' => (string) __('capell-core::extensions.verification.release_digest_not_compared.next_action', $replace),
+            ],
+            self::RELEASE_DIGEST_MISSING_FOR_INSTALLED_VERSION => [
+                'message' => (string) __('capell-core::extensions.verification.release_digest_missing_for_installed_version.message', $replace),
+                'next_action' => (string) __('capell-core::extensions.verification.release_digest_missing_for_installed_version.next_action', $replace),
             ],
             self::QUARANTINE_EVIDENCE_STILL_FAILS => [
                 'message' => (string) __('capell-core::extensions.verification.quarantine_evidence_still_fails.message', $replace),

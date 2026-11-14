@@ -71,6 +71,7 @@ final class CreateExtensionUpdateAcquisitionAction
                 releaseChecksum: $listing->releaseChecksum,
                 releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
                 releaseContentSha256: $listing->releaseContentSha256,
+                releaseDigests: $listing->releaseDigests,
             );
         }
 
@@ -107,6 +108,7 @@ final class CreateExtensionUpdateAcquisitionAction
             releaseChecksum: $listing->releaseChecksum,
             releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
             releaseContentSha256: $listing->releaseContentSha256,
+            releaseDigests: $listing->releaseDigests,
         );
     }
 

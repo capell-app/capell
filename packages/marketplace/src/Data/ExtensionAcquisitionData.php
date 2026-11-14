@@ -27,5 +27,7 @@ final class ExtensionAcquisitionData extends Data
         public ?string $releaseChecksum = null,
         public ?string $releaseChecksumVersion = null,
         public ?string $releaseContentSha256 = null,
+        /** @var array<string, array<string, string>>|null Per-version digests, normalised by ReleaseDigestMapData. */
+        public ?array $releaseDigests = null,
     ) {}
 }

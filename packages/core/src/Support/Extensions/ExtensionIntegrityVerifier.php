@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Extensions;
 use Capell\Core\Actions\Extensions\HashExtensionContentsAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData as Issue;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
+use Capell\Core\Data\Extensions\ReleaseDigestMapData;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Carbon\CarbonImmutable;
@@ -18,7 +19,7 @@ final class ExtensionIntegrityVerifier
 {
     public function __construct(private readonly string $vendorDir, private readonly ManifestValidator $validator) {}
 
-    public function verify(string $composerName, ?string $expectedVersionConstraint = null, ?string $previousVersion = null, ?string $expectedSlug = null, ?string $expectedDistSha = null, ?string $releaseChecksumVersion = null, bool $dependency = false, ?string $expectedContentHash = null): ExtensionVerificationReportData
+    public function verify(string $composerName, ?string $expectedVersionConstraint = null, ?string $previousVersion = null, ?string $expectedSlug = null, ?string $expectedDistSha = null, ?string $releaseChecksumVersion = null, bool $dependency = false, ?string $expectedContentHash = null, ?ReleaseDigestMapData $releaseDigests = null): ExtensionVerificationReportData
     {
         $failures = [];
         $warnings = [];
@@ -129,7 +130,21 @@ final class ExtensionIntegrityVerifier
                 }
             }
 
-            if (($expectedDistSha !== null || $expectedContentHash !== null) && $releaseChecksumVersion !== null && $version !== $releaseChecksumVersion) {
+            // A published per-version map is authoritative: select the digest
+            // for the version Composer installed and never fall back to the
+            // singular digest, which may describe a different version.
+            $digestMissingForVersion = false;
+            if ($releaseDigests instanceof ReleaseDigestMapData) {
+                $selected = $releaseDigests->forInstalledVersion(is_string($version) ? $version : null);
+                $digestMissingForVersion = $selected === null;
+                $expectedDistSha = $selected['dist_sha'] ?? null;
+                $expectedContentHash = $selected['content_sha256'] ?? null;
+                $releaseChecksumVersion = null;
+            }
+
+            if ($digestMissingForVersion) {
+                $add(Issue::RELEASE_DIGEST_MISSING_FOR_INSTALLED_VERSION);
+            } elseif (($expectedDistSha !== null || $expectedContentHash !== null) && $releaseChecksumVersion !== null && $version !== $releaseChecksumVersion) {
                 if (count($failures) >= 50) {
                     $omitted++;
                 } else {

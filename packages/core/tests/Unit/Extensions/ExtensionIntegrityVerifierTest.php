@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\HashExtensionContentsAction;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
+use Capell\Core\Data\Extensions\ReleaseDigestMapData;
 use Capell\Core\Support\Extensions\ExtensionIntegrityVerifier;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Illuminate\Filesystem\Filesystem;
@@ -208,4 +209,57 @@ it('compares installed content when a release hash is supplied', function (): vo
     expect($changed->passed)->toBeFalse()->and(array_column($changed->failures, 'code'))->toContain('content_hash_mismatch');
     $cheapFailure = $this->verifier->verify('vendor/example', expectedDistSha: 'wrong', expectedContentHash: $hash);
     expect($cheapFailure->comparisons)->toBe(['dist_checksum']);
+});
+
+it('selects the published digest for the older version Composer actually installed', function (string $publishedVersion): void {
+    // Other constraints held Composer back to 2.0.0 although the listing describes 3.1.0.
+    ($this->writeTree)();
+    $installedHash = HashExtensionContentsAction::run($this->packageDir);
+    $digests = ReleaseDigestMapData::fromPayload([
+        '3.1.0' => ['release_content_sha256' => str_repeat('b', 64)],
+        $publishedVersion => ['release_content_sha256' => $installedHash],
+    ]);
+
+    $report = $this->verifier->verify('vendor/example', expectedContentHash: str_repeat('b', 64), releaseChecksumVersion: '3.1.0', releaseDigests: $digests);
+
+    expect($report->passed)->toBeTrue()
+        ->and($report->comparisons)->toBe(['content_sha256'])
+        ->and($report->warnings)->toBeEmpty();
+})->with(['exact spelling' => '2.0.0', 'v prefix' => 'v2.0.0', 'four-part' => '2.0.0.0']);
+
+it('fails closed when the published map has no digest for the installed version', function (): void {
+    ($this->writeTree)();
+    $digests = ReleaseDigestMapData::fromPayload(['3.1.0' => ['release_content_sha256' => str_repeat('b', 64)]]);
+
+    // The singular digest describes this version, but a published map is authoritative.
+    $report = $this->verifier->verify('vendor/example', expectedContentHash: HashExtensionContentsAction::run($this->packageDir), releaseChecksumVersion: '2.0.0', releaseDigests: $digests);
+
+    expect($report->passed)->toBeFalse()
+        ->and(array_column($report->failures, 'code'))->toBe(['release_digest_missing_for_installed_version'])
+        ->and($report->comparisons)->toBeEmpty();
+});
+
+it('fails closed for tampered, malformed, ambiguous and empty published digests', function (array $payload, string $code): void {
+    ($this->writeTree)();
+    $installedHash = HashExtensionContentsAction::run($this->packageDir);
+    $payload = json_decode(str_replace('INSTALLED', $installedHash, json_encode($payload, JSON_THROW_ON_ERROR)), true, flags: JSON_THROW_ON_ERROR);
+
+    $report = $this->verifier->verify('vendor/example', releaseDigests: ReleaseDigestMapData::fromPayload($payload));
+
+    expect($report->passed)->toBeFalse()
+        ->and(array_column($report->failures, 'code'))->toContain($code);
+})->with([
+    'tampered contents' => [['2.0.0' => ['release_content_sha256' => '0000000000000000000000000000000000000000000000000000000000000000']], 'content_hash_mismatch'],
+    'malformed content hash' => [['2.0.0' => ['release_content_sha256' => 'not-a-hash']], 'content_hash_mismatch'],
+    'malformed dist checksum' => [['2.0.0' => ['release_content_sha256' => 'INSTALLED', 'release_checksum' => 'abc123']], 'checksum_mismatch'],
+    'disagreeing spellings' => [['2.0.0' => ['release_content_sha256' => 'INSTALLED'], 'v2.0.0' => ['release_content_sha256' => str_repeat('c', 64)]], 'release_digest_missing_for_installed_version'],
+    'empty map' => [[], 'release_digest_missing_for_installed_version'],
+    'not a map' => [['2.0.0' => 'INSTALLED'], 'content_hash_mismatch'],
+]);
+
+it('keeps the singular digest behaviour when no per-version map is published', function (): void {
+    ($this->writeTree)();
+    $report = $this->verifier->verify('vendor/example', expectedDistSha: 'different', releaseChecksumVersion: '1.0.0', releaseDigests: ReleaseDigestMapData::fromPayload(null));
+
+    expect(array_column($report->warnings, 'code'))->toBe(['checksum_not_for_installed_release']);
 });

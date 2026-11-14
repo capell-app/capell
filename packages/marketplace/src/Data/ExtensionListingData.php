@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Data;
 
 use Capell\Admin\Actions\Extensions\ResolveExtensionAssetPathAction;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
+use Capell\Core\Data\Extensions\ReleaseDigestMapData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Carbon\CarbonImmutable;
@@ -87,6 +88,8 @@ final class ExtensionListingData extends Data
         public readonly ?string $releaseChecksum = null,
         public readonly ?string $releaseChecksumVersion = null,
         public readonly ?string $releaseContentSha256 = null,
+        /** @var array<string, array<string, string>>|null Per-version digests, normalised by ReleaseDigestMapData. */
+        public readonly ?array $releaseDigests = null,
     ) {}
 
     /**
@@ -163,6 +166,7 @@ final class ExtensionListingData extends Data
             releaseChecksum: self::nonEmptyString($item['release_checksum'] ?? $item['releaseChecksum'] ?? null),
             releaseChecksumVersion: self::nonEmptyString($item['release_checksum_version'] ?? $item['releaseChecksumVersion'] ?? $item['latest_version'] ?? null),
             releaseContentSha256: self::contentSha256($item['release_content_sha256'] ?? $item['releaseContentSha256'] ?? null),
+            releaseDigests: ReleaseDigestMapData::fromPayload($item['release_digests'] ?? $item['releaseDigests'] ?? null)?->toPayload(),
         );
     }
 
@@ -455,6 +459,7 @@ final class ExtensionListingData extends Data
             'install_eligibility', 'eligibility', 'blocked_reason', 'next_action', 'surfaces', 'dependencies',
             'catalogue_role', 'maturity', 'maturity_label', 'trial',
             'release_content_sha256', 'releaseContentSha256',
+            'release_digests', 'releaseDigests',
             'metadata',
         ];
 

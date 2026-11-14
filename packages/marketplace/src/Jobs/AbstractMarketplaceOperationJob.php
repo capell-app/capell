@@ -11,6 +11,7 @@ use Capell\Core\Actions\Extensions\VerifyInstalledExtensionAction;
 use Capell\Core\Data\Extensions\ExtensionQuarantineEvidenceData;
 use Capell\Core\Data\Extensions\ExtensionVerificationIssueData;
 use Capell\Core\Data\Extensions\ExtensionVerificationReportData;
+use Capell\Core\Data\Extensions\ReleaseDigestMapData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
@@ -943,6 +944,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
             $contentHash = $attempt->context['release_content_sha256'] ?? null;
             $expectedDistSha = is_string($checksum) && $checksum !== '' ? $checksum : null;
             $expectedContentHash = is_string($contentHash) && $contentHash !== '' ? $contentHash : null;
+            $releaseDigests = ReleaseDigestMapData::fromPayload($attempt->context['release_digests'] ?? null);
             $report = VerifyInstalledExtensionAction::run(
                 $attempt->composer_name,
                 $attempt->version_constraint ?: null,
@@ -950,8 +952,15 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                 $attempt->extension_slug ?: null,
                 $expectedDistSha,
                 is_string($checksumVersion) && $checksumVersion !== '' ? $checksumVersion : null,
-                ...($expectedContentHash !== null ? [$expectedContentHash] : []),
+                ...($expectedContentHash !== null || $releaseDigests instanceof ReleaseDigestMapData ? [$expectedContentHash] : []),
+                ...($releaseDigests instanceof ReleaseDigestMapData ? [$releaseDigests] : []),
             );
+            if ($releaseDigests instanceof ReleaseDigestMapData) {
+                $selected = $releaseDigests->forInstalledVersion($report->installedVersion);
+                $expectedDistSha = $selected['dist_sha'] ?? null;
+                $expectedContentHash = $selected['content_sha256'] ?? null;
+            }
+
             $report = $this->withUncomparedReleaseDigest($report);
             $this->quarantineEvidence = ExtensionQuarantineEvidenceData::fromReport($report, $expectedDistSha, $expectedContentHash);
             $this->recordVerificationReport($attempt, $report);
