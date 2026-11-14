@@ -246,11 +246,10 @@ class PageLoader
         /** @var QueryBuilder<Page> $builder */
         $builder = $page->ancestors()->getQuery();
 
-        // Ancestors the language serves from its fallback chain still belong in the trail.
-        // The matching ids are hydrated through PageModelCache, which picks each page's served
-        // translation and URL.
+        // Breadcrumbs need the served translation, URL and blueprint, rather than
+        // the layouts, images and parents held in the full page-model cache.
         $ancestorQuery = $builder
-            ->select($builder->getModel()->getTable() . '.id')
+            ->with(['translations', 'pageUrls', 'blueprint'])
             ->whereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
             ->where('site_id', $site->id)
             ->publishedDate()
@@ -265,10 +264,8 @@ class PageLoader
                 ->whereIn('language_id', $urlLanguageIds),
         );
 
-        $ancestorIds = $ancestorQuery->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
-
         /** @var Collection<int, Page> $pages */
-        $pages = resolve(PageModelCache::class)->getAncestors($ancestorIds, $site, $language);
+        $pages = resolve(PageModelCache::class)->prepareAncestors($ancestorQuery->get(), $site, $language);
 
         if ($pages->isEmpty()) {
             return null;

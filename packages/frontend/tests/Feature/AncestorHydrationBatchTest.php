@@ -61,7 +61,7 @@ it('hydrates cold ancestors with constant queries and the same canonical fallbac
     DB::enableQueryLog();
 
     try {
-        $batched = expectPresent(PageLoader::getPageAncestors(expectPresent($parent), $french, $site));
+        $batched = $cache->getAncestors(array_map(static fn (Page $ancestor): int => $ancestor->id, $ancestors), $site, $french);
         $queries = count(DB::getQueryLog());
     } finally {
         DB::disableQueryLog();
@@ -69,7 +69,7 @@ it('hydrates cold ancestors with constant queries and the same canonical fallbac
 
     expect($batched->pluck('id')->all())->toBe(array_map(static fn (Page $page): int => $page->id, $ancestors))
         ->and($batched->toArray())->toEqual($individual)
-        ->and($queries)->toBe(12);
+        ->and($queries)->toBe($fallback ? 11 : 10);
 
     foreach ($batched as $index => $ancestor) {
         $served = $fallback && $index % 2 === 0 ? ($index === 2 ? $english : $german) : $french;
@@ -89,7 +89,6 @@ it('keeps a requested language URL when the fallback translation has no usable U
     $site->load('siteDomains');
 
     $parent = Page::factory()->site($site)->published()->withTranslations([$english])->createOne();
-    $child = Page::factory()->parent($parent)->published()->withTranslations([$french])->createOne();
     $parent->pageUrls()->update(['status' => false]);
     $url = PageUrl::factory()->page($parent)->site($site)->language($french)->createOne(['url' => '/section-fr', 'type' => null, 'status' => true]);
     $cache = resolve(PageModelCache::class);
@@ -99,7 +98,7 @@ it('keeps a requested language URL when the fallback translation has no usable U
     Cache::flush();
     $cache->flushLocalCache();
 
-    $ancestor = expectPresent(PageLoader::getPageAncestors($child, $french, $site))->sole();
+    $ancestor = $cache->getAncestors([$parent->id], $site, $french)->sole();
 
     expect($ancestor->toArray())->toEqual($individual)
         ->and($ancestor->translation?->language?->id)->toBe($english->id)
@@ -168,5 +167,5 @@ it('batches the two cold ancestors used by an anonymous blog breadcrumb', functi
     }
 
     expect($ancestors)->toHaveCount($depth)
-        ->and($queries)->toBe(9);
+        ->and($queries)->toBe(4);
 })->with([2, 4]);
