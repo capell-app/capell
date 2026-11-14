@@ -14,12 +14,14 @@ use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\TableName;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class EnforceExtensionAuthorisationAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

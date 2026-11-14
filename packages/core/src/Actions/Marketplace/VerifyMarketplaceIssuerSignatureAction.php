@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Marketplace;
 
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class VerifyMarketplaceIssuerSignatureAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param array<string, mixed> $payload */

@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Marketplace;
 
 use Capell\Core\Models\CapellExtension;
 use Carbon\CarbonImmutable;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
@@ -16,6 +17,7 @@ use Throwable;
  */
 final class VerifyExtensionActivationAction
 {
+    use AsFake;
     use AsObject;
 
     public const string PURPOSE = 'capell-installed-receipt';
