@@ -28,7 +28,7 @@ final readonly class AdminRouteOwnershipCheck implements DoctorCheck
         $messages = [];
         $remediation = [];
         if ($unrecorded !== []) {
-            $messages[] = __('capell-admin::message.route_ownership_check_unrecorded', ['count' => count($unrecorded)]);
+            $messages[] = trans_choice('capell-admin::message.route_ownership_check_unrecorded', count($unrecorded), ['count' => count($unrecorded)]);
             $remediation[] = __('capell-admin::message.route_ownership_check_remediation_cache');
         }
 

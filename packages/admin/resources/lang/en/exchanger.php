@@ -101,7 +101,7 @@ return [
     'kind' => 'Kind',
     'mail' => [
         'completed_cta' => 'Open import session',
-        'completed_intro' => 'The content import into workspace ":workspace" finished successfully — :pages page(s) imported.',
+        'completed_intro' => '{1} The content import into workspace ":workspace" finished successfully. :pages page was imported.|[0,*] The content import into workspace ":workspace" finished successfully. :pages pages were imported.',
         'completed_subject' => 'Import completed: :workspace',
         'failed_cta' => 'Open import session',
         'failed_intro' => 'The content import into workspace ":workspace" did not complete.',
@@ -161,7 +161,7 @@ return [
     'timeline' => 'Timeline',
     'timeline_pending' => 'Pending',
     'unresolved_references' => 'Unresolved references',
-    'unresolved_references_body' => ':count shared reference(s) could not be matched locally. Resolve them before executing.',
+    'unresolved_references_body' => '{1} :count shared reference could not be matched locally. Resolve it before executing.|[2,*] :count shared references could not be matched locally. Resolve them before executing.',
     'update_existing_confirm_body' => 'This will overwrite the local record with the imported one. Are you sure?',
     'updated_at' => 'Updated',
     'upload_package' => 'Upload Package',

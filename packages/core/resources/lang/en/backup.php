@@ -11,7 +11,7 @@ return [
     'restore_media_failed' => 'Media restore stopped after :restored of :expected files: :reason',
     'restore_doctor_process_failed' => 'The doctor could not run against the scratch database (exit code :exit): :reason',
     'restore_doctor_invalid_json' => 'The doctor ran against the scratch database but did not return a valid JSON report (exit code :exit): :reason',
-    'restore_doctor_checks_failed' => ':count doctor check(s) failed against the scratch database.',
+    'restore_doctor_checks_failed' => '{1} :count doctor check failed against the scratch database.|[2,*] :count doctor checks failed against the scratch database.',
     'restore_failed_check' => ':label (:id): :message',
     'restore_failed_check_remedy' => 'Remedy: :remedy',
     'restore_retained_targets' => 'The scratch targets were left in place for diagnosis. No live database or media was changed.',

@@ -85,7 +85,7 @@ return [
     'launchpad_message' => 'Your admin account has been created and the starter roles are ready to test.',
     'launchpad_message_existing_account' => 'Your existing administrator account keeps its access. Sign in with it to continue.',
     'launchpad_primary_admin' => 'Primary admin',
-    'network_error' => 'Network error — please check your connection and try again.',
+    'network_error' => 'Network error. Check your connection and try again.',
     'option_admin_add_colors_help' => 'Use the Capell colour palette in the selected admin panel.',
     'option_admin_add_navigation_help' => 'Add Capell navigation items and groups to the selected admin panel.',
     'option_admin_add_widgets_help' => 'Add Capell dashboard widgets to the selected admin panel.',

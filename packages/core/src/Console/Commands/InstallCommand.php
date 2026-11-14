@@ -1851,7 +1851,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         throw_unless($actor instanceof Authenticatable, RuntimeException::class, (string) __('capell-core::install.publish.no_user'));
 
         $result = PublishInstalledSiteAction::run($actor);
-        $this->line(__('capell-core::install.publish.done', ['count' => $result->published]));
+        $this->line(trans_choice('capell-core::install.publish.done', $result->published, ['count' => $result->published]));
     }
 
     /** A private site spec holds its first page back, so publishing it would only reveal "Coming soon". */

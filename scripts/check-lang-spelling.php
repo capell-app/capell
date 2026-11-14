@@ -111,6 +111,15 @@ foreach ($directories as $directory) {
                 }
             }
 
+            // Plurals use trans_choice ranges, and a dash is written as a full stop, colon or comma.
+            if (preg_match('/[a-z]\(s\)/i', $value) === 1) {
+                $failures[] = sprintf('%s:%d: Use a trans_choice plural instead of "(s)".', substr($path, strlen($root) + 1), $item->value->getStartLine());
+            }
+
+            if (str_contains($value, "\u{2014}")) {
+                $failures[] = sprintf('%s:%d: Replace the em dash with a full stop, colon or comma.', substr($path, strlen($root) + 1), $item->value->getStartLine());
+            }
+
             foreach ($spellings as $preferred => $pattern) {
                 if (preg_match_all('/\b(?:' . $pattern . ')\b/i', $value, $matches) === 0) {
                     continue;

@@ -249,7 +249,7 @@ it('applies a changed spec to a named site from the import command', function ()
     try {
         $command = $this->artisan('capell:site-spec-import', ['spec' => $path, '--site' => (string) $site->getKey()]);
         assert($command instanceof PendingCommand);
-        $command->expectsOutputToContain('1 page(s) created')->assertExitCode(Command::SUCCESS)->run();
+        $command->expectsOutputToContain('Created 1, updated 0')->assertExitCode(Command::SUCCESS)->run();
 
         expect($site->pages()->count())->toBe(3);
     } finally {

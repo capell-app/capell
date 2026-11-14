@@ -23,8 +23,8 @@ return [
     'roll_forward_done' => 'The page was rolled forward.',
     // Reassurance shown under the modal heading: restoring never deletes, it
     // appends a new version, so the move is always itself reversible.
-    'restore_help_back' => "This saves version :version's content as a new version. Nothing is deleted — your current content stays in the history below, so you can return to it at any time.",
-    'restore_help_forward' => "This re-applies version :version's content as a new version. Nothing is deleted — you can move back again at any time.",
+    'restore_help_back' => "This saves version :version's content as a new version. Nothing is deleted: your current content stays in the history below, so you can return to it at any time.",
+    'restore_help_forward' => "This re-applies version :version's content as a new version. Nothing is deleted, so you can move back again at any time.",
     'changed_by' => 'Changed by',
     'system_actor' => 'System',
     'system_actor_help' => 'Saved outside the admin (for example an import or a console command).',
@@ -58,8 +58,8 @@ return [
     'rollback_target' => 'After rollback',
     'rollback_target_back' => 'After rolling back',
     'rollback_target_forward' => 'After rolling forward',
-    'preview_intro_back' => 'Rolling back to version :version — changed by :actor on :date.',
-    'preview_intro_forward' => 'Rolling forward to version :version — changed by :actor on :date.',
+    'preview_intro_back' => 'Rolling back to version :version, changed by :actor on :date.',
+    'preview_intro_forward' => 'Rolling forward to version :version, changed by :actor on :date.',
     'revert_subject_missing' => 'The page being reverted could not be found.',
     'workflow_status' => 'Workspace draft',
     'revert_no_revision' => 'No event-sourced revision exists for this page yet.',

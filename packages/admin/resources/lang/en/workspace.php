@@ -44,7 +44,7 @@ return [
         'title' => 'Title',
     ],
     'approval_panel' => [
-        'approved_title' => 'Approved — ready to publish',
+        'approved_title' => 'Approved and ready to publish',
         'changes_requested_title' => 'Changes requested',
         'in_review_title' => 'Waiting on review',
         'rejected_title' => 'Rejected',
@@ -116,9 +116,9 @@ return [
         'unscheduled' => 'Scheduled publish cancelled.',
         'validate_failed' => 'Dry run failed.',
         'validate_passed' => 'Dry run succeeded.',
-        'validate_passed_body' => 'Would publish :rows row(s) cleanly.',
+        'validate_passed_body' => '{1} Would publish :rows row cleanly.|[0,*] Would publish :rows rows cleanly.',
         'validate_warnings' => 'Dry run surfaced warnings.',
-        'validate_warnings_body' => ':collisions URL collision(s), :conflicts rebase conflict(s).',
+        'validate_warnings_body' => 'URL collisions: :collisions. Rebase conflicts: :conflicts.',
     ],
     'preview_link' => [
         'access_count' => 'Access count',
@@ -146,8 +146,8 @@ return [
     'publish' => [
         'bypass_window' => 'Publish outside the release window',
         'ready' => 'No conflicts detected. Publishing will promote this workspace to live.',
-        'rebase_conflicts' => ':count record(s) have changed on live since this workspace was opened.',
-        'url_collisions' => ':count URL collision(s) with the current live site.',
+        'rebase_conflicts' => '{1} :count record has changed on live since this workspace was opened.|[2,*] :count records have changed on live since this workspace was opened.',
+        'url_collisions' => '{1} :count URL collision with the current live site.|[2,*] :count URL collisions with the current live site.',
         'window_closed' => 'The release window is currently closed.',
         'window_next' => 'Next window opens at :at.',
     ],
@@ -170,7 +170,7 @@ return [
     ],
     'switcher' => [
         'header' => 'Active workspace',
-        'header_description' => 'A workspace is a private draft — edit and review changes here, then publish to go live.',
+        'header_description' => 'A workspace is a private draft. Edit and review changes here, then publish to go live.',
         'live' => 'Published site',
         'live_description' => 'The public, live version',
         'manage' => 'Manage workspaces',
@@ -197,9 +197,9 @@ return [
         'approvals_required_helper' => 'How many approval sign-offs are needed before this workspace can be published. Default is 2. Increase for higher-risk releases.',
         'roles_label' => 'Who can do what',
         'roles_overview' => '<ul class="list-disc pl-4 space-y-1 text-sm">
-            <li><strong>workspace_editor</strong> — can create and edit workspaces, then submit them for review.</li>
-            <li><strong>workspace_reviewer</strong> — can approve or reject submitted workspaces.</li>
-            <li><strong>workspace_release_manager</strong> — can approve, reject, and publish approved workspaces to live.</li>
+            <li><strong>workspace_editor</strong>: can create and edit workspaces, then submit them for review.</li>
+            <li><strong>workspace_reviewer</strong>: can approve or reject submitted workspaces.</li>
+            <li><strong>workspace_release_manager</strong>: can approve, reject, and publish approved workspaces to live.</li>
         </ul><p class="mt-2 text-sm text-gray-500">Roles are assigned per site on the site\'s Permissions tab. Use Shield (Admin → Roles) to add custom permissions to any role.</p>',
         'section_description' => 'Configure how many approvals this workspace needs before it can be published, and understand which roles are involved.',
         'title' => 'Approval workflow',

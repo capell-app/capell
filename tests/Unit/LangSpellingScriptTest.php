@@ -125,3 +125,18 @@ it('accepts composer names and ordinary hyphenated words', function (): void {
 
     expect($exit)->toBe(0);
 });
+
+it('rejects "(s)" plurals and em dashes in visible values', function (string $value, string $message): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . var_export($value, true) . '];');
+
+    expect($exit)->toBe(1)->and($output)->toContain($message);
+})->with([
+    'plural suffix' => [':count page(s) saved', 'trans_choice plural'],
+    'em dash' => ["Saved \u{2014} nothing else changed", 'Replace the em dash'],
+]);
+
+it('accepts trans_choice plurals and ordinary punctuation', function (): void {
+    [$exit] = runLangSpellingFixture('<?php return ["label" => "{1} :count page saved.|[0,*] :count pages saved: nothing else changed, see (below)."];');
+
+    expect($exit)->toBe(0);
+});
