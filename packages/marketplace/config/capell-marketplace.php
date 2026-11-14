@@ -76,6 +76,12 @@ return [
     'heartbeat' => [
         'scheduled' => env('CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED', true),
         'at' => env('CAPELL_MARKETPLACE_HEARTBEAT_AT', '02:40'),
+        /*
+         * Opt-in only. When true, the next heartbeat after the first fully passing
+         * `capell:doctor` run reports that moment once (a timestamp, nothing else).
+         * Off, nothing is recorded and nothing extra is sent.
+         */
+        'share_setup_milestones' => env('CAPELL_MARKETPLACE_SHARE_SETUP_MILESTONES', false),
     ],
     /*
      * Unattended updates for extensions whose per-extension policy allows them.
