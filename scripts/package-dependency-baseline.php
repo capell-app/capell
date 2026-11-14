@@ -54,7 +54,6 @@ return [
     'core' => [
         'shadow' => [
             'composer/semver',
-            'fakerphp/faker',
             'filament/filament',
             'filament/forms',
             'filament/spatie-laravel-media-library-plugin',

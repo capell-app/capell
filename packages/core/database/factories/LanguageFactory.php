@@ -22,19 +22,23 @@ class LanguageFactory extends Factory
     protected $model = Language::class;
 
     /**
+     * Language codes are unique, and a random generator repeats eventually, so every default
+     * language takes the next code from a process-wide sequence. The sequence walks the ISO 639-2
+     * private-use range (qaa to qtz) first, which no real language uses, then continues with
+     * x-prefixed codes. It never repeats within a process, whatever seed the run uses.
+     */
+    private static int $codeSequence = 0;
+
+    /**
      * Define the model's default state.
      */
     public function definition(): array
     {
-        $locale = $this->faker->unique()->locale();
-
-        $faker = \Faker\Factory::create($locale);
-
-        $code = $faker->unique()->languageCode();
+        $code = $this->nextCode();
 
         return [
-            'name' => $faker->country(),
-            'locale' => $locale,
+            'name' => $this->faker->country(),
+            'locale' => $code,
             'code' => $code,
             'flag' => str($code)->replace('_', '-')->lower()->toString(),
             'status' => true,
@@ -92,5 +96,16 @@ class LanguageFactory extends Factory
     public function italian(bool $isDefault = false, int $order = 5): static
     {
         return $this->forCountry('Italiano', 'it', 'it', 'it', $order, $isDefault);
+    }
+
+    private function nextCode(): string
+    {
+        $index = self::$codeSequence++;
+
+        if ($index < 26 * 20) {
+            return 'q' . chr(ord('a') + intdiv($index, 26)) . chr(ord('a') + $index % 26);
+        }
+
+        return 'x' . base_convert((string) $index, 10, 36);
     }
 }
