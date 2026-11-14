@@ -266,7 +266,7 @@ it('refreshes and explains when another editor removed the displayed recovery', 
         ->assertNotDispatched('page-scratch-draft-restored')
         ->assertNotified(__('capell-admin::scratch_drafts.recovery_changed'))
         ->assertDontSee('Restore changes')
-        ->assertDontSee('Discard recovery');
+        ->assertDontSee(__('capell-admin::scratch_drafts.discard'));
 })->with(['restore', 'discard']);
 
 it('keeps separate recoveries for two editor sessions and ignores expired snapshots', function (): void {

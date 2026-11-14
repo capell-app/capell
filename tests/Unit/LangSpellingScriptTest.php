@@ -109,3 +109,19 @@ it('rejects unsupported translation expressions explicitly', function (string $e
     'interpolated string' => ['"Colour $suffix"'],
     'unpacked array' => ['[...["label" => "Color"]]'],
 ]);
+
+it('rejects package slugs and class names written into visible values', function (string $value, string $match): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . var_export($value, true) . '];');
+
+    expect($exit)->toBe(1)->and($output)->toContain('"' . $match . '" is a package name');
+})->with([
+    'slug in a sentence' => ['No publishing-studio discarded', 'publishing-studio'],
+    'slug with a plural' => ['None of the selected layout-builder are ready', 'layout-builder'],
+    'class name' => ['PublishingStudio lets you draft changes', 'PublishingStudio'],
+]);
+
+it('accepts composer names and ordinary hyphenated words', function (): void {
+    [$exit] = runLangSpellingFixture('<?php return ["label" => "Run composer require capell-app/publishing-studio, then read the follow-up notes on built-in publishing."];');
+
+    expect($exit)->toBe(0);
+});

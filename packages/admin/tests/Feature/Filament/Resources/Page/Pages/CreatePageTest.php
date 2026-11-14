@@ -74,7 +74,7 @@ it('renders guided setup and publish sections on the create page form', function
         ->assertSee('Save and Publish');
 
     $label = domElement(domXPath($form->html()), '//label[@for="form.visible_from"]');
-    expect(trim(domText($label)))->toBe('Visible from');
+    expect(trim(domText($label)))->toBe(__('capell-admin::form.visible_from'));
 
     expect(strip_tags($form->html()))->toContain('To schedule a future date, save as draft first, then use Schedule.')
         ->not->toContain('leave it empty and use Publish now');
