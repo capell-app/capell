@@ -45,6 +45,6 @@ it('links to site settings only for a person who can update the site', function 
     test()->actingAsAdmin();
     expect(renderSiteSwitcher($current, $other))->toContain(__('capell-admin::generic.edit_site_settings'));
 
-    test()->actingAsRole('panel_user');
+    test()->actingAsUser();
     expect(renderSiteSwitcher($current, $other))->not->toContain(__('capell-admin::generic.edit_site_settings'));
 });
