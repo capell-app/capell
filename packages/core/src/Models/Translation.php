@@ -174,6 +174,24 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
         return $this->morphTo();
     }
 
+    /**
+     * The record that owns media used by this translation's content. When the translatable record holds media (a
+     * page, widget or layout), every language attaches to and references that one item, and per-language alt text
+     * lives in the media item's own translations. Otherwise the translation keeps its media itself.
+     *
+     * @return Model&HasMedia
+     */
+    public function mediaOwner(): Model
+    {
+        if ($this->translatable_type !== null && $this->translatable_id !== null) {
+            $this->loadMissing('translatable');
+        }
+
+        $owner = $this->relationLoaded('translatable') ? $this->getRelation('translatable') : null;
+
+        return $owner instanceof Model && $owner instanceof HasMedia ? $owner : $this;
+    }
+
     /** @return BelongsTo<PageUrl, $this> */
     public function pageUrl(): BelongsTo
     {
