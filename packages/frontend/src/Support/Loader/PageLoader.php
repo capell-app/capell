@@ -22,7 +22,6 @@ use Capell\Frontend\Actions\ListPagesAction;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Enums\CacheEnum;
-use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Closure;
 use Deprecated;
@@ -269,7 +268,7 @@ class PageLoader
         $ancestorIds = $ancestorQuery->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
 
         /** @var Collection<int, Page> $pages */
-        $pages = resolve(PageHydrator::class)->hydrate($ancestorIds, Page::class, $site, $language);
+        $pages = resolve(PageModelCache::class)->getAncestors($ancestorIds, $site, $language);
 
         if ($pages->isEmpty()) {
             return null;

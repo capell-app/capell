@@ -48,7 +48,22 @@ class HydratePageLanguagesAction
      */
     public function handle(Pageable&Model $page, iterable $known = []): void
     {
-        $rows = $this->rows($page);
+        $this->handleMany([$page], $known);
+    }
+
+    /**
+     * @param  iterable<Model&Pageable<Model>>  $pages
+     * @param  iterable<Language>  $known
+     */
+    public function handleMany(iterable $pages, iterable $known = []): void
+    {
+        /** @var Collection<int, Model> $rows */
+        $rows = collect();
+
+        foreach ($pages as $page) {
+            $rows = $rows->concat($this->rows($page));
+        }
+
         $ids = $rows
             ->map(static fn (Model $row): ?int => self::languageId($row))
             ->filter(static fn (?int $id): bool => $id !== null)

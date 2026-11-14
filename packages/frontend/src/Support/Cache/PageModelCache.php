@@ -16,6 +16,8 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Enums\CacheEnum;
+use Closure;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
@@ -40,6 +42,96 @@ final class PageModelCache
         bool $withEvents = true,
         bool $useCache = true,
     ): ?Pageable {
+        return $this->getUsingLoader($type, $id, $site, $language, $withEvents, $useCache, fn (string $modelClass): ?Model => $this->loadModels($modelClass, [$id], $site, $language)->first());
+    }
+
+    /**
+     * Hydrate an ordered set of ancestors with one eager load for all cold IDs.
+     * Cache hits still use the same validation, tracking and fallback path as get().
+     *
+     * @param  list<int>  $ids
+     * @return Collection<int, Page>
+     */
+    public function getAncestors(array $ids, Site $site, Language $language): Collection
+    {
+        $loaded = null;
+        $models = new Collection;
+
+        foreach ($ids as $id) {
+            $model = $this->getUsingLoader(Page::class, $id, $site, $language, true, true, function (string $modelClass) use (&$loaded, $ids, $site, $language, $id): ?Model {
+                // Lazy so a fully warm trail does not perform a batch query.
+                $loaded ??= $this->loadModels($modelClass, $ids, $site, $language, reuseRelations: true);
+
+                return $loaded->get($id);
+            });
+
+            if ($model instanceof Page) {
+                $models->push($model);
+            }
+        }
+
+        return $models;
+    }
+
+    /**
+     * Remove the cached entry for a specific model so the next call re-warms it.
+     *
+     * @param  class-string  $type
+     */
+    public function invalidate(string $type, int $id, int $siteId, int $languageId): void
+    {
+        $this->removeCacheKey(CacheEnum::pageModel($type, $id, $siteId, $languageId));
+    }
+
+    /**
+     * @param  class-string<Model&Pageable<Model>>  $modelClass
+     * @param  list<int>  $ids
+     * @return Collection<int, Model&Pageable<Model>>
+     */
+    private function loadModels(string $modelClass, array $ids, ?Site $site, Language $language, bool $reuseRelations = false): Collection
+    {
+        $query = $modelClass::query()->whereKey($ids)->publishedDate();
+
+        if ($site instanceof Site) {
+            $query->where('site_id', $site->id);
+        }
+
+        $relations = $this->canonicalRelations($modelClass, $language->id);
+
+        if ($reuseRelations) {
+            unset($relations['translation'], $relations['pageUrl']);
+        }
+
+        $models = $query->with($relations)->get();
+
+        if ($reuseRelations) {
+            foreach ($models as $model) {
+                $translation = $model->translations->firstWhere('language_id', $language->id);
+                $url = $model->pageUrls->first(fn (PageUrl $url): bool => (int) $url->language_id === (int) $language->id && $url->type === null && $url->status);
+                // Keep the singular relations detached, as in the individual eager load.
+                $model->setRelation('translation', $translation instanceof Translation ? clone $translation : null);
+                $model->setRelation('pageUrl', $url instanceof PageUrl ? (clone $url)->unsetRelation('pageable') : null);
+            }
+        }
+
+        HydratePageLanguagesAction::make()->handleMany($models, [$language]);
+
+        return $models->keyBy('id');
+    }
+
+    /**
+     * @param  class-string<Model&Pageable<Model>>  $type
+     * @param  Closure(class-string<Model&Pageable<Model>>): ?Model  $load
+     */
+    private function getUsingLoader(
+        string $type,
+        int $id,
+        ?Site $site,
+        Language $language,
+        bool $withEvents,
+        bool $useCache,
+        Closure $load,
+    ): ?Pageable {
         $modelClass = Relation::getMorphedModel($type) ?? $type;
 
         if (! is_a($modelClass, Model::class, true) || ! is_a($modelClass, Pageable::class, true)) {
@@ -50,25 +142,9 @@ final class PageModelCache
 
         $fromCache = $useCache;
 
-        $loader = function () use ($modelClass, $id, $site, $language, $withEvents, &$fromCache): ?Pageable {
+        $loader = function () use ($modelClass, $withEvents, &$fromCache, $load): ?Model {
             $fromCache = false;
-            $callback = function () use ($modelClass, $id, $site, $language): ?Pageable {
-                $query = $modelClass::query()->where('id', $id)->publishedDate();
-
-                if ($site instanceof Site) {
-                    $query->where('site_id', $site->id);
-                }
-
-                $loaded = $query->with($this->canonicalRelations($modelClass, $language->id))->first();
-
-                if ($loaded instanceof Pageable && $loaded instanceof Model) {
-                    // One read at most for the URL and translation languages; the request
-                    // language is reused, so a single-language page costs none.
-                    HydratePageLanguagesAction::run($loaded, [$language]);
-                }
-
-                return $loaded;
-            };
+            $callback = fn (): ?Model => $load($modelClass);
 
             if ($withEvents) {
                 return $callback();
@@ -116,16 +192,6 @@ final class PageModelCache
         }
 
         return $model;
-    }
-
-    /**
-     * Remove the cached entry for a specific model so the next call re-warms it.
-     *
-     * @param  class-string  $type
-     */
-    public function invalidate(string $type, int $id, int $siteId, int $languageId): void
-    {
-        $this->removeCacheKey(CacheEnum::pageModel($type, $id, $siteId, $languageId));
     }
 
     /**
