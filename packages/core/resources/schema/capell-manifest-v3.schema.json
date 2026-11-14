@@ -26,6 +26,10 @@
         "required": ["capell-version"]
     },
     "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "Optional pointer to this schema for editor tooling. Capell ignores the value."
+        },
         "manifest-version": {
             "const": 3
         },
@@ -79,7 +83,7 @@
                 },
                 "tier": {
                     "type": "string",
-                    "minLength": 1
+                    "enum": ["free", "premium", "core"]
                 },
                 "bundle": {
                     "type": ["string", "null"]
@@ -536,18 +540,44 @@
                         "invalidationSources": {
                             "type": "array",
                             "items": {
-                                "type": "object",
-                                "additionalProperties": true,
-                                "required": ["model", "events"],
-                                "properties": {
-                                    "model": {
-                                        "type": "string",
-                                        "minLength": 1
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": true,
+                                        "required": ["model", "events"],
+                                        "properties": {
+                                            "model": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "events": {
+                                                "$ref": "#/$defs/stringList"
+                                            }
+                                        }
                                     },
-                                    "events": {
-                                        "$ref": "#/$defs/stringList"
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": ["settings"],
+                                        "properties": {
+                                            "settings": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": ["event"],
+                                        "properties": {
+                                            "event": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        }
                                     }
-                                }
+                                ]
                             }
                         },
                         "queueInvalidation": {
@@ -590,13 +620,30 @@
             ],
             "properties": {
                 "proposedLicense": {
-                    "type": ["string", "null"]
+                    "type": ["string", "null"],
+                    "enum": ["free", "paid", "included", "private", null]
                 },
                 "requestedCertification": {
-                    "type": ["string", "null"]
+                    "type": ["string", "null"],
+                    "enum": [
+                        "uncertified",
+                        "community",
+                        "partner",
+                        "first-party",
+                        null
+                    ]
                 },
                 "supportPolicy": {
-                    "type": ["string", "null"]
+                    "type": ["string", "null"],
+                    "enum": [
+                        "community",
+                        "standard",
+                        "priority",
+                        "capell-first-party",
+                        "project",
+                        "author",
+                        null
+                    ]
                 },
                 "privateDocsRequested": {
                     "type": "boolean"

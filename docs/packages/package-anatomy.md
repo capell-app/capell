@@ -124,6 +124,8 @@ Keep `extra.laravel.providers` to the package bootstrap provider only, and never
     "permissions": [],
     "capabilities": [],
     "performance": {
+        "frontendRenderBudgetMs": 50,
+        "adminQueryBudget": 25,
         "cacheTags": [],
         "cacheSafety": {
             "cacheable": false,
@@ -135,7 +137,7 @@ Keep `extra.laravel.providers` to the package bootstrap provider only, and never
     },
     "healthChecks": [],
     "commercial": {
-        "proposedLicense": "premium",
+        "proposedLicense": "paid",
         "requestedCertification": "community",
         "supportPolicy": "community",
         "privateDocsRequested": false
@@ -171,6 +173,27 @@ Use `surfaces` to declare the runtimes a package participates in, then use `prov
 Use `product.group` and `product.tier` to keep the installer, Marketplace, and docs aligned with the package grouping. See [Package product groups](product-groups.md).
 
 The manifest above shows both lifecycle blocks so you can recognise them, but a new package should declare **only `actions`**. `actions` holds class-strings implementing `PackageLifecycleAction`; `commands` holds legacy artisan command names and is refused by web-triggered installs, so a `commands`-only package cannot be installed from the admin Marketplace. The Foundation packages still ship `commands` because they predate the Action contract. See [Lifecycle: actions and commands](build-extension-end-to-end.md#lifecycle-actions-and-commands).
+
+### Manifest values and cache safety
+
+The manifest schema and validator accept a closed list of values for the product and commercial fields. `capell:extension-audit`, local loading and Marketplace submission all use the same validator.
+
+| Field                               | Allowed values                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| `product.tier`                      | `free`, `premium`, `core`                                                      |
+| `commercial.proposedLicense`        | `free`, `paid`, `included`, `private`                                          |
+| `commercial.requestedCertification` | `uncertified`, `community`, `partner`, `first-party`                           |
+| `commercial.supportPolicy`          | `community`, `standard`, `priority`, `capell-first-party`, `project`, `author` |
+
+These commercial fields are proposals; Marketplace review decides the certification and licence a listing actually gets. A third-party package chooses the closest listed product group.
+
+`performance.cacheSafety.cacheable` is `true` when your output is stored in Capell's public page cache. A cacheable surface must list at least one invalidation source, each one of:
+
+- `{ "model": "<ModelClass>", "events": ["created", "updated"] }` for a model whose changes alter the output.
+- `{ "settings": "<SettingsClass>" }` for output driven by a settings class.
+- `{ "event": "<EventClass>" }` for output that changes when an event fires.
+
+`capell.json` may start with `"$schema": "https://capell.app/schema/capell-manifest-v3.schema.json"` so editors can offer completion. Capell ignores the key.
 
 Declare the Capell API range your package supports with `capellApiVersion` — see [Extension API versioning](extension-api-versioning.md).
 

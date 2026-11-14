@@ -155,7 +155,7 @@ return [
     "description": "Adds a site-wide public announcement banner.",
     "product": {
         "group": "Marketing",
-        "tier": "standard",
+        "tier": "free",
         "bundle": "content-tools"
     },
     "surfaces": ["admin", "frontend"],
@@ -191,18 +191,24 @@ return [
     "permissions": [],
     "capabilities": ["render-hook", "cache-invalidation"],
     "performance": {
+        "frontendRenderBudgetMs": 50,
+        "adminQueryBudget": 25,
         "cacheTags": ["announcement-bar"],
         "cacheSafety": {
-            "cacheable": false,
+            "cacheable": true,
             "sensitiveOutput": false,
             "queueInvalidation": true,
             "variesBy": [],
-            "invalidationSources": []
+            "invalidationSources": [
+                {
+                    "settings": "Acme\\AnnouncementBar\\Settings\\AnnouncementBarSettings"
+                }
+            ]
         }
     },
     "healthChecks": [],
     "commercial": {
-        "proposedLicense": "standard",
+        "proposedLicense": "free",
         "requestedCertification": "community",
         "supportPolicy": "community",
         "privateDocsRequested": false

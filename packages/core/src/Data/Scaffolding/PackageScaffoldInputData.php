@@ -30,6 +30,7 @@ final readonly class PackageScaffoldInputData
             '{{ jsonDisplayName }}' => $this->jsonStringValue($this->displayName),
             '{{ phpDisplayName }}' => $this->phpStringValue($this->displayName),
             '{{ tier }}' => $this->tier,
+            '{{ proposedLicense }}' => $this->tier === 'premium' ? 'paid' : 'free',
             '{{ namespace }}' => $this->namespace,
             '{{ escapedNamespace }}' => str_replace('\\', '\\\\', $this->namespace),
             '{{ escapedRuntimeProvider }}' => str_replace('\\', '\\\\', $this->namespace . '\\Providers\\PackageServiceProvider'),
