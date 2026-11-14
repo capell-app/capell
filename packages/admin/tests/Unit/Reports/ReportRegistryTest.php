@@ -136,7 +136,7 @@ it('resolves report definition labels and snapshot state', function (): void {
     );
 
     expect($translatedDefinition->settingsKey())->toBe('core.public_render_safety')
-        ->and($translatedDefinition->resolvedLabel())->toBe('Public Render Safety')
+        ->and($translatedDefinition->resolvedLabel())->toBe('Public render safety')
         ->and($translatedDefinition->resolvedDescription())->toBe(__('capell-admin::reports.public_render_safety_description'))
         ->and($literalDefinition->resolvedLabel())->toBe('Literal Report')
         ->and($literalDefinition->resolvedDescription())->toBe('Literal description.')

@@ -98,7 +98,7 @@ it('builds report visibility form state with role labels and persisted defaults'
     expect($contentAdminState)->not->toBeNull()
         ->and($contentAdminState['role_label'])->toBe('Content Admin')
         ->and($publicRenderSafetyReport)->not->toBeNull()
-        ->and($publicRenderSafetyReport['report_label'])->toBe('Public Render Safety')
+        ->and($publicRenderSafetyReport['report_label'])->toBe('Public render safety')
         ->and($publicRenderSafetyReport['report_description'])->toBe(__('capell-admin::reports.public_render_safety_description'))
         ->and($publicRenderSafetyReport['enabled'])->toBeFalse();
 });

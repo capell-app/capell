@@ -76,8 +76,8 @@ it('renders the Filament installer page', function (): void {
 it('uses a human title for the install guide page', function (): void {
     $page = new InstallGuidePage;
 
-    expect($page->getTitle())->toBe('Install Guide')
-        ->and($page->getHeading())->toBe('Install Guide');
+    expect($page->getTitle())->toBe('Install guide')
+        ->and($page->getHeading())->toBe('Install guide');
 });
 
 it('adds the install guide to navigation when Capell is not installed', function (): void {
