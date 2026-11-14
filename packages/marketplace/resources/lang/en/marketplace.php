@@ -430,7 +430,7 @@ return [
     ],
     'operations' => [
         'active_count' => '{1} :count active install|[2,*] :count active installs',
-        'alert_heading' => 'Package Operations',
+        'alert_heading' => 'Package operations',
         'alert_summary' => '{0} No package operations need attention.|[1,*] :active active, :attention needing attention.',
         'attention_count' => '{1} :count needs attention|[2,*] :count need attention',
         'cancel' => 'Cancel',
@@ -542,7 +542,7 @@ return [
         'mark_resolved' => 'Mark resolved',
         'marketplace' => 'Marketplace',
         'page_description' => 'Review Marketplace install attempts, preflight checks, Composer output, deployment handoff state, retries, and redacted diagnostics.',
-        'page_title' => 'Package Operations',
+        'page_title' => 'Package operations',
         'preflight_failed' => 'Marketplace install preflight failed.',
         'progress' => 'Operation progress',
         'started_at' => 'Started',
@@ -642,7 +642,7 @@ return [
         'view' => 'View',
         'view_logs' => 'View logs',
         'widget_description' => 'Marketplace Composer installs that are active, cancelled during handoff, or need manual follow-up.',
-        'widget_heading' => 'Package Operations',
+        'widget_heading' => 'Package operations',
 
         /*
          * Per-operation wording, resolved by MarketplaceOperationVocabulary.

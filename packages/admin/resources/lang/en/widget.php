@@ -10,7 +10,7 @@ return [
     'content_media_ordering' => 'Media position',
     'content_media_before' => 'Before content',
     'content_media_after' => 'After content',
-    'hero-banner' => 'Hero Banner',
+    'hero-banner' => 'Hero banner',
     'unavailable' => 'Unavailable widget',
     'unavailable_help' => 'This widget is not currently available. Its content will be preserved unchanged.',
 ];

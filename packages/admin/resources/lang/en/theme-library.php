@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'title' => 'Theme Library',
+    'title' => 'Theme library',
     'subheading' => 'Customise, preview, and apply installed themes from one workflow.',
     'sections' => [
         'installed' => 'Installed themes',

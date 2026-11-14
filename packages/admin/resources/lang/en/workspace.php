@@ -34,7 +34,7 @@ return [
     ],
     'approval_action' => [
         'approved' => 'Approved',
-        'changes_requested' => 'Changes Requested',
+        'changes_requested' => 'Changes requested',
         'rejected' => 'Rejected',
         'submitted' => 'Submitted',
     ],
@@ -58,7 +58,7 @@ return [
         'before' => 'Live',
         'check_entity_refs' => ':count affected item|:count affected items',
         'check_passed' => 'Passed',
-        'checks_heading' => 'Publish Checks',
+        'checks_heading' => 'Publish checks',
         'empty' => 'No changes in this workspace yet.',
         'field' => 'Field',
         'hide_unchanged' => 'Hide unchanged',

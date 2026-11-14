@@ -9,6 +9,6 @@ return [
     'home_description' => 'A homepage layout for the main site entry point and high-level content.',
     'results' => 'Results',
     'results_description' => 'A listing layout for search results, indexes, and grouped content.',
-    'system' => 'System Page',
+    'system' => 'System page',
     'system_description' => 'A locked layout for fixed system pages that should not use the page builder.',
 ];

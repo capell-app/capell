@@ -120,6 +120,11 @@ foreach ($directories as $directory) {
                 $failures[] = sprintf('%s:%d: Replace the em dash with a full stop, colon or comma.', substr($path, strlen($root) + 1), $item->value->getStartLine());
             }
 
+            // Labels are sentence case: only the first word and proper names carry capitals.
+            if (isTitleCaseLabel($value)) {
+                $failures[] = sprintf('%s:%d: "%s" is Title Case; use sentence case.', substr($path, strlen($root) + 1), $item->value->getStartLine(), trim($value));
+            }
+
             foreach ($spellings as $preferred => $pattern) {
                 if (preg_match_all('/\b(?:' . $pattern . ')\b/i', $value, $matches) === 0) {
                     continue;
@@ -147,6 +152,41 @@ if ($failures !== []) {
 fwrite(STDOUT, sprintf('British spelling verified in values across %d English language files.%s', $filesChecked, PHP_EOL));
 
 /** Resolve only the supported constant string grammar, without executing translation files. */
+/**
+ * A short label whose every later word of four or more letters is capitalised, such as "Save Changes".
+ * Named products and the proper nouns they contain stay capitalised, so they are skipped.
+ */
+function isTitleCaseLabel(string $value): bool
+{
+    $value = trim($value);
+
+    if ($value === '' || preg_match('/^[A-Za-z0-9\'’\/ -]+$/', $value) !== 1) {
+        return false;
+    }
+
+    $properNames = ['Capell Knowledge', 'Capell Services', 'Capell Agent Bridge', 'Laravel Boost', 'Capell Agent', 'Theme Studio', 'Publishing Studio', 'Laravel Cloud'];
+
+    foreach ($properNames as $properName) {
+        $value = str_replace($properName, '', $value);
+    }
+
+    $words = preg_split('/[\s\/-]+/', trim($value), -1, PREG_SPLIT_NO_EMPTY);
+
+    if ($words === false || count($words) < 2 || count($words) > 6) {
+        return false;
+    }
+
+    array_shift($words);
+    $properNouns = ['Capell', 'Marketplace', 'Laravel', 'Filament', 'Livewire', 'Vite', 'Studio', 'Publishing'];
+    $significant = array_filter($words, static fn (string $word): bool => strlen($word) > 3 && ! in_array($word, $properNouns, true) && preg_match('/^[A-Za-z]+$/', $word) === 1 && $word !== strtoupper($word));
+
+    if ($significant === []) {
+        return false;
+    }
+
+    return array_all($significant, fn (string $word): bool => preg_match('/^[A-Z][a-z]+$/', $word) === 1);
+}
+
 function constantTranslationString(Expr $expression): ?string
 {
     if ($expression instanceof String_) {
