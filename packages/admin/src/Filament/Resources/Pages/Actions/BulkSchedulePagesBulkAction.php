@@ -82,7 +82,7 @@ class BulkSchedulePagesBulkAction extends BulkAction
                 }
 
                 $notification = Notification::make()
-                    ->title(BulkOutcomeTitle::make('schedule_pages_done', $scheduled, $skipped));
+                    ->title(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.schedule_pages_done', $scheduled, ['count' => $scheduled]), $skipped));
 
                 if ($skippedPages !== []) {
                     $body = collect($skippedPages)

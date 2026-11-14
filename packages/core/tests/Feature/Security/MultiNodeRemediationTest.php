@@ -161,7 +161,7 @@ it('keeps the outcome pending until another node applies its own environment fil
     expect($batch->applied)->toBe(0)
         ->and($batch->failed)->toBe(0)
         ->and($run->outcome)->toBe(SecurityRemediationOutcome::AppliedPendingNodes)
-        ->and($run->message)->toBe(__('capell-core::security.remediation.pending_nodes', ['count' => 1]))
+        ->and($run->message)->toBe(trans_choice('capell-core::security.remediation.pending_nodes', 1, ['count' => 1]))
         ->and($run->expected_nodes)->toBe(['node-a', 'node-b'])
         ->and($run->acknowledged_nodes)->toBe(['node-a'])
         ->and($finding->refresh()->status)->toBe(SecurityFindingStatus::Open)
@@ -176,7 +176,7 @@ it('keeps the outcome pending until another node applies its own environment fil
     $doctor = new SecurityPostureCheck()->check();
     expect($doctor->passed)->toBeFalse()
         ->and($doctor->severity)->toBe(DoctorCheckSeverity::Critical)
-        ->and($doctor->message)->toContain(__('capell-core::security.doctor.pending_nodes', ['count' => 1, 'nodes' => 'node-b']))
+        ->and($doctor->message)->toContain(trans_choice('capell-core::security.doctor.pending_nodes', 1, ['count' => 1, 'nodes' => 'node-b']))
         ->and($doctor->evidence)->toMatchArray(['pending_remediations' => 1, 'pending_nodes' => ['node-b']]);
 
     // Node B has its own, still unsafe environment file.

@@ -55,7 +55,7 @@ class BulkPublishPagesBulkAction extends BulkAction
                 $result = BulkPublishPagesAction::run($records, $actor);
 
                 $notification = Notification::make()
-                    ->title(BulkOutcomeTitle::make('publish_pages_done', $result->changed(), $records->count() - $result->changed()));
+                    ->title(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.publish_pages_done', $result->changed(), ['count' => $result->changed()]), $records->count() - $result->changed()));
 
                 $skipped = array_filter(
                     $result->records,

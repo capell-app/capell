@@ -49,7 +49,7 @@ class BulkCancelScheduleBulkAction extends BulkAction
                 }
 
                 Notification::make()
-                    ->title(BulkOutcomeTitle::make('cancel_schedule_done', $result['cancelled'], $result['skipped']))
+                    ->title(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.cancel_schedule_done', $result['cancelled'], ['count' => $result['cancelled']]), $result['skipped']))
                     ->success()
                     ->send();
             });

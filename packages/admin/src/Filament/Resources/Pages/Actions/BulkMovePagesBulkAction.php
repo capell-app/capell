@@ -94,7 +94,7 @@ class BulkMovePagesBulkAction extends BulkAction
                 }
 
                 Notification::make()
-                    ->title(BulkOutcomeTitle::make('move_pages_done', $result['moved'], $result['skipped']))
+                    ->title(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.move_pages_done', $result['moved'], ['count' => $result['moved']]), $result['skipped']))
                     ->body($this->outcomeDetails($records, $result['skipped_pages'], $newParent, true))
                     ->success()
                     ->send();

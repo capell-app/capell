@@ -183,7 +183,7 @@ it('publishes from the command with --publish and --user, then reports how many 
     try {
         $command = $this->artisan('capell:site-spec-import', ['spec' => $path, '--site' => (string) $site->getKey(), '--publish' => true, '--user' => $user->email]);
         assert($command instanceof PendingCommand);
-        $command->expectsOutputToContain('Published 4 page(s)')->assertExitCode(Command::SUCCESS)->run();
+        $command->expectsOutputToContain('Published 4 pages')->assertExitCode(Command::SUCCESS)->run();
 
         expect(specPage($site->refresh(), 'contact')->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published);
     } finally {

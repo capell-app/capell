@@ -33,7 +33,7 @@ class BulkRevertToDraftBulkAction extends BulkAction
                 $result = BulkRevertPagesToDraftAction::run($records, $actor);
 
                 $notification = Notification::make()
-                    ->title(BulkOutcomeTitle::make('revert_to_draft_done', $result['reverted'], $result['skipped']));
+                    ->title(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.revert_to_draft_done', $result['reverted'], ['count' => $result['reverted']]), $result['skipped']));
 
                 if (! empty($result['skipped_pages'])) {
                     $body = implode("\n", array_map(

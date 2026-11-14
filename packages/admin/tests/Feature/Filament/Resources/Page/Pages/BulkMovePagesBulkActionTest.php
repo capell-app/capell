@@ -246,7 +246,7 @@ it('bulk move mixed valid and invalid pages reports correct counts', function ()
         ->assertHasNoActionErrors();
 
     SentNotifications::component()
-        ->assertSee(BulkOutcomeTitle::make('move_pages_done', 1, 1))
+        ->assertSee(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.move_pages_done', 1, ['count' => 1]), 1))
         ->assertSee($validPage->name)
         ->assertSee($ancestor->name)
         ->assertSee(__('capell-admin::page_moves.reasons.cycle'));

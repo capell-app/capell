@@ -35,7 +35,7 @@ it('schedules selected pages to publish later', function (): void {
             data: ['publish_at' => $publishAt->toDateTimeString()],
         )
         ->assertHasNoActionErrors()
-        ->assertNotified(BulkOutcomeTitle::make('schedule_pages_done', 1, 0));
+        ->assertNotified(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.schedule_pages_done', 1, ['count' => 1]), 0));
 
     expect($page->fresh()->visible_from?->toDateTimeString())->toBe($publishAt->toDateTimeString());
 });
@@ -52,7 +52,7 @@ it('counts a page already scheduled for the requested time as skipped, not sched
             data: ['publish_at' => $publishAt->toDateTimeString()],
         )
         ->assertHasNoActionErrors()
-        ->assertNotified(BulkOutcomeTitle::make('schedule_pages_done', 0, 1));
+        ->assertNotified(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.schedule_pages_done', 0, ['count' => 0]), 1));
 
     expect($alreadyScheduledPage->fresh()->visible_from?->toDateTimeString())
         ->toBe($publishAt->toDateTimeString());

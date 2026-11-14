@@ -67,7 +67,7 @@ class BulkPublishNowBulkAction extends BulkAction
                 }
 
                 Notification::make()
-                    ->title(BulkOutcomeTitle::make('publish_now_done', $result->changed(), $records->count() - $result->changed()))
+                    ->title(BulkOutcomeTitle::make(trans_choice('capell-admin::bulk_actions.publish_now_done', $result->changed(), ['count' => $result->changed()]), $records->count() - $result->changed()))
                     ->success()
                     ->send();
             });
