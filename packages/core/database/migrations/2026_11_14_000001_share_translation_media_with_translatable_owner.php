@@ -29,8 +29,9 @@ return new class extends Migration
             return;
         }
 
-        $translationTypes = array_values(array_unique([new Translation()->getMorphClass(), Translation::class]));
-        $mediaTypes = array_values(array_unique([new Media()->getMorphClass(), Media::class]));
+        // Class names, not imports: a migration must keep working whatever the models later become.
+        $translationTypes = $this->morphTypes(Translation::class);
+        $mediaTypes = $this->morphTypes(Media::class);
         /** @var array<string, array{type: string, id: int, rows: list<array{id: int, uuid: string, fingerprint: string}>}> $owners */
         $owners = [];
 
@@ -116,6 +117,14 @@ return new class extends Migration
             $this->moveAltText($translationsTable, $mediaTypes, $media['id'], $original['id']);
             DB::table($mediaTable)->where('id', $media['id'])->update(['deleted_at' => now()]);
         }
+    }
+
+    /** @return list<string> */
+    private function morphTypes(string $class): array
+    {
+        $aliases = array_keys(Relation::morphMap(), $class, true);
+
+        return array_values(array_unique([...array_filter($aliases, is_string(...)), $class]));
     }
 
     private function holdsMedia(string $type): bool
