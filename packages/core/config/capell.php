@@ -8,6 +8,14 @@ return [
     'version' => env('CAPELL_VERSION'),
 
     'extensions' => [
+        // Explicit package names, honoured only in the local application environment.
+        'local_development' => [],
+        'marketplace_instance_id' => env('CAPELL_MARKETPLACE_INSTANCE_ID'),
+        // Trusted issuer key ID => base64 Ed25519 public key; only the Marketplace issuer key,
+        // never the project build key or an installation secret. Provisioning a key switches
+        // on issuer enforcement, so import the signed catalogue in the same step
+        // (capell:marketplace:import-receipts): without it every non-Core package fails closed.
+        'marketplace_receipt_public_keys' => [],
         'verification' => [
             // Leniency applies to local install and enable paths only; Marketplace is always strict.
             'strict' => (bool) env('CAPELL_EXTENSION_VERIFICATION_STRICT', true),

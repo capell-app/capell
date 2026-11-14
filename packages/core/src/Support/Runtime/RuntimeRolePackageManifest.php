@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Runtime;
 
 use Capell\Core\Enums\RuntimeRole;
+use Capell\Core\Support\Extensions\InstalledExtensionRepository;
+use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
+use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
 use Override;
@@ -168,6 +171,13 @@ final class RuntimeRolePackageManifest extends PackageManifest
                 continue;
             }
 
+            // Commercial Capell providers must enter through the manifest-v3
+            // loader, after Core can evaluate lifecycle/issuer authorisation.
+            // Laravel discovery runs too early to consult the lifecycle ledger.
+            if ($this->deferCommercialExtension($package)) {
+                continue;
+            }
+
             $filtered = $this->policy->filterLaravelPackage($package, $configuration, $this->role);
 
             if (is_array($filtered)) {
@@ -176,6 +186,22 @@ final class RuntimeRolePackageManifest extends PackageManifest
         }
 
         return $manifest;
+    }
+
+    private function deferCommercialExtension(string $package): bool
+    {
+        $commercial = resolve(ExtensionCommercialPolicy::class);
+        if (! $commercial->requiresAuthorisation($package) || $commercial->isLocalDevelopment($package)) {
+            return false;
+        }
+
+        $installedPath = InstalledVersions::isInstalled($package) ? InstalledVersions::getInstallPath($package) : null;
+        $installedPath ??= resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $package;
+        if ($commercial->isRecognised($package)) {
+            return true;
+        }
+
+        return is_file($installedPath . '/capell.json');
     }
 
     private function invalidateOpcache(string $path): void

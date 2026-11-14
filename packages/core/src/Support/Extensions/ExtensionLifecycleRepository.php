@@ -11,6 +11,7 @@ use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\TableName;
 use Illuminate\Support\Collection;
 use Throwable;
@@ -72,6 +73,22 @@ final class ExtensionLifecycleRepository
         $this->runtimeGateCache[$name] = ResolveExtensionRuntimeGateAction::run($extension);
 
         return $this->runtimeGateCache[$name]?->allowed;
+    }
+
+    /** @param Collection<string, PackageData> $packages */
+    public function commerciallyAuthorised(string $name, Collection $packages): bool
+    {
+        $extension = $this->record($name, $packages);
+        $policy = resolve(ExtensionCommercialPolicy::class);
+        if (! $policy->requiresAuthorisation($name, $extension)) {
+            return true;
+        }
+
+        if (! $extension instanceof CapellExtension) {
+            return $policy->isLocalDevelopment($name);
+        }
+
+        return $this->runtimeGateAllows($name, $packages) === true;
     }
 
     public function recordInstalled(string $name, ?PackageData $package, ?string $actor = null): void

@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Actions\Extensions\EnforceExtensionVerificationAction;
 use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
+use Capell\Core\Actions\Marketplace\EnforceExtensionAuthorisationAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Contracts\ProgressReporter;
@@ -46,6 +47,7 @@ class InstallPackageAction
         bool $freshLifecycleProcess = false,
     ): void {
         resolve(InstalledRuntimeLifecycle::class)->assertCanActivate($package->name);
+        EnforceExtensionAuthorisationAction::run($package->name);
 
         if (self::activationPending($package)) {
             // The lifecycle work finished on an earlier attempt and only the
