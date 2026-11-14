@@ -8,6 +8,7 @@ use Capell\Core\Actions\Extensions\EnforceExtensionVerificationAction;
 use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
 use Capell\Core\Actions\Marketplace\EnforceExtensionAuthorisationAction;
+use Capell\Core\Actions\Permissions\SyncPackagePermissionsAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Contracts\ProgressReporter;
@@ -169,6 +170,7 @@ class InstallPackageAction
     private static function activate(PackageData $package): void
     {
         resolve(ComponentRegistry::class)->clearCachedComponentsOrFail();
+        SyncPackagePermissionsAction::run($package);
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
         resolve(ExtensionLifecycleRepository::class)->markActivationPending($package->name, false);

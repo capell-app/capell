@@ -690,10 +690,10 @@ Do not build ad hoc cache keys in Blade.
 ```php
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Testing\ExtensionTestHarness;
 
 it('registers the admin bridge', function (): void {
-    CapellCore::forcePackageInstalled('acme/announcement-bar');
+    ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
 
     expect(resolve(AdminBridgeRegistry::class)->classes('acme/announcement-bar'))
         ->toContain(AnnouncementBarAdminBridge::class);

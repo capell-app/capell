@@ -70,6 +70,7 @@ namespace Acme\AnnouncementBar\Tests;
 use Acme\AnnouncementBar\Providers\AnnouncementBarServiceProvider;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Testing\ExtensionTestHarness;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Orchestra\Testbench\TestCase as Orchestra;
 use ReflectionClass;
@@ -102,7 +103,7 @@ abstract class TestCase extends Orchestra
 
         // Must happen before the application boots: the provider's
         // bootInstalledPackage() gate is evaluated during boot.
-        CapellCore::forcePackageInstalled('acme/announcement-bar');
+        ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
     }
 
     protected function defineDatabaseMigrations(): void
@@ -133,13 +134,13 @@ Provider order matters, and `LaravelSettingsServiceProvider` must come **after**
 
 Data and permissions providers go before Capell, which resolves their bindings during boot. This is the order Capell's own base test case uses.
 
-**Timing matters more than the call itself.** `AbstractPackageServiceProvider` evaluates the installed gate for `bootInstalledPackage()` during application boot. Calling `CapellCore::forcePackageInstalled()` from the test body — or from `setUp()` after `parent::setUp()` — is too late: the gate has already resolved to "not installed", so your bridge, settings, and render hooks were never registered and every registration assertion fails. Put it in `defineEnvironment()` (or `getEnvironmentSetUp()`), as above. Capell's own admin test case does exactly this.
+**Timing matters more than the call itself.** `AbstractPackageServiceProvider` evaluates the installed gate for `bootInstalledPackage()` during application boot. Calling `ExtensionTestHarness::markPackageInstalled()` from the test body — or from `setUp()` after `parent::setUp()` — is too late: the gate has already resolved to "not installed", so your bridge, settings, and render hooks were never registered and every registration assertion fails. Put it in `defineEnvironment()` (or `getEnvironmentSetUp()`), as above. Capell's own admin test case does exactly this.
 
-`forcePackageInstalled()` is marked `@internal` in Capell's source. It is nonetheless the mechanism Capell's own test suite uses and the only supported way to simulate an installed package in tests; treat its signature as stable-but-not-guaranteed and keep the call in one place in your harness.
+`ExtensionTestHarness::markPackageInstalled()` is the supported way to simulate an installed package in tests and is part of the stable `ExtensionTestHarness` surface. `CapellCore::forcePackageInstalled()` underneath it is `@internal`; do not call it from package tests.
 
 ### Binding a settings class in tests
 
-Testbench has no manifest discovery, so nothing reads your `capell.json` `settings` entry and `app(YourSettings::class)` stays unbound even after `forcePackageInstalled()`. `SettingsBootstrapper` builds `config('settings.settings')` from each registered package's `setting` property, with no install-state check.
+Testbench has no manifest discovery, so nothing reads your `capell.json` `settings` entry and `app(YourSettings::class)` stays unbound even after `markPackageInstalled()`. `SettingsBootstrapper` builds `config('settings.settings')` from each registered package's `setting` property, with no install-state check.
 
 The reliable route is to override `packageSettingClass()` on your provider, which `AbstractPackageServiceProvider` reads while registering package metadata:
 
@@ -165,7 +166,7 @@ Registering the frontend provider gives you the binding, but **not** a renderabl
 
 ```php
 it('registers the announcement render hook', function (): void {
-    CapellCore::forcePackageInstalled('acme/announcement-bar');
+    ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
 
     expect(resolve(RenderHookRegistry::class)->get(RenderHookLocation::HeaderAfter))
         ->not->toBeEmpty();
@@ -217,7 +218,7 @@ vendor/bin/pest
 
 Capell's internal test helpers live under the `Capell\Tests\` namespace, which is mapped in this repository's `autoload-dev` only. `CreatesAdminUser`, `TestingFrontend`, `IsolatedTestbenchSkeleton`, `PackageTestDatabaseGuard`, and the `Capell\Tests\Support\Fakes\*` doubles are **not** shipped to third-party packages. Do not reference them; write the equivalent fixture in your own package.
 
-`CapellCore::registerManifestPackage()`, `CapellCore::getMigrations()`, and `CapellCore::getSettingMigrations()` are shipped API and safe to use. `CapellCore::forcePackageInstalled()` is marked `@internal` but is the supported test mechanism, as noted above.
+`CapellCore::registerManifestPackage()`, `CapellCore::getMigrations()`, and `CapellCore::getSettingMigrations()` are shipped API and safe to use. `ExtensionTestHarness::markPackageInstalled()` is marked `@internal` but is the supported test mechanism, as noted above.
 
 <a id="generated-extension-consumer-check"></a>
 
@@ -250,7 +251,7 @@ protected function getPackageProviders($app): array
 Force packages installed in tests when testing installed-only behavior:
 
 ```php
-CapellCore::forcePackageInstalled('capell-app/example');
+ExtensionTestHarness::markPackageInstalled('capell-app/example');
 ```
 
 ## Manifest Tests
@@ -301,7 +302,7 @@ it('tags the page schema extender', function (): void {
 
 ```php
 it('registers an extension settings page', function (): void {
-    CapellCore::forcePackageInstalled('capell-app/example');
+    ExtensionTestHarness::markPackageInstalled('capell-app/example');
 
     expect(resolve(ExtensionPageRegistry::class)->get('capell-app/example'))
         ->toBe(ExampleSettingsPage::class);

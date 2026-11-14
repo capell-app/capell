@@ -28,6 +28,8 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 it('installs a package with filesystem side-effects', function (): void {
     File::spy();
@@ -781,3 +783,43 @@ function schemaPhaseArguments(): mixed
 
     });
 }
+
+it('creates the permissions a package declares and grants them to the super admin role only', function (): void {
+    $permissions = ['View:ExtensionCookbook', 'Manage:ExtensionCookbook'];
+    CapellCore::registerPackage('vendor/permissioned', version: '^1.0');
+    $package = new PackageData(
+        name: 'vendor/permissioned',
+        type: PackageTypeEnum::Plugin,
+        permissions: $permissions,
+        version: '^1.0',
+    );
+    Role::findOrCreate('editor', 'web');
+
+    InstallPackageAction::run($package);
+    InstallPackageAction::run($package);
+
+    $superAdmin = Role::findByName('super_admin', 'web');
+
+    expect(Permission::query()->whereIn('name', $permissions)->count())->toBe(2)
+        ->and($superAdmin->hasPermissionTo('View:ExtensionCookbook'))->toBeTrue()
+        ->and($superAdmin->hasPermissionTo('Manage:ExtensionCookbook'))->toBeTrue()
+        ->and(Role::findByName('editor', 'web')->permissions->pluck('name')->all())->toBe([]);
+});
+
+it('creates the declared permissions when a package is enabled and keeps grants an administrator already made', function (): void {
+    CapellCore::registerPackage('vendor/enabled-permissioned', version: '^1.0');
+    $package = new PackageData(
+        name: 'vendor/enabled-permissioned',
+        type: PackageTypeEnum::Plugin,
+        permissions: ['View:EnabledThing'],
+        version: '^1.0',
+    );
+    $editor = Role::findOrCreate('editor', 'web');
+    $editor->givePermissionTo(Permission::findOrCreate('View:EnabledThing', 'web'));
+
+    EnablePackageAction::run($package);
+
+    expect(Role::findByName('super_admin', 'web')->hasPermissionTo('View:EnabledThing'))->toBeTrue()
+        ->and(Role::findByName('editor', 'web')->hasPermissionTo('View:EnabledThing'))->toBeTrue()
+        ->and(Permission::query()->where('name', 'View:EnabledThing')->count())->toBe(1);
+});

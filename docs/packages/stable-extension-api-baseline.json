@@ -62,6 +62,11 @@
             "signature": "1496423461d9bb84de8c2622362486ede1453e064fdb84e0914878d8b4221dc5",
             "contractTestId": "core.project-build-manifest-install"
         },
+        "core.contract.extension-content-widget": {
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionContentWidget",
+            "signature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "contractTestId": "core.extension-content-widget"
+        },
         "core.contract.extension-contribution": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
@@ -71,6 +76,16 @@
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RecordsExtensionContributionReceipt",
             "signature": "9740cc5037cc3a232f182f77ed1ca34d92dfea047a734bad6bcf33d59dd7a09c",
             "contractTestId": "core.extension-contribution-receipt"
+        },
+        "core.contract.extension-setting": {
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionSetting",
+            "signature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "contractTestId": "core.extension-setting"
+        },
+        "core.contract.package-lifecycle-action": {
+            "identifier": "Capell\\Core\\Contracts\\PackageLifecycleAction",
+            "signature": "957b8e070be364b507f85cfb15542ee9aa5d459e835351a135f2025918248f79",
+            "contractTestId": "core.package-lifecycle-action"
         },
         "core.contract.project-build-artifact-handler": {
             "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildArtifactHandler",
@@ -162,10 +177,20 @@
             "signature": "9791d008a221f76abdf3bd0e7c8f5da09d16901defbaa456e009a71b27636672",
             "contractTestId": "core.package-installed-event"
         },
+        "core.provider.package-service-provider": {
+            "identifier": "Capell\\Core\\Support\\Packages\\AbstractPackageServiceProvider",
+            "signature": "e992bd92bfdb18a30a977fcfe40ada4e8d59ce335c5a4de019b902e0a67f0808",
+            "contractTestId": "core.package-service-provider"
+        },
         "core.registry.project-build-artifact-handler": {
             "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildArtifactHandlerRegistry",
             "signature": "90e22a203cb0ccaed70bfb14e83296be9d024c2300647ed76b83d7ddc1ca4175",
             "contractTestId": "core.project-build-artifact-handler-registry"
+        },
+        "core.registry.settings-schema": {
+            "identifier": "Capell\\Core\\Support\\Settings\\SettingsSchemaRegistry",
+            "signature": "1908945e40b0cbcae9aa9690edcedc61eb1d3ae0997abbbb82051d3b6b304b56",
+            "contractTestId": "core.settings-schema-registry"
         },
         "core.tag.project-build-artifact-handler": {
             "identifier": "capell.project-build.artifact-handler",
@@ -179,8 +204,28 @@
         },
         "core.testing.extension-harness": {
             "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",
-            "signature": "4f371d0adaa39b335b36024922338884e884f608bc1f2ac6172d01b217efaa0a",
+            "signature": "507646d95887d5491cbd3ffb01f1f99543f49f899468e828a4f6d7491e92d9db",
             "contractTestId": "core.extension-test-harness"
+        },
+        "frontend.dto.cache-invalidation-rule": {
+            "identifier": "Capell\\Frontend\\Data\\CacheInvalidationRule",
+            "signature": "558c1ed0b87b89c88319bf4e92265d3a04a896a1c102f7869cf6574c0444292a",
+            "contractTestId": "frontend.cache-invalidation-registry"
+        },
+        "frontend.registry.cache-invalidation": {
+            "identifier": "Capell\\Frontend\\Support\\Cache\\CacheInvalidationRegistry",
+            "signature": "e9a511668bb696f0622de3fa46c1b8ac270f59853dffa3022a94c32069161077",
+            "contractTestId": "frontend.cache-invalidation-registry"
+        },
+        "frontend.registry.render-hook": {
+            "identifier": "Capell\\Frontend\\Support\\Render\\RenderHookRegistry",
+            "signature": "d302b5d1b54a61d608fb2c5d632f5f65c2bc7eb4e1c999511d3774be02bd0cd0",
+            "contractTestId": "frontend.render-hook-registry"
+        },
+        "frontend.service.cache-invalidation-executor": {
+            "identifier": "Capell\\Frontend\\Support\\Cache\\CacheInvalidationExecutor",
+            "signature": "177131fd0d6317d570eaa0d5611149e17fcdca8ff83f6b5a78db1386c63d9371",
+            "contractTestId": "frontend.cache-invalidation-executor"
         }
     },
     "manifestRequirements": [
@@ -193,17 +238,21 @@
     ],
     "packageConstraints": {
         "php": "^8.4",
+        "ext-curl": "*",
         "ext-intl": "*",
         "aimeos/laravel-nestedset": "^7.0",
         "awobaz/compoships": "^2.3 || ^3.0",
         "bkwld/cloner": "^3.10",
         "filament/support": "^5.7.6",
+        "guzzlehttp/guzzle": "^7.5|^8.0",
+        "guzzlehttp/promises": "^2.0|^3.0",
         "illuminate/database": "^13.0",
         "illuminate/support": "^13.0",
         "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
         "monolog/monolog": "^3.10",
+        "psr/http-message": "^1.1|^2.0",
         "psr/log": "^1.0|^2.0|^3.0",
         "spatie/laravel-activitylog": "^4.0 || ^5.0",
         "spatie/laravel-data": "^4.5",
@@ -289,7 +338,23 @@
         "2026_10_29_000001_repair_admin_workspace_preferences_on_users_table.php",
         "2026_10_29_000002_add_revision_to_editor_scratch_drafts_table.php",
         "2026_10_29_000002_repair_ancillary_user_columns.php",
-        "2026_11_03_000001_create_public_read_eligibility_state_table.php"
+        "2026_11_02_000001_create_capell_security_weakness_findings_table.php",
+        "2026_11_02_000002_create_capell_security_remediation_approvals_table.php",
+        "2026_11_02_000003_create_capell_security_remediation_runs_table.php",
+        "2026_11_03_000001_add_node_columns_to_capell_security_remediation_runs_table.php",
+        "2026_11_03_000001_create_capell_extension_quarantines_table.php",
+        "2026_11_03_000001_create_public_read_eligibility_state_table.php",
+        "2026_11_03_000001_harden_security_scan_lifecycle.php",
+        "2026_11_03_000004_create_public_read_owed_withdrawals_table.php",
+        "2026_11_03_000005_create_public_read_projection_watermarks_table.php",
+        "2026_11_08_000001_add_source_to_page_revisions_table.php",
+        "2026_11_11_000001_add_standalone_visibility_indexes_to_pages_table.php",
+        "2026_11_11_000002_add_constraints_to_property_definitions_table.php",
+        "2026_11_11_000002_add_fallback_language_id_to_languages_table.php",
+        "2026_11_11_000010_add_media_foreign_key_to_property_values_tables.php",
+        "2026_11_11_000011_add_media_id_index_to_property_values_tables.php",
+        "2026_11_12_000001_create_capell_inbound_webhook_events_table.php",
+        "2026_11_14_000001_share_translation_media_with_translatable_owner.php"
     ],
     "configKeys": []
 }
