@@ -37,7 +37,7 @@ it('passes the runtime stage with warnings and points at the command that lists 
     $stage = RunRuntimeDoctorAction::run();
 
     expect($stage->passed)->toBeTrue()
-        ->and($stage->message)->toContain('1 warning(s)')
+        ->and($stage->message)->toContain('1 warning')
         ->toContain('php artisan capell:doctor --warnings');
 });
 
