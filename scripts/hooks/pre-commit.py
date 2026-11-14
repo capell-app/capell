@@ -86,6 +86,18 @@ def dependency_inventory(directory):
     return entries
 
 
+# The root package.json declares the shared screenshot runner as file:../capell-screenshot-tools, so npm links it to
+# a sibling directory that is deliberately outside every checkout and is never copied into the snapshot. This is the
+# only external dependency link the hook tolerates; any other link that leaves the checkout is still refused.
+SANCTIONED_NPM_LINK = '@capell-app/screenshot-tools'
+SANCTIONED_NPM_LINK_SIBLING = 'capell-screenshot-tools'
+
+
+def is_sanctioned_external_link(root, directory, relative, target):
+    return (directory == 'node_modules' and str(relative) == SANCTIONED_NPM_LINK
+            and target == Path(os.path.abspath(root.parent / SANCTIONED_NPM_LINK_SIBLING)))
+
+
 def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True):
     names = (['vendor'] if include_vendor else []) + (['node_modules'] if include_node else [])
     sources = [(name, root / name) for name in names if (root / name).is_dir()]
@@ -102,6 +114,8 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             elif info[0] == 'link':
                 path = source / relative
                 target = Path(os.path.abspath(os.path.join(path.parent, info[1])))
+                if is_sanctioned_external_link(root, name, relative, target):
+                    continue
                 if not target.is_relative_to(root):
                     raise HookFailure(f'Dependency symlink {path} leaves the checkout; it cannot be isolated safely.')
     if shutil.disk_usage(snapshot).free < total * 2 + 128 * 1024 * 1024:
@@ -117,6 +131,8 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             if info[0] != 'link':
                 continue
             target = Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))
+            if is_sanctioned_external_link(root, name, relative, target):
+                continue
             isolated_target = snapshot / target.relative_to(root)
             link = destination / relative
             link.unlink()
@@ -127,6 +143,8 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             if info[0] != 'link':
                 continue
             link = destination / relative
+            if is_sanctioned_external_link(root, name, relative, Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))):
+                continue
             if not link.resolve().is_relative_to(snapshot.resolve()) or not link.exists():
                 raise HookFailure(f'Dependency symlink {source / relative} has no safe snapshot target.')
 
@@ -175,14 +193,24 @@ def validate_dependencies(root, snapshot, env):
         for name, package in actual.items():
             if name not in expected or any(package.get(field) != expected[name].get(field) for field in ('version', 'resolved', 'integrity', 'link')):
                 raise HookFailure(f'Installed npm dependency {name} differs from the snapshot lock file.')
-            if package.get('link'):
+            if package.get('link') and name != 'node_modules/' + SANCTIONED_NPM_LINK:
                 path = (snapshot / name).resolve()
                 if not path.is_relative_to(snapshot.resolve()):
                     raise HookFailure(f'npm path dependency {name} is outside the snapshot.')
         npm = shutil.which('npm', path=env.get('PATH'))
         npm_env = dict(env, npm_config_cache=str(snapshot / '.npm-cache'), npm_config_update_notifier='false')
-        if npm is None or subprocess.run([npm, 'ls', '--all', '--offline'], cwd=snapshot, env=npm_env, capture_output=True).returncode:
+        if npm is None:
             raise HookFailure('Installed npm dependency graph does not match the snapshot manifest.')
+        listing = subprocess.run([npm, 'ls', '--all', '--offline', '--json'], cwd=snapshot, env=npm_env, capture_output=True)
+        if listing.returncode:
+            # The sanctioned sibling link dangles inside the snapshot, so npm reports only that package as unresolved.
+            try:
+                problems = json.loads(listing.stdout).get('problems', [])
+            except ValueError:
+                problems = []
+            tolerated = tuple(f'{kind}: {SANCTIONED_NPM_LINK}@' for kind in ('invalid', 'missing'))
+            if not problems or any(not problem.startswith(tolerated) for problem in problems):
+                raise HookFailure('Installed npm dependency graph does not match the snapshot manifest.')
 
 
 def main():
