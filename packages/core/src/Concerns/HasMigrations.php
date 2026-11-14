@@ -99,6 +99,7 @@ trait HasMigrations
             '2026_11_11_000010_add_media_foreign_key_to_property_values_tables',
             '2026_11_11_000011_add_media_id_index_to_property_values_tables',
             '2026_11_12_000001_create_capell_inbound_webhook_events_table',
+            '2026_11_14_000001_share_translation_media_with_translatable_owner',
         ];
     }
 
