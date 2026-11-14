@@ -638,6 +638,41 @@ link.symlink_to(target, target_is_directory=True)
         self.assertIn('Dependency symlink', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
 
+    def stage_screenshot_tools_link(self, sibling):
+        external = Path(self.temp.name) / sibling
+        external.mkdir()
+        (external / 'package.json').write_text('{"name":"@capell-app/screenshot-tools","version":"1.0.0"}')
+        (self.root / 'node_modules/@capell-app').mkdir(parents=True)
+        (self.root / 'node_modules/@capell-app/screenshot-tools').symlink_to(f'../../../{sibling}', target_is_directory=True)
+        link = {'resolved': f'../{sibling}', 'link': True}
+        (self.root / 'package.json').write_text(json.dumps({'name': 'fixture', 'devDependencies': {'@capell-app/screenshot-tools': 'file:../capell-screenshot-tools'}}))
+        (self.root / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
+            '': {'name': 'fixture', 'devDependencies': {'@capell-app/screenshot-tools': 'file:../capell-screenshot-tools'}},
+            '../capell-screenshot-tools': {'name': '@capell-app/screenshot-tools', 'version': '1.0.0'},
+            'node_modules/@capell-app/screenshot-tools': link}}))
+        (self.root / 'node_modules/.package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
+            '../capell-screenshot-tools': {'name': '@capell-app/screenshot-tools', 'version': '1.0.0', 'dev': True},
+            'node_modules/@capell-app/screenshot-tools': link}}))
+        self.git('add', 'package.json', 'package-lock.json')
+        self.git('commit', '-qm', 'screenshot tools link')
+        self.assertEqual(self.install().returncode, 0)
+        (self.root / 'file.txt').write_text('staged\n')
+        self.git('add', 'file.txt')
+        return subprocess.run([str(self.root / '.git/hooks/pre-commit')], cwd=self.root, env=self.env,
+                              text=True, capture_output=True, timeout=300)
+
+    def test_the_shared_screenshot_runner_sibling_link_is_tolerated(self):
+        (self.events / 'continue').write_text('go')
+        result = self.stage_screenshot_tools_link('capell-screenshot-tools')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.events / 'ready').exists())
+
+    def test_a_lookalike_dependency_link_outside_the_checkout_is_still_refused(self):
+        result = self.stage_screenshot_tools_link('other-tools')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Dependency symlink', result.stderr)
+        self.assertFalse((self.events / 'ready').exists())
+
     def test_known_documentation_hooks_ignore_unrelated_broken_dependency_trees(self):
         self.mark_fixture_hooks_known()
         (self.root / 'node_modules').mkdir()
