@@ -1942,6 +1942,33 @@ it('hydrates stored blocks when the content structure changes so fields are keye
         ->and(array_values($blocks)[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
 });
 
+it('keeps unsaved translation edits when the content structure changes', function (): void {
+    resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
+    $language = Language::factory()->createOne();
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Blocks)->create();
+    $page = Page::factory()->recycle($language)->type($type)->create();
+    $translation = Translation::factory()
+        ->language($language)
+        ->translatable($page)
+        ->state([
+            'title' => 'Stored title',
+            'content' => [['type' => FormattedFieldFilamentWidget::getWidgetName(), 'data' => ['reference' => FormattedFieldFilamentWidget::STORED]]],
+        ])
+        ->create();
+    $rowPath = sprintf('translations.record-%d', $translation->getKey());
+
+    $component = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->set('data.' . $rowPath . '.title', 'Unsaved title')
+        ->call('pageTypeContentStructureUpdated', ContentStructure::Blocks);
+
+    $blocks = array_values(data_get($component->instance()->data, $rowPath . '.content'));
+
+    expect(data_get($component->instance()->data, $rowPath . '.title'))->toBe('Unsaved title')
+        ->and($translation->refresh()->title)->toBe('Stored title')
+        ->and($blocks)->toHaveCount(1)
+        ->and($blocks[0]['data']['reference'])->toBe(FormattedFieldFilamentWidget::FORMATTED);
+});
+
 it('keeps blocks already in the editor as blocks when the content structure is confirmed', function (): void {
     resolve(WidgetDiscovery::class)->register(FormattedFieldFilamentWidget::class);
     $language = Language::factory()->createOne();

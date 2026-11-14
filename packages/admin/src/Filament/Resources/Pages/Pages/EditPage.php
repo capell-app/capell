@@ -379,11 +379,11 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
         // The loop above writes persisted, list-keyed content straight into the
         // state, so the editor would hold block `0` with stored (unformatted)
-        // field values. Rebuild the form for the new structure, then fill it:
-        // that runs the same hydration as a fresh mount, so builder items are
-        // keyed by uuid and field formatters run.
-        unset($this->cachedSchemas['form']);
-        $this->getSchema('form')?->fill($this->data);
+        // field values. Rebuild the form for the new structure and hydrate only
+        // the content paths, as a fresh mount would (uuid-keyed builder items,
+        // field formatters run). A full fill() would reload the translations
+        // from the database and discard the editor's unsaved edits.
+        $this->restoreRecoveredFormState($this->data ?? []);
     }
 
     public function saveAsDraft(): void
