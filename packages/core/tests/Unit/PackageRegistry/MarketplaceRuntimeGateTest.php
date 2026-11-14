@@ -2,18 +2,17 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
-use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
-use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 
-it('allows an expired paid extension that was previously valid for this site', function (): void {
-    bindRuntimeGateEntitlements(
-        fn (CapellExtension $extension, array $installedReceipt): bool => $extension->composer_name === $installedReceipt['composer_name']
-            && $installedReceipt['receipt_id'] === 'receipt-123',
-    );
+beforeEach(function (): void {
+    config()->set('app.url', 'https://example.test');
+    config()->set('capell.extensions.marketplace_instance_id', 'instance-123');
+});
 
+it('allows an expired paid extension that was previously valid for this site', function (): void {
     $extension = CapellExtension::query()->create([
         'composer_name' => 'capell-app/seo-suite',
         'name' => 'SEO Suite',
@@ -39,9 +38,7 @@ it('allows an expired paid extension that was previously valid for this site', f
         ->and($gate->reason)->toBe('expired_but_previously_valid');
 });
 
-it('blocks an expired paid extension when the extension entitlements reject or cannot verify its receipt', function (Closure $verify): void {
-    bindRuntimeGateEntitlements($verify);
-
+it('blocks an expired paid extension when the issuer key is untrusted or malformed', function (string $key): void {
     $extension = CapellExtension::query()->create([
         'composer_name' => 'capell-app/seo-suite',
         'name' => 'SEO Suite',
@@ -51,55 +48,43 @@ it('blocks an expired paid extension when the extension entitlements reject or c
         'marketplace_runtime_allowed' => true,
         'marketplace_signed_activation' => ['installed_receipt' => validInstalledReceipt()],
     ]);
+    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => $key]);
 
     $gate = ResolveExtensionRuntimeGateAction::run($extension);
 
     expect($gate->allowed)->toBeFalse()
         ->and($gate->reason)->toBe('expired_without_activation');
 })->with([
-    'rejected' => [fn (): bool => false],
-    'verification throws' => [function (): bool {
-        throw new RuntimeException('Verification unavailable.');
-    }],
+    'untrusted key' => base64_encode(str_repeat('x', 32)),
+    'malformed key' => 'invalid base64',
 ]);
-
-function bindRuntimeGateEntitlements(Closure $verify): void
-{
-    app()->bind(ExtensionEntitlements::class, fn (): ExtensionEntitlements => new readonly class($verify) implements ExtensionEntitlements
-    {
-        public function __construct(private Closure $verify) {}
-
-        public function licenceDecision(string $slug, string $action, string $domain): ExtensionLicenceDecisionData
-        {
-            throw new LogicException('The runtime gate must not request licence decisions.');
-        }
-
-        public function verifyActivation(CapellExtension $extension, array $installedReceipt): bool
-        {
-            return ($this->verify)($extension, $installedReceipt);
-        }
-    });
-}
 
 /** @return array<string, mixed> */
 function validInstalledReceipt(): array
 {
-    return [
-        'receipt_version' => 1,
+    $keys = sodium_crypto_sign_seed_keypair(str_repeat("\x02", 32));
+    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => base64_encode(sodium_crypto_sign_publickey($keys))]);
+    $receipt = [
+        'receipt_version' => 2,
+        'purpose' => 'capell-installed-receipt',
         'receipt_id' => 'receipt-123',
         'composer_name' => 'capell-app/seo-suite',
         'package_version' => '1.0.0',
         'package_identity' => 'identity-123',
         'instance_id' => 'instance-123',
         'domain' => 'example.test',
-        'issued_at' => now()->subMonth()->toIso8601String(),
+        'issued_at' => now()->subDay()->toIso8601String(),
+        'runtime_valid_until' => now()->addDays(20)->toIso8601String(),
         'perpetual_installed_runtime' => true,
         'runtime_revoked' => false,
-        'signature' => 'signed',
+        'signature' => ['algorithm' => 'ed25519', 'keyId' => 'test-issuer', 'value' => ''],
     ];
+    $receipt['signature']['value'] = base64_encode(sodium_crypto_sign_detached(CanonicalizeProjectBuildManifestSigningInputAction::run($receipt), sodium_crypto_sign_secretkey($keys)));
+
+    return $receipt;
 }
 
-it('blocks an expired paid extension when no activation verifier is registered', function (): void {
+it('blocks an expired paid extension without an issuer receipt', function (): void {
     $extension = CapellExtension::query()->create([
         'composer_name' => 'capell-app/seo-suite',
         'name' => 'SEO Suite',

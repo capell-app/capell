@@ -16,6 +16,7 @@ use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
@@ -282,7 +283,9 @@ trait ManagesPackages
         }
 
         if (array_key_exists($name, $this->forcedPackageInstallStates)) {
-            return $this->forcedPackageInstallStates[$name];
+            // Forced state is a test and recovery seam; it never stands in for commercial authorisation.
+            return $this->forcedPackageInstallStates[$name]
+                && $this->extensionLifecycle()->commerciallyAuthorised($name, collect($this->packages));
         }
 
         return $this->isPackageEnabled($name);
@@ -321,6 +324,10 @@ trait ManagesPackages
 
         if ($extensionStatus === ExtensionStatusEnum::Enabled) {
             return $this->extensionLifecycle()->runtimeGateAllows($name, collect($this->packages)) !== false;
+        }
+
+        if (! $this->extensionLifecycle()->commerciallyAuthorised($name, collect($this->packages))) {
+            return false;
         }
 
         if ($package->installed !== null) {
@@ -705,6 +712,7 @@ trait ManagesPackages
 
     private function resetExtensionCacheState(): void
     {
+        resolve(ExtensionCommercialPolicy::class)->clear();
         foreach ($this->packages as $packageData) {
             $packageData->installed = null;
         }

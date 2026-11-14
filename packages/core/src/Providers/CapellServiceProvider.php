@@ -29,6 +29,7 @@ use Capell\Core\Console\Commands\HashExtensionContentsCommand;
 use Capell\Core\Console\Commands\HealthCheckCommand;
 use Capell\Core\Console\Commands\HealthCommand;
 use Capell\Core\Console\Commands\HealthProbeCommand;
+use Capell\Core\Console\Commands\ImportMarketplaceReceiptsCommand;
 use Capell\Core\Console\Commands\ImportSiteSpecCommand;
 use Capell\Core\Console\Commands\InitializeScreenshotRecordStateFixtureCommand;
 use Capell\Core\Console\Commands\InstallCommand;
@@ -190,6 +191,8 @@ use Capell\Core\Support\Makers\BuiltIn\PageBladeComponentMaker;
 use Capell\Core\Support\Makers\BuiltIn\PageLivewireComponentMaker;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Makers\MakerSafety;
+use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
+use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
@@ -410,6 +413,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             InitializeScreenshotRecordStateFixtureCommand::class,
             ImportSiteSpecCommand::class,
             InstallExtensionCommand::class,
+            ImportMarketplaceReceiptsCommand::class,
             UninstallExtensionCommand::class,
             InstallCommand::class,
             MakeCommand::class,
@@ -638,6 +642,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(MediaCompositionGuidanceRegistry::class);
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(ExtensionEntitlements::class, NullExtensionEntitlements::class);
+        $this->app->singletonIf(CommercialCatalogueStore::class);
+        $this->app->singletonIf(ExtensionCommercialPolicy::class);
         $this->app->bindIf(ResolvesHostAddresses::class, DnsHostAddressResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);

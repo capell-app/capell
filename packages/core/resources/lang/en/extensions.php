@@ -3,6 +3,16 @@
 declare(strict_types=1);
 
 return [
+    'authorisation' => [
+        'required' => ':package requires valid Marketplace authorisation. Connect your account and activate the package before installing or enabling it.',
+    ],
+    'receipt_import' => [
+        'unreadable' => 'The receipt bundle at :path cannot be read. Check the path and file permissions, then run the import again.',
+        'invalid' => 'This file is not a Marketplace receipt bundle. Download a new bundle for this installation from the Marketplace.',
+        'wrong_instance' => 'This bundle was issued for a different installation. Check CAPELL_MARKETPLACE_INSTANCE_ID, or download the bundle issued for this installation.',
+        'summary' => 'Imported :accepted receipts; :rejected were refused because they are not valid for this installation.',
+        'catalogue_rejected' => 'The commercial catalogue was refused because it is older than the one held or its signature does not verify. Package classifications are unchanged.',
+    ],
     'install_plan' => [
         'bundle_members' => 'Installs the bundle members first: :members',
         'schema_migrations' => 'Publishes and runs the extension database migrations.',

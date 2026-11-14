@@ -12,7 +12,9 @@ use Capell\Core\Support\Bootstrap\CloudInstallContext;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
@@ -185,6 +187,14 @@ final class CapellPackageLoader
     /** @return list<string> */
     private function resolveProviders(CapellManifestData $manifest, ?bool $runtimeProvidersSelected = null): array
     {
+        // Once issuer enforcement is on, an unauthorised commercial package loads no provider in
+        // any bucket, metadata included: its code does not run at all.
+        if (! TrustedCorePackages::contains($manifest->name)
+            && resolve(ExtensionCommercialPolicy::class)->enforcing()
+            && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
+            return [];
+        }
+
         $runtimeRole = $this->runtimeRoleResolver->role();
         $providers = $runtimeRole->loadsAuthoringProviders()
             ? [...$manifest->providers->metadata, ...$manifest->providers->install]

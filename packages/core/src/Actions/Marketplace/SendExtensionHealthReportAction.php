@@ -58,9 +58,17 @@ final class SendExtensionHealthReportAction
 
         throw_unless(is_array($responseData), RuntimeException::class, 'The marketplace response did not include the expected data payload.');
 
-        RecordExtensionHealthAlertsAction::run(
-            source: $source,
-            alerts: $this->verifiedAlerts($responseData['alerts'] ?? [], $signingSecret),
+        $alerts = $this->verifiedAlerts($responseData['alerts'] ?? [], $signingSecret);
+        RecordExtensionHealthAlertsAction::run(source: $source, alerts: $alerts);
+
+        // Receipts and the catalogue carry their own issuer signatures; revocations come only
+        // from alerts that verified above, and they must change runtime state, not just be listed.
+        $receipts = $responseData['installed_receipts'] ?? [];
+        $catalogue = $responseData['commercial_catalogue'] ?? null;
+        ApplyMarketplaceIssuanceAction::run(
+            receipts: is_array($receipts) ? $receipts : [],
+            catalogue: is_array($catalogue) ? $catalogue : null,
+            revocations: array_values(array_filter($alerts, static fn (ExtensionHealthAlertData $alert): bool => $alert->runtimeDisabled)),
         );
 
         $this->markReported($resolvedInstanceId);
