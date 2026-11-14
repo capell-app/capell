@@ -14,8 +14,10 @@ use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Loader\SiteLoader;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     config()->set('cache.default', 'array');
@@ -141,19 +143,40 @@ it('returns the current page url directly when a site has one language', functio
         ]);
 });
 
-it('getSites sets language relations on siteDomains and translations', function (): void {
+it('returns empty sites without querying languages', function (bool $cached): void {
+    if ($cached) {
+        CapellCore::setToCache(CacheEnum::Sites->value, (new Site)->newCollection());
+        resolve(CapellCacheManager::class)->flushLocalCache();
+    }
+
+    $languageQuery = explode(' where ', Language::query()->toSql(), 2)[0];
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    try {
+        $sites = SiteLoader::getSites();
+        $languageQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $query): bool => str_starts_with($query['query'], $languageQuery));
+
+        expect($sites)->toBeInstanceOf(EloquentCollection::class)->toBeEmpty()
+            ->and($languageQueries)->toHaveCount(0);
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+})->with(['cold cache' => false, 'cached sites' => true]);
+
+it('getSites sets language relations on siteDomains and translations', function (bool $cached): void {
     $french = Language::factory()->french()->create();
     $english = Language::factory()->english()->create();
-    $site = Site::factory()->language($english)->create();
-    SiteDomain::factory()
-        ->site($site)
-        ->forEachSequence(
-            ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $french->id, 'path' => '/fr'],
-            ['scheme' => 'http', 'domain' => 'localhost', 'language_id' => $english->id, 'path' => null],
-        )
-        ->create();
+    $site = Site::factory()->language($english)->withTranslations(collect([$english, $french]))->create();
 
     Page::factory()->site($site)->home()->withTranslations(slug: '/')->create();
+
+    if ($cached) {
+        SiteLoader::getSites();
+        resolve(CapellCacheManager::class)->flushLocalCache();
+    }
 
     $sites = SiteLoader::getSites();
 
@@ -174,10 +197,11 @@ it('getSites sets language relations on siteDomains and translations', function 
         ->and($englishDomain->getRelation('language')->id)->toBe($english->id);
 
     $translations = $loadedSite->translations;
+    expect($translations)->toHaveCount(2);
     $translations->each(function ($translation): void {
         expect($translation->getRelation('language'))->toBeInstanceOf(Language::class);
     });
-});
+})->with(['cold cache' => false, 'cached sites' => true]);
 
 it('loads related sites for the current language', function (): void {
     $english = Language::query()->create([
