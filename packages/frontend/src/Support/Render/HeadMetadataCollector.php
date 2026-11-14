@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 /** Collect legacy head contributions without changing unrelated markup. */
 final class HeadMetadataCollector
 {
-    private const META_KEYS = ['robots', 'og:title', 'og:description', 'og:type', 'og:url', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description'];
+    private const META_KEYS = ['robots', 'og:title', 'og:description', 'og:type', 'og:url', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description', 'og:image', 'twitter:image'];
 
     /** @var array<string, string|array<string, mixed>> */
     private array $values = [];
