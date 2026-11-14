@@ -11,6 +11,7 @@ use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Events\CapellDoctorPassed;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,10 @@ class DoctorCommand extends Command
         $reportPath = $this->option('report-json');
         if (is_string($reportPath) && $reportPath !== '') {
             throw_if(file_put_contents($reportPath, JsonCodec::encode($report->toArray(), JSON_PRETTY_PRINT)) === false, RuntimeException::class, 'Unable to write the health report.');
+        }
+
+        if ($report->passed()) {
+            event(new CapellDoctorPassed);
         }
 
         if ($this->option('json')) {

@@ -7,8 +7,10 @@ namespace Capell\Marketplace\Providers;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
+use Capell\Core\Events\CapellDoctorPassed;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
+use Capell\Marketplace\Actions\RecordFirstDoctorPassAction;
 use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Console\Commands\MarketplaceAutoUpdateCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
@@ -32,6 +34,7 @@ use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerScriptRunner;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Event;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
@@ -118,6 +121,8 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         if (! config('capell-marketplace.enabled', true)) {
             return $this;
         }
+
+        Event::listen(CapellDoctorPassed::class, RecordFirstDoctorPassAction::class);
 
         $this->scheduleWorkerHeartbeatProbe();
         $this->scheduleMarketplaceHeartbeat();

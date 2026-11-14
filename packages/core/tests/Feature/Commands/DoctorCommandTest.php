@@ -13,6 +13,7 @@ use Capell\Core\Data\Install\ArtisanCommandResultData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckOutcome;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Enums\ExtensionStatusEnum;
+use Capell\Core\Events\CapellDoctorPassed;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Language;
@@ -30,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
@@ -216,6 +218,24 @@ it('allows the install summary to validate required tables before the final core
 
     artisanCommand('capell:doctor')
         ->assertExitCode(Command::FAILURE);
+});
+
+it('announces a fully passing doctor run and stays silent when a check fails', function (): void {
+    Event::fake([CapellDoctorPassed::class]);
+    seedHealthyDoctorInstall();
+
+    artisanCommand('capell:doctor')->assertExitCode(Command::SUCCESS);
+
+    Event::assertDispatchedTimes(CapellDoctorPassed::class, 1);
+
+    Schema::shouldReceive('hasTable')
+        ->andReturnUsing(static fn (string $table): bool => $table !== 'sites')
+        ->byDefault();
+    Schema::shouldReceive('hasColumn')->andReturnTrue()->byDefault();
+
+    artisanCommand('capell:doctor')->assertExitCode(Command::FAILURE);
+
+    Event::assertDispatchedTimes(CapellDoctorPassed::class, 1);
 });
 
 it('fails when required table is missing', function (): void {

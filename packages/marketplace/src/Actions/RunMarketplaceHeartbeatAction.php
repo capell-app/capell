@@ -10,6 +10,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\FoundationInstalledVersionResolver;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
+use Capell\Marketplace\Support\MarketplaceSetupMilestones;
 use Capell\Marketplace\Support\MarketplaceWebhookUrl;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
@@ -84,6 +85,12 @@ class RunMarketplaceHeartbeatAction
                 'installed' => $installed,
             ];
 
+            $milestones = BuildMarketplaceSetupMilestonesPayloadAction::run($marketplaceInstance);
+
+            if ($milestones !== []) {
+                $payload['milestones'] = $milestones;
+            }
+
             $ownerContact = BuildMarketplaceOwnerContactPayloadAction::run();
 
             if ($ownerContact !== []) {
@@ -114,6 +121,7 @@ class RunMarketplaceHeartbeatAction
                         'connection_metadata' => [
                             ...(is_array($marketplaceInstance?->connection_metadata) ? $marketplaceInstance->connection_metadata : []),
                             'commercial' => $heartbeatResult->commercial,
+                            ...($milestones === [] ? [] : [MarketplaceSetupMilestones::REPORTED_KEY => now()->toIso8601String()]),
                         ],
                         'last_heartbeat_at' => now(),
                     ],
