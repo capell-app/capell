@@ -6,6 +6,9 @@ namespace Capell\Frontend\Data;
 
 use Spatie\LaravelData\Data;
 
+/**
+ * @api
+ */
 final class CacheInvalidationRule extends Data
 {
     public const string KIND_FORGET_KEY = 'forget-key';

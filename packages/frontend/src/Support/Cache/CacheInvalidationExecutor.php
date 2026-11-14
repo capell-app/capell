@@ -10,6 +10,9 @@ use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 
+/**
+ * @api
+ */
 final class CacheInvalidationExecutor
 {
     use HasCache;
