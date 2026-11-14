@@ -56,7 +56,7 @@ trait LayoutValidation
             Notification::make('layout_graph_dependencies_not_deletable')
                 ->warning()
                 ->title(__('capell-admin::message.content_graph_delete_blocked'))
-                ->body(__('capell-admin::message.content_graph_delete_blocked_info', [
+                ->body(trans_choice('capell-admin::message.content_graph_delete_blocked_info', $deleteImpact->blockingCount, [
                     'count' => $deleteImpact->blockingCount,
                 ]))
                 ->send();

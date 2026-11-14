@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Pages\BuildPageMoveTargetOptionsAction;
 use Capell\Admin\Actions\Pages\BulkMovePagesAction;
+use Capell\Admin\Support\Notifications\BulkOutcomeTitle;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -93,10 +94,7 @@ class BulkMovePagesBulkAction extends BulkAction
                 }
 
                 Notification::make()
-                    ->title(__('capell-admin::bulk_actions.move_pages_done', [
-                        'moved' => $result['moved'],
-                        'skipped' => $result['skipped'],
-                    ]))
+                    ->title(BulkOutcomeTitle::make('move_pages_done', $result['moved'], $result['skipped']))
                     ->body($this->outcomeDetails($records, $result['skipped_pages'], $newParent, true))
                     ->success()
                     ->send();

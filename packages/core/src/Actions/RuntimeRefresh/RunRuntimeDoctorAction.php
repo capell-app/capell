@@ -32,7 +32,7 @@ class RunRuntimeDoctorAction
             passed: $report->passed(),
             message: match (true) {
                 ! $report->passed() => (string) __('capell-core::health.doctor.runtime_stage_failed', ['checks' => implode(', ', $failures)]),
-                $report->warningCount() > 0 => (string) __('capell-core::health.doctor.runtime_stage_passed_with_warnings', [
+                $report->warningCount() > 0 => trans_choice('capell-core::health.doctor.runtime_stage_passed_with_warnings', $report->warningCount(), [
                     'count' => $report->warningCount(),
                     'command' => DoctorWarningSummaryData::LIST_COMMAND,
                 ]),

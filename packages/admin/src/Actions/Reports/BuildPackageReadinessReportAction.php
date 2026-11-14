@@ -167,7 +167,7 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
                 label: __('capell-admin::reports.package_readiness_check_migrations'),
                 passed: false,
                 severity: 'warning',
-                message: __('capell-admin::reports.package_readiness_migrations_unverifiable_tables', [
+                message: trans_choice('capell-admin::reports.package_readiness_migrations_unverifiable_tables', count($unverifiableTables), [
                     'tables' => implode(', ', $unverifiableTables),
                 ]),
             );
@@ -184,7 +184,7 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
                 label: __('capell-admin::reports.package_readiness_check_migrations'),
                 passed: false,
                 severity: 'critical',
-                message: __('capell-admin::reports.package_readiness_migrations_missing_tables', ['tables' => implode(', ', $missingTables)]),
+                message: trans_choice('capell-admin::reports.package_readiness_migrations_missing_tables', count($missingTables), ['tables' => implode(', ', $missingTables)]),
             );
         }
 

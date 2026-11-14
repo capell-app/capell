@@ -275,7 +275,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             return new DoctorCheckResultData(
                 label: __('capell-admin::reports.demo_install_health_check_event_sourcing'),
                 passed: false,
-                message: __('capell-admin::reports.demo_install_health_event_sourcing_unverifiable', [
+                message: trans_choice('capell-admin::reports.demo_install_health_event_sourcing_unverifiable', count($unverifiableTables), [
                     'tables' => implode(', ', $unverifiableTables),
                 ]),
                 remediation: __('capell-admin::reports.demo_install_health_schema_probe_remediation'),
@@ -294,7 +294,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             return new DoctorCheckResultData(
                 label: __('capell-admin::reports.demo_install_health_check_event_sourcing'),
                 passed: false,
-                message: __('capell-admin::reports.demo_install_health_event_sourcing_missing', [
+                message: trans_choice('capell-admin::reports.demo_install_health_event_sourcing_missing', count($missingTables), [
                     'tables' => implode(', ', $missingTables),
                 ]),
                 remediation: __('capell-admin::reports.demo_install_health_event_sourcing_remediation'),

@@ -63,7 +63,7 @@ final class SecurityPostureCheck implements DoctorCheck
         }
 
         if ($pendingNodes !== null) {
-            $pending = (string) __('capell-core::security.doctor.pending_nodes', ['count' => $pendingNodes['runs'], 'nodes' => implode(', ', $pendingNodes['nodes'])]);
+            $pending = trans_choice('capell-core::security.doctor.pending_nodes', $pendingNodes['runs'], ['count' => $pendingNodes['runs'], 'nodes' => implode(', ', $pendingNodes['nodes'])]);
             $message .= ' ' . $pending;
             $evidence['pending_remediations'] = $pendingNodes['runs'];
             $evidence['pending_nodes'] = $pendingNodes['nodes'];

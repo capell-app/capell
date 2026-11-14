@@ -413,7 +413,7 @@ final class RestoreBackupAction
         }
 
         throw new ScratchRestoreFailedException(
-            (string) __('capell-core::backup.restore_doctor_checks_failed', ['count' => count($failedChecks)]),
+            trans_choice('capell-core::backup.restore_doctor_checks_failed', count($failedChecks), ['count' => count($failedChecks)]),
             $base->withDoctorResult('checks', '', $exitCode, $failedChecks),
         );
     }

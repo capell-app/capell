@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Pages\BulkCancelScheduleAction;
+use Capell\Admin\Support\Notifications\BulkOutcomeTitle;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
 use Filament\Actions\BulkAction;
@@ -48,10 +49,7 @@ class BulkCancelScheduleBulkAction extends BulkAction
                 }
 
                 Notification::make()
-                    ->title(__('capell-admin::bulk_actions.cancel_schedule_done', [
-                        'cancelled' => $result['cancelled'],
-                        'skipped' => $result['skipped'],
-                    ]))
+                    ->title(BulkOutcomeTitle::make('cancel_schedule_done', $result['cancelled'], $result['skipped']))
                     ->success()
                     ->send();
             });

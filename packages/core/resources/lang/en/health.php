@@ -11,7 +11,7 @@ return [
     'migrations' => [
         'label' => 'Migrations are up to date',
         'passed' => 'All migrations have run and every required table exists.',
-        'pending' => ':count migration(s) have not run yet, for example :examples. The tables they create or change are missing or out of date until they run.',
+        'pending' => '{1} :count migration has not run yet, for example :examples. The tables it creates or changes are missing or out of date until it runs.|[2,*] :count migrations have not run yet, for example :examples. The tables they create or change are missing or out of date until they run.',
         'pending_remediation' => 'Run php artisan migrate.',
         'missing_tables' => 'These required tables do not exist although no migration is pending: :tables. Capell cannot read or save content without them.',
         'missing_tables_remediation' => 'The Capell migrations have not been published to this application. Run php artisan capell:install to publish and run them.',
@@ -36,7 +36,7 @@ return [
         'failed' => 'One or more checks failed. See suggestions above.',
         'no_warnings_to_list' => 'No checks reported warnings.',
         'runtime_stage_passed' => 'All Capell Doctor checks passed.',
-        'runtime_stage_passed_with_warnings' => 'Capell Doctor passed with :count warning(s) that do not stop the site working. To list them, run: :command',
+        'runtime_stage_passed_with_warnings' => '{1} Capell Doctor passed with :count warning that does not stop the site working. To list it, run: :command|[2,*] Capell Doctor passed with :count warnings that do not stop the site working. To list them, run: :command',
         'runtime_stage_failed' => 'Failed checks: :checks.',
         'theme_passed' => 'All theme checks passed.',
         'theme_passed_with_warnings' => 'Theme checks passed with warnings. The theme works; fix the warnings when you can.',
