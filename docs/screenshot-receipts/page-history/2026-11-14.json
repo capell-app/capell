@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 4,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "page-history-timeline",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-timeline.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "page-history-timeline-dark",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-timeline-dark.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "page-history-rollback-preview",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "admin",
+      "id": "page-history-rollback-preview-dark",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-rollback-preview-dark.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-11-14T14:51:40.688Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "05503f62ec741226984de302f1e13b6204df8886",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "e2b18412fdd6fd456cdacbe96eb1375ae78ec43d",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "e70d0cb645ddabd74cdfcec19585ff9dc8af89d40dee626d25aeb54779e33a14"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "fae774038d2e31e0de6e52ae05b41a7601deea737925ea4ead258d22a4313d67"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "admin",
+        "id": "page-history-timeline",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/page-history-timeline.png",
+          "sha256": "0beca3a4feacb311f2fb3a2c2afa3ab1a0eb9d22567c9b2d94996034608120c5"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2b18412fdd6fd456cdacbe96eb1375ae78ec43d"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/admin/pages/13/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "admin",
+        "id": "page-history-timeline-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/page-history-timeline-dark.png",
+          "sha256": "e87aa8fc505afb1668105397fb146156db8b750866143fa352d6bfae873ec577"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2b18412fdd6fd456cdacbe96eb1375ae78ec43d"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/admin/pages/13/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "admin",
+        "id": "page-history-rollback-preview",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
+          "sha256": "90821009b0ed1d3d3d6205f722212bcb2a7419eec83c5bcdc7e6fbee022ffb19"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2b18412fdd6fd456cdacbe96eb1375ae78ec43d"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/admin/pages/13/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "admin",
+        "id": "page-history-rollback-preview-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/admin/docs/images/screenshots/page-history-rollback-preview-dark.png",
+          "sha256": "da479b34303eceb5a34544000cbdc362e98c617f2ea19685aef96c138f2f983f"
+        },
+        "manifest": {
+          "path": "packages/admin/docs/screenshots.json",
+          "sha256": "09828be98fd0f59a8228980827b00f1885aa000b87ae8bfb2e6a6d2be0ff2b88"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "e2b18412fdd6fd456cdacbe96eb1375ae78ec43d"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/admin/pages/13/edit",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 4\nSkipped: 0\nFailed: 0\n- captured admin:page-history-timeline -> /Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-timeline.png\n- captured admin:page-history-timeline-dark -> /Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-timeline-dark.png\n- captured admin:page-history-rollback-preview -> /Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-rollback-preview.png\n- captured admin:page-history-rollback-preview-dark -> /Users/ben/Sites/.capell-wt/core-2-7/packages/admin/docs/images/screenshots/page-history-rollback-preview-dark.png"
+}
