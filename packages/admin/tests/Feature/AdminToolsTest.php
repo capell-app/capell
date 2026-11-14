@@ -75,6 +75,14 @@ it('renders one tools entry with labeled dropdown rows', function (): void {
         ->assertSee(__('capell-admin::button.upgrade_capell'));
 });
 
+it('asks for confirmation before clearing every site cache and explains the consequence', function (): void {
+    test()->actingAsAdmin();
+
+    $html = Livewire::test(AdminTools::class)->html();
+
+    expect($html)->toContain('wire:confirm="' . e(__('capell-admin::message.clear_all_caches_confirmation')) . '"');
+});
+
 it('hides the header navigation tree when disabled in admin settings', function (): void {
     $settings = AdminSettings::instance();
     $settings->enable_header_navigation_tree = false;
