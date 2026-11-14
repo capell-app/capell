@@ -54,6 +54,8 @@ trait ManagesPackages
         $this->installedExtensionNamesCache = null;
         $this->clearPackageMemoization();
         $this->extensionLifecycle()->clear();
+        // A heartbeat in another worker may have stored a newer catalogue.
+        resolve(ExtensionCommercialPolicy::class)->clear();
     }
 
     /**

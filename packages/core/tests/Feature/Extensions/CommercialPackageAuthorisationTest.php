@@ -531,3 +531,13 @@ it('imports an offline receipt bundle only for this installation', function (str
     'this installation' => ['ddda8b4c-3850-4d20-9cf4-460c9364c413', 0, true],
     'another installation' => ['another-instance', 1, false],
 ]);
+
+it('re-reads a catalogue another worker stored after the per-operation flush', function (): void {
+    $store = resolve(CommercialCatalogueStore::class);
+    expect($store->classification('vendor/commercial'))->toBeNull();
+    // Another worker accepts a newer catalogue through its own store instance.
+    expect(new CommercialCatalogueStore()->accept(commercialCatalogue(false)))->toBeTrue()
+        ->and($store->classification('vendor/commercial'))->toBeNull();
+    resolve(CapellCoreManager::class)->flushOctaneState();
+    expect($store->classification('vendor/commercial'))->toBeFalse();
+});
