@@ -86,10 +86,11 @@ final class ImportSiteSpecCommand extends Command
             return CommandAlias::SUCCESS;
         }
 
-        $this->components->info((string) __('capell::message.site_spec_import_complete', [
+        $pageCount = $site->pages()->count();
+        $this->components->info(trans_choice('capell::message.site_spec_import_complete', $pageCount, [
             'name' => $site->name,
             'id' => $site->getKey(),
-            'pages' => $site->pages()->count(),
+            'pages' => $pageCount,
         ]));
 
         return CommandAlias::SUCCESS;
@@ -157,7 +158,7 @@ final class ImportSiteSpecCommand extends Command
         $this->components->info((string) __('capell-core::message.site_spec_apply_complete', ['name' => $site->name, 'id' => $site->getKey(), ...$this->planCounts($plan)]));
 
         if (isset($published)) {
-            $this->components->info((string) __('capell-core::message.site_spec_publish_complete', ['count' => $published, 'name' => $site->name, 'id' => $site->getKey()]));
+            $this->components->info(trans_choice('capell-core::message.site_spec_publish_complete', $published, ['count' => $published, 'name' => $site->name, 'id' => $site->getKey()]));
         }
 
         return CommandAlias::SUCCESS;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Publishing\RunBulkPublicationTransitionAction;
+use Capell\Admin\Support\Notifications\BulkOutcomeTitle;
 use Capell\Admin\Support\Publishing\PublicationSkipReason;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Carbon\CarbonImmutable;
@@ -81,10 +82,7 @@ class BulkSchedulePagesBulkAction extends BulkAction
                 }
 
                 $notification = Notification::make()
-                    ->title(__('capell-admin::bulk_actions.schedule_pages_done', [
-                        'scheduled' => $scheduled,
-                        'skipped' => $skipped,
-                    ]));
+                    ->title(BulkOutcomeTitle::make('schedule_pages_done', $scheduled, $skipped));
 
                 if ($skippedPages !== []) {
                     $body = collect($skippedPages)

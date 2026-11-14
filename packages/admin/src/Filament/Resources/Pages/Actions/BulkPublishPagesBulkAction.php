@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Pages\BulkPublishPagesAction;
 use Capell\Admin\Actions\Publishing\PreviewBulkPublicationTransitionAction;
+use Capell\Admin\Support\Notifications\BulkOutcomeTitle;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
@@ -54,10 +55,7 @@ class BulkPublishPagesBulkAction extends BulkAction
                 $result = BulkPublishPagesAction::run($records, $actor);
 
                 $notification = Notification::make()
-                    ->title(__('capell-admin::bulk_actions.publish_pages_done', [
-                        'published' => $result->changed(),
-                        'skipped' => $records->count() - $result->changed(),
-                    ]));
+                    ->title(BulkOutcomeTitle::make('publish_pages_done', $result->changed(), $records->count() - $result->changed()));
 
                 $skipped = array_filter(
                     $result->records,

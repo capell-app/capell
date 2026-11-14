@@ -12,7 +12,7 @@ return [
         'refresh_single_node' => 'This installation is not multi-node; there is nothing to refresh.',
         'refresh_description' => 'Apply approved security changes on this node and report it to the rest of the fleet.',
         'refresh_no_acknowledgement' => 'No pending changes were acknowledged on this node.',
-        'refresh_node' => 'Node :node refreshed :acknowledged pending change(s); :completed change(s) finished.',
+        'refresh_node' => 'Node :node refreshed pending changes. Acknowledged: :acknowledged. Finished: :completed.',
     ],
     'doctor' => [
         'label' => 'Security posture',
@@ -22,7 +22,7 @@ return [
         'action' => 'Run php artisan capell:security:scan and review the findings.',
         'node_collision' => 'Multiple hosts have registered security node :node; give each host a unique node ID.',
         'unknown_fleet' => 'The node membership for remediation run :run is unknown; review it before settling the change.',
-        'pending_nodes' => ':count approved change(s) are waiting for these nodes to apply them: :nodes. Check that the scheduler runs on every node.',
+        'pending_nodes' => '{1} :count approved change is waiting for these nodes to apply it: :nodes. Check that the scheduler runs on every node.|[2,*] :count approved changes are waiting for these nodes to apply them: :nodes. Check that the scheduler runs on every node.',
     ],
     'remediation' => [
         'no_fix' => 'No automatic fix is registered for security weakness :id.',
@@ -45,7 +45,7 @@ return [
         'cookie' => 'Require secure and HTTP-only session cookies.',
         'updates' => 'Allow Capell to take security releases for this package automatically.',
         'https_required' => 'Configure HTTPS before changing cookie settings.',
-        'pending_nodes' => 'Applied on this node; waiting for :count other node(s) to apply it.',
+        'pending_nodes' => '{1} Applied on this node; waiting for :count other node to apply it.|[2,*] Applied on this node; waiting for :count other nodes to apply it.',
         'pending_nodes_skip' => 'A change for this finding is still being applied on other nodes.',
         'nodes_not_refreshed' => 'Not applied on every node. These nodes did not refresh: :nodes.',
         'no_update_needed' => 'The package is missing or its update policy has already changed.',

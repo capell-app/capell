@@ -172,7 +172,7 @@ final class BuildOptimizerReadinessDiagnosticsAction
         return new DiagnosticCheckData(
             status: $count === null ? 'not_configured' : ($count > 0 ? 'amber' : 'green'),
             label: (string) __('capell-admin::diagnostics.pending_critical_css_jobs'),
-            detail: $count === null ? (string) __('capell-admin::diagnostics.optimizer_queue_unavailable') : (string) __('capell-admin::diagnostics.optimizer_queue_pending', ['count' => $count]),
+            detail: $count === null ? (string) __('capell-admin::diagnostics.optimizer_queue_unavailable') : trans_choice('capell-admin::diagnostics.optimizer_queue_pending', $count, ['count' => $count]),
             remediation: $count > 0 ? (string) __('capell-admin::diagnostics.optimizer_worker_context') : null,
         );
     }
@@ -219,7 +219,7 @@ final class BuildOptimizerReadinessDiagnosticsAction
             status: $failedCount > 0 ? 'red' : 'green',
             label: (string) __('capell-admin::diagnostics.failed_critical_css_jobs'),
             detail: $failedCount > 0
-                ? (string) __('capell-admin::diagnostics.critical_css_failed_detail', ['count' => $failedCount])
+                ? trans_choice('capell-admin::diagnostics.critical_css_failed_detail', $failedCount, ['count' => $failedCount])
                 : (string) __('capell-admin::diagnostics.critical_css_no_failures'),
             remediation: $failedCount > 0 ? (string) __('capell-admin::diagnostics.critical_css_failed_remediation') : null,
         );

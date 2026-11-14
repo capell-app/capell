@@ -390,7 +390,7 @@ it('observes optimiser work on the configured queue database independently of th
 
         expect($pending->status)->toBe($queueTableExists ? 'amber' : 'not_configured')
             ->and($pending->detail)->toBe($queueTableExists
-                ? __('capell-admin::diagnostics.optimizer_queue_pending', ['count' => 2])
+                ? trans_choice('capell-admin::diagnostics.optimizer_queue_pending', 2, ['count' => 2])
                 : __('capell-admin::diagnostics.optimizer_queue_unavailable'))
             ->and($checks->firstWhere('label', 'Node runtime')->status)->toBe($queueTableExists ? 'green' : 'not_configured')
             ->and($checks->firstWhere('label', 'Playwright runtime')->status)->toBe($queueTableExists ? 'green' : 'not_configured')

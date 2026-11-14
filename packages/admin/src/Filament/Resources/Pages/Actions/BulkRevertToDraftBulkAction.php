@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Pages\BulkRevertPagesToDraftAction;
+use Capell\Admin\Support\Notifications\BulkOutcomeTitle;
 use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -32,10 +33,7 @@ class BulkRevertToDraftBulkAction extends BulkAction
                 $result = BulkRevertPagesToDraftAction::run($records, $actor);
 
                 $notification = Notification::make()
-                    ->title(__('capell-admin::bulk_actions.revert_to_draft_done', [
-                        'reverted' => $result['reverted'],
-                        'skipped' => $result['skipped'],
-                    ]));
+                    ->title(BulkOutcomeTitle::make('revert_to_draft_done', $result['reverted'], $result['skipped']));
 
                 if (! empty($result['skipped_pages'])) {
                     $body = implode("\n", array_map(

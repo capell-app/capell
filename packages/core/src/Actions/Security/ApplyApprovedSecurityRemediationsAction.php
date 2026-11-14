@@ -200,7 +200,7 @@ class ApplyApprovedSecurityRemediationsAction
 
         $run->fill([
             'outcome' => SecurityRemediationOutcome::AppliedPendingNodes,
-            'message' => __('capell-core::security.remediation.pending_nodes', ['count' => count($expected) - 1]),
+            'message' => trans_choice('capell-core::security.remediation.pending_nodes', count($expected) - 1, ['count' => count($expected) - 1]),
             'expected_nodes' => $expected,
             'acknowledged_nodes' => [$self],
         ]);
