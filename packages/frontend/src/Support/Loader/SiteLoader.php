@@ -82,6 +82,10 @@ class SiteLoader
                 ->get();
         });
 
+        if ($sites->isEmpty()) {
+            return $sites;
+        }
+
         $siteLanguages = SiteLoader::languages();
         /** @var \Illuminate\Support\Collection<int, Language> $languagesById */
         $languagesById = $siteLanguages->keyBy('id');
