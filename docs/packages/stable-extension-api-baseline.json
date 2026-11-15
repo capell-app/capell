@@ -356,7 +356,8 @@
         "2026_11_12_000001_create_capell_inbound_webhook_events_table.php",
         "2026_11_14_000001_share_translation_media_with_translatable_owner.php",
         "2026_11_14_000010_create_capell_ai_provenance_table.php",
-        "2026_11_15_000001_add_source_fingerprints_to_translations_table.php"
+        "2026_11_15_000001_add_source_fingerprints_to_translations_table.php",
+        "2026_11_15_000010_create_capell_idempotency_keys_table.php"
     ],
     "configKeys": []
 }
