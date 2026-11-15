@@ -385,6 +385,9 @@ return [
         'welcome_routes_web_path' => env('CAPELL_INSTALL_WELCOME_ROUTES_WEB_PATH', base_path('routes/web.php')),
         'welcome_env_path' => env('CAPELL_INSTALL_WELCOME_ENV_PATH', base_path('.env')),
 
+        // Test harnesses set this so the installer leaves the shared framework caches in place; a real install never does.
+        'skip_optimize_clear' => (bool) env('CAPELL_INSTALL_SKIP_OPTIMIZE_CLEAR', false),
+
         // Install suites, offered as "What are you building?" in the CLI installer.
         // `packages` always install; `recommended` entries are pre-ticked and `optional`
         // entries are offered unticked, each with a one-line reason (package => reason).
