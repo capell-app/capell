@@ -7,6 +7,7 @@ namespace Capell\Core\Listeners;
 use Capell\Core\Actions\BuildPackageCacheAction;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Contracts\Foundation\Application;
+use Throwable;
 
 /**
  * Composer runs `artisan package:discover` after every install, update and require. Rebuilding the Capell
@@ -28,6 +29,12 @@ final readonly class RebuildPackageCacheAfterPackageDiscovery
             return;
         }
 
-        BuildPackageCacheAction::run();
+        // Composer runs this from its post-autoload-dump script; a broken package manifest must be
+        // reported, not fail the whole `composer install`.
+        try {
+            BuildPackageCacheAction::run();
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
     }
 }

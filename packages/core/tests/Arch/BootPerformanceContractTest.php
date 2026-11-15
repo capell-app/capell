@@ -177,12 +177,18 @@ it('rediscovers packages outside production when Composer installed packages aft
         bootstrapperForWebRequest($cachePath, isProduction: true, registry: $production, basePath: $root)->bootstrap();
 
         expect($production->has($staleOnly))->toBeTrue();
+
+        // Production console boots (artisan, scheduler, queue workers) keep the cache too.
+        $productionConsole = new CapellPackageRegistry;
+        bootstrapperForWebRequest($cachePath, isProduction: true, registry: $productionConsole, basePath: $root, runningInConsole: true)->bootstrap();
+
+        expect($productionConsole->has($staleOnly))->toBeTrue();
     } finally {
         File::deleteDirectory($root);
     }
 });
 
-function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?CapellPackageRegistry $registry = null, ?string $basePath = null): PackageRegistryBootstrapper
+function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?CapellPackageRegistry $registry = null, ?string $basePath = null, bool $runningInConsole = false): PackageRegistryBootstrapper
 {
     $registry ??= new CapellPackageRegistry;
     $application = Mockery::mock(Application::class);
@@ -193,7 +199,7 @@ function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?Capel
     );
     $application->shouldReceive('register')->andReturnUsing(fn (mixed $provider): ServiceProvider => app()->register($provider));
     $application->shouldReceive('bootstrapPath')->with('cache/capell-package-manifests.php')->andReturn($cachePath);
-    $application->shouldReceive('runningInConsole')->andReturnFalse();
+    $application->shouldReceive('runningInConsole')->andReturn($runningInConsole);
     $application->shouldReceive('environment')->with('production')->andReturn($isProduction);
     $application->shouldReceive('basePath')->with('vendor/composer/installed.json')->andReturn(($basePath ?? base_path()) . '/vendor/composer/installed.json');
 

@@ -72,8 +72,10 @@ final readonly class PackageRegistryBootstrapper
     {
         if (file_exists($cachePath)) {
             // `composer require` adds packages without touching this cache. Outside production a cache
-            // older than Composer's install record would hide them, so rediscover instead.
-            if ($this->canDiscoverOnDemand() && $this->composerChangedSince($cachePath)) {
+            // older than Composer's install record would hide them, so rediscover instead. Production,
+            // console included, keeps the deployed cache: a vendor tree unpacked after
+            // capell:package-cache must not turn every boot into a full discovery.
+            if (! $this->app->environment('production') && $this->composerChangedSince($cachePath)) {
                 return $this->manifestLoader->discover();
             }
 

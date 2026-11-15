@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\BuildPackageCacheAction;
 use Capell\Core\Listeners\RebuildPackageCacheAfterPackageDiscovery;
 use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
@@ -31,6 +32,16 @@ it('rebuilds an existing package cache after Composer runs package:discover', fu
     BuildPackageCacheAction::shouldRun()->once();
 
     event(packageDiscoveryFinished('package:discover', 0));
+});
+
+it('reports a failed rebuild instead of failing the Composer script that ran package:discover', function (): void {
+    file_put_contents($this->bootstrapPath . '/cache/capell-package-manifests.php', '<?php return [];');
+    BuildPackageCacheAction::shouldRun()->once()->andThrow(new RuntimeException('Invalid package manifest.'));
+    Exceptions::fake();
+
+    resolve(RebuildPackageCacheAfterPackageDiscovery::class)->handle(packageDiscoveryFinished('package:discover', 0));
+
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'Invalid package manifest.');
 });
 
 it('leaves the cache alone after other commands, failed discovery, or when no cache exists', function (): void {
