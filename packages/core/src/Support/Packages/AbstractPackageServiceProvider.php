@@ -24,6 +24,9 @@ use ReflectionMethod;
 use RuntimeException;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
+/**
+ * @api
+ */
 abstract class AbstractPackageServiceProvider extends PackageServiceProvider implements PackageServiceProvidable
 {
     use RegistersInstalledRuntime;

@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 
+/**
+ * @api
+ */
 final class CacheInvalidationRegistry
 {
     public function __construct(

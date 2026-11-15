@@ -473,6 +473,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.extension-content-widget",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionContentWidget",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Manifest content widget contribution boundary.",
+            "contractTestId": "core.extension-content-widget"
+        },
+        {
             "id": "core.contract.extension-contribution",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\ExtensionContribution",
@@ -491,6 +501,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Neutral runtime contribution receipt boundary.",
             "contractTestId": "core.extension-contribution-receipt"
+        },
+        {
+            "id": "core.contract.extension-setting",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionSetting",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Manifest settings contribution boundary.",
+            "contractTestId": "core.extension-setting"
         },
         {
             "id": "core.contract.fingerprints-public-read-rules",
@@ -561,6 +581,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Package-owned outbound event contribution boundary.",
             "contractTestId": null
+        },
+        {
+            "id": "core.contract.package-lifecycle-action",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\PackageLifecycleAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Install, setup and uninstall lifecycle Action boundary.",
+            "contractTestId": "core.package-lifecycle-action"
         },
         {
             "id": "core.contract.project-build-artifact-handler",
@@ -1373,6 +1403,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.provider.package-service-provider",
+            "kind": "provider",
+            "identifier": "Capell\\Core\\Support\\Packages\\AbstractPackageServiceProvider",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Package provider base class and its bootPackage, bootInstalledRuntime and bootInstalledPackage hooks.",
+            "contractTestId": "core.package-service-provider"
+        },
+        {
             "id": "core.registry.blueprint-subject",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\BlueprintSubjectRegistry",
@@ -1451,6 +1491,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Ordered runtime publication readiness contributor registry.",
             "contractTestId": null
+        },
+        {
+            "id": "core.registry.settings-schema",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Settings\\SettingsSchemaRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Registers package settings classes for the admin settings screens.",
+            "contractTestId": "core.settings-schema-registry"
         },
         {
             "id": "core.schema.project-build-manifest-v1",
@@ -1687,6 +1737,16 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.dto.cache-invalidation-rule",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\CacheInvalidationRule",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed cache invalidation rule a package registers.",
+            "contractTestId": "frontend.cache-invalidation-registry"
+        },
+        {
             "id": "frontend.dto.component-contribution",
             "kind": "dto",
             "identifier": "Capell\\Frontend\\Data\\FrontendComponentContributionData",
@@ -1767,6 +1827,16 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.registry.cache-invalidation",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Cache\\CacheInvalidationRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Registers the cache invalidation rules a package declares.",
+            "contractTestId": "frontend.cache-invalidation-registry"
+        },
+        {
             "id": "frontend.registry.package-dependency",
             "kind": "registry",
             "identifier": "Capell\\Frontend\\Support\\Assets\\FrontendPackageDependencyRegistry",
@@ -1801,10 +1871,20 @@
             "kind": "registry",
             "identifier": "Capell\\Frontend\\Support\\Render\\RenderHookRegistry",
             "ownerPackage": "capell-app/frontend",
-            "stability": "experimental",
+            "stability": "stable",
             "introducedVersion": "1.0.0",
             "summary": "Owner-aware ordered Frontend render hooks.",
-            "contractTestId": null
+            "contractTestId": "frontend.render-hook-registry"
+        },
+        {
+            "id": "frontend.service.cache-invalidation-executor",
+            "kind": "service",
+            "identifier": "Capell\\Frontend\\Support\\Cache\\CacheInvalidationExecutor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Runs registered cache invalidation rules for a changed model or event.",
+            "contractTestId": "frontend.cache-invalidation-executor"
         },
         {
             "id": "frontend.tag.component-contributor",

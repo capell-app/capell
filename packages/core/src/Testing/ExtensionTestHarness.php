@@ -73,6 +73,16 @@ final class ExtensionTestHarness
         return self::forPath($candidate);
     }
 
+    /**
+     * Marks a package installed (or not) for the rest of the test process, so the registrations behind
+     * its installed gate run. Call it from `defineEnvironment()`: the gate resolves during application
+     * boot, so a call from a test body or `setUp()` is too late.
+     */
+    public static function markPackageInstalled(string $packageName, bool $installed = true): void
+    {
+        CapellCore::forcePackageInstalled($packageName, $installed);
+    }
+
     public static function assertCompanionPackageContract(CompanionPackageContractData $contract): void
     {
         (new CompanionPackageContractSuite)->run($contract);
@@ -111,7 +121,7 @@ final class ExtensionTestHarness
 
         $registry->register($manifest);
         CapellCore::registerManifestPackage($manifest);
-        CapellCore::forcePackageInstalled($manifest->name);
+        self::markPackageInstalled($manifest->name);
 
         $roleResolver = new RuntimeRoleResolver(new RuntimeRoleSelectionData(
             role: $role,

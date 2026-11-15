@@ -9,5 +9,7 @@ namespace Capell\Core\Contracts\Extensions;
  *
  * Settings ownership and schema metadata remain in the manifest. Capell
  * validates this contract before a settings subsystem resolves the class.
+ *
+ * @api
  */
 interface RegistersExtensionSetting extends ExtensionContribution {}

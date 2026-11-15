@@ -10,5 +10,7 @@ namespace Capell\Core\Contracts\Extensions;
  * Widget keys and capabilities are declared in the manifest. Capell validates
  * this marker before exposing the contribution to content and rendering
  * registries.
+ *
+ * @api
  */
 interface RegistersExtensionContentWidget extends ExtensionContribution {}
