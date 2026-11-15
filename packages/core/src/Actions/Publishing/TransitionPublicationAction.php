@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Publishing;
 
+use Capell\Core\Actions\Ai\HasUnreviewedAiContentAction;
 use Capell\Core\Actions\Properties\EvaluatePropertyCompletenessAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
@@ -61,6 +62,15 @@ final class TransitionPublicationAction
                     $request,
                     PublicationTransitionOutcome::InvalidTransition,
                     'capell-core::properties.validation.missing_publish_required',
+                );
+            }
+
+            // AI-written fields need a person's review before the page goes public.
+            if (HasUnreviewedAiContentAction::run($request->record)) {
+                return $this->evaluator->unchanged(
+                    $request,
+                    PublicationTransitionOutcome::InvalidTransition,
+                    'publication.transition.ai_review_required',
                 );
             }
         }

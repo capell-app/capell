@@ -2,7 +2,7 @@
 
 Use this policy to plan a Foundation upgrade or a client maintenance agreement. The current public Foundation line is **1.x**. It covers Core, Admin, Frontend, Installer and Marketplace, and the version-aligned `capell-app/capell` aggregate.
 
-The commitments below come from the repository's [security policy](../../SECURITY.md), [changelog](../../CHANGELOG.md), Composer manifests and [extension API versioning policy](../packages/extension-api-versioning.md). Where those sources do not establish a fact, this page says so and states no date or window.
+The commitments below come from the repository's [security policy](../../SECURITY.md), [changelog](https://github.com/capell-app/capell/blob/main/CHANGELOG.md), Composer manifests and [extension API versioning policy](../packages/extension-api-versioning.md). Where those sources do not establish a fact, this page says so and states no date or window.
 
 ## Supported Foundation lines and dates
 
@@ -29,7 +29,7 @@ For an optional package, read its Composer constraints on Core to see which Foun
 
 ## One public version line
 
-The [changelog](../../CHANGELOG.md#v100---2026-07-11) identifies 1.x as the public line after the re-baseline. The five split-package Composer manifests alias `dev-main` to `1.x-dev`, and the [aggregate manifest](../../composer.json) uses the same alias. A development alias is a Composer compatibility label, not a tagged stable release.
+The [changelog](https://github.com/capell-app/capell/blob/main/CHANGELOG.md#v100---2026-07-11) identifies 1.x as the public line after the re-baseline. The five split-package Composer manifests alias `dev-main` to `1.x-dev`, and the [aggregate manifest](../../composer.json) uses the same alias. A development alias is a Composer compatibility label, not a tagged stable release.
 
 Historical `v2.0.x` tags may remain in local clones. They do not establish a current 2.x support promise. The [next-major compatibility decision](../packages/core-next-major-compatibility-decision.json) is planning evidence; it is not a release announcement.
 

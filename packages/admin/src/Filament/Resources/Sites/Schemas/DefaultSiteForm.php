@@ -9,6 +9,8 @@ use Capell\Admin\Filament\Components\Forms\NameInput;
 use Capell\Admin\Filament\Components\Forms\Site\LanguagesSchema;
 use Capell\Admin\Filament\Components\Forms\ThemeSelect;
 use Capell\Admin\Filament\Contracts\FormConfigurator;
+use Capell\Core\Enums\SiteAiDisclosure;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
@@ -35,6 +37,15 @@ class DefaultSiteForm implements FormConfigurator
                     fn (ThemeSelect $component): ThemeSelect => $component->withCreateForm(),
                     fn (ThemeSelect $component): ThemeSelect => $component->withEditForm(),
                 ),
+            Select::make('meta.' . SiteAiDisclosure::META_KEY)
+                ->label(__('capell-admin::form.ai_disclosure'))
+                ->helperText(__('capell-admin::form.ai_disclosure_help'))
+                ->options([
+                    SiteAiDisclosure::Off->value => __('capell-admin::form.ai_disclosure_off'),
+                    SiteAiDisclosure::Marker->value => __('capell-admin::form.ai_disclosure_marker'),
+                ])
+                ->default(SiteAiDisclosure::Off->value)
+                ->selectablePlaceholder(false),
         ]);
     }
 }
