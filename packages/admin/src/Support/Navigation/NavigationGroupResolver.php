@@ -78,13 +78,35 @@ final class NavigationGroupResolver
 
     private function legacyCaseFor(string $group): ?NavigationGroupEnum
     {
-        foreach (self::LEGACY_KEYS as $key => $case) {
-            if ($key === $group || __($key) === $group) {
-                return $case;
-            }
+        if (array_key_exists($group, self::LEGACY_KEYS)) {
+            return self::LEGACY_KEYS[$group];
         }
 
-        return null;
+        return $this->legacyLabels()[$group] ?? null;
+    }
+
+    /**
+     * Translated legacy labels, written as literal keys so the translation
+     * drift check sees them in use while packages still return them.
+     *
+     * @return array<string, NavigationGroupEnum>
+     */
+    private function legacyLabels(): array
+    {
+        return [
+            (string) __('capell-admin::navigation.group_websites') => NavigationGroupEnum::Website,
+            (string) __('capell-admin::navigation.group_content') => NavigationGroupEnum::Website,
+            (string) __('capell-admin::navigation.group_workflow') => NavigationGroupEnum::Website,
+            (string) __('capell-admin::navigation.group_layouts') => NavigationGroupEnum::Design,
+            (string) __('capell-admin::navigation.group_growth') => NavigationGroupEnum::Marketing,
+            (string) __('capell-admin::navigation.group_customers') => NavigationGroupEnum::Business,
+            (string) __('capell-admin::navigation.group_operations') => NavigationGroupEnum::Business,
+            (string) __('capell-admin::navigation.group_monitoring') => NavigationGroupEnum::Reports,
+            (string) __('capell-admin::navigation.group_security') => NavigationGroupEnum::Settings,
+            (string) __('capell-admin::navigation.group_system') => NavigationGroupEnum::Settings,
+            (string) __('capell-admin::navigation.group_integrations') => NavigationGroupEnum::Settings,
+            (string) __('capell-admin::navigation.group_extensions') => NavigationGroupEnum::Settings,
+        ];
     }
 
     private function isDashboardGroup(string $group): bool

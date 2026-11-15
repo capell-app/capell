@@ -618,7 +618,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // can replace it. Admin never names the replacement; the bridge does.
         $this->app->bind(ExtensionRemovalCoordinator::class, InRequestExtensionRemovalCoordinator::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
-        $this->app->singleton(NavigationGroupResolver::class);
+        $this->app->scoped(NavigationGroupResolver::class);
         $this->app->scoped(AdminNavigationOrganiser::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);

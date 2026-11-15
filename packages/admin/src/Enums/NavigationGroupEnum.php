@@ -26,7 +26,17 @@ enum NavigationGroupEnum: string implements HasLabel
     #[Override]
     public function getLabel(): string
     {
-        return (string) __($this->translationKey());
+        // Literal keys keep every group label visible to the translation drift check.
+        return (string) match ($this) {
+            self::Website => __('capell-admin::navigation.group_website'),
+            self::Media => __('capell-admin::navigation.group_media'),
+            self::Design => __('capell-admin::navigation.group_design'),
+            self::Marketing => __('capell-admin::navigation.group_marketing'),
+            self::Business => __('capell-admin::navigation.group_business'),
+            self::Reports => __('capell-admin::navigation.group_reports'),
+            self::Users => __('capell-admin::navigation.group_users'),
+            self::Settings => __('capell-admin::navigation.group_settings'),
+        };
     }
 
     public function translationKey(): string
