@@ -20,6 +20,7 @@ use Capell\Admin\Models\FailedJob;
 use Capell\Admin\Notifications\UpgradeSummaryNotification;
 use Capell\Admin\Support\Dashboard\DefaultSiteStatsDataProvider;
 use Filament\Events\ServingFilament;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -74,7 +75,7 @@ it('forces livewire asset injection while serving admin pages', function (): voi
 it('builds the default site form schema from upstream form components', function (): void {
     $components = DefaultSiteForm::configure(Schema::make()->operation('create'))->getComponents();
 
-    expect($components)->toHaveCount(4)
+    expect($components)->toHaveCount(5)
         ->and($components[0])->toBeInstanceOf(NameInput::class)
         ->and(filamentObjectName($components[0]))->toBe('name')
         ->and($components[1])->toBeInstanceOf(TextInput::class)
@@ -86,7 +87,9 @@ it('builds the default site form schema from upstream form components', function
 
     expect($languagesSection->getHeading())->toBe(__('capell-admin::form.languages'))
         ->and($components[3])->toBeInstanceOf(ThemeSelect::class)
-        ->and(filamentObjectName($components[3]))->toBe('theme_id');
+        ->and(filamentObjectName($components[3]))->toBe('theme_id')
+        ->and($components[4])->toBeInstanceOf(Select::class)
+        ->and(filamentObjectName($components[4]))->toBe('meta.ai_disclosure');
 });
 
 it('normalises marketplace theme install intent cards for the admin catalogue', function (): void {
