@@ -28,9 +28,9 @@ class ShipPrTest(unittest.TestCase):
         fake.write_text(FAKE_GH)
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
         (self.dir / 'view').write_text('OPEN ready-to-merge\n')
-        (self.dir / 'ejections').write_text('0\n')
+        (self.dir / 'ejections').write_text('QUEUED\n')
 
-    def run_ship(self, checks, view='MERGED ', ejections='0'):
+    def run_ship(self, checks, view='MERGED ', ejections='QUEUED'):
         (self.dir / 'checks').write_text(checks)
         (self.dir / 'view').write_text(view + '\n')
         (self.dir / 'ejections').write_text(ejections + '\n')
@@ -77,12 +77,16 @@ class ShipPrTest(unittest.TestCase):
         self.assertFalse(self.labelled())
 
     def test_reports_an_ejection_from_the_merge_queue(self):
-        (self.dir / 'ejections').write_text('0\n')
         script = self.dir / 'gh'
-        script.write_text(script.read_text().replace('cat "$state/ejections"', 'n=$(cat "$state/n" 2>/dev/null || echo 0); echo $((n+1)) > "$state/n"; [ "$n" = 0 ] && echo 0 || echo 1'))
+        script.write_text(script.read_text().replace('cat "$state/ejections"', 'n=$(cat "$state/n" 2>/dev/null || echo 0); echo $((n+1)) > "$state/n"; [ "$n" = 0 ] && echo QUEUED || echo none'))
         result = self.run_ship('Content guards\tpass\t5s\tu\n', view='OPEN ready-to-merge')
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn('EJECTED', result.stdout)
+
+    def test_a_queue_that_has_not_picked_the_pull_request_up_yet_is_not_an_ejection(self):
+        result = self.run_ship('Content guards\tpass\t5s\tu\n', view='OPEN ready-to-merge', ejections='none')
+        self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+        self.assertNotIn('EJECTED', result.stdout)
 
     def test_reports_a_lost_label(self):
         result = self.run_ship('Content guards\tpass\t5s\tu\n', view='OPEN ')

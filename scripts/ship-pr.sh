@@ -2,6 +2,8 @@
 # Label a pull request ready-to-merge once its checks allow it, then wait for the merge queue to merge or eject it.
 #
 # usage: scripts/ship-pr.sh PR [REPO]
+# An ejection is a pull request that was seen in the merge queue and no longer has a queue entry while still open;
+# the timeline's removal-event count also moves when the queue rebuilds a group, so it is not used.
 # exit:  0 merged, 2 ejected from the merge queue, 3 label lost, 4 checks never settled, 5 a check failed
 #
 # A pull request that runs the sharded Fast PR gate must pass all of its shards. A pull request whose scope runs no
@@ -53,19 +55,23 @@ echo "GATE OK $PR: $gate"
 
 owner=${REPO%%/*}
 name=${REPO##*/}
-query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){timelineItems(itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT]){totalCount}}}}'
-ejections() {
-  "$GH" api graphql -f query="$query" -F o="$owner" -F r="$name" -F n="$PR" -q '.data.repository.pullRequest.timelineItems.totalCount' 2>/dev/null
+query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){mergeQueueEntry{state}}}}'
+in_queue() {
+  # Prints "yes" or "no"; prints nothing when the answer could not be read.
+  entry=$("$GH" api graphql -f query="$query" -F o="$owner" -F r="$name" -F n="$PR" -q '.data.repository.pullRequest.mergeQueueEntry.state // "none"' 2>/dev/null) || return 0
+  [ -z "$entry" ] && return 0
+  [ "$entry" = none ] && echo no || echo yes
 }
-base=$(ejections || true)
-base=${base:-0}
+seen_in_queue=0
 for ((i = 0; i < QUEUE_POLLS; i++)); do
   sleep "$POLL"
   state=$("$GH" pr view "$PR" -R "$REPO" --json state,labels -q '.state+" "+([.labels[].name]|join(","))' 2>/dev/null) || continue
   case "$state" in MERGED*) echo "MERGED $PR"; exit 0 ;; esac
-  now=$(ejections || true)
-  if [ -n "$now" ] && [ "$now" != "$base" ]; then
-    echo "EJECTED $PR ($base -> $now)"
+  queued=$(in_queue)
+  if [ "$queued" = yes ]; then
+    seen_in_queue=1
+  elif [ "$queued" = no ] && [ "$seen_in_queue" = 1 ]; then
+    echo "EJECTED $PR: it was in the merge queue and is not any more"
     exit 2
   fi
   case "$state" in *ready-to-merge*) ;; *) echo "LABEL LOST $PR: $state"; exit 3 ;; esac
