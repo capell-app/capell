@@ -160,7 +160,7 @@ it('requires a timeout however the facade is named and wherever the request is b
 
     expect(fn () => runOutboundHttp($root))->toThrow(AssertionError::class, 'src/Fetcher.php:11 sends a request without a timeout');
 })->with([
-    'fully qualified' => ['', '        return ' . Http::class . '::get($url);'],
+    'fully qualified' => ['', '        return \\' . Http::class . '::get($url);'],
     'aliased import' => ['use Illuminate\Support\Facades\Http as Client;', '        return Client::post($url);'],
     'builder kept in a variable' => ['use Illuminate\Support\Facades\Http;', "        \$client = Http::withHeaders(['Accept' => 'application/json']);\n        return \$client->get(\$url);"],
 ]);
