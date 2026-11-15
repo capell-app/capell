@@ -62,4 +62,5 @@ return [
     'site_spec_plan_nothing' => 'Nothing to change: the site already matches this SiteSpec.',
     'site_spec_plan_summary' => 'Plan: :created to create, :updated to update, :skipped unchanged. Nothing was written.',
     'site_spec_site_not_found' => 'No site with the ID :id was found.',
+    'ai_review_required' => 'Some of this page was written with AI. Review the marked fields and confirm them before publishing.',
 ];
