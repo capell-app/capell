@@ -91,3 +91,27 @@ it('ignores commented-out checks and policy middleware', function (): void {
 
     expect(FindUndeclaredPermissionsAction::run($this->packagePath, []))->toBe([]);
 });
+
+it('leaves bare policy method names to the record policy', function (): void {
+    File::put($this->packagePath . '/src/Service.php', <<<'PHP'
+        <?php
+        Action::make('approve')->authorize('approve');
+        Action::make('save')->authorize('update');
+        $user->can('reports.view');
+        PHP);
+
+    expect(FindUndeclaredPermissionsAction::run($this->packagePath, []))->toBe(['reports.view']);
+});
+
+it('skips a check declared as a token ability with a reason, and only that check', function (): void {
+    File::put($this->packagePath . '/src/Service.php', <<<'PHP'
+        <?php
+        // capell-permission-scan: token-ability Sanctum preview scope, not a role permission
+        $allowed = $token->can('api:preview');
+        $deleted = $token->can('api:preview:deleted');
+        // capell-permission-scan: token-ability
+        $restricted = $token->can('api:preview:restricted');
+        PHP);
+
+    expect(FindUndeclaredPermissionsAction::run($this->packagePath, []))->toBe(['api:preview:deleted', 'api:preview:restricted']);
+});
