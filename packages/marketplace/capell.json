@@ -79,5 +79,34 @@
             }
         ],
         "categories": ["foundation", "marketplace"]
+    },
+    "contributionTraceability": {
+        "contributions": [
+            {
+                "type": "admin-page",
+                "key": "Capell\\Marketplace\\Filament\\Pages\\MarketplaceExtensionDetailPage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "Capell\\Marketplace\\Filament\\Pages\\MarketplacePackageOperationsPage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "Capell\\Marketplace\\Filament\\Pages\\MarketplacePage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "Capell\\Marketplace\\Filament\\Pages\\MarketplacePurchasesPage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "Capell\\Marketplace\\Filament\\Pages\\ThemeExtensionPage",
+                "providerBucket": "admin"
+            }
+        ]
     }
 }
