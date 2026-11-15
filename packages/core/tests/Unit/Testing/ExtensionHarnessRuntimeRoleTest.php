@@ -63,3 +63,13 @@ it('activates actual harness contributions in the selected role and restores the
     'public' => [RuntimeRole::Public, ['runtime', 'content-graph:' . Page::class . ':' . TestPageContentGraphExtractor::class, 'frontend']],
     'combined' => [RuntimeRole::Combined, ['runtime', 'content-graph:' . Page::class . ':' . TestPageContentGraphExtractor::class, 'admin', 'frontend']],
 ]);
+
+it('lets a package test mark a package installed and uninstalled through the harness', function (): void {
+    ExtensionTestHarness::markPackageInstalled('vendor/harness-seam');
+
+    expect(CapellCore::isPackageInstalled('vendor/harness-seam'))->toBeTrue();
+
+    ExtensionTestHarness::markPackageInstalled('vendor/harness-seam', false);
+
+    expect(CapellCore::isPackageInstalled('vendor/harness-seam'))->toBeFalse();
+});

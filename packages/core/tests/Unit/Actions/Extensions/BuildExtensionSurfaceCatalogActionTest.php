@@ -405,3 +405,25 @@ it('rejects stable surfaces without a direct contract test', function (): void {
     expect(fn (): array => BuildExtensionSurfaceCatalogAction::run([$entry]))
         ->toThrow(InvalidArgumentException::class, 'requires a contract test ID');
 });
+
+it('marks the minimal extension author surface stable with a contract test id', function (): void {
+    $stable = collect(BuildExtensionSurfaceCatalogAction::run())
+        ->filter(fn (ExtensionSurfaceCatalogEntryData $entry): bool => $entry->stability === ExtensionSurfaceStability::Stable)
+        ->keyBy('id');
+
+    expect($stable->keys()->all())->toContain(
+        'core.provider.package-service-provider',
+        'core.contract.package-lifecycle-action',
+        'core.registry.settings-schema',
+        'core.contract.extension-setting',
+        'core.contract.extension-content-widget',
+        'core.testing.extension-harness',
+        'admin.registrar.workspace',
+        'admin.registrar.admin-zone',
+        'frontend.registry.render-hook',
+        'frontend.registry.cache-invalidation',
+        'frontend.dto.cache-invalidation-rule',
+        'frontend.service.cache-invalidation-executor',
+    )
+        ->and($stable->every(fn (ExtensionSurfaceCatalogEntryData $entry): bool => $entry->contractTestId !== null))->toBeTrue();
+});

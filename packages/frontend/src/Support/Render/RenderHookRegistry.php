@@ -33,7 +33,7 @@ use UnitEnum;
 /**
  * @template T of RenderHookContext
  *
- * @experimental
+ * @api
  */
 class RenderHookRegistry
 {
