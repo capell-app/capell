@@ -561,8 +561,9 @@ it('rejects receipts and catalogues signed with an owner configured key in produ
     connectCommercialMarketplace();
     $receipt = commercialReceipt();
     $catalogue = commercialCatalogue(false);
-    pinCommercialIssuerKeys($this, []);
-    // The owner adds their own key to configuration, which Core must never trust.
+    // Core carries the genuine issuer key; the owner configures the key they signed with.
+    $genuine = sodium_crypto_sign_publickey(sodium_crypto_sign_seed_keypair(str_repeat("\x09", 32)));
+    pinCommercialIssuerKeys($this, ['capell-issuer' => base64_encode($genuine)]);
     config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => commercialIssuerPublicKey()]);
     commercialExtensionWith(['installed_receipt_v2' => $receipt]);
     app()->instance('env', 'production');
@@ -572,17 +573,14 @@ it('rejects receipts and catalogues signed with an owner configured key in produ
         ->and(resolve(CommercialCatalogueStore::class)->accept($catalogue))->toBeFalse();
 });
 
-it('fails closed in production when no issuer key is pinned', function (): void {
+it('takes the issuer keys only from Core, never from configuration or the environment', function (string $environment): void {
     pinCommercialIssuerKeys($this, []);
-    app()->instance('env', 'production');
-    $policy = resolve(ExtensionCommercialPolicy::class);
+    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => commercialIssuerPublicKey()]);
+    app()->instance('env', $environment);
 
-    expect($policy->enforcing())->toBeTrue()
-        ->and($policy->requiresAuthorisation('capell-app/commercial-extension'))->toBeTrue()
-        // Without a pinned key no catalogue can verify, so nothing can be proved free.
-        ->and($policy->requiresAuthorisation('acme/free-extension'))->toBeTrue()
-        ->and(fn () => Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toThrow(RuntimeException::class, 'authorisation');
-});
+    expect(resolve(TrustedMarketplaceIssuerKeys::class)->all())->toBe([])
+        ->and(resolve(ExtensionCommercialPolicy::class)->enforcing())->toBeFalse();
+})->with(['production', 'local', 'staging']);
 
 it('verifies receipts and catalogues against the pinned issuer key in production', function (): void {
     connectCommercialMarketplace();

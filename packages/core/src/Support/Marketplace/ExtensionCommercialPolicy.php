@@ -25,15 +25,11 @@ final class ExtensionCommercialPolicy
     }
 
     /**
-     * Production always enforces, failing closed while Core has no committed issuer key. Elsewhere
-     * enforcement starts once a trusted key exists; configuration can neither add nor remove one.
+     * Issuer enforcement is on whenever Core carries a committed issuer key. Configuration and
+     * APP_ENV can neither add a key nor switch enforcement off.
      */
     public function enforcing(): bool
     {
-        if (TrustedMarketplaceIssuerKeys::production()) {
-            return true;
-        }
-
         return $this->issuerKeys->all() !== [];
     }
 

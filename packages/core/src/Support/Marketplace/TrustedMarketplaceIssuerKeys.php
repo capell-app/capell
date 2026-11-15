@@ -27,11 +27,6 @@ final class TrustedMarketplaceIssuerKeys
         return dirname(__DIR__, 3) . '/resources/marketplace/issuer-keys.json';
     }
 
-    public static function production(): bool
-    {
-        return app()->isProduction();
-    }
-
     /** @return array<string, string> key id => base64 Ed25519 public key */
     public function all(): array
     {
