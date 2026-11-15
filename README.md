@@ -110,21 +110,7 @@ Add a website-specific field through Capell's extension contracts. [Add Client n
 
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
 
-### How a page edit reaches the public site
-
-![Conceptual page editing workflow from Admin scratch recovery and optional private previews through validated saves, revision history, publication visibility, and public rendering](docs/images/capell-page-editing-workflow.svg)
-
-_Editing, recovery drafts, private previews and saved page content are distinct states. Public visibility determines which saved content visitors can access._
-
-The panels follow the same editor state: scratch recovery restores the form, optional Peek previews an unsaved snapshot, and explicit Save validates and checks the lock before persistence. History is recorded after the write; a save can change content already visible to visitors. Publishing Studio is a separate optional workflow. Source: [Admin save gates](packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php), [revision listener](packages/core/src/EventSourcing/Listeners/RecordPageRevision.php) and [Peek snapshot renderer](https://github.com/capell-app/capell-packages/blob/main/packages/filament-peek/src/Actions/RenderPagePreviewSnapshotAction.php).
-
-[Canonical Mermaid source](docs/images/capell-page-editing-workflow.mmd) · [Page history and rollback](docs/development/page-event-history.md)
-
-### Site metrics page
-
-[![Site metrics page showing four compact stat cards with daily sparklines](packages/admin/docs/images/screenshots/site-admin-metrics-page.png)](packages/admin/docs/images/screenshots/site-admin-metrics-page.png)
-
-This capture shows the Admin package's registered site metrics surface running in the Capell workbench. The compact cards and daily sparklines shipped in [Core PR #370](https://github.com/capell-app/capell/pull/370). The [Capell homepage](https://capell.app/) is the real site represented by the product captures above.
+See [how a page edit reaches the public site](docs/architecture/page-edit-to-public-site.md) and the [site metrics page](docs/admin/site-metrics-page.md).
 
 ## Optional features ship as Composer packages
 
@@ -135,19 +121,7 @@ the need for them. [Browse the current feature catalogue](https://capell.app/fea
 
 Optional capabilities arrive as Laravel packages you add when the work needs them. Before installing one, verify its distribution channel, maturity, supported Capell/Laravel/Filament versions, data access, migrations, support terms, and removal path — the [package catalogue](docs/packages/catalog.md) distinguishes foundation contracts from optional package documentation, and the live [extensions directory](https://capell.app/extensions) is the authority for what is currently installable.
 
-Package authors should start with the [extension-point chooser](docs/packages/extension-point-chooser.md) and [package authoring guide](docs/packages/README.md). Capell packages extend registries and lifecycle contracts instead of patching host classes.
-
-### Extension points for package authors
-
-An extension package owns its feature code and contributes through its manifest-scoped providers. The Foundation registrars compose Core, Admin/editor, and Frontend/public surfaces; the Extension Cookbook is a concrete example of a page-schema extension and typed frontend registrations.
-
-![Extension package contribution map through PackageSurfaceRegistrar, AdminBridgeRegistrar and frontend registries, with an Extension Cookbook sidebar example](docs/images/capell-extension-package-surface-map.svg)
-
-_A package contributes to the host through contracts; it does not copy a Core resource. Package-owned models, migrations, routes, and views remain package-owned._
-
-The three branches are selected by the Cookbook's [provider buckets](https://github.com/capell-app/capell-packages/blob/main/packages/extension-cookbook/capell.json). Its [Admin bridge](https://github.com/capell-app/capell-packages/blob/main/packages/extension-cookbook/src/Bridges/ExtensionCookbookAdminBridge.php) registers the [page-schema extender](https://github.com/capell-app/capell-packages/blob/main/packages/extension-cookbook/src/Filament/Extenders/ExtensionCookbookPageSchemaExtender.php), which adds translated sidebar help. Its widget contribution uses optional Layout Builder, an explicit Cookbook dependency.
-
-[Canonical Mermaid source](docs/images/capell-extension-package-surface-map.mmd) · [Package extension platform guide](https://github.com/capell-app/capell-packages/blob/main/docs/package-extension-platform.md)
+Package authors should start with the [extension-point chooser](docs/packages/extension-point-chooser.md) and [package authoring guide](docs/packages/README.md). Capell packages extend registries and lifecycle contracts instead of patching host classes. See [extension points for package authors](docs/packages/extension-points-for-package-authors.md) for the contribution map.
 
 ## How Capell is built on Laravel
 
