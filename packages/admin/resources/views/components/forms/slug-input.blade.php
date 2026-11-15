@@ -110,7 +110,13 @@
         >
             @if ($getReadOnly())
                 <span class="flex min-w-0 items-center">
-                    <span class="mr-1">{{ $getLabelPrefix() }}</span>
+                    <span
+                        class="mr-1.5 inline-flex shrink-0 items-center text-gray-400 dark:text-gray-500"
+                        title="{{ $getLabelPrefix() }}"
+                    >
+                        @svg('heroicon-o-globe-alt', 'h-4 w-4', ['aria-hidden' => 'true'])
+                        <span class="sr-only">{{ $getLabelPrefix() }}</span>
+                    </span>
                     <span class="text-gray-400">
                         {{ $getDisplayBaseUrl($getState()) }}
                     </span>
@@ -124,7 +130,13 @@
                     x-show="! editing"
                     x-cloak
                 >
-                    <span>{{ $getLabelPrefix() }}</span>
+                    <span
+                        class="mr-1.5 inline-flex shrink-0 items-center text-gray-400 dark:text-gray-500"
+                        title="{{ $getLabelPrefix() }}"
+                    >
+                        @svg('heroicon-o-globe-alt', 'h-4 w-4', ['aria-hidden' => 'true'])
+                        <span class="sr-only">{{ $getLabelPrefix() }}</span>
+                    </span>
 
                     @if ($recordUrl)
                         <a
