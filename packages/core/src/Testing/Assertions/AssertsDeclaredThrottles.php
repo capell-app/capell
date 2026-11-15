@@ -43,7 +43,7 @@ final class AssertsDeclaredThrottles
             self::assertLimiterMatches($manifestPath, $purpose, $throttle);
 
             foreach ((array) ($throttle['routes'] ?? []) as $routeName) {
-                $route = $router->getRoutes()->getByName((string) $routeName);
+                $route = self::resolveRoute($router, (string) $routeName);
 
                 if (! $route instanceof Route) {
                     self::fail($manifestPath, sprintf('purpose [%s] declares route [%s], which is not registered.', $purpose, $routeName));
@@ -70,13 +70,38 @@ final class AssertsDeclaredThrottles
                 continue;
             }
 
-            $route = $router->getRoutes()->getByName($routeName);
+            $route = self::resolveRoute($router, $routeName);
             $undeclared = $route instanceof Route ? array_diff(self::throttlePurposes($router, $route), array_keys($throttles)) : [];
 
             self::fail($manifestPath, $undeclared === []
                 ? sprintf('public route [%s] is not guarded by any declared security.throttles purpose.', $routeName)
                 : sprintf('public route [%s] runs throttle:%s, which security.throttles does not declare.', $routeName, implode(', throttle:', $undeclared)));
         }
+    }
+
+    /**
+     * Finds a route from a manifest entry: a bare route name, or the generated
+     * `METHOD /uri (route.name)` form, where an unnamed route omits the parenthesised name.
+     */
+    private static function resolveRoute(Router $router, string $entry): ?Route
+    {
+        if (preg_match('/^([A-Z|]+)\s+(\S+)(?:\s+\(([^)]+)\))?$/', $entry, $matches) !== 1) {
+            return $router->getRoutes()->getByName($entry);
+        }
+
+        if (($matches[3] ?? '') !== '') {
+            return $router->getRoutes()->getByName($matches[3]);
+        }
+
+        $uri = ltrim($matches[2], '/');
+
+        foreach ($router->getRoutes()->getRoutes() as $route) {
+            if (ltrim($route->uri(), '/') === $uri && array_intersect(explode('|', $matches[1]), $route->methods()) !== []) {
+                return $route;
+            }
+        }
+
+        return null;
     }
 
     /** @param  array<string, mixed>  $throttle */

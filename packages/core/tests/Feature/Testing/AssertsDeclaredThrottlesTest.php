@@ -39,6 +39,23 @@ it('passes when every declared purpose and public route agrees with the register
     expect(true)->toBeTrue();
 });
 
+it('reads routes in the generated METHOD /uri (name) manifest form, named or not', function (): void {
+    Route::post('fixture/unnamed', fn (): string => 'ok')->middleware('throttle:capell-fixture-submit');
+    Route::getRoutes()->refreshNameLookups();
+
+    $routes = ['POST /fixture/submit (fixture.submit)', 'POST /fixture/unnamed'];
+
+    AssertsDeclaredThrottles::run(throttleManifest([
+        'publicSurface' => ['routeNames' => $routes, 'webhookRoutes' => []],
+        'throttles' => ['capell-fixture-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => $routes]],
+    ]));
+
+    expect(fn () => AssertsDeclaredThrottles::run(throttleManifest([
+        'publicSurface' => ['routeNames' => ['POST /fixture/open (fixture.open)']],
+        'throttles' => ['capell-fixture-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => $routes]],
+    ])))->toThrow(AssertionError::class, 'public route [POST /fixture/open (fixture.open)] is not guarded');
+});
+
 it('skips packages that declare no throttles', function (): void {
     AssertsDeclaredThrottles::run(throttleManifest(['publicSurface' => ['routeNames' => ['fixture.open']]]));
 
