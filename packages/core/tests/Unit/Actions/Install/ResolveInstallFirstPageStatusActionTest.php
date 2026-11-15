@@ -10,6 +10,7 @@ use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\TableName;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 it('reports a missing first page while the pages table does not exist', function (): void {
     Schema::dropIfExists(TableName::resolve('pages'));
@@ -33,6 +34,13 @@ it('reports an editable first page when Admin can open the page', function (): v
 it('reports an unverified first page when the page exists but has no edit URL', function (): void {
     Page::factory()->home()->create();
     GetEditPageResourceUrlAction::mock()->shouldReceive('handle')->once()->andReturn(null);
+
+    expect(ResolveInstallFirstPageStatusAction::run())->toBe('present_unverified');
+});
+
+it('reports an unverified first page when Admin routes are not registered in the installing process', function (): void {
+    Page::factory()->home()->create();
+    GetEditPageResourceUrlAction::mock()->shouldReceive('handle')->once()->andThrow(new RouteNotFoundException('Route [filament.admin.resources.pages.edit] not defined.'));
 
     expect(ResolveInstallFirstPageStatusAction::run())->toBe('present_unverified');
 });
