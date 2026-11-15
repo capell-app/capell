@@ -13,17 +13,25 @@
 [![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/releases/8.4/en.php)
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](#requirements)
 
-**An open-source Laravel CMS with page blueprints, theme previews, revision history and repeatable upgrades.**
+**A Laravel CMS you extend, never fork.**
 
-Capell is an open-source CMS for Laravel, built on Filament. A Page model and
-Filament resource are quick; the long-term work is reusable page blueprints,
-preview through the real theme, URL history, revision comparison, validated
-recovery and repeatable upgrades.
+Capell is an open-source Laravel CMS, built from the ground up on Filament. It covers what you expect from a CMS, and adds the structure that keeps a long-lived site maintainable:
 
-Capell Foundation turns that recurring work into one maintained,
-MIT-licensed contract. Editors preview, publish and recover pages in Filament;
-the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or
-its own stack.
+- **Separate layers, each with one job.** Core holds the content model. Admin is the Filament workspace for editors. Frontend handles public routing, themes and delivery. Editing state never reaches public pages, and you render them with Blade, Livewire, Inertia or your own stack.
+- **Extension points instead of patches.** Packages add fields, widgets, themes, workflows and integrations through typed registries and stable contracts. You never edit Core to add a feature.
+- **Verified extensions you can trust.** Each verified extension shows its migrations, data access and removal path before you install it.
+- **Painless upgrades.** Strict coding standards and stable public API baselines keep upgrades predictable. You can dry-run an upgrade on a copy of your site first.
+
+### In the free, MIT-licensed Foundation
+
+- **Page history and recovery.** Compare revisions, then roll back or forward with the audit trail intact.
+- **Preview on your real theme.** Unsaved edits render through a private, expiring link.
+- **Structured pages.** Page types, approved layouts and reusable blocks. Editors compose pages, and your templates decide how they look.
+- **Multi-site and multilingual.** Run separate sites and languages from one Laravel application.
+- **Admin and permissions.** Filament resources with explicit, granular permissions.
+- **Artisan operations.** Commands to install, inspect, diagnose and maintain the site.
+
+Search, SEO, forms, publishing workflow, themes and more are available as [extensions in the Marketplace](https://capell.app/extensions).
 
 Start a new Laravel project with the [starter kit](docs/getting-started/install.md#new-project-from-the-starter-kit):
 
