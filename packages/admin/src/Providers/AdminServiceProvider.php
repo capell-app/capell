@@ -38,6 +38,7 @@ use Capell\Admin\Contracts\Dashboard\RecentlyPublishedDataProvider;
 use Capell\Admin\Contracts\Dashboard\SiteStatsDataProvider;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
+use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidget;
 use Capell\Admin\Contracts\EnumPresentationContributor;
 use Capell\Admin\Contracts\Extenders\PageAuthoringValidator;
@@ -102,6 +103,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\HostLoadAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
@@ -198,6 +200,7 @@ use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
 use Capell\Admin\Support\Diagnostics\Checks\AdminRouteOwnershipCheck;
 use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
+use Capell\Admin\Support\Diagnostics\HostLoadSiteHealthReportExtender;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
 use Capell\Admin\Support\Enums\CoreEnumPresentationContributor;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
@@ -586,6 +589,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->tag([AdminDashboardSettingsContributor::class], DashboardSettingsContributor::TAG);
         $this->app->tag([ExtensionHealthSiteHealthWidget::class], SiteHealthWidget::TAG);
+        $this->app->tag([HostLoadSiteHealthReportExtender::class], SiteHealthReportExtender::TAG);
 
         $this->app->singletonIf(ContentHealthDataProvider::class, NullContentHealthDataProvider::class);
         $this->app->singletonIf(DashboardAnalyticsDataProvider::class, DefaultDashboardAnalyticsDataProvider::class);
@@ -1225,6 +1229,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $widgets = [
             DashboardEnum::Main->value => [
                 SecurityAttentionFilamentWidget::class,
+                HostLoadAttentionFilamentWidget::class,
                 SiteStatsOverviewFilamentWidget::class,
                 AnalyticsOverviewFilamentWidget::class,
                 AnalyticsTrendFilamentWidget::class,
