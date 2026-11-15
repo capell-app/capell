@@ -37,7 +37,6 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
-use CmsMulti\FilamentClearCache\FilamentClearCachePlugin;
 use Filament\Actions\Action;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament as FilamentFacade;
@@ -249,16 +248,17 @@ class CapellAdminPlugin implements Plugin
             ->brandLogoHeight('2.2rem')
             ->defaultAvatarProvider(InlineSvgAvatarProvider::class)
             ->userMenuItems($this->getUserMenuItems())
+            // Everything sits before the search box: workspaces and tools first, then the site being edited.
+            ->renderHook(
+                name: PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                hook: fn (): View => view($headerActionsView),
+            )
             ->renderHook(
                 name: PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 hook: fn (): View => view(
                     $sitesView,
                     ['sites' => SiteLoader::getSites()],
                 ),
-            )
-            ->renderHook(
-                name: PanelsRenderHook::GLOBAL_SEARCH_AFTER,
-                hook: fn (): View => view($headerActionsView),
             )
             ->renderHook(
                 name: PanelsRenderHook::SIDEBAR_NAV_START,
@@ -364,7 +364,7 @@ class CapellAdminPlugin implements Plugin
             workspaces: [AdminWorkspaceEnum::Editor],
             roles: [$this->workspaceRole('editor')],
             permission: ResourceEnum::Page->permission('view_any'),
-            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.no_pages_description'),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::workspace.tool_descriptions.pages'),
             icon: Heroicon::OutlinedDocumentText,
             sort: 10,
         ));
@@ -403,10 +403,6 @@ class CapellAdminPlugin implements Plugin
 
         if (! $panel->hasPlugin('spatie-laravel-translatable')) {
             $panel->plugin(SpatieTranslatablePlugin::make());
-        }
-
-        if (! $panel->hasPlugin('filament-clear-cache')) {
-            $panel->plugin(FilamentClearCachePlugin::make());
         }
 
         try {

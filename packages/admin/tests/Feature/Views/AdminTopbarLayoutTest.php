@@ -76,10 +76,34 @@ it('keeps mobile header controls in navigation and desktop controls in the topba
         expect(ResponsiveVisibilityGuard::hasConflict($wrapper->getAttribute('class')))->toBeFalse();
     }
 
+    // Workspaces, tools, then the site, all before the search box, so the first-time reading order is left to right.
+    $topbarOrder = [];
+    $topbarNodes = $xpath->query('//*[contains(@class, "fi-topbar-end")]//*[@data-capell-header-actions or @data-capell-site-switcher or contains(@class, "fi-global-search-ctn")]');
+    assert($topbarNodes instanceof DOMNodeList);
+
+    foreach ($topbarNodes as $node) {
+        assert($node instanceof DOMElement);
+        $topbarOrder[] = $node->hasAttribute('data-capell-header-actions')
+            ? 'actions'
+            : ($node->hasAttribute('data-capell-site-switcher') ? 'sites' : 'search');
+    }
+
+    expect(array_values(array_unique($topbarOrder)))->toBe(['actions', 'sites', 'search']);
+
+    // Workspaces open in a labelled Filament modal, one per header, and the vendor clear-cache trash button is gone.
+    $dialogs = $xpath->query('//*[starts-with(@id, "admin-workspaces-")][@role="dialog"]');
+    assert($dialogs instanceof DOMNodeList);
+
+    expect($dialogs->length)->toBe(2)
+        ->and($html)->toContain(__('capell-admin::workspace.switcher_tools.modal_heading'))
+        ->and($html)->toContain(__('capell-admin::workspace.switcher_tools.modal_description'))
+        ->and($html)->not->toContain('filament-clear-cache');
+
     $panels = $xpath->query('//*[@data-capell-mobile-header]//*[@x-ref="panel"]');
     assert($panels instanceof DOMNodeList);
 
-    expect($panels->length)->toBe(4);
+    // Sites, tools and the navigation tree are dropdown panels; workspaces is a modal and has none.
+    expect($panels->length)->toBe(3);
 
     foreach ($panels as $panel) {
         assert($panel instanceof DOMElement);

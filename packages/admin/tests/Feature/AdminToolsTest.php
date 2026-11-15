@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\ActivateLockdownAction;
 use Capell\Admin\Actions\DeactivateLockdownAction;
+use Capell\Admin\Contracts\Cache\AdminCacheCleaner;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Tests\Fixtures\Autoload\ClearCacheCommandTestCleaner;
+use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
@@ -20,6 +24,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 uses(CreatesAdminUser::class);
 
@@ -195,4 +201,44 @@ it('activates lockdown for a modelless database driver provider', function (): v
 
     expect(ActivateLockdownAction::run(test()->authenticatedUser(), 'lockdown-database'))->toBeArray()
         ->and(resolve(LockdownStore::class)->active())->toBeTrue();
+});
+
+it('clears every site cache for a global administrator from the tools menu', function (): void {
+    test()->actingAsAdmin();
+    ClearCacheCommandTestCleaner::$executionOrder = [];
+    app()->tag([ClearCacheCommandTestCleaner::class], AdminCacheCleaner::TAG);
+
+    Livewire::test(AdminTools::class)
+        ->call('clearCache')
+        ->assertOk();
+
+    expect(ClearCacheCommandTestCleaner::$executionOrder)->toBe(['tagged-cache']);
+});
+
+it('refuses a site-scoped editor who calls the clear cache tool and clears nothing', function (): void {
+    config(['permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+
+    try {
+        $editor = TeamScopedPanelUser::query()->create(['name' => 'Site editor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+        $role = Role::query()->firstOrCreate(['name' => 'site-editor', 'guard_name' => 'web']);
+        $role->givePermissionTo(Permission::findOrCreate('Update:Page', 'web'));
+        $editor->assignRoleForSite(Site::factory()->withTranslations()->create(), $role);
+        setPermissionsTeamId(null);
+
+        ClearCacheCommandTestCleaner::$executionOrder = [];
+        app()->tag([ClearCacheCommandTestCleaner::class], AdminCacheCleaner::TAG);
+
+        Livewire::actingAs($editor)
+            ->test(AdminTools::class)
+            ->assertDontSee(__('capell-admin::button.clear_cache'))
+            ->call('clearCache')
+            ->assertForbidden();
+
+        expect(ClearCacheCommandTestCleaner::$executionOrder)->toBe([]);
+    } finally {
+        setPermissionsTeamId(null);
+        resolve(PermissionRegistrar::class)->teams = false;
+        config(['permission.teams' => false]);
+    }
 });

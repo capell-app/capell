@@ -1,54 +1,76 @@
 @php
-    use Capell\Admin\Actions\ResolveFilamentIconAliasAction;
+    use Filament\Support\Icons\Heroicon;
     use Illuminate\Support\Js;
+
+    $modalId = 'admin-workspaces-' . $this->getId();
+    $searchId = 'admin-workspace-search-' . $this->getId();
 @endphp
 
 <div class="flex items-center gap-2">
-    <x-filament::dropdown
-        placement="bottom-end"
-        width="md"
-        :teleport="$inSidebar"
-        :shift="$inSidebar"
-        :size="$inSidebar"
+    <x-filament::modal
+        :id="$modalId"
+        width="2xl"
+        teleport="body"
+        :icon="Heroicon::OutlinedSquares2x2"
+        :heading="__('capell-admin::workspace.switcher_tools.modal_heading')"
+        :description="__('capell-admin::workspace.switcher_tools.modal_description')"
     >
         <x-slot name="trigger">
             <x-filament::icon-button
                 icon="heroicon-o-squares-2x2"
                 :label="__('capell-admin::workspace.switcher_tools.open')"
+                :tooltip="__('capell-admin::workspace.switcher_tools.open')"
             />
         </x-slot>
 
-        <div class="w-80 max-w-full p-3">
-            <div class="mb-3 flex flex-wrap gap-1">
-                @foreach ($workspaces as $candidate)
-                    <x-filament::button
-                        color="{{ $workspace === $candidate->value ? 'primary' : 'gray' }}"
-                        size="xs"
-                        wire:click="setWorkspace({{ Js::from($candidate->value) }})"
-                        wire:loading.attr="disabled"
-                        wire:target="setWorkspace({{ Js::from($candidate->value) }})"
-                        wire:loading.attr="aria-busy"
-                        aria-pressed="{{ $workspace === $candidate->value ? 'true' : 'false' }}"
+        <div class="flex flex-col gap-4">
+            <div>
+                <div
+                    class="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="{{ __('capell-admin::workspace.switcher_tools.groups_label') }}"
+                >
+                    @foreach ($workspaces as $candidate)
+                        <x-filament::button
+                            color="{{ $workspace === $candidate->value ? 'primary' : 'gray' }}"
+                            size="sm"
+                            :icon="$candidate->icon()"
+                            wire:click="setWorkspace({{ Js::from($candidate->value) }})"
+                            wire:loading.attr="disabled"
+                            wire:target="setWorkspace({{ Js::from($candidate->value) }})"
+                            aria-pressed="{{ $workspace === $candidate->value ? 'true' : 'false' }}"
+                        >
+                            {{ $candidate->label() }}
+                        </x-filament::button>
+                    @endforeach
+                </div>
+
+                <p
+                    class="mt-2 text-sm text-gray-600 dark:text-gray-400"
+                    aria-live="polite"
+                >
+                    <span class="font-medium text-gray-950 dark:text-white"
+                        >{{ __('capell-admin::workspace.switcher_tools.selected_label', ['workspace' => $current->label()]) }}:</span
                     >
-                        {{ $candidate->label() }}
-                    </x-filament::button>
-                @endforeach
+                    {{ $current->description() }}
+                </p>
             </div>
 
             <x-filament::input.wrapper
+                :prefix-icon="Heroicon::OutlinedMagnifyingGlass"
                 wire:loading.attr="aria-busy"
                 wire:target="search"
             >
                 <label
-                    for="admin-workspace-search-{{ $this->getId() }}"
+                    for="{{ $searchId }}"
                     class="sr-only"
                 >
                     {{ __('capell-admin::workspace.switcher_tools.search') }}
                 </label>
                 <x-filament::input
-                    id="admin-workspace-search-{{ $this->getId() }}"
+                    id="{{ $searchId }}"
+                    type="search"
                     wire:model.live.debounce.150ms="search"
-                    aria-label="{{ __('capell-admin::workspace.switcher_tools.search') }}"
                     :placeholder="__('capell-admin::workspace.switcher_tools.search')"
                 />
             </x-filament::input.wrapper>
@@ -63,140 +85,58 @@
                 {{ __('capell-admin::workspace.switcher_tools.loading') }}
             </p>
 
-            @if ($this->pinnedItems())
-                <p class="mt-3 text-xs font-medium text-gray-500">{{ __('capell-admin::workspace.switcher_tools.pinned') }}</p>
-                @foreach ($this->pinnedItems() as $item)
-                    <div
-                        wire:key="workspace-pinned-{{ $item->key }}"
-                        class="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                        <a
-                            class="flex min-w-0 flex-1 items-center gap-2"
-                            href="{{ $item->url }}"
-                            wire:click="recordVisit({{ Js::from($item->key) }})"
-                            wire:navigate
+            <div class="flex max-h-96 flex-col gap-4 overflow-y-auto">
+                @if ($this->pinnedItems() !== [])
+                    <section>
+                        <h3
+                            class="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"
                         >
-                            @if ($item->icon !== null)
-                                @svg(ResolveFilamentIconAliasAction::run($item->icon), 'h-4 w-4 flex-shrink-0 text-gray-400')
-                            @else
-                                <span class="h-4 w-4 flex-shrink-0"></span>
-                            @endif
-                            <span class="truncate">{{ $item->label }}</span>
-                        </a>
-                        <button
-                            type="button"
-                            wire:click="togglePin({{ Js::from($item->key) }})"
-                            wire:loading.attr="disabled"
-                            wire:target="togglePin({{ Js::from($item->key) }})"
-                            wire:loading.attr="aria-busy"
-                            aria-pressed="true"
-                            aria-label="{{ __('capell-admin::workspace.switcher_tools.unpin') }}"
-                        >
-                            <span
-                                wire:loading.remove
-                                wire:target="togglePin({{ Js::from($item->key) }})"
-                                >★</span
-                            >
-                            <span
-                                wire:loading
-                                wire:target="togglePin({{ Js::from($item->key) }})"
-                                aria-hidden="true"
-                                >…</span
-                            >
-                        </button>
-                    </div>
-                @endforeach
-            @endif
+                            {{ __('capell-admin::workspace.switcher_tools.pinned') }}
+                        </h3>
+                        <ul>
+                            @foreach ($this->pinnedItems() as $item)
+                                @include('capell-admin::livewire.header.partials.workspace-tool-row', ['item' => $item, 'section' => 'pinned', 'modalId' => $modalId])
+                            @endforeach
+                        </ul>
+                    </section>
+                @endif
 
-            @if ($this->recentItems())
-                <p class="mt-3 text-xs font-medium text-gray-500">{{ __('capell-admin::workspace.switcher_tools.recent') }}</p>
-                @foreach ($this->recentItems() as $item)
-                    <div
-                        wire:key="workspace-recent-{{ $item->key }}"
-                        class="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                        <a
-                            class="flex min-w-0 flex-1 items-center gap-2"
-                            href="{{ $item->url }}"
-                            wire:click="recordVisit({{ Js::from($item->key) }})"
-                            wire:navigate
+                @if ($this->recentItems() !== [])
+                    <section>
+                        <h3
+                            class="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"
                         >
-                            @if ($item->icon !== null)
-                                @svg(ResolveFilamentIconAliasAction::run($item->icon), 'h-4 w-4 flex-shrink-0 text-gray-400')
-                            @else
-                                <span class="h-4 w-4 flex-shrink-0"></span>
-                            @endif
-                            <span class="truncate">{{ $item->label }}</span>
-                        </a>
-                        <button
-                            type="button"
-                            wire:click="togglePin({{ Js::from($item->key) }})"
-                            wire:loading.attr="disabled"
-                            wire:target="togglePin({{ Js::from($item->key) }})"
-                            wire:loading.attr="aria-busy"
-                            aria-pressed="{{ $this->isPinned($item->key) ? 'true' : 'false' }}"
-                            aria-label="{{ $this->isPinned($item->key) ? __('capell-admin::workspace.switcher_tools.unpin') : __('capell-admin::workspace.switcher_tools.pin') }}"
-                        >
-                            <span
-                                wire:loading.remove
-                                wire:target="togglePin({{ Js::from($item->key) }})"
-                                >{{ $this->isPinned($item->key) ? '★' : '☆' }}</span
-                            >
-                            <span
-                                wire:loading
-                                wire:target="togglePin({{ Js::from($item->key) }})"
-                                aria-hidden="true"
-                                >…</span
-                            >
-                        </button>
-                    </div>
-                @endforeach
-            @endif
+                            {{ __('capell-admin::workspace.switcher_tools.recent') }}
+                        </h3>
+                        <ul>
+                            @foreach ($this->recentItems() as $item)
+                                @include('capell-admin::livewire.header.partials.workspace-tool-row', ['item' => $item, 'section' => 'recent', 'modalId' => $modalId])
+                            @endforeach
+                        </ul>
+                    </section>
+                @endif
 
-            <p class="mt-3 text-xs font-medium text-gray-500">{{ $search === '' ? __('capell-admin::workspace.switcher_tools.tools') : __('capell-admin::workspace.switcher_tools.results') }}</p>
-            @forelse ($this->toolItems() as $item)
-                <div
-                    wire:key="workspace-tool-{{ $item->key }}"
-                    class="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                    <a
-                        class="flex min-w-0 flex-1 items-center gap-2"
-                        href="{{ $item->url }}"
-                        wire:click="recordVisit({{ Js::from($item->key) }})"
-                        wire:navigate
+                <section>
+                    <h3
+                        class="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"
                     >
-                        @if ($item->icon !== null)
-                            @svg(ResolveFilamentIconAliasAction::run($item->icon), 'h-4 w-4 flex-shrink-0 text-gray-400')
-                        @else
-                            <span class="h-4 w-4 flex-shrink-0"></span>
-                        @endif
-                        <span class="truncate">{{ $item->label }}</span>
-                    </a>
-                    <button
-                        type="button"
-                        wire:click="togglePin({{ Js::from($item->key) }})"
-                        wire:loading.attr="disabled"
-                        wire:target="togglePin({{ Js::from($item->key) }})"
-                        wire:loading.attr="aria-busy"
-                        aria-pressed="{{ $this->isPinned($item->key) ? 'true' : 'false' }}"
-                        aria-label="{{ __('capell-admin::workspace.switcher_tools.pin') }}"
-                    >
-                        <span
-                            wire:loading.remove
-                            wire:target="togglePin({{ Js::from($item->key) }})"
-                            >☆</span
-                        >
-                        <span
-                            wire:loading
-                            wire:target="togglePin({{ Js::from($item->key) }})"
-                            aria-hidden="true"
-                            >…</span
-                        >
-                    </button>
-                </div>
-            @empty
-                <p class="mt-2 text-sm text-gray-500">{{ __('capell-admin::workspace.switcher_tools.empty') }}</p>
-            @endforelse
+                        {{ $search === '' ? __('capell-admin::workspace.switcher_tools.tools') : __('capell-admin::workspace.switcher_tools.results') }}
+                    </h3>
+                    @if ($this->toolItems() !== [])
+                        <ul>
+                            @foreach ($this->toolItems() as $item)
+                                @include('capell-admin::livewire.header.partials.workspace-tool-row', ['item' => $item, 'section' => 'tool', 'modalId' => $modalId])
+                            @endforeach
+                        </ul>
+                    @elseif ($this->pinnedItems() === [] && $this->recentItems() === [])
+                        <p class="p-2 text-sm text-gray-500 dark:text-gray-400">{{ $this->emptyMessage() }}</p>
+                    @endif
+                </section>
+            </div>
         </div>
-    </x-filament::dropdown>
+
+        <x-slot name="footer">
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('capell-admin::workspace.switcher_tools.footer_hint') }}</p>
+        </x-slot>
+    </x-filament::modal>
 </div>
