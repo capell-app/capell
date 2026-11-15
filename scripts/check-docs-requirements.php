@@ -38,7 +38,6 @@ $documentedTables = [
         'Laravel' => ['package' => 'illuminate/support', 'requireRawConstraint' => true],
         'Filament support' => ['package' => 'filament/filament', 'requireRawConstraint' => true, 'manifest' => 'composer.json'],
         'Symfony filesystem/process' => ['package' => 'symfony/process', 'requireRawConstraint' => false],
-        'Symfony HTML sanitizer' => ['package' => 'symfony/html-sanitizer', 'requireRawConstraint' => false],
     ]],
     ['path' => 'packages/admin/README.md', 'manifest' => 'packages/admin/composer.json', 'rows' => [
         'PHP' => ['package' => 'php', 'requireRawConstraint' => true],

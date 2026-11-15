@@ -35,7 +35,6 @@ use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Actions\RequirePackageAction;
-use Capell\Core\Actions\SanitizeSiteSpecSectionHtmlAction;
 use Capell\Core\Concerns\HasModelRelations;
 use Capell\Core\EventSourcing\Rollback\RollbackValidatorRegistry;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
@@ -276,7 +275,6 @@ final class SingletonLifetimeInventory
             ExtensionQuarantine::class => 'The missing-table flag only suppresses repeated warnings for the process lifetime and carries no operation data.',
             ExtensibleModel::class => 'Extension fillable and cast declarations are deliberate model boot registries.',
             ManifestLoader::class => 'Registered manifest autoload paths are process boot metadata and prevent duplicate Composer loaders.',
-            SanitizeSiteSpecSectionHtmlAction::class => 'The sanitizer is an immutable process-wide parser cache.',
             DemoPackageAction::class => 'The static process factory is a test-only override with an explicit reset API; production operations never populate it.',
             InstallDeveloperToolingAction::class => 'Static collaborators and paths are test-only overrides with explicit reset APIs; production operations never populate them.',
             RequirePackageAction::class => 'The static process factory is a test-only override with an explicit reset API; production operations never populate it.',

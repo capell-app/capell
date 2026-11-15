@@ -198,3 +198,15 @@ it('allows a page in different navigations but rejects duplicates within one nav
         ->and($invalid['valid'])->toBeFalse()
         ->and($invalid['errors'])->toHaveKey('navigations.0.pageSlugs.1');
 });
+
+it('sanitises section html through the rich text profile, dropping inline styles, handlers and unsafe links', function (): void {
+    $sanitised = SanitizeSiteSpecSectionHtmlAction::run(
+        '<section><h2 style="color:red" onclick="steal()">Intro</h2><a href="javascript:alert(1)">Go</a><iframe src="https://example.com"></iframe></section>',
+    );
+
+    expect($sanitised)->toContain('Intro')
+        ->not->toContain('style=')
+        ->not->toContain('onclick')
+        ->not->toContain('javascript:')
+        ->not->toContain('<iframe');
+});

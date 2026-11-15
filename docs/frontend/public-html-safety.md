@@ -42,11 +42,11 @@ In-page authoring is a post-load admin feature. The public page loads normally, 
 | Themes       | Keep theme output public. Admin editing controls belong in frontend-authoring.       |
 | Packages     | Test anonymous and non-admin output when the package renders public HTML.            |
 
-`RenderHtmlContentAction` builds its HTML sanitizer from
-`capell-frontend.html_content_allowed_attributes` and caches it for the PHP process. That
-allowlist is application-global: it must not vary by site, tenant, request, or
-authenticated user. Every allowed attribute must therefore be safe in every public CMS
-output context.
+`RenderHtmlContentAction` sanitises through Core's `SanitizesPublicHtml` contract with the
+`RichText` profile. Markup beyond that profile is declared once at boot as an
+`HtmlSanitizerProfileExtension` on `HtmlSanitizerProfileRegistry`, which refuses event
+handlers, inline styles, unvalidated URL attributes and other forbidden markup. Extensions
+are application-global: they must not vary by site, tenant, request, or authenticated user.
 
 ## Safe And Unsafe Examples
 
