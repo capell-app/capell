@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Events\InstallUserCreated;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -53,6 +55,8 @@ final class CreateAdditionalInstallUsersAction
 
                 MarkInstallUserEmailVerifiedAction::run($user);
                 $this->assignRole($user, $userData, $reporter, $site);
+
+                Event::dispatch(new InstallUserCreated($user, $userData->roleName, $site));
 
                 return true;
             });
