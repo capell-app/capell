@@ -53,7 +53,10 @@ $this->callAfterResolving(
 The build loads every registered plugin through `capellVitePlugins()`. It resolves each package from the application's own `node_modules`, including ESM-only packages, and calls its default export with the registered JSON options. Each plugin is called once, so two packages that register the same plugin must use the same options. Capell adds the helper when it integrates the Vite configuration. An application integrated earlier gets it the next time `capell:frontend-after-install --apply` runs while a package needs a plugin:
 
 ```js
-import { capellViteInputs, capellVitePlugins } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js'
+import {
+    capellViteInputs,
+    capellVitePlugins,
+} from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js'
 
 export default defineConfig({
     plugins: [capellVitePlugins(), laravel({ input: [...capellViteInputs()] })],
