@@ -564,4 +564,6 @@ return [
     'layout_element_asset_configurator' => 'Layout element asset configurator',
     'widget_type' => 'Element type',
     'snapshot_to_restore' => 'Snapshot to restore',
+    'no_parent_page' => 'No parent (top level)',
+    'publish_now' => 'Publish now',
 ];

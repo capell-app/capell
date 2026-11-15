@@ -473,7 +473,7 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Choose a page type')"
+                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('New page')"
                 }
             ],
             "docsPage": "docs/getting-started/create-your-first-page.md",
@@ -1107,9 +1107,7 @@
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-editor",
             "title": "Case study fields alongside the real Extension Cookbook schema contribution.",
@@ -1145,9 +1143,7 @@
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-validation",
             "title": "Client name validation on the real page editor.",
@@ -1192,9 +1188,7 @@
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-reopened",
             "title": "Saved Client name after reopening the real page editor.",
@@ -1251,9 +1245,7 @@
             "target": null,
             "scenario": "frontend-page",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-public",
             "title": "Client name rendered by the standard anonymous page route.",

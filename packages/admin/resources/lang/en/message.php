@@ -284,4 +284,8 @@ return [
     'page_restore_historical_notice' => 'For older deletions, only the selected page and its deleted parents can be recovered together. Descendants whose deletion cannot be linked to this page stay in trash; restore them separately. The restore message names the descendants left in trash that you can access.',
     'recently_deleted_restored' => 'Item restored.',
     'recently_deleted_force_deleted' => 'Item permanently deleted.',
+    'page_created' => '“:title” created',
+    'quick_create_page_failed' => 'The page was not created',
+    'quick_create_page_slug_taken' => 'Another page on this site already uses the address “:slug”. Change the slug and create the page again.',
+    'quick_create_page_no_layout' => 'This site has no layout to use for new pages. Add a layout under Layouts, then create the page again.',
 ];

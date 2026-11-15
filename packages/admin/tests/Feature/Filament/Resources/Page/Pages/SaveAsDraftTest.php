@@ -8,7 +8,6 @@ use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Filament\Actions\Page\CreatePageAction;
 use Capell\Admin\Filament\Resources\Pages\Pages\CreatePage;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
-use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Core\Enums\BlueprintGroupEnum;
@@ -190,7 +189,7 @@ it('can create a new page as draft from the create page', function (): void {
     ]);
 });
 
-it('can save as draft via CreatePageAction modal from the list page', function (): void {
+it('can save as draft via CreatePageAction modal from the editor', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->recycle($language)->hasSiteDomains()->create();
     $type = Blueprint::factory()->page()->create();
@@ -198,7 +197,7 @@ it('can save as draft via CreatePageAction modal from the list page', function (
     $newData = Page::factory()->make();
     $slug = str($newData->name)->slug()->toString();
 
-    Livewire::test(ListPages::class)
+    Livewire::test(EditPage::class, ['record' => Page::factory()->site($site)->createOne()->getRouteKey()])
         ->assertSuccessful()
         ->mountAction(TestAction::make(CreatePageAction::class))
         ->set('mountedActions.0.data.translations', [])
@@ -274,7 +273,7 @@ it('shows standard notification when normal create is used instead of draft', fu
     $newData = Page::factory()->make();
     $slug = str($newData->name)->slug()->toString();
 
-    Livewire::test(ListPages::class)
+    Livewire::test(EditPage::class, ['record' => Page::factory()->site($site)->createOne()->getRouteKey()])
         ->assertSuccessful()
         ->mountAction(TestAction::make(CreatePageAction::class))
         ->set('mountedActions.0.data.translations', [])

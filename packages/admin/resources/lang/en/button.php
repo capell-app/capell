@@ -133,8 +133,6 @@ return [
     'previous' => 'Previous',
     'publish' => 'Publish',
     'publish_workspace_n_pages' => 'Publish :count pages',
-    'quick_create_default_page' => 'New standard page',
-    'quick_create_default_page_tooltip' => 'Create a page with the standard page type, without choosing one first.',
     'rebuild_site' => 'Rebuild site',
     'rebuild_site_tooltip' => 'Repair the page tree and notify site rebuild subscribers.',
     'redo' => 'Redo',
