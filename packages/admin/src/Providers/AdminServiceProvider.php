@@ -164,7 +164,6 @@ use Capell\Admin\Support\Activity\AdminActivitySettingsReader;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
@@ -183,7 +182,6 @@ use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
 use Capell\Admin\Support\Cache\UnavailableStaticSiteGenerationDispatcher;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\ContentGraph\SharedDeleteImpact;
-use Capell\Admin\Support\CoreAdminHelpEntries;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
 use Capell\Admin\Support\Dashboard\DefaultDashboardAnalyticsDataProvider;
@@ -594,12 +592,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
         $this->app->singleton(ImportEntryRegistry::class);
-        $this->app->scoped(AdminHelpRegistry::class, function (): AdminHelpRegistry {
-            $registry = new AdminHelpRegistry;
-            CoreAdminHelpEntries::register($registry);
-
-            return $registry;
-        });
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
