@@ -39,6 +39,25 @@ it('shows and controls only the current editor recovery draft', function (): voi
     expect(EditorScratchDraft::query()->count())->toBe(0);
 });
 
-it('keeps the editor form actions sticky', function (): void {
-    expect(EditPage::$formActionsAreSticky)->toBeTrue();
+it('keeps the editor form actions in the normal flow at the end of the form', function (): void {
+    expect(EditPage::$formActionsAreSticky)->toBeFalse();
+});
+
+it('shows no recovery card when there is nothing to restore', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+
+    Livewire::test(PageScratchDraftPanel::class, ['pageId' => $page->getKey()])
+        ->assertSuccessful()
+        ->assertDontSee(__('capell-admin::scratch_drafts.title'))
+        ->assertDontSee(__('capell-admin::scratch_drafts.none'));
+});
+
+it('explains that changes are kept as you type just above Save', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->assertSeeInOrder([
+            __('capell-admin::scratch_drafts.none'),
+            __('capell-admin::button.save'),
+        ]);
 });

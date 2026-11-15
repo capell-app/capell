@@ -419,7 +419,7 @@ it('does not report a freshly cloned language row as complete', function (): voi
         ->toBe($clonedTranslation->getRawOriginal('updated_at'));
 
     expect($component->resolveItemBadge($clonedTranslation, ['title' => null]))->toBe([
-        'label' => __('capell-admin::generic.translation_untranslated'),
+        'label' => null,
         'color' => 'gray',
         'tooltip' => __('capell-admin::generic.translation_untranslated_info'),
     ]);

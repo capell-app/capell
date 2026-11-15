@@ -6,6 +6,9 @@ use Capell\Admin\Actions\EditorImpact\BuildRecordImpactPreviewAction;
 use Capell\Admin\Contracts\EditorImpact\EditorImpactConsequencePlanner;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Core\Data\EditorImpact\EditorImpactConsequenceData;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
+use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Page;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +16,19 @@ use Livewire\Livewire;
 
 uses(CreatesAdminUser::class)->group('page');
 
-it('renders contributed consequences on demand in the page impact preview', function (): void {
+it('saves an isolated page straight away without opening the impact confirmation', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->assertActionDoesNotExist('impact-preview')
+        ->callAction('save')
+        ->assertHasNoFormErrors()
+        ->assertActionNotMounted('save')
+        ->assertDispatched('page-editor-saved', pageId: (int) $page->getKey());
+});
+
+it('asks for confirmation with the contributed consequences when saving affects other content', function (): void {
     test()->actingAsAdmin();
     $page = Page::factory()->withTranslations()->createOne();
     $planner = new class implements EditorImpactConsequencePlanner
@@ -37,20 +52,30 @@ it('renders contributed consequences on demand in the page impact preview', func
     app()->instance($planner::class, $planner);
     app()->tag($planner::class, EditorImpactConsequencePlanner::TAG);
 
-    $editor = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
-    expect($planner->calls)->toBe(0);
+    $linkingPage = Page::factory()->withTranslations()->createOne(['name' => 'Linking page']);
+    ContentGraphEdge::query()->create([
+        'source_type' => Page::class,
+        'source_id' => $linkingPage->id,
+        'target_type' => Page::class,
+        'target_id' => $page->id,
+        'kind' => ContentGraphEdgeKind::LinksToPage,
+        'strength' => ContentGraphEdgeStrength::Weak,
+        'source_package' => 'capell-app/core',
+    ]);
 
-    $editor->assertActionExists('impact-preview');
-    $editor->mountAction('impact-preview')
-        ->assertActionMounted('impact-preview')
+    $editor = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
+
+    $editor->mountAction('save')
+        ->assertActionMounted('save')
         ->call('forceRender')
+        ->assertSee(__('capell-admin::impact.heading'))
+        ->assertSee('Linking page')
         ->assertSee('Cache entries: 3')
         ->assertSee('https://example.test/a')
-        ->assertSee('https://example.test/b')
-        ->assertSee('https://example.test/c')
-        ->assertSee(__('capell-admin::impact.estimated_seconds', ['seconds' => '0.75']));
-
-    expect($planner->calls)->toBeGreaterThan(0);
+        ->assertSee(__('capell-admin::impact.estimated_seconds', ['seconds' => '0.75']))
+        ->callMountedAction()
+        ->assertHasNoFormErrors()
+        ->assertDispatched('page-editor-saved', pageId: (int) $page->getKey());
 });
 
 it('does not let informational costs change save fingerprints and denies guests', function (): void {
