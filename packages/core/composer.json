@@ -48,7 +48,8 @@
         "staudenmeir/eloquent-has-many-deep": "^1.7",
         "staudenmeir/eloquent-json-relations": "^1.1",
         "symfony/filesystem": "^7.2|^8.0",
-        "symfony/process": "^7.2|^8.0"
+        "symfony/process": "^7.2|^8.0",
+        "symfony/routing": "^7.2|^8.0"
     },
     "suggest": {
         "phpstan/phpstan": "Enables the opt-in extension-phpstan.neon rules that report use of @internal Capell classes and members."

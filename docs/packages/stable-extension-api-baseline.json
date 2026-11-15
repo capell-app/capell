@@ -263,7 +263,8 @@
         "staudenmeir/eloquent-has-many-deep": "^1.7",
         "staudenmeir/eloquent-json-relations": "^1.1",
         "symfony/filesystem": "^7.2|^8.0",
-        "symfony/process": "^7.2|^8.0"
+        "symfony/process": "^7.2|^8.0",
+        "symfony/routing": "^7.2|^8.0"
     },
     "migrations": [
         "2026_05_10_190832_02_create_languages_table.php",
