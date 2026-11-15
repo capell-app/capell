@@ -27,7 +27,7 @@
 
 **A Laravel CMS you extend, never fork.**
 
-Capell is a Laravel CMS built from the ground up on Filament. Launch a hosted Capell site in your own Laravel Cloud organisation in a few steps, or install it into a Laravel application you already run. Either way, the code, the data and the infrastructure stay yours.
+Capell is a Laravel CMS built from the ground up on Filament. Install it into a new or existing Laravel application, and the code, the data and the infrastructure stay yours. A guided route for deploying a Capell site into your own Laravel Cloud organisation is in progress.
 
 It covers what you expect from a CMS: pages, media, menus, previews, multilingual sites and publishing. Beyond that, it provides the structure that keeps a long-lived site maintainable.
 
@@ -35,7 +35,7 @@ It covers what you expect from a CMS: pages, media, menus, previews, multilingua
 - **Structure you define once.** Page types, shared layouts and approved widgets let editors build polished pages without one-off templates. When you improve a page type, every page that uses it improves too.
 - **Extension points instead of patches.** Packages add fields, widgets, themes, workflows and integrations through typed registries and stable contracts. You never edit Core to add a feature.
 - **Verified extensions you can trust.** The MIT-licensed **Capell Foundation** is free. Every verified extension shows its migrations, data access and removal path, so you can review it before it reaches production.
-- **Painless upgrades.** Strict coding standards and stable public API baselines keep upgrades predictable. Before you commit to an upgrade, you can run a dry run on a copy of your site.
+- **A planned upgrade process.** Upgrades run through Capell's own commands, with logged steps, health checks and declared rollback rules. Public API baselines are tracked between releases, and you can rehearse an upgrade on a copy of your site before you apply it.
 - **Page history that keeps every version.** Compare a page with an earlier version and roll back. The restore is saved as a new version, so the history you came from stays intact.
 - **Readable by people and AI agents.** Every published page is also available in a form agents can read. Agents can prepare admin changes, but a person approves them before anything goes live.
 
