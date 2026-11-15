@@ -99,8 +99,23 @@ final class IntegrateViteInputsAction
             'The Vite plugins Capell packages need could not be added automatically. Import capellVitePlugins from capell-vite-inputs.js and add capellVitePlugins() to the plugins array of your Vite configuration.',
         );
 
-        $updated = substr_replace($contents, 'capellVitePlugins(), ', $arrayEnd, 0);
+        $updated = substr_replace($contents, $this->pluginHelperInsertion($contents, $arrayEnd), $arrayEnd, 0);
 
         return str_replace(self::IMPORT, self::IMPORT_WITH_PLUGINS, $updated);
+    }
+
+    /**
+     * A plugins array written one entry per line gets the helper on its own line at the
+     * entries' indentation; an inline array gets it inline. Neither leaves trailing spaces.
+     */
+    private function pluginHelperInsertion(string $contents, int $arrayEnd): string
+    {
+        if (preg_match('/\G[ \t]*\r?\n([ \t]*)\S/', $contents, $nextLine, 0, $arrayEnd) !== 1) {
+            return 'capellVitePlugins(), ';
+        }
+
+        $lineBreak = str_contains(substr($contents, $arrayEnd, strlen($nextLine[0])), "\r\n") ? "\r\n" : "\n";
+
+        return $lineBreak . $nextLine[1] . 'capellVitePlugins(),';
     }
 }

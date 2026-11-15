@@ -93,7 +93,8 @@ it('adds the plugin helper to a new configuration and to one integrated before p
 
     expect($config)->toContain("import { capellViteInputs, capellVitePlugins } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js';")
         ->and(substr_count($config, 'capellVitePlugins(),'))->toBe(1)
-        ->and($config)->toContain('plugins: [capellVitePlugins(), ')
+        ->and($config)->toContain("plugins: [\n        capellVitePlugins(),\n        laravel(")
+        ->and($config)->not->toMatch('/[ \t]$/m')
         ->and(substr_count($config, '...capellViteInputs()'))->toBe(1);
 })->with([
     'new configuration' => [false],
@@ -130,7 +131,8 @@ JS;
     IntegrateViteInputsAction::run();
     $updated = File::get($this->viteConfigPath);
 
-    expect($updated)->toContain("    plugins: [capellVitePlugins(), \n        laravel(")
+    expect($updated)->toContain("    plugins: [\n        capellVitePlugins(),\n        laravel(")
+        ->and($updated)->not->toMatch('/[ \t]$/m')
         ->and($updated)->toContain('postcss: { plugins: [autoprefixer()] }')
         ->and($updated)->toContain('rollupOptions: { plugins: [visualizer()] }')
         ->and($updated)->toContain("// plugins: [ was the old layout\nconst note = 'plugins: [';")
@@ -216,4 +218,64 @@ it('loads each registered plugin from the application node_modules with its opti
     } finally {
         File::deleteDirectory($root);
     }
+});
+
+it('keeps symlinked package paths when Capell packages are installed from path repositories', function (bool $symlinked): void {
+    $root = storage_path('framework/testing/vite-path-repositories-' . bin2hex(random_bytes(6)));
+    $packageSource = $root . '-package-source';
+
+    try {
+        File::ensureDirectoryExists($root . '/bootstrap/cache');
+        File::ensureDirectoryExists($root . '/vendor/capell-app');
+        File::ensureDirectoryExists($packageSource);
+        File::put($root . '/package.json', '{"name":"app","private":true}');
+        File::put($root . '/bootstrap/cache/capell-vite-inputs.json', '{"inputs":["resources/js/app.js"],"plugins":[]}');
+
+        if ($symlinked) {
+            symlink($packageSource, $root . '/vendor/capell-app/frontend');
+        } else {
+            File::ensureDirectoryExists($root . '/vendor/capell-app/frontend');
+        }
+
+        $helper = realpath(__DIR__ . '/../../../resources/js/capell-vite-inputs.js');
+        $script = sprintf(
+            'import { capellVitePlugins } from %s; const plugins = await capellVitePlugins(%s); console.log(JSON.stringify(plugins.map((plugin) => ({ name: plugin.name, config: plugin.config ? plugin.config() : null }))));',
+            json_encode('file://' . $helper),
+            json_encode($root),
+        );
+        $process = new Process(['node', '--input-type=module', '-e', $script]);
+        $process->setTimeout(120);
+        $process->mustRun();
+
+        expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))->toBe($symlinked
+            ? [['name' => 'capell:path-repository-packages', 'config' => ['resolve' => ['preserveSymlinks' => true]]]]
+            : []);
+    } finally {
+        if (is_link($root . '/vendor/capell-app/frontend')) {
+            unlink($root . '/vendor/capell-app/frontend');
+        }
+
+        File::deleteDirectory($root);
+        File::deleteDirectory($packageSource);
+    }
+})->with([
+    'path repository symlink' => [true],
+    'installed package directory' => [false],
+]);
+
+it('adds the plugin helper inline to a plugins array written on one line', function (): void {
+    File::put($this->viteConfigPath, VITE_HELPER_IMPORT . PHP_EOL . <<<'JS'
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+
+export default defineConfig({
+    plugins: [laravel({ input: [...capellViteInputs(), 'resources/js/app.js'] })],
+});
+JS);
+    resolve(FrontendVitePluginRegistry::class)->register('@vitejs/plugin-vue', 'capell-app/inertia-vue-adapter');
+
+    IntegrateViteInputsAction::run();
+
+    expect(File::get($this->viteConfigPath))->toContain('plugins: [capellVitePlugins(), laravel(')
+        ->not->toMatch('/[ \t]$/m');
 });

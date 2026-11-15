@@ -89,7 +89,37 @@ function pluginEntries(manifest) {
         .filter((plugin) => typeof plugin?.module === 'string')
 }
 
+// Path-repository installs symlink Capell packages into vendor/capell-app. Vite follows
+// the symlink to the package's real directory, where a bare import such as
+// '@inertiajs/vue3' finds no node_modules. Keeping the symlinked path lets those
+// imports resolve from the application's own node_modules.
+function pathRepositoryPackagesPlugin(applicationRoot) {
+    const vendorDirectory = path.join(applicationRoot, 'vendor', 'capell-app')
+    let symlinked = false
+
+    try {
+        symlinked = fs
+            .readdirSync(vendorDirectory)
+            .some((entry) =>
+                fs
+                    .lstatSync(path.join(vendorDirectory, entry))
+                    .isSymbolicLink(),
+            )
+    } catch {
+        return null
+    }
+
+    return symlinked
+        ? {
+              name: 'capell:path-repository-packages',
+              config: () => ({ resolve: { preserveSymlinks: true } }),
+          }
+        : null
+}
+
 export function capellVitePlugins(applicationRoot = process.cwd()) {
+    const pathRepositoryPlugin = pathRepositoryPackagesPlugin(applicationRoot)
+
     return Promise.all(
         pluginEntries(readManifest(applicationRoot)).map(
             async ({ module: name, options }) => {
@@ -113,5 +143,9 @@ export function capellVitePlugins(applicationRoot = process.cwd()) {
                 return factory(options ?? {})
             },
         ),
+    ).then((plugins) =>
+        pathRepositoryPlugin === null
+            ? plugins
+            : [pathRepositoryPlugin, ...plugins],
     )
 }
