@@ -6,7 +6,7 @@ Use this shape for real packages: keep package logic in Actions/Data, register t
 
 Before copying code, make sure the job and package surfaces are clear. [Package authoring jobs](package-authoring-jobs.md) covers common extension jobs, and [Extension surface vocabulary](extension-surface-vocabulary.md) defines the surface, contribution, capability, install-impact, and marketplace terms used in this tutorial.
 
-## Target Behavior
+## Target Behaviour
 
 The package should:
 
@@ -782,7 +782,7 @@ If the package is not on the Extensions page at all, it is required but not enab
 - Package appears in `composer show acme/announcement-bar`.
 - `capell.json` validates and uses manifest version 3.
 - `php artisan capell:extension-audit packages/announcement-bar` passes.
-- Provider registers package-owned settings, admin, frontend, and cache behavior only.
+- Provider registers package-owned settings, admin, frontend, and cache behaviour only.
 - Admin UI strings use translations.
 - Public output passes anonymous and non-admin safety tests.
 - README links to package docs, extension points, config, tests, and troubleshooting.

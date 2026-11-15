@@ -29,7 +29,7 @@ Select either screenshot to open the full-resolution image.
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/install-capell-page-dark.png"><img src="images/screenshots/install-capell-page.png" alt="Capell browser installer with setup requirements and input"></picture><br>[Light](images/screenshots/install-capell-page.png) · [Dark](images/screenshots/install-capell-page-dark.png) | <picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/install-guide-page-dark.png"><img src="images/screenshots/install-guide-page.png" alt="Install guide showing host setup requirements and patches"></picture><br>[Light](images/screenshots/install-guide-page.png) · [Dark](images/screenshots/install-guide-page-dark.png) |
 
-Screenshot contract:
+Screenshots:
 
 - Admin index screen: not applicable before setup. Installer may show an Admin dashboard warning while installed.
 - Create/edit screen: the `/install` form collects setup input.

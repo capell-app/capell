@@ -38,7 +38,7 @@ Operational add-ons such as migration assistance, diagnostics, monitoring, and e
 
 ## Capell Search & SEO
 
-Search, SEO, discovery, and related growth packages are optional extensions. Use their package docs for feature behavior and use the host docs only for shared extension points and public-rendering safety rules.
+Search, SEO, discovery, and related growth packages are optional extensions. Use their package docs for feature behaviour and use the host docs only for shared extension points and public-rendering safety rules.
 
 ## For Package Authors
 

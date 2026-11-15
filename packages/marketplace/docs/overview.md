@@ -2,23 +2,23 @@
 
 ## What This Package Adds
 
-**Available. Foundation package. Schema-owning. Hidden from Marketplace listings.**
+**Available. Foundation package. Hidden from Marketplace listings.**
 
-Capell Marketplace connects a Capell installation to the Capell extension marketplace. It provides admin browsing, account connection, hosted install-flow handoff, install authorization, local package operation records, update advisory snapshots, and diagnostic bundles.
+Capell Marketplace connects a Capell installation to the Capell extension marketplace. It provides admin browsing, account connection, hosted install-flow handoff, install authorisation, local package operation records, update advisory snapshots, and diagnostic bundles.
 
-After install, admins can browse Marketplace listings from the installed Extensions surface, connect a Capell account, review protected install requirements, queue free installs, complete hosted premium install flows, inspect package operations, retry failed installs, and view update advisories.
+After install, admins can browse Marketplace listings from the installed Extensions surface, connect a Capell account, review protected install requirements, queue free installs, complete hosted paid install flows, inspect package operations, retry failed installs, and view update advisories.
 
 Marketplace extends these Capell surfaces:
 
 - Admin extension management through Marketplace actions, detail pages, install review, account connection, update advisories, and package operations.
 - Composer package operations through queued install attempts, preflight checks, timeline events, retry records, and optional Deployments handoff.
-- Marketplace API integration through catalogue, detail, account connection, install authorization, install-flow exchange, heartbeat, and telemetry requests.
+- Marketplace API integration through catalogue, detail, account connection, install authorisation, install-flow exchange, heartbeat, and telemetry requests.
 - Site operations through update advisory snapshots, failure classification, cancellation handling, diagnostics, and admin notifications.
 
 ## What Marketplace gives developers and teams
 
-- **For developers:** Marketplace is the boundary for remote extension state, local install attempts, protected install authorization, package operation history, and Marketplace API contracts. It keeps package installs auditable instead of treating them as anonymous Composer commands.
-- **For teams:** Operators can see what was requested, what was authorized, what Composer did, what needs attention, and which update advisories apply to the site.
+- **For developers:** Marketplace is the boundary for remote extension state, local install attempts, protected install authorisation, package operation history, and Marketplace API contracts. It keeps package installs auditable instead of treating them as anonymous Composer commands.
+- **For teams:** Operators can see what was requested, what was authorised, what Composer did, what needs attention, and which update advisories apply to the site.
 
 ## Screens And Workflow
 
@@ -44,14 +44,14 @@ Select any screenshot to open the full-resolution image.
 
 [Light](images/screenshots/marketplace-extension-detail-mobile.png) · [Dark](images/screenshots/marketplace-extension-detail-mobile-dark.png)
 
-Screenshot contract:
+Screenshots:
 
 - Admin index screen: Marketplace extensions page and Package Operations entry from installed Extensions.
 - Create/edit screen: not a content resource. Install review and retry forms are the workflow forms.
 - Settings/configuration screen: account connection and heartbeat state are shown in Marketplace/admin surfaces.
 - Frontend output: none. Marketplace must not expose account, install, or licence data publicly.
 - Package detail or install intent screen: extension detail, hosted install-flow review, manual install guidance, and operation rows.
-- Carousel steps: grouped install review, hosted approval redirect, callback exchange, authorization, local queue, and operation timeline.
+- Carousel steps: grouped install review, hosted approval redirect, callback exchange, authorisation, local queue, and operation timeline.
 
 ## Technical Shape
 
@@ -75,7 +75,7 @@ Marketplace owns these tables:
 - `marketplace_instances`: connected instance identity, encrypted signing secret, connection mode, account identity, verified email time, metadata, and heartbeat time.
 - `marketplace_account_connection_sessions`: short-lived account-link sessions with hashed state/verifier values and callback status.
 - `marketplace_install_flow_sessions`: hosted grouped install sessions with selected packages, options, dependency snapshot, hashed return state, encrypted verifier, remote flow ID, status, expiry, and errors.
-- `marketplace_install_attempts`: append-only install ledger for eligibility, account context, authorization, deployment handoff, Composer operation state, failure classification, retry links, output excerpts, and telemetry status. `CreateMarketplaceInstallAttemptAction` accepts `MarketplaceInstallAttemptData`; `TransitionMarketplaceInstallAttemptAction` row-locks attempts and atomically derives lifecycle timestamps, resolution/deployment attention, classification, and timeline state.
+- `marketplace_install_attempts`: append-only install ledger for eligibility, account context, authorisation, deployment handoff, Composer operation state, failure classification, retry links, output excerpts, and telemetry status. `CreateMarketplaceInstallAttemptAction` accepts `MarketplaceInstallAttemptData`; `TransitionMarketplaceInstallAttemptAction` row-locks attempts and atomically derives lifecycle timestamps, resolution/deployment attention, classification, and timeline state.
 - `marketplace_install_attempt_events`: append-only timeline events for preflight, Composer, package discovery, lifecycle work, notification, cancellation, and failure paths.
 - `marketplace_install_intents`: theme/package install intents that resolve after Composer or deployment work.
 - `marketplace_update_advisory_snapshots`: last heartbeat/update response stored locally for admin notices.
@@ -111,7 +111,7 @@ Deletion and retention:
 
 ## Common Pitfalls
 
-- Protected installs fail closed when Marketplace omits eligibility or account authorization data.
+- Protected installs fail closed when Marketplace omits eligibility or account authorisation data.
 - Free installs do not require a connected account, but telemetry can remain pending if Marketplace is unavailable.
 - Grouped selection uses typed input, record, blocked-dependency, and review Data. Policy returns stable failure reason codes; only the admin UI translates them.
 - `APP_URL` or `CAPELL_MARKETPLACE_WEBHOOK_URL` must be public when Marketplace needs callbacks or heartbeat.
@@ -129,8 +129,8 @@ Deletion and retention:
 
 ## Next Steps
 
-- Check `php artisan config:show capell-marketplace.marketplace.base_url` when catalogue or authorization calls fail.
+- Check `php artisan config:show capell-marketplace.marketplace.base_url` when catalogue or authorisation calls fail.
 - Check `php artisan config:show app.url` and `php artisan config:show capell-marketplace.marketplace.webhook_url` when callbacks or heartbeat fail.
 - Inspect Package Operations for failed attempts, timeline events, retry options, and diagnostic bundles.
 - Review Marketplace models under `packages/marketplace/src/Models` before changing retention, deletion, or secret handling.
-- Review `InstallMarketplaceExtensionAction` before changing Marketplace install orchestration, and review supporting Marketplace Actions and Jobs before changing install authorization, Composer execution, telemetry, heartbeat, or failure classification.
+- Review `InstallMarketplaceExtensionAction` before changing Marketplace install orchestration, and review supporting Marketplace Actions and Jobs before changing install authorisation, Composer execution, telemetry, heartbeat, or failure classification.

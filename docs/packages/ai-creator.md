@@ -47,7 +47,7 @@ Full package docs live in the package repository at `packages/ai-creator/README.
 
 ## Safety
 
-AI Creator output is planning input. Package-owned Actions must own persistence and apply behavior, and no raw AI-generated PHP or Blade should execute directly. Public Blade, cached HTML, and anonymous responses must not expose authoring metadata, model IDs, signed URLs, selectors, package internals, or editor controls.
+AI Creator output is planning input. Package-owned Actions must own persistence and apply behaviour, and no raw AI-generated PHP or Blade should execute directly. Public Blade, cached HTML, and anonymous responses must not expose authoring metadata, model IDs, signed URLs, selectors, package internals, or editor controls.
 
 ## Related guides
 

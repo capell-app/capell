@@ -29,7 +29,7 @@ Use these pages to see a workflow before reading its implementation details.
 | Admin workspace        | [Admin interface](admin/interface.md)                               | Dashboard, Pages, Media, Settings, Theme Library, and Site Health.               |
 | First page authoring   | [Create your first page](getting-started/create-your-first-page.md) | Site and parent selection, URL preview, content editor, draft actions, settings. |
 | Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customisation, preview, and apply.  |
-| Operations diagnostics | [Site Health](operations/site-health.md)                            | Cache status, public-output safety, static generation, optimizer, server checks. |
+| Operations diagnostics | [Site Health](operations/site-health.md)                            | Cache status, public-output safety, static generation, optimiser, server checks. |
 | Real content model     | [Music store CMS example](examples/music-store-cms.md)              | Pages, articles, events, products, artists, and navigation working together.     |
 
 ## Documentation Sections

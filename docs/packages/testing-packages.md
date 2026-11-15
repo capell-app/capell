@@ -1,6 +1,6 @@
 # Testing Packages
 
-Package tests should prove the package boots, registers its extension points, and owns its behavior.
+Package tests should prove the package boots, registers its extension points, and owns its behaviour.
 
 Capell packages are tested with [Orchestra Testbench](https://packages.tools/testbench), which boots a throwaway Laravel application around the package. Nothing in this page needs a host application.
 
@@ -247,7 +247,7 @@ protected function getPackageProviders($app): array
 }
 ```
 
-Force packages installed in tests when testing installed-only behavior:
+Force packages installed in tests when testing installed-only behaviour:
 
 ```php
 CapellCore::forcePackageInstalled('capell-app/example');
@@ -276,7 +276,7 @@ it('registers package metadata', function (): void {
 
 ## Action Tests
 
-Test Actions directly. Avoid HTTP tests unless the route or Filament page behavior is the subject.
+Test Actions directly. Avoid HTTP tests unless the route or Filament page behaviour is the subject.
 
 ```php
 it('builds the package output data', function (): void {
@@ -336,7 +336,7 @@ The check is ratcheted by `tests/BladeCoverage/baseline.json` and only counts vi
 
 ## Marketplace Tests
 
-Marketplace-adjacent packages should prove local compatibility and authorization state handling without treating remote metadata as trusted code.
+Marketplace-adjacent packages should prove local compatibility and authorisation state handling without treating remote metadata as trusted code.
 
 ```php
 it('records install intent only when an instance is connected', function (): void {

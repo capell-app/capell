@@ -44,7 +44,7 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 | Modify page, user, or resource tables                                                                        | Tagged table extenders such as `PageTableExtender::TAG`                                                             | Admin |
 | Extend the installed Extensions page                                                                         | `ExtensionsPageActionRegistry` or `ExtensionsPageExtender::TAG`                                                     | Admin |
 | Subscribe to admin serving events                                                                            | `CapellAdmin::serving(...)`                                                                                         | Admin |
-| Register activity resource links/display/revert behavior                                                     | `CapellAdmin::registerActivityResourceLink(...)`, `ActivityChangeSetBuilder::TAG`, and `ActivityRevertHandler::TAG` | Admin |
+| Register activity resource links/display/revert behaviour                                                     | `CapellAdmin::registerActivityResourceLink(...)`, `ActivityChangeSetBuilder::TAG`, and `ActivityRevertHandler::TAG` | Admin |
 
 ## Frontend Runtime
 
@@ -64,7 +64,7 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 ## Rules
 
 - Prefer an existing extension point over patching host package classes.
-- Keep package feature logic in the package. Host packages should expose contracts, not product behavior.
+- Keep package feature logic in the package. Host packages should expose contracts, not product behaviour.
 - Put writes in Actions and structured state in Data objects.
 - Keep visible strings in translations.
 - Public output must pass the [public HTML safety contract](../frontend/public-html-safety.md).

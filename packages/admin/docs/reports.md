@@ -6,7 +6,7 @@ Capell Admin exposes reports as individual Filament pages registered through a r
 
 Core reports ship incrementally. Some reports still return empty-state snapshots, while Publishing Readiness now returns page-level metrics and findings. Report Actions are the right place for query work. Keep the Filament page thin: it should render filters, tables, summary metrics, and explicit remediation actions, not perform the database work itself.
 
-## Report Catalog
+## Report Catalogue
 
 Each report should answer a practical editor question first, then expose enough detail for a developer or support user to understand why an item appears. Query work belongs in the report Action or a dedicated query object. Scope queries by site and language where the data supports it, and prefer `withCount()`, `exists` subqueries, and selected columns over loading whole relationship graphs.
 
@@ -67,9 +67,9 @@ Developer query shape: keep the Action responsible for loaded data and classific
 
 ### Cache Freshness
 
-Cache Freshness is for answering "is the public site serving yesterday's truth?" It should flag stale HTML or optimizer state, invalidation gaps, pages changed after their cache profile was generated, layouts whose dependants need refresh, and URLs that should be treated as volatile instead of stable.
+Cache Freshness is for answering "is the public site serving yesterday's truth?" It should flag stale HTML or optimiser state, invalidation gaps, pages changed after their cache profile was generated, layouts whose dependants need refresh, and URLs that should be treated as volatile instead of stable.
 
-Developer query shape: compare content timestamps (`updated_at` on pages, layouts, blueprints, relevant dependencies) with optimizer/cache profile state when the frontend optimizer package is present. Do not make optimizer tables mandatory in core admin; absence should produce an "optimizer state unavailable" bucket rather than an exception. Use layout/page dependency keys and cache surrogate keys where those are available.
+Developer query shape: compare content timestamps (`updated_at` on pages, layouts, blueprints, relevant dependencies) with optimiser/cache profile state when the frontend optimiser package is present. Do not make optimiser tables mandatory in core admin; absence should produce an "optimiser state unavailable" bucket rather than an exception. Use layout/page dependency keys and cache surrogate keys where those are available.
 
 ### Navigation Coverage
 
@@ -103,7 +103,7 @@ Developer query shape: use the SEO package's metadata tables/config first, then 
 
 Search reports should show the gap between what users ask for and what Capell can return. Zero-result searches help editors spot content vocabulary problems; stale indexes and missing indexed pages help developers spot sync or queue failures.
 
-Developer query shape: query the search package's query log and index records, then compare indexed document ids with public `Page`/`PageUrl` candidates. Use grouped zero-result counts by normalized search term, and compare `indexed_at` with content `updated_at` for stale index detection.
+Developer query shape: query the search package's query log and index records, then compare indexed document ids with public `Page`/`PageUrl` candidates. Use grouped zero-result counts by normalised search term, and compare `indexed_at` with content `updated_at` for stale index detection.
 
 ### Media Library
 
@@ -151,7 +151,7 @@ Developer query shape: query import batches, source ids, mapping tables, media t
 
 Theme reports should protect the contract between stored layouts and the active theme package. They should find token drift, unsupported sections, missing required slots, and layouts that still reference sections a theme no longer ships.
 
-Developer query shape: compare active theme definitions, token presets, layout containers/elements, and theme-declared required slots. Keep theme package specifics in theme contributors. Core/admin should consume normalized findings keyed by theme key, layout id, section key, and missing/unsupported capability.
+Developer query shape: compare active theme definitions, token presets, layout containers/elements, and theme-declared required slots. Keep theme package specifics in theme contributors. Core/admin should consume normalised findings keyed by theme key, layout id, section key, and missing/unsupported capability.
 
 ## Registering a Report
 

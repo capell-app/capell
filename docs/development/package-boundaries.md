@@ -11,7 +11,7 @@ Use this page before adding a feature, guide, command, or extension point. Capel
 | Changes the Filament panel, admin resources, dashboards, permissions, settings UI, admin bridges, or editor workflows                   | `capell-4/packages/admin`                 |
 | Changes public request resolution, page rendering, render hooks, frontend settings, public HTML safety, or frontend package integration | `capell-4/packages/frontend`              |
 | Changes installer screens, install cleanup, or browser installer flow                                                                   | `capell-4/packages/installer`             |
-| Changes Marketplace browsing, account linking, package acquisition, or install authorization records                                    | `capell-4/packages/marketplace`           |
+| Changes Marketplace browsing, account linking, package acquisition, or install authorisation records                                    | `capell-4/packages/marketplace`           |
 | Adds a product feature that can be installed, disabled, versioned, or sold independently                                                | `../capell-packages-4/packages/<package>` |
 | Adds one-off project glue for a client app                                                                                              | the consuming Laravel app                 |
 | Documents a feature owned by a companion package                                                                                        | that companion package docs               |
@@ -28,7 +28,7 @@ Create or update a package when the feature has its own:
 - install command or Marketplace surface;
 - tests and release cadence.
 
-Do not hide optional feature behavior in Core, Admin, or Frontend just because those packages expose the extension point.
+Do not hide optional feature behaviour in Core, Admin, or Frontend just because those packages expose the extension point.
 
 ## Host Repo Owns Contracts
 

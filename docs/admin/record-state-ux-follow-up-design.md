@@ -24,7 +24,7 @@ mechanical rewrite:
    working, using saved filter-compatible table filters and visible tab/count
    affordances where the resource already supports them.
 2. Make non-zero relationship counts actionable by linking to the filtered,
-   authorized list of known references.
+   authorised list of known references.
 3. Show a narrow impact summary before destructive actions, based only on
    relationships that the owning package can resolve safely and completely for
    that action.
@@ -57,7 +57,7 @@ inventing a divergent table-navigation pattern.
 
 Counts answer a dependency question only when they lead to the evidence behind
 the count. Positive count metadata therefore links to the corresponding
-authorized, filtered resource list:
+authorised, filtered resource list:
 
 - page URL counts link to the page URL management context;
 - layout use counts link to pages using that layout, across registered page
@@ -65,9 +65,9 @@ authorized, filtered resource list:
 - widget layout counts link to layouts with the widget key filter;
 - media usage counts retain the existing usage list;
 - valid widget asset references link to the owning target where the target
-  still exists and the actor is authorized.
+  still exists and the actor is authorised.
 
-If a reference list cannot be represented by a stable, authorized query, the
+If a reference list cannot be represented by a stable, authorised query, the
 count remains plain metadata. No per-row queries are introduced to construct
 links.
 
@@ -95,7 +95,7 @@ uses`.
 - **Broken / incomplete evidence:** identify the record as requiring review;
   do not convert it into an "unused" cleanup suggestion.
 
-The follow-up does not change deletion authorization or add a new cleanup bulk
+The follow-up does not change deletion authorisation or add a new cleanup bulk
 action. Existing domain deletion behaviour remains the authority. Bulk-action
 confirmations show aggregate counts and exceptional selections, not an
 unbounded list of record names.
@@ -142,7 +142,7 @@ cross-site totals the actor cannot inspect.
 - `authoritative` is propagated to labels and confirmations. Actor-scoped or
   extension-limited zero counts render `No tracked uses` or `No accessible
 uses`, never `Unused`.
-- URLs respect resource authorization, site, language, page variation, and
+- URLs respect resource authorisation, site, language, page variation, and
   current table filter conventions. A missing safe URL leaves the count
   non-clickable.
 - No raw layout/widget content is decoded per table row. Existing indexed

@@ -20,7 +20,7 @@ Use this when the package renders public HTML through Layout Builder, a frontend
 
 1. Declare `frontend` in `surfaces`.
 2. Declare the closest contribution type: `frontend-component`, `render-hook`, `asset`, `route`, or `section`.
-3. Register frontend behavior from the frontend/runtime provider, not an admin-only provider.
+3. Register frontend behaviour from the frontend/runtime provider, not an admin-only provider.
 4. Pass hydrated data into Blade. Public package views must not query models, lazy-load relations, or inspect the current admin user.
 5. Add anonymous public-output safety tests proving no authoring selectors, model IDs, field paths, permissions, package internals, or signed admin URLs leak.
 
@@ -73,12 +73,12 @@ The normal path is:
 
 1. Scaffold with `php artisan capell:make:extension vendor/example --profile=minimal --path=packages`.
 2. Fill `capell.json` with identity, surfaces, provider buckets, dependencies, contributions, capabilities, performance, commercial, and marketplace metadata.
-3. Put domain behavior in `src/Actions` and structured state in `src/Data`.
-4. Register runtime behavior from the provider bucket that owns it.
+3. Put domain behaviour in `src/Actions` and structured state in `src/Data`.
+4. Register runtime behaviour from the provider bucket that owns it.
 5. Add the admin/editor surface through an Admin bridge when there is more than one admin concern.
 6. Add public output through frontend registries with safe hydrated render data.
 7. Add migrations and settings migrations with existence guards.
-8. Add tests for Actions, manifest/contribution contracts, install/setup behavior, public-output safety, and safe fallbacks.
+8. Add tests for Actions, manifest/contribution contracts, install/setup behaviour, public-output safety, and safe fallbacks.
 9. Add screenshots and docs when the package is Marketplace-ready.
 10. Run the package tests, audit the manifest, and verify docs links before release.
 

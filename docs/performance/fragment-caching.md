@@ -107,7 +107,7 @@ old workers.
 
 Public deferred-fragment responses use a separate owner-aware protocol. Their encrypted envelope carries the page, site, language, layout context, owner, protocol version, and a deterministic content version. The serving endpoint must re-resolve that context from the database on every request.
 
-Authorization and version checks always precede caching:
+Authorisation and version checks always precede caching:
 
 1. Decode with `PublicFragmentReferenceCodec`.
 2. Require the endpoint's exact `owner`.

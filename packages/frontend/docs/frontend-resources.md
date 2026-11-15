@@ -1,6 +1,6 @@
 # Frontend Resources
 
-Capell uses one typed resource graph for application Vite entries, package-published files, trusted CDN resources, inline trusted code, loading strategies, hints, dependency ordering, diagnostics, and optimization. Use this graph for CSS and JavaScript; render hooks are for public markup.
+Capell uses one typed resource graph for application Vite entries, package-published files, trusted CDN resources, inline trusted code, loading strategies, hints, dependency ordering, diagnostics, and optimisation. Use this graph for CSS and JavaScript; render hooks are for public markup.
 
 ![Frontend resources flow from typed declarations through planning and activation to safe public output.](images/frontend-resource-pipeline.svg)
 
@@ -105,7 +105,7 @@ Async scripts cannot declare or satisfy ordered dependencies.
 
 Trusted PHP may use `inlineStyle()` and `inlineScript()`; the renderer applies Laravel Vite's nonce. Use typed `FrontendResourceHintData` for preload, module-preload, preconnect, and DNS-prefetch. Capell does not automatically preconnect to external origins.
 
-Plans report required `script-src`, `style-src`, `connect-src`, and `font-src` origins but do not change CSP headers. The application owns CSP authorization and nonce propagation.
+Plans report required `script-src`, `style-src`, `connect-src`, and `font-src` origins but do not change CSP headers. The application owns CSP authorisation and nonce propagation.
 
 Editor-controlled theme data may select trusted registered groups or local public paths. It cannot introduce remote URLs or inline executable code.
 

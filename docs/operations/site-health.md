@@ -1,6 +1,6 @@
 # Site Health
 
-Use Site Health before serving a Capell site from production domains and after any deployment that changes frontend rendering, cache behaviour, static output, optimizer jobs, queues, or server configuration.
+Use Site Health before serving a Capell site from production domains and after any deployment that changes frontend rendering, cache behaviour, static output, optimiser jobs, queues, or server configuration.
 
 ## Admin diagnostics
 
@@ -51,9 +51,9 @@ If an operator can access a focused page but lacks permission for the overview, 
 
 **Cache status** lists every enabled, non-redirect page URL with its site, layout, public URL, cache status, cache file path, and generated timestamp. Use it to spot URLs that are expected to be cacheable but are missing files, bypassing cache, or tied to an uncached domain.
 
-[![Cache Freshness report with no stale cache or optimizer state](../images/generated/admin/cache-freshness-report.png)](../images/generated/admin/cache-freshness-report.png)
+[![Cache Freshness report with no stale cache or optimiser state](../images/generated/admin/cache-freshness-report.png)](../images/generated/admin/cache-freshness-report.png)
 
-_Healthy looks like no cache or optimizer state older than the content, layout, theme, or dependency data it serves._
+_Healthy looks like no cache or optimiser state older than the content, layout, theme, or dependency data it serves._
 
 **Public-output safety** scans cached public HTML for authoring markers and signed admin URLs. A red result means unsafe admin/editor details reached cacheable output and the affected cache file should be cleared after the source leak is fixed.
 
@@ -103,10 +103,10 @@ _Healthy looks like deliberate global and per-site maintenance state, with gener
 - Static generation is a separate operation; an ordinary `capell:static-site` run can read existing cached HTML and does not establish freshness.
 - Keep queues running for package jobs that purge CDN cache, generate assets, or refresh static output.
 
-## Optimizer and assets
+## Optimiser and assets
 
-- Treat frontend optimization failures as job failures. Public pages should continue to load normal CSS and JavaScript rather than falling back to generated critical CSS.
-- Install the Node and Playwright runtime required by the frontend optimizer on workers that generate critical CSS.
+- Treat frontend optimisation failures as job failures. Public pages should continue to load normal CSS and JavaScript rather than falling back to generated critical CSS.
+- Install the Node and Playwright runtime required by the frontend optimiser on workers that generate critical CSS.
 - Prefer small, relevant CSS and JavaScript files for HTTP/3. Add profile bundling only when production metrics show it is necessary.
 
 ## Verification

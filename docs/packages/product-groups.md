@@ -19,9 +19,9 @@ Capell packages are grouped by customer-facing value, not by internal implementa
 | Frontend Authoring | `capell-app/frontend-authoring` | Admin-only in-page editing is a baseline authoring convenience, but public visitors must never receive editor markup. |
 | Frontend Default   | `capell-app/frontend`           | Every install gets a minimal working frontend theme fallback without a separate theme package.                        |
 
-## Premium Groups
+## Paid Groups
 
-Premium groups are capabilities that save operational time, reduce publishing risk, or support commercial workflows.
+Paid groups are capabilities that save operational time, reduce publishing risk, or support commercial workflows.
 
 | Product group         | Bundle key       | Packages                                                                         | Buying reason                                                                                                                                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -32,7 +32,7 @@ Premium groups are capabilities that save operational time, reduce publishing ri
 | Capell Growth         | `growth`         | Insights, CampaignStudio                                                         | Measure traffic, build campaigns, track conversions, and report marketing performance.                                                                                               |
 | Capell Communications | `communications` | Email Studio                                                                     | Give transactional email a proper command centre: templates, profiles, audit trails, suppressions, provider events, replies, and tracking diagnostics.                               |
 | Capell Search & SEO   | `search-seo`     | SEO Suite, Search                                                                | Improve discoverability with audits, structured data, AI SEO assistance, search, and search insights.                                                                                |
-| Capell Themes         | `themes`         | Agency Theme, Corporate Theme, Estate Agents Theme, Restaurant Theme, SaaS Theme | Launch polished branded sites faster with independently installable premium themes.                                                                                                  |
+| Capell Themes         | `themes`         | Agency Theme, Corporate Theme, Estate Agents Theme, Restaurant Theme, SaaS Theme | Launch polished branded sites faster with independently installable paid themes.                                                                                                  |
 
 ## Manifest Fields
 

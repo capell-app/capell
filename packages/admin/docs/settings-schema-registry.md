@@ -8,7 +8,7 @@ The Settings Schema Registry is a runtime registry of settings form-builder. The
 
 1. **SettingsSchemaRegistry** (`Capell\Core\Support\Settings\SettingsSchemaRegistry`)
     - Central registry maintaining all settings schemas
-    - Organizes schemas by group (e.g., 'core', 'admin', 'frontend')
+    - Organises schemas by group (e.g., 'core', 'admin', 'frontend')
     - Supports multiple schemas per group (composable)
     - Stores optional metadata for package-owned settings surfaces
 

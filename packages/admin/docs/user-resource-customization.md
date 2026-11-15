@@ -1,4 +1,4 @@
-# User resource customization
+# User resource customisation
 
 Capell exposes one extension point for the admin user resource: `UserResourceBridge`.
 A bridge can contribute form fields, sidebar sections, relation managers, lifecycle
@@ -158,7 +158,7 @@ public function toolbarActions(): array
 ## Test the bridge
 
 Test the bridge directly for context filtering and lifecycle mutations. Add a focused
-Livewire test when the package contributes visible form or table behavior:
+Livewire test when the package contributes visible form or table behaviour:
 
 ```php
 app()->bind(PackageUserResourceBridge::class);

@@ -2,7 +2,7 @@
 
 Capell frontend requests resolve site, language, page, layout, and theme state before the public renderer runs.
 
-Use this when changing `capell-app/frontend` routing, cache behavior, runtime selection, or request-scoped frontend state.
+Use this when changing `capell-app/frontend` routing, cache behaviour, runtime selection, or request-scoped frontend state.
 
 ## High-level flow
 
@@ -92,7 +92,7 @@ Contributors receive the resolved `FrontendContextReader` and mutable `FrontendR
 
 ## Caching
 
-- `FrontendCachePolicy`, `PageModelCache`, `PublicPageRenderDataCache`, `PageListingCache`, and `PageHydrator` manage frontend cache behavior.
+- `FrontendCachePolicy`, `PageModelCache`, `PublicPageRenderDataCache`, `PageListingCache`, and `PageHydrator` manage frontend cache behaviour.
 - Read the [Frontend guide](../../../docs/frontend/guide.md) for HTML caching details.
 
 ## Long-running worker safety
@@ -112,4 +112,4 @@ Do not store the current site, page, language, theme, preview context, signed UR
 Unit and integration tests validate the pipeline contracts:
 
 - Integration: FrontendKernelTest boots the kernel end-to-end.
-- Unit and integration coverage includes kernel steps, rendering strategy behavior, site/page loader behavior, cache helpers, and public rendering contracts.
+- Unit and integration coverage includes kernel steps, rendering strategy behaviour, site/page loader behaviour, cache helpers, and public rendering contracts.

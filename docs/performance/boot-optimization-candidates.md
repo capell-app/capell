@@ -1,13 +1,13 @@
-# Boot optimization candidate decisions
+# Boot optimisation candidate decisions
 
 This record applies the admission rules from the Capell boot performance plan
 to eager provider work. A candidate is retained only when its owning phase is
-at least 10 ms or 3% of boot, focused behavior remains unchanged, and paired
+at least 10 ms or 3% of boot, focused behaviour remains unchanged, and paired
 p75 does not regress.
 
 The benchmark measures full in-process Laravel application creation and
 bootstrap. Child-process overhead remains diagnostic data and is not used to
-admit an optimization.
+admit an optimisation.
 
 ## Profile evidence
 
@@ -29,7 +29,7 @@ claim an improvement.
 ## Accepted closeout baseline
 
 After the runtime lifecycle fixes were committed in `a98aee15d`, the host load
-settled sufficiently to establish the required optimized-cache baseline. Each
+settled sufficiently to establish the required optimised-cache baseline. Each
 profile was measured in three independent runs of 25 samples after five
 warmups:
 
@@ -47,7 +47,7 @@ samples and were not removed from the reported statistics.
 
 The candidate moved built-in renderable and linkable-content definitions into
 their singleton factories. Focused link, renderable, and boot-contract tests
-passed, but all three optimized production pairs regressed:
+passed, but all three optimised production pairs regressed:
 
 | Pair | p50 delta |  p75 delta |
 | ---: | --------: | ---------: |

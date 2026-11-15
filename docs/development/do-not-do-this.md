@@ -26,7 +26,7 @@ These patterns create upgrade, security, performance, or support problems in Cap
 
 | Do not                                                        | Why                                                    | Use instead                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
-| Publish core schemas to customize fields                      | Copies internal files and breaks future Capell changes | Schema extenders and AdminBridge.                    |
+| Publish core schemas to customise fields                      | Copies internal files and breaks future Capell changes | Schema extenders and AdminBridge.                    |
 | Put business logic in Filament pages/resources                | Hard to test and reuse                                 | Actions and Data objects.                            |
 | Use static Filament label properties for user-facing strings  | Bypasses translation conventions                       | Method overrides returning translation keys.         |
 | Register package settings in the core Settings screen by hand | Hard to audit package ownership                        | Settings registry and package-owned extension pages. |
@@ -45,7 +45,7 @@ These patterns create upgrade, security, performance, or support problems in Cap
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Treat Marketplace metadata as trusted executable code                   | Remote product data is not code review                              | Install packages through Composer/deploy workflow and normal package tests. |
 | Expose instance IDs, signing secrets, licence keys, or challenge tokens | They are secrets or trust material                                  | Keep them in encrypted columns/log-safe diagnostics.                        |
-| Assume catalogue browsing means install authorization will pass         | Install has entitlement, domain, instance, and compatibility checks | Run account connection, diagnostics, heartbeat, and authorization flow.     |
+| Assume catalogue browsing means install authorisation will pass         | Install has entitlement, domain, instance, and compatibility checks | Run account connection, diagnostics, heartbeat, and authorisation flow.     |
 
 ## Database And Eloquent
 
@@ -57,7 +57,7 @@ These patterns create upgrade, security, performance, or support problems in Cap
 
 | Do not                                                      | Why                                                                                                                     | Use instead                                                                                  |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Only test through HTTP when the behavior lives in an Action | Slow tests and unclear failures                                                                                         | Test Actions directly; test UI only for orchestration.                                       |
+| Only test through HTTP when the behaviour lives in an Action | Slow tests and unclear failures                                                                                         | Test Actions directly; test UI only for orchestration.                                       |
 | Mock every package boundary in cross-system features        | Mocks miss provider/config/table mistakes                                                                               | Use real package providers and real data where integration matters.                          |
 | Test public output only for expected content                | Leaks are absence failures                                                                                              | Assert forbidden admin markers are absent.                                                   |
 | Define named classes at the bottom of a test file           | PSR-4 autoloaders and PHPStan silently skip classes whose file path does not match the class name — they become invisible to static analysis | Put fixtures in a `Fixtures/` subdirectory alongside the test (e.g. `tests/Feature/Foo/Fixtures/BarFixture.php` with namespace `…Tests\Feature\Foo\Fixtures`). The `Psr4ComplianceTest` arch test enforces this. |

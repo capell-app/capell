@@ -72,7 +72,7 @@ Use query counts or strict lazy-loading tests for the code path you changed.
 
 - For rendering strategy checks, assert that an unloaded `blueprint` relation stays unloaded.
 - For site wrappers, assert `LazyLoadedSiteContext::isFullyLoaded()` before and after the operation.
-- For cache-hit behavior, listen for database queries around the request and prove the expected query budget.
+- For cache-hit behaviour, listen for database queries around the request and prove the expected query budget.
 
 ## Gotchas
 

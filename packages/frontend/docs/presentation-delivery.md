@@ -30,13 +30,13 @@ Presentation settings resolve in this order:
 
 Existing content falls back to `server_rendered`, all devices, any connection, eager loading, inherited width, and stretch alignment.
 
-Use `Capell\Core\Actions\Presentation\ResolvePresentationSettingsAction` when package code needs normalized settings for a widget or block. The resolver is the boundary that turns sparse editor state into complete public-safe settings.
+Use `Capell\Core\Actions\Presentation\ResolvePresentationSettingsAction` when package code needs normalised settings for a widget or block. The resolver is the boundary that turns sparse editor state into complete public-safe settings.
 
 Do not read these arrays directly in public views. Resolve them in Actions, payload builders, view components, or package render code, then pass only the public-safe result to Blade.
 
 ## Interaction Data
 
-Use `Capell\Core\Actions\Interactions\ResolveInteractionTriggersAction` to normalize interaction state. The resolver accepts instance triggers first and type defaults second. Instance triggers replace type defaults when present.
+Use `Capell\Core\Actions\Interactions\ResolveInteractionTriggersAction` to normalise interaction state. The resolver accepts instance triggers first and type defaults second. Instance triggers replace type defaults when present.
 
 Each trigger can contain:
 

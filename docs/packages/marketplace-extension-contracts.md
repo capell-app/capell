@@ -1,6 +1,6 @@
 # Marketplace Extension Contracts
 
-Use Marketplace-facing contracts when a package should appear in catalogue surfaces, participate in account/licence checks, or hand off installation to Composer/deployment operations. Marketplace proves acquisition and authorization; package runtime still belongs to the package and host extension points.
+Use Marketplace-facing contracts when a package should appear in catalogue surfaces, participate in account/licence checks, or hand off installation to Composer/deployment operations. Marketplace proves acquisition and authorisation; package runtime still belongs to the package and host extension points.
 
 ![Marketplace extension contract flow](../images/marketplace-extension-contracts.svg)
 
@@ -14,9 +14,9 @@ Declare Marketplace-visible metadata in `capell.json`:
 - `dependencies.supports` plus `visibility: support` for support packages.
 - `providers.metadata` for safe metadata-only discovery.
 - `providers.install` for install operations available before enablement.
-- `providers.runtime`, `providers.admin`, and `providers.frontend` for enabled package behavior.
+- `providers.runtime`, `providers.admin`, and `providers.frontend` for enabled package behaviour.
 
-Keep package docs and Marketplace metadata aligned with the generated extension catalogue. Do not describe optional package behavior as a built-in host feature.
+Keep package docs and Marketplace metadata aligned with the generated extension catalogue. Do not describe optional package behaviour as a built-in host feature.
 
 ## Suites And Trials
 
@@ -34,12 +34,12 @@ These are server-contract requirements. A client release must remain conservativ
 Marketplace-aware packages should use existing host contracts:
 
 - `capell.json` for catalogue and install metadata.
-- Package install/uninstall Actions for lifecycle behavior.
+- Package install/uninstall Actions for lifecycle behaviour.
 - Settings schema registration for package configuration after install.
 - `CapellAdmin::registerExtensionPage(...)` for package-owned admin control pages.
 - `CacheInvalidationRegistry::registerDependency(...)` when Marketplace-installed features render cached frontend output.
 
-Marketplace callbacks and operation records should not reach into package internals. They should authorize, record, and hand off to Composer/deployment or package lifecycle Actions.
+Marketplace callbacks and operation records should not reach into package internals. They should authorise, record, and hand off to Composer/deployment or package lifecycle Actions.
 
 ## Testing
 

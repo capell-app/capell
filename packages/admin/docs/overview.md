@@ -82,7 +82,7 @@ Use **Open file or video** or **Copy public link** to obtain a generated URL for
 | **Localized metadata**                                                                                                                               | **Frontend rendering**                                                                                                                      |
 | [![Edit localized media metadata](images/screenshots/08-media-edit-localized-metadata.png)](images/screenshots/08-media-edit-localized-metadata.png) | [![Rendered media on the frontend](images/screenshots/10-frontend-media-rendering.png)](images/screenshots/10-frontend-media-rendering.png) |
 
-Screenshot contract:
+Screenshots:
 
 - Admin index screen: dashboard, Pages index, Media index, Extensions index, and package reports.
 - Create/edit screen: Pages create/edit, Media edit, Sites, Layouts, Themes, Users, Roles, and other resources.
@@ -163,11 +163,11 @@ Keep this prelude in the Filament asset pipeline. Do not copy it into an applica
 
 - [Admin multi-language](admin-multi-language.md)
 - [Admin tool registry](admin-tool-registry.md)
-- [Dashboard Filament widget customization](dashboard-widget-customization.md)
+- [Dashboard Filament widget customisation](dashboard-widget-customization.md)
 - [Event registry](event-registry.md)
 - [Header navigation tree](header-navigation-tree.md)
 - [Marketing dashboard contributions](dashboard-marketing.md)
-- [User resource customization](user-resource-customization.md)
+- [User resource customisation](user-resource-customization.md)
 - [Resource registration](resource-registration.md)
 - [Settings schema registry](settings-schema-registry.md)
 - [Presentation and interactions](presentation-and-interactions.md)

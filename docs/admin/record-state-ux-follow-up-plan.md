@@ -282,7 +282,7 @@ Layout Builder changes live in the sibling `../capell-packages-4` checkout.
     Use the model's existing attachment usage query/count source rather than a
     generic media `doesntHave()` relation, so the predicate exactly matches the
     established `usage_count` semantics. Keep the `usage_count` column's warning
-    badge, use `No tracked uses` for zero, and add an owner-authorized usage URL
+    badge, use `No tracked uses` for zero, and add an owner-authorised usage URL
     only for positive counts. The attachment tracker is not represented as a
     complete cross-extension reference boundary.
 
@@ -372,7 +372,7 @@ Layout Builder changes live in the sibling `../capell-packages-4` checkout.
     Replace `EditWidget::getSubheading()`'s hand-built disabled span with the
     shared Admin state summary. Add the custom Admin `DeleteAction` modal content
     from `BuildWidgetDeletionImpactAction` to widget delete actions only;
-    preserve soft-delete and force-delete authorization.
+    preserve soft-delete and force-delete authorisation.
 
     In `WidgetAssetsTable`, eager-load `widget`, `asset`, and `pageable`; add a
     dedicated state filter whose predicates match the existing `usage_status`

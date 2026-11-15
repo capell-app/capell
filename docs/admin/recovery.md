@@ -45,7 +45,7 @@ When PublishingStudio is installed, imported content can be reviewed before it r
 
 ## Developer Notes
 
-Admin references Migration Assistant through contracts and null implementations. Do not put import/export domain logic in Admin resources or Filament pages. Add package behavior in Migration Assistant, bind the relevant contracts, and expose only the required admin screens through package registration.
+Admin references Migration Assistant through contracts and null implementations. Do not put import/export domain logic in Admin resources or Filament pages. Add package behaviour in Migration Assistant, bind the relevant contracts, and expose only the required admin screens through package registration.
 
 Packages add menu entries by registering `Capell\Admin\Data\ImportEntryData` during boot:
 

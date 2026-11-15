@@ -1,6 +1,6 @@
 # Installer Extension Contracts
 
-Use installer-facing contracts when a package needs setup choices, install-time parameters, package selection, settings migrations, or cleanup behavior during a Capell install. Keep feature behavior in the package; the installer should orchestrate package-owned Actions rather than duplicate them.
+Use installer-facing contracts when a package needs setup choices, install-time parameters, package selection, settings migrations, or cleanup behaviour during a Capell install. Keep feature behaviour in the package; the installer should orchestrate package-owned Actions rather than duplicate them.
 
 ![Installer extension contract flow](../images/installer-extension-contracts.svg)
 
@@ -32,7 +32,7 @@ Installer work should be package-owned:
 - Report progress through the install reporter passed to the package Action or command.
 - Clear package discovery with `php artisan capell:package-cache:clear` after manifest changes.
 
-Do not publish host resources or schemas to customize installer behavior. Use the manifest, package lifecycle Actions, and package-owned commands.
+Do not publish host resources or schemas to customise installer behaviour. Use the manifest, package lifecycle Actions, and package-owned commands.
 
 ## The Lifecycle Action Contract
 

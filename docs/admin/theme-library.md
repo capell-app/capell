@@ -9,7 +9,7 @@ The admin theme workflow is **Theme Library -> Customise -> Preview -> Apply**. 
 
 [Light](../images/generated/admin/theme-library-admin-flow.png) · [Dark](../images/generated/admin/theme-library-admin-flow-dark.png)
 
-_The full workflow keeps discovery, customization, preview, and activation in one admin-owned path._
+_The full workflow keeps discovery, customisation, preview, and activation in one admin-owned path._
 
 ## What The Page Shows
 
@@ -38,7 +38,7 @@ Use **Add theme** for all new theme entry points:
 - **Create from installed package** creates a theme from a registered package/local `ThemeDefinitionData`.
 - **Search marketplace** is reserved for Marketplace installs when that package is present.
 
-When you create a theme from a package definition, the first preset is automatically selected as the active preset, so the theme can be customized, previewed, and applied immediately. Creating a theme does not make it the global default; you still use **Apply theme** to activate it. Themes with diagnostics errors stay blocked until the missing parent, renderer, or preset problem is fixed.
+When you create a theme from a package definition, the first preset is automatically selected as the active preset, so the theme can be customised, previewed, and applied immediately. Creating a theme does not make it the global default; you still use **Apply theme** to activate it. Themes with diagnostics errors stay blocked until the missing parent, renderer, or preset problem is fixed.
 
 ## Customise
 
@@ -52,7 +52,7 @@ Core sections in the editor:
 - **Page surface**: Main content area background and spacing configuration.
 - **Footer**: Footer layout, text, and styling options.
 - **Assets**: Where the theme's compiled CSS/JS is loaded from.
-- **Advanced**: Custom CSS and other advanced customizations.
+- **Advanced**: Custom CSS and other advanced customisations.
 
 ## Preview
 
@@ -60,7 +60,7 @@ Use **Preview** to see how the theme (and selected preset) will look on your sit
 
 The preview is an authenticated admin surface—only logged-in admins can access preview links, and site-scoped admins can only preview sites assigned to them. The preview does not include admin labels or editing tools, so you see the theme as live visitors will.
 
-Once satisfied, you can return to customize, change the preset, and preview again—or proceed to **Apply** when ready.
+Once satisfied, you can return to customise, change the preset, and preview again—or proceed to **Apply** when ready.
 
 ## Apply
 
@@ -88,7 +88,7 @@ _The preview uses unsaved admin state; Apply is the separate step that persists 
 
 ### Customise storage and sections
 
-The customize editor is structured around the theme's metadata schema. Storage keys are:
+The customise editor is structured around the theme's metadata schema. Storage keys are:
 
 - Quick setup: `admin.editor.*` (active preset in `meta.editor.preset.active`)
 - Brand: `meta.editor.brand.*`
