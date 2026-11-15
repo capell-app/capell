@@ -19,7 +19,6 @@ use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
-use Override;
 
 it('always includes metadata and install providers for discovered packages', function (): void {
     $registry = packageLoaderRegistry('capell-app/blog', [
