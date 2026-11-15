@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 2,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "action-coverage-invite-user",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-3574/docs/images/generated/admin/action-invite-user.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "action-coverage-accept-invitation",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-3574/docs/images/generated/admin/action-accept-invitation.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-11-15T08:34:40.042Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "cddbe95bc1656ae33fbcefc67a6b22bbc975e80f",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "d4d0c7ad5bd701f0b7be2c008d5f84f5f9947055",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "e70d0cb645ddabd74cdfcec19585ff9dc8af89d40dee626d25aeb54779e33a14"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "fae774038d2e31e0de6e52ae05b41a7601deea737925ea4ead258d22a4313d67"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "documentation",
+        "id": "action-coverage-invite-user",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-invite-user.png",
+          "sha256": "67b776b3865e8a4f004f0cd4d40cedd86b67f3ce95479c1588cf818154e43cbc"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2a6d1549966dfb71cfec48ebbb83acd2caf5d4d4edbef22a3607a7109bbe0905"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "d4d0c7ad5bd701f0b7be2c008d5f84f5f9947055"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/users",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "action-coverage-accept-invitation",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-accept-invitation.png",
+          "sha256": "6fc6faa7039fd7deb4643f21345c7da247c7a3b46fd20b2fdd83cfcc315ba76e"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2a6d1549966dfb71cfec48ebbb83acd2caf5d4d4edbef22a3607a7109bbe0905"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "d4d0c7ad5bd701f0b7be2c008d5f84f5f9947055"
+        },
+        "capture": {
+          "scenario": "frontend-page",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/admin/invitation/accept",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": true,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": null,
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 2\nSkipped: 0\nFailed: 0\n- captured documentation:action-coverage-invite-user -> /Users/ben/Sites/.capell-wt/core-3574/docs/images/generated/admin/action-invite-user.png\n- captured documentation:action-coverage-accept-invitation -> /Users/ben/Sites/.capell-wt/core-3574/docs/images/generated/admin/action-accept-invitation.png"
+}
