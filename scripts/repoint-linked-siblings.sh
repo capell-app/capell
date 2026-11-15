@@ -14,10 +14,13 @@
 set -u
 
 worktree_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-common_dir=$(git rev-parse --git-common-dir 2>/dev/null) || exit 0
-primary_root=$(dirname "$(cd "$common_dir" && pwd -P)")
+git_dir=$(cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P) || exit 0
+common_dir=$(cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P) || exit 0
+# Only a linked worktree has its own git dir apart from the shared one. The
+# primary checkout, a submodule and a --separate-git-dir repository do not.
+[ "$git_dir" != "$common_dir" ] || exit 0
+primary_root=$(dirname "$common_dir")
 worktree_root=$(cd "$worktree_root" && pwd -P)
-
 [ "$worktree_root" != "$primary_root" ] || exit 0
 [ -d "$worktree_root/node_modules/@capell-app" ] || exit 0
 

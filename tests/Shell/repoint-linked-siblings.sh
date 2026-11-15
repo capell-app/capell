@@ -58,3 +58,11 @@ echo 'PASS primary checkout is never modified'
 cd "$fixture"
 bash "$script"
 echo 'PASS outside a git repository it exits cleanly'
+# A repository whose git dir lives elsewhere is not a linked worktree.
+git init -q --separate-git-dir "$fixture/separate.git" "$fixture/separate"
+mkdir -p "$fixture/separate/node_modules/@capell-app"
+ln -s ../../../capell-screenshot-tools "$fixture/separate/node_modules/@capell-app/screenshot-tools"
+separate_output=$(cd "$fixture/separate" && bash "$script" 2>&1)
+test -z "$separate_output"
+test "$(readlink "$fixture/separate/node_modules/@capell-app/screenshot-tools")" = "../../../capell-screenshot-tools"
+echo 'PASS a separate-git-dir repository is left alone'

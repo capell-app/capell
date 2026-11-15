@@ -43,5 +43,6 @@ it('re-points a worktree npm link that npm ci left dangling, and never touches t
         ->and($process->getOutput())->toContain('PASS dangling worktree link re-pointed at the primary sibling, and its .bin shim resolves')
         ->and($process->getOutput())->toContain('PASS healthy and unknown links are left alone')
         ->and($process->getOutput())->toContain('PASS primary checkout is never modified')
-        ->and($process->getOutput())->toContain('PASS outside a git repository it exits cleanly');
+        ->and($process->getOutput())->toContain('PASS outside a git repository it exits cleanly')
+        ->and($process->getOutput())->toContain('PASS a separate-git-dir repository is left alone');
 });
