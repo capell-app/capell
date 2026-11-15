@@ -7,7 +7,6 @@ return [
     'group_media' => 'Media',
     'group_design' => 'Design',
     'group_business' => 'Business',
-    'more' => 'More',
 
     'activity_trail' => 'Activity Log',
     'block_templates' => 'Block templates',

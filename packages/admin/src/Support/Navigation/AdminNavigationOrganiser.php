@@ -121,7 +121,7 @@ final class AdminNavigationOrganiser
             }
 
             $result[] = NavigationGroup::make($case->getLabel())
-                ->items($this->limit($items))
+                ->items($items)
                 ->collapsed($case->isCollapsedByDefault());
         }
 
@@ -193,36 +193,6 @@ final class AdminNavigationOrganiser
         $replacedKey = array_search($key, CapellAdmin::getNavigationReplacements(), true);
 
         return is_string($replacedKey) ? $replacedKey : $key;
-    }
-
-    /**
-     * Over the per-group limit, the remaining items move under a "More" item
-     * so the sidebar stays scannable. The all-packages test fails before this
-     * is ever needed by first-party packages.
-     *
-     * @param  list<NavigationItem>  $items
-     * @return list<NavigationItem>
-     */
-    private function limit(array $items): array
-    {
-        $limit = NavigationLimits::maxItemsPerGroup();
-        if (count($items) <= $limit) {
-            return $items;
-        }
-
-        $visible = array_slice($items, 0, $limit - 1);
-        $overflow = array_slice($items, $limit - 1);
-
-        $more = NavigationItem::make(__('capell-admin::navigation.more'))
-            ->url($overflow[0]->getUrl())
-            ->icon('heroicon-o-ellipsis-horizontal')
-            ->childItems($overflow)
-            ->isActiveWhen(fn (): bool => array_any(
-                $overflow,
-                fn (NavigationItem $item): bool => $item->isActive() || $item->isChildItemsActive(),
-            ));
-
-        return [...$visible, $more];
     }
 
     /**
