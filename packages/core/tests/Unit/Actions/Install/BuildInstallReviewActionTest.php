@@ -25,7 +25,7 @@ it('reviews the same dependency set as the execution plan for normal and fresh i
             freshInstall: $freshInstall,
         );
         $review = BuildInstallReviewAction::run($input);
-        expect(str_contains($review->items['Required dependencies already downloaded'], 'vendor/review-required'))->toBe($freshInstall)
+        expect(str_contains($review->items[__('capell-core::install.review.dependencies')], 'vendor/review-required'))->toBe($freshInstall)
             ->and(in_array('install-package:vendor/review-required', array_column(InstallPlan::build($input), 'key'), true))->toBe($freshInstall);
         if ($freshInstall) {
             expect($review->items['Database'])->toContain('DELETE ALL TABLES AND DATA');
