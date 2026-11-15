@@ -14,6 +14,7 @@ use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemeOverrideData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
+use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
 use Filament\Forms\Components\Select;
 use Illuminate\Contracts\Translation\Translator as TranslatorContract;
 use Illuminate\Translation\ArrayLoader;
@@ -183,3 +184,31 @@ function themeEditorDefinition(?array $frontend = null): ThemeDefinitionData
         ],
     );
 }
+
+it('offers the brand fonts as a closed catalogue select instead of free text', function (): void {
+    $configurator = new class extends FoundationThemeConfigurator
+    {
+        /** @return array<string, mixed> */
+        public function fontFields(): array
+        {
+            $fields = [];
+            $components = $this->brandSection()->getDefaultChildComponents();
+            foreach (is_array($components) ? $components : [] as $component) {
+                if ($component instanceof Select && in_array($component->getName(), ['headingFont', 'bodyFont'], true)) {
+                    $fields[$component->getName()] = $component;
+                }
+            }
+
+            return $fields;
+        }
+    };
+
+    $fields = $configurator->fontFields();
+
+    expect(array_keys($fields))->toBe(['headingFont', 'bodyFont']);
+    foreach ($fields as $field) {
+        expect($field)->toBeInstanceOf(Select::class)
+            ->and($field->getOptions())->toBe(ThemeFontCatalogue::options())
+            ->and($field->getDefaultState())->toBe(ThemeFontCatalogue::DEFAULT_KEY);
+    }
+});
