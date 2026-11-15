@@ -57,6 +57,7 @@ if [[ ${#PHP_FILES[@]} -eq 0 ]]; then
   exit 0
 fi
 
+PHP_BINARY="${PHP_BINARY:-php}"
 BATCH_SIZE="${RECTOR_CHANGED_BATCH_SIZE:-50}"
 
 echo "Running Rector on ${#PHP_FILES[@]} changed PHP file(s)..."
