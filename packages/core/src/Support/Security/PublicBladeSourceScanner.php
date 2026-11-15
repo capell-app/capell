@@ -10,9 +10,10 @@ use Symfony\Component\Finder\Finder;
  * Finds authoring state, secrets, queries and cache access in a package's public Blade views.
  *
  * Every view under `resources/views` is public unless it sits in an admin directory (filament, admin, editor,
- * frontend-authoring, screenshots, mail) or declares itself an admin view on its first line with
- * `{{-- capell-security-scan: admin-view <reason> --}}`. Public views receive hydrated render data, so they must
- * not name authoring surfaces, signed editor URLs, record keys, secrets, query builders or the cache.
+ * frontend-authoring, screenshots, mail). There is no per-view exemption: an admin view moves into an admin
+ * directory, and a package whose public views must name authoring surfaces opts out of the whole check with a
+ * reviewed decision record. Public views receive hydrated render data, so they must not name authoring surfaces,
+ * signed editor URLs, record keys, secrets, query builders or the cache.
  */
 final class PublicBladeSourceScanner
 {
@@ -48,8 +49,6 @@ final class PublicBladeSourceScanner
         '/livewire/filament/',
     ];
 
-    private const string ADMIN_VIEW_DECLARATION = '/^\s*\{\{--\s*capell-security-scan:\s*admin-view\s+(?!--\}\})\S/';
-
     /**
      * Violations as `resources/views/<file> contains <pattern>`, sorted.
      *
@@ -69,7 +68,7 @@ final class PublicBladeSourceScanner
             $relativePath = 'resources/views/' . str_replace(DIRECTORY_SEPARATOR, '/', $file->getRelativePathname());
             $contents = $file->getContents();
 
-            if (! $this->isPublicView($relativePath, $contents)) {
+            if (! $this->isPublicView($relativePath)) {
                 continue;
             }
 
@@ -90,18 +89,10 @@ final class PublicBladeSourceScanner
         return $violations;
     }
 
-    public function isPublicView(string $relativePath, string $contents): bool
+    public function isPublicView(string $relativePath): bool
     {
         $path = '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', $relativePath), '/');
 
-        foreach (self::ADMIN_PATH_PARTS as $part) {
-            if (str_contains($path, $part)) {
-                return false;
-            }
-        }
-
-        $firstLine = strtok($contents, "\n");
-
-        return ! is_string($firstLine) || preg_match(self::ADMIN_VIEW_DECLARATION, $firstLine) !== 1;
+        return array_all(self::ADMIN_PATH_PARTS, fn (string $part): bool => ! str_contains($path, $part));
     }
 }

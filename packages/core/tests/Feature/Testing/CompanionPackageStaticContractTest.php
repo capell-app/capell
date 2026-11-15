@@ -6,6 +6,7 @@ use Capell\Core\Testing\Assertions\AssertsGuardedOutboundHttp;
 use Capell\Core\Testing\Assertions\AssertsPublicViewSafety;
 use Capell\Core\Testing\Contracts\CompanionPackageContractSuite;
 use Capell\Core\Testing\Data\CompanionPackageContractData;
+use Illuminate\Support\Facades\Http;
 
 /**
  * A throwaway package on disk: the given files under its root, plus a capell.json holding the given security section.
@@ -139,20 +140,86 @@ it('fails public views that hold authoring state, secrets, queries or cache acce
     'secret' => ['<script>const key = "{{ $api_key }}";</script>', 'api_key'],
 ]);
 
-it('skips admin views by directory or by a reviewed declaration on the first line', function (): void {
+it('skips admin views by directory and has no per-view exemption', function (): void {
     $root = staticContractPackage([
         'resources/views/filament/pages/settings.blade.php' => '{{ DB::table("settings")->count() }}',
-        'resources/views/livewire/tools/sitemap.blade.php' => "{{-- capell-security-scan: admin-view rendered only inside the admin sitemap tool --}}\n{{ DB::table('pages')->count() }}",
         'resources/views/components/card.blade.php' => '<article>{{ $title }}</article>',
     ]);
 
     AssertsPublicViewSafety::run($root);
 
-    $undeclared = staticContractPackage([
-        'resources/views/livewire/tools/sitemap.blade.php' => "{{-- capell-security-scan: admin-view --}}\n{{ DB::table('pages')->count() }}",
+    $declared = staticContractPackage([
+        'resources/views/livewire/tools/sitemap.blade.php' => "{{-- capell-security-scan: admin-view rendered in the admin tool --}}\n{{ DB::table('pages')->count() }}",
     ]);
 
-    expect(fn () => AssertsPublicViewSafety::run($undeclared))->toThrow(AssertionError::class, '[public-output.views]');
+    expect(fn () => AssertsPublicViewSafety::run($declared))->toThrow(AssertionError::class, 'resources/views/livewire/tools/sitemap.blade.php contains DB::');
+});
+
+it('requires a timeout however the facade is named and wherever the request is built', function (string $imports, string $body): void {
+    $root = staticContractPackage(['src/Fetcher.php' => staticContractClass('Fetcher', $body, $imports)], declaredClients(['Fixture\Package\Fetcher']));
+
+    expect(fn () => runOutboundHttp($root))->toThrow(AssertionError::class, 'src/Fetcher.php:11 sends a request without a timeout');
+})->with([
+    'fully qualified' => ['', '        return ' . Http::class . '::get($url);'],
+    'aliased import' => ['use Illuminate\Support\Facades\Http as Client;', '        return Client::post($url);'],
+    'builder kept in a variable' => ['use Illuminate\Support\Facades\Http;', "        \$client = Http::withHeaders(['Accept' => 'application/json']);\n        return \$client->get(\$url);"],
+]);
+
+it('accepts a timeout set through the timeout method or a request option', function (string $body): void {
+    $root = staticContractPackage([
+        'src/Fetcher.php' => staticContractClass('Fetcher', $body, 'use Illuminate\Support\Facades\Http;'),
+    ], declaredClients(['Fixture\Package\Fetcher']));
+
+    runOutboundHttp($root);
+
+    expect(true)->toBeTrue();
+})->with([
+    'timeout method' => ['        return Http::acceptJson()->timeout(5)->get($url);'],
+    'static timeout' => ['        return Http::timeout(5)->get($url);'],
+    'request option' => ["        return Http::withOptions(['timeout' => 5])->get(\$url);"],
+]);
+
+it('requires a timeout on a Playwright process', function (): void {
+    $body = "        return new Process(['node', \$this->scriptPath('playwright/capture.mjs'), \$url]);";
+    $untimed = staticContractPackage(['src/Capture.php' => staticContractClass('Capture', $body)], declaredClients(['Fixture\Package\Capture']));
+    $timed = staticContractPackage(['src/Capture.php' => staticContractClass('Capture', $body . "\n        // ->setTimeout(60) is applied by the caller's ->setTimeout(60)")], declaredClients(['Fixture\Package\Capture']));
+
+    expect(fn () => runOutboundHttp($untimed))->toThrow(AssertionError::class, 'src/Capture.php:11 sends a request without a timeout');
+
+    runOutboundHttp($timed);
+});
+
+it('treats only an un-negated is_file or file_exists check as proof of a local stream', function (): void {
+    $negated = staticContractPackage(['src/Reader.php' => staticContractClass('Reader', '        return ! is_file($url) ? null : file_get_contents($url);')]);
+
+    expect(fn () => runOutboundHttp($negated))->toThrow(AssertionError::class, 'file_get_contents() opens a target that is neither a URL nor evidently local');
+});
+
+it('classifies strings built from variables by their fixed start', function (string $argument, bool $local): void {
+    $root = staticContractPackage(['src/Reader.php' => staticContractClass('Reader', sprintf('        return file_get_contents(%s);', $argument))]);
+    $check = fn () => runOutboundHttp($root);
+
+    $local ? $check() : expect($check)->toThrow(AssertionError::class, 'neither a URL nor evidently local');
+
+    expect(true)->toBeTrue();
+})->with([
+    'interpolated variable' => ['"$url"', false],
+    'interpolated with suffix' => ['"{$url}/feed"', false],
+    'empty literal concatenation' => ["'' . \$url", false],
+    'absolute path prefix' => ["'/var/data/' . \$url", true],
+    'interpolated absolute path' => ['"/var/data/{$url}"', true],
+]);
+
+it('lists traits and enums that open connections, and ignores class names in prose', function (): void {
+    $root = staticContractPackage([
+        'src/Concerns/Fetches.php' => "<?php\n\nnamespace Fixture\\Package\\Concerns;\n\nuse GuzzleHttp\\Client;\n\ntrait Fetches\n{\n    public function client(): Client { return new Client; }\n}\n",
+        'src/Documented.php' => "<?php\n\n/**\n * This class opens nothing.\n */\n\nnamespace Fixture\\Package;\n\nuse GuzzleHttp\\Client;\n\nfinal class Documented\n{\n    public function client(): Client { return new Client; }\n}\n",
+    ]);
+
+    expect(fn () => runOutboundHttp($root))
+        ->toThrow(AssertionError::class, 'Fixture\Package\Concerns\Fetches opens outbound connections')
+        ->and(fn () => runOutboundHttp($root))
+        ->toThrow(AssertionError::class, 'Fixture\Package\Documented opens outbound connections');
 });
 
 function suiteContractFor(string $root): CompanionPackageContractData

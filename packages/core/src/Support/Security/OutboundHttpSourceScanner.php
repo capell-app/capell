@@ -46,6 +46,9 @@ final class OutboundHttpSourceScanner
     /** Functions that open a stream on whatever their first argument names, which may be an http(s) URL. */
     private const array STREAM_FUNCTIONS = ['file_get_contents', 'fopen', 'file', 'readfile', 'copy', 'get_headers', 'getimagesize', 'get_meta_tags', 'simplexml_load_file', 'parse_ini_file', 'md5_file', 'sha1_file', 'hash_file'];
 
+    /** Facade calls that configure or fake the client rather than build a request (compared in lower case). */
+    private const array FACADE_CONFIGURATION_METHODS = ['fake', 'fakesequence', 'macro', 'mixin', 'preventstrayrequests', 'allowstrayrequests', 'globalmiddleware', 'globalrequestmiddleware', 'globalresponsemiddleware', 'globaloptions', 'recorded', 'assertsent', 'assertnotsent', 'assertnothingsent', 'assertsentcount', 'assertsequencesareempty', 'response', 'sequence', 'failedconnection'];
+
     /** Functions that open a network socket whatever their argument. */
     private const array SOCKET_FUNCTIONS = ['fsockopen', 'pfsockopen', 'stream_socket_client'];
 
@@ -125,22 +128,8 @@ final class OutboundHttpSourceScanner
                 $failures[] = sprintf('src/%s:%d', $relativePath, $this->lineAt($contents, (int) ($browser[0][1] ?? 0)));
             }
 
-            if (! str_contains($contents, 'Http::')) {
-                continue;
-            }
-
-            preg_match_all('/(?<![A-Za-z0-9_\\\\])Http::(?:(?:(?!;).)*?->)?(?:get|post|put|patch|delete|head|send)\s*\(/s', $contents, $matches, PREG_OFFSET_CAPTURE);
-
-            foreach ($matches[0] as [$chain, $offset]) {
-                if (str_contains($chain, '->timeout(')) {
-                    continue;
-                }
-
-                if (str_contains($chain, 'Http::timeout(')) {
-                    continue;
-                }
-
-                $failures[] = sprintf('src/%s:%d', $relativePath, $this->lineAt($contents, (int) $offset));
+            foreach ($this->facadeStatementsWithoutTimeout($contents) as $line) {
+                $failures[] = sprintf('src/%s:%d', $relativePath, $line);
             }
         }
 
@@ -333,6 +322,101 @@ final class OutboundHttpSourceScanner
     {
         return str_contains($contents, 'playwright')
             && preg_match('/new\s+Process\s*\(\s*\[(?:(?!\]\s*[,)]).)*->scriptPath\s*\(/s', $contents) === 1;
+    }
+
+    /**
+     * The lines of statements that build a request through the `Http` facade, however the facade is named (imported,
+     * aliased, fully qualified or the global alias), without setting a total timeout in that statement through
+     * `timeout()` or a `'timeout'` request option. A request builder kept in a variable must set its timeout where it
+     * is built. Facade calls that configure the client rather than build a request are not statements of this kind.
+     *
+     * @return list<int>
+     */
+    private function facadeStatementsWithoutTimeout(string $contents): array
+    {
+        $tokens = $this->significantTokens($contents);
+        $count = count($tokens);
+        $namespace = '';
+        $imports = [];
+        $lines = [];
+
+        for ($index = 0; $index < $count; $index++) {
+            $token = $tokens[$index];
+
+            if ($token->is(T_NAMESPACE) && isset($tokens[$index + 1]) && $tokens[$index + 1]->is([T_STRING, T_NAME_QUALIFIED])) {
+                $namespace = $tokens[$index + 1]->text;
+
+                continue;
+            }
+
+            if ($token->is(T_USE) && ! ($tokens[$index + 1] ?? null)?->is('(')) {
+                $statement = [];
+
+                for ($index++; $index < $count && ! $tokens[$index]->is(';'); $index++) {
+                    $statement[] = $tokens[$index];
+                }
+
+                foreach ($this->useStatementNames($statement) as [$name, $alias, $kind]) {
+                    if ($kind === 'class') {
+                        $imports[strtolower($alias)] = $name;
+                    }
+                }
+
+                continue;
+            }
+
+            if (! $token->is([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED])) {
+                continue;
+            }
+
+            if (! ($tokens[$index + 1] ?? null)?->is(T_DOUBLE_COLON)) {
+                continue;
+            }
+
+            if (($tokens[$index - 1] ?? null)?->is([T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_NEW]) === true) {
+                continue;
+            }
+
+            if (! $this->namesHttpFacade($token, $namespace, $imports)) {
+                continue;
+            }
+
+            if (in_array(strtolower($tokens[$index + 2]->text ?? ''), self::FACADE_CONFIGURATION_METHODS, true)) {
+                continue;
+            }
+
+            $statement = '';
+
+            for ($cursor = $index, $depth = 0; $cursor < $count; $cursor++) {
+                $depth += $tokens[$cursor]->is(['(', '[', '{']) ? 1 : ($tokens[$cursor]->is([')', ']', '}']) ? -1 : 0);
+
+                if ($depth < 0 || ($depth === 0 && $tokens[$cursor]->is(';'))) {
+                    break;
+                }
+
+                $statement .= $tokens[$cursor]->text;
+            }
+
+            if (preg_match('/(?:->|::)timeout\(|[\'"]timeout[\'"]=>/', $statement) !== 1) {
+                $lines[] = $token->line;
+            }
+        }
+
+        return $lines;
+    }
+
+    /** @param  array<string, string>  $imports  lowercase alias => fully qualified class name */
+    private function namesHttpFacade(PhpToken $token, string $namespace, array $imports): bool
+    {
+        if ($token->is(T_STRING) && $namespace === '' && ! isset($imports[strtolower($token->text)]) && $token->text === 'Http') {
+            return true;
+        }
+
+        if ($token->is(T_NAME_FULLY_QUALIFIED) && $token->text === '\Http') {
+            return true;
+        }
+
+        return strtolower($this->resolveClassName($token, $namespace, $imports)) === strtolower(Http::class);
     }
 
     /**
@@ -583,9 +667,23 @@ final class OutboundHttpSourceScanner
         }
 
         if ($first->is(T_CONSTANT_ENCAPSED_STRING) || $first->is('"')) {
-            $text = $first->is('"') ? ($tokens[$start + 1]->text ?? '') : trim($first->text, '\'"');
+            $template = $first->is('"');
+            $leading = $template ? ($tokens[$start + 1] ?? null) : $first;
+            $text = $leading instanceof PhpToken && $leading->is([T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE]) ? trim($leading->text, '\'"') : '';
 
-            return preg_match('/^(?:https?|ftps?):\/\//i', $text) === 1 ? 'remote' : 'local';
+            if (preg_match('/^(?:https?|ftps?):\/\//i', $text) === 1) {
+                return 'remote';
+            }
+
+            // A complete literal names a fixed path. A string built from variables, by interpolation or
+            // concatenation, is local only when its fixed start is evidently a local path.
+            $built = $template || ($tokens[$start + 1] ?? null)?->is('.') === true;
+
+            if (! $built) {
+                return 'local';
+            }
+
+            return preg_match('#^(?:/|\./|\.\./|php://)#i', $text) === 1 ? 'local' : 'dynamic';
         }
 
         if ($first->is([T_DIR, T_FILE])) {
@@ -610,11 +708,11 @@ final class OutboundHttpSourceScanner
 
     private function className(string $contents): ?string
     {
-        if (preg_match('/namespace\s+([^;]+);/', $contents, $namespace) !== 1) {
+        if (preg_match('/^\s*namespace\s+([^;\s]+)\s*;/m', $contents, $namespace) !== 1) {
             return null;
         }
 
-        if (preg_match('/(?:final\s+|abstract\s+|readonly\s+)*class\s+(\w+)/', $contents, $class) !== 1) {
+        if (preg_match('/^\s*(?:(?:final|abstract|readonly)\s+)*(?:class|trait|interface|enum)\s+(\w+)/m', $contents, $class) !== 1) {
             return null;
         }
 
