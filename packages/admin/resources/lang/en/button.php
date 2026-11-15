@@ -186,7 +186,6 @@ return [
     'upgrade_capell' => 'Upgrade Capell',
     'upgrade_capell_tooltip' => 'Review available Capell updates, advisories, and upgrade actions.',
     'update_permissions' => 'Update permissions',
-    'use_page_type' => 'Use this page type',
     'version_history' => 'Versions',
     'view' => 'View',
     'view_all' => 'View all',
