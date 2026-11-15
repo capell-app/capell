@@ -154,7 +154,7 @@ gh api graphql -f query='query { organization(login: "capell-app") { pinnedItems
 Result (2026-07-29): `totalCount: 0` — nothing is pinned.
 
 Web UI only. GraphQL schema introspection (2026-07-29) shows no
-`pinRepository`/`unpinRepository`-style mutation exposed for organizations
+`pinRepository`/`unpinRepository`-style mutation exposed for organisations
 (the only `pin*` mutations in the schema are for issues, issue comments, and
 environments), and `gh repo` has no `pin` subcommand. Pin from the org's
 profile page (**Customize your pins**), choosing:
@@ -179,7 +179,7 @@ Verified via `gh api repos/capell-app/.github`:
 - **private** — a private `.github` repo's `profile/README.md` does not
   render at `github.com/capell-app`, the same as if the repo didn't exist at
   all. This, not a missing repo, is why that URL shows a bare org page today.
-- description: "GitHub organization profile and repository map for Capell."
+- description: "GitHub organisation profile and repository map for Capell."
 - already contains its own `profile/README.md` (1,623 bytes, read via
   `gh api repos/capell-app/.github/contents/profile/README.md`) — an
   internal-facing maintainer repo map and contribution-flow doc (canonical
