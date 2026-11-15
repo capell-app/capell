@@ -41,22 +41,14 @@ final class PageHydrator
             return new Collection;
         }
 
-        $models = new Collection;
-
-        foreach ($ids as $id) {
-            $model = $this->modelCache->get(
-                type: $morphType,
-                id: $id,
-                site: $site,
-                language: $language,
-                withEvents: $withEvents,
-                useCache: $useCache,
-            );
-
-            if ($model instanceof Pageable) {
-                $models->push($model);
-            }
-        }
+        $models = $this->modelCache->getMany(
+            type: $morphType,
+            ids: array_values($ids),
+            site: $site,
+            language: $language,
+            withEvents: $withEvents,
+            useCache: $useCache,
+        );
 
         if ($withParent) {
             $this->injectParents($models, $site, $language, $withEvents, $useCache);
