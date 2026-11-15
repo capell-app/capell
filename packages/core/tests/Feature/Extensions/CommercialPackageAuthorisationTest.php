@@ -19,6 +19,7 @@ use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
+use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
@@ -82,7 +83,7 @@ beforeEach(function (): void {
 function commercialReceipt(array $overrides = []): array
 {
     $keys = sodium_crypto_sign_seed_keypair(str_repeat("\x01", 32));
-    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => base64_encode(sodium_crypto_sign_publickey($keys))]);
+    app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys(keys: ['test-issuer' => base64_encode(sodium_crypto_sign_publickey($keys))]));
     $receipt = array_replace([
         'receipt_version' => 2, 'purpose' => 'capell-installed-receipt', 'receipt_id' => 'receipt-commercial',
         'composer_name' => 'vendor/commercial', 'package_version' => '1.0.0', 'package_identity' => 'commercial-release',
@@ -245,7 +246,7 @@ it('applies commercial authorisation to every provider bucket in a fresh applica
     $original = app();
     $fresh = new Application($this->commercialRoot);
     try {
-        foreach (['config', 'db', 'db.schema', 'events', 'cache', 'log', 'translator', 'encrypter'] as $binding) {
+        foreach (['config', 'db', 'db.schema', 'events', 'cache', 'log', 'translator', 'encrypter', TrustedMarketplaceIssuerKeys::class] as $binding) {
             $fresh->instance($binding, $original->make($binding));
         }
 
@@ -327,7 +328,7 @@ it('fails closed without a signed catalogue whatever Composer and the database c
 });
 
 it('keeps the legacy behaviour while no issuer key is provisioned', function (): void {
-    config()->set('capell.extensions.marketplace_receipt_public_keys', []);
+    app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys(keys: []));
     expect(Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toBe(0)
         ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue();
 });
@@ -540,4 +541,55 @@ it('re-reads a catalogue another worker stored after the per-operation flush', f
         ->and($store->classification('vendor/commercial'))->toBeNull();
     resolve(CapellCoreManager::class)->flushOctaneState();
     expect($store->classification('vendor/commercial'))->toBeFalse();
+});
+
+/** Pins the given issuer keys as if they were the keys committed with Core. */
+function pinCommercialIssuerKeys(object $test, array $keys): void
+{
+    $path = $test->commercialRoot . '/issuer-keys-' . bin2hex(random_bytes(4)) . '.json';
+    File::put($path, json_encode(['keys' => (object) $keys], JSON_THROW_ON_ERROR));
+    app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys($path));
+}
+
+/** The base64 public key commercialReceipt() and commercialCatalogue() sign with. */
+function commercialIssuerPublicKey(): string
+{
+    return base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_seed_keypair(str_repeat("\x01", 32))));
+}
+
+it('rejects receipts and catalogues signed with an owner configured key in production', function (): void {
+    connectCommercialMarketplace();
+    $receipt = commercialReceipt();
+    $catalogue = commercialCatalogue(false);
+    // Core carries the genuine issuer key; the owner configures the key they signed with.
+    $genuine = sodium_crypto_sign_publickey(sodium_crypto_sign_seed_keypair(str_repeat("\x09", 32)));
+    pinCommercialIssuerKeys($this, ['capell-issuer' => base64_encode($genuine)]);
+    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => commercialIssuerPublicKey()]);
+    commercialExtensionWith(['installed_receipt_v2' => $receipt]);
+    app()->instance('env', 'production');
+
+    expect(resolve(ExtensionCommercialPolicy::class)->enforcing())->toBeTrue()
+        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse()
+        ->and(resolve(CommercialCatalogueStore::class)->accept($catalogue))->toBeFalse();
+});
+
+it('takes the issuer keys only from Core, never from configuration or the environment', function (string $environment): void {
+    pinCommercialIssuerKeys($this, []);
+    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => commercialIssuerPublicKey()]);
+    app()->instance('env', $environment);
+
+    expect(resolve(TrustedMarketplaceIssuerKeys::class)->all())->toBe([])
+        ->and(resolve(ExtensionCommercialPolicy::class)->enforcing())->toBeFalse();
+})->with(['production', 'local', 'staging']);
+
+it('verifies receipts and catalogues against the pinned issuer key in production', function (): void {
+    connectCommercialMarketplace();
+    $receipt = commercialReceipt();
+    $catalogue = commercialCatalogue(true);
+    pinCommercialIssuerKeys($this, ['test-issuer' => commercialIssuerPublicKey()]);
+    commercialExtensionWith(['installed_receipt_v2' => $receipt]);
+    app()->instance('env', 'production');
+
+    expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue()
+        ->and(resolve(CommercialCatalogueStore::class)->accept($catalogue))->toBeTrue();
 });
