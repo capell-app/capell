@@ -45,7 +45,7 @@ final class JavascriptFixture
         $inputs = self::evaluate($path, '', 'result.plugins ? result.plugins.flatMap(plugin => plugin.input ?? []) : result.input', [
             'vite' => 'export const defineConfig = value => value;',
             'laravel-vite-plugin' => 'export default value => value;',
-            './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js' => 'export const capellViteInputs = () => ' . json_encode($generatedInputs, JSON_THROW_ON_ERROR) . ';',
+            './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js' => 'export const capellViteInputs = () => ' . json_encode($generatedInputs, JSON_THROW_ON_ERROR) . '; export const capellVitePlugins = () => [];',
         ]);
         throw_if(! is_array($inputs) || ! array_is_list($inputs) || array_filter($inputs, is_string(...)) !== $inputs, RuntimeException::class, 'Generated Vite configuration must expose a list of input paths.');
 

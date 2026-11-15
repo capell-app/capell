@@ -97,6 +97,7 @@ use Capell\Frontend\Support\Assets\FrontendAssetsService;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
+use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
 use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
@@ -242,6 +243,7 @@ final class SingletonLifetimeInventory
             FrontendResourceRegistry::class => self::boot('Frontend resources are package boot registrations.'),
             FrontendPackageDependencyRegistry::class => self::boot('Frontend package dependencies are package boot registrations.'),
             FrontendViteInputRegistry::class => self::boot('Vite inputs are package boot registrations.'),
+            FrontendVitePluginRegistry::class => self::boot('Vite plugins are package boot registrations.'),
             CacheInvalidationDependencyRegistry::class => self::boot('Invalidation dependencies are package boot registrations.'),
             PublicRenderDataCacheDependencyRegistry::class => self::boot('Public render-data cache dependencies are package boot registrations.'),
             DefaultFrontendResourcePlanRenderer::class => self::stateless('The renderer retains collaborators but no operation-derived values.'),
