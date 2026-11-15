@@ -41,7 +41,7 @@ Use one Capell installation with multiple sites:
 
 | Site            | Domain or path              | Notes                                    |
 | --------------- | --------------------------- | ---------------------------------------- |
-| Main store      | `music-store.test`          | Main catalog, lessons, repairs, blog     |
+| Main store      | `music-store.test`          | Main catalogue, lessons, repairs, blog     |
 | Downtown branch | `downtown.music-store.test` | Branch-specific landing page and address |
 | North branch    | `north.music-store.test`    | Branch-specific landing page and address |
 

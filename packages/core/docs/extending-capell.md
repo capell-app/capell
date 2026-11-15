@@ -41,10 +41,10 @@ Capell offers several extension mechanisms. Pick by what you're extending:
 | Inject HTML into a frontend Blade component                        | Render hook                                                                   | [§6](#render-hooks)                                                                           |
 | Register selectable theme header/footer components                 | `ThemeChromeRegistry::register*()`                                            | [Theme Chrome Components](#theme-chrome-components)                                           |
 | Add a custom admin toolbar item                                    | Tag with `AdminToolItem::TAG`                                                 | [Admin Tool Registry](../../admin/docs/admin-tool-registry.md)                                |
-| Add a dashboard Filament widget programmatically                   | `CapellAdmin::registerDashboardFilamentWidget()`                              | [Dashboard Widget Customization](../../admin/docs/dashboard-widget-customization.md)          |
+| Add a dashboard Filament widget programmatically                   | `CapellAdmin::registerDashboardFilamentWidget()`                              | [Dashboard Widget Customisation](../../admin/docs/dashboard-widget-customization.md)          |
 | Add a tab to the admin Settings page                               | Settings Schema Registry                                                      | [§7](#settings-schema-registry)                                                               |
 | Wire model changes to cache flushes                                | `CacheInvalidationRegistry::registerDependency()`                             | [Cache Invalidation](../../../docs/performance/cache-invalidation.md)                         |
-| Register runtime frontend assets                                   | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG`        | [Frontend Asset Optimization](../../../docs/performance/critical-asset-optimization.md)       |
+| Register runtime frontend assets                                   | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG`        | [Frontend Asset Optimisation](../../../docs/performance/critical-asset-optimization.md)       |
 | Cache an expensive Blade fragment                                  | `@cache(...) ... @endcache` directive                                         | [Fragment Caching](../../../docs/performance/fragment-caching.md)                             |
 | Enable conditional responses via ETags                             | `ETagMiddleware` + header handling                                            | [ETag & Conditional Responses](../../../docs/performance/etag-and-conditional-responses.md)   |
 | Lazy-load JavaScript for non-critical routes                       | Lazy page hydration                                                           | [Lazy Page Hydration](../../../docs/performance/lazy-page-hydration.md)                       |
@@ -484,17 +484,17 @@ Model saves validate `header_file` and `footer_file` against the registered opti
 - [Static Site Extensions](static-site-extensions.md) — Hook into static site generation
 - [Subscriber Manager](subscriber-manager.md) — Subscribe to fine-grained lifecycle events
 - [Admin Tool Registry](../../admin/docs/admin-tool-registry.md) — Add custom toolbar items to the admin panel
-- [Dashboard Widget Customization](../../admin/docs/dashboard-widget-customization.md) — Programmatically register dashboard Filament widgets
+- [Dashboard Widget Customisation](../../admin/docs/dashboard-widget-customization.md) — Programmatically register dashboard Filament widgets
 - [Settings Schema Registry](../../admin/docs/settings-schema-registry.md) — Add package settings to the admin Settings page
 - [Render Hooks](../../frontend/docs/extending-render-hooks.md) — Inject HTML into frontend Blade components
 - [Schema Hooks](../../admin/docs/schemas/hooks.md) — Add fields to edit form-builder at named positions
 - [Tailwind Assets](../../frontend/docs/tailwind-assets.md) — Register Tailwind sources, imports, and plugins
 
-### Performance & Optimization
+### Performance & Optimisation
 
-- [Performance Index](../../../docs/performance/README.md) — Performance optimization overview
+- [Performance Index](../../../docs/performance/README.md) — Performance optimisation overview
 - [Cache Invalidation](../../../docs/performance/cache-invalidation.md) — Wire model changes to cache flushes
-- [Critical Asset Optimization](../../../docs/performance/critical-asset-optimization.md) — Register critical/deferred frontend assets
+- [Critical Asset Optimisation](../../../docs/performance/critical-asset-optimization.md) — Register critical/deferred frontend assets
 - [Fragment Caching](../../../docs/performance/fragment-caching.md) — Cache expensive Blade fragments
 - [ETag & Conditional Responses](../../../docs/performance/etag-and-conditional-responses.md) — Enable conditional responses via ETags
 - [Lazy Page Hydration](../../../docs/performance/lazy-page-hydration.md) — Lazy-load JavaScript for non-critical routes

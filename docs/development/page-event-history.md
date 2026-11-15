@@ -42,7 +42,7 @@ UI and package code should call
 `Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition` whether the actor can
 update the publishable record. The default
 `GatePublicationTransitionAuthorizer` checks the record's `update` policy; an application
-may replace that binding when it needs a different authorization boundary.
+may replace that binding when it needs a different authorisation boundary.
 
 For a permitted transition that changes visibility, Core emits:
 
@@ -54,7 +54,7 @@ Both events expose the same `transitionId`,
 `PublicationTransitionRequestData`, and evaluated `PublicationTransitionResultData`, so
 listeners can correlate before/after work without reconstructing the transition. They
 are notifications rather than veto hooks: listener exceptions are reported and do not
-cancel persistence or change the returned result. Put authorization in
+cancel persistence or change the returned result. Put authorisation in
 `AuthorizesPublicationTransition`, and keep event listeners safe to retry when they
 dispatch queued follow-up work.
 
@@ -155,7 +155,7 @@ Before replaying projections in an application:
 4. Rebuild the projection with `php artisan event-sourcing:replay 'Capell\Core\EventSourcing\Projectors\PageProjector'`.
 5. Compare page revision and workflow read-model counts, then run the page event-sourcing integration tests.
 
-Use rollback Actions when the goal is to restore page content. Use projector replay to rebuild projections from an intact event stream, with the understanding that projected workflow events also synchronize page visibility.
+Use rollback Actions when the goal is to restore page content. Use projector replay to rebuild projections from an intact event stream, with the understanding that projected workflow events also synchronise page visibility.
 
 ## Tests
 
@@ -165,4 +165,4 @@ Run the focused Core coverage:
 vendor/bin/pest packages/core/tests/Integration/EventSourcing packages/core/tests/Unit/EventSourcing --configuration=phpunit.xml
 ```
 
-The integration tests cover automatic revision recording, serializer round trips, rollback preview/apply, URL conflicts, preservation of live analytics, and active-content version behavior. Aggregate invariant tests cover the workflow transitions exposed for integrations.
+The integration tests cover automatic revision recording, serializer round trips, rollback preview/apply, URL conflicts, preservation of live analytics, and active-content version behaviour. Aggregate invariant tests cover the workflow transitions exposed for integrations.

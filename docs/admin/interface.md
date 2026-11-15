@@ -74,7 +74,7 @@ The normal Admin package provides the core management screens. The optional [Lay
 
 [![Theme Library admin workflow](../images/generated/admin/theme-library-admin-flow.png)](../images/generated/admin/theme-library-admin-flow.png)
 
-Example: a site owner can review installed themes, inspect diagnostics, customize brand settings, preview against a real page, then apply the theme globally or to selected sites. The [Theme Library](theme-library.md) page covers that flow end to end.
+Example: a site owner can review installed themes, inspect diagnostics, customise brand settings, preview against a real page, then apply the theme globally or to selected sites. The [Theme Library](theme-library.md) page covers that flow end to end.
 
 ## Media
 
@@ -109,7 +109,7 @@ Extensions is the admin surface for installed package state, package settings/co
 
 [![Capell extensions page](../images/generated/admin/admin-extensions-page.png)](../images/generated/admin/admin-extensions-page.png)
 
-[Marketplace](../../packages/marketplace/docs/overview.md) browsing, account connection, licence activation, diagnostics, heartbeat checks, and install authorization are available only when `capell-app/marketplace` is installed and enabled.
+[Marketplace](../../packages/marketplace/docs/overview.md) browsing, account connection, licence activation, diagnostics, heartbeat checks, and install authorisation are available only when `capell-app/marketplace` is installed and enabled.
 
 ## Reports
 
@@ -121,7 +121,7 @@ Publishing Readiness shows launch-focused page checks such as missing required t
 
 ## Site Health
 
-Site Health is the operations view for public delivery. It checks cache status, public-output safety, static generation state, optimizer readiness, queues, failed jobs, server config, and writable paths.
+Site Health is the operations view for public delivery. It checks cache status, public-output safety, static generation state, optimiser readiness, queues, failed jobs, server config, and writable paths.
 
 [![Site Health page](../images/generated/admin/site-health-page.png)](../images/generated/admin/site-health-page.png)
 

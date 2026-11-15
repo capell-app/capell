@@ -36,7 +36,7 @@ Select any screenshot to open the full-resolution image.
 
 [Light](images/screenshots/frontend-settings.png) · [Dark](images/screenshots/frontend-settings-dark.png)
 
-Screenshot contract:
+Screenshots:
 
 - Admin index screen: not owned by Frontend. Settings are shown in Admin.
 - Create/edit screen: not owned by Frontend. Content editing is owned by Admin and optional authoring packages.

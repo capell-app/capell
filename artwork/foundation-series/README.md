@@ -20,7 +20,7 @@ The approved direction used this prompt:
 
 The marketplace card used the same approved direction but was independently composed at 3:2 for a safe 8:5 crop. A two-part reference supplied both the approved evidence-plane layout and isolated canonical logo. It keeps the Laravel boundary, peer Admin/Core/Frontend panels, controlled interface, package tiles, and application-owned outputs legible at 400×250.
 
-ImageMagick is used only to rasterize the canonical logo, crop/resize approved generated pixels, composite the exact logo and Sora package heading, normalize sRGB, strip metadata, and export progressive JPEGs at exact dimensions:
+ImageMagick is used only to rasterize the canonical logo, crop/resize approved generated pixels, composite the exact logo and Sora package heading, normalise sRGB, strip metadata, and export progressive JPEGs at exact dimensions:
 
 - `packages/{core,admin,frontend,installer,marketplace}/docs/assets/readme/hero.jpg`: 2880×960;
 - `packages/{core,admin,frontend,installer,marketplace}/docs/assets/marketplace/extension-card.jpg`: 800×500.

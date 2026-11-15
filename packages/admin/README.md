@@ -28,7 +28,7 @@ Admin does not own:
 
 - shared content records and migrations; those are Core records
 - public request handling or public HTML safety; that is Frontend and frontend add-ons
-- marketplace account linking and catalogue install authorization; that is Marketplace
+- marketplace account linking and catalogue install authorisation; that is Marketplace
 - migration/import execution; Admin can expose a recovery shell, but the recovery implementation is package-owned
 - heavy import handlers; packages register visible import menu entries through `ImportEntryRegistry` and own the execution behind those entries
 
@@ -96,13 +96,13 @@ fingerprints and reconciliation surface keys. Opening the Page preview is the
 only action needed to compute its consequences; typing and autosave do not
 compute them. Media and Layout retain their existing render cadence.
 
-Normal extension work should use the extenders and registries above. The advanced `php artisan capell:admin-publish-resources [--type=<group>] [--resource=<label-or-class>] [--force]` command publishes registered admin resources into the host application for direct customization. Published copies become host-maintained and can drift from package updates.
+Normal extension work should use the extenders and registries above. The advanced `php artisan capell:admin-publish-resources [--type=<group>] [--resource=<label-or-class>] [--force]` command publishes registered admin resources into the host application for direct customisation. Published copies become host-maintained and can drift from package updates.
 
 ## Data And Permissions
 
 Admin operates mostly on Core models. Admin-owned persistence is limited to settings migrations and admin-specific operational state.
 
-Policy and permission behavior must be registered globally, not only through a Filament resource. Marketplace contributes additional permission-aware surfaces when it is installed.
+Policy and permission behaviour must be registered globally, not only through a Filament resource. Marketplace contributes additional permission-aware surfaces when it is installed.
 
 All editor-facing labels, notifications, and validation messages should use package translation files. Prefer Filament label method overrides over static label properties.
 
@@ -114,7 +114,7 @@ From the split repository root, with development dependencies installed, run Adm
 vendor/bin/pest tests
 ```
 
-For resource or schema changes, include the matching focused test file first. For UI behavior, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
+For resource or schema changes, include the matching focused test file first. For UI behaviour, verify the real Filament panel with a disposable admin account rather than stopping at the login screen.
 
 ## Requirements And Support Policy
 
@@ -148,7 +148,7 @@ Package development and coordinated verification happen in the [capell-app/capel
 | [Admin overview](docs/overview.md)                                                | Admin responsibilities and the package docs index.          |
 | [Admin multi-language](docs/admin-multi-language.md)                              | Admin language records, translations, and user preferences. |
 | [Admin tool registry](docs/admin-tool-registry.md)                                | Header tools and admin utility actions.                     |
-| [Dashboard Filament widget customization](docs/dashboard-widget-customization.md) | Registering and overriding dashboard Filament widgets.      |
+| [Dashboard Filament widget customisation](docs/dashboard-widget-customization.md) | Registering and overriding dashboard Filament widgets.      |
 | [Marketing dashboard contributions](docs/dashboard-marketing.md)                  | Contributing editor-focused marketing actions and widgets.  |
 | [Event registry](docs/event-registry.md)                                          | Admin lifecycle event subscriptions.                        |
 | [Permissions and approval](docs/permissions-and-approval.md)                      | Role and approval rules around publishing.                  |
@@ -156,6 +156,6 @@ Package development and coordinated verification happen in the [capell-app/capel
 | [Schema hooks](docs/schemas/hooks.md)                                             | Extending admin form schemas.                               |
 | [Settings schema registry](docs/settings-schema-registry.md)                      | Package settings in the admin settings surface.             |
 | [User menu registry](docs/user-menu-registry.md)                                  | User menu item registration.                                |
-| [User resource customization](docs/user-resource-customization.md)                | User form fields, panels, relation managers, and bridges.   |
+| [User resource customisation](docs/user-resource-customization.md)                | User form fields, panels, relation managers, and bridges.   |
 
 The complete admin, extension, and troubleshooting guides are published at [docs.capell.app](https://docs.capell.app).

@@ -1,4 +1,4 @@
-# Frontend Asset Optimization
+# Frontend Asset Optimisation
 
 > **Who is this for?**
 > Frontend package developers tuning public CSS, JavaScript, preload hints, and DNS prefetch without leaking package/editor internals into cached HTML.

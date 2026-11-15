@@ -19,7 +19,7 @@ Because of that, avoid adding the same side effect to both commands. Permission 
 
 Direct `capell:admin-setup` still syncs permissions unless `--skip-permission-sync` is passed explicitly. This keeps standalone setup useful while protecting the full install flow from duplicate `syncPermissions()` calls.
 
-When adding new install or setup behavior, check whether the full install flow will execute both commands. If the behavior belongs to package installation, keep it in the install command and pass an explicit skip flag into setup. If setup needs to run independently, make the setup command's behavior opt out rather than relying on model or role existence heuristics.
+When adding new install or setup behaviour, check whether the full install flow will execute both commands. If the behaviour belongs to package installation, keep it in the install command and pass an explicit skip flag into setup. If setup needs to run independently, make the setup command's behaviour opt out rather than relying on model or role existence heuristics.
 
 ## Related guides
 

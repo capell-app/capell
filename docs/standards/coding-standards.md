@@ -22,7 +22,7 @@ The July 2026 standards inventory covered the following surfaces before rules we
 | Actions                                         |                  405 classes |                               24 across all host packages | verb-led operations, `handle()`, explicit returns, explicit `AsObject` + `AsFake` traits |
 | Support code                                    |                    373 files |                               25 across all host packages | focused collaborators, typed APIs, early returns                            |
 | Enums                                           |                    149 enums |                               20 across all host packages | singular concepts; suffix usage is split and therefore compatibility-owned  |
-| Livewire components                             |                    9 classes |                                                     all 9 | typed public state and authorization at mutations                           |
+| Livewire components                             |                    9 classes |                                                     all 9 | typed public state and authorisation at mutations                           |
 | Blade views                                     |                    189 views | 21 across public, admin, installer, and marketplace views | kebab-case component paths, pre-hydrated public data, Tailwind-first markup |
 | Migrations                                      |                     49 files |                               24 across all host packages | anonymous classes, typed `up()`/`down()`, snake-case schema names           |
 | Pest tests                                      | 1,180 PHP test/support files |                30 across all host packages and root tests | `it('...')`, factories/helpers, deterministic setup                         |
@@ -84,7 +84,7 @@ Use an Action when the operation:
 
 - expresses a domain or application verb;
 - is called from more than one delivery mechanism;
-- needs direct behavioural tests, authorization, transaction ownership, queueing, or orchestration;
+- needs direct behavioural tests, authorisation, transaction ownership, queueing, or orchestration;
 - is a stable operation packages may call.
 
 Actions use a verb-led singular name and the `Action` suffix, expose one public `handle()` operation, and compose `AsObject` with `AsFake` where static `run()` is part of the call shape. `AsAction` is prohibited because it adds controller, command, listener, and job adapters that a domain Action may not need. Add a granular adapter trait only when its corresponding entry point is actually used. Production and test callers invoke Actions through `::run(...)`, never by resolving, constructing, or injecting an Action solely to call `handle(...)`. Constructor injection is preferred for collaborators, and tests fake downstream Actions with `::shouldRun()`, `::shouldNotRun()`, `::mock()`, or `::spy()`. Public lifecycle Actions that predate the suffix rule remain compatibility exceptions.
@@ -144,13 +144,13 @@ These names are observable contracts. Existing mixed route prefixes and the lega
 
 ## Laravel idiom
 
-### Validation and authorization
+### Validation and authorisation
 
-Use a Form Request at a conventional HTTP controller boundary when request validation and authorization form one reusable contract. Filament and Livewire operations use their component/schema validation APIs, then pass typed or documented arrays into Actions. Domain invariants remain in the Action or domain object so console, queue, and programmatic callers cannot bypass them.
+Use a Form Request at a conventional HTTP controller boundary when request validation and authorisation form one reusable contract. Filament and Livewire operations use their component/schema validation APIs, then pass typed or documented arrays into Actions. Domain invariants remain in the Action or domain object so console, queue, and programmatic callers cannot bypass them.
 
 `ValidatePageAuthoringAction` is the extension-aware authoring boundary: UI layers collect form state, while tagged validators enforce package rules independently of the delivery mechanism.
 
-Authorization occurs at the delivery boundary and again inside reusable mutating operations when they can be called independently. Never rely on a hidden button as authorization.
+Authorisation occurs at the delivery boundary and again inside reusable mutating operations when they can be called independently. Never rely on a hidden button as authorisation.
 
 In a `Spatie\LaravelData\Data` class, a non-nullable `array` property (even with `= []`) gets an inferred `required|array` rule, and `required` rejects an empty array. `validateAndCreate()` therefore fails on a present-but-empty field while `new Data(...)` works. Override `rules()` and mark optional passthrough arrays `['sometimes', 'array']`; avoid `nullable`, which causes null-to-array hydration errors.
 
@@ -204,7 +204,7 @@ Project-authored CSS is limited to these established homes:
 - `packages/installer/resources/css/installer.css` for the standalone pre-install UI;
 - `packages/frontend/publishes/build/capell-frontend.css` as a generated/published artifact, never a hand-edited source.
 
-Custom CSS is justified for vendor DOM that Capell cannot decorate, pseudo-elements, keyframes, complex selectors, CSS variables/tokens, or generated public assets. A new utility-shaped selector is not an exception. Critical CSS is produced by the frontend resource/optimizer pipeline; do not add hand-authored Blade critical-CSS partials.
+Custom CSS is justified for vendor DOM that Capell cannot decorate, pseudo-elements, keyframes, complex selectors, CSS variables/tokens, or generated public assets. A new utility-shaped selector is not an exception. Critical CSS is produced by the frontend resource/optimiser pipeline; do not add hand-authored Blade critical-CSS partials.
 
 ### Components and props
 
@@ -228,9 +228,9 @@ Narrow union or scalar inputs once near the top of the view, or preferably befor
 
 - Type every public property. Use nullable types for genuinely absent state rather than sentinel strings.
 - Treat public properties as untrusted request input on every call; validate or narrow before use.
-- Authorize each mutating public method at the point of mutation. Do not rely on `mount()` authorization because subsequent requests are independent.
+- Authorise each mutating public method at the point of mutation. Do not rely on `mount()` authorisation because subsequent requests are independent.
 - Public methods that perform work use verb names. Derived, read-only values use computed-property nouns.
-- Keep business operations in Actions; the component coordinates input, authorization, UI state, and notifications.
+- Keep business operations in Actions; the component coordinates input, authorisation, UI state, and notifications.
 - Public marketing output is static SSR unless a documented product requirement explicitly needs the frontend interaction runtime. Admin Livewire use is not affected by that rule.
 
 `packages/admin/src/Livewire/GlobalCommandPalette.php` and the `Header/` components are representative typed admin components. Public page Blade remains query-free and Livewire-tag-free even though the frontend package supports controlled renderable widgets elsewhere.

@@ -94,7 +94,7 @@ Integrity is separate from usage:
 - `Broken reference`
 - `Orphaned`
 
-Actor-scoped zero counts never authorize cleanup or deletion. Broken or
+Actor-scoped zero counts never authorise cleanup or deletion. Broken or
 missing references are never presented as unused.
 
 ## Presentation Contract
@@ -142,7 +142,7 @@ State rendering performs no database queries.
   Existing unavailable selections must render without adding per-option
   queries.
 
-Site scoping and resource authorization remain intact. Where an authoritative
+Site scoping and resource authorisation remain intact. Where an authoritative
 global count cannot be disclosed, the UI uses actor-scoped wording rather than
 misrepresenting the result.
 
@@ -283,7 +283,7 @@ field is an unused asset.
   or bulk mutation.
 - Replication and restoration retain their existing domain behaviour, but
   confirmations must make inherited exceptional state visible where relevant.
-- Bulk-action confirmations summarize exceptional selected records when the
+- Bulk-action confirmations summarise exceptional selected records when the
   action's consequence depends on their state.
 - Validation explains when a selected dependency is disabled or unavailable;
   it does not rely on a decorative badge alone.

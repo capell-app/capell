@@ -22,7 +22,7 @@ Frontend widgets are registered public components that Capell can render in norm
 
 Widget HTML and interaction placeholders must never expose admin controls, model IDs, field paths, block keys, component names, package namespaces, signed URLs, or raw target widget data. [Widget and fragment targets](widget-targets.md#public-output-rules) lists the full rule.
 
-When a widget defers below-the-fold HTML, prepare a `DeferredFragmentPlaceholderData` value in PHP and render only that value in Blade. Build references with `PublicFragmentReferenceCodec` and route them through the registered `PublicFragmentUrlResolver` owner; route names and owner-specific authorization remain with the application or package that serves the fragment.
+When a widget defers below-the-fold HTML, prepare a `DeferredFragmentPlaceholderData` value in PHP and render only that value in Blade. Build references with `PublicFragmentReferenceCodec` and route them through the registered `PublicFragmentUrlResolver` owner; route names and owner-specific authorisation remain with the application or package that serves the fragment.
 
 ## Related guides
 

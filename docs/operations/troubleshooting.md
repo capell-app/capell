@@ -438,7 +438,7 @@ limit 5;
 
 ### Marketplace catalogue loads but install is blocked
 
-**Why:** Browsing the catalogue only proves `/extensions` is reachable. Install authorization also needs the connected instance, licence/domain state, local compatibility checks, and any Marketplace policy required for that extension.
+**Why:** Browsing the catalogue only proves `/extensions` is reachable. Install authorisation also needs the connected instance, licence/domain state, local compatibility checks, and any Marketplace policy required for that extension.
 
 **Check:**
 

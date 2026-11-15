@@ -46,7 +46,7 @@ Site Health is the operator-facing read-only page for launch and post-deploy che
 - cache and static-output state
 - public HTML safety
 - server/runtime readiness
-- optimizer/static generation readiness when optional packages are installed
+- optimiser/static generation readiness when optional packages are installed
 - package and extension health signals
 
 If Site Health reports a missing optional package table, check whether the package is installed and whether its migrations have run before treating it as a host bug.

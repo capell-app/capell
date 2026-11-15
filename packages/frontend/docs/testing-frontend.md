@@ -2,7 +2,7 @@
 
 Frontend page tests should prove the public site output works, not that the admin editor stored a particular internal shape. Start from the smallest useful surface:
 
-- use an Action or unit test for resolver, cache, or render-data behavior
+- use an Action or unit test for resolver, cache, or render-data behaviour
 - use a Blade view test when one Capell component owns the markup
 - use an HTTP feature test when routing, site/language resolution, theme rendering, or public safety matters
 
@@ -43,7 +43,7 @@ This is the pattern to copy for most app/theme tests: request the route your use
 
 If CI starts from an empty database, seed the required Capell page in the app's test setup or import a small fixture. Do not hide fixed content behind a factory state unless the factory is the agreed source of that page.
 
-Use factories when the test is about Capell behavior or package behavior and the test needs to own the page fixture: routing, language resolution, page types, cache, component rendering, or public HTML safety. Keep the factory data as explicit strings, not faker output, so failures are readable.
+Use factories when the test is about Capell behaviour or package behaviour and the test needs to own the page fixture: routing, language resolution, page types, cache, component rendering, or public HTML safety. Keep the factory data as explicit strings, not faker output, so failures are readable.
 
 ## What To Assert
 
@@ -106,7 +106,7 @@ That mirrors Capell's own static public page tests: the important contract is th
 
 ## View-Level Component Tests
 
-When the behavior belongs to one frontend component, test the view directly. This is faster than a full HTTP request and keeps the fixture small.
+When the behaviour belongs to one frontend component, test the view directly. This is faster than a full HTTP request and keeps the fixture small.
 
 ```php
 <?php
@@ -316,7 +316,7 @@ The gate only counts views Laravel actually renders. Reading a Blade file as sou
 
 ## Patterns To Follow
 
-- Test through a public URL when route, host, language, theme, cache, or middleware behavior matters.
+- Test through a public URL when route, host, language, theme, cache, or middleware behaviour matters.
 - Use view tests for isolated components; they are faster and easier to read.
 - Use `assertElementExists()` around the smallest stable parent, then assert child structure inside it.
 - Use Capell public classes as hooks: `capell-layout-main`, `capell-page-title`, `capell-components-content`, `capell-widgets-content`, `capell-page-results`.
@@ -330,5 +330,5 @@ The gate only counts views Laravel actually renders. Reading a Blade file as sou
 - Snapshotting the whole response body.
 - Testing exact Tailwind class strings unless the class is a documented public hook.
 - Asserting editor/admin attributes in public page tests.
-- Building huge datasets unless the test is about query count, pagination, or cache behavior.
+- Building huge datasets unless the test is about query count, pagination, or cache behaviour.
 - Testing the same content with both `assertSee()` and a DOM assertion unless the text-only assertion is a deliberate smoke check.

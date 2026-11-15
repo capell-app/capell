@@ -69,7 +69,7 @@ Public frontend responses must not expose admin/editor implementation details. B
 
 Frontend authoring must be a post-load admin feature. The public page loads as ordinary HTML; only an authenticated admin beacon response may add edit controls.
 
-When changing public rendering, cache behavior, themes, or beacon integration, keep or add tests that prove anonymous and non-admin responses contain no authoring surface.
+When changing public rendering, cache behaviour, themes, or beacon integration, keep or add tests that prove anonymous and non-admin responses contain no authoring surface.
 
 ![Public/cache delivery separated from authenticated post-load authoring, private preview, and unsafe-to-cache bypass](https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-public-authoring-cache-boundary.svg)
 
@@ -79,7 +79,7 @@ Public assertions reject violations by throwing. Optional HTML Cache separately 
 
 Editor-authored rich text must cross a `SafeHtml` boundary before Blade renders it. Build the value with `SafeHtml::sanitize($html, $sanitizer)` (or use `RenderHtmlContentAction`) and output it with normal escaped Blade braces: `{{ $safeHtml }}`. The constructor is private so an arbitrary string cannot be mislabeled as safe HTML.
 
-## Data And Cache Behavior
+## Data And Cache Behaviour
 
 Frontend reads Core records and owns frontend settings. Its main persistence impact is settings state; generated page cache files are owned by optional cache/static packages.
 

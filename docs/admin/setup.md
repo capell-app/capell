@@ -68,7 +68,7 @@ To change the admin URL, configure the panel entrypoint through
 `CAPELL_ADMIN_PATH` and `CAPELL_ADMIN_DOMAIN` rather than hard-coding `/admin`.
 See [Admin domain and path](admin-domain.md).
 
-Reruns are idempotent. Existing custom colors are respected, existing Capell plugin/widgets/navigation calls are reported as already applied, and custom panel code is left for manual review when needed.
+Reruns are idempotent. Existing custom colors are respected, existing Capell extension/widgets/navigation calls are reported as already applied, and custom panel code is left for manual review when needed.
 
 ## Failure Categories
 

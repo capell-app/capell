@@ -1,6 +1,6 @@
 # Frontend Themes
 
-Capell themes connect installed admin theme records to public rendering. The admin owns selection and customization; the frontend receives a resolved runtime with a theme definition, preset, brand tokens, and safe assets.
+Capell themes connect installed admin theme records to public rendering. The admin owns selection and customisation; the frontend receives a resolved runtime with a theme definition, preset, brand tokens, and safe assets.
 
 Layouts are the editorial bridge between page records and public templates. Theme records then decide the presentation runtime used when those layouts render.
 
@@ -76,7 +76,7 @@ Theme changes touch public cache in two ways:
 - applying a global default saves the selected `Theme`, which lets `ThemeObserver` invalidate affected site surrogate keys
 - applying to selected sites saves each `Site`, which lets `SiteObserver` flush site/theme relation caches and invalidate those site keys
 
-Do not bulk-update `sites.theme_id` from new code paths unless you also reproduce the observer cache behavior.
+Do not bulk-update `sites.theme_id` from new code paths unless you also reproduce the observer cache behaviour.
 
 ## Public Output Contract
 

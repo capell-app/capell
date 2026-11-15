@@ -64,7 +64,7 @@ if (class_exists(Navigation::class)) {
 }
 ```
 
-Use `CapellCore::isPackageInstalled()` before touching package runtime behavior:
+Use `CapellCore::isPackageInstalled()` before touching package runtime behaviour:
 
 ```php
 if (CapellCore::isPackageInstalled('capell-app/navigation') && class_exists(Navigation::class)) {

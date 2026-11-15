@@ -10,7 +10,7 @@ For an end-to-end walkthrough with a flow diagram and the email notifications se
 
 Spatie's _team_ feature is enabled with `team_foreign_key = site_id`. Every role and permission assignment is scoped to a single site, so an editor for Site A does not implicitly have the same role on Site B.
 
-- **Middleware** — `SetSitePermissionScope` sets the active Spatie team to the current request's `site_id` before any authorization check runs. Registered on the admin route group.
+- **Middleware** — `SetSitePermissionScope` sets the active Spatie team to the current request's `site_id` before any authorisation check runs. Registered on the admin route group.
 - **Trait** — user models use `HasSitePermissions`, which wraps Spatie's role/permission helpers with site-aware variants (e.g. `assignRoleOnSite`, `hasRoleOnSite`).
 - **Admin** — the `Site` edit page has a _Permissions_ relation manager where you add users, assign roles for this site, and grant per-user overrides.
 

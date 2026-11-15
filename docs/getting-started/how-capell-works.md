@@ -107,7 +107,7 @@ These packages make up the normal product in this repository:
 | Admin       | `capell-app/admin`       | `Available` | Filament admin surface, resources, settings UI, dashboards, and admin extension points                                        |
 | Frontend    | `capell-app/frontend`    | `Available` | Public routing, rendering, cache-aware middleware, asset aggregation, and frontend extension points                           |
 | Installer   | `capell-app/installer`   | `Available` | Installer guidance and cleanup flow                                                                                           |
-| Marketplace | `capell-app/marketplace` | `Available` | [Extension marketplace](../../packages/marketplace/docs/overview.md) browsing, acquisition, and install authorization support |
+| Marketplace | `capell-app/marketplace` | `Available` | [Extension marketplace](../../packages/marketplace/docs/overview.md) browsing, acquisition, and install authorisation support |
 
 ## Host Features Vs Package Features
 

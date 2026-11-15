@@ -41,7 +41,7 @@ This keeps `--fresh` safe for host app migrations while making it robust after a
 
 ## Package Migration Discovery
 
-Do not rely only on `vendor/capell-app/*/database/migrations/*.php` globs. Local package development often uses Composer path repositories or symlinks, and PHP glob behavior can miss those package directories depending on the install shape.
+Do not rely only on `vendor/capell-app/*/database/migrations/*.php` globs. Local package development often uses Composer path repositories or symlinks, and PHP glob behaviour can miss those package directories depending on the install shape.
 
 Prefer registered package metadata:
 

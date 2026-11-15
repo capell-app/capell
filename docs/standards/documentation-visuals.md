@@ -107,7 +107,7 @@ Run the screenshot coverage check after changing Markdown, manifests, or screens
 node scripts/check-doc-screenshot-coverage.js
 ```
 
-Broken references, duplicate manifest IDs, and missing required outputs are failures. Unused raster assets, incomplete light/dark pairs, duplicate hashes, unlinked thumbnails, and manifest outputs unused by published Markdown are warnings for review. These relationship checks do not certify browser provenance and do not authorize deletion: confirm manifests, package metadata, tests, publication tooling, hashes, dimensions, and visible content first.
+Broken references, duplicate manifest IDs, and missing required outputs are failures. Unused raster assets, incomplete light/dark pairs, duplicate hashes, unlinked thumbnails, and manifest outputs unused by published Markdown are warnings for review. These relationship checks do not certify browser provenance and do not authorise deletion: confirm manifests, package metadata, tests, publication tooling, hashes, dimensions, and visible content first.
 
 ## Review checklist
 

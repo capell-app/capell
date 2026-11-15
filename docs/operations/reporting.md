@@ -208,7 +208,7 @@ channel, reporter, logger, formatter or transport resolution can read the payloa
 It covers nested secret/PII keys, labelled multiline values, quoted credential
 assignments (including embedded delimiters, escaped quotes and unterminated
 values), complete Cookie/Set-Cookie
-and Authorization/Proxy-Authorization headers including folded continuation
+and `Authorization`/`Proxy-Authorization` headers including folded continuation
 lines, session credentials,
 URLs, bearer/basic credentials, common token patterns, email addresses, IP
 addresses, telephone patterns and filesystem paths. Objects/resources and

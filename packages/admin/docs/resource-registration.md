@@ -101,7 +101,7 @@ The Media library gracefully handles missing resources. Owners with no registere
 
 ## Package-Owned Widgets
 
-Admin exposes extension points for package widgets without hard-coding package product behavior. For example, Pages-list SEO totals and per-page SEO audit panels belong to `capell-app/seo-suite`, not `capell-app/admin`.
+Admin exposes extension points for package widgets without hard-coding package product behaviour. For example, Pages-list SEO totals and per-page SEO audit panels belong to `capell-app/seo-suite`, not `capell-app/admin`.
 
 `PageResource::getWidgets()` exposes `PageResourceWidgetExtender` so installed packages can add Pages-list widgets. `EditPage::afterSave()` dispatches the `refresh-seo-audit` browser event without depending on an SEO package class, so SEO Suite can refresh its edit-page widget when installed.
 

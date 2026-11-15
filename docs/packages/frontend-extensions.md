@@ -114,7 +114,7 @@ $resources->register(
 );
 ```
 
-Theme metadata can still define `editor.resources` or legacy `resources`. Capell normalizes those definitions through the same resolver used for package defaults. Resolution prefers theme metadata, then the loaded theme blueprint/type metadata, then registered package defaults.
+Theme metadata can still define `editor.resources` or legacy `resources`. Capell normalises those definitions through the same resolver used for package defaults. Resolution prefers theme metadata, then the loaded theme blueprint/type metadata, then registered package defaults.
 
 The public asset manifest exposes generated resource IDs, not package keys or component names. Keep package names, model IDs, field paths, signed URLs, and editor metadata out of widget placeholders and rendered HTML.
 
@@ -189,7 +189,7 @@ resolve(ReservedFrontendPathRegistry::class)->reservePrefix('example-api');
 resolve(ReservedFrontendPathRegistry::class)->reserveExact('example-webhook');
 ```
 
-`reservePrefix('example-api')` reserves `example-api` and every path below it. `reserveExact('example-webhook')` reserves only that path. Paths are normalized, so leading/trailing slashes do not matter.
+`reservePrefix('example-api')` reserves `example-api` and every path below it. `reserveExact('example-webhook')` reserves only that path. Paths are normalised, so leading/trailing slashes do not matter.
 
 Use `FrontendRouteMiddlewareRegistry` only when the package needs to add middleware to the public page route itself. Most packages should add their own route middleware instead.
 
@@ -203,7 +203,7 @@ resolve(FrontendRouteMiddlewareRegistry::class)->insertAfter(
 );
 ```
 
-The default public page middleware order starts with reserved-path rejection, then `web`, maintenance, workspace context, frontend resolution, and anonymous cacheability checks. Put package middleware as late as possible so it has the resolved context it needs without bypassing reserved-path and maintenance behavior.
+The default public page middleware order starts with reserved-path rejection, then `web`, maintenance, workspace context, frontend resolution, and anonymous cacheability checks. Put package middleware as late as possible so it has the resolved context it needs without bypassing reserved-path and maintenance behaviour.
 
 Frontend registers `/_capell/widgets/{reference}` for lazy widget targets and reserves `_capell`. Layout Builder registers `/_capell/fragments/{reference}` for lazy public block fragments. Do not add plain-ID fragment routes such as `/fragments/page/12/block/hero`. Widget and fragment references must be encrypted and self-contained, and fragment/widget responses must use their own cache headers rather than the normal page HTML cache.
 
@@ -409,7 +409,7 @@ resolution when the child package and parent definition are registered and
 available. `ThemeDefinitionData::$extends` remains supported metadata for local
 providers and admin diagnostics, but does not select the public view chain.
 
-Themes own presentation. Shared rendering infrastructure and the minimal `default` theme key belong in `capell-app/frontend`. Premium or client themes can override any section while inheriting the built-in default views when a section is missing.
+Themes own presentation. Shared rendering infrastructure and the minimal `default` theme key belong in `capell-app/frontend`. Paid or client themes can override any section while inheriting the built-in default views when a section is missing.
 
 Use a stable `themeKey` in the manifest:
 

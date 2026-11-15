@@ -1,6 +1,6 @@
 # Inertia Bookings Showcase
 
-`capell-app/theme-inertia-bookings` is the first full Inertia theme slice. It shows how a premium booking-business theme can render Capell marketing pages through Inertia and link into the real Bookings appointment request flow.
+`capell-app/theme-inertia-bookings` is the first full Inertia theme slice. It shows how a polished booking-business theme can render Capell marketing pages through Inertia and link into the real Bookings appointment request flow.
 
 The theme is for service businesses, clinics, consultants, classes, and appointment-led sites. It does not add theme-owned booking models, migrations, or admin resources.
 
@@ -90,7 +90,7 @@ Booking request pages handle visitor intent and should not be cached as static m
 
 - `Cache-Control` includes `private` and `no-store`;
 - `X-Robots-Tag: noindex, nofollow`;
-- validation redirects must preserve normal Laravel form behavior;
+- validation redirects must preserve normal Laravel form behaviour;
 - successful submissions must still go through `CreateAppointmentRequestAction`.
 
 Payments, customer portal, cancellation, and rescheduling are outside this first Inertia slice.

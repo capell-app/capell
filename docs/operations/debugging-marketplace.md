@@ -2,7 +2,7 @@
 
 ![Capell package operations page](../images/generated/admin/package-operations.png)
 
-Use this when [Marketplace](../../packages/marketplace/docs/overview.md) account linking, catalogue browsing, install authorization, heartbeat, diagnostics, or update notices fail.
+Use this when [Marketplace](../../packages/marketplace/docs/overview.md) account linking, catalogue browsing, install authorisation, heartbeat, diagnostics, or update notices fail.
 
 ![Marketplace extension detail overview](../images/generated/package-surfaces/marketplace-extension-detail-overview.png)
 
@@ -24,7 +24,7 @@ sequenceDiagram
     CMS->>App: Heartbeat and install authorization requests
 ```
 
-Premium grouped installs add a second hosted flow: CMS creates a local `marketplace_install_flow_sessions` row, Capell App handles login/checkout/entitlement work, then CMS exchanges the return code and queues local Package Operations only after final install authorization succeeds.
+Paid grouped installs add a second hosted flow: CMS creates a local `marketplace_install_flow_sessions` row, Capell App handles login/checkout/entitlement work, then CMS exchanges the return code and queues local Package Operations only after final install authorisation succeeds.
 
 ## First Checks
 
@@ -62,7 +62,7 @@ limit 5;
 
 Do not reuse old approval URLs after starting a newer account connection.
 
-## Premium Install Flow
+## Paid Install Flow
 
 ```sql
 select remote_flow_id, status, expires_at, redirected_at, returned_at, queued_at, completed_at, last_error
@@ -85,7 +85,7 @@ limit 5;
 | ------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `pending`     | Local intent was created but Capell App flow creation has not completed | Check logs for remote create failures.                                        |
 | `redirected`  | Admin was sent to Capell App                                            | Complete the hosted flow before expiry.                                       |
-| `returned`    | CMS exchanged the code and stored verified account credentials          | Resume should immediately authorize and queue installs.                       |
+| `returned`    | CMS exchanged the code and stored verified account credentials          | Resume should immediately authorise and queue installs.                       |
 | `authorizing` | Callback reserved the session while exchanging the code                 | Wait briefly; if stuck, read `last_error` and start a new flow.               |
 | `queued`      | Local Composer operations were queued                                   | Check Package Operations for per-package progress.                            |
 | `completed`   | Flow orchestration finished                                             | Package Operations remains the source of truth for Composer/lifecycle status. |
@@ -101,7 +101,7 @@ order by id desc
 limit 10;
 ```
 
-If a premium flow returns successfully but no package operation is queued, check:
+If a paid flow returns successfully but no package operation is queued, check:
 
 - the flow `last_error`;
 - whether Capell App returned `can_install: true`;
@@ -112,7 +112,7 @@ If a premium flow returns successfully but no package operation is queued, check
 
 Direct `purchase_url` links are fallback-only for grouped installs. If the hosted flow API is unavailable, the UI may open a Marketplace purchase URL, but the admin must retry the Marketplace review after account/checkout work completes.
 
-The Package Operations modal includes hosted flow recovery rows. `Resume` re-runs the local final authorization and Composer queueing step for returned or recoverable failed sessions. `Expire` marks the flow session expired only; it does not cancel or edit existing Composer attempts.
+The Package Operations modal includes hosted flow recovery rows. `Resume` re-runs the local final authorisation and Composer queueing step for returned or recoverable failed sessions. `Expire` marks the flow session expired only; it does not cancel or edit existing Composer attempts.
 
 ## Package Operation Recovery
 
@@ -187,7 +187,7 @@ npm run test:marketplace-install-flow
 
 Useful environment overrides: `CAPELL_MARKETPLACE_SMOKE_CMS_URL`, `CAPELL_MARKETPLACE_SMOKE_APP_URL`, `CAPELL_MARKETPLACE_SMOKE_ADMIN_EMAIL`, `CAPELL_MARKETPLACE_SMOKE_ADMIN_PASSWORD`, `CAPELL_MARKETPLACE_SMOKE_APP_EMAIL`, `CAPELL_MARKETPLACE_SMOKE_APP_PASSWORD`, and `CAPELL_MARKETPLACE_SMOKE_EXTENSION`.
 
-## Catalogue And Install Authorization
+## Catalogue And Install Authorisation
 
 ```sql
 select instance_id, connection_mode, account_email, last_heartbeat_at

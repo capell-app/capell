@@ -22,7 +22,7 @@ The optional `capell-app/html-cache` package is such a package: it owns `public/
 
 ## Web Server
 
-Configure the web server with the normal Laravel public root and fallback behavior:
+Configure the web server with the normal Laravel public root and fallback behaviour:
 
 ```nginx
 server {
@@ -216,5 +216,5 @@ CAPELL_MINIFY_HTML=false
 
 - [Page & Site Loading](page-site-loading.md) - how the frontend request pipeline works
 - [Testing Frontend](testing-frontend.md) - public rendering and cache-safety checks
-- [Presentation Delivery](presentation-delivery.md) - renderer and layout behavior
+- [Presentation Delivery](presentation-delivery.md) - renderer and layout behaviour
 - [Artisan Commands](../../../docs/development/artisan-commands.md) - command reference

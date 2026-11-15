@@ -87,7 +87,7 @@ Use `Capell\Admin\Filament\Components\Forms\FileUpload` for custom fields, inclu
 ## Rules
 
 - Use translations for labels and notifications.
-- Keep package behavior in Actions; Filament pages should orchestrate.
+- Keep package behaviour in Actions; Filament pages should orchestrate.
 - Test the direct registry/tag where possible, then add one Filament render test for the user-facing surface.
 - Do not register admin UI from frontend providers.
 

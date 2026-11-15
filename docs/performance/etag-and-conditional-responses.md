@@ -22,7 +22,7 @@ Route::aliasMiddleware('frontend.etag', ETagMiddleware::class);
 
 It is **not** automatically applied to all requests—routes must explicitly assign the middleware via route attributes or middleware groups. Apply it to routes where you want conditional response support.
 
-## Behavior
+## Behaviour
 
 The middleware (`packages/frontend/src/Http/Middleware/ETagMiddleware.php`) works as follows:
 

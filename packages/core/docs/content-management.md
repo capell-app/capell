@@ -85,7 +85,7 @@ These helpers are cache-aware and respect site and language context.
 
 ## Frontend Authoring
 
-In-page editing is optional package behavior, not Core content output. Frontend Authoring loads after the public page has loaded, calls an authenticated admin-only beacon, and then decorates the page for users who can edit it.
+In-page editing is optional package behaviour, not Core content output. Frontend Authoring loads after the public page has loaded, calls an authenticated admin-only beacon, and then decorates the page for users who can edit it.
 
 Anonymous users, signed-in non-admin users, cached HTML, and static exports must receive ordinary public HTML with no edit links, authoring scripts, model IDs, field paths, selectors, permissions, package names, or signed admin URLs. If those details appear in public Blade or cached HTML, treat it as a rendering bug.
 

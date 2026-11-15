@@ -190,5 +190,5 @@ If your widget stores embedded pages under different keys, register your own ext
 
 - [Fragment caching](fragment-caching.md) — cache expensive Blade partials with surrogate key invalidation.
 - [ETag and conditional responses](etag-and-conditional-responses.md) — validate client caches without recomputing.
-- [Critical asset optimization](critical-asset-optimization.md) — defer non-critical CSS and JS for faster first paint.
+- [Critical asset optimisation](critical-asset-optimization.md) — defer non-critical CSS and JS for faster first paint.
 - [Performance index](README.md)

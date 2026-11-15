@@ -1,10 +1,10 @@
 # Actions, Data, And Settings
 
-Capell packages use Actions for behavior and Data objects for typed boundaries.
+Capell packages use Actions for behaviour and Data objects for typed boundaries.
 
 ## Actions
 
-Put package behavior in `src/Actions`.
+Put package behaviour in `src/Actions`.
 
 ```php
 <?php

@@ -27,7 +27,7 @@ Import a generated contract locally with:
 php artisan capell:site-spec-import storage/app/site-spec.json
 ```
 
-The importer validates the complete contract before writing, sanitises section HTML, requires requested extensions to be installed, and treats the normalized spec as idempotent. Remote media is accepted only from the declared public HTTPS origin, with redirect, size, aggregate-budget, and image-type controls.
+The importer validates the complete contract before writing, sanitises section HTML, requires requested extensions to be installed, and treats the normalised spec as idempotent. Remote media is accepted only from the declared public HTTPS origin, with redirect, size, aggregate-budget, and image-type controls.
 
 A page may also set typed property values with `properties`, keyed by the property key (or `set.key`). A value is a scalar, or `{"value": ..., "currency": ..., "unit": ...}` for money and measured values:
 

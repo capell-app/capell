@@ -253,7 +253,7 @@ served from the host app's `public/` directory. Avoid root-relative `src="/..."`
 or `href="/..."` in theme views because the frontend head may include a `<base>`
 tag for the configured site domain.
 
-The current direction is to use the optional frontend optimizer package for generated critical CSS. Do not add a theme-level Beasties/Critters fallback.
+The current direction is to use the optional frontend optimiser package for generated critical CSS. Do not add a theme-level Beasties/Critters fallback.
 
 ## Diagnostics And Tests
 
@@ -276,5 +276,5 @@ Package tests should cover:
 - public rendered output does not expose authoring metadata
 
 Use a route-backed frontend test for at least one seeded page. It proves package
-boot, view registration, asset planning, cache behavior, and public safety
+boot, view registration, asset planning, cache behaviour, and public safety
 together.

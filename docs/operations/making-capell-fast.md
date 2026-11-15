@@ -46,7 +46,7 @@ cached pages ship without it — see
 
 This is only the final lookup. Before it, apply the bypass list from the web-server
 contract (methods other than `GET` or `HEAD`, query strings, Laravel session cookies,
-authorization headers, signed or preview URLs, Livewire or other navigation requests)
+authorisation headers, signed or preview URLs, Livewire or other navigation requests)
 at the web server, package middleware, and CDN alike. Remember that a file served from
 disk skips the package's TTL check; where expiry has to be exact, keep those paths on
 PHP serving as the contract describes.
