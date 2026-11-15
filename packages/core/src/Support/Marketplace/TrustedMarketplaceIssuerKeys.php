@@ -32,11 +32,6 @@ final class TrustedMarketplaceIssuerKeys
         return app()->isProduction();
     }
 
-    public static function flush(): void
-    {
-        self::$pinnedByPath = [];
-    }
-
     /** @return array<string, string> key id => base64 Ed25519 public key */
     public function all(): array
     {
