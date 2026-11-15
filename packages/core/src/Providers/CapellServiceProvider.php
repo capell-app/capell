@@ -122,6 +122,7 @@ use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\IdempotencyKey;
 use Capell\Core\Models\InboundWebhookEvent;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -943,7 +944,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerInboundWebhookPruneSchedule(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
-            $schedule->command('model:prune', ['--model' => [InboundWebhookEvent::class]])
+            $schedule->command('model:prune', ['--model' => [InboundWebhookEvent::class, IdempotencyKey::class]])
                 ->dailyAt('01:30')
                 ->timezone('UTC')
                 ->withoutOverlapping()
