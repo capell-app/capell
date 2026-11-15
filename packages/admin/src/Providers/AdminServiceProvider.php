@@ -126,6 +126,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilame
 use Capell\Admin\Http\Middleware\AuthorisePeekPreview;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
+use Capell\Admin\Listeners\GrantPanelAccessToInstallUser;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Listeners\RevokePendingInvitation;
 use Capell\Admin\Livewire\Header\AdminTools;
@@ -268,6 +269,7 @@ use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
+use Capell\Core\Events\InstallUserCreated;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\BlockTemplate;
@@ -792,6 +794,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerModelInterceptors()
             ->registerPageUrlRewritePrompt()
             ->registerInvitationRevocation()
+            ->registerInstallUserPanelAccess()
             ->registerExtensionNavigationBadgeInvalidation()
             ->registerActAsOwnerAuditing()
             ->registerEventSourcingBridges()
@@ -1493,6 +1496,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     private function registerPageUrlRewritePrompt(): self
     {
         Event::listen(PageUrlsRewritten::class, [RememberPageUrlRewriteForPrompt::class, 'handle']);
+
+        return $this;
+    }
+
+    private function registerInstallUserPanelAccess(): self
+    {
+        Event::listen(InstallUserCreated::class, [GrantPanelAccessToInstallUser::class, 'handle']);
 
         return $this;
     }
