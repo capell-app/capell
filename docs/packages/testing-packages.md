@@ -261,6 +261,34 @@ it('declares a theme manifest the theme loader accepts', function (): void {
 - `bootProviders($app, $role)` registers the package through the production provider loader for a runtime role, so provider isolation and boot behaviour are tested, not only metadata.
 - `assertThemeManifest()` and `assertThemeUsesSafeAssetUrls()` are for theme packages.
 
+<a id="companion-package-contract"></a>
+
+### Companion package contract
+
+Every Capell package runs the companion package contract. Build the contract from the package's own files and run it:
+
+```php
+use Capell\Core\Testing\Data\CompanionPackageContractData;
+use Capell\Core\Testing\ExtensionTestHarness;
+
+it('meets the companion package contract', function (): void {
+    ExtensionTestHarness::assertCompanionPackageContract(
+        CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
+    );
+});
+```
+
+`forPackage()` reads `capell.json`, the first runtime provider (or the first metadata provider) and every migration under `database/migrations`. Pass `authorizationAssertion`, `cacheInvalidationAssertion`, `lifecycleAssertion` or `publicRender` closures to exercise the package's own behaviour as well.
+
+Each failure starts with a check ID in brackets. These checks always run:
+
+- `[manifest.valid]`, `[provider.boot]` and `[migration.discovery]`.
+- `[security.throttles]`: declared throttles match the registered routes.
+- `[security.outbound-http]`: every class in `src` that opens an outbound connection is listed in `security.externalHttpClients.clients`, and every listed class still opens one. An SDK that wraps its own transport goes in `manualClients`. A stream read whose target is neither a URL nor evidently local needs `// capell-security-scan: local-stream <reason>` or `// capell-security-scan: remote-stream <reason>` on the line before it. Requests through the `Http` facade must set a timeout. For an address that comes from configuration, content or a user, use `OutboundHttp::guarded()`.
+- `[public-output.views]`: public Blade views hold no authoring markers, signed editor URLs, record keys, secrets, queries or cache access. Views under `filament`, `admin`, `editor`, `frontend-authoring`, `screenshots` and `mail` directories are not public. Neither is a view whose first line is `{{-- capell-security-scan: admin-view <reason> --}}`.
+
+A package opts out of `security.throttles`, `security.outbound-http` or `public-output.views` only with a decision record at `docs/decisions/contract-opt-out-<check id>.md`. The record needs a `## Decision` and a `## Reason` section, each with text. An incomplete record, or a record for any other check, fails with `[contract.opt-out]`.
+
 ### What is not available outside the monorepo
 
 Capell's internal test helpers live under the `Capell\Tests\` namespace, which is mapped in this repository's `autoload-dev` only. `CreatesAdminUser`, `TestingFrontend`, `IsolatedTestbenchSkeleton`, `PackageTestDatabaseGuard`, and the `Capell\Tests\Support\Fakes\*` doubles are **not** shipped to third-party packages. Do not reference them; write the equivalent fixture in your own package.
