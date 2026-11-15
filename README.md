@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/capell-readme-hero.jpg">
-  <img alt="The Capell wordmark on a faint drafting grid, above the lines “Extensible Laravel CMS” and “Strict coding standards. Painless upgrades.”" src="docs/images/capell-readme-hero-light.jpg">
+  <img alt="The Capell wordmark on a faint drafting grid, above the lines “Extensible Laravel CMS” and “Strict coding standards. Extend it, never fork it.”" src="docs/images/capell-readme-hero-light.jpg">
 </picture>
 
 [![Foundation 1.x](https://img.shields.io/badge/Foundation-1.x-2F855A?style=flat-square)](docs/operations/support-policy.md)
@@ -20,7 +20,7 @@ Capell is an open-source Laravel CMS, built from the ground up on Filament. It c
 - **Separate layers, each with one job.** Core holds the content model. Admin is the Filament workspace for editors. Frontend handles public routing, themes and delivery. Editing state never reaches public pages, and you render them with Blade, Livewire, Inertia or your own stack.
 - **Extension points instead of patches.** Packages add fields, widgets, themes, workflows and integrations through typed registries and stable contracts. You never edit Core to add a feature.
 - **Verified extensions you can trust.** Each verified extension shows its migrations, data access and removal path before you install it.
-- **Painless upgrades.** Strict coding standards and stable public API baselines keep upgrades predictable. You can dry-run an upgrade on a copy of your site first.
+- **A planned upgrade process.** Upgrades run through Capell's own commands, with logged steps, health checks and declared rollback rules. Public API baselines are tracked between releases, and you can rehearse an upgrade on a copy of your site before you apply it.
 
 ### In the free, MIT-licensed Foundation
 

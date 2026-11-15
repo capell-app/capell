@@ -22,7 +22,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero.jpg">
-  <img alt="The Capell wordmark on a faint drafting grid, above the lines “Extensible Laravel CMS” and “Strict coding standards. Painless upgrades.”" src="https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero-light.jpg">
+  <img alt="The Capell wordmark on a faint drafting grid, above the lines “Extensible Laravel CMS” and “Strict coding standards. Extend it, never fork it.”" src="https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero-light.jpg">
 </picture>
 
 **Capell is an open-source CMS for Laravel, built on Filament.**
