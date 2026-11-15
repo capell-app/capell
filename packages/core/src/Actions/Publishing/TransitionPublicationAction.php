@@ -70,7 +70,7 @@ final class TransitionPublicationAction
                 return $this->evaluator->unchanged(
                     $request,
                     PublicationTransitionOutcome::InvalidTransition,
-                    'capell-core::message.ai_review_required',
+                    'publication.transition.ai_review_required',
                 );
             }
         }

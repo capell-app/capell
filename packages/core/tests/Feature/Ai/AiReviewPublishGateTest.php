@@ -8,6 +8,7 @@ use Capell\Core\Actions\Publishing\TransitionPublicationAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Ai\AiProvenanceRecordData;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
+use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Enums\AiDisclosure;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
@@ -32,13 +33,18 @@ afterEach(fn () => CarbonImmutable::setTestNow());
 
 function publishAiGatePage(Page $page, PublicationTransition $transition = PublicationTransition::PublishNow): PublicationTransitionOutcome
 {
+    return publishAiGateResult($page, $transition)->outcome;
+}
+
+function publishAiGateResult(Page $page, PublicationTransition $transition = PublicationTransition::PublishNow): PublicationTransitionResultData
+{
     return TransitionPublicationAction::run(new PublicationTransitionRequestData(
         record: $page,
         transition: $transition,
         actor: new User,
         now: CarbonImmutable::now(),
         requestedTime: $transition === PublicationTransition::SchedulePublish ? CarbonImmutable::now()->addDay() : null,
-    ))->outcome;
+    ));
 }
 
 function draftAiPage(AiDisclosure $disclosure): Page
@@ -52,7 +58,10 @@ function draftAiPage(AiDisclosure $disclosure): Page
 it('blocks publishing and scheduling a page with unreviewed AI-written fields', function (PublicationTransition $transition): void {
     $page = draftAiPage(AiDisclosure::Generated);
 
-    expect(publishAiGatePage($page, $transition))->toBe(PublicationTransitionOutcome::InvalidTransition)
+    $result = publishAiGateResult($page, $transition);
+
+    expect($result->outcome)->toBe(PublicationTransitionOutcome::InvalidTransition)
+        ->and($result->reasonKey)->toBe('publication.transition.ai_review_required')
         ->and(Page::query()->whereKey($page->getKey())->sole()->isDraftSentinel())->toBeTrue();
 })->with([PublicationTransition::PublishNow, PublicationTransition::SchedulePublish]);
 
