@@ -49,6 +49,7 @@ use Capell\Core\Exceptions\UnknownInstallPreset;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Filesystem\AbsolutePath;
+use Capell\Core\Support\Install\Cli\DisplayWidthWrapper;
 use Capell\Core\Support\Install\Cli\FilamentAdminInstallPreflight;
 use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
@@ -828,6 +829,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
         $this->outputPlan($inputData, collapse: true);
+        $this->outputFreshInstallWarning($inputData);
 
         if (! $this->reviewInstallation($inputData)) {
             foreach ($originalTableConfig as $key => $value) {
@@ -1229,7 +1231,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     /**
      * Lead with the handful of facts a newcomer needs in one table, then list the mechanical detail in a
-     * second one. The execution steps are omitted because the plan printed straight after the review lists them.
+     * second one. The execution steps are left out: a line after the review summarises them, and
+     * `--plan` or `-v` lists them.
      *
      * @param  array<string, string>  $items
      * @param  array<string, list<string>>  $lists
@@ -1271,21 +1274,22 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     }
 
     /**
-     * The label column fits its longest label; the value column fills the terminal up to a readable maximum.
+     * The label column fits its longest label up to a cap; the value column fills the terminal up to a
+     * readable maximum. Both are measured in display columns.
      *
      * @param  list<array{0: string, 1: string}>  $rows
      * @return array{0: int, 1: int}
      */
     private function tableWidths(array $rows): array
     {
-        $labelWidth = $rows === [] ? 0 : max(array_map(fn (array $row): int => mb_strwidth($row[0]), $rows));
+        $labelWidth = $rows === [] ? 0 : min(24, max(array_map(fn (array $row): int => mb_strwidth($row[0]), $rows)));
 
         return [$labelWidth, min(100, max(20, (new Terminal)->getWidth() - $labelWidth - 7))];
     }
 
     /**
-     * Draw a titled two-column table whose second column wraps to the terminal, so long prose stays
-     * inside the box. A single long token such as a path or URL is left whole so it can be copied.
+     * Draw a titled two-column table that wraps both columns to fixed display widths, so a long value
+     * stays inside the box instead of pushing the table past the screen edge.
      *
      * @param  list<array{0: string, 1: string}>  $rows
      * @param  array{0: int, 1: int}|null  $widths  label and value column widths; fitted to the rows when omitted
@@ -1298,28 +1302,49 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         [$labelWidth, $valueWidth] = $widths ?? $this->tableWidths($rows);
         $table = new Table($this->output);
-        $table->setStyle('box')->setHeaderTitle(OutputFormatter::escape($title))->setColumnWidth(0, $labelWidth);
-
-        if ($widths !== null) {
-            $table->setColumnWidth(1, $valueWidth);
-        }
+        $table->setStyle('box')
+            ->setHeaderTitle(OutputFormatter::escape($title))
+            ->setColumnWidth(0, $labelWidth)
+            ->setColumnWidth(1, $valueWidth);
 
         foreach ($rows as $index => $row) {
             if ($separateRows && $index > 0) {
                 $table->addRow(new TableSeparator);
             }
 
-            $lines = array_map(
-                fn (string $line): string => implode("\n", array_map(
-                    OutputFormatter::escape(...),
-                    explode("\n", wordwrap($line, $valueWidth)),
-                )),
-                explode("\n", $row[1]),
-            );
-            $table->addRow([OutputFormatter::escape($row[0]), implode("\n", $lines)]);
+            $table->addRow([
+                $this->wrapTableCell($row[0], $labelWidth),
+                $this->wrapTableCell($row[1], $valueWidth),
+            ]);
         }
 
         $table->render();
+    }
+
+    /** Wrap each line of a cell to the column width and escape it so text such as `<email>` is not read as a formatter tag. */
+    private function wrapTableCell(string $text, int $width): string
+    {
+        $lines = [];
+
+        foreach (explode("\n", $text) as $line) {
+            array_push($lines, ...DisplayWidthWrapper::wrap($line, $width));
+        }
+
+        return implode("\n", array_map(OutputFormatter::escape(...), $lines));
+    }
+
+    /** A fresh install erases the database, so say so directly above the confirmation, where the review is last seen. */
+    private function outputFreshInstallWarning(InstallInputData $inputData): void
+    {
+        if (! $inputData->freshInstall || $this->option('plan')) {
+            return;
+        }
+
+        $connection = (string) config('database.default');
+        $this->line('<fg=red;options=bold>' . OutputFormatter::escape((string) __('capell-core::install.review.fresh_warning', [
+            'database' => $connection . ' / ' . config('database.connections.' . $connection . '.database'),
+        ])) . '</>');
+        $this->newLine();
     }
 
     private function finishPlanOnlyInstall(InstallInputData $inputData): int
