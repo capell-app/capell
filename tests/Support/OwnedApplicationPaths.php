@@ -10,6 +10,12 @@ use Illuminate\Support\ServiceProvider;
 
 final class OwnedApplicationPaths
 {
+    /** Configuration resolved against base_path() when the config loaded, so it still names the shared skeleton. */
+    private const array BASE_PATH_CONFIG = [
+        'capell.install.welcome_routes_web_path' => 'routes/web.php',
+        'capell.install.welcome_env_path' => '.env',
+    ];
+
     public readonly string $root;
 
     private readonly mixed $allowedRoots;
@@ -19,6 +25,9 @@ final class OwnedApplicationPaths
 
     /** @var array<string, array<string, string>> */
     private readonly array $publications;
+
+    /** @var array<string, mixed> */
+    private readonly array $baseConfig;
 
     private readonly string $appPath;
 
@@ -37,6 +46,7 @@ final class OwnedApplicationPaths
         $this->root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()) . '/capell-owned-paths-' . bin2hex(random_bytes(8));
         $this->allowedRoots = config('capell.diagnostics.allowed_roots');
         config(['capell.diagnostics.allowed_roots' => [$this->root]]);
+        $this->baseConfig = array_combine(array_keys(self::BASE_PATH_CONFIG), array_map(config(...), array_keys(self::BASE_PATH_CONFIG)));
         $this->publicationGroups = ServiceProvider::$publishGroups;
         $this->publications = ServiceProvider::$publishes;
         $this->appPath = $application->path();
@@ -46,10 +56,16 @@ final class OwnedApplicationPaths
         $this->databasePath = $application->databasePath();
         $this->publicPath = $application->publicPath();
         $application->useAppPath($this->root . '/app');
+        config(array_combine(
+            array_keys(self::BASE_PATH_CONFIG),
+            array_map(fn (string $relative): string => $this->root . '/' . $relative, self::BASE_PATH_CONFIG),
+        ));
         $application->setBasePath($this->root);
-        new Filesystem()->ensureDirectoryExists($this->root);
+        new Filesystem()->ensureDirectoryExists($this->root . '/bootstrap/cache');
         file_put_contents($this->root . '/composer.json', json_encode(['autoload' => ['psr-4' => ['App\\' => 'app/']]], JSON_THROW_ON_ERROR));
         $application->useDatabasePath($this->root . '/database');
+        new Filesystem()->ensureDirectoryExists($this->root . '/database');
+        new Filesystem()->ensureDirectoryExists($this->root . '/config');
         $application->usePublicPath($this->root . '/public');
         foreach (ServiceProvider::$publishGroups as $tag => $paths) {
             ServiceProvider::$publishGroups[$tag] = $this->relocate($paths);
@@ -63,6 +79,7 @@ final class OwnedApplicationPaths
     public function restore(): void
     {
         config(['capell.diagnostics.allowed_roots' => $this->allowedRoots]);
+        config(array_combine(array_keys(self::BASE_PATH_CONFIG), $this->baseConfig));
         ServiceProvider::$publishGroups = $this->publicationGroups;
         ServiceProvider::$publishes = $this->publications;
         $this->application->useAppPath($this->appPath);

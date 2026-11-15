@@ -17,6 +17,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Capell\Tests\Support\StylesheetRuntime;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
@@ -28,10 +29,16 @@ use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
+beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
+});
+
 afterEach(function (): void {
     cleanupSetupCommandPanelProvider();
     app()->offsetUnset(DiscoverFilamentPanelsAction::class);
     app()->offsetUnset(IntegrateCapellAdminPanelAction::class);
+
+    $this->workspace->restore();
 });
 
 it('runs admin setup command successfully', function (): void {
@@ -66,6 +73,8 @@ it('runs admin setup command successfully', function (): void {
 
 it('creates every site and language the installer passes as repeated options, each with a site domain', function (): void {
     $user = User::factory()->createOne(['email' => 'repeated-options@example.com']);
+    File::ensureDirectoryExists(base_path('resources/css'));
+    File::put(base_path('resources/css/app.css'), '');
 
     // The installer runs setup in a fresh process and repeats list options once per value.
     $exitCode = resolve(ConsoleKernel::class)->handle(new ArgvInput([
