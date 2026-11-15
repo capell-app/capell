@@ -50,7 +50,10 @@ it('keeps sentinel, architecture, integration and portability cells and drops on
     $ids = array_column(TestAllScope::filter($cells, ['frontend'], array_keys($requiredBy)), 'id');
 
     expect($ids)->toContain('sentinel-unit', 'sentinel-database', 'l13-arch', 'l13-integration', 'l13-feature-frontend', 'l13-unit-frontend', 'l13-portability-sqlite')
-        ->not->toContain('l13-feature-core', 'l13-feature-admin-shard-1', 'l13-unit-installer', 'l13-feature-marketplace')
+        ->not->toContain('l13-feature-core')
+        ->not->toContain('l13-feature-admin-shard-1')
+        ->not->toContain('l13-unit-installer')
+        ->not->toContain('l13-feature-marketplace')
         ->and(TestAllScope::filter($cells, null, array_keys($requiredBy)))->toBe($cells);
 });
 
