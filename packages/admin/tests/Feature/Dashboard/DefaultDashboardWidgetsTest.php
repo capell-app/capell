@@ -19,6 +19,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\HostLoadAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
@@ -108,6 +109,7 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
         FirstRunChecklistFilamentWidget::class,
+        HostLoadAttentionFilamentWidget::class,
         NeedsAttentionFilamentWidget::class,
         SecurityAttentionFilamentWidget::class,
         ListPagesFilamentWidget::class,
@@ -206,6 +208,7 @@ it('falls back to filament sort values after pinned dashboard Filament widgets w
             AnalyticsInsightsFilamentWidget::class,
             AnalyticsRecentActivityFilamentWidget::class,
             FirstRunChecklistFilamentWidget::class,
+            HostLoadAttentionFilamentWidget::class,
             NeedsAttentionFilamentWidget::class,
             SecurityAttentionFilamentWidget::class,
             ListPagesFilamentWidget::class,

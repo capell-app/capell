@@ -401,3 +401,90 @@ it('preserves remembered dashboard scope across layout and navigation writes', f
         ->and($store->dashboardScope($user)?->language)->toBe('fr')
         ->and($store->dashboardLayout($user, false))->toBe(['work']);
 });
+
+it('opens in a modal that tells a first-time user what workspaces are and what each group is for', function (): void {
+    test()->actingAsAdmin();
+
+    $component = Livewire::test(AdminWorkspaceSwitcher::class)
+        ->assertSeeHtml('role="dialog"')
+        ->assertSee(__('capell-admin::workspace.switcher_tools.modal_heading'))
+        ->assertSee(__('capell-admin::workspace.switcher_tools.modal_description'))
+        ->assertSee(__('capell-admin::workspace.switcher_tools.footer_hint'));
+
+    foreach (AdminWorkspaceEnum::cases() as $workspace) {
+        $component->assertSee($workspace->label())
+            ->set('workspace', $workspace->value)
+            ->assertSee($workspace->description());
+    }
+});
+
+it('shows each tool with its description so people know what it does before opening it', function (): void {
+    test()->actingAsAdmin();
+
+    resolve(AdminWorkspaceRegistry::class)->register(new AdminWorkspaceItemData(
+        key: 'described-tool',
+        label: 'Described tool',
+        url: '/admin/described-tool',
+        workspaces: [AdminWorkspaceEnum::All],
+        description: 'Explains what this tool is for.',
+    ));
+
+    Livewire::test(AdminWorkspaceSwitcher::class)
+        ->assertSee('Described tool')
+        ->assertSee('Explains what this tool is for.');
+});
+
+it('names the tool on its pin control so assistive technology can tell the pins apart', function (): void {
+    test()->actingAsAdmin();
+
+    resolve(AdminWorkspaceRegistry::class)->register(new AdminWorkspaceItemData(
+        key: 'pin-me',
+        label: 'Pin me',
+        url: '/admin/pin-me',
+        workspaces: [AdminWorkspaceEnum::All],
+    ));
+
+    Livewire::test(AdminWorkspaceSwitcher::class)
+        ->assertSeeHtml('aria-label="' . e(__('capell-admin::workspace.switcher_tools.pin', ['tool' => 'Pin me'])) . '"')
+        ->call('togglePin', 'pin-me')
+        ->assertSeeHtml('aria-label="' . e(__('capell-admin::workspace.switcher_tools.unpin', ['tool' => 'Pin me'])) . '"');
+});
+
+it('explains why the list is empty instead of showing a blank panel', function (): void {
+    test()->actingAsAdmin();
+
+    $component = Livewire::test(AdminWorkspaceSwitcher::class)
+        ->set('workspace', AdminWorkspaceEnum::Marketer->value);
+
+    expect($component->instance()->toolItems())->toBe([]);
+
+    $component->assertSee(__('capell-admin::workspace.switcher_tools.empty_group', ['workspace' => AdminWorkspaceEnum::Marketer->label()]))
+        ->set('search', 'zzz-no-match')
+        ->assertSee(__('capell-admin::workspace.switcher_tools.empty_search', ['search' => 'zzz-no-match']));
+});
+
+it('hides the tools heading when every matching tool is already pinned', function (): void {
+    test()->actingAsAdmin();
+
+    resolve(AdminWorkspaceRegistry::class)->register(new AdminWorkspaceItemData(
+        key: 'only-tool',
+        label: 'Only tool',
+        url: '/admin/only-tool',
+        workspaces: [AdminWorkspaceEnum::All],
+    ));
+
+    $component = Livewire::test(AdminWorkspaceSwitcher::class)
+        ->set('workspace', AdminWorkspaceEnum::All->value)
+        ->set('search', 'Only tool');
+
+    $component->assertSee(__('capell-admin::workspace.switcher_tools.results'));
+
+    $component->call('togglePin', 'only-tool');
+
+    expect($component->instance()->toolItems())->toBe([])
+        ->and($component->instance()->pinnedItems())->toHaveCount(1);
+
+    $component->assertSee(__('capell-admin::workspace.switcher_tools.pinned'))
+        ->assertDontSee(__('capell-admin::workspace.switcher_tools.results'))
+        ->assertDontSee(__('capell-admin::workspace.switcher_tools.empty_search', ['search' => 'Only tool']));
+});

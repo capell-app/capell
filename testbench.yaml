@@ -31,7 +31,6 @@ providers:
   - Saade\FilamentAdjacencyList\FilamentAdjacencyListServiceProvider
   - BezhanSalleh\FilamentShield\FilamentShieldServiceProvider
   - CodeWithDennis\FilamentSelectTree\FilamentSelectTreeServiceProvider
-  - CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider
   - Pboivin\FilamentPeek\FilamentPeekServiceProvider
   - STS\FilamentImpersonate\FilamentImpersonateServiceProvider
   - Guava\IconPicker\IconPickerServiceProvider

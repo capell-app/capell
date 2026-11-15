@@ -7,7 +7,6 @@ namespace Capell\Core\Tests\Support\Octane;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
@@ -50,6 +49,7 @@ use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
@@ -139,7 +139,6 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => CapellCoreManager::class,
             ThemePreviewContext::class => ThemePreviewContext::class,
             FrontendContextReader::class => FrontendState::class,
-            AdminHelpRegistry::class => AdminHelpRegistry::class,
         ];
     }
 
@@ -176,6 +175,7 @@ final class SingletonLifetimeInventory
             PagePresentationRegistry::class => self::boot('Page presentation definitions are package boot registrations.'),
             WidgetPresentationRegistry::class => self::boot('Widget presentation definitions are package boot registrations.'),
             ThemeTokenStore::class => self::boot('Theme tokens are package boot registrations.'),
+            SchedulerRunRecorder::class => self::tagged('Holds the tallies for the current scheduler minute only inside the scheduler process; the Octane flush clears them so a worker never carries a run into a request.'),
             CapellCoreManager::class => self::tagged('Boot registrations persist while the manager selectively flushes only operation-derived default-page state.'),
             ComponentRegistry::class => self::tagged('Boot component registrations and namespaces persist while discovered components and the cache-presence memo are selectively flushed.'),
             CommercialCatalogueStore::class => self::delegated('The package registry runtime flush clears the memoised catalogue so a catalogue stored by another worker is re-read and re-verified.'),

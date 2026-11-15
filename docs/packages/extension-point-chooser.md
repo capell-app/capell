@@ -21,7 +21,7 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 | Add package settings migrations        | `database/settings/*` plus package install/setup registration                 | Core                  |
 | Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                                       | Core                  |
 | Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                                 | Core/Frontend         |
-| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                                  | Static export package |
+| Add static export files                | `StaticSiteExtensionRegistry::register(...)` (HTML Cache package)                                  | Static export package |
 | Extend ownership/export mapping        | `OwnershipMap::register(...)`                                                 | Migration Assistant   |
 
 ## Admin Runtime

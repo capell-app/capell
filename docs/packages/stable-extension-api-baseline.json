@@ -114,7 +114,7 @@
         },
         "core.dto.extension-contribution-traceability": {
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityData",
-            "signature": "241a67b28572c64ec1a87f56062b9d0bd6adcf892c94dab329c307b1a96db019",
+            "signature": "550052f35522474061a2f373a5c4befb07bc785a13c50cd73d363c92463e6b96",
             "contractTestId": "core.extension-contribution-traceability"
         },
         "core.dto.project-build-artifact-reference": {

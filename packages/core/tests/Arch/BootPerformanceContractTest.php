@@ -10,6 +10,7 @@ use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 
@@ -142,7 +143,52 @@ it('never leaves a production web request unable to boot after capell:package-ca
     }
 });
 
-function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?CapellPackageRegistry $registry = null): PackageRegistryBootstrapper
+it('rediscovers packages outside production when Composer installed packages after the manifest cache was written', function (): void {
+    $root = storage_path('framework/testing/stale-manifest-cache-' . bin2hex(random_bytes(6)));
+    File::ensureDirectoryExists($root . '/vendor/composer');
+    $cachePath = $root . '/capell-package-manifests.php';
+    $installedPath = $root . '/vendor/composer/installed.json';
+    $staleOnly = 'vendor/stale-cache-only';
+    file_put_contents($cachePath, '<?php return ' . var_export([
+        $staleOnly => capellManifestV3Array(name: $staleOnly),
+    ], return: true) . ';');
+    file_put_contents($installedPath, '{"packages":[]}');
+
+    try {
+        // Composer ran after the cache was written: the cached set is out of date.
+        touch($cachePath, Date::now()->subMinutes(1)->getTimestamp());
+        touch($installedPath, Date::now()->getTimestamp());
+        $rediscovered = new CapellPackageRegistry;
+        bootstrapperForWebRequest($cachePath, isProduction: false, registry: $rediscovered, basePath: $root)->bootstrap();
+
+        expect($rediscovered->has($staleOnly))->toBeFalse()
+            ->and($rediscovered->has('capell-app/core'))->toBeTrue();
+
+        // The cache is newer than Composer's record: it is trusted as before.
+        touch($installedPath, Date::now()->subMinutes(2)->getTimestamp());
+        $cached = new CapellPackageRegistry;
+        bootstrapperForWebRequest($cachePath, isProduction: false, registry: $cached, basePath: $root)->bootstrap();
+
+        expect($cached->has($staleOnly))->toBeTrue();
+
+        // Production keeps the deploy contract: the cache is used even when Composer is newer.
+        touch($installedPath, Date::now()->getTimestamp());
+        $production = new CapellPackageRegistry;
+        bootstrapperForWebRequest($cachePath, isProduction: true, registry: $production, basePath: $root)->bootstrap();
+
+        expect($production->has($staleOnly))->toBeTrue();
+
+        // Production console boots (artisan, scheduler, queue workers) keep the cache too.
+        $productionConsole = new CapellPackageRegistry;
+        bootstrapperForWebRequest($cachePath, isProduction: true, registry: $productionConsole, basePath: $root, runningInConsole: true)->bootstrap();
+
+        expect($productionConsole->has($staleOnly))->toBeTrue();
+    } finally {
+        File::deleteDirectory($root);
+    }
+});
+
+function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?CapellPackageRegistry $registry = null, ?string $basePath = null, bool $runningInConsole = false): PackageRegistryBootstrapper
 {
     $registry ??= new CapellPackageRegistry;
     $application = Mockery::mock(Application::class);
@@ -153,8 +199,9 @@ function bootstrapperForWebRequest(string $cachePath, bool $isProduction, ?Capel
     );
     $application->shouldReceive('register')->andReturnUsing(fn (mixed $provider): ServiceProvider => app()->register($provider));
     $application->shouldReceive('bootstrapPath')->with('cache/capell-package-manifests.php')->andReturn($cachePath);
-    $application->shouldReceive('runningInConsole')->andReturnFalse();
+    $application->shouldReceive('runningInConsole')->andReturn($runningInConsole);
     $application->shouldReceive('environment')->with('production')->andReturn($isProduction);
+    $application->shouldReceive('basePath')->with('vendor/composer/installed.json')->andReturn(($basePath ?? base_path()) . '/vendor/composer/installed.json');
 
     return new PackageRegistryBootstrapper(
         $application,

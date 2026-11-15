@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Plugin;
 
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Capell\Admin\Actions\ResolveAdminHelpAction;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
@@ -29,7 +28,6 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
-use Capell\Admin\Support\AdminGlossary;
 use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
@@ -38,7 +36,6 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
-use CmsMulti\FilamentClearCache\FilamentClearCachePlugin;
 use Filament\Actions\Action;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament as FilamentFacade;
@@ -215,18 +212,6 @@ class CapellAdminPlugin implements Plugin
         });
 
         $panel->renderHook(
-            name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
-            hook: function (): ?View {
-                $entry = ResolveAdminHelpAction::run();
-
-                return $entry === null ? null : view('capell-admin::components.admin-help', [
-                    'entry' => $entry,
-                    'glossary' => AdminGlossary::terms(),
-                ]);
-            },
-        );
-
-        $panel->renderHook(
             name: PanelsRenderHook::SIDEBAR_FOOTER,
             hook: fn (): ?View => in_array(RecentlyDeletedPage::class, FilamentFacade::getCurrentPanel()?->getPages() ?? [], true) && RecentlyDeletedPage::canAccess()
                 ? view('capell-admin::components.sidebar-recently-deleted', ['url' => RecentlyDeletedPage::getUrl()])
@@ -246,16 +231,17 @@ class CapellAdminPlugin implements Plugin
             ->brandLogoHeight('2.2rem')
             ->defaultAvatarProvider(InlineSvgAvatarProvider::class)
             ->userMenuItems($this->getUserMenuItems())
+            // Everything sits before the search box: workspaces and tools first, then the site being edited.
+            ->renderHook(
+                name: PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                hook: fn (): View => view($headerActionsView),
+            )
             ->renderHook(
                 name: PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 hook: fn (): View => view(
                     $sitesView,
                     ['sites' => SiteLoader::getSites()],
                 ),
-            )
-            ->renderHook(
-                name: PanelsRenderHook::GLOBAL_SEARCH_AFTER,
-                hook: fn (): View => view($headerActionsView),
             )
             ->renderHook(
                 name: PanelsRenderHook::SIDEBAR_NAV_START,
@@ -361,7 +347,7 @@ class CapellAdminPlugin implements Plugin
             workspaces: [AdminWorkspaceEnum::Editor],
             roles: [$this->workspaceRole('editor')],
             permission: ResourceEnum::Page->permission('view_any'),
-            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.no_pages_description'),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::workspace.tool_descriptions.pages'),
             icon: Heroicon::OutlinedDocumentText,
             sort: 10,
         ));
@@ -400,10 +386,6 @@ class CapellAdminPlugin implements Plugin
 
         if (! $panel->hasPlugin('spatie-laravel-translatable')) {
             $panel->plugin(SpatieTranslatablePlugin::make());
-        }
-
-        if (! $panel->hasPlugin('filament-clear-cache')) {
-            $panel->plugin(FilamentClearCachePlugin::make());
         }
 
         try {

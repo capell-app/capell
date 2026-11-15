@@ -84,7 +84,8 @@ Use the documented extension points instead of extending Filament resources dire
 Implement `Capell\Admin\Contracts\EditorImpact\EditorImpactConsequencePlanner`
 and tag the implementation with its `TAG` to contribute typed
 `EditorImpactConsequenceData` to the existing Media and Layout impact previews
-and the Page editor's on-demand **Content impact before save** action.
+and the confirmation the Page editor shows on **Save** when other content
+depends on the page.
 Core does not import optional cache or search packages. The host or package
 adapter resolves the real work and supplies translated labels, exact scoped
 counts, bounded URL examples and, when measurable, an approximate duration and

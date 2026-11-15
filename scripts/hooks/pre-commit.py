@@ -18,7 +18,7 @@ class HookFailure(RuntimeError):
 # Refresh this fingerprint when reviewing a change to the repository hook set.
 # Unknown configurations keep the conservative all-dependencies behaviour.
 KNOWN_HOOK_CONFIG_SHA256 = '4a2884b48252ba73822186b1b94ab3bdf95cc6918de0f110df478d345263ccf5'
-KNOWN_HOOK_IMPLEMENTATION_SHA256 = 'f7b728efe6afb1bf37e40b223199998dbe14b9f1169a647bfc65175f695e1a2b'
+KNOWN_HOOK_IMPLEMENTATION_SHA256 = '854f36a1cce17f02fe8fc7ad2cf6f46a76cdaf2778cff6b0eec5805d270293ed'
 HOOK_IMPLEMENTATIONS = (
     'scripts/guards/index-integrity.sh', 'scripts/guards/pre-commit-analysis.sh',
     'scripts/guards/pre-push-analysis.sh', 'scripts/check-debugging.py',
@@ -87,15 +87,46 @@ def dependency_inventory(directory):
 
 
 # The root package.json declares the shared screenshot runner as file:../capell-screenshot-tools, so npm links it to
-# a sibling directory that is deliberately outside every checkout and is never copied into the snapshot. This is the
-# only external dependency link the hook tolerates; any other link that leaves the checkout is still refused.
+# a sibling directory that is deliberately outside every checkout and is never copied into the snapshot. Worktrees
+# under the shared .capell-wt root clone node_modules from the primary checkout, so their link resolves to the
+# primary checkout's sibling rather than their own. Those two canonical siblings, and the node_modules/.bin shims that
+# resolve through the sanctioned link into them, are the only external dependency links the hook tolerates; any other
+# link that leaves the checkout is still refused.
 SANCTIONED_NPM_LINK = '@capell-app/screenshot-tools'
 SANCTIONED_NPM_LINK_SIBLING = 'capell-screenshot-tools'
 
 
+def primary_checkout(root):
+    try:
+        common = os.fsdecode(run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd=root)).strip()
+    except HookFailure:
+        return root
+    return Path(os.path.abspath(Path(common).parent))
+
+
+def sanctioned_siblings(root):
+    return {Path(os.path.realpath(checkout.parent / SANCTIONED_NPM_LINK_SIBLING))
+            for checkout in (root, primary_checkout(root))}
+
+
 def is_sanctioned_external_link(root, directory, relative, target):
     return (directory == 'node_modules' and str(relative) == SANCTIONED_NPM_LINK
-            and target == Path(os.path.abspath(root.parent / SANCTIONED_NPM_LINK_SIBLING)))
+            and Path(os.path.realpath(target)) in sanctioned_siblings(root))
+
+
+def resolves_through_sanctioned_link(root, directory, link_target):
+    """A shim such as node_modules/.bin/capell-screenshots that points into the sanctioned package."""
+    if directory != 'node_modules':
+        return False
+    package = root / 'node_modules' / SANCTIONED_NPM_LINK
+    if not link_target.is_relative_to(package) or not package.is_symlink():
+        return False
+    sibling = Path(os.path.abspath(os.path.join(package.parent, os.readlink(package))))
+    sibling = Path(os.path.realpath(sibling))
+    if sibling not in sanctioned_siblings(root):
+        return False
+    resolved = link_target.resolve()
+    return resolved.is_relative_to(sibling) and resolved.exists()
 
 
 def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True):
@@ -132,6 +163,9 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
                 continue
             target = Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))
             if is_sanctioned_external_link(root, name, relative, target):
+                link = destination / relative
+                link.unlink()
+                link.symlink_to(target, target_is_directory=True)
                 continue
             isolated_target = snapshot / target.relative_to(root)
             link = destination / relative
@@ -143,7 +177,10 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             if info[0] != 'link':
                 continue
             link = destination / relative
-            if is_sanctioned_external_link(root, name, relative, Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))):
+            target = Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))
+            if is_sanctioned_external_link(root, name, relative, target):
+                continue
+            if resolves_through_sanctioned_link(root, name, target):
                 continue
             if not link.resolve().is_relative_to(snapshot.resolve()) or not link.exists():
                 raise HookFailure(f'Dependency symlink {source / relative} has no safe snapshot target.')

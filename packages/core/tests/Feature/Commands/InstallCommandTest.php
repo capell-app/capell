@@ -13,6 +13,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
@@ -33,6 +34,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -52,6 +54,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
 beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
     // The review tables wrap to the terminal; a wide one keeps each value on a single line to assert on.
     putenv('COLUMNS=240');
     ClearCachesAction::clearFake();
@@ -68,6 +71,7 @@ afterEach(function (): void {
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
     cleanupInstallTestApplicationFiles();
+    $this->workspace->restore();
 });
 
 afterEach(function (): void {
@@ -2206,6 +2210,32 @@ it('requires a password when creating role users non-interactively', function ()
     ])
         ->expectsOutput('Pass --role-user-password=<password> when using --role-users non-interactively.')
         ->assertExitCode(Command::FAILURE);
+});
+
+it('names the admin details and the role-user password together when both are missing', function (): void {
+    setupInstallTest();
+    dropUsersTableForInstallTest();
+
+    expect(fn () => artisanCommand('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--role-users' => true,
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--no-interaction' => true,
+    ])->run())->toThrow(
+        NonInteractiveInputRequiredException::class,
+        'Admin user is required in non-interactive mode. Pass --name=<name>, --email=<email>, and --password=<password>. Also: Pass --role-user-password=<password> when using --role-users.',
+    );
+});
+
+it('keeps the original missing-input failure when another requirement is added', function (): void {
+    $original = new NonInteractiveInputRequiredException('Admin user', 'Pass --user=<email>.');
+
+    $combined = $original->withAlsoRequired('Pass --role-user-password=<password>.');
+
+    expect($combined->getMessage())->toBe('Admin user is required in non-interactive mode. Pass --user=<email>. Also: Pass --role-user-password=<password>.')
+        ->and($combined->getPrevious())->toBe($original);
 });
 
 it('allows creating a new admin user when users already exist', function (): void {
