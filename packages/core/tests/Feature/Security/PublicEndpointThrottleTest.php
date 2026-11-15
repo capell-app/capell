@@ -92,3 +92,58 @@ it('gives signed-in actors on one address their own bucket unless the actor is i
     'keyed by actor' => [false, false],
     'ignoring the actor' => [true, true],
 ]);
+
+it('spends in-action buckets per server-resolved subject and caps the client across subjects', function (): void {
+    $throttle = PublicEndpointThrottle::for('capell-tests-thread')->allow(1)->perSeconds(60);
+    $request = Request::create('/thread', Symfony\Component\HttpFoundation\Request::METHOD_POST, server: ['REMOTE_ADDR' => '203.0.113.30']);
+    RateLimiter::clear($throttle->keyFor($request, withRouteParameters: false));
+
+    expect($throttle->hit($request, ['thread' => 'post:1']))->toBeTrue()
+        ->and($throttle->hit($request, ['thread' => 'post:1']))->toBeFalse()
+        ->and($throttle->availableIn($request, ['thread' => 'post:1']))->toBeGreaterThan(0);
+
+    foreach (range(2, PublicEndpointThrottle::CEILING_MULTIPLIER) as $thread) {
+        expect($throttle->hit($request, ['thread' => 'post:' . $thread]))->toBeTrue();
+    }
+
+    expect($throttle->hit($request, ['thread' => 'post:99']))->toBeFalse()
+        ->and($throttle->availableIn($request, ['thread' => 'post:99']))->toBeGreaterThan(0);
+});
+
+it('spends nothing when a request is refused', function (): void {
+    $throttle = PublicEndpointThrottle::for('capell-tests-refused')->allow(1)->perSeconds(60);
+    $request = Request::create('/refused', Symfony\Component\HttpFoundation\Request::METHOD_POST, server: ['REMOTE_ADDR' => '203.0.113.31']);
+    $ceiling = $throttle->keyFor($request, withRouteParameters: false);
+    RateLimiter::clear($ceiling);
+
+    $throttle->hit($request, ['thread' => 'post:1']);
+    $throttle->hit($request, ['thread' => 'post:1']);
+    $throttle->hit($request, ['thread' => 'post:1']);
+
+    expect(RateLimiter::attempts($ceiling))->toBe(1);
+});
+
+it('keeps an actor-only bucket when the client changes address, and clears it on request', function (): void {
+    $user = User::factory()->create();
+    $throttle = PublicEndpointThrottle::for('capell-tests-password')->allow(1)->perSeconds(60)->ignoringClientAddress();
+    $from = static function (string $address) use ($user): Request {
+        $request = Request::create('/password', Symfony\Component\HttpFoundation\Request::METHOD_POST, server: ['REMOTE_ADDR' => $address]);
+        $request->setUserResolver(static fn (): User => $user);
+
+        return $request;
+    };
+    $throttle->clear($from('203.0.113.40'));
+
+    expect($throttle->hit($from('203.0.113.40')))->toBeTrue()
+        ->and($throttle->hit($from('203.0.113.41')))->toBeFalse();
+
+    $throttle->clear($from('203.0.113.41'));
+
+    expect($throttle->hit($from('203.0.113.42')))->toBeTrue();
+});
+
+it('refuses a bucket keyed on neither the client address nor the actor', function (): void {
+    $throttle = PublicEndpointThrottle::for('capell-tests-global')->ignoringActor()->ignoringClientAddress();
+
+    expect(fn (): bool => $throttle->hit(Request::create('/global')))->toThrow(InvalidArgumentException::class);
+});
