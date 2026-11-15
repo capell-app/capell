@@ -43,9 +43,7 @@ final class OwnedApplicationPaths
 
     public function __construct(private readonly Application $application)
     {
-        // The name keeps "testbench": ClearCachesAction decides whether to skip optimize:clear from the bootstrap path, and the
-        // hosted runners fail that command once the path no longer looks like the Testbench harness.
-        $this->root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()) . '/capell-owned-paths-testbench-' . bin2hex(random_bytes(8));
+        $this->root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()) . '/capell-owned-paths-' . bin2hex(random_bytes(8));
         $this->allowedRoots = config('capell.diagnostics.allowed_roots');
         config(['capell.diagnostics.allowed_roots' => [$this->root]]);
         $this->baseConfig = array_combine(array_keys(self::BASE_PATH_CONFIG), array_map(config(...), array_keys(self::BASE_PATH_CONFIG)));
