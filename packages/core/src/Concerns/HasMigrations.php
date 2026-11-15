@@ -103,6 +103,7 @@ trait HasMigrations
             '2026_11_14_000010_create_capell_ai_provenance_table',
             '2026_11_15_000001_add_source_fingerprints_to_translations_table',
             '2026_11_15_000010_create_capell_idempotency_keys_table',
+            '2026_11_15_000020_add_claim_tokens_to_capell_idempotency_keys_table',
         ];
     }
 

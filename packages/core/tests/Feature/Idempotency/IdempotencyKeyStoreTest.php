@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\IdempotencyClaimState;
 use Capell\Core\Exceptions\MismatchedIdempotentPayload;
+use Capell\Core\Exceptions\StaleIdempotencyClaim;
 use Capell\Core\Models\IdempotencyKey;
+use Capell\Core\Support\Idempotency\IdempotencyClaim;
 use Capell\Core\Support\Idempotency\IdempotencyKeyStore;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -83,3 +85,57 @@ it('only completes or releases a claim this caller acquired', function (): void 
 
     $store->complete($store->claim('order:42', 'hash-a', 600), ['charge_id' => 'ch_1']);
 })->throws(InvalidArgumentException::class);
+
+it("refuses to let a caller whose claim was taken over complete it, and keeps the new holder's claim", function (): void {
+    $store = new IdempotencyKeyStore;
+    $stale = $store->claim('order:42', 'hash-a', 60);
+
+    $this->travel(61)->seconds();
+    $current = $store->claim('order:42', 'hash-a', 60);
+
+    expect($current->state)->toBe(IdempotencyClaimState::Acquired)
+        ->and($current->token)->not->toBe($stale->token)
+        ->and(fn () => $store->complete($stale, ['charge_id' => 'ch_stale']))->toThrow(StaleIdempotencyClaim::class);
+
+    $store->release($stale);
+    $store->complete($current, ['charge_id' => 'ch_current']);
+
+    expect($store->claim('order:42', 'hash-a', 60)->result)->toBe(['charge_id' => 'ch_current']);
+});
+
+it('refuses to complete a key twice', function (): void {
+    $store = new IdempotencyKeyStore;
+    $claim = $store->claim('order:42', 'hash-a', 600);
+    $store->complete($claim, ['charge_id' => 'ch_1']);
+
+    expect(fn () => $store->complete($claim, ['charge_id' => 'ch_2']))->toThrow(StaleIdempotencyClaim::class);
+});
+
+it('keeps a permanently completed result through expiry and pruning', function (): void {
+    $store = new IdempotencyKeyStore;
+    $store->completePermanently($store->claim('payment:7', 'hash-a', 60), ['reference' => 'pay_7']);
+    $store->complete($store->claim('order:1', 'hash-a', 60), ['charge_id' => 'ch_1']);
+
+    $this->travel(400)->days();
+    Artisan::call('model:prune', ['--model' => [IdempotencyKey::class]]);
+
+    expect(IdempotencyKey::query()->pluck('key')->all())->toBe(['payment:7'])
+        ->and($store->claim('payment:7', 'hash-a', 60)->result)->toBe(['reference' => 'pay_7'])
+        ->and(fn (): IdempotencyClaim => $store->claim('payment:7', 'hash-b', 60))->toThrow(MismatchedIdempotentPayload::class);
+});
+
+it('retains a completed result for the requested period, not the claim lifetime', function (): void {
+    $store = new IdempotencyKeyStore;
+    $store->complete($store->claim('order:42', 'hash-a', 60), ['charge_id' => 'ch_1'], retainSeconds: 3600);
+
+    $this->travel(30)->minutes();
+
+    expect($store->claim('order:42', 'hash-a', 60)->state)->toBe(IdempotencyClaimState::Completed);
+});
+
+it('clears the claim token once the result is stored', function (): void {
+    $store = new IdempotencyKeyStore;
+    $store->complete($store->claim('order:42', 'hash-a', 600), ['charge_id' => 'ch_1']);
+
+    expect(DB::table((new IdempotencyKey)->getTable())->where('key', 'order:42')->value('claim_token'))->toBeNull();
+});
