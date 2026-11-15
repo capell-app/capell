@@ -116,22 +116,22 @@
                     </section>
                 @endif
 
-                <section>
-                    <h3
-                        class="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"
-                    >
-                        {{ $search === '' ? __('capell-admin::workspace.switcher_tools.tools') : __('capell-admin::workspace.switcher_tools.results') }}
-                    </h3>
-                    @if ($this->toolItems() !== [])
+                @if ($this->toolItems() !== [])
+                    <section>
+                        <h3
+                            class="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {{ $search === '' ? __('capell-admin::workspace.switcher_tools.tools') : __('capell-admin::workspace.switcher_tools.results') }}
+                        </h3>
                         <ul>
                             @foreach ($this->toolItems() as $item)
                                 @include('capell-admin::livewire.header.partials.workspace-tool-row', ['item' => $item, 'section' => 'tool', 'modalId' => $modalId])
                             @endforeach
                         </ul>
-                    @elseif ($this->pinnedItems() === [] && $this->recentItems() === [])
-                        <p class="p-2 text-sm text-gray-500 dark:text-gray-400">{{ $this->emptyMessage() }}</p>
-                    @endif
-                </section>
+                    </section>
+                @elseif ($this->pinnedItems() === [] && $this->recentItems() === [])
+                    <p class="p-2 text-sm text-gray-500 dark:text-gray-400">{{ $this->emptyMessage() }}</p>
+                @endif
             </div>
         </div>
 

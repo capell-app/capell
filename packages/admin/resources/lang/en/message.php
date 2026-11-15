@@ -12,7 +12,6 @@ return [
     'extension_panel_security_excluded' => 'Excluded panel security middleware requires a fresh application.',
     'extension_panel_route_ambiguous' => "This route was registered for more than one admin panel, so it cannot be held to a single panel's security middleware.",
     'extension_panel_security_order' => "Panel security middleware cannot run before this route's own middleware, so the route is refused.",
-    'clear_cache_requires_global_admin' => 'Only a global administrator can clear the caches, because clearing them affects every site. Ask a global administrator to clear them.',
     'clear_all_caches_confirmation' => 'Every cached page on every site is removed. The next visitor to each page waits while it is rebuilt, so the site may be slower for a few minutes. Nothing you have published is changed.',
     'extension_panel_route_unowned' => "This route is not attributed to an installed panel or declared as a host route. Register it through the panel's routes or declare its host ownership.",
     'extension_panel_route_unrecorded' => 'This route runs admin code but the route cache was built by an earlier release, so it carries no record of the panel that registered it and is refused. Rebuild the route cache: php artisan route:clear && php artisan route:cache.',

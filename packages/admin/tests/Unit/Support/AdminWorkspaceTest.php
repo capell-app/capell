@@ -462,3 +462,29 @@ it('explains why the list is empty instead of showing a blank panel', function (
         ->set('search', 'zzz-no-match')
         ->assertSee(__('capell-admin::workspace.switcher_tools.empty_search', ['search' => 'zzz-no-match']));
 });
+
+it('hides the tools heading when every matching tool is already pinned', function (): void {
+    test()->actingAsAdmin();
+
+    resolve(AdminWorkspaceRegistry::class)->register(new AdminWorkspaceItemData(
+        key: 'only-tool',
+        label: 'Only tool',
+        url: '/admin/only-tool',
+        workspaces: [AdminWorkspaceEnum::All],
+    ));
+
+    $component = Livewire::test(AdminWorkspaceSwitcher::class)
+        ->set('workspace', AdminWorkspaceEnum::All->value)
+        ->set('search', 'Only tool');
+
+    $component->assertSee(__('capell-admin::workspace.switcher_tools.results'));
+
+    $component->call('togglePin', 'only-tool');
+
+    expect($component->instance()->toolItems())->toBe([])
+        ->and($component->instance()->pinnedItems())->toHaveCount(1);
+
+    $component->assertSee(__('capell-admin::workspace.switcher_tools.pinned'))
+        ->assertDontSee(__('capell-admin::workspace.switcher_tools.results'))
+        ->assertDontSee(__('capell-admin::workspace.switcher_tools.empty_search', ['search' => 'Only tool']));
+});
