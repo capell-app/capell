@@ -13,6 +13,11 @@ pattern='^(packages|tests)/.+\.php$|^scripts/benchmark-boot.*\.php$'
 
 case "${1:-}" in
     record)
+        # The commit runner checks an isolated snapshot repository that borrows this
+        # repository's objects through an alternate; the ledger belongs to the real one.
+        if [ -n "${CAPELL_NO_STASH_HOOK:-}" ] && [ -f .git/objects/info/alternates ]; then
+            dir="$(dirname "$(head -n 1 .git/objects/info/alternates)")/capell-analysed"
+        fi
         mkdir -p "$dir"
         : > "$dir/$(git write-tree)"
         ;;

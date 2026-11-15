@@ -56,8 +56,17 @@ commit_php() { # <file> <content> [--no-verify]
     if [ "${3:-}" = --no-verify ]; then
         git -C "$repo" -c core.hooksPath= commit -qm "$2"
     else
-        # What pre-commit does: the analysis hook runs before the commit is made.
-        (cd "$repo" && env HOME="$scratch/home" RECORD="$scratch/rec" PATH="$bin:/usr/bin:/bin" "${COMMIT_ENV[@]}" \
+        # What the Capell pre-commit runner does: the hook runs in an isolated snapshot repository
+        # that borrows this repository's objects through an alternate.
+        snapshot="$scratch/snapshot"
+        rm -rf "$snapshot"
+        git init -q "$snapshot"
+        printf '%s\n' "$repo/.git/objects" > "$snapshot/.git/objects/info/alternates"
+        cp "$repo/.git/index" "$snapshot/.git/index"
+        git -C "$snapshot" checkout-index --all --force
+        cp -R "$repo/vendor" "$snapshot/vendor"
+        cp "$repo/scripts/with-lock.php" "$snapshot/scripts/with-lock.php"
+        (cd "$snapshot" && env HOME="$scratch/home" RECORD="$scratch/rec" PATH="$bin:/usr/bin:/bin" CAPELL_NO_STASH_HOOK=1 "${COMMIT_ENV[@]}" \
             bash scripts/guards/pre-commit-analysis.sh "packages/demo/$1") > /dev/null 2>&1 || return 1
         git -C "$repo" -c core.hooksPath= commit -qm "$2"
     fi
