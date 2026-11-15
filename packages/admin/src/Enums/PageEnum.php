@@ -13,6 +13,7 @@ use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Filament\Pages\SiteAdminMetricsPage;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Pages\SitemapPage;
+use Capell\Admin\Filament\Pages\TranslationBoardPage;
 use Capell\Admin\Filament\Pages\UpgradePage;
 
 enum PageEnum: string
@@ -34,6 +35,8 @@ enum PageEnum: string
     case SettingsPage = SettingsPage::class;
 
     case SitemapPage = SitemapPage::class;
+
+    case TranslationBoard = TranslationBoardPage::class;
 
     case UpgradePage = UpgradePage::class;
 
