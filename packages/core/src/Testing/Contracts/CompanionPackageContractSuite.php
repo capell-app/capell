@@ -6,6 +6,7 @@ namespace Capell\Core\Testing\Contracts;
 
 use AssertionError;
 use Capell\Core\Testing\Assertions\AssertsCacheInvalidation;
+use Capell\Core\Testing\Assertions\AssertsDeclaredThrottles;
 use Capell\Core\Testing\Assertions\AssertsExtensionManifest;
 use Capell\Core\Testing\Assertions\AssertsPackageLifecycle;
 use Capell\Core\Testing\Assertions\AssertsPublicOutputSafety;
@@ -23,6 +24,7 @@ final class CompanionPackageContractSuite
             $contract->migrations,
             $contract->lifecycleAssertion,
         );
+        AssertsDeclaredThrottles::run($contract->manifestPath);
 
         if ($contract->authorizationAssertion instanceof Closure && ($contract->authorizationAssertion)() !== true) {
             throw new AssertionError(sprintf('[authorization.protected-resource] %s: authorization assertion failed.', $contract->packageRoot));

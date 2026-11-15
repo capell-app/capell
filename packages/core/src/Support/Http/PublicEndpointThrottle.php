@@ -23,6 +23,12 @@ use InvalidArgumentException;
  * Register once in a provider's boot method, then guard the route with `throttle:<purpose>`:
  *
  *     PublicEndpointThrottle::for('capell-forms-submit')->allow(5)->perSeconds(60)->register();
+ *
+ * Work that is not a route of its own, such as a Livewire action, spends the same buckets
+ * with hit(). Its subject is a server-resolved identity, such as the record being commented
+ * on, never a value the client submitted:
+ *
+ *     $throttle->hit($request, ['thread' => $post->getMorphClass() . ':' . $post->getKey()]);
  */
 final class PublicEndpointThrottle
 {
@@ -36,6 +42,8 @@ final class PublicEndpointThrottle
     private int $decaySeconds = 60;
 
     private bool $keyedByActor = true;
+
+    private bool $keyedByClientAddress = true;
 
     /** @var list<string> */
     private array $routeParameters = [];
@@ -81,6 +89,18 @@ final class PublicEndpointThrottle
     }
 
     /**
+     * Key on the signed-in actor alone, so changing address does not reset the bucket, as for
+     * guesses at a signed-in user's current password. Requests without an actor share one
+     * address-free bucket per route, so use this only where an actor is always present.
+     */
+    public function ignoringClientAddress(): self
+    {
+        $this->keyedByClientAddress = false;
+
+        return $this;
+    }
+
+    /**
      * Give each value of a named route parameter, such as the form being posted to, its own
      * bucket. The throttle runs before route binding, so the value is the raw path segment
      * and a client can invent values. A second, parameter-free bucket therefore caps the
@@ -95,24 +115,30 @@ final class PublicEndpointThrottle
         return $this;
     }
 
-    /** @return list<Limit> */
-    public function limitsFor(Request $request): array
+    /**
+     * @param  array<string, int|string>  $subject  server-resolved identities that each get their own bucket
+     * @return list<Limit>
+     */
+    public function limitsFor(Request $request, array $subject = []): array
     {
-        $limits = [new Limit($this->keyFor($request), $this->maxAttempts, $this->decaySeconds)];
+        $limits = [new Limit($this->keyFor($request, subject: $subject), $this->maxAttempts, $this->decaySeconds)];
 
-        if ($this->routeParameters !== []) {
+        if ($this->routeParameters !== [] || $subject !== []) {
             $limits[] = new Limit($this->keyFor($request, withRouteParameters: false), $this->maxAttempts * self::CEILING_MULTIPLIER, $this->decaySeconds);
         }
 
         return $limits;
     }
 
-    public function keyFor(Request $request, bool $withRouteParameters = true): string
+    /** @param  array<string, int|string>  $subject */
+    public function keyFor(Request $request, bool $withRouteParameters = true, array $subject = []): string
     {
+        throw_if(! $this->keyedByClientAddress && ! $this->keyedByActor, InvalidArgumentException::class, sprintf('Throttle [%s] must key on the client address, the actor or both.', $this->purpose));
+
         $route = $request->route();
         $parts = [
             $this->purpose,
-            (string) $request->ip(),
+            $this->keyedByClientAddress ? (string) $request->ip() : '',
             $route?->getName() ?? $route?->uri() ?? $request->path(),
         ];
 
@@ -121,11 +147,68 @@ final class PublicEndpointThrottle
             $parts[] = $name . '=' . (is_scalar($value) ? (string) $value : (is_object($value) && method_exists($value, 'getRouteKey') ? (string) $value->getRouteKey() : ''));
         }
 
+        foreach ($subject as $name => $value) {
+            throw_if($name === '', InvalidArgumentException::class, 'A throttle subject needs a name.');
+
+            $parts[] = 'subject.' . $name . '=' . $value;
+        }
+
         if ($this->keyedByActor) {
             $parts[] = 'actor=' . ($request->user()?->getAuthIdentifier() ?? '');
         }
 
         return $this->purpose . ':' . hash('sha256', implode('|', $parts));
+    }
+
+    /**
+     * Spend one attempt from every bucket, unless one is already full. Returns false, and spends
+     * nothing, when the request is over a limit.
+     *
+     * @param  array<string, int|string>  $subject
+     */
+    public function hit(Request $request, array $subject = []): bool
+    {
+        $limits = $this->limitsFor($request, $subject);
+
+        foreach ($limits as $limit) {
+            if (RateLimiter::tooManyAttempts($limit->key, $limit->maxAttempts)) {
+                return false;
+            }
+        }
+
+        foreach ($limits as $limit) {
+            RateLimiter::hit($limit->key, $limit->decaySeconds);
+        }
+
+        return true;
+    }
+
+    /**
+     * Seconds until every full bucket has room again; zero when none is full.
+     *
+     * @param  array<string, int|string>  $subject
+     */
+    public function availableIn(Request $request, array $subject = []): int
+    {
+        $seconds = 0;
+
+        foreach ($this->limitsFor($request, $subject) as $limit) {
+            if (RateLimiter::tooManyAttempts($limit->key, $limit->maxAttempts)) {
+                $seconds = max($seconds, RateLimiter::availableIn($limit->key));
+            }
+        }
+
+        return $seconds;
+    }
+
+    /**
+     * Forget the subject's own bucket, as after a correct password. The shared ceiling keeps its count.
+     *
+     * @param  array<string, int|string>  $subject
+     */
+    public function clear(Request $request, array $subject = []): void
+    {
+        RateLimiter::clear($this->limitsFor($request, $subject)[0]->key);
     }
 
     public function register(): void
