@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\Install\ArtisanCommandResultData;
+use Capell\Core\Exceptions\ArtisanCommandNotFoundException;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -12,7 +13,6 @@ use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use RuntimeException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 final class CallArtisanCommandAction
@@ -58,9 +58,7 @@ final class CallArtisanCommandAction
 
         $commandList = $probe->isSuccessful() ? $probe->getOutput() : '';
 
-        if ($this->commandIsMissing($command, $commandList)) {
-            throw new RuntimeException(__('capell-core::install.command.not_found', ['command' => $command]));
-        }
+        throw_if($this->commandIsMissing($command, $commandList), ArtisanCommandNotFoundException::class, $command);
 
         // A failed or malformed probe is a boot failure, not proof that the
         // command is missing. Run it so its actual output and status survive.

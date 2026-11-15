@@ -112,6 +112,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
+use Capell\Core\Listeners\RebuildPackageCacheAfterPackageDiscovery;
 use Capell\Core\Listeners\RecordSitePublishedOnHomePagePublication;
 use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
@@ -280,6 +281,7 @@ use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Composer\InstalledVersions;
+use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -388,6 +390,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         if (! $this->app->runningInConsole()) {
             return;
         }
+
+        Event::listen(CommandFinished::class, RebuildPackageCacheAfterPackageDiscovery::class);
 
         $package->hasCommands([
             AgentSchemaVerifyCommand::class,

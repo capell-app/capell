@@ -40,22 +40,22 @@ it('reports internal Capell method, property and constant use without reporting 
 
 it('reports nothing for the provider the end-to-end tutorial tells authors to write', function (): void {
     $root = dirname(__DIR__, 5);
-    $directory = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial';
+    $directory = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/src';
     $config = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/extension-rule.neon';
     $process = new Process([PHP_BINARY, $root . '/vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', '--configuration=' . $config, $directory], $root);
     $process->run();
 
     $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
 
-    expect($result['result'] ?? null)->toBe('passed')
-        ->and($result['errors'] ?? null)->toBe(0)
-        ->and($process->getExitCode())->toBe(0);
+    expect($process->getExitCode())->toBe(0, $process->getOutput())
+        ->and($result['files'] ?? [])->toBe([])
+        ->and($result['error_details'] ?? [])->toBe([]);
 });
 
 it('keeps the tutorial provider snippet identical to the analysed fixture', function (): void {
     $root = dirname(__DIR__, 5);
     $doc = file_get_contents($root . '/docs/packages/build-extension-end-to-end.md');
-    $fixture = file_get_contents($root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/AnnouncementBarServiceProvider.php');
+    $fixture = file_get_contents($root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/src/Providers/AnnouncementBarServiceProvider.php');
 
     $section = substr($doc, (int) strpos($doc, '## Provider Registration'));
     preg_match('/```php\n(.*?)\n```/s', $section, $snippet);

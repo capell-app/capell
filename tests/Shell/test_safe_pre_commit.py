@@ -716,6 +716,64 @@ link.symlink_to(target, target_is_directory=True)
         self.assertIn('Dependency symlink', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
 
+    def stage_screenshot_tools_link_in_capell_wt_worktree(self, sibling, *, with_bin_shims=True, existing=False):
+        # Mirrors scripts/init-worktree.sh: a worktree under the shared .capell-wt root whose cloned node_modules
+        # link points at the primary checkout's sibling, not at .capell-wt/capell-screenshot-tools.
+        external = Path(self.temp.name) / sibling
+        (external / 'bin').mkdir(parents=True, exist_ok=existing)
+        (external / 'package.json').write_text('{"name":"@capell-app/screenshot-tools","version":"1.0.0"}')
+        for script in ('capell-screenshots.mjs', 'capell-screenshot-receipts.mjs'):
+            if not (external / 'bin' / script).is_symlink():
+                (external / 'bin' / script).write_text('#!/usr/bin/env node')
+        link = {'resolved': '../capell-screenshot-tools', 'link': True}
+        (self.root / 'package.json').write_text(json.dumps({'name': 'fixture', 'devDependencies': {'@capell-app/screenshot-tools': 'file:../capell-screenshot-tools'}}))
+        (self.root / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
+            '': {'name': 'fixture', 'devDependencies': {'@capell-app/screenshot-tools': 'file:../capell-screenshot-tools'}},
+            '../capell-screenshot-tools': {'name': '@capell-app/screenshot-tools', 'version': '1.0.0'},
+            'node_modules/@capell-app/screenshot-tools': link}}))
+        self.git('add', 'package.json', 'package-lock.json')
+        self.git('commit', '-qm', 'screenshot tools link')
+        self.assertEqual(self.install().returncode, 0)
+        worktree = Path(self.temp.name) / '.capell-wt' / 'feature'
+        self.git('worktree', 'add', '-q', '-b', 'feature', str(worktree))
+        (worktree / 'node_modules/@capell-app').mkdir(parents=True)
+        (worktree / 'node_modules/@capell-app/screenshot-tools').symlink_to(external, target_is_directory=True)
+        (worktree / 'node_modules/.package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
+            '../capell-screenshot-tools': {'name': '@capell-app/screenshot-tools', 'version': '1.0.0', 'dev': True},
+            'node_modules/@capell-app/screenshot-tools': link}}))
+        if with_bin_shims:
+            (worktree / 'node_modules/.bin').mkdir()
+            for shim in ('capell-screenshots', 'capell-screenshot-receipts'):
+                (worktree / 'node_modules/.bin' / shim).symlink_to(f'../@capell-app/screenshot-tools/bin/{shim}.mjs')
+        (worktree / 'file.txt').write_text('staged\n')
+        subprocess.run(['git', 'add', 'file.txt'], cwd=worktree, check=True, env=BASE_ENV)
+        hooks = Path(self.git('rev-parse', '--path-format=absolute', '--git-common-dir').stdout.strip()) / 'hooks'
+        return worktree, subprocess.run([str(hooks / 'pre-commit')], cwd=worktree, env=self.env,
+                                        text=True, capture_output=True, timeout=300)
+
+    def test_a_capell_wt_worktree_accepts_the_primary_checkouts_screenshot_runner_and_its_bin_shims(self):
+        (self.events / 'continue').write_text('go')
+        _, result = self.stage_screenshot_tools_link_in_capell_wt_worktree('capell-screenshot-tools')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.events / 'ready').exists())
+
+    def test_a_capell_wt_worktree_still_refuses_a_lookalike_runner_link(self):
+        _, result = self.stage_screenshot_tools_link_in_capell_wt_worktree('other-tools', with_bin_shims=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Dependency symlink', result.stderr)
+        self.assertFalse((self.events / 'ready').exists())
+
+    def test_a_capell_wt_worktree_still_refuses_a_bin_shim_that_escapes_the_runner(self):
+        # The shim is lexically inside the sanctioned package, but the runner file it names is itself a link out.
+        escape = Path(self.temp.name) / 'elsewhere.mjs'
+        escape.write_text('')
+        (Path(self.temp.name) / 'capell-screenshot-tools/bin').mkdir(parents=True)
+        (Path(self.temp.name) / 'capell-screenshot-tools/bin/capell-screenshots.mjs').symlink_to(escape)
+        _, result = self.stage_screenshot_tools_link_in_capell_wt_worktree('capell-screenshot-tools', existing=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('has no safe snapshot target', result.stderr)
+        self.assertFalse((self.events / 'ready').exists())
+
     def test_known_documentation_hooks_ignore_unrelated_broken_dependency_trees(self):
         self.mark_fixture_hooks_known()
         (self.root / 'node_modules').mkdir()

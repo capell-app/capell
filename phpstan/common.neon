@@ -65,4 +65,5 @@ parameters:
         - ../scripts/release/ReleaseEngine.php
         - ../scripts/release/BuildReleaseNotesAction.php
         - ../scripts/check-stable-extension-api.php
+        - ../scripts/check-docs-class-references.php
         - ../tests/Pest.php

@@ -74,5 +74,29 @@
             }
         ],
         "categories": ["foundation", "installer"]
+    },
+    "contributionTraceability": {
+        "contributions": [
+            {
+                "type": "admin-page",
+                "key": "Capell\\Installer\\Filament\\Pages\\InstallCapellPage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "Capell\\Installer\\Filament\\Pages\\InstallGuidePage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "Capell\\Installer\\Filament\\Pages\\InstallProgressPage",
+                "providerBucket": "admin"
+            },
+            {
+                "type": "admin-page",
+                "key": "bridge:capell-app/installer:Capell\\Installer\\Bridges\\InstallerAdminBridge",
+                "providerBucket": "admin"
+            }
+        ]
     }
 }

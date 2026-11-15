@@ -73,6 +73,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The merge group's diff narrows the per-package cells; the other events run the full matrix.
+          fetch-depth: ${{ inputs.merge_queue_evidence && 0 || 1 }}
           persist-credentials: false
 
       - name: Setup PHP
@@ -86,11 +88,16 @@ jobs:
         shell: bash
         env:
           TARGET_CELL: ${{ inputs.cell }}
+          MERGE_BASE_SHA: ${{ inputs.merge_queue_evidence && github.event.merge_group.base_sha || '' }}
+          MERGE_HEAD_SHA: ${{ inputs.merge_queue_evidence && github.event.merge_group.head_sha || '' }}
         run: |
           cell_argument=()
           if [ -n "$TARGET_CELL" ]; then
             php scripts/test-all-matrix.php target --cell="$TARGET_CELL" > /dev/null
             cell_argument=(--cell="$TARGET_CELL")
+          fi
+          if [ -n "$MERGE_BASE_SHA" ] && [ -n "$MERGE_HEAD_SHA" ]; then
+            cell_argument+=(--changed-from="$MERGE_BASE_SHA" --changed-to="$MERGE_HEAD_SHA")
           fi
           {
             echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")"

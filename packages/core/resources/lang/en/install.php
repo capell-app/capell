@@ -73,6 +73,11 @@ return [
         'failed' => "Artisan command ':command' failed with exit code :exit_code.",
         'output' => 'Output: :output',
     ],
+    'sitemap' => [
+        'generating' => 'Generating XML sitemaps…',
+        'generated' => '✓ Sitemaps generated',
+        'skipped' => 'Sitemaps were not generated: no installed package provides `:command`. Install a sitemap package such as capell-app/site-discovery, then run `php artisan :command`.',
+    ],
     'cache' => [
         'label' => 'Which caches would you like to clear?',
         'hint' => 'Keep the defaults to refresh Capell after installation. Laravel caches also clears application data stored in the default cache store.',

@@ -36,5 +36,6 @@ parameters:
     scanFiles:
         - ../scripts/test-all/TestAllDatabaseService.php
         - ../scripts/test-all/TestAllMatrix.php
+        - ../scripts/test-all/TestAllScope.php
         - ../scripts/ComposerMajorConstraints.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/tests

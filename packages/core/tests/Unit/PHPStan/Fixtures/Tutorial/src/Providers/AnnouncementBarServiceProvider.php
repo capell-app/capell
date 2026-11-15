@@ -9,7 +9,6 @@ use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\View\View;
@@ -22,6 +21,7 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     public static string $packageName = 'acme/announcement-bar';
 
+    #[Override]
     public function configurePackage(Package $package): void
     {
         $package
@@ -35,19 +35,12 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
     }
 
     #[Override]
-    protected function bootInstalledPackage(): self
+    protected function bootInstalledRuntime(): void
     {
-        $this->registerSettings();
+        $this->surface()->settingsClass('announcement-bar', AnnouncementBarSettings::class);
+
         $this->registerAdmin();
         $this->registerFrontend();
-
-        return $this;
-    }
-
-    private function registerSettings(): void
-    {
-        resolve(SettingsSchemaRegistry::class)
-            ->registerSettingsClass('announcement-bar', AnnouncementBarSettings::class);
     }
 
     private function registerAdmin(): void

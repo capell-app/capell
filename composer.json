@@ -37,6 +37,7 @@
         "docs:check": [
             "@check:docs-spelling",
             "@check:docs-links",
+            "@check:docs-classes",
             "@check:docs-orphans",
             "@check:docs-requirements",
             "@check:docs-commands",
@@ -46,6 +47,7 @@
         ],
         "check:docs-spelling": "@php scripts/check-lang-spelling.php",
         "check:docs-links": "@php scripts/check-docs-links.php",
+        "check:docs-classes": "@php scripts/check-docs-class-references.php",
         "check:docs-orphans": "@php scripts/check-docs-orphans.php",
         "check:docs-requirements": "@php scripts/check-docs-requirements.php",
         "check:docs-commands": "@php scripts/check-docs-artisan-commands.php",
@@ -322,6 +324,7 @@
             "StandalonePackage\\": "packages/admin/tests/Fixtures/StandalonePackage/src/",
             "Capell\\CompanionFixture\\": "packages/admin/tests/Fixtures/CompanionPackage/src/",
             "Capell\\Core\\Tests\\": "packages/core/tests/",
+            "Acme\\AnnouncementBar\\": "packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/src/",
             "Vendor\\ExtensionConformance\\": "packages/core/tests/Support/ExtensionConformance/",
             "Capell\\Installer\\Tests\\": "packages/installer/tests/",
             "Capell\\Marketplace\\Tests\\": "packages/marketplace/tests",
