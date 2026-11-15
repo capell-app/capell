@@ -99,7 +99,11 @@ class ReviewAiContentHeaderAction extends Action
             $fields[] = [
                 'field' => $row->field,
                 'language' => $row->language_id === null ? null : (string) ($languages[$row->language_id] ?? ''),
-                'disclosure' => (string) __('capell-admin::ai.disclosure_' . $row->disclosure->value),
+                'disclosure' => match ($row->disclosure) {
+                    AiDisclosure::None => (string) __('capell-admin::ai.disclosure_none'),
+                    AiDisclosure::Assisted => (string) __('capell-admin::ai.disclosure_assisted'),
+                    AiDisclosure::Generated => (string) __('capell-admin::ai.disclosure_generated'),
+                },
                 'capability' => $row->capability,
             ];
         }
