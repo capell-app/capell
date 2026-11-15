@@ -364,6 +364,11 @@ test('puts the install before guided setup only for a run of the guided setup en
             command.includes('GuidedSetupScreenshotFixture'),
         ),
     )
+    assert.ok(
+        !commandsForEntries([{ id: 'action-coverage-guided-setup' }]).some(
+            (command) => command.includes('ActionScreenshotFixture'),
+        ),
+    )
     assert.throws(
         () =>
             commandsForEntries([

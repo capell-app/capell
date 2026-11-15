@@ -35,5 +35,8 @@ final class GuidedSetupScreenshotFixture
             'home_copy' => ResolveGuidedSetupStateAction::homeCopyStamp($home),
         ];
         $site->forceFill(['meta' => $meta])->saveQuietly();
+
+        $refusal = ResolveGuidedSetupStateAction::refusalFor($site->refresh());
+        throw_if($refusal !== null, RuntimeException::class, 'The guided setup capture could not put the site into its owed state: ' . $refusal . '.');
     }
 }

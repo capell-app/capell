@@ -95,7 +95,14 @@ export function commandsForEntries(entries, frontendOrigin = null) {
         )
     }
 
-    if (entries.some((entry) => entry.id.startsWith('action-coverage-'))) {
+    // Setup is refused once a person has edited a page, and the action fixture saves pages.
+    if (
+        entries.some(
+            (entry) =>
+                entry.id.startsWith('action-coverage-') &&
+                !isGuidedSetupEntry(entry),
+        )
+    ) {
         commands.push(
             'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
         )
