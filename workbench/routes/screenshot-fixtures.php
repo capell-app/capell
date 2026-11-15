@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\CustomPageFieldsFixture;
+use Workbench\App\Support\InvitationScreenshotFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
@@ -83,3 +84,7 @@ Route::get('/screenshot-fixtures/actions/site', static fn (): RedirectResponse =
 Route::get('/screenshot-fixtures/custom-page-fields/{scenario}', static fn (string $scenario): RedirectResponse => redirect()->to(CustomPageFieldsFixture::editUrl($scenario)))
     ->where('scenario', 'editor|validation|reopened|public')
     ->middleware(['web', RequireScreenshotAdmin::class]);
+
+// Guests only: the accept page redirects a signed-in admin, so this fixture is captured through the anonymous frontend surface.
+Route::get('/screenshot-fixtures/actions/accept-invitation', static fn (): RedirectResponse => redirect()->to(InvitationScreenshotFixture::acceptUrl()))
+    ->middleware('web');
