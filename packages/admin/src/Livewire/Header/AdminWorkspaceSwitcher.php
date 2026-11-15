@@ -20,8 +20,6 @@ final class AdminWorkspaceSwitcher extends Component
 
     public string $search = '';
 
-    public bool $inSidebar = false;
-
     public function setWorkspace(string $workspace): void
     {
         if (AdminWorkspaceEnum::tryFrom($workspace) === null) {
@@ -85,10 +83,29 @@ final class AdminWorkspaceSwitcher extends Component
         ));
     }
 
+    /** Says why the list is empty: a search with no matches, a group the account has nothing in, or no access at all. */
+    public function emptyMessage(): string
+    {
+        $query = trim($this->search);
+
+        if ($query !== '') {
+            return (string) __('capell-admin::workspace.switcher_tools.empty_search', ['search' => $query]);
+        }
+
+        $workspace = $this->currentWorkspace();
+
+        if ($workspace === AdminWorkspaceEnum::All) {
+            return (string) __('capell-admin::workspace.switcher_tools.empty');
+        }
+
+        return (string) __('capell-admin::workspace.switcher_tools.empty_group', ['workspace' => $workspace->label()]);
+    }
+
     public function render(): View
     {
         return view('capell-admin::livewire.header.admin-workspace-switcher', [
             'workspaces' => AdminWorkspaceEnum::cases(),
+            'current' => $this->currentWorkspace(),
         ]);
     }
 

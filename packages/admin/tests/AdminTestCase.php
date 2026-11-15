@@ -13,7 +13,6 @@ use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Core\Facades\CapellCore;
 use Capell\Tests\AbstractTestCase;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider;
 use CodeWithDennis\FilamentSelectTree\FilamentSelectTreeServiceProvider;
 use Filament\Actions\ActionsServiceProvider;
 use Filament\FilamentServiceProvider;
@@ -72,7 +71,6 @@ class AdminTestCase extends AbstractTestCase
             FilamentAdjacencyListServiceProvider::class,
             FilamentShieldServiceProvider::class,
             FilamentSelectTreeServiceProvider::class,
-            FilamentClearCacheServiceProvider::class,
             FilamentPeekServiceProvider::class,
             FilamentImpersonateServiceProvider::class,
             FormsServiceProvider::class,
