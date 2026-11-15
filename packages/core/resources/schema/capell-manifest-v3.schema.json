@@ -474,11 +474,7 @@
                     "additionalProperties": {
                         "type": "object",
                         "additionalProperties": false,
-                        "required": [
-                            "maxAttempts",
-                            "decaySeconds",
-                            "routes"
-                        ],
+                        "required": ["maxAttempts", "decaySeconds", "routes"],
                         "properties": {
                             "maxAttempts": {
                                 "type": "integer",
