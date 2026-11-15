@@ -9,7 +9,7 @@ the `Update Changelog` workflow.
 
 ### Added
 
-- Reorganised the admin sidebar into fixed groups (Dashboard, then Website, Media, Design, Marketing, Business, Reports, Users, Settings and Developer). Packages choose a group from `NavigationGroupEnum` instead of registering their own, can replace a core item with `CapellAdmin::replaceNavigationItem()`, and list their settings pages on the Settings page instead of the sidebar. Limits of 8 groups and 10 items per group are enforced by tests, and Recently deleted moves to the sidebar footer. Old group labels still work and are logged as deprecated.
+- Reorganised the admin sidebar into fixed groups (Dashboard, then Website, Media, Design, Marketing, Business, Reports, Users, Settings and Developer). Packages choose a group from `NavigationGroupEnum` instead of registering their own, can replace a core item with `CapellAdmin::replaceNavigationItem()`, and list their settings pages on the Settings page instead of the sidebar. Limits of 8 groups and 10 items per group are enforced by tests, and Recently deleted moves to the sidebar footer. Old group keys and labels are no longer mapped: an item that returns one appears under Settings.
 - Documented website-specific page fields with a Client name walkthrough, extension examples, storage and lifecycle comparisons, and reproducible screenshot fixtures.
 
 - Added a progress bar across the `capell:install` steps and a closing summary of 60 lines or fewer (what was installed, the site and admin addresses and the next steps). Plain step lines replace the bar in CI and `--no-interaction` runs, and `-v` keeps the detailed install log and full handoff.
