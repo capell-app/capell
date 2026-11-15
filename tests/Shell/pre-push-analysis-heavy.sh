@@ -18,6 +18,7 @@ git init -q --bare --initial-branch=main "$origin"
 git clone -q "$origin" "$repo" 2> /dev/null
 mkdir -p "$repo/scripts/guards" "$repo/packages/demo"
 cp "$hook" "$repo/scripts/guards/pre-push-analysis.sh"
+cp "$root/scripts/guards/analysed-trees.sh" "$repo/scripts/guards/analysed-trees.sh"
 touch "$repo/README.md"
 git -C "$repo" add .
 git -C "$repo" -c core.hooksPath= commit -qm base
