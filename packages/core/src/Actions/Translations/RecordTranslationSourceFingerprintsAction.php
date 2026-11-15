@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Translations;
 
-use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -26,12 +25,6 @@ final class RecordTranslationSourceFingerprintsAction
     public function handle(Translation $translation): void
     {
         if ($translation->exists && ! $translation->isDirty(self::TRACKED_ATTRIBUTES)) {
-            return;
-        }
-
-        $language = $translation->language;
-
-        if (! $language instanceof Language || $language->isDefault()) {
             return;
         }
 
