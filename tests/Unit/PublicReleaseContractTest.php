@@ -344,11 +344,13 @@ it('documents the verified dual installation paths without exposing a real crede
     $installGuide = file_get_contents($root . '/docs/getting-started/install.md');
 
     expect($readme)->toContain('composer require capell-app/installer')
-        ->toContain('https://capell.app/composer')
         ->toContain('short-lived credential')
+        ->toContain('docs/getting-started/install.md#paid-package-access')
+        ->not->toMatch('/capell_membership_[A-Za-z0-9]{20,}/')
+        ->and($installGuide)->toContain('https://capell.app/composer')
         ->toContain('capell:install --spec=')
         ->toContain('expires 30 minutes after it is issued')
-        ->and($installGuide)->toContain('Owners, Billing members, and members with private Composer access')
+        ->toContain('Owners, Billing members, and members with private Composer access')
         ->toContain('stored only as a hash by Capell')
         ->toContain('keep that file out of source control')
         ->not->toMatch('/capell_membership_[A-Za-z0-9]{20,}/');
