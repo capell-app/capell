@@ -465,6 +465,35 @@
                         }
                     }
                 },
+                "throttles": {
+                    "description": "Rate limits for public endpoints, keyed by capell-<package>-<purpose>. Once declared, every publicSurface.throttledRoutes entry must be covered by one purpose.",
+                    "type": "object",
+                    "propertyNames": {
+                        "pattern": "^capell-[a-z0-9]+(?:-[a-z0-9]+)+$"
+                    },
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "maxAttempts",
+                            "decaySeconds",
+                            "routes"
+                        ],
+                        "properties": {
+                            "maxAttempts": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "decaySeconds": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "routes": {
+                                "$ref": "#/$defs/stringList"
+                            }
+                        }
+                    }
+                },
                 "manual": {
                     "description": "Declared, unverified route protection: routes that check their signature or token inside their own code rather than in route middleware. Each entry is a route identity (METHOD /uri (name)) with a reviewed declaration in the publishing repository. These routes are never verified signed or tokenized routes, so they never appear in publicSurface.signedRoutes or publicSurface.tokenizedRoutes.",
                     "type": "object",
