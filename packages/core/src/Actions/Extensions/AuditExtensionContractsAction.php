@@ -434,6 +434,10 @@ final class AuditExtensionContractsAction
             }
         }
 
+        foreach ($manifest->contributionTraceability->contributions ?? [] as $entry) {
+            $expected[] = [$entry->type, $entry->key, $entry->providerBucket, $entry->class, null];
+        }
+
         $matchedReceiptIds = [];
         foreach ($expected as [$type, $key, $expectedBucket, $expectedClass, $receiptImplementation]) {
             if (! in_array($expectedBucket, $bootedBuckets, true)) {
