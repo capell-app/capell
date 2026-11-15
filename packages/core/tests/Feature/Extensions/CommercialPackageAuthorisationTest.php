@@ -19,6 +19,7 @@ use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
+use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
@@ -540,4 +541,49 @@ it('re-reads a catalogue another worker stored after the per-operation flush', f
         ->and($store->classification('vendor/commercial'))->toBeNull();
     resolve(CapellCoreManager::class)->flushOctaneState();
     expect($store->classification('vendor/commercial'))->toBeFalse();
+});
+
+/** Pins the given issuer keys as if they were the keys committed with Core. */
+function pinCommercialIssuerKeys(object $test, array $keys): void
+{
+    $path = $test->commercialRoot . '/issuer-keys-' . bin2hex(random_bytes(4)) . '.json';
+    File::put($path, json_encode(['keys' => (object) $keys], JSON_THROW_ON_ERROR));
+    app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys($path));
+}
+
+it('rejects receipts signed with an owner configured key in production', function (): void {
+    connectCommercialMarketplace();
+    pinCommercialIssuerKeys($this, []);
+    // commercialReceipt() puts its signing key in configuration, which a site owner controls.
+    commercialExtensionWith(['installed_receipt_v2' => commercialReceipt()]);
+    app()->instance('env', 'production');
+
+    expect(resolve(ExtensionCommercialPolicy::class)->enforcing())->toBeTrue()
+        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse()
+        ->and(resolve(CommercialCatalogueStore::class)->accept(commercialCatalogue(false)))->toBeFalse();
+});
+
+it('fails closed in production when no issuer key is pinned', function (): void {
+    pinCommercialIssuerKeys($this, []);
+    config()->set('capell.extensions.marketplace_receipt_public_keys', []);
+    app()->instance('env', 'production');
+    $policy = resolve(ExtensionCommercialPolicy::class);
+
+    expect($policy->enforcing())->toBeTrue()
+        ->and($policy->requiresAuthorisation('capell-app/commercial-extension'))->toBeTrue()
+        // Without a pinned key no catalogue can verify, so nothing can be proved free.
+        ->and($policy->requiresAuthorisation('acme/free-extension'))->toBeTrue()
+        ->and(fn () => Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toThrow(RuntimeException::class, 'authorisation');
+});
+
+it('verifies receipts and catalogues against the pinned issuer key in production', function (): void {
+    connectCommercialMarketplace();
+    $receipt = commercialReceipt();
+    pinCommercialIssuerKeys($this, config('capell.extensions.marketplace_receipt_public_keys'));
+    config()->set('capell.extensions.marketplace_receipt_public_keys', []);
+    commercialExtensionWith(['installed_receipt_v2' => $receipt]);
+    app()->instance('env', 'production');
+
+    expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue()
+        ->and(resolve(CommercialCatalogueStore::class)->accept(commercialCatalogue(true)))->toBeTrue();
 });
