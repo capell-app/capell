@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Privacy;
 
+use Capell\Core\Contracts\Privacy\PreparesPrivacyErasure;
 use Capell\Core\Contracts\Privacy\PrivacySubjectEraser;
 use Capell\Core\Contracts\Privacy\PrivacySubjectExporter;
+use Capell\Core\Contracts\Privacy\ReviewsPrivacyErasure;
 use Capell\Core\Data\Privacy\PrivacyErasureFailureData;
 use Capell\Core\Data\Privacy\PrivacyErasureResultData;
 use Capell\Core\Data\Privacy\PrivacyExportSectionData;
+use Capell\Core\Data\Privacy\PrivacyReviewCandidateData;
 use Capell\Core\Data\Privacy\PrivacySubject;
 use Capell\Core\Enums\PrivacyErasureMode;
 use Illuminate\Contracts\Container\Container;
@@ -171,6 +174,68 @@ final class PrivacySubjectRegistry
     }
 
     /**
+     * The records a person must review before erasure, from every supporting eraser that reports them. Reporting
+     * writes nothing, so it is safe before a request is approved.
+     *
+     * @return list<PrivacyReviewCandidateData>
+     *
+     * @throws LogicException when an eraser reports a candidate under another contributor's key
+     */
+    public function reviewCandidates(PrivacySubject $subject): array
+    {
+        $candidates = [];
+
+        foreach ($this->sortedErasers() as $contributor => $eraser) {
+            if (! $eraser instanceof ReviewsPrivacyErasure) {
+                continue;
+            }
+
+            if (! $eraser->supports($subject)) {
+                continue;
+            }
+
+            array_push($candidates, ...$this->ownCandidates($contributor, $eraser->reviewCandidates($subject)));
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Asks every supporting eraser whose data another system also holds to start erasing that copy, and returns the
+     * external erasures still outstanding. Call it only for an erasure the request is otherwise ready to run.
+     *
+     * @return list<PrivacyReviewCandidateData>
+     *
+     * @throws LogicException when an eraser reports a candidate under another contributor's key
+     */
+    public function prepareErasure(PrivacySubject $subject): array
+    {
+        $outstanding = [];
+
+        foreach ($this->sortedErasers() as $contributor => $eraser) {
+            if (! $eraser instanceof PreparesPrivacyErasure) {
+                continue;
+            }
+
+            if (! $eraser->supports($subject)) {
+                continue;
+            }
+
+            array_push($outstanding, ...$this->ownCandidates($contributor, $eraser->prepareErasure($subject)));
+        }
+
+        return $outstanding;
+    }
+
+    /** Whether the contributor's eraser keeps rows a reviewer retained and erases the rest. */
+    public function honoursRetainedScopes(string $contributor): bool
+    {
+        $eraser = $this->erasers()[$contributor] ?? null;
+
+        return $eraser instanceof ReviewsPrivacyErasure && $eraser->honoursRetainedScopes();
+    }
+
+    /**
      * The contributors that would keep a suppression marker for the subject, so a
      * request can say so before erasure runs.
      *
@@ -233,5 +298,35 @@ final class PrivacySubjectRegistry
         }
 
         $this->taggedEraserCount = count($erasers);
+    }
+
+    /** @return array<string, PrivacySubjectEraser> */
+    private function sortedErasers(): array
+    {
+        $erasers = $this->erasers();
+        ksort($erasers);
+
+        return $erasers;
+    }
+
+    /**
+     * @param  array<mixed>  $candidates
+     * @return list<PrivacyReviewCandidateData>
+     */
+    private function ownCandidates(string $contributor, array $candidates): array
+    {
+        $owned = [];
+
+        foreach ($candidates as $candidate) {
+            throw_unless(
+                $candidate instanceof PrivacyReviewCandidateData && $candidate->contributor === $contributor,
+                LogicException::class,
+                sprintf('The privacy eraser [%s] reported a review candidate it does not own.', $contributor),
+            );
+
+            $owned[] = $candidate;
+        }
+
+        return $owned;
     }
 }

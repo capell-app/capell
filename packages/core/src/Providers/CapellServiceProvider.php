@@ -81,6 +81,7 @@ use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
+use Capell\Core\Contracts\Privacy\PrivacyReviewResolutions;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
@@ -226,6 +227,7 @@ use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
 use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
+use Capell\Core\Support\Privacy\UnresolvedPrivacyReviewResolutions;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
@@ -740,6 +742,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         ));
         $this->app->singleton(PublicationReadinessRegistry::class, fn ($app): PublicationReadinessRegistry => new PublicationReadinessRegistry($app));
         $this->app->singleton(PrivacySubjectRegistry::class, fn ($app): PrivacySubjectRegistry => new PrivacySubjectRegistry($app));
+        $this->app->bindIf(PrivacyReviewResolutions::class, UnresolvedPrivacyReviewResolutions::class);
         $this->app->singleton(HealthCheckRegistry::class);
         $this->callAfterResolving(HealthCheckRegistry::class, function (HealthCheckRegistry $registry): void {
             $path = config('capell.health.disk.path');
