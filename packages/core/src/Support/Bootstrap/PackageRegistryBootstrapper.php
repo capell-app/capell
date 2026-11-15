@@ -71,6 +71,12 @@ final readonly class PackageRegistryBootstrapper
     private function manifests(string $cachePath): array
     {
         if (file_exists($cachePath)) {
+            // `composer require` adds packages without touching this cache. Outside production a cache
+            // older than Composer's install record would hide them, so rediscover instead.
+            if ($this->canDiscoverOnDemand() && $this->composerChangedSince($cachePath)) {
+                return $this->manifestLoader->discover();
+            }
+
             return $this->cachedManifests($cachePath);
         }
 
@@ -95,6 +101,20 @@ final readonly class PackageRegistryBootstrapper
         }
 
         return ! $this->app->environment('production');
+    }
+
+    private function composerChangedSince(string $cachePath): bool
+    {
+        $installedPath = $this->app->basePath('vendor/composer/installed.json');
+
+        if (! is_file($installedPath)) {
+            return false;
+        }
+
+        clearstatcache(true, $installedPath);
+        clearstatcache(true, $cachePath);
+
+        return filemtime($installedPath) > filemtime($cachePath);
     }
 
     /** @return array<string, CapellManifestData> */
