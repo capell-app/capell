@@ -659,12 +659,16 @@ link.symlink_to(target, target_is_directory=True)
         self.assertIn('Dependency symlink', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
 
-    def stage_screenshot_tools_link(self, sibling):
+    def stage_screenshot_tools_link(self, sibling, bin_shim=False):
         external = Path(self.temp.name) / sibling
-        external.mkdir()
+        (external / 'src').mkdir(parents=True)
+        (external / 'src/receipt-validator-cli.mjs').write_text('export {}\n')
         (external / 'package.json').write_text('{"name":"@capell-app/screenshot-tools","version":"1.0.0"}')
         (self.root / 'node_modules/@capell-app').mkdir(parents=True)
         (self.root / 'node_modules/@capell-app/screenshot-tools').symlink_to(f'../../../{sibling}', target_is_directory=True)
+        if bin_shim:
+            (self.root / 'node_modules/.bin').mkdir()
+            (self.root / 'node_modules/.bin/capell-screenshot-receipts').symlink_to('../@capell-app/screenshot-tools/src/receipt-validator-cli.mjs')
         link = {'resolved': f'../{sibling}', 'link': True}
         (self.root / 'package.json').write_text(json.dumps({'name': 'fixture', 'devDependencies': {'@capell-app/screenshot-tools': 'file:../capell-screenshot-tools'}}))
         (self.root / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
@@ -687,6 +691,18 @@ link.symlink_to(target, target_is_directory=True)
         result = self.stage_screenshot_tools_link('capell-screenshot-tools')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.events / 'ready').exists())
+
+    def test_an_npm_bin_shim_that_reaches_the_shared_screenshot_runner_is_tolerated(self):
+        (self.events / 'continue').write_text('go')
+        result = self.stage_screenshot_tools_link('capell-screenshot-tools', bin_shim=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.events / 'ready').exists())
+
+    def test_an_npm_bin_shim_that_reaches_a_lookalike_directory_is_still_refused(self):
+        result = self.stage_screenshot_tools_link('other-tools', bin_shim=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Dependency symlink', result.stderr)
+        self.assertFalse((self.events / 'ready').exists())
 
     def test_a_lookalike_dependency_link_outside_the_checkout_is_still_refused(self):
         result = self.stage_screenshot_tools_link('other-tools')

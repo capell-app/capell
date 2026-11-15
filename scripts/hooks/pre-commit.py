@@ -98,6 +98,13 @@ def is_sanctioned_external_link(root, directory, relative, target):
             and target == Path(os.path.abspath(root.parent / SANCTIONED_NPM_LINK_SIBLING)))
 
 
+def passes_through_sanctioned_link(root, directory, target):
+    # npm also writes executable shims such as node_modules/.bin/capell-screenshot-receipts that reach the shared
+    # screenshot runner through the sanctioned link. The runner is never copied into the snapshot, so these shims
+    # cannot resolve there either, and nothing the hook runs depends on them.
+    return directory == 'node_modules' and target.is_relative_to(Path(os.path.abspath(root / 'node_modules' / SANCTIONED_NPM_LINK)))
+
+
 def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True):
     names = (['vendor'] if include_vendor else []) + (['node_modules'] if include_node else [])
     sources = [(name, root / name) for name in names if (root / name).is_dir()]
@@ -114,7 +121,7 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             elif info[0] == 'link':
                 path = source / relative
                 target = Path(os.path.abspath(os.path.join(path.parent, info[1])))
-                if is_sanctioned_external_link(root, name, relative, target):
+                if is_sanctioned_external_link(root, name, relative, target) or passes_through_sanctioned_link(root, name, target):
                     continue
                 if not target.is_relative_to(root):
                     raise HookFailure(f'Dependency symlink {path} leaves the checkout; it cannot be isolated safely.')
@@ -131,7 +138,7 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             if info[0] != 'link':
                 continue
             target = Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))
-            if is_sanctioned_external_link(root, name, relative, target):
+            if is_sanctioned_external_link(root, name, relative, target) or passes_through_sanctioned_link(root, name, target):
                 continue
             isolated_target = snapshot / target.relative_to(root)
             link = destination / relative
@@ -143,7 +150,8 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             if info[0] != 'link':
                 continue
             link = destination / relative
-            if is_sanctioned_external_link(root, name, relative, Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))):
+            resolved_target = Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))
+            if is_sanctioned_external_link(root, name, relative, resolved_target) or passes_through_sanctioned_link(root, name, resolved_target):
                 continue
             if not link.resolve().is_relative_to(snapshot.resolve()) or not link.exists():
                 raise HookFailure(f'Dependency symlink {source / relative} has no safe snapshot target.')
