@@ -17,12 +17,18 @@ use InvalidArgumentException;
  * fields never are, because a client that picks the key picks a fresh bucket on every
  * request. Laravel's limiter increments the bucket atomically in the cache store.
  *
+ * The client IP is only as trustworthy as the application's trusted proxy configuration:
+ * trusting every proxy lets a client choose its own address through X-Forwarded-For.
+ *
  * Register once in a provider's boot method, then guard the route with `throttle:<purpose>`:
  *
  *     PublicEndpointThrottle::for('capell-forms-submit')->allow(5)->perSeconds(60)->register();
  */
 final class PublicEndpointThrottle
 {
+    /** How many times the per-parameter limit one client may spend across every parameter value. */
+    public const int CEILING_MULTIPLIER = 5;
+
     private const string PURPOSE_PATTERN = '/^capell-[a-z0-9]+(?:-[a-z0-9]+)+$/';
 
     private int $maxAttempts = 60;
@@ -74,7 +80,12 @@ final class PublicEndpointThrottle
         return $this;
     }
 
-    /** Add a named route parameter, such as the form or page being posted to, to the key. */
+    /**
+     * Give each value of a named route parameter, such as the form being posted to, its own
+     * bucket. The throttle runs before route binding, so the value is the raw path segment
+     * and a client can invent values. A second, parameter-free bucket therefore caps the
+     * client at CEILING_MULTIPLIER times the limit across every value.
+     */
     public function perRouteParameter(string $name): self
     {
         throw_if($name === '', InvalidArgumentException::class, 'A throttle route parameter needs a name.');
@@ -84,12 +95,19 @@ final class PublicEndpointThrottle
         return $this;
     }
 
-    public function limitFor(Request $request): Limit
+    /** @return list<Limit> */
+    public function limitsFor(Request $request): array
     {
-        return new Limit($this->keyFor($request), $this->maxAttempts, $this->decaySeconds);
+        $limits = [new Limit($this->keyFor($request), $this->maxAttempts, $this->decaySeconds)];
+
+        if ($this->routeParameters !== []) {
+            $limits[] = new Limit($this->keyFor($request, withRouteParameters: false), $this->maxAttempts * self::CEILING_MULTIPLIER, $this->decaySeconds);
+        }
+
+        return $limits;
     }
 
-    public function keyFor(Request $request): string
+    public function keyFor(Request $request, bool $withRouteParameters = true): string
     {
         $route = $request->route();
         $parts = [
@@ -98,7 +116,7 @@ final class PublicEndpointThrottle
             $route?->getName() ?? $route?->uri() ?? $request->path(),
         ];
 
-        foreach ($this->routeParameters as $name) {
+        foreach ($withRouteParameters ? $this->routeParameters : [] as $name) {
             $value = $route?->parameter($name);
             $parts[] = $name . '=' . (is_scalar($value) ? (string) $value : (is_object($value) && method_exists($value, 'getRouteKey') ? (string) $value->getRouteKey() : ''));
         }
@@ -112,6 +130,6 @@ final class PublicEndpointThrottle
 
     public function register(): void
     {
-        RateLimiter::for($this->purpose, fn (Request $request): Limit => $this->limitFor($request));
+        RateLimiter::for($this->purpose, fn (Request $request): array => $this->limitsFor($request));
     }
 }

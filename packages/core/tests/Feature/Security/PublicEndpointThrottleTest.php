@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Http\PublicEndpointThrottle;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -59,4 +60,35 @@ it('refuses purposes outside the capell-<package>-<purpose> convention and empty
     'uppercase' => [static fn (): PublicEndpointThrottle => PublicEndpointThrottle::for('capell-Forms-submit')],
     'zero attempts' => [static fn (): PublicEndpointThrottle => PublicEndpointThrottle::for('capell-forms-submit')->allow(0)],
     'zero window' => [static fn (): PublicEndpointThrottle => PublicEndpointThrottle::for('capell-forms-submit')->perSeconds(0)],
+]);
+
+it('caps a client that invents route parameter values to mint fresh buckets', function (): void {
+    RateLimiter::clear('capell-tests-per-form');
+    PublicEndpointThrottle::for('capell-tests-per-form')->allow(1)->perSeconds(60)->perRouteParameter('form')->register();
+    Route::post('/per-form-test/{form}', static fn (): string => 'ok')->middleware('throttle:capell-tests-per-form')->name('capell-tests.throttle.per-form');
+
+    $this->post('/per-form-test/contact')->assertOk();
+    $this->post('/per-form-test/contact')->assertTooManyRequests();
+
+    foreach (range(2, PublicEndpointThrottle::CEILING_MULTIPLIER) as $invented) {
+        $this->post('/per-form-test/invented-' . $invented)->assertOk();
+    }
+
+    $this->post('/per-form-test/one-more')->assertTooManyRequests();
+});
+
+it('gives signed-in actors on one address their own bucket unless the actor is ignored', function (bool $ignoringActor, bool $secondActorBlocked): void {
+    RateLimiter::clear('capell-tests-actor');
+    $throttle = PublicEndpointThrottle::for('capell-tests-actor')->allow(1)->perSeconds(60);
+    ($ignoringActor ? $throttle->ignoringActor() : $throttle)->register();
+    Route::post('/actor-test', static fn (): string => 'ok')->middleware('throttle:capell-tests-actor')->name('capell-tests.throttle.actor');
+
+    $this->actingAs(User::factory()->create())->post('/actor-test')->assertOk();
+
+    $response = $this->actingAs(User::factory()->create())->post('/actor-test');
+
+    $secondActorBlocked ? $response->assertTooManyRequests() : $response->assertOk();
+})->with([
+    'keyed by actor' => [false, false],
+    'ignoring the actor' => [true, true],
 ]);
