@@ -67,7 +67,7 @@ it('explains how to create a site when no page exists and names the existing adm
         ->and($tips[1]['detail'])->toContain('Sites');
 });
 
-it('asks for a render check when the page exists but is not editable', function (): void {
+it('explains that the page is published and has no edit link when no Admin panel is installed', function (): void {
     $tips = (new InstallHandoffTips)->build(
         inputData: installTipsInput(),
         selectedPackages: ['capell-app/core'],
@@ -81,7 +81,27 @@ it('asks for a render check when the page exists but is not editable', function 
 
     expect(installTipKeys($tips))->toBe(['sign_in', 'first_page'])
         ->and($tips[0]['detail'])->toContain('capell-app/admin')
-        ->and($tips[1]['detail'])->toContain('https://example.test/');
+        ->and($tips[1]['detail'])->toContain('https://example.test/')
+        ->and($tips[1]['detail'])->not->toContain(':url');
+});
+
+it('sends the editor to Admin when the page is published but Admin has not loaded its edit link yet', function (): void {
+    $tips = (new InstallHandoffTips)->build(
+        inputData: installTipsInput(),
+        selectedPackages: ['capell-app/admin'],
+        completed: true,
+        needsFrontendBuild: false,
+        adminUrl: 'https://example.test/admin',
+        adminEmail: null,
+        publicUrl: 'https://example.test/',
+        firstPageStatus: 'present_unverified',
+    );
+
+    expect(installTipKeys($tips))->toBe(['sign_in', 'first_page'])
+        ->and($tips[1]['detail'])->toContain('https://example.test/')
+        ->toContain('https://example.test/admin')
+        ->not->toContain(':url')
+        ->not->toContain(':admin_url');
 });
 
 it('skips the page tip when the first page state is unavailable', function (): void {

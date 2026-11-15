@@ -264,6 +264,14 @@ return [
             'more_packages' => '+:count more',
             'more_warnings' => '…and :count more. List them with :command',
             'unavailable' => 'Unavailable',
+            'first_page' => [
+                'editable' => 'Published, and you can edit it in Admin',
+                'present_unverified' => 'Published. Admin will offer its edit link from the next request',
+                'present_unverified_no_admin' => 'Published. No Admin panel is installed to edit it',
+                'draft' => 'Created but not published yet',
+                'missing' => 'Not created yet',
+                'unavailable' => 'Could not be checked',
+            ],
             'none' => 'None',
             'full_log' => 'Run capell:install again with -v for the full install log.',
         ],
@@ -299,7 +307,11 @@ return [
             ],
             'first_page_unverified' => [
                 'label' => 'Your site',
-                'detail' => 'Your homepage is published but Admin could not open it for editing. Check :url, then open Admin → Pages.',
+                'detail' => 'Published at :url. Its edit link is ready from the next request: open :admin_url and choose Pages.',
+            ],
+            'first_page_unverified_no_admin' => [
+                'label' => 'Your site',
+                'detail' => 'Your homepage is published at :url. It has no edit link because no Admin panel is installed.',
             ],
             'first_page_draft' => [
                 'label' => 'Your site',

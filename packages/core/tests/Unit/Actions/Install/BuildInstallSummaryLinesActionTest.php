@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Install\BuildInstallSummaryLinesAction;
+use Capell\Core\Actions\Install\DescribeInstallFirstPageStatusAction;
 use Capell\Core\Data\Diagnostics\DoctorWarningSummaryData;
 use Capell\Core\Data\Install\InstallHandoffData;
 
@@ -80,4 +81,28 @@ it('keeps multi-line warnings and tips to one summary line each', function (): v
     ]));
 
     expect(count(explode("\n", implode("\n", $lines))))->toBe(count($lines));
+});
+
+it('describes the home page in words instead of printing the recorded status', function (string $status): void {
+    $text = implode("\n", BuildInstallSummaryLinesAction::run(summaryHandoff(['firstPage' => ['status' => $status]])));
+
+    expect($text)->toContain((string) __('capell-core::install.handoff.summary.home_page'))
+        ->toContain(DescribeInstallFirstPageStatusAction::run($status))
+        ->not->toContain($status . "\n");
+})->with(['editable', 'present_unverified', 'draft', 'missing', 'unavailable']);
+
+it('does not print the raw status word for a published home page awaiting its edit link', function (): void {
+    $text = implode("\n", BuildInstallSummaryLinesAction::run(summaryHandoff(['firstPage' => ['status' => 'present_unverified']])));
+
+    expect($text)->not->toContain('present_unverified');
+});
+
+it('says there is nothing to wait for when the home page has no edit link because Admin is not installed', function (): void {
+    $text = implode("\n", BuildInstallSummaryLinesAction::run(summaryHandoff([
+        'firstPage' => ['status' => 'present_unverified'],
+        'urls' => ['admin' => null, 'public' => 'https://summary.example.test/'],
+    ])));
+
+    expect($text)->toContain(DescribeInstallFirstPageStatusAction::run('present_unverified', hasAdmin: false))
+        ->not->toContain(DescribeInstallFirstPageStatusAction::run('present_unverified', hasAdmin: true));
 });
