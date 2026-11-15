@@ -252,6 +252,7 @@ return [
         'activity_log.revert',
         'activity_log.delete',
         'page.rollback',
+        'Publish:Page',
     ],
 
     /*
