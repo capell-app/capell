@@ -33,6 +33,7 @@ it('hides the source selector when one source is allowed', function (): void {
 it('shows a segmented selector when multiple sources are allowed', function (): void {
     $picker = ImageSourcePicker::make('image')
         ->allowedSources(['url', 'upload', 'media'])
+        ->defaultSource('media')
         ->sourceStatePath('meta.image_source');
 
     $children = imageSourcePickerChildren($picker);
@@ -41,16 +42,21 @@ it('shows a segmented selector when multiple sources are allowed', function (): 
     $mediaField = $children[3] ?? null;
 
     expect($children[0] ?? null)->toBeInstanceOf(ToggleButtons::class)
+        ->and($children[0]->getOptions())->toBe([
+            'media' => __('capell-admin::form.image_source_option_media'),
+            'upload' => __('capell-admin::form.image_source_option_upload'),
+            'url' => __('capell-admin::form.image_source_option_url'),
+        ])
         ->and($children)->toHaveCount(4)
         ->and($urlField)->toBeInstanceOf(TextInput::class)
         ->and($urlField->getName())->toBe('meta.image_source.url')
-        ->and($urlField->getVisibleJs())->toBe("\$get('meta.image_source.type') === 'url'")
+        ->and($urlField->getVisibleJs())->toBe("(\$get('meta.image_source.type') ?? 'media') === 'url'")
         ->and($uploadField)->toBeInstanceOf(FileUpload::class)
         ->and($uploadField->getName())->toBe('meta.image_source.path')
-        ->and($uploadField->getVisibleJs())->toBe("\$get('meta.image_source.type') === 'upload'")
+        ->and($uploadField->getVisibleJs())->toBe("(\$get('meta.image_source.type') ?? 'media') === 'upload'")
         ->and($mediaField)->toBeInstanceOf(TextInput::class)
         ->and($mediaField->getName())->toBe('image')
-        ->and($mediaField->getVisibleJs())->toBe("\$get('meta.image_source.type') === 'media'");
+        ->and($mediaField->getVisibleJs())->toBe("(\$get('meta.image_source.type') ?? 'media') === 'media'");
 });
 
 it('lets schema image source policy override blueprint policy', function (): void {

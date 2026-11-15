@@ -195,7 +195,9 @@ it('refreshes the existing panel when its parent saves and then publishes from t
     $panel = panelFor($page);
     $componentId = $panel->instance()->getId();
     expect($panel->instance()->viewData->isDraft())->toBeTrue();
-    $panel->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'));
+    $panel->assertSee(__('capell-admin::publish_panel.readiness_ready'))
+        ->assertSee(__('capell-admin::publish_panel.summary_not_live'))
+        ->assertSee(__('capell-admin::publish_panel.check_live_not_verified'));
 
     Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
         ->call('save')
@@ -204,8 +206,10 @@ it('refreshes the existing panel when its parent saves and then publishes from t
 
     expect($page->refresh()->publishVisibilityState()->value)->toBe('draft');
     $panel->dispatch('page-editor-saved', pageId: (int) $page->getKey())
-        ->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'))
-        ->callAction('publishNow');
+        ->assertSee(__('capell-admin::publish_panel.readiness_ready'))
+        ->callAction('publishNow')
+        ->assertSee(__('capell-admin::publish_panel.summary_stays_live'))
+        ->assertDontSee(__('capell-admin::publish_panel.summary_not_live'));
     expect($page->refresh()->publishVisibilityState()->value)->toBe('published');
     expect($panel->instance()->getId())->toBe($componentId)
         ->and($panel->instance()->viewData->isLive())->toBeTrue()
@@ -440,6 +444,6 @@ it('reports basic checks separately from the publication lifecycle', function (b
     expect($panel->instance()->readiness->blockingCheckIds)->toBe([])
         ->and($panel->instance()->readiness->publicEligible)->toBeFalse()
         ->and($panel->instance()->viewData->status)->toBe($scheduled ? PublishPanelStatusEnum::scheduled : PublishPanelStatusEnum::draft);
-    $panel->assertSee(__('capell-admin::publish_panel.readiness_checks_passed'))
-        ->assertDontSee(__('capell-admin::publish_panel.readiness_checks_incomplete'));
+    $panel->assertSee(__('capell-admin::publish_panel.readiness_ready'))
+        ->assertDontSee(trans_choice('capell-admin::publish_panel.readiness_to_fix', 1, ['count' => 1]));
 })->with([false, true]);
