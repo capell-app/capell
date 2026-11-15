@@ -1333,3 +1333,48 @@ it('runs every registered manifest section validator', function (string $section
     'capability contracts' => ['capabilityContracts', 'capabilityContracts'],
     'privacy' => ['privacy', 'privacy'],
 ]);
+
+it('accepts declared public endpoint throttles that cover every throttled route', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'publicSurface' => ['throttledRoutes' => ['capell-example.submit']],
+        'throttles' => [
+            'capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.submit']],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))->not->toThrow(InvalidManifestException::class);
+});
+
+it('keeps accepting throttled routes from packages that have not declared throttles yet', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = ['publicSurface' => ['throttledRoutes' => ['capell-example.submit']]];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects malformed or incomplete public endpoint throttle declarations', function (array $throttles, string $message): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'publicSurface' => ['throttledRoutes' => ['capell-example.submit']],
+        'throttles' => $throttles,
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $message);
+})->with([
+    'throttled route left uncovered' => [['capell-example-other' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.other']]], 'capell-example.submit'],
+    'purpose outside the naming convention' => [['submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.submit']]], 'security.throttles.submit'],
+    'zero attempts' => [['capell-example-submit' => ['maxAttempts' => 0, 'decaySeconds' => 60, 'routes' => ['capell-example.submit']]], 'maxAttempts'],
+    'string window' => [['capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => '60', 'routes' => ['capell-example.submit']]], 'decaySeconds'],
+    'missing routes' => [['capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60]], 'routes'],
+    'unknown field' => [['capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.submit'], 'key' => 'email']], 'security.throttles.capell-example-submit.key'],
+    'not an object' => [['capell-example-submit' => 5], 'security.throttles.capell-example-submit'],
+]);
+
+it('declares public endpoint throttles in the manifest v3 json schema', function (): void {
+    $schema = json_decode((string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect(data_get($schema, 'properties.security.properties.throttles.additionalProperties.required'))->toBe(['maxAttempts', 'decaySeconds', 'routes'])
+        ->and(data_get($schema, 'properties.security.properties.throttles.additionalProperties.additionalProperties'))->toBeFalse();
+});

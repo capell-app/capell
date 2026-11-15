@@ -9,7 +9,7 @@ use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 
 final readonly class SecuritySectionValidator implements ManifestSectionValidator
 {
-    private const array FIELDS = ['riskTier', 'publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface', 'manual'];
+    private const array FIELDS = ['riskTier', 'publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface', 'manual', 'throttles'];
 
     public function __construct(private ManifestValidationRules $rules) {}
 
@@ -35,7 +35,7 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
             throw InvalidManifestException::invalidField('security.riskTier', 'must be a non-empty string');
         }
 
-        foreach (['publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface', 'manual'] as $field) {
+        foreach (['publicSurface', 'sensitiveData', 'publicOutput', 'externalHttpClients', 'adminSurface', 'manual', 'throttles'] as $field) {
             if (array_key_exists($field, $security) && ! is_array($security[$field])) {
                 throw InvalidManifestException::invalidField('security.' . $field, 'must be an object');
             }
@@ -47,6 +47,7 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
         $this->validateExternalHttpClients($security);
         $this->validateAdminSurface($security);
         $this->validateManual($security);
+        $this->validateThrottles($security);
     }
 
     /** @param array<string, mixed> $security */
@@ -141,5 +142,67 @@ final readonly class SecuritySectionValidator implements ManifestSectionValidato
 
         $this->rules->stringList($security['manual'], 'signedRoutes', required: false);
         $this->rules->stringList($security['manual'], 'tokenizedRoutes', required: false);
+    }
+
+    /**
+     * Each throttle purpose declares its limit and the routes it guards. Once a package declares
+     * throttles, every throttled public route it lists must be covered by a declared purpose.
+     *
+     * @param  array<string, mixed>  $security
+     */
+    private function validateThrottles(array $security): void
+    {
+        $throttles = $security['throttles'] ?? null;
+
+        if (! is_array($throttles)) {
+            return;
+        }
+
+        $covered = [];
+
+        foreach ($throttles as $purpose => $throttle) {
+            array_push($covered, ...$this->validateThrottle($purpose, $throttle));
+        }
+
+        $throttledRoutes = $security['publicSurface']['throttledRoutes'] ?? [];
+
+        foreach (is_array($throttledRoutes) ? $throttledRoutes : [] as $route) {
+            if (! in_array($route, $covered, true)) {
+                throw InvalidManifestException::invalidField('security.publicSurface.throttledRoutes', sprintf('lists [%s], which no security.throttles purpose declares', is_string($route) ? $route : get_debug_type($route)));
+            }
+        }
+    }
+
+    /** @return list<string> the routes the throttle guards */
+    private function validateThrottle(int|string $purpose, mixed $throttle): array
+    {
+        $path = 'security.throttles.' . $purpose;
+
+        if (! is_string($purpose) || preg_match('/^capell-[a-z0-9]+(?:-[a-z0-9]+)+$/', $purpose) !== 1) {
+            throw InvalidManifestException::invalidField($path, 'must be named capell-<package>-<purpose>');
+        }
+
+        if (! is_array($throttle)) {
+            throw InvalidManifestException::invalidField($path, 'must be an object');
+        }
+
+        foreach (array_keys($throttle) as $field) {
+            if (! in_array($field, ['maxAttempts', 'decaySeconds', 'routes'], true)) {
+                throw InvalidManifestException::invalidField($path . '.' . $field, 'is not a throttle declaration field');
+            }
+        }
+
+        foreach (['maxAttempts', 'decaySeconds'] as $field) {
+            if (! is_int($throttle[$field] ?? null) || $throttle[$field] < 1) {
+                throw InvalidManifestException::invalidField($path . '.' . $field, 'must be a positive integer');
+            }
+        }
+
+        $this->rules->stringList($throttle, 'routes', required: true);
+
+        /** @var list<string> $routes */
+        $routes = $throttle['routes'];
+
+        return $routes;
     }
 }
