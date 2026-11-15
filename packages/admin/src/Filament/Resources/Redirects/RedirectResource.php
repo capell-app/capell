@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Redirects;
 
 use BackedEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
@@ -19,6 +20,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
+use UnitEnum;
 
 class RedirectResource extends SiteScopedResource
 {
@@ -71,9 +73,9 @@ class RedirectResource extends SiteScopedResource
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.workspace_health');
+        return NavigationGroupEnum::Website;
     }
 
     #[Override]

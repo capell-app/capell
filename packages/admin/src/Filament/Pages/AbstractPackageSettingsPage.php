@@ -9,6 +9,8 @@ use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\Extensions\ResolveExtensionUninstallAvailabilityAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Data\Extensions\ExtensionUninstallAvailabilityData;
+use Capell\Admin\Enums\NavigationGroupEnum;
+use Capell\Admin\Support\Navigation\NavigationGroupResolver;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Data\PackageData;
@@ -45,7 +47,32 @@ abstract class AbstractPackageSettingsPage extends AbstractAdminSettingsPage
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return static::settingsMetadata()?->getNavigationGroup();
+        return resolve(NavigationGroupResolver::class)->resolve(static::settingsMetadata()->navigationGroup ?? null)
+            ?? NavigationGroupEnum::Settings;
+    }
+
+    /**
+     * Package settings live in the Settings hub, grouped under the same
+     * headings as the sidebar, rather than as sidebar items of their own.
+     */
+    #[Override]
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Shown on the package's Settings hub card. Null shows no status; a
+     * package returns true once its required settings are filled in.
+     */
+    public static function isConfigured(): ?bool
+    {
+        return null;
+    }
+
+    public static function getHubDescription(): ?string
+    {
+        return null;
     }
 
     #[Override]

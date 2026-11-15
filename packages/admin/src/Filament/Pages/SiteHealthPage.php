@@ -10,6 +10,7 @@ use Capell\Admin\Actions\Diagnostics\BuildSiteHealthReportAction;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidget;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidgetWithParameters;
 use Capell\Admin\Data\Diagnostics\SiteHealthReportData;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Pages\Page;
@@ -45,9 +46,9 @@ final class SiteHealthPage extends Page
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_monitoring');
+        return NavigationGroupEnum::Settings;
     }
 
     public function mount(): void

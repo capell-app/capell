@@ -2,175 +2,79 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Enums\NavigationGroupPositionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Support\CapellAdminManager;
+use Capell\Admin\Support\Navigation\NavigationGroupResolver;
 use Filament\Navigation\NavigationGroup;
-use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function (): void {
     CapellAdmin::clearResolvedInstance(CapellAdminManager::class);
 });
 
-it('keeps the frequent website group open and collapses secondary groups', function (): void {
-    $navigationGroups = CapellAdmin::getDefaultNavigationGroups();
+it('offers the fixed groups in order, keeping website and media open', function (): void {
+    $groups = collect(CapellAdmin::getNavigationGroups());
 
-    foreach ($navigationGroups as $navigationGroup) {
-        expect($navigationGroup)
-            ->toBeInstanceOf(NavigationGroup::class)
-            ->and($navigationGroup->getIcon())->toBeNull();
-    }
-
-    $navigationGroups = collect($navigationGroups);
-    $websiteGroup = $navigationGroups->firstOrFail(
-        fn (NavigationGroup $navigationGroup): bool => $navigationGroup->getLabel() === __('capell-admin::navigation.group_websites'),
-    );
-    $settingsGroup = $navigationGroups->firstOrFail(
-        fn (NavigationGroup $navigationGroup): bool => $navigationGroup->getLabel() === __('capell-admin::navigation.group_settings'),
-    );
-    $systemGroup = $navigationGroups->firstOrFail(
-        fn (NavigationGroup $navigationGroup): bool => $navigationGroup->getLabel() === __('capell-admin::navigation.group_system'),
-    );
-
-    expect($websiteGroup->isCollapsed())->toBeFalse()
-        ->and($settingsGroup->isCollapsed())->toBeFalse()
-        ->and($systemGroup->isCollapsed())->toBeTrue();
+    expect($groups->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())
+        ->toBe(['Website', 'Media', 'Design', 'Marketing', 'Business', 'Reports', 'Users', 'Settings', 'Developer'])
+        ->and($groups->map(fn (NavigationGroup $group): bool => $group->isCollapsed())->all())
+        ->toBe([false, false, true, true, true, true, true, true, true])
+        ->and($groups->every(fn (NavigationGroup $group): bool => $group->getIcon() === null))->toBeTrue();
 });
 
-it('registers navigation groups, merges duplicates, and applies relative ordering', function (): void {
-    CapellAdmin::registerNavigationGroup(
-        label: 'Publishing',
-        icon: Heroicon::OutlinedDocumentText,
-    );
+it('keeps host supplied groups when the panel sets its own', function (): void {
+    $custom = [NavigationGroup::make('Host group')];
+
+    expect(CapellAdmin::setNavigationGroups($custom)->getNavigationGroups())->toBe($custom);
+});
+
+it('no longer adds a group when a package registers one', function (): void {
+    $log = Log::spy();
 
     CapellAdmin::registerNavigationGroup(
-        label: 'Publishing',
-        icon: Heroicon::OutlinedNewspaper,
+        label: 'Bookings',
         position: NavigationGroupPositionEnum::After,
         relativeTo: 'capell-admin::navigation.group_marketing',
     );
 
-    $navigationGroups = CapellAdmin::getNavigationGroups();
-    $labels = array_map(
-        fn (NavigationGroup $navigationGroup): ?string => $navigationGroup->getLabel(),
-        $navigationGroups,
-    );
-
-    expect(array_values(array_filter($labels, fn (?string $label): bool => $label === 'Publishing')))
-        ->toHaveCount(1)
-        ->and(array_search('Publishing', $labels, true))
-        ->toBe(array_search(__('capell-admin::navigation.group_marketing'), $labels, true) + 1);
-
-    $publishingGroup = $navigationGroups[array_search('Publishing', $labels, true)];
-
-    expect($publishingGroup->getIcon())->toBe(Heroicon::OutlinedNewspaper);
+    expect(collect(CapellAdmin::getNavigationGroups())->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())
+        ->not->toContain('Bookings');
+    $log->shouldHaveReceived('debug')->withArgs(fn (string $message): bool => str_contains($message, 'registerNavigationGroup'))->once();
 });
 
-it('orders package navigation groups while keeping the system group last', function (): void {
-    CapellAdmin::registerNavigationGroup(
-        label: 'capell-admin::navigation.group_marketing',
-        icon: Heroicon::OutlinedMegaphone,
-        position: NavigationGroupPositionEnum::Before,
-        relativeTo: 'capell-admin::navigation.group_system',
-    );
+it('records navigation item replacements', function (): void {
+    CapellAdmin::replaceNavigationItem('core.redirects', 'package.redirects');
 
-    CapellAdmin::registerNavigationGroup(
-        label: 'capell-admin::navigation.group_marketing',
-        icon: Heroicon::OutlinedEnvelope,
-        position: NavigationGroupPositionEnum::Before,
-        relativeTo: 'capell-admin::navigation.group_system',
-    );
-
-    $navigationGroups = CapellAdmin::getNavigationGroups();
-    $labels = array_map(
-        fn (NavigationGroup $navigationGroup): ?string => $navigationGroup->getLabel(),
-        $navigationGroups,
-    );
-    $marketingPosition = array_search(__('capell-admin::navigation.group_marketing'), $labels, true);
-    $systemPosition = array_search(__('capell-admin::navigation.group_system'), $labels, true);
-
-    assert(is_int($marketingPosition));
-    assert(is_int($systemPosition));
-
-    expect($marketingPosition)
-        ->toBeLessThan($systemPosition)
-        ->and($navigationGroups[$marketingPosition]->getIcon())->toBe(Heroicon::OutlinedEnvelope)
-        ->and(array_pop($labels))->toBe(__('capell-admin::navigation.group_system'));
+    expect(CapellAdmin::getNavigationReplacements())->toBe(['core.redirects' => 'package.redirects']);
 });
 
-it('merges package navigation group metadata into host supplied groups', function (): void {
-    CapellAdmin::setNavigationGroups([
-        NavigationGroup::make()
-            ->label(__('capell-admin::navigation.group_system')),
-        NavigationGroup::make()
-            ->label('Host only'),
-    ]);
+it('resolves cases, values, labels and legacy group keys to a fixed group', function (string|NavigationGroupEnum|null $group, ?NavigationGroupEnum $expected): void {
+    expect(resolve(NavigationGroupResolver::class)->resolve($group))->toBe($expected);
+})->with([
+    'enum case' => [NavigationGroupEnum::Business, NavigationGroupEnum::Business],
+    'case value' => ['marketing', NavigationGroupEnum::Marketing],
+    'case translation key' => ['capell-admin::navigation.group_users', NavigationGroupEnum::Users],
+    'case label' => ['Reports', NavigationGroupEnum::Reports],
+    'legacy content key' => ['capell-admin::navigation.group_content', NavigationGroupEnum::Website],
+    'legacy publishing label' => ['Publishing', NavigationGroupEnum::Website],
+    'legacy monitoring label' => ['Insights & health', NavigationGroupEnum::Reports],
+    'legacy customers key' => ['capell-admin::navigation.group_customers', NavigationGroupEnum::Business],
+    'legacy growth key' => ['capell-admin::navigation.group_growth', NavigationGroupEnum::Marketing],
+    'legacy system label' => ['System', NavigationGroupEnum::Settings],
+    'unknown package group' => ['Bookings', NavigationGroupEnum::Settings],
+    'dashboard' => ['capell-admin::navigation.group_dashboard', null],
+    'no group' => [null, null],
+]);
 
-    CapellAdmin::registerNavigationGroup(
-        label: 'capell-admin::navigation.group_system',
-        icon: Heroicon::OutlinedGlobeAlt,
-        collapsed: false,
-    );
+it('logs a legacy group label once', function (): void {
+    $log = Log::spy();
+    $resolver = new NavigationGroupResolver;
 
-    CapellAdmin::registerNavigationGroup(
-        label: 'Package reports',
-        icon: Heroicon::OutlinedChartBar,
-        collapsed: false,
-    );
+    $resolver->resolve('System');
+    $resolver->resolve('System');
+    $resolver->resolve(NavigationGroupEnum::Settings);
 
-    $navigationGroups = CapellAdmin::getNavigationGroups();
-    $labels = array_map(
-        fn (NavigationGroup $navigationGroup): ?string => $navigationGroup->getLabel(),
-        $navigationGroups,
-    );
-
-    $systemGroup = $navigationGroups[array_search(__('capell-admin::navigation.group_system'), $labels, true)];
-    $reportsGroup = $navigationGroups[array_search('Package reports', $labels, true)];
-
-    expect($labels)->toBe([
-        __('capell-admin::navigation.group_system'),
-        'Host only',
-        'Package reports',
-    ])
-        ->and($systemGroup->getIcon())->toBe(Heroicon::OutlinedGlobeAlt)
-        ->and($systemGroup->isCollapsed())->toBeFalse()
-        ->and($reportsGroup->getIcon())->toBe(Heroicon::OutlinedChartBar)
-        ->and($reportsGroup->isCollapsed())->toBeFalse();
+    $log->shouldHaveReceived('debug')->withArgs(fn (string $message, array $context): bool => $context === ['group' => 'System', 'mapped_to' => 'settings'])->once();
 });
-
-it('keeps relative package groups when their anchor is not present', function (): void {
-    CapellAdmin::registerNavigationGroup(
-        label: 'Before missing',
-        position: NavigationGroupPositionEnum::Before,
-        relativeTo: 'Missing anchor',
-    );
-
-    CapellAdmin::registerNavigationGroup(
-        label: 'After missing',
-        position: NavigationGroupPositionEnum::After,
-        relativeTo: 'Missing anchor',
-    );
-
-    $labels = array_map(
-        fn (NavigationGroup $navigationGroup): ?string => $navigationGroup->getLabel(),
-        CapellAdmin::getNavigationGroups(),
-    );
-    $beforeMissingPosition = array_search('Before missing', $labels, true);
-    $afterMissingPosition = array_search('After missing', $labels, true);
-    $systemPosition = array_search(__('capell-admin::navigation.group_system'), $labels, true);
-
-    assert(is_int($beforeMissingPosition));
-    assert(is_int($afterMissingPosition));
-    assert(is_int($systemPosition));
-
-    expect($labels)->toContain('Before missing', 'After missing')
-        ->and($beforeMissingPosition)->toBeLessThan($systemPosition)
-        ->and($afterMissingPosition)->toBeLessThan($systemPosition);
-});
-
-it('requires a relative group label for before and after positioning', function (): void {
-    CapellAdmin::registerNavigationGroup(
-        label: 'Broken group',
-        position: NavigationGroupPositionEnum::Before,
-    );
-})->throws(InvalidArgumentException::class, 'requires a relative group label');

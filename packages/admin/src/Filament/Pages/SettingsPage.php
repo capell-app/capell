@@ -7,11 +7,13 @@ namespace Capell\Admin\Filament\Pages;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
+use Capell\Admin\Actions\Navigation\BuildSettingsHubAction;
 use Capell\Admin\Actions\NormalizeDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\Reports\BuildReportVisibilityFormStateAction;
 use Capell\Admin\Actions\Reports\NormalizeReportVisibilitySettingsAction;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Filament\Settings\Schemas\ReportsSettingsSchema;
 use Capell\Admin\Settings\AdminSettings;
@@ -26,6 +28,7 @@ use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Filament\Support\Facades\FilamentView;
@@ -62,7 +65,7 @@ class SettingsPage extends AbstractAdminSettingsPage
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]
@@ -82,6 +85,9 @@ class SettingsPage extends AbstractAdminSettingsPage
     {
         return $schema
             ->components([
+                View::make('capell-admin::filament.pages.partials.settings-hub')
+                    ->viewData(fn (): array => ['groups' => BuildSettingsHubAction::run()])
+                    ->columnSpanFull(),
                 Tabs::make()
                     ->tabs([
                         ...$this->packageSettingsTabs($schema),

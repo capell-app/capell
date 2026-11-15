@@ -17,6 +17,15 @@ Use the words the intended reader uses for the task. Explain necessary technical
 
 For example, instead of “A valid, unexpired operator bootstrap secret is required. Ask the server operator to configure a new grant”, use: “To protect your site, enter a temporary access code before starting the installer.” Follow it with: “Need a code? Ask the person who manages your server. If that is you, follow the instructions to create one.” Link directly to those instructions.
 
+## Name navigation after what people manage
+
+Sidebar groups and items name the thing the person looks after, in plain words:
+Users, Pages, Media, Reports. Avoid category or activity words that make people
+guess what is inside: write Users rather than People, and Reports rather than
+Insights. Do not use Content, Growth, Publishing, Operations, Integrations or
+System as a group name. The fixed groups are listed in
+[admin extensions](../packages/admin-extensions.md#navigation).
+
 ## Write headings that inform
 
 These rules apply to interface text, documentation and marketing copy.

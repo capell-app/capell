@@ -50,7 +50,7 @@ final class WorkspaceNavigationManager extends NavigationManager
             $this->collectKeys($item, $registeredKeys);
         }
 
-        return resolve(WorkspaceNavigation::class)->organise($groups);
+        return resolve(AdminNavigationOrganiser::class)->organise($groups);
     }
 
     /** @param array<string, true> $keys */

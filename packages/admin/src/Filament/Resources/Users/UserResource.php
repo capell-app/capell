@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Users;
 
 use BackedEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Concerns\HasNavigationBadge;
@@ -80,7 +81,7 @@ class UserResource extends Resource
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return __('capell-admin::navigation.group_system');
+        return NavigationGroupEnum::Users;
     }
 
     #[Override]

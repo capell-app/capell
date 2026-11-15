@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Reports\BuildReportVisibilityFormStateAction;
 use Capell\Admin\Actions\Reports\NormalizeReportVisibilitySettingsAction;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\FilamentWidgetEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -316,7 +317,7 @@ it('resolves report page metadata and dispatches object actions', function (): v
     $snapshot = $page->reportSnapshot();
 
     expect(PlainReportPageForTest::getNavigationLabel())->toBe('Plain Report')
-        ->and(PlainReportPageForTest::getNavigationGroup())->toBe(__('capell-admin::navigation.group_reports'))
+        ->and(PlainReportPageForTest::getNavigationGroup())->toBe(NavigationGroupEnum::Reports)
         ->and(PlainReportPageForTest::getNavigationSort())->toBe(7)
         ->and(PlainReportPageForTest::shouldRegisterNavigation())->toBeFalse()
         ->and($page->getTitle())->toBe('Plain Report')

@@ -6,6 +6,7 @@ use Capell\Admin\Contracts\Diagnostics\SiteAwareSiteHealthReportExtender;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
 use Capell\Admin\Data\Diagnostics\DiagnosticSectionData;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthStatusFilamentWidget;
@@ -108,11 +109,11 @@ it('uses site health navigation labels', function (): void {
         ->and(resolve(SiteHealthPage::class)->getSubheading())->toBe(__('capell-admin::generic.site_health_info'));
 });
 
-it('registers site health as the monitoring navigation parent', function (): void {
+it('registers site health in the settings group', function (): void {
     grantSiteHealthPageAccess();
 
     expect(SiteHealthPage::shouldRegisterNavigation())->toBeTrue()
-        ->and(SiteHealthPage::getNavigationGroup())->toBe(__('capell-admin::navigation.group_monitoring'));
+        ->and(SiteHealthPage::getNavigationGroup())->toBe(NavigationGroupEnum::Settings);
 });
 
 it('can not render site health page without permission', function (): void {

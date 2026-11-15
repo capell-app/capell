@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Override;
@@ -31,9 +32,9 @@ final class SiteAdminMetricsPage extends Page
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_monitoring');
+        return NavigationGroupEnum::Reports;
     }
 
     #[Override]

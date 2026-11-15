@@ -783,4 +783,8 @@ return [
     'snapshot_reason_to_html' => 'Before convert to HTML',
     'snapshot_reason_restore' => 'Before restore',
     'quick_create_page_description' => 'Add the title now and fill in the content afterwards. The page is created without leaving this list.',
+    'settings_hub_heading' => 'Extension settings',
+    'settings_hub_description' => 'Settings for installed extensions, grouped the same way as the sidebar. Open one to change it.',
+    'settings_hub_configured' => 'Configured',
+    'settings_hub_not_configured' => 'Needs setting up',
 ];

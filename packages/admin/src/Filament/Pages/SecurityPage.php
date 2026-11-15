@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Support\Security\SecurityLabels;
 use Capell\Core\Actions\Security\ApplyApprovedSecurityRemediationsAction;
 use Capell\Core\Actions\Security\ApproveSecurityRemediationAction;
@@ -62,9 +63,9 @@ final class SecurityPage extends Page implements HasTable
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_security');
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]

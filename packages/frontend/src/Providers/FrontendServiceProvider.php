@@ -800,7 +800,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             group: 'frontend',
             label: 'capell-admin::generic.frontend_settings',
             icon: Heroicon::OutlinedGlobeAlt,
-            navigationGroup: 'capell-admin::navigation.group_system',
+            navigationGroup: 'settings',
             navigationSort: 92,
             packageName: self::$packageName,
         ));

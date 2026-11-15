@@ -3,20 +3,11 @@
 declare(strict_types=1);
 
 return [
-    'task_group_content' => 'Content',
-    'task_group_media' => 'Media',
-    'task_group_site' => 'Site',
-    'task_group_people' => 'People',
-    'task_group_settings' => 'Settings',
-    'task_group_reports' => 'Reports',
-    'workspace_library' => 'Content library',
-    'workspace_design' => 'Design',
-    'workspace_marketing' => 'Marketing',
-    'workspace_publishing' => 'Publishing',
-    'workspace_reports' => 'Reports',
-    'workspace_system' => 'System',
-    'workspace_health' => 'Health',
-    'section_navigation' => 'Section navigation',
+    'group_website' => 'Website',
+    'group_media' => 'Media',
+    'group_design' => 'Design',
+    'group_business' => 'Business',
+    'more' => 'More',
 
     'activity_trail' => 'Activity Log',
     'block_templates' => 'Block templates',
@@ -24,6 +15,8 @@ return [
     'broken_links' => 'Broken links',
     'extensions' => 'Extensions',
     'extension_type_uncategorised' => 'Other',
+    // Legacy group keys: packages still return these until they move to
+    // NavigationGroupEnum. They are mapped to a case and never shown as a group.
     'group_system' => 'System',
     'group_content' => 'Content',
     'group_customers' => 'Customers',
@@ -39,6 +32,7 @@ return [
     'group_security' => 'Security',
     'group_users' => 'Users',
     'group_settings' => 'Settings',
+    'group_developer' => 'Developer',
     'group_websites' => 'Website',
     'group_workflow' => 'Publishing',
     'languages' => 'Languages',

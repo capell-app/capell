@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Pages;
 use BackedEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Filament\Schemas\Components\Grid;
@@ -31,9 +32,9 @@ final class DashboardToolsPage extends CapellDashboard
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_reports');
+        return NavigationGroupEnum::Reports;
     }
 
     #[Override]

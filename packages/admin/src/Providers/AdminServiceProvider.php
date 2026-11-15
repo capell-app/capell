@@ -231,7 +231,8 @@ use Capell\Admin\Support\Media\AdminUploadGrantRepository;
 use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
-use Capell\Admin\Support\Navigation\WorkspaceNavigation;
+use Capell\Admin\Support\Navigation\AdminNavigationOrganiser;
+use Capell\Admin\Support\Navigation\NavigationGroupResolver;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
@@ -617,7 +618,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // can replace it. Admin never names the replacement; the bridge does.
         $this->app->bind(ExtensionRemovalCoordinator::class, InRequestExtensionRemovalCoordinator::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
-        $this->app->scoped(WorkspaceNavigation::class);
+        $this->app->scoped(NavigationGroupResolver::class);
+        $this->app->scoped(AdminNavigationOrganiser::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
         $this->app->scoped(MediaDuplicateIndex::class);
@@ -1615,7 +1617,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 group: $group,
                 label: $settings['label'],
                 icon: $settings['icon'],
-                navigationGroup: 'capell-admin::navigation.group_settings',
+                navigationGroup: 'settings',
                 navigationSort: $settings['sort'],
                 packageName: $settings['package'],
             ));

@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Sites;
 
 use BackedEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Concerns\HasNavigationBadge;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
+use UnitEnum;
 
 class SiteResource extends SiteScopedResource
 {
@@ -114,9 +116,9 @@ class SiteResource extends SiteScopedResource
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_websites');
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]

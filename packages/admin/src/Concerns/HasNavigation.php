@@ -6,18 +6,21 @@ namespace Capell\Admin\Concerns;
 
 use BackedEnum;
 use Capell\Admin\Data\NavigationGroupData;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Enums\NavigationGroupPositionEnum;
 use Capell\Core\Enums\ExtensionContributionType;
+use Deprecated;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Illuminate\Support\Facades\Log;
 
 trait HasNavigation
 {
     /** @var array<int, NavigationGroup> */
     protected array $navigationGroups = [];
 
-    /** @var array<string, NavigationGroupData> */
-    protected array $registeredNavigationGroups = [];
+    /** @var array<string, string> replaced item key => replacement item key */
+    protected array $navigationReplacements = [];
 
     /**
      * @return array<int, NavigationGroup>
@@ -25,8 +28,10 @@ trait HasNavigation
     public function getDefaultNavigationGroups(): array
     {
         return array_map(
-            fn (NavigationGroupData $navigationGroup): NavigationGroup => $this->makeNavigationGroup($navigationGroup),
-            $this->defaultNavigationGroupData(),
+            fn (NavigationGroupEnum $case): NavigationGroup => NavigationGroup::make()
+                ->label(fn (): string => $case->getLabel())
+                ->collapsed($case->isCollapsedByDefault()),
+            NavigationGroupEnum::cases(),
         );
     }
 
@@ -35,14 +40,7 @@ trait HasNavigation
      */
     public function getNavigationGroups(): array
     {
-        if ($this->navigationGroups !== []) {
-            return $this->mergeRegisteredNavigationGroupsIntoCustomGroups($this->navigationGroups);
-        }
-
-        return array_map(
-            fn (NavigationGroupData $navigationGroup): NavigationGroup => $this->makeNavigationGroup($navigationGroup),
-            $this->orderedNavigationGroupData(),
-        );
+        return $this->navigationGroups !== [] ? $this->navigationGroups : $this->getDefaultNavigationGroups();
     }
 
     /**
@@ -55,6 +53,7 @@ trait HasNavigation
         return $this;
     }
 
+    #[Deprecated(message: 'Sidebar groups are fixed: return a NavigationGroupEnum case from getNavigationGroup(). This call no longer adds a group.')]
     public function registerNavigationGroup(
         string $label,
         null|string|BackedEnum $icon = null,
@@ -62,25 +61,39 @@ trait HasNavigation
         ?string $relativeTo = null,
         bool $collapsed = true,
     ): static {
-        $navigationGroup = new NavigationGroupData(
-            label: $label,
-            icon: $icon,
-            position: $position,
-            relativeTo: $relativeTo,
-            collapsed: $collapsed,
-        );
-
-        $key = $this->navigationGroupKey($label);
-        $this->registeredNavigationGroups[$key] = isset($this->registeredNavigationGroups[$key])
-            ? $this->registeredNavigationGroups[$key]->merge($navigationGroup)
-            : $navigationGroup;
+        Log::debug('Deprecated: CapellAdmin::registerNavigationGroup() no longer adds sidebar groups.', ['group' => $label]);
         $this->adminReceipt(
             ExtensionContributionType::AdminActionExtender,
-            'navigation-group:' . $key,
+            'navigation-group:' . $label,
             NavigationGroupData::class,
         );
 
         return $this;
+    }
+
+    /**
+     * Shows the replacement item in the replaced item's place whenever the
+     * replacement is registered, instead of listing both. Keys are the
+     * navigation item keys, which for resources and pages are their class names.
+     */
+    public function replaceNavigationItem(string $replacedKey, string $replacementKey): static
+    {
+        $this->navigationReplacements[$replacedKey] = $replacementKey;
+        $this->adminReceipt(
+            ExtensionContributionType::AdminActionExtender,
+            'navigation-replacement:' . $replacedKey,
+            $replacementKey,
+        );
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getNavigationReplacements(): array
+    {
+        return $this->navigationReplacements;
     }
 
     /**
@@ -89,287 +102,5 @@ trait HasNavigation
     public function getNavigationItems(): array
     {
         return [];
-    }
-
-    /**
-     * @return list<NavigationGroupData>
-     */
-    private function defaultNavigationGroupData(): array
-    {
-        return [
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_dashboard',
-                position: NavigationGroupPositionEnum::Start,
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_websites',
-                collapsed: false,
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_content',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_workflow',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_layouts',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_marketing',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_customers',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_reports',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_operations',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_monitoring',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_security',
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_settings',
-                collapsed: false,
-            ),
-            new NavigationGroupData(
-                label: 'capell-admin::navigation.group_system',
-            ),
-        ];
-    }
-
-    /**
-     * @return list<NavigationGroupData>
-     */
-    private function orderedNavigationGroupData(): array
-    {
-        $navigationGroups = [];
-
-        foreach ($this->defaultNavigationGroupData() as $navigationGroup) {
-            $navigationGroups[$this->navigationGroupKey($navigationGroup->label)] = $navigationGroup;
-        }
-
-        foreach ($this->registeredNavigationGroups as $navigationGroupKey => $navigationGroup) {
-            $navigationGroups[$navigationGroupKey] = isset($navigationGroups[$navigationGroupKey])
-                ? $navigationGroups[$navigationGroupKey]->merge($navigationGroup)
-                : $navigationGroup;
-        }
-
-        $orderedNavigationGroups = [];
-
-        foreach ($navigationGroups as $navigationGroupKey => $navigationGroup) {
-            if ($navigationGroup->position === NavigationGroupPositionEnum::Start) {
-                $orderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-            }
-        }
-
-        foreach ($navigationGroups as $navigationGroupKey => $navigationGroup) {
-            if ($navigationGroup->position === NavigationGroupPositionEnum::End) {
-                $orderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-            }
-        }
-
-        // A translated package label can merge into an earlier default group.
-        // Its relative target must exist before applying the package's position.
-        foreach ($navigationGroups as $navigationGroupKey => $navigationGroup) {
-            if (in_array($navigationGroup->position, [NavigationGroupPositionEnum::Before, NavigationGroupPositionEnum::After], true)) {
-                $this->insertNavigationGroup($orderedNavigationGroups, $navigationGroupKey, $navigationGroup);
-            }
-        }
-
-        $this->moveSystemNavigationGroupToEnd($orderedNavigationGroups);
-
-        return array_values($orderedNavigationGroups);
-    }
-
-    /**
-     * @param  array<string, NavigationGroupData>  $orderedNavigationGroups
-     */
-    private function insertNavigationGroup(
-        array &$orderedNavigationGroups,
-        string $navigationGroupKey,
-        NavigationGroupData $navigationGroup,
-    ): void {
-        if (
-            $navigationGroup->position === NavigationGroupPositionEnum::Before
-            && $navigationGroup->relativeTo !== null
-        ) {
-            $this->insertNavigationGroupBefore($orderedNavigationGroups, $navigationGroupKey, $navigationGroup);
-
-            return;
-        }
-
-        if (
-            $navigationGroup->position === NavigationGroupPositionEnum::After
-            && $navigationGroup->relativeTo !== null
-        ) {
-            $this->insertNavigationGroupAfter($orderedNavigationGroups, $navigationGroupKey, $navigationGroup);
-
-            return;
-        }
-
-        $orderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-    }
-
-    /**
-     * @param  array<string, NavigationGroupData>  $orderedNavigationGroups
-     */
-    private function insertNavigationGroupBefore(
-        array &$orderedNavigationGroups,
-        string $navigationGroupKey,
-        NavigationGroupData $navigationGroup,
-    ): void {
-        $relativeNavigationGroupKey = $this->navigationGroupKey((string) $navigationGroup->relativeTo);
-
-        if (! array_key_exists($relativeNavigationGroupKey, $orderedNavigationGroups)) {
-            $orderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-
-            return;
-        }
-
-        $reorderedNavigationGroups = [];
-
-        foreach ($orderedNavigationGroups as $orderedNavigationGroupKey => $orderedNavigationGroup) {
-            if ($orderedNavigationGroupKey === $relativeNavigationGroupKey) {
-                $reorderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-            }
-
-            $reorderedNavigationGroups[$orderedNavigationGroupKey] = $orderedNavigationGroup;
-        }
-
-        $orderedNavigationGroups = $reorderedNavigationGroups;
-    }
-
-    /**
-     * @param  array<string, NavigationGroupData>  $orderedNavigationGroups
-     */
-    private function insertNavigationGroupAfter(
-        array &$orderedNavigationGroups,
-        string $navigationGroupKey,
-        NavigationGroupData $navigationGroup,
-    ): void {
-        $relativeNavigationGroupKey = $this->navigationGroupKey((string) $navigationGroup->relativeTo);
-
-        if (! array_key_exists($relativeNavigationGroupKey, $orderedNavigationGroups)) {
-            $orderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-
-            return;
-        }
-
-        $reorderedNavigationGroups = [];
-
-        foreach ($orderedNavigationGroups as $orderedNavigationGroupKey => $orderedNavigationGroup) {
-            $reorderedNavigationGroups[$orderedNavigationGroupKey] = $orderedNavigationGroup;
-
-            if ($orderedNavigationGroupKey === $relativeNavigationGroupKey) {
-                $reorderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-            }
-        }
-
-        $orderedNavigationGroups = $reorderedNavigationGroups;
-    }
-
-    /**
-     * @param  array<string, NavigationGroupData>  $orderedNavigationGroups
-     */
-    private function moveSystemNavigationGroupToEnd(array &$orderedNavigationGroups): void
-    {
-        $systemNavigationGroupKey = $this->navigationGroupKey('capell-admin::navigation.group_system');
-
-        if (! array_key_exists($systemNavigationGroupKey, $orderedNavigationGroups)) {
-            return;
-        }
-
-        $systemNavigationGroup = $orderedNavigationGroups[$systemNavigationGroupKey];
-
-        unset($orderedNavigationGroups[$systemNavigationGroupKey]);
-
-        $orderedNavigationGroups[$systemNavigationGroupKey] = $systemNavigationGroup;
-    }
-
-    /**
-     * @param  array<int, NavigationGroup>  $navigationGroups
-     * @return array<int, NavigationGroup>
-     */
-    private function mergeRegisteredNavigationGroupsIntoCustomGroups(array $navigationGroups): array
-    {
-        if ($this->registeredNavigationGroups === []) {
-            return $navigationGroups;
-        }
-
-        $indexedNavigationGroups = [];
-
-        foreach ($navigationGroups as $navigationGroup) {
-            $navigationGroupKey = $this->navigationGroupKeyForFilamentGroup($navigationGroup);
-
-            if ($navigationGroupKey === null) {
-                $indexedNavigationGroups[] = $navigationGroup;
-
-                continue;
-            }
-
-            $indexedNavigationGroups[$navigationGroupKey] = $navigationGroup;
-        }
-
-        foreach ($this->registeredNavigationGroups as $navigationGroupKey => $navigationGroup) {
-            if (
-                isset($indexedNavigationGroups[$navigationGroupKey])
-            ) {
-                $this->configureNavigationGroup($indexedNavigationGroups[$navigationGroupKey], $navigationGroup);
-
-                continue;
-            }
-
-            $indexedNavigationGroups[$navigationGroupKey] = $this->makeNavigationGroup($navigationGroup);
-        }
-
-        return array_values($indexedNavigationGroups);
-    }
-
-    private function makeNavigationGroup(NavigationGroupData $navigationGroup): NavigationGroup
-    {
-        $filamentNavigationGroup = NavigationGroup::make()
-            ->label(fn (): string => $this->resolveNavigationGroupLabel($navigationGroup->label));
-
-        return $this->configureNavigationGroup($filamentNavigationGroup, $navigationGroup);
-    }
-
-    private function configureNavigationGroup(
-        NavigationGroup $filamentNavigationGroup,
-        NavigationGroupData $navigationGroup,
-    ): NavigationGroup {
-        if ($navigationGroup->collapsed) {
-            $filamentNavigationGroup->collapsed();
-        }
-
-        if ($navigationGroup->icon !== null) {
-            $filamentNavigationGroup->icon($navigationGroup->icon);
-        }
-
-        return $filamentNavigationGroup;
-    }
-
-    private function navigationGroupKeyForFilamentGroup(NavigationGroup $navigationGroup): ?string
-    {
-        $label = $navigationGroup->getLabel();
-
-        return is_string($label) ? $this->navigationGroupKey($label) : null;
-    }
-
-    private function navigationGroupKey(string $label): string
-    {
-        return str($this->resolveNavigationGroupLabel($label))
-            ->lower()
-            ->squish()
-            ->toString();
-    }
-
-    private function resolveNavigationGroupLabel(string $label): string
-    {
-        return str_contains((string) $label, '::') ? (string) __($label) : $label;
     }
 }
