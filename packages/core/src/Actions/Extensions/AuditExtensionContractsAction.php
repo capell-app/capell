@@ -438,6 +438,27 @@ final class AuditExtensionContractsAction
             $expected[] = [$entry->type, $entry->key, $entry->providerBucket, $entry->class, null];
         }
 
+        // A type declared with explicit keys is reconciled key by key. A type declared only by
+        // type (a contribution without keys, or a deferred contribution) accepts any receipt of
+        // that type, matching the type-level contract packages enforce for their manifests.
+        $keyedTypes = [];
+        foreach ($expected as [$type]) {
+            $keyedTypes[$type->value] = true;
+        }
+
+        $typeDeclaredTypes = [];
+        foreach ($manifest->contributes as $contribution) {
+            if (! isset($keyedTypes[$contribution->type->value])) {
+                $typeDeclaredTypes[$contribution->type->value] = true;
+            }
+        }
+
+        foreach ($manifest->contributionTraceability->deferredContributions ?? [] as $deferredType) {
+            if (! isset($keyedTypes[$deferredType])) {
+                $typeDeclaredTypes[$deferredType] = true;
+            }
+        }
+
         $matchedReceiptIds = [];
         foreach ($expected as [$type, $key, $expectedBucket, $expectedClass, $receiptImplementation]) {
             if (! in_array($expectedBucket, $bootedBuckets, true)) {
@@ -521,6 +542,10 @@ final class AuditExtensionContractsAction
             }
 
             if (isset($matchedReceiptIds[spl_object_id($receipt)])) {
+                continue;
+            }
+
+            if (isset($typeDeclaredTypes[$receipt->type->value])) {
                 continue;
             }
 
