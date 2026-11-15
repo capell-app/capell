@@ -539,7 +539,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Metric scope read authorization boundary.",
+            "summary": "Metric scope read authorisation boundary.",
             "contractTestId": null
         },
         {

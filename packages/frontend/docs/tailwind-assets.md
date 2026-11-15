@@ -128,7 +128,7 @@ class MyPackageServiceProvider extends ServiceProvider
 
 ### Registry Methods
 
-| Method                  | Signature                                                                       | Behaviour                                                                                                                       |
+| Method                  | Signature                                                                       | Behaviour                                                                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `registerSource()`      | `registerSource(string $source, ?string $origin = null): self`                  | Register a single `@source` glob. Strings are trimmed; empty strings ignored.                                                  |
 | `registerSources()`     | `registerSources(array $sources, ?string $origin = null): self`                 | Register multiple sources at once. Convenience wrapper.                                                                        |
