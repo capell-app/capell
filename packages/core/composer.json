@@ -67,7 +67,8 @@
     "autoload-dev": {
         "psr-4": {
             "Capell\\Core\\Tests\\": "tests/",
-            "Vendor\\ExtensionConformance\\": "tests/Support/ExtensionConformance/"
+            "Vendor\\ExtensionConformance\\": "tests/Support/ExtensionConformance/",
+            "Acme\\AnnouncementBar\\": "tests/Unit/PHPStan/Fixtures/Tutorial/src/"
         }
     },
     "extra": {

@@ -324,6 +324,7 @@
             "StandalonePackage\\": "packages/admin/tests/Fixtures/StandalonePackage/src/",
             "Capell\\CompanionFixture\\": "packages/admin/tests/Fixtures/CompanionPackage/src/",
             "Capell\\Core\\Tests\\": "packages/core/tests/",
+            "Acme\\AnnouncementBar\\": "packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/src/",
             "Vendor\\ExtensionConformance\\": "packages/core/tests/Support/ExtensionConformance/",
             "Capell\\Installer\\Tests\\": "packages/installer/tests/",
             "Capell\\Marketplace\\Tests\\": "packages/marketplace/tests",

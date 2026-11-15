@@ -15,6 +15,7 @@ return [
     'add_interaction' => 'Add interaction',
     'add_resource_loading_override' => 'Add resource loading override',
     'advanced' => 'Advanced',
+    'more' => 'More',
     'advanced_layout' => 'Advanced layout',
     'add_custom' => 'Add custom',
     'add_dashboard_widget' => 'Add dashboard Filament widget',

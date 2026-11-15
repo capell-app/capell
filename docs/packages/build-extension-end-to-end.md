@@ -578,9 +578,9 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     private function registerFrontend(): void
     {
-        app(RenderHookRegistry::class)->registerCallable(
+        resolve(RenderHookRegistry::class)->registerCallable(
             RenderHookLocation::HeaderAfter,
-            function (): View|string|null {
+            function (): ?View {
                 $announcement = ResolveAnnouncementBarAction::run();
 
                 if (! $announcement->enabled || $announcement->message === '') {
