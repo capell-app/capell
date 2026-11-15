@@ -748,7 +748,7 @@ it('shows the frontend source map header action', function (): void {
     $frontendSourceMapAction = $actionGroup->getFlatActions()['frontendSourceMap'];
 
     expect($actionGroup)->not->toBeNull()
-        ->and($actionGroup->getLabel())->toBe(__('capell-admin::button.advanced'))
+        ->and($actionGroup->getLabel())->toBe(__('capell-admin::button.more'))
         ->and(collect($actionGroup->getFlatActions())->keys()->all())->toContain('frontendSourceMap')
         ->and($frontendSourceMapAction->getLabel())->toBe(__('capell-admin::generic.frontend_source_map'))
         ->and($frontendSourceMapAction->getTooltip())->toBe(__('capell-admin::generic.frontend_source_map_description'))
@@ -775,7 +775,7 @@ it('shows the frontend resource diagnostics header action', function (): void {
     $frontendResourceDiagnosticsAction = $actionGroup->getFlatActions()['frontendResourceDiagnostics'];
 
     expect($actionGroup)->not->toBeNull()
-        ->and($actionGroup->getLabel())->toBe(__('capell-admin::button.advanced'))
+        ->and($actionGroup->getLabel())->toBe(__('capell-admin::button.more'))
         ->and(collect($actionGroup->getFlatActions())->keys()->all())->toContain('frontendResourceDiagnostics')
         ->and($frontendResourceDiagnosticsAction->getLabel())->toBe(__('capell-admin::generic.frontend_resource_diagnostics'))
         ->and($frontendResourceDiagnosticsAction->getTooltip())->toBe(__('capell-admin::generic.frontend_resource_diagnostics_description'))
@@ -2210,3 +2210,22 @@ it('opens the Versions and Activity tabs from the edit screen tab link', functio
     'versions' => EventSourcedHistoryRelationManager::class,
     'activity' => ActivityHistoryRelationManager::class,
 ]);
+
+it('marks the page address with a globe icon and keeps its name for screen readers', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->assertSeeHtml('<span class="sr-only">' . e(__('capell-admin::form.page_address')) . '</span>');
+});
+
+it('groups secondary page actions, tools and delete under one More menu', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->withTranslations()->createOne();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->assertSee(__('capell-admin::button.more'))
+        ->assertDontSee(__('capell-admin::button.advanced'))
+        ->assertActionExists('delete')
+        ->assertActionExists('frontendResourceDiagnostics');
+});

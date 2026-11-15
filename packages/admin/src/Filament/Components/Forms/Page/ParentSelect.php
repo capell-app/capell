@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Pages\BuildParentLanguageEligibilityAction;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Data\Pages\ParentLanguageEligibilityData;
 use Capell\Admin\Filament\Components\Forms\PageSelect;
+use Capell\Admin\Filament\Support\HelperText;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
@@ -32,7 +33,8 @@ class ParentSelect extends PageSelect
         parent::setUp();
 
         $this->withHintEditAction()
-            ->helperText(fn (Get $get): string => $this->languageHelp($get))
+            ->hintIcon(fn (): ?string => HelperText::enabled() ? 'heroicon-m-question-mark-circle' : null, tooltip: __('capell-admin::generic.parent_page_info'))
+            ->helperText(fn (Get $get): ?string => $this->languageHelp($get))
             ->modifySelectOptionsQueryUsing(fn (Builder $query): Builder => $this->modifyParentQuery($query))
             ->rules([
                 fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
@@ -149,27 +151,30 @@ class ParentSelect extends PageSelect
         );
     }
 
-    private function languageHelp(Get $get): string
+    /**
+     * The general explanation lives in the hint tooltip; the helper line only
+     * appears once a parent is chosen and its language status is known.
+     */
+    private function languageHelp(Get $get): ?string
     {
-        $base = (string) __('capell-admin::generic.parent_page_info');
         $eligibility = $this->languageEligibility($get);
         if (! $eligibility instanceof ParentLanguageEligibilityData) {
-            return $base;
+            return null;
         }
 
         if (! $eligibility->accessible) {
-            return $base . ' ' . __('capell-admin::parent_languages.inaccessible');
+            return (string) __('capell-admin::parent_languages.inaccessible');
         }
 
         if ($eligibility->compatible) {
-            return $base . ' ' . __('capell-admin::parent_languages.compatible');
+            return (string) __('capell-admin::parent_languages.compatible');
         }
 
         if ($eligibility->missingLanguages === []) {
-            return $base . ' ' . __('capell-admin::parent_languages.unsupported_language');
+            return (string) __('capell-admin::parent_languages.unsupported_language');
         }
 
-        return $base . ' ' . __('capell-admin::parent_languages.missing', ['languages' => implode(', ', $eligibility->missingLanguages)])
+        return __('capell-admin::parent_languages.missing', ['languages' => implode(', ', $eligibility->missingLanguages)])
             . ' ' . ($eligibility->editUrl === null ? __('capell-admin::parent_languages.ask_editor') : __('capell-admin::parent_languages.handoff'));
     }
 
