@@ -139,7 +139,7 @@ it('denies requests and refuses retry after an extender partially fails', functi
     expect(array_count_values($panel->getAuthMiddleware())[LateSecurityMiddleware::class])->toBe(1);
 });
 
-it('registers the admin tools dropdown in the topbar render hooks', function (): void {
+it('registers the workspaces, tools and site switcher before the topbar search', function (): void {
     $panel = Panel::make();
 
     CapellAdminPlugin::make()->register($panel);
@@ -148,9 +148,11 @@ it('registers the admin tools dropdown in the topbar render hooks', function ():
     $renderHooks = $reflection->getProperty('renderHooks')->getValue($panel);
 
     expect($renderHooks)
-        ->toHaveKey(PanelsRenderHook::GLOBAL_SEARCH_AFTER)
-        ->and($renderHooks[PanelsRenderHook::GLOBAL_SEARCH_AFTER][''])
-        ->toHaveCount(1);
+        ->toHaveKey(PanelsRenderHook::GLOBAL_SEARCH_BEFORE)
+        ->and($renderHooks[PanelsRenderHook::GLOBAL_SEARCH_BEFORE][''])
+        ->toHaveCount(2)
+        ->and($renderHooks)
+        ->not->toHaveKey(PanelsRenderHook::GLOBAL_SEARCH_AFTER);
 });
 
 it('starts a hidden-until-opened sidebar without the collapsed navigation rail', function (): void {

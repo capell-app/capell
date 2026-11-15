@@ -3,6 +3,9 @@
     use Illuminate\Support\Js;
 
     $pinned = $this->isPinned($item->key);
+    $pinLabel = $pinned
+        ? __('capell-admin::workspace.switcher_tools.unpin', ['tool' => $item->label])
+        : __('capell-admin::workspace.switcher_tools.pin', ['tool' => $item->label]);
 @endphp
 
 <li
@@ -40,8 +43,8 @@
         :icon="$pinned ? 'heroicon-s-star' : 'heroicon-o-star'"
         :color="$pinned ? 'warning' : 'gray'"
         size="sm"
-        :label="__($pinned ? 'capell-admin::workspace.switcher_tools.unpin' : 'capell-admin::workspace.switcher_tools.pin', ['tool' => $item->label])"
-        :tooltip="__($pinned ? 'capell-admin::workspace.switcher_tools.unpin' : 'capell-admin::workspace.switcher_tools.pin', ['tool' => $item->label])"
+        :label="$pinLabel"
+        :tooltip="$pinLabel"
         aria-pressed="{{ $pinned ? 'true' : 'false' }}"
         wire:click="togglePin({{ Js::from($item->key) }})"
         wire:loading.attr="disabled"
