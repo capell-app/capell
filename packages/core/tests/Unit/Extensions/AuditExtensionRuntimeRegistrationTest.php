@@ -523,3 +523,33 @@ it('reconciles runtime receipts declared through manifest contribution traceabil
     expect($declaredOnly)->toHaveCount(1)
         ->and($declaredOnly[0]['context']['contributionKey'])->toBe('vendor-missing-hook');
 });
+
+it('accepts runtime receipts of a type the manifest defers, and still reports undeclared types', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/type-level', 'runtime', ExtensionContributionType::Model, 'model:Vendor\\TypeLevel\\Models\\Area', 'Vendor\\TypeLevel\\Models\\Area', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/type-level', 'runtime', ExtensionContributionType::Model, 'model:Vendor\\TypeLevel\\Models\\Grant', 'Vendor\\TypeLevel\\Models\\Grant', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/type-level', 'runtime', ExtensionContributionType::RenderHook, 'vendor-type-level-hook', 'Vendor\\TypeLevel\\Hook', 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/type-level', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-type-level.event']);
+    $manifest = json_decode((string) file_get_contents($directory . '/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['contributionTraceability'] = ['deferredContributions' => ['model']];
+    file_put_contents($directory . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+
+    $loadedOnly = runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime']);
+
+    expect(array_column(array_column($loadedOnly, 'context'), 'contributionKey'))->toBe(['vendor-type-level-hook']);
+});
+
+it('accepts every runtime receipt of a type declared without keys', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/unkeyed', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-unkeyed.first', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/unkeyed', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-unkeyed.second', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/unkeyed', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event']);
+
+    expect(runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime']))->toBe([]);
+});
