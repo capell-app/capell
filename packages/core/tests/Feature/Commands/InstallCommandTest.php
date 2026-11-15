@@ -13,6 +13,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
@@ -2206,6 +2207,23 @@ it('requires a password when creating role users non-interactively', function ()
     ])
         ->expectsOutput('Pass --role-user-password=<password> when using --role-users non-interactively.')
         ->assertExitCode(Command::FAILURE);
+});
+
+it('names the admin details and the role-user password together when both are missing', function (): void {
+    setupInstallTest();
+    dropUsersTableForInstallTest();
+
+    expect(fn () => artisanCommand('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--role-users' => true,
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--no-interaction' => true,
+    ])->run())->toThrow(
+        NonInteractiveInputRequiredException::class,
+        'Admin user is required in non-interactive mode. Pass --name=<name>, --email=<email>, and --password=<password>. Also: Pass --role-user-password=<password> when using --role-users.',
+    );
 });
 
 it('allows creating a new admin user when users already exist', function (): void {

@@ -45,6 +45,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\InstallSkipReason;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Exceptions\UnknownInstallPreset;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
@@ -706,12 +707,21 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->logInstallDebug('resolving admin user');
-        [$userId, $resolvedNewUser, $exitCode] = $userPrompter->resolveUserInput(
-            $userEmailOption,
-            $newUser,
-            $freshInstall,
-            $this->shouldUseFreshDemoDefaults(),
-        );
+
+        try {
+            [$userId, $resolvedNewUser, $exitCode] = $userPrompter->resolveUserInput(
+                $userEmailOption,
+                $newUser,
+                $freshInstall,
+                $this->shouldUseFreshDemoDefaults(),
+            );
+        } catch (NonInteractiveInputRequiredException $nonInteractiveInputRequiredException) {
+            // Name every missing option in one run instead of failing again at the role-user step.
+            throw $this->roleUserPasswordIsMissing()
+                ? $nonInteractiveInputRequiredException->withAlsoRequired('Pass --role-user-password=<password> when using --role-users.')
+                : $nonInteractiveInputRequiredException;
+        }
+
         if ($exitCode !== null) {
             $this->logInstallDebug('admin user resolution failed', [
                 'exit_code' => $exitCode,
@@ -888,6 +898,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             removeInstallerPackage: $removeInstallerPackage,
             cachesToClear: $cachesToClear,
         );
+    }
+
+    private function roleUserPasswordIsMissing(): bool
+    {
+        $password = $this->option('role-user-password');
+
+        return ! $this->input->isInteractive()
+            && (bool) $this->option('role-users')
+            && (! is_string($password) || $password === '');
     }
 
     /**
