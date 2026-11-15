@@ -1,6 +1,7 @@
 {
     "name": "capell-app",
     "scripts": {
+        "postinstall": "bash scripts/repoint-linked-siblings.sh",
         "screenshots": "node scripts/run-core-screenshots.js",
         "screenshots:check": "node scripts/run-core-screenshots.js --dry-run",
         "screenshots:prepare": "bash scripts/screenshots/prepare-workbench.sh",
