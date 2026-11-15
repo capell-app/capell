@@ -37,3 +37,17 @@ it('reports internal Capell method, property and constant use without reporting 
         ->and($text)->toContain('::hiddenMethod', '::hiddenProperty', '::hiddenStaticMethod', '::hiddenStatic', '::HIDDEN_CONSTANT')
         ->not->toContain('openMethod')->not->toContain('openProperty')->not->toContain('OPEN_CONSTANT');
 });
+
+it('reports nothing for the provider the end-to-end tutorial tells authors to write', function (): void {
+    $root = dirname(__DIR__, 5);
+    $directory = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial';
+    $config = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/extension-rule.neon';
+    $process = new Process([PHP_BINARY, $root . '/vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', '--configuration=' . $config, $directory], $root);
+    $process->run();
+
+    $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($result['result'] ?? null)->toBe('passed')
+        ->and($result['errors'] ?? null)->toBe(0)
+        ->and($process->getExitCode())->toBe(0);
+});
