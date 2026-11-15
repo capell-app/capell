@@ -37,7 +37,9 @@ FAKE
 cat > "$repo/scripts/with-lock.php" <<'FAKE'
 <?php
 $status = (int) getenv('PHPSTAN_FAKE_EXIT');
-exit $status;
+if ($status !== 0) {
+    throw new RuntimeException("analysis failed");
+}
 FAKE
 chmod +x "$bin/composer"
 
