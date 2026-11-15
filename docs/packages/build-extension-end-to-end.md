@@ -520,6 +520,7 @@ use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\View\View;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvider
@@ -540,6 +541,7 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
             ->hasTranslations();
     }
 
+    #[Override]
     protected function bootInstalledPackage(): self
     {
         $this->registerSettings();
@@ -551,7 +553,7 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     private function registerSettings(): void
     {
-        app(SettingsSchemaRegistry::class)
+        resolve(SettingsSchemaRegistry::class)
             ->registerSettingsClass('announcement-bar', AnnouncementBarSettings::class);
     }
 
@@ -562,9 +564,9 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     private function registerFrontend(): void
     {
-        app(RenderHookRegistry::class)->registerCallable(
+        resolve(RenderHookRegistry::class)->registerCallable(
             RenderHookLocation::HeaderAfter,
-            function (): View|string|null {
+            function (): ?View {
                 $announcement = ResolveAnnouncementBarAction::run();
 
                 if (! $announcement->enabled || $announcement->message === '') {

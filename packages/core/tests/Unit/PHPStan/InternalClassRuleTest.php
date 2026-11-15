@@ -51,3 +51,14 @@ it('reports nothing for the provider the end-to-end tutorial tells authors to wr
         ->and($result['errors'] ?? null)->toBe(0)
         ->and($process->getExitCode())->toBe(0);
 });
+
+it('keeps the tutorial provider snippet identical to the analysed fixture', function (): void {
+    $root = dirname(__DIR__, 5);
+    $doc = file_get_contents($root . '/docs/packages/build-extension-end-to-end.md');
+    $fixture = file_get_contents($root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/AnnouncementBarServiceProvider.php');
+
+    $section = substr($doc, (int) strpos($doc, '## Provider Registration'));
+    preg_match('/```php\n(.*?)\n```/s', $section, $snippet);
+
+    expect($snippet[1] ?? null)->toBe(rtrim($fixture, "\n"));
+});
