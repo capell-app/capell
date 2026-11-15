@@ -832,9 +832,11 @@ final class InstalledPanelRuntime
         ], $isMissing));
         $security = $this->router->resolveMiddleware([...$host['auth'], ...$contributed['auth'], ...$host['tenant'], ...$contributed['tenant']]);
         $panelStack = [...$this->router->resolveMiddleware([...$host['middleware'], ...$contributed['middleware']]), $availability, SetUpPanel::class, IdentifyTenant::class];
-        if ($stack !== [] || $missingPanel !== [] || $missingSecurity !== []) {
+        $own = $instance->middleware();
+        // A group the route declares, such as `web`, can gain middleware after the route was placed.
+        $grownGroup = $this->groupsBeforeSecurity(array_values($own), [...$panelStack, ...$security], $security) !== [];
+        if ($stack !== [] || $missingPanel !== [] || $missingSecurity !== [] || $grownGroup) {
             // The host panel's stack leads in the panel's own order, including the entries the route declares itself.
-            $own = $instance->middleware();
             $leading = $public ? [] : array_values(array_filter($host['middleware'], static fn (string $middleware): bool => $isMissing($middleware) || in_array($middleware, $own, true)));
             $rest = array_values(array_filter($own, static fn (mixed $middleware): bool => ! in_array($middleware, $leading, true)));
             $instance->action['middleware'] = $this->placeInPanelOrder([...$leading, ...$rest], $missingPanel, $missingSecurity, $panelStack, $security);
@@ -892,7 +894,93 @@ final class InstalledPanelRuntime
         array_splice($entries, $securityAt, 0, $securityMiddleware);
         array_splice($entries, $panelAt, 0, $panelMiddleware);
 
-        return $entries;
+        return $this->runGroupsAfterSecurity($entries, $known, $security);
+    }
+
+    /**
+     * Move a group such as an application's `web` group, when it carries middleware the panel does not
+     * know, to after the last security entry. Its panel entries stay in its old place, and the router
+     * keeps the first occurrence of a duplicate, so only the unknown members run after security. The
+     * group stays declared by name, so middleware a package adds to it later still runs.
+     *
+     * @param  list<mixed>  $entries
+     * @param  array<mixed>  $known
+     * @param  array<mixed>  $security
+     * @return list<mixed>
+     */
+    private function runGroupsAfterSecurity(array $entries, array $known, array $security): array
+    {
+        $groups = $this->groupsBeforeSecurity($entries, $known, $security);
+        if ($groups === []) {
+            return $entries;
+        }
+
+        $placed = [];
+        foreach ($entries as $entry) {
+            if (! in_array($entry, $groups, true)) {
+                $placed[] = $entry;
+
+                continue;
+            }
+
+            foreach ($this->router->resolveMiddleware([$entry]) as $member) {
+                if ($this->isPanelEntry($member, $known) && ! in_array($member, $placed, true) && ! in_array($member, $entries, true)) {
+                    $placed[] = $member;
+                }
+            }
+        }
+
+        $at = ($this->lastSecurityIndex($placed, $security) ?? count($placed) - 1) + 1;
+        array_splice($placed, $at, 0, $groups);
+
+        return $placed;
+    }
+
+    /**
+     * The groups declared before the last security entry that carry middleware the panel does not know.
+     *
+     * @param  list<mixed>  $entries
+     * @param  array<mixed>  $known
+     * @param  array<mixed>  $security
+     * @return list<string>
+     */
+    private function groupsBeforeSecurity(array $entries, array $known, array $security): array
+    {
+        $lastSecurity = $this->lastSecurityIndex($entries, $security);
+        if ($lastSecurity === null) {
+            return [];
+        }
+
+        $declaredGroups = $this->router->getMiddlewareGroups();
+        $groups = [];
+        foreach (array_slice($entries, 0, $lastSecurity) as $entry) {
+            if (is_string($entry) && array_key_exists($entry, $declaredGroups) && ! $this->isPanelEntry($entry, $known)) {
+                $groups[] = $entry;
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param  list<mixed>  $entries
+     * @param  array<mixed>  $security
+     */
+    private function lastSecurityIndex(array $entries, array $security): ?int
+    {
+        $lastSecurity = null;
+        foreach ($entries as $index => $entry) {
+            if (! is_string($entry)) {
+                continue;
+            }
+
+            $resolved = $this->router->resolveMiddleware([$entry]);
+            if (array_intersect($resolved, $security) !== [] || array_filter($resolved, $this->isAuthenticator(...)) !== []) {
+                $lastSecurity = $index;
+            }
+        }
+
+        return $lastSecurity;
     }
 
     /**
