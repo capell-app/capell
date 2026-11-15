@@ -13,4 +13,16 @@ enum AiDisclosure: string
     case None = 'none';
     case Assisted = 'assisted';
     case Generated = 'generated';
+
+    /** Where a page keeps its strongest disclosure, so public rendering needs no query. */
+    public const string PAGE_META_KEY = 'ai_disclosure';
+
+    public function rank(): int
+    {
+        return match ($this) {
+            self::None => 0,
+            self::Assisted => 1,
+            self::Generated => 2,
+        };
+    }
 }

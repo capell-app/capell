@@ -6,7 +6,9 @@
 ])
 
 @php
+    use Capell\Core\Enums\AiDisclosure;
     use Capell\Core\Enums\MediaConversionEnum;
+    use Capell\Core\Enums\SiteAiDisclosure;
     use Capell\Core\Models\Language;
     use Capell\Core\Models\PageUrl;
     use Capell\Core\Models\SiteDomain;
@@ -95,6 +97,11 @@
     $description = $safeStringAttribute($pageTranslation, 'meta_description');
 
     $keywords = $safeStringAttribute($pageTranslation, 'meta_keywords');
+    // Read from already-loaded site and page meta: no query, and only the disclosure word is output.
+    $aiDisclosure = ($siteMeta[SiteAiDisclosure::META_KEY] ?? null) === SiteAiDisclosure::Marker->value
+        ? AiDisclosure::tryFrom((string) ($pageMeta[AiDisclosure::PAGE_META_KEY] ?? ''))
+        : null;
+    $aiDisclosure = $aiDisclosure === AiDisclosure::None ? null : $aiDisclosure;
 
     $fonts = PublicModelMeta::get($theme, 'fonts');
 
@@ -439,6 +446,13 @@
         <meta
             name="keywords"
             content="{{ strip_tags($keywords) }}"
+        />
+    @endif
+
+    @if ($aiDisclosure !== null)
+        <meta
+            name="ai-disclosure"
+            content="{{ $aiDisclosure->value }}"
         />
     @endif
 
