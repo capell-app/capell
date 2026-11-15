@@ -229,6 +229,21 @@ PHP);
         ->toThrow(AssertionError::class, 'root-relative asset URLs');
 });
 
+it('fails when a package checks a permission it does not declare', function (): void {
+    $directory = makeExtensionHarnessPackage('vendor/harness-permissions', 'Vendor\\HarnessPermissions', []);
+    $manifest = json_decode((string) file_get_contents($directory . '/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['permissions'] = ['harness.view'];
+    file_put_contents($directory . '/capell.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+    file_put_contents($directory . '/src/Gatekeeper.php', "<?php \$user->can('harness.view'); \$user->can('update', \$model);");
+
+    ExtensionTestHarness::forPath($directory)->assertPermissionsDeclared();
+
+    file_put_contents($directory . '/src/Gatekeeper.php', "<?php \$user->can('harness.view'); Gate::allows('harness.export');");
+
+    expect(fn (): ExtensionTestHarness => ExtensionTestHarness::forPath($directory)->assertPermissionsDeclared())
+        ->toThrow(AssertionError::class, 'Extension checks undeclared permissions: harness.export');
+});
+
 /**
  * @param  list<array<string, mixed>>  $contributions
  */

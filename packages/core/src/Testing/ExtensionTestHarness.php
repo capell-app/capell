@@ -6,6 +6,8 @@ namespace Capell\Core\Testing;
 
 use AssertionError;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Actions\Permissions\FindUndeclaredPermissionsAction;
+use Capell\Core\Contracts\Extensions\DeclaresPermissions;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Enums\ExtensionContributionType;
@@ -183,6 +185,33 @@ final class ExtensionTestHarness
             if (! is_string($schedule) || $schedule === '') {
                 throw new AssertionError(sprintf('Scheduled job contribution %s must declare a schedule.', (string) $contribution->class));
             }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Fails when the package checks an ability it neither lists in capell.json
+     * nor declares through a DeclaresPermissions permission contribution.
+     */
+    public function assertPermissionsDeclared(): self
+    {
+        $declared = $this->manifest()->permissions;
+
+        foreach ($this->contributionsOfType(ExtensionContributionType::Permission) as $contribution) {
+            if ($contribution->class !== null && is_a($contribution->class, DeclaresPermissions::class, true)) {
+                $declarer = resolve($contribution->class);
+
+                if ($declarer instanceof DeclaresPermissions) {
+                    array_push($declared, ...$declarer->permissions()->keys());
+                }
+            }
+        }
+
+        $undeclared = FindUndeclaredPermissionsAction::run(dirname($this->manifestPath), $declared);
+
+        if ($undeclared !== []) {
+            throw new AssertionError('Extension checks undeclared permissions: ' . implode(', ', $undeclared));
         }
 
         return $this;
