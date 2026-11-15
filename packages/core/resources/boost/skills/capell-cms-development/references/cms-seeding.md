@@ -2,39 +2,50 @@
 
 ## Core Tables
 
-| Table             | Purpose                                                                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `sites`           | Publishing surface with default language/theme/type.                                                                            |
-| `languages`       | Locale records used by URLs and translations.                                                                                   |
-| `types`           | Polymorphic type catalogue. Key columns: `type`, `key`, `group`, `meta`, `admin`.                                               |
-| `layouts`         | Page render layout. Core columns: `key`, `site_id`, `theme_id`, `meta`, `admin`; LayoutBuilder adds `containers` and `widgets`. |
-| `pages`           | Tree of page records. Points to `site_id`, `type_id`, `layout_id`.                                                              |
-| `page_urls`       | Public URL records for pages. Uses `pageable_type`, `pageable_id`, `language_id`, `site_id`, `url`.                             |
-| `translations`    | Translatable title/content/meta for any translated model. Uses `language_id`, `translatable_type`, `translatable_id`.           |
-| `asset_relations` | Generic ordered asset links for models that use Capell assets.                                                                  |
+| Table               | Purpose                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sites`             | Publishing surface. Points to `blueprint_id`, `theme_id` and `language_id`; has `default` and `status`.                                                            |
+| `languages`         | Locale records used by URLs and translations.                                                                                                                      |
+| `blueprints`        | Catalogue of page, widget and section kinds. Key columns: `type`, `key`, `group`, `component`, `view_file`, `meta`, `default`, `status`. Unique on `type` + `key`. |
+| `layouts`           | Page render layout. Columns: `key`, `site_id`, `theme_id`, `group`, `meta`, `containers`, `elements`, `default`, `status`. LayoutBuilder uses `containers`.        |
+| `pages`             | Nested-set tree of pages. Points to `site_id`, `blueprint_id`, `layout_id`; has `uuid`, `meta` and visibility dates (`visible_from`, `visible_until`).             |
+| `page_urls`         | Public URL records. Uses `pageable_type`, `pageable_id`, `language_id`, `site_id`, `url`, `type` (`alias` or `redirect`), `status_code` and `is_manual`.           |
+| `translations`      | Translatable title, content and meta for any translated model. Unique on `language_id`, `translatable_type` and `translatable_id`.                                 |
+| `asset_attachments` | Generic ordered asset links for models that use Capell assets.                                                                                                     |
+
+Optional packages add their own tables, so inspect the schema before assuming one exists.
 
 ## Idempotent Page Seeder Shape
 
-Use natural keys and update mutable fields. Do not rely on auto IDs.
+Pages have no unique name, so do not use `name` as the natural key. Key the seeder on the page's public URL for the site and language, then update the mutable fields.
 
 ```php
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
-use Capell\Core\Models\Type;
 
 $site = Site::query()->where('default', true)->firstOrFail();
 $language = Language::query()->where('default', true)->firstOrFail();
-$type = Type::query()->where('type', 'page')->where('key', 'default')->firstOrFail();
+$blueprint = Blueprint::query()->where('type', 'page')->where('key', 'default')->firstOrFail();
 $layout = Layout::query()->where('site_id', $site->id)->where('key', 'default')->firstOrFail();
 
-$page = Page::query()->updateOrCreate(
-    ['site_id' => $site->id, 'name' => 'About'],
-    ['type_id' => $type->id, 'layout_id' => $layout->id, 'status' => true],
-);
+$existingUrl = PageUrl::query()
+    ->where('site_id', $site->id)
+    ->where('language_id', $language->id)
+    ->where('url', 'about')
+    ->first();
+
+$page = $existingUrl?->pageable ?? new Page();
+$page->fill([
+    'name' => 'About',
+    'site_id' => $site->id,
+    'blueprint_id' => $blueprint->id,
+    'layout_id' => $layout->id,
+])->save();
 
 PageUrl::query()->updateOrCreate(
     [
@@ -56,11 +67,13 @@ Translation::query()->updateOrCreate(
 );
 ```
 
-## Page Types
+Pages are nested sets: create child pages through the model's tree methods rather than writing `parent_id` and the left and right columns by hand. Redirects from an old route belong in `page_urls` with `type` set to `redirect`.
 
-Create a custom page type when a page needs custom schema, routing behavior, render data, or permissions. Keep generic marketing/information pages on the default page type.
+## Page Blueprints
 
-Use `php artisan capell:make-type <Name> --no-interaction` when available, then register through Capell extension points in `AppServiceProvider` or the package provider.
+Create a custom page blueprint when a page needs custom schema, routing behavior, render data, or permissions. Keep generic marketing/information pages on the default page blueprint.
+
+Use `php artisan capell:make:blueprint <Name> --no-interaction` when available (`capell:make-blueprint` and `capell:make-type` are aliases), then register through Capell extension points in `AppServiceProvider` or the package provider.
 
 ## Translation Rule
 

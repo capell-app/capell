@@ -16,7 +16,7 @@ Use this for application-level Capell work: converting static routes and views i
 
 ## Decision path
 
-- **LayoutBuilder installed:** seed `Type` and `Widget`, update `Layout::$containers`, attach widgets with `AddWidgetToLayoutContainerAction`, and create `WidgetAsset` rows for page-specific or shared content.
+- **LayoutBuilder installed:** seed `Blueprint` and `Widget`, update `Layout::$containers`, attach widgets with `AddWidgetToLayoutContainerAction`, and create `WidgetAsset` rows for page-specific or shared content.
 - **LayoutBuilder absent but acceptable:** add the required Capell packages, run their install commands and migrations, then seed CMS data.
 - **LayoutBuilder absent and should stay absent:** use custom Blade components, Block Library content, render hooks, page type schemas or ordinary Blade composition.
 - **Static Blade conversion:** move public copy, media and configuration into translations, sections, widget assets, content blocks or lang files. Templates render data and hold no final copy.

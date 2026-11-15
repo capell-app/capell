@@ -23,14 +23,14 @@ php artisan capell:make:extension vendor/example-tools --profile=full --path=pac
 
 - Business operations live in `src/Actions` (one `handle()` method), structured boundaries in `src/Data`, package models in `src/Models`.
 - User-facing strings are translated: `resources/lang/en/`, namespaced as `<slug>::<file>.<key>`.
-- Declare the bootstrap provider in `composer.json` `extra.laravel.providers` only, and leave the `capell.json` provider buckets empty unless you need an extra gated provider. Listing one class in both places defeats the enabled gate.
+- Declare the bootstrap provider in `composer.json` `extra.laravel.providers` only, and leave the `capell.json` provider buckets (`metadata`, `install`, `runtime`, `admin`, `frontend`, plus an optional `auth`) empty unless you need an extra gated provider. Listing one class in both places defeats the enabled gate.
 - Extend `Capell\Core\Support\Packages\AbstractPackageServiceProvider`. Put work that must stop while the package is uninstalled or disabled in `bootInstalledRuntime()`, and gate optional integrations with `CapellCore::isPackageInstalled('vendor/package')`. `class_exists()` alone does not prove a package is installed.
 - Settings and settings migrations, schema extenders and Filament surfaces register through the extension points listed in the `capell` skill.
 - Public output must carry no admin or editor state and must come from hydrated data, not Blade queries.
 
 ## Manifest (`capell.json`)
 
-Manifest v3 requires `manifest-version`, `name`, `slug`, `displayName`, `kind`, `capellApiVersion`, `version`, `surfaces`, `dependencies` and `providers`, and a `marketplace` object with `summary`, `categories` and `screenshots`. Keep `name` and `version` aligned with `composer.json`.
+Manifest v3 requires `manifest-version`, `name`, `slug`, `displayName`, `kind` (`package`, `plugin`, `theme`, `integration` or `bundle`), `capellApiVersion`, `version`, `surfaces`, `dependencies` (with `requires`, `supports` and `conflicts` lists), `providers` (all of the `metadata`, `install`, `runtime`, `admin` and `frontend` buckets, which may be empty), `contributes` (a list, which may be empty), `healthChecks` (a list, which may be empty; each entry needs string `key`, `label` and `class`), `product` (with `group` and `tier`), `commercial` (with a boolean `privateDocsRequested`) and a `marketplace` object with `summary`, `categories` and `screenshots`. `name` must equal the `composer.json` name, `slug` its package segment (lowercase letters, numbers and hyphens), and `version` must be a valid Composer version.
 
 - `dependencies.requires` lists hard requirements. A package that registers admin pages, resources or admin translations must require `capell-app/admin`.
 - `providers` buckets: `metadata`, `install`, `runtime`, `admin`, `frontend`. They do not filter by request context; guard admin-only work in the provider.
