@@ -147,3 +147,16 @@ it('refuses a bucket keyed on neither the client address nor the actor', functio
 
     expect(fn (): bool => $throttle->hit(Request::create('/global')))->toThrow(InvalidArgumentException::class);
 });
+
+it('refuses and gives back its attempts when an atomic increment crosses the limit after the check', function (): void {
+    $throttle = PublicEndpointThrottle::for('capell-tests-race')->allow(1)->perSeconds(60);
+    $request = Request::create('/race', Symfony\Component\HttpFoundation\Request::METHOD_POST, server: ['REMOTE_ADDR' => '203.0.113.60']);
+    [$own, $ceiling] = $throttle->limitsFor($request, ['thread' => 'post:1']);
+
+    RateLimiter::shouldReceive('tooManyAttempts')->andReturnFalse();
+    RateLimiter::shouldReceive('hit')->once()->with($own->key, 60)->andReturn(2);
+    RateLimiter::shouldReceive('decrement')->once()->with($own->key, 60);
+    RateLimiter::shouldReceive('hit')->never()->with($ceiling->key, 60);
+
+    expect($throttle->hit($request, ['thread' => 'post:1']))->toBeFalse();
+});

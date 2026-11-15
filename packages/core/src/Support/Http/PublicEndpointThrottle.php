@@ -161,8 +161,11 @@ final class PublicEndpointThrottle
     }
 
     /**
-     * Spend one attempt from every bucket, unless one is already full. Returns false, and spends
-     * nothing, when the request is over a limit.
+     * Spend one attempt from every bucket. Returns false, and gives back every attempt it took,
+     * when the request is over a limit.
+     *
+     * The count each atomic increment returns decides, not the earlier check: two requests can
+     * both see room and race past it, and only the increment shows which one went over.
      *
      * @param  array<string, int|string>  $subject
      */
@@ -176,8 +179,18 @@ final class PublicEndpointThrottle
             }
         }
 
+        $taken = [];
+
         foreach ($limits as $limit) {
-            RateLimiter::hit($limit->key, $limit->decaySeconds);
+            $taken[] = $limit;
+
+            if (RateLimiter::hit($limit->key, $limit->decaySeconds) > $limit->maxAttempts) {
+                foreach ($taken as $spent) {
+                    RateLimiter::decrement($spent->key, $spent->decaySeconds);
+                }
+
+                return false;
+            }
         }
 
         return true;
