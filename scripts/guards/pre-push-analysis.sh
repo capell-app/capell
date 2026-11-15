@@ -42,6 +42,13 @@ if [ "${#files[@]}" -eq 0 ]; then
     exit 0
 fi
 
+# Skip when the pre-commit analysis already passed every commit being pushed. A commit made
+# with --no-verify, rebased, amended or cherry-picked has no recorded tree and is analysed here.
+if scripts/guards/analysed-trees.sh covered "$base..HEAD"; then
+    echo "pre-push analysis: every commit in $base..HEAD was analysed cleanly at commit; skipping."
+    exit 0
+fi
+
 dirty="$(git diff --name-only HEAD -- "${files[@]}")"
 if [ -n "$dirty" ]; then
     printf 'Refused push: these files have uncommitted edits, so the analysis would not check what is being pushed. Commit or stash them first:\n%s\n' "$dirty" >&2
