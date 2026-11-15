@@ -420,6 +420,7 @@ it('exports hosted matrix outcomes from the shared repository definition', funct
     $fixture = new CommandFixture;
     $fixture->files->copy('scripts/test-all-matrix.php');
     $fixture->files->copy('scripts/test-all/TestAllMatrix.php');
+    $fixture->files->copy('scripts/test-all/TestAllScope.php');
     try {
         $process = $fixture->run(['bash', '-e', '-c', $steps['Export shared matrix']['run']], ['TARGET_CELL' => '', 'GITHUB_OUTPUT' => $fixture->files->root . '/output']);
         expect($process->getExitCode())->toBe(0, $process->getErrorOutput());

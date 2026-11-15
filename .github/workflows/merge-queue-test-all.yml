@@ -79,6 +79,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The expected cells are scoped by the merge group's diff, as the matrix job scoped the run.
+          fetch-depth: 0
           persist-credentials: false
       - name: Check workflow results
         env:
@@ -110,6 +112,8 @@ jobs:
         if: needs.full-matrix.result == 'success'
         env:
           EVIDENCE_DIR: ${{ runner.temp }}/merge-group-evidence
+          MERGE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: |
-          php scripts/test-all-matrix.php all > "$RUNNER_TEMP/merge-group-matrix.json"
+          php scripts/test-all-matrix.php all --changed-from="$MERGE_BASE_SHA" --changed-to="$MERGE_HEAD_SHA" > "$RUNNER_TEMP/merge-group-matrix.json"
           python3 scripts/check-merge-group-test-evidence.py "$RUNNER_TEMP/merge-group-matrix.json" "$EVIDENCE_DIR" "$GITHUB_RUN_ATTEMPT"
