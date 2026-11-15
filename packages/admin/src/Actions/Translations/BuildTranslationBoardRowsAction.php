@@ -42,8 +42,7 @@ final class BuildTranslationBoardRowsAction
         $rows = [];
 
         foreach ($pages as $page) {
-            /** @var Collection<int, Translation> $translations */
-            $translations = $page->getRelation('translations')->keyBy('language_id');
+            $translations = $this->translationsByLanguage($page);
             $defaultTranslation = $defaultLanguageId === null ? null : $translations->get($defaultLanguageId);
 
             $cells = [];
@@ -66,5 +65,18 @@ final class BuildTranslationBoardRowsAction
         }
 
         return $rows;
+    }
+
+    /**
+     * The page's eager-loaded translations keyed by language id.
+     *
+     * @return Collection<int, Translation>
+     */
+    private function translationsByLanguage(Page $page): Collection
+    {
+        /** @var Collection<int, Translation> $translations */
+        $translations = $page->translations->keyBy('language_id');
+
+        return $translations;
     }
 }

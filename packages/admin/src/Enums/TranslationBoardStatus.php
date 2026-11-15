@@ -17,12 +17,22 @@ enum TranslationBoardStatus: string
 
     public function label(): string
     {
-        return (string) __('capell-admin::translation_board.status_' . $this->value);
+        return (string) match ($this) {
+            self::Done => __('capell-admin::translation_board.status_done'),
+            self::NeedsUpdate => __('capell-admin::translation_board.status_needs_update'),
+            self::Copied => __('capell-admin::translation_board.status_copied'),
+            self::Missing => __('capell-admin::translation_board.status_missing'),
+        };
     }
 
     public function description(): string
     {
-        return (string) __('capell-admin::translation_board.status_' . $this->value . '_info');
+        return (string) match ($this) {
+            self::Done => __('capell-admin::translation_board.status_done_info'),
+            self::NeedsUpdate => __('capell-admin::translation_board.status_needs_update_info'),
+            self::Copied => __('capell-admin::translation_board.status_copied_info'),
+            self::Missing => __('capell-admin::translation_board.status_missing_info'),
+        };
     }
 
     public function color(): string
