@@ -36,12 +36,12 @@ Without the HTML Cache package there is no registry, nothing calls your handler,
 
 ## Public API
 
-| Method                                         | Returns                   | Purpose                                                      |
-| ---------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| Method                                           | Returns                   | Purpose                                                                |
+| ------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------- |
 | `register(string $key, callable $handler): void` | void                      | Registers a handler; a second registration of a key replaces the first |
-| `has(string $key): bool`                       | bool                      | Checks if a key is registered                                |
-| `all(): array`                                 | `array<string, callable>` | Returns all registered handlers                              |
-| `clear(): void`                                | void                      | Removes every handler (tests only)                           |
+| `has(string $key): bool`                         | bool                      | Checks if a key is registered                                          |
+| `all(): array`                                   | `array<string, callable>` | Returns all registered handlers                                        |
+| `clear(): void`                                  | void                      | Removes every handler (tests only)                                     |
 
 ## Hook contract
 
