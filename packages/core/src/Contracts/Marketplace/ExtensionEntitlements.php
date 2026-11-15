@@ -21,8 +21,8 @@ interface ExtensionEntitlements
      * version 2 receipt at signed_activation.installed_receipt_v2 (installed_receipt only when
      * it is itself version 2) with purpose capell-installed-receipt and a runtime_valid_until
      * no more than 30 days after issued_at, renewed by the heartbeat. Core verifies it against
-     * the issuer keys committed with Core (plus extensions.marketplace_receipt_public_keys
-     * outside production) and extensions.marketplace_instance_id,
+     * the issuer keys committed with Core (resources/marketplace/issuer-keys.json) and
+     * extensions.marketplace_instance_id,
      * independently of this seam. Paid/free classification comes only from the issuer-signed
      * commercial catalogue delivered by the heartbeat or an offline import.
      */

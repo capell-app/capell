@@ -25,8 +25,8 @@ final class ExtensionCommercialPolicy
     }
 
     /**
-     * Production always enforces against the issuer keys committed with Core, so configuration
-     * cannot switch enforcement off. Elsewhere enforcement starts once a trusted key exists.
+     * Production always enforces, failing closed while Core has no committed issuer key. Elsewhere
+     * enforcement starts once a trusted key exists; configuration can neither add nor remove one.
      */
     public function enforcing(): bool
     {

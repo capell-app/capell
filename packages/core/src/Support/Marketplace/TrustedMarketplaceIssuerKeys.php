@@ -7,16 +7,20 @@ namespace Capell\Core\Support\Marketplace;
 use JsonException;
 
 /**
- * The Marketplace issuer public keys a runtime trusts. Production trusts only the keys committed
- * with Core, so a site owner cannot switch enforcement off or sign their own receipts by editing
- * configuration. Outside production, configured keys are added for development and testing.
+ * The Marketplace issuer public keys a runtime trusts: only the keys committed with Core. They are
+ * never read from configuration or the environment, so a site owner cannot sign their own receipts
+ * or catalogues by adding a key. Tests inject keys by binding an instance built with $keys.
  */
 final class TrustedMarketplaceIssuerKeys
 {
     /** @var array<string, array<string, string>> */
     private static array $pinnedByPath = [];
 
-    public function __construct(private readonly ?string $pinnedPath = null) {}
+    /** @param array<mixed>|null $keys key id => base64 public key, replacing the committed keys */
+    public function __construct(
+        private readonly ?string $pinnedPath = null,
+        private readonly ?array $keys = null,
+    ) {}
 
     public static function defaultPath(): string
     {
@@ -36,12 +40,7 @@ final class TrustedMarketplaceIssuerKeys
     /** @return array<string, string> key id => base64 Ed25519 public key */
     public function all(): array
     {
-        $pinned = $this->pinned();
-        if (self::production()) {
-            return $pinned;
-        }
-
-        return $pinned + $this->validKeys(config('capell.extensions.marketplace_receipt_public_keys', []));
+        return $this->keys !== null ? $this->validKeys($this->keys) : $this->pinned();
     }
 
     /** @return array<string, string> */

@@ -11,11 +11,6 @@ return [
         // Explicit package names, honoured only in the local application environment.
         'local_development' => [],
         'marketplace_instance_id' => env('CAPELL_MARKETPLACE_INSTANCE_ID'),
-        // Development and test issuer keys only: key ID => base64 Ed25519 public key. Production
-        // ignores this and trusts only resources/marketplace/issuer-keys.json, committed with Core.
-        // Outside production a key here switches on issuer enforcement, so import the signed
-        // catalogue in the same step (capell:marketplace:import-receipts).
-        'marketplace_receipt_public_keys' => [],
         'verification' => [
             // Leniency applies to local install and enable paths only; Marketplace is always strict.
             'strict' => (bool) env('CAPELL_EXTENSION_VERIFICATION_STRICT', true),
