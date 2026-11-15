@@ -34,6 +34,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -53,6 +54,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
 beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
     // The review tables wrap to the terminal; a wide one keeps each value on a single line to assert on.
     putenv('COLUMNS=240');
     ClearCachesAction::clearFake();
@@ -69,6 +71,7 @@ afterEach(function (): void {
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
     cleanupInstallTestApplicationFiles();
+    $this->workspace->restore();
 });
 
 afterEach(function (): void {

@@ -19,6 +19,7 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
@@ -147,6 +148,7 @@ function restoreRunInstallPublishedMigrations(array $snapshot): void
 }
 
 beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
     acquireCapellInstallFilesystemLock();
     $this->publishedMigrationSnapshot = snapshotRunInstallPublishedMigrations();
 });
@@ -165,6 +167,7 @@ afterEach(function (): void {
 
 afterEach(function (): void {
     releaseCapellInstallFilesystemLock();
+    $this->workspace->restore();
 });
 
 function makeRunInstallInputData(

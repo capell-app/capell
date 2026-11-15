@@ -45,19 +45,16 @@ beforeEach(function (): void {
     };
 });
 
-/**
- * optimize:clear only runs when the bootstrap path is not Testbench's shared
- * skeleton, so point it at this directory for the duration of the callback.
- */
-function outsideTestbench(Closure $callback): void
+/** optimize:clear runs unless the test harness opted out through capell.install.skip_optimize_clear. */
+function withOptimizeClearEnabled(Closure $callback): void
 {
-    $originalBootstrapPath = app()->bootstrapPath();
-    app()->useBootstrapPath(__DIR__);
+    $original = config('capell.install.skip_optimize_clear');
+    config(['capell.install.skip_optimize_clear' => false]);
 
     try {
         $callback();
     } finally {
-        app()->useBootstrapPath($originalBootstrapPath);
+        config(['capell.install.skip_optimize_clear' => $original]);
     }
 }
 
@@ -68,7 +65,8 @@ function expectFreshOptimizeClearProcess(FakeProcessFactory $processes): void
         ->and($processes->processes[0]->getTimeout())->toEqual(120);
 }
 
-it('skips optimize:clear in testbench when all is selected', function (): void {
+it('skips optimize:clear when the harness opts out through configuration', function (): void {
+    config(['capell.install.skip_optimize_clear' => true]);
     $kernel = FakeConsoleKernel::bind();
 
     ClearCachesAction::run(['all'], $this->reporter);
@@ -76,7 +74,7 @@ it('skips optimize:clear in testbench when all is selected', function (): void {
     expect($kernel->calls)->toBe([])
         ->and($kernel->availabilityChecks)->toBe(2)
         ->and($this->reporter->reports)
-        ->toContain('Skipped optimize:clear; Testbench package manifests are shared across parallel tests')
+        ->toContain('Skipped optimize:clear; capell.install.skip_optimize_clear is enabled')
         ->toContain('Skipped capell:html-cache:clear; command is not available')
         ->toContain('Skipped capell:package-cache; command is not available');
     $this->processes->assertNothingRan();
@@ -164,7 +162,7 @@ it('executes a cache command for every individually advertised cache key', funct
 it('runs optimize:clear outside testbench and reports success', function (): void {
     $kernel = FakeConsoleKernel::bind();
 
-    outsideTestbench(function (): void {
+    withOptimizeClearEnabled(function (): void {
         ClearCachesAction::run(['all'], $this->reporter);
     });
 
@@ -179,7 +177,7 @@ it('retries optimize:clear in a fresh process when a hook command is undefined',
         ->returns('optimize:clear', new CommandNotFoundException('Command "filament:clear-cached-components" is not defined.'));
     $this->processes->push(output: 'All caches cleared.');
 
-    outsideTestbench(function (): void {
+    withOptimizeClearEnabled(function (): void {
         ClearCachesAction::run(['all'], $this->reporter);
     });
 
@@ -195,7 +193,7 @@ it('reports a failed fresh optimize:clear retry without claiming success', funct
     $kernel = FakeConsoleKernel::bind()->returns('optimize:clear', new CommandNotFoundException('Missing hook command'));
     $this->processes->push(exitCode: $exitCode, output: $output, errorOutput: $errorOutput, throws: $throws);
 
-    outsideTestbench(function () use ($message): void {
+    withOptimizeClearEnabled(function () use ($message): void {
         expect(fn (): mixed => ClearCachesAction::run(['all'], $this->reporter))
             ->toThrow(RuntimeException::class, $message);
     });
@@ -213,7 +211,7 @@ it('reports a failed fresh optimize:clear retry without claiming success', funct
 it('reports a failing optimize:clear outside testbench without a fresh-process retry', function (int|Throwable $result, string $output, string $message): void {
     $kernel = FakeConsoleKernel::bind()->returns('optimize:clear', $result, $output);
 
-    outsideTestbench(function () use ($message): void {
+    withOptimizeClearEnabled(function () use ($message): void {
         expect(fn (): mixed => ClearCachesAction::run(['all'], $this->reporter))
             ->toThrow(RuntimeException::class, $message);
     });

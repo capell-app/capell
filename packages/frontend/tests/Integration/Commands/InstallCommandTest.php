@@ -5,7 +5,16 @@ declare(strict_types=1);
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 use Capell\Tests\Support\JavascriptFixture;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Support\Facades\File;
+
+beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
+});
+
+afterEach(function (): void {
+    $this->workspace->restore();
+});
 
 it('runs install command and does not publish files for capell:publish-migrations', function (): void {
     $viteConfigPath = base_path('vite.config.js');

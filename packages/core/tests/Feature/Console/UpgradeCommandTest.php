@@ -41,8 +41,8 @@ beforeEach(function (): void {
 });
 
 it('rebuilds the package cache after optimize:clear so the runtime role manifests stay complete', function (): void {
-    // The Testbench skeleton skips optimize:clear; a bootstrap path of its own makes the clear real.
-    app()->useBootstrapPath(sys_get_temp_dir() . '/capell-upgrade-cache-' . bin2hex(random_bytes(4)));
+    // The test harness skips optimize:clear through configuration; enabling it makes the clear real.
+    config(['capell.install.skip_optimize_clear' => false]);
     $calls = [];
     Artisan::command('optimize:clear', function () use (&$calls): int {
         $calls[] = 'optimize:clear';
@@ -60,8 +60,22 @@ it('rebuilds the package cache after optimize:clear so the runtime role manifest
     expect($calls)->toBe(['optimize:clear', 'capell:package-cache']);
 });
 
+it('skips optimize:clear when the harness opts out through configuration', function (): void {
+    config(['capell.install.skip_optimize_clear' => true]);
+    $calls = [];
+    Artisan::command('optimize:clear', function () use (&$calls): int {
+        $calls[] = 'optimize:clear';
+
+        return Command::SUCCESS;
+    })->describe('stub');
+
+    artisanCommand('capell:upgrade', ['--force' => true])->assertSuccessful();
+
+    expect($calls)->toBe([]);
+});
+
 it('fails the upgrade when the package cache cannot be rebuilt after optimize:clear', function (): void {
-    app()->useBootstrapPath(sys_get_temp_dir() . '/capell-upgrade-cache-' . bin2hex(random_bytes(4)));
+    config(['capell.install.skip_optimize_clear' => false]);
     Artisan::command('capell:package-cache', fn (): int => Command::FAILURE)->describe('stub');
 
     artisanCommand('capell:upgrade', ['--force' => true])->assertFailed();
