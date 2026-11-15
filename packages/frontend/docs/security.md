@@ -5,11 +5,10 @@
 Capell sanitizes CMS HTML content by default through `RenderHtmlContentAction`.
 The default mode strips unsafe HTML and leaves Blade directives inert.
 
-`capell-frontend.html_content_allowed_attributes` controls the extra attributes
-the sanitizer allows on safe elements. The packaged config allows `class` so
-trusted theme output can keep utility classes. Keep this list narrow for
-editor-controlled CMS content; do not add event handler attributes or anything
-that exposes authoring-only state.
+HTML content is sanitised with Core's `RichText` profile, which keeps classes
+and validated ids. To allow more markup, register an
+`HtmlSanitizerProfileExtension` for the `RichText` profile at boot; it refuses
+event handlers, inline styles and anything that exposes authoring-only state.
 
 ## Public View Query Guard
 

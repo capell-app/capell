@@ -65,13 +65,6 @@ return [
         'record_passed' => env('CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_PASSED', false),
         'record_failed' => env('CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_FAILED', true),
     ],
-    /*
-     * Compatibility escape hatch for trusted, developer-authored content only.
-     * Keep false for editor-controlled CMS content in production because Blade
-     * directives execute server-side.
-     */
-    'html_content_allowed_attributes' => ['class'],
-
     // Model Event Registration Mode
     // Controls how Capell tracks model events for cache updates.
     // Options:

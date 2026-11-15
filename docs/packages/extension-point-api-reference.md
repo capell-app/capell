@@ -267,7 +267,7 @@ downstream aliases are removed in the next major release.
 - Return `null`, an empty array, or no-op output when the package does not support the current context.
 - Test both the expected contribution and the safe fallback.
 - Public frontend extensions must pass [public HTML safety](../frontend/public-html-safety.md).
-- The HTML sanitizer is rebuilt from `capell-frontend.html_content_allowed_attributes` for each invocation. Site-scoped configuration resolved before rendering therefore remains isolated between requests, including in long-lived workers.
+- Public HTML content is sanitised with the Core `RichText` profile. Extra markup is declared at boot through `HtmlSanitizerProfileRegistry::extend()` with an `HtmlSanitizerProfileExtension`, which rejects forbidden elements and attributes when it is constructed.
 
 ## Related guides
 
