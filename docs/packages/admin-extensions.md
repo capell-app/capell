@@ -368,57 +368,88 @@ Marketplace connection UI should stay action-oriented:
 
 ## Navigation
 
-Use Filament page methods for labels, icons, groups, and sort order. Store labels in package translation files.
+The sidebar has a fixed set of groups, in this order: the Dashboard (ungrouped,
+at the top), then Website, Media, Design, Marketing, Business, Reports, Users and
+Settings. They are the cases of `Capell\Admin\Enums\NavigationGroupEnum`.
+Packages choose a case; they cannot add a group. If a package needs an area that
+none of the cases fits, propose a new case in a pull request to Core.
 
-Prefer a shared job group over a package-named heading. Admin declares these
-translated groups and their default order through
-`CapellAdmin::getNavigationGroups()`, consumed by the panel provider:
-Dashboard, Website, Content, Publishing, Layouts, Marketing, Customers, Reports,
-Operations, Insights & health, Security, Settings, System. The workspace sidebar
-organises these into its existing content and design sections; Customers follows
-Marketing, Operations follows Reports, and Security precedes System. Empty groups
-are hidden, and the three job groups are collapsed by default without group icons.
+| Group     | What belongs there                                                       |
+| --------- | ------------------------------------------------------------------------ |
+| Website   | Pages, articles, menus, redirects, sections, events and publishing tools |
+| Media     | The media library                                                        |
+| Design    | Layouts, themes, block templates and blueprints                          |
+| Marketing | Forms, contacts, newsletters, campaigns, SEO and social tools            |
+| Business  | Bookings, payments, shops, live chat and customer support                |
+| Reports   | Analytics, audits, monitoring and readiness reports                      |
+| Users     | Users, roles, access rules and activity logs                             |
+| Settings  | Sites, languages, health, security, extensions and system tools          |
 
-| Job        | Shared translation key                      | Intended destinations              |
-| ---------- | ------------------------------------------- | ---------------------------------- |
-| Customers  | `capell-admin::navigation.group_customers`  | Bookings and customer portal tools |
-| Operations | `capell-admin::navigation.group_operations` | HTML cache and live chat tools     |
-| Security   | `capell-admin::navigation.group_security`   | Access rules and security tools    |
-
-Return the translated group from a resource or page's `getNavigationGroup()`:
+Return the case from a resource or page's `getNavigationGroup()`:
 
 ```php
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Override;
+use UnitEnum;
 
 #[Override]
-public static function getNavigationGroup(): ?string
+public static function getNavigationGroup(): string|UnitEnum|null
 {
-    return __('capell-admin::navigation.group_customers');
+    return NavigationGroupEnum::Business;
 }
 ```
 
-Shared groups are already registered; packages do not need to register them again.
-The workspace sidebar honours these explicit job groups before legacy URL-based
-placement, including the HTML cache route. Group assignment does not grant access:
-keep resource policies and page permissions in place. Use sentence case for group
-headings.
+Settings metadata lives in Core, which cannot import Admin, so
+`SettingsGroupMetadata::$navigationGroup` takes the case value as a string, for
+example `navigationGroup: 'marketing'`.
 
-If a package uses a custom parent navigation group from `getNavigationGroup()`, register that group from the package admin provider:
+Within a group, core items keep a fixed order and package items follow in
+alphabetical order of their labels, so `$navigationSort` does not move a package
+item between core items. Groups with no item the person can open are hidden.
+Group assignment does not grant access: keep resource policies and page
+permissions in place.
+
+### Limits
+
+With every first-party package installed, the sidebar may have at most 8 groups
+and 10 top-level items in each group, and every group except Media must hold at
+least 2 items. The limits live in `capell-admin.navigation` and are enforced by
+tests; raising one is a reviewed decision. If an install goes over the item
+limit at runtime, the extra items move under a **More** item instead of failing.
+
+To stay inside the limits:
+
+- A package with more than 3 screens registers one sidebar item, a Filament
+  cluster, and shows its other screens as the cluster's sub-navigation.
+- Package settings pages built on `AbstractPackageSettingsPage` do not appear in
+  the sidebar. They appear as cards on the Settings page, under the same group
+  headings. Override `getHubDescription()` and `isConfigured()` to fill the card.
+- A package that supersedes a core screen replaces it rather than adding a
+  second item:
 
 ```php
-use Capell\Admin\Enums\NavigationGroupPositionEnum;
-use Capell\Admin\Facades\CapellAdmin;
-use Filament\Support\Icons\Heroicon;
-
-CapellAdmin::registerNavigationGroup(
-    label: 'capell-example::navigation.example',
-    icon: Heroicon::OutlinedSquares2X2,
-    position: NavigationGroupPositionEnum::After,
-    relativeTo: 'capell-admin::navigation.group_content',
+CapellAdmin::replaceNavigationItem(
+    replacedKey: \Capell\Admin\Filament\Resources\Redirects\RedirectResource::class,
+    replacementKey: \Capell\Example\Filament\Pages\ExampleRedirectsPage::class,
 );
 ```
 
-Capell resolves translated labels before merging, so multiple packages can register the same group independently without creating duplicate sidebar groups. Position can be `Start`, `End`, `Before`, or `After`; `Before` and `After` require `relativeTo`.
+The replacement takes the replaced item's place in the group.
+
+### Labels
+
+Name a group or item after the thing the person manages, in plain words: Users,
+not People; Reports, not Insights. Do not use category words such as Content,
+Growth, Publishing, Operations, Integrations or System as group names. The
+navigation tests reject these labels.
+
+### Moving from the old groups
+
+Earlier releases let packages return any translated group label and register
+their own groups. Those labels still work for now: each is mapped to the nearest
+case (an unknown label goes to Settings) and logged as deprecated.
+`CapellAdmin::registerNavigationGroup()` no longer adds a group. Move to
+`NavigationGroupEnum` before the mapping is removed.
 
 ## Permissions
 

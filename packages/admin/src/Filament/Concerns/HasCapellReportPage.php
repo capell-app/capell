@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Concerns;
 
 use Capell\Admin\Data\Reports\ReportDefinitionData;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Settings\AdminSettings;
 use Illuminate\Support\Collection;
@@ -30,7 +31,7 @@ trait HasCapellReportPage
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_reports');
+        return NavigationGroupEnum::Reports;
     }
 
     #[Override]

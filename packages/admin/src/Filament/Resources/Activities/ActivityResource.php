@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Activities;
 
 use BackedEnum;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Resources\Activities\Pages\ListActivities;
 use Capell\Admin\Filament\Resources\Activities\Tables\ActivitiesTable;
 use Capell\Admin\Filament\Resources\SiteScopedResource;
@@ -44,9 +45,9 @@ final class ActivityResource extends SiteScopedResource
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return __('capell-admin::navigation.group_workflow');
+        return NavigationGroupEnum::Users;
     }
 
     #[Override]

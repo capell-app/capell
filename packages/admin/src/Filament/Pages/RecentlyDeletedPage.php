@@ -48,6 +48,9 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
 
     protected static ?int $navigationSort = 90;
 
+    // Reached from the sidebar footer link: it covers every group, so it has no group of its own.
+    protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'capell-admin::filament.pages.recently-deleted';
 
     #[Override]

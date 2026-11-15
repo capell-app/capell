@@ -34,6 +34,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static void registerWorkspace(AdminWorkspaceItemData $item)
  * @method static array<string, AdminWorkspaceItemData> getWorkspaceDefinitions()
  * @method static void clearWorkspaces()
+ * @method static CapellAdminManager replaceNavigationItem(string $replacedKey, string $replacementKey)
+ * @method static array<string, string> getNavigationReplacements()
  * @method static void clearReports()
  * @method static list<CapellOverviewStatData> getOverviewStats(bool $onlyEnabled = true)
  * @method static list<array{key: string, label: string, group: string, description?: string|null}> getOverviewStatSettings()

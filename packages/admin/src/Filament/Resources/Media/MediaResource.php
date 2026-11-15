@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Media;
 
 use BackedEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Concerns\HasNavigationBadge;
 use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
@@ -18,6 +19,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Override;
 use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
+use UnitEnum;
 
 class MediaResource extends SiteScopedResource
 {
@@ -65,9 +67,9 @@ class MediaResource extends SiteScopedResource
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_content');
+        return NavigationGroupEnum::Media;
     }
 
     #[Override]

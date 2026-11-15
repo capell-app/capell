@@ -10,6 +10,7 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Enums\TransferDownloadEnum;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
@@ -18,6 +19,7 @@ use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
 use Capell\Admin\Filament\Pages\AbstractPackageSettingsPage;
 use Capell\Admin\Filament\Pages\Auth\AcceptInvitation;
+use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
@@ -31,7 +33,6 @@ use Capell\Admin\Support\AdminGlossary;
 use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
-use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Capell\Admin\Support\Navigation\WorkspaceNavigationManager;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
@@ -226,14 +227,10 @@ class CapellAdminPlugin implements Plugin
         );
 
         $panel->renderHook(
-            name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
-            hook: function (): View {
-                FilamentFacade::getNavigation();
-
-                return view('capell-admin::components.workspace-navigation', [
-                    'navigation' => resolve(WorkspaceNavigation::class)->localNavigation(),
-                ]);
-            },
+            name: PanelsRenderHook::SIDEBAR_FOOTER,
+            hook: fn (): ?View => in_array(RecentlyDeletedPage::class, FilamentFacade::getCurrentPanel()?->getPages() ?? [], true) && RecentlyDeletedPage::canAccess()
+                ? view('capell-admin::components.sidebar-recently-deleted', ['url' => RecentlyDeletedPage::getUrl()])
+                : null,
         );
 
         $panel->renderHook(
@@ -393,7 +390,7 @@ class CapellAdminPlugin implements Plugin
         if (! $panel->hasPlugin('filament-shield')) {
             $panel->plugin(
                 FilamentShieldPlugin::make()
-                    ->navigationGroup(fn (): string => __('capell-admin::navigation.group_users'))
+                    ->navigationGroup(NavigationGroupEnum::Users)
                     ->navigationIcon(Heroicon::OutlinedKey)
                     ->activeNavigationIcon(Heroicon::Key)
                     ->navigationSort(4)

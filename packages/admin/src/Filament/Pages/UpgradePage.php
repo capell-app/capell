@@ -13,6 +13,7 @@ use Capell\Admin\Actions\Upgrade\ReadLatestUpgradeSnapshotAction;
 use Capell\Admin\Data\Upgrade\UpgradeAdvisorySnapshotData;
 use Capell\Admin\Data\Upgrade\UpgradeNoticeData;
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Core\Actions\Upgrade\BuildUpgradeReadinessReportAction;
 use Capell\Core\Data\Upgrade\UpgradeReadinessReportData;
 use Capell\Core\Enums\Upgrade\UpgradeRunEventLevel;
@@ -33,6 +34,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Override;
 use Throwable;
+use UnitEnum;
 
 /**
  * @phpstan-type Notice array<string, mixed>
@@ -76,9 +78,9 @@ class UpgradePage extends Page
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]

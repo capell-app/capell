@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\BlockTemplates;
 
 use BackedEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Actions\EditAction;
 use Capell\Admin\Filament\Resources\BlockTemplates\Pages\ManageBlockTemplates;
 use Capell\Core\Models\BlockTemplate;
@@ -50,9 +51,9 @@ final class BlockTemplateResource extends Resource
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_content');
+        return NavigationGroupEnum::Design;
     }
 
     #[Override]

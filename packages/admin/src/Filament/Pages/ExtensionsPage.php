@@ -13,6 +13,7 @@ use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
 use Capell\Admin\Data\AdminZoneContextData;
 use Capell\Admin\Enums\AdminZone;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Concerns\CustomisesExtensionsDashboard;
 use Capell\Admin\Filament\Concerns\InteractsWithExtensionTableData;
 use Capell\Admin\Filament\Pages\Extensions\Concerns\PreservesExtensionTablePosition;
@@ -44,6 +45,7 @@ use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\Url;
 use Override;
+use UnitEnum;
 
 class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasActions, HasTable
 {
@@ -85,9 +87,9 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) (__('capell-admin::navigation.group_system'));
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]
