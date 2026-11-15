@@ -27,7 +27,7 @@ use Symfony\Component\Finder\Finder;
 final class OutboundHttpSourceScanner
 {
     /** @var list<string> */
-    private const array HTTP_NAMESPACE_PREFIXES = [
+    public const array HTTP_NAMESPACE_PREFIXES = [
         'GuzzleHttp\\',
         'Illuminate\\Http\\Client\\',
         'Psr\\Http\\Client\\',
