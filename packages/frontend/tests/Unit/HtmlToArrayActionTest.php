@@ -67,7 +67,7 @@ describe('RenderContentAction', function (): void {
         expect(RenderContentAction::run('', null, [], false, false, true))->toBeArray()->toBeEmpty();
     });
 
-    it('handles html with attributes', function (): void {
+    it('keeps class and drops the id of a non-heading element', function (): void {
         $html = '<div id="foo" class="bar">Baz</div>';
         $result = RenderContentAction::run($html, null, [], false, false, true);
         expect($result)->toBeArray();
@@ -75,8 +75,18 @@ describe('RenderContentAction', function (): void {
         $element = array_find($result, fn ($node): bool => isset($node['attributes']));
 
         expect($element)->not()->toBeNull();
-        expect($element['attributes']['id'])->toBe('foo');
+        expect($element['attributes'])->not->toHaveKey('id');
         expect($element['attributes']['class'])->toBe('bar');
+    });
+
+    it('keeps heading ids as anchor targets', function (): void {
+        $result = RenderContentAction::run('<h2 id="pricing" class="title">Pricing</h2>', null, [], false, false, true);
+        assert(is_array($result));
+        $heading = array_find($result, fn ($node): bool => isset($node['attributes']));
+
+        expect($heading)->not()->toBeNull();
+        expect($heading['attributes']['id'])->toBe('pricing');
+        expect($heading['attributes']['class'])->toBe('title');
     });
 
     it('converts complex HTML (h1, paragraphs, image) to array', function (): void {
