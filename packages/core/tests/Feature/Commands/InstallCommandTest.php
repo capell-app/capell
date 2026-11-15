@@ -2226,6 +2226,15 @@ it('names the admin details and the role-user password together when both are mi
     );
 });
 
+it('keeps the original missing-input failure when another requirement is added', function (): void {
+    $original = new NonInteractiveInputRequiredException('Admin user', 'Pass --user=<email>.');
+
+    $combined = $original->withAlsoRequired('Pass --role-user-password=<password>.');
+
+    expect($combined->getMessage())->toBe('Admin user is required in non-interactive mode. Pass --user=<email>. Also: Pass --role-user-password=<password>.')
+        ->and($combined->getPrevious())->toBe($original);
+});
+
 it('allows creating a new admin user when users already exist', function (): void {
     setupInstallTest();
     createTestUser();
