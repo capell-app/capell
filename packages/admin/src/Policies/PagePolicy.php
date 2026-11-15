@@ -108,6 +108,28 @@ class PagePolicy
         return $page->isAccessibleByUser($user);
     }
 
+    /**
+     * Putting the page live, taking it down, or signing off its review. Until the
+     * permission has been synced on this install it does not exist, and anyone who
+     * can update the page may publish it, as before.
+     */
+    public function publish(User $user, Page $page): bool
+    {
+        if (! $this->update($user, $page)) {
+            return false;
+        }
+
+        if ($this->isSuperAdmin($user)) {
+            return true;
+        }
+
+        try {
+            return $user->checkPermissionTo(CapellPermission::PublishPage->name());
+        } catch (PermissionDoesNotExist) {
+            return true;
+        }
+    }
+
     public function editContent(User $user, Page $page): bool
     {
         if (! SiteAccess::forActor($user)->canUseRecord($page)) {
