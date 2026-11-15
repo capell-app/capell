@@ -32,7 +32,7 @@ it('prepends the shared import action before create and add actions on content r
         ->and(array_key_exists('migrationAssistantRequired', $importAction->getFlatActions()))->toBeTrue()
         ->and(resourceHeaderActionNamesForImportHeaderActionTest($actions)[1] ?? null)->toBe($nextAction);
 })->with([
-    'pages' => [ListPages::class, 'getActions', 'choosePageType'],
+    'pages' => [ListPages::class, 'getActions', 'create'],
     'sites' => [ListSites::class, 'getActions', 'create'],
     'media' => [ListMedia::class, 'getHeaderActions', 'upload-files'],
     'layouts' => [ListLayouts::class, 'getActions', 'create'],

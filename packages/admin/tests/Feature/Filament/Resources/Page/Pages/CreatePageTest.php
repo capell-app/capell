@@ -323,7 +323,7 @@ describe('from edit page', function (): void {
     });
 });
 
-describe('from list page', function (): void {
+describe('from the editor create action', function (): void {
     it('can create page', function (PageTypeEnum $typeEum): void {
         Blueprint::factory()->page()->default()->create();
         $type = $typeEum->createPageType();
@@ -336,9 +336,9 @@ describe('from list page', function (): void {
 
         $newData = Page::factory()->make();
 
-        Livewire::test(ListPages::class)
+        Livewire::test(EditPage::class, ['record' => Page::factory()->site($site)->createOne()->getRouteKey()])
             ->assertSuccessful()
-            ->mountAction('create')
+            ->mountAction(TestAction::make(CreatePageAction::class))
             ->set('mountedActions.0.data.translations', [])
             ->fillForm([
                 'site_id' => $site->id,
@@ -391,9 +391,9 @@ describe('from list page', function (): void {
 
             $newData = Page::factory()->make();
 
-            Livewire::test(ListPages::class)
+            Livewire::test(EditPage::class, ['record' => Page::factory()->site($site)->createOne()->getRouteKey()])
                 ->assertSuccessful()
-                ->mountAction('create')
+                ->mountAction(TestAction::make(CreatePageAction::class))
                 ->set('mountedActions.0.data.translations', [])
                 ->fillForm([
                     'site_id' => $site->id,
@@ -437,6 +437,9 @@ describe('from list page', function (): void {
             [ResultsPageConfigurator::class],
         ]);
 
+});
+
+describe('from list page', function (): void {
     it('required fields are required', function (): void {
         Language::factory()->createOne();
         Blueprint::factory()->page()->default()->create();
@@ -465,15 +468,15 @@ it('keeps the selected site when opening quick create', function (): void {
         ->assertSchemaStateSet(['site_id' => $selected->id]);
 });
 
-it('keeps the site tab in page type chooser links', function (): void {
+it('keeps the site tab when opening quick create', function (): void {
     Site::factory()->withTranslations()->create(['default' => true]);
     $selected = Site::factory()->withTranslations()->create(['default' => false]);
     Blueprint::factory()->page()->default()->createOne();
 
     Livewire::test(ListPages::class)
         ->set('activeTab', (string) $selected->id)
-        ->mountAction('choosePageType')
-        ->assertMountedActionModalSeeHtml('site_id=' . $selected->id);
+        ->mountAction('create')
+        ->assertSchemaStateSet(['site_id' => $selected->id]);
 });
 
 it('validates duplicate URLs when creating from the conflicting page editor', function (): void {
@@ -567,7 +570,7 @@ it('opens the requested page translation rather than the default language', func
         });
 })->with(['edit' => false, 'create' => true]);
 
-it('carries the filtered language into edit type chooser and quick create', function (): void {
+it('carries the filtered language into the edit link and quick create', function (): void {
     $english = Language::factory()->english()->createOne();
     $french = Language::factory()->french()->createOne();
     $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
@@ -577,14 +580,9 @@ it('carries the filtered language into edit type chooser and quick create', func
     Livewire::test(ListPages::class)
         ->set('tableFilters.filter.language_id', $french->id)
         ->assertTableActionHasUrl('edit', GetEditPageResourceUrlAction::run($page) . '?language_id=' . $french->id, $page)
-        ->mountAction('choosePageType')
-        ->assertMountedActionModalSeeHtml('language_id=' . $french->id);
-
-    $quick = Livewire::test(ListPages::class)
-        ->set('tableFilters.filter.language_id', $french->id)
-        ->mountAction('create');
-    $rows = $quick->get('mountedActions.0.data.translations');
-    expect(array_map(intval(...), array_column($rows, 'language_id')))->toBe([$french->id]);
+        ->mountAction('create')
+        ->assertSchemaStateSet(['language_id' => $french->id])
+        ->assertFormFieldVisible('language_id');
 });
 
 it('rechecks parent languages even when editing an unchanged parent relationship', function (): void {

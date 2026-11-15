@@ -22,7 +22,7 @@ Open **Pages** from the sidebar. Pages are the main routable content records in 
 
 [Light](../images/generated/admin/first-page-pages-list.png) · [Dark](../images/generated/admin/first-page-pages-list-dark.png)
 
-Check the selected site, then click **New page** and choose a page type from those offered. Its blueprint determines the content fields you will see. You can also open an existing page from the list to practise with seeded content.
+Check the selected site, then click **New page**. Enter a title, keep the **Default** page type or pick another, and choose a parent page if it belongs under one. Click **Create**: the page is added without leaving the list, and the notification links to **Edit page**. The page type's blueprint determines the content fields you will see there. Turn off **Publish now** to start the page as a draft. You can also open an existing page from the list to practise with seeded content.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-new-page-action-dark.png"><img src="../images/generated/admin/first-page-new-page-action.png" alt="New page action on the Pages list"></picture>
 

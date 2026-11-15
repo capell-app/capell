@@ -9,14 +9,15 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Table\ReplicatePageAction;
 use Capell\Admin\Filament\Components\Tables\Actions\VisitUrlAction;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
-use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
+use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -140,41 +141,124 @@ it('shows normal pages by default and keeps system pages behind the advanced fil
         ->assertCanNotSeeTableRecords([$systemPage]);
 });
 
-it('offers a guided page type chooser while keeping quick create available', function (): void {
-    $landingType = Blueprint::factory()
-        ->page()
-        ->default()
-        ->createOne([
-            'key' => 'landing-page',
-            'name' => 'Landing page',
-            'admin' => [
-                'icon' => 'heroicon-o-rocket-launch',
-                'notes' => 'Best for campaign entry pages.',
-            ],
-        ]);
-    $disabledType = Blueprint::factory()
-        ->page()
-        ->createOne([
-            'name' => 'Disabled page',
-            'status' => false,
-        ]);
+it('creates a default page from the list without leaving it', function (): void {
+    $defaultType = Blueprint::factory()->page()->default()->createOne(['name' => 'Default']);
+    $site = Site::factory()->withTranslations()->createOne(['default' => true]);
+    Layout::factory()->default()->createOne();
 
-    $page = Page::factory()
-        ->type($landingType)
-        ->createOne(['name' => 'Campaign page']);
+    $component = Livewire::test(ListPages::class)
+        ->assertActionVisible('create')
+        ->mountAction('create')
+        ->assertSchemaStateSet(['blueprint_id' => $defaultType->id, 'site_id' => $site->id, 'publish' => true])
+        ->fillForm(['title' => 'About our team'])
+        ->assertSchemaStateSet(['slug' => 'about-our-team'])
+        ->callMountedAction()
+        ->assertHasNoFormErrors()
+        ->assertNoRedirect()
+        ->assertNotified(__('capell-admin::message.page_created', ['title' => 'About our team']));
+
+    $page = Page::query()->where('name', 'About our team')->sole();
+
+    expect($page->blueprint_id)->toBe($defaultType->id)
+        ->and($page->site_id)->toBe($site->id)
+        ->and($page->layout_id)->not->toBeNull()
+        ->and($page->translations()->sole()->meta['slug'] ?? null)->toBe('about-our-team')
+        ->and(PagePublishSentinel::isDraftValue($page->visible_from))->toBeFalse();
+
+    $component->assertCanSeeTableRecords([$page]);
+});
+
+it('saves a draft under the chosen parent when publish now is turned off', function (): void {
+    Blueprint::factory()->page()->default()->createOne();
+    $site = Site::factory()->withTranslations()->createOne(['default' => true]);
+    $parent = Page::factory()->site($site)->createOne(['name' => 'Services']);
 
     Livewire::test(ListPages::class)
-        ->assertSuccessful()
-        ->assertActionVisible('choosePageType')
-        ->assertActionVisible('create')
-        ->mountAction('choosePageType')
-        ->assertMountedActionModalSee(__('capell-admin::generic.page_type_chooser_heading'))
-        ->assertMountedActionModalSee('Landing page')
-        ->assertMountedActionModalSee('Best for campaign entry pages.')
-        ->assertMountedActionModalSee(__('capell-admin::generic.page_type_chooser_default_badge'))
-        ->assertMountedActionModalSee(trans_choice('capell-admin::generic.page_type_chooser_usage', 1, ['count' => 1]))
-        ->assertMountedActionModalSeeHtml('href="' . e(PageResource::getUrl('create', ['type' => 'landing-page', 'site_id' => $page->site_id])) . '"')
-        ->assertMountedActionModalDontSee($disabledType->name);
+        ->mountAction('create')
+        ->fillForm(['title' => 'Consulting', 'slug' => 'Our Consulting', 'parent_id' => $parent->id, 'publish' => false])
+        ->callMountedAction()
+        ->assertHasNoFormErrors();
+
+    $page = Page::query()->where('name', 'Consulting')->sole();
+
+    expect($page->parent_id)->toBe($parent->id)
+        ->and($page->translations()->sole()->meta['slug'] ?? null)->toBe('our-consulting')
+        ->and(PagePublishSentinel::isDraftValue($page->visible_from))->toBeTrue();
+});
+
+it('creates editorial page types but refuses fixed system types', function (): void {
+    Blueprint::factory()->page()->default()->createOne(['name' => 'Default']);
+    $landingType = Blueprint::factory()->page()->createOne(['name' => 'Landing page']);
+    $notFoundType = Blueprint::factory()->page()->createOne(['name' => 'Page not found', 'group' => BlueprintGroupEnum::System->value]);
+    $disabledType = Blueprint::factory()->page()->createOne(['name' => 'Disabled page', 'status' => false]);
+    Site::factory()->withTranslations()->createOne(['default' => true]);
+    Layout::factory()->default()->createOne();
+
+    foreach ([$notFoundType, $disabledType] as $refusedType) {
+        Livewire::test(ListPages::class)
+            ->callAction('create', ['title' => 'Refused ' . $refusedType->name, 'blueprint_id' => $refusedType->id])
+            ->assertHasFormErrors(['blueprint_id']);
+    }
+
+    Livewire::test(ListPages::class)
+        ->callAction('create', ['title' => 'Spring campaign', 'blueprint_id' => $landingType->id])
+        ->assertHasNoFormErrors();
+
+    expect(Page::query()->pluck('blueprint_id', 'name')->all())->toBe(['Spring campaign' => $landingType->id]);
+});
+
+it('explains why a page cannot be created when the site has no layout', function (): void {
+    Blueprint::factory()->page()->default()->createOne();
+    Site::factory()->withTranslations()->createOne(['default' => true]);
+
+    Livewire::test(ListPages::class)
+        ->callAction('create', ['title' => 'No layout yet'])
+        ->assertNotified(__('capell-admin::message.quick_create_page_failed'));
+
+    expect(Page::query()->where('name', 'No layout yet')->exists())->toBeFalse();
+});
+
+it('does not create a second page at an address that is already taken', function (): void {
+    Blueprint::factory()->page()->default()->createOne();
+    $site = Site::factory()->withTranslations()->hasSiteDomains()->createOne(['default' => true]);
+    Layout::factory()->default()->createOne();
+
+    Livewire::test(ListPages::class)
+        ->callAction('create', ['title' => 'About'])
+        ->assertHasNoFormErrors();
+
+    Livewire::test(ListPages::class)
+        ->callAction('create', ['title' => 'About'])
+        ->assertNotified(__('capell-admin::message.quick_create_page_failed'));
+
+    expect(Page::query()->where('site_id', $site->id)->where('name', 'About')->count())->toBe(1);
+});
+
+it('requires a title before creating a page', function (): void {
+    Blueprint::factory()->page()->default()->createOne();
+    Site::factory()->withTranslations()->createOne(['default' => true]);
+
+    Livewire::test(ListPages::class)
+        ->callAction('create', ['title' => ''])
+        ->assertHasFormErrors(['title' => 'required']);
+
+    expect(Page::query()->count())->toBe(0);
+});
+
+it('only shows site and language choices when there is more than one', function (): void {
+    Blueprint::factory()->page()->default()->createOne();
+    Site::factory()->withTranslations()->createOne(['default' => true]);
+
+    Livewire::test(ListPages::class)
+        ->mountAction('create')
+        ->assertFormFieldHidden('site_id')
+        ->assertFormFieldHidden('language_id');
+
+    Site::factory()->withTranslations()->createOne(['default' => false]);
+
+    Livewire::test(ListPages::class)
+        ->mountAction('create')
+        ->assertFormFieldVisible('site_id');
 });
 
 it('can show all pages or only system pages through the system pages filter', function (): void {

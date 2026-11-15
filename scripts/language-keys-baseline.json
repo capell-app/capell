@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "auditScript": "scripts/audit-language-keys.sh",
     "root": "packages",
-    "unusedCount": 740,
+    "unusedCount": 739,
     "missingCount": 20,
     "unused": [
         "capell-admin::activity.changed_fields",
@@ -53,7 +53,6 @@
         "capell-admin::button.convert_layout_element_assets",
         "capell-admin::button.convert_page_assets",
         "capell-admin::button.copy_layout",
-        "capell-admin::button.create",
         "capell-admin::button.create_layout_element_asset",
         "capell-admin::button.create_widget",
         "capell-admin::button.delete_installer",
