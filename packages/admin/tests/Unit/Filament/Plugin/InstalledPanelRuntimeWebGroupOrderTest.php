@@ -47,7 +47,10 @@ final class InstalledPanelRuntimeWebGroupOrderTest extends AdminTestCase
     {
         parent::defineEnvironment($app);
 
-        $app->make(Router::class)->pushMiddlewareToGroup('web', WebGroupMarkerMiddleware::class);
+        // After every provider has booted, so a provider that redefines the web group cannot drop it.
+        $app->booted(static function (mixed $app): void {
+            $app->make(Router::class)->pushMiddlewareToGroup('web', WebGroupMarkerMiddleware::class);
+        });
     }
 
     #[Override]
