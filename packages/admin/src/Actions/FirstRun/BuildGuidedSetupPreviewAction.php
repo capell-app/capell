@@ -78,7 +78,7 @@ final class BuildGuidedSetupPreviewAction
         $presetKey = data_get($theme?->meta, 'editor.preset.active', $settings?->activePreset());
         $preset = is_string($presetKey) ? $definition?->preset($presetKey) : null;
         $preset ??= $definition->presets[0] ?? null;
-        $brand = $brand->merge($preset->values ?? []);
+        $brand = $brand->merge($preset?->resolvedValues() ?? []);
         $brand = $brand->merge($settings?->themeOverrides()[$theme->key ?? ''] ?? []);
 
         $savedTokens = $theme instanceof Theme ? data_get($theme->meta, 'editor.tokens', []) : [];

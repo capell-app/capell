@@ -153,7 +153,7 @@ class ResolveThemeRuntimeAction
             if ($preset instanceof ThemePresetData) {
                 $defaultValues = [
                     ...$defaultValues,
-                    ...$preset->values,
+                    ...$preset->resolvedValues(),
                 ];
             }
         }

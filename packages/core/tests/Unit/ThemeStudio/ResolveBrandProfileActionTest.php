@@ -107,3 +107,22 @@ it('defensively excludes unsafe custom tokens when profiles are constructed dire
         ->toHaveKey('--theme-radius-value', '0.5rem')
         ->not->toHaveKey('--theme-x; } body { display-none');
 });
+
+it('renders the preset type pairing and layout as tokens while editor overrides win', function (): void {
+    $definition = new ThemeDefinitionData(
+        key: 'pairing',
+        name: 'Pairing',
+        description: 'Pairing theme.',
+        package: 'capell-app/theme-pairing',
+        previewImage: '/preview.jpg',
+        tags: [],
+        bestFit: [],
+        presets: [new ThemePresetData('serif', 'Serif', 'Serif.', '/preview.jpg', typePairing: 'fraunces+source-serif', layout: 'editorial')],
+    );
+
+    $tokens = ResolveBrandProfileAction::run(new BrandProfileData, $definition, new ThemeOverrideData('pairing', 'serif', ['bodyFont' => 'inter']))->tokens();
+
+    expect($tokens['--theme-heading-font'])->toContain('Fraunces')
+        ->and($tokens['--theme-body-font'])->toContain('Inter')
+        ->and($tokens['--theme-layout-presentation'])->toBe('editorial');
+});

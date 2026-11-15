@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\ThemeStudio\Data;
 
+use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
 use Spatie\LaravelData\Data;
 
 /**
@@ -46,6 +47,40 @@ class ThemePresetData extends Data
     }
 
     /**
+     * The brand values this preset applies: its type pairing and layout
+     * expanded to the brand keys they set, with explicit values winning.
+     *
+     * A type pairing is `heading+body` (or one key for both) from the font
+     * catalogue; an unknown font is ignored rather than guessed.
+     *
+     * @return array<string, mixed>
+     */
+    public function resolvedValues(): array
+    {
+        $look = [];
+
+        if ($this->typePairing !== null) {
+            $fonts = explode('+', $this->typePairing, 2);
+            $heading = trim($fonts[0]);
+            $body = trim($fonts[1] ?? $heading);
+
+            if (ThemeFontCatalogue::has($heading)) {
+                $look['headingFont'] = $heading;
+            }
+
+            if (ThemeFontCatalogue::has($body)) {
+                $look['bodyFont'] = $body;
+            }
+        }
+
+        if ($this->layout !== null && $this->layout !== '') {
+            $look['layoutPresentation'] = $this->layout;
+        }
+
+        return [...$look, ...$this->values];
+    }
+
+    /**
      * Reduce an editor's submitted values to the entries that differ from this
      * preset, so only real customisations are stored.
      *
@@ -54,9 +89,11 @@ class ThemePresetData extends Data
      */
     public function diffOverrides(array $submitted): array
     {
+        $resolved = $this->resolvedValues();
+
         return array_filter(
             $submitted,
-            fn (mixed $value, string $key): bool => ! array_key_exists($key, $this->values) || $this->values[$key] !== $value,
+            fn (mixed $value, string $key): bool => ! array_key_exists($key, $resolved) || $resolved[$key] !== $value,
             ARRAY_FILTER_USE_BOTH,
         );
     }
