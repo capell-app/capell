@@ -13,8 +13,8 @@ use JsonException;
  */
 final class TrustedMarketplaceIssuerKeys
 {
-    /** @var array<string, array<string, string>> */
-    private static array $pinnedByPath = [];
+    /** @var array<string, string>|null */
+    private ?array $pinned = null;
 
     /** @param array<mixed>|null $keys key id => base64 public key, replacing the committed keys */
     public function __construct(
@@ -36,21 +36,20 @@ final class TrustedMarketplaceIssuerKeys
     /** @return array<string, string> */
     public function pinned(): array
     {
-        $path = $this->pinnedPath ?? self::defaultPath();
-
-        if (! array_key_exists($path, self::$pinnedByPath)) {
-            $contents = is_file($path) ? file_get_contents($path) : false;
-
-            try {
-                $decoded = is_string($contents) ? json_decode($contents, true, 8, JSON_THROW_ON_ERROR) : null;
-            } catch (JsonException) {
-                $decoded = null;
-            }
-
-            self::$pinnedByPath[$path] = $this->validKeys(is_array($decoded) ? ($decoded['keys'] ?? []) : []);
+        if ($this->pinned !== null) {
+            return $this->pinned;
         }
 
-        return self::$pinnedByPath[$path];
+        $path = $this->pinnedPath ?? self::defaultPath();
+        $contents = is_file($path) ? file_get_contents($path) : false;
+
+        try {
+            $decoded = is_string($contents) ? json_decode($contents, true, 8, JSON_THROW_ON_ERROR) : null;
+        } catch (JsonException) {
+            $decoded = null;
+        }
+
+        return $this->pinned = $this->validKeys(is_array($decoded) ? ($decoded['keys'] ?? []) : []);
     }
 
     public function key(string $keyId): ?string
