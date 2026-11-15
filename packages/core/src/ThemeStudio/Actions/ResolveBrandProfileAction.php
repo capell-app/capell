@@ -27,7 +27,7 @@ class ResolveBrandProfileAction
 
         if ($override->presetKey !== null) {
             $preset = $definition->preset($override->presetKey);
-            $presetValues = $preset?->values ?? [];
+            $presetValues = $preset?->resolvedValues() ?? [];
         }
 
         $resolved = $brand

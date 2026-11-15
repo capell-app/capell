@@ -87,3 +87,23 @@ it('round-trips the whole-look fields through array data', function (): void {
         'sectionVariants' => ['hero' => 'full-bleed'],
     ]);
 });
+
+it('expands the type pairing and layout into brand values under explicit values', function (): void {
+    $preset = new ThemePresetData('look', 'Look', 'Look.', '/look.jpg', values: ['bodyFont' => 'source-serif'], typePairing: 'fraunces+inter', layout: 'editorial');
+
+    expect($preset->resolvedValues())->toBe([
+        'headingFont' => 'fraunces',
+        'bodyFont' => 'source-serif',
+        'layoutPresentation' => 'editorial',
+    ])
+        ->and(new ThemePresetData('one', 'One', 'One.', '/one.jpg', typePairing: 'newsreader')->resolvedValues())
+        ->toBe(['headingFont' => 'newsreader', 'bodyFont' => 'newsreader'])
+        ->and(new ThemePresetData('bad', 'Bad', 'Bad.', '/bad.jpg', typePairing: 'not-a-font+inter')->resolvedValues())
+        ->toBe(['bodyFont' => 'inter']);
+});
+
+it('stores an editor font choice that matches the pairing as untouched', function (): void {
+    $preset = new ThemePresetData('look', 'Look', 'Look.', '/look.jpg', typePairing: 'fraunces+inter');
+
+    expect($preset->diffOverrides(['headingFont' => 'fraunces', 'bodyFont' => 'manrope']))->toBe(['bodyFont' => 'manrope']);
+});
