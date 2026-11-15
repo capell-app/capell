@@ -520,6 +520,53 @@ it('keeps the filter bar for a language choice even when no period applies', fun
         ->assertDontSee(__('capell-admin::dashboard.work_first_analytics_period'));
 });
 
+it('does not keep scoping the dashboard by a site filter it no longer offers', function (): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    $user = $this->authenticatedUser();
+    unpublishedDashboardSite();
+    // The saved scope names a site the person can no longer reach.
+    resolve(AdminWorkspacePreferenceStore::class)->saveDashboardScope($user, new DashboardScopePreferenceData(999_999, null));
+    nextDashboardRequest();
+
+    Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertSet('filters.site_id', null)
+        ->assertDontSee(__('capell-admin::dashboard.filter_all_sites'));
+});
+
+it('offers the site filter when the person can reach more than one site', function (): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    unpublishedDashboardSite();
+    Site::factory()->createOne();
+    nextDashboardRequest();
+
+    Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertSee(__('capell-admin::dashboard.filters_hint'))
+        ->assertSee(__('capell-admin::dashboard.filter_all_sites'));
+});
+
+it('leaves out the period filter when the person cannot see any visit panel', function (): void {
+    workFirstFreshInstall();
+    config()->set('capell-admin.dashboard.work_first.widgets', [
+        PageViewsWidget::class => false,
+        PopularPagesWidget::class => false,
+        RisingPagesWidget::class => false,
+    ]);
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+    SiteDomain::query()->where('site_id', $site->id)->update(['language_id' => $site->language_id]);
+    RecordSitePublishedAction::run($site->id);
+    app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider(DashboardAnalyticsAvailabilityEnum::Available));
+    nextDashboardRequest();
+
+    Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertDontSee(__('capell-admin::dashboard.work_first_analytics_period'));
+});
+
 it('returns a person who hides the checklist to the normal dashboard, and the restore brings the setup layout back', function (): void {
     $this->actingAsAdmin();
     $user = $this->authenticatedUser();

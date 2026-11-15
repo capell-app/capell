@@ -205,6 +205,7 @@ class CapellDashboard extends Dashboard
         }
 
         $this->filtersFormMountHasFilters();
+        $this->clearHiddenSiteFilter();
     }
 
     public function updatedFilters(): void
@@ -224,6 +225,7 @@ class CapellDashboard extends Dashboard
             }
         }
 
+        $this->clearHiddenSiteFilter();
         $this->filtersFormUpdatedFilters();
         $filters = is_array($this->filters) ? $this->filters : [];
         $state = DashboardFilterStateData::fromFilters($filters);
@@ -599,6 +601,18 @@ class CapellDashboard extends Dashboard
         ];
     }
 
+    /**
+     * The site filter is hidden when there is no site to choose between, so a value left
+     * in it (a saved scope, the session or a shared link) must not keep scoping the
+     * dashboard with no control to clear it.
+     */
+    private function clearHiddenSiteFilter(): void
+    {
+        if ($this->workFirstEnabled() && is_array($this->filters) && ! $this->workFirstHasSiteChoice()) {
+            $this->filters['site_id'] = null;
+        }
+    }
+
     /** Whether the person can reach more than one site, so choosing a site means something. */
     private function workFirstHasSiteChoice(): bool
     {
@@ -611,15 +625,16 @@ class CapellDashboard extends Dashboard
     }
 
     /**
-     * Whether the period can change anything: visit panels are in the person's layout
-     * and analytics is connected. A connected source with no visits in this period
+     * Whether the period can change anything: visit panels the person can see are in
+     * their layout and analytics is connected. A connected source with no visits in this period
      * keeps the filter, because a longer period may hold some.
      */
     private function workFirstShowsPerformance(): bool
     {
         return ! $this->isFirstRun()
             && ($this->analyticsSnapshot()?->isAvailable() ?? false)
-            && array_any($this->workFirstOrderedWidgets($this->getWidgets()), $this->isWorkFirstAnalyticsWidget(...));
+            && array_any($this->workFirstOrderedWidgets($this->getWidgets()), fn (string|WidgetConfiguration $widget): bool => $this->isWorkFirstAnalyticsWidget($widget)
+                && $this->normalizeWidgetClass($widget)::canView());
     }
 
     /**

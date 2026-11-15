@@ -14,6 +14,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Attributes\Lazy;
@@ -39,9 +40,8 @@ final class InstallerWarning extends Component implements HasActions, HasForms
     public function deleteInstallerAction(): Action
     {
         return Action::make('deleteInstaller')
-            ->authorize(fn (): bool => $this->canDeleteInstaller())
-            ->disabled(fn (): bool => ! $this->canDeleteInstaller())
-            ->tooltip(fn (): ?string => $this->canDeleteInstaller() ? null : (string) __('capell-installer::widgets.delete_installer_disabled_tooltip'))
+            ->authorize(fn (): Response => $this->deleteInstallerResponse())
+            ->authorizationTooltip()
             ->label(__('capell-installer::widgets.delete_installer_action'))
             ->color('danger')
             ->outlined()
@@ -76,6 +76,18 @@ final class InstallerWarning extends Component implements HasActions, HasForms
             'hasGlobalAccess' => SiteAccess::current()->isGlobal(),
             'shouldShowWarning' => $this->installerPackageIsInstalled,
         ]);
+    }
+
+    /** A denial keeps the button on screen, disabled, with the reason as its tooltip. */
+    private function deleteInstallerResponse(): Response
+    {
+        if (! SiteAccess::current()->isGlobal()) {
+            return Response::deny((string) __('capell-installer::widgets.delete_installer_global_access_required'));
+        }
+
+        return config('capell.server_side_tooling', false) === true
+            ? Response::allow()
+            : Response::deny((string) __('capell-installer::widgets.delete_installer_disabled_tooltip'));
     }
 
     private function canDeleteInstaller(): bool

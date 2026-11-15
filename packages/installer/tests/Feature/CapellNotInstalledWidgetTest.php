@@ -291,6 +291,7 @@ it('explains why installer deletion is unavailable when server-side tooling is d
         ->assertSee(__('capell-installer::widgets.delete_installer_tooling_disabled'))
         ->assertSee('composer remove capell-app/installer')
         ->assertSee(__('capell-installer::widgets.delete_installer_copy'))
+        ->assertActionVisible('deleteInstaller')
         ->assertActionDisabled('deleteInstaller');
 });
 
@@ -313,5 +314,7 @@ it('explains when installer deletion requires global administrator access', func
     Livewire::withoutLazyLoading();
 
     Livewire::test(InstallerWarning::class)
-        ->assertSee('Only a global administrator can remove the installer');
+        ->assertSee('Only a global administrator can remove the installer')
+        ->assertActionVisible('deleteInstaller')
+        ->assertActionDisabled('deleteInstaller');
 });
