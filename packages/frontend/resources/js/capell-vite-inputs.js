@@ -53,12 +53,9 @@ function resolvePluginModule(applicationRoot, name) {
         )
     }
 
-    const exported = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-        .exports?.['.']
-    const entry =
-        typeof exported === 'string'
-            ? exported
-            : (exported?.import ?? exported?.default)
+    const entry = esmEntry(
+        JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).exports?.['.'],
+    )
 
     if (typeof entry !== 'string') {
         throw new Error(
@@ -69,22 +66,52 @@ function resolvePluginModule(applicationRoot, name) {
     return path.join(path.dirname(packageJsonPath), entry)
 }
 
+// Follows nested export conditions, such as { import: { types, default } }, to the ESM file.
+function esmEntry(exported) {
+    if (
+        typeof exported === 'string' ||
+        exported === undefined ||
+        exported === null
+    ) {
+        return exported
+    }
+
+    return esmEntry(exported.import ?? exported.default)
+}
+
+function pluginEntries(manifest) {
+    return (Array.isArray(manifest.plugins) ? manifest.plugins : [])
+        .map((plugin) =>
+            typeof plugin === 'string'
+                ? { module: plugin, options: {} }
+                : plugin,
+        )
+        .filter((plugin) => typeof plugin?.module === 'string')
+}
+
 export function capellVitePlugins(applicationRoot = process.cwd()) {
-    const modules = stringList(readManifest(applicationRoot).plugins)
-
     return Promise.all(
-        modules.map(async (name) => {
-            const imported = await import(
-                pathToFileURL(resolvePluginModule(applicationRoot, name)).href
-            )
-
-            if (typeof imported.default !== 'function') {
-                throw new Error(
-                    `The Vite plugin ${name} registered by a Capell package has no default export to call. Run your package manager's install, then build again.`,
+        pluginEntries(readManifest(applicationRoot)).map(
+            async ({ module: name, options }) => {
+                const imported = await import(
+                    pathToFileURL(resolvePluginModule(applicationRoot, name))
+                        .href
                 )
-            }
 
-            return imported.default()
-        }),
+                // A CommonJS build that sets exports.default arrives as { default: { default: factory } }.
+                const factory =
+                    typeof imported.default === 'function'
+                        ? imported.default
+                        : imported.default?.default
+
+                if (typeof factory !== 'function') {
+                    throw new Error(
+                        `The Vite plugin ${name} registered by a Capell package has no default export to call. Run your package manager's install, then build again.`,
+                    )
+                }
+
+                return factory(options ?? {})
+            },
+        ),
     )
 }

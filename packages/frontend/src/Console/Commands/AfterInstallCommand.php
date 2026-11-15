@@ -89,7 +89,7 @@ final class AfterInstallCommand extends Command
         $this->line('- Build command: ' . implode(' ', $buildCommand));
         $this->line('- Vite input integration: ' . ($viteIntegrated ? 'present' : 'missing'));
 
-        $vitePlugins = resolve(FrontendVitePluginRegistry::class)->all();
+        $vitePlugins = resolve(FrontendVitePluginRegistry::class)->modules();
 
         if ($vitePlugins !== []) {
             $pluginsIntegrated = resolve(PrepareFrontendInstallationAction::class)->vitePluginHelperIsIntegrated();

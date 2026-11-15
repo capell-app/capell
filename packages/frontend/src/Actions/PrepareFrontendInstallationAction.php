@@ -9,9 +9,11 @@ use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Assets\ViteConfigurationLocator;
+use Capell\Frontend\Support\Assets\ViteConfigurationScanner;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 use stdClass;
 
 final class PrepareFrontendInstallationAction
@@ -24,6 +26,17 @@ final class PrepareFrontendInstallationAction
     public function handle(?FrontendDependencyPlanData $plan = null, ?ProgressReporter $reporter = null): void
     {
         throw_unless($this->viteInputHelperIsIntegrated(), FrontendResourcePlanException::class, 'Capell Vite inputs are not integrated. Add the Capell Vite input helper before preparing frontend assets.');
+
+        // An application integrated before a package needed a Vite plugin gets the plugin helper now,
+        // before anything is written, so a configuration that cannot be edited changes nothing.
+        if (! $this->vitePluginHelperIsIntegrated()) {
+            try {
+                IntegrateViteInputsAction::run();
+            } catch (RuntimeException $runtimeException) {
+                throw new FrontendResourcePlanException($runtimeException->getMessage(), $runtimeException->getCode(), previous: $runtimeException);
+            }
+        }
+
         $plan ??= ResolveFrontendDependencyPlanAction::run();
         $path = base_path('package.json');
         $package = json_decode($this->files->get($path), flags: JSON_THROW_ON_ERROR);
@@ -54,12 +67,6 @@ final class PrepareFrontendInstallationAction
         throw_if($written === false, FrontendResourcePlanException::class, 'Unable to write application package.json. Check install-time file permissions.');
         WriteViteInputManifestAction::run(GenerateTailwindAssetsAction::run());
 
-        // An application integrated before a package needed a Vite plugin gets the plugin helper now,
-        // so a `.vue` or similar entry point never reaches a build that cannot compile it.
-        if (! $this->vitePluginHelperIsIntegrated()) {
-            IntegrateViteInputsAction::run();
-        }
-
         $reporter?->report(sprintf('Frontend assets prepared. Before opening Admin or the public page, run %s install and %s run build.', $plan->manager->value, $plan->manager->value));
     }
 
@@ -84,6 +91,6 @@ final class PrepareFrontendInstallationAction
 
         $path = new ViteConfigurationLocator($this->files)->find();
 
-        return $path !== null && str_contains($this->files->get($path), 'capellVitePlugins');
+        return $path !== null && preg_match('/\bcapellVitePlugins\s*\(/', ViteConfigurationScanner::code($this->files->get($path))) === 1;
     }
 }

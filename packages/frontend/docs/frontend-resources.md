@@ -42,11 +42,15 @@ A package whose entry points need a Vite plugin, such as `.vue` files and `@vite
 ```php
 $this->callAfterResolving(
     FrontendVitePluginRegistry::class,
-    static fn (FrontendVitePluginRegistry $registry) => $registry->register('@vitejs/plugin-vue', 'capell-app/inertia-vue-adapter'),
+    static fn (FrontendVitePluginRegistry $registry) => $registry->register(
+        '@vitejs/plugin-vue',
+        'capell-app/inertia-vue-adapter',
+        ['template' => ['transformAssetUrls' => ['base' => null, 'includeAbsolute' => false]]],
+    ),
 );
 ```
 
-The build loads every registered plugin through `capellVitePlugins()`. It resolves each package from the application's own `node_modules` and calls its default export with no arguments. Capell adds the helper when it integrates the Vite configuration. An application integrated earlier gets it the next time `capell:frontend-after-install --apply` runs while a package needs a plugin:
+The build loads every registered plugin through `capellVitePlugins()`. It resolves each package from the application's own `node_modules`, including ESM-only packages, and calls its default export with the registered JSON options. Each plugin is called once, so two packages that register the same plugin must use the same options. Capell adds the helper when it integrates the Vite configuration. An application integrated earlier gets it the next time `capell:frontend-after-install --apply` runs while a package needs a plugin:
 
 ```js
 import { capellViteInputs, capellVitePlugins } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js'
@@ -56,7 +60,11 @@ export default defineConfig({
 })
 ```
 
-When the configuration has no `plugins` array, or imports the helper differently, Capell leaves it unchanged. If a package needs a plugin in that case, it stops with a message asking you to add `capellVitePlugins()` yourself.
+Capell changes the plugins only when a package needs one. It edits only the exported configuration's own `plugins` array, and ignores comments, strings and nested arrays such as PostCSS or Rollup plugins. It stops before writing anything, with a message asking you to add `capellVitePlugins()` yourself, in these cases:
+
+- the configuration is a function;
+- it has no top-level `plugins` array;
+- it imports the helper differently.
 
 ## Published package resources and conditional widgets
 

@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Assets\ViteConfigurationLocator;
+use Capell\Frontend\Support\Assets\ViteConfigurationScanner;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -81,33 +82,25 @@ final class IntegrateViteInputsAction
 
     /**
      * Adds the helper that loads package-registered Vite plugins, such as the Vue plugin for `.vue`
-     * entry points. A configuration without a plugins array is left alone until a package needs one.
+     * entry points. Configurations are only touched when a package needs a plugin, and only the
+     * exported configuration's own `plugins` array is edited.
      */
     private function integratePlugins(string $contents): string
     {
-        if (str_contains($contents, 'capellVitePlugins')) {
+        if ($this->pluginRegistry->all() === [] || preg_match('/\bcapellVitePlugins\s*\(/', ViteConfigurationScanner::code($contents)) === 1) {
             return $contents;
         }
 
-        $pluginsNeeded = $this->pluginRegistry->all() !== [];
+        $arrayEnd = ViteConfigurationScanner::topLevelPluginsArrayEnd($contents);
 
-        if (preg_match('/\bplugins\s*:\s*\[/', $contents) !== 1 || ! str_contains($contents, self::IMPORT)) {
-            // Without a plugins array or with a customised helper import, only a package that needs a
-            // plugin makes this a failure; everything else keeps building as it did.
-            throw_if(
-                $pluginsNeeded,
-                RuntimeException::class,
-                'The Vite plugins Capell packages need could not be added automatically. Import capellVitePlugins from capell-vite-inputs.js and add capellVitePlugins() to your Vite plugins.',
-            );
+        throw_if(
+            $arrayEnd === null || ! str_contains($contents, self::IMPORT),
+            RuntimeException::class,
+            'The Vite plugins Capell packages need could not be added automatically. Import capellVitePlugins from capell-vite-inputs.js and add capellVitePlugins() to the plugins array of your Vite configuration.',
+        );
 
-            return $contents;
-        }
+        $updated = substr_replace($contents, 'capellVitePlugins(), ', $arrayEnd, 0);
 
-        $updated = str_replace(self::IMPORT, self::IMPORT_WITH_PLUGINS, $contents);
-
-        $updated = preg_replace('/(\bplugins\s*:\s*\[)/', '$1capellVitePlugins(), ', $updated, 1, $pluginCount);
-        throw_unless(is_string($updated) && $pluginCount === 1, RuntimeException::class, 'The Vite plugins array could not be updated automatically.');
-
-        return $updated;
+        return str_replace(self::IMPORT, self::IMPORT_WITH_PLUGINS, $updated);
     }
 }

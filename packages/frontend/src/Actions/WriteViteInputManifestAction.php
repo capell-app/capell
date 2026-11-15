@@ -43,7 +43,10 @@ final class WriteViteInputManifestAction
         $plugins = $this->pluginRegistry->all();
 
         if ($plugins !== []) {
-            $manifest['plugins'] = $plugins;
+            $manifest['plugins'] = array_map(
+                static fn (array $plugin): array => ['module' => $plugin['module'], 'options' => (object) $plugin['options']],
+                $plugins,
+            );
         }
 
         $this->files->ensureDirectoryExists(dirname($path));
