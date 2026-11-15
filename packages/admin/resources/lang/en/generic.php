@@ -623,6 +623,8 @@ return [
     'translation_incomplete_info' => 'Some fields in this language are still empty.',
     'translation_outdated' => 'May be outdated',
     'translation_outdated_info' => 'The default language changed after this translation was last saved. Check whether this language needs the same change.',
+    'translation_outdated_fields_info' => 'Changed in the default language since this translation was last saved: :fields. Update these fields here, then save.',
+    'translation_field_title' => 'Title',
     'translation_untranslated' => 'Copied from default',
     'translation_untranslated_info' => 'This language still matches the default language word for word, so it probably has not been translated yet.',
     'translations' => 'Translations',

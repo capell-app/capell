@@ -14,6 +14,7 @@ use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Admin\Support\Filament\RecoverableSchemaComponents;
 use Capell\Admin\Support\Loader\LanguageLoader;
+use Capell\Core\Actions\Translations\ResolveChangedSourceFieldsAction;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Blueprintable;
@@ -32,6 +33,7 @@ use Filament\Forms\Components\Field;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Override;
 use RuntimeException;
 use Throwable;
@@ -337,14 +339,15 @@ class TranslationsRepeater extends RepeaterTabs
         }
 
         $defaultTranslation = $this->resolveDefaultTranslation($record);
-        $isOutdated = $this->isOutdatedAgainstDefault($record, $defaultTranslation);
+        $outdatedFields = $this->outdatedFieldsAgainstDefault($record, $defaultTranslation);
+        $isOutdated = $outdatedFields !== [];
 
         if ($percent === 100) {
             if ($isOutdated) {
                 return [
                     'label' => __('capell-admin::generic.translation_outdated'),
                     'color' => 'warning',
-                    'tooltip' => __('capell-admin::generic.translation_outdated_info'),
+                    'tooltip' => $this->outdatedTooltip($outdatedFields),
                 ];
             }
 
@@ -367,7 +370,7 @@ class TranslationsRepeater extends RepeaterTabs
             return [
                 'label' => $percent . '% · ' . __('capell-admin::generic.translation_outdated'),
                 'color' => $percent >= 50 ? 'warning' : 'danger',
-                'tooltip' => __('capell-admin::generic.translation_outdated_info'),
+                'tooltip' => $this->outdatedTooltip($outdatedFields),
             ];
         }
 
@@ -472,24 +475,50 @@ class TranslationsRepeater extends RepeaterTabs
         return $defaultTranslation instanceof Translation ? $defaultTranslation : null;
     }
 
-    private function isOutdatedAgainstDefault(Translation $record, ?Translation $defaultTranslation): bool
+    /**
+     * The default-language fields changed since this translation was last saved, or an empty list when it is up to
+     * date. A translation saved before field tracking began falls back to comparing save times, reported as `[]`
+     * (up to date) or `null` (changed, fields unknown).
+     *
+     * @return list<string>|null
+     */
+    private function outdatedFieldsAgainstDefault(Translation $record, ?Translation $defaultTranslation): ?array
     {
-        if (! $defaultTranslation instanceof Translation) {
-            return false;
+        if (! $defaultTranslation instanceof Translation || $defaultTranslation->is($record)) {
+            return [];
         }
 
-        if ($defaultTranslation->is($record)) {
-            return false;
+        $changedFields = ResolveChangedSourceFieldsAction::run($record, $defaultTranslation);
+
+        if ($changedFields !== null) {
+            return $changedFields;
         }
 
         $defaultUpdatedAt = $defaultTranslation->getAttribute('updated_at');
         $recordUpdatedAt = $record->getAttribute('updated_at');
 
         if (! $defaultUpdatedAt instanceof DateTimeInterface || ! $recordUpdatedAt instanceof DateTimeInterface) {
-            return false;
+            return [];
         }
 
-        return $defaultUpdatedAt > $recordUpdatedAt;
+        return $defaultUpdatedAt > $recordUpdatedAt ? null : [];
+    }
+
+    /** @param  list<string>|null  $outdatedFields */
+    private function outdatedTooltip(?array $outdatedFields): string
+    {
+        if ($outdatedFields === null) {
+            return (string) __('capell-admin::generic.translation_outdated_info');
+        }
+
+        $labels = array_map(
+            static fn (string $field): string => $field === 'title'
+                ? (string) __('capell-admin::generic.translation_field_title')
+                : Str::headline(Str::after($field, '.')),
+            $outdatedFields,
+        );
+
+        return (string) __('capell-admin::generic.translation_outdated_fields_info', ['fields' => implode(', ', $labels)]);
     }
 
     /**
