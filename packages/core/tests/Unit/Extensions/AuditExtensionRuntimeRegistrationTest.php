@@ -493,3 +493,33 @@ it('does not warn when a declared blueprint subject is registered at runtime', f
 
     expect(runtimeRegistrationAuditResults($directory, BLUEPRINT_SUBJECT_WARNING))->toBe([]);
 });
+
+it('reconciles runtime receipts declared through manifest contribution traceability', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/traced', 'runtime', ExtensionContributionType::RenderHook, 'vendor-traced-hook', 'Vendor\\Traced\\Hook', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/traced', 'runtime', ExtensionContributionType::RenderHook, 'vendor-untraced-hook', 'Vendor\\Traced\\Other', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/traced', 'admin', ExtensionContributionType::AdminResource, 'resource:Traced:default', 'Vendor\\Traced\\Resource', 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/traced', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-traced.event']);
+    $manifest = json_decode((string) file_get_contents($directory . '/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['contributionTraceability'] = ['contributions' => [
+        ['type' => 'render-hook', 'key' => 'vendor-traced-hook', 'providerBucket' => 'runtime'],
+        ['type' => 'admin-resource', 'key' => 'resource:Traced:default', 'providerBucket' => 'runtime'],
+        ['type' => 'render-hook', 'key' => 'vendor-missing-hook', 'providerBucket' => 'runtime'],
+    ]];
+    file_put_contents($directory . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+
+    $loadedOnly = runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime', 'admin']);
+    expect($loadedOnly)->toHaveCount(1)
+        ->and($loadedOnly[0]['context']['contributionKey'])->toBe('vendor-untraced-hook');
+
+    $wrongBucket = runtimeRegistrationAuditResults($directory, 'Runtime contribution is registered in the wrong provider bucket.', ['runtime', 'admin']);
+    expect($wrongBucket)->toHaveCount(1)
+        ->and($wrongBucket[0]['context'])->toMatchArray(['contributionKey' => 'resource:Traced:default', 'expectedBucket' => 'runtime', 'actualBucket' => 'admin']);
+
+    $declaredOnly = runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime', 'admin']);
+    expect($declaredOnly)->toHaveCount(1)
+        ->and($declaredOnly[0]['context']['contributionKey'])->toBe('vendor-missing-hook');
+});
