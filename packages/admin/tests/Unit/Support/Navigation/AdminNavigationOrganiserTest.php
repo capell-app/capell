@@ -36,7 +36,7 @@ it('puts the dashboard first and every other item in its fixed group, in group o
             NavigationItem::make('Bookings')->group('Bookings')->url('/admin/bookings'),
             NavigationItem::make('Forms')->group(NavigationGroupEnum::Marketing)->url('/admin/forms'),
             NavigationItem::make('Dashboard')->key(CapellDashboard::class)->url('/admin'),
-            NavigationItem::make('Menus')->group('capell-admin::navigation.group_websites')->url('/admin/menus'),
+            NavigationItem::make('Menus')->group(NavigationGroupEnum::Website)->url('/admin/menus'),
             NavigationItem::make('Pages')->key(PageResource::class)->group(NavigationGroupEnum::Website)->url('/admin/pages'),
         ]),
     ]);

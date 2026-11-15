@@ -447,10 +447,10 @@ navigation tests reject these labels.
 ### Moving from the old groups
 
 Earlier releases let packages return any translated group label and register
-their own groups. Those labels still work for now: each is mapped to the nearest
-case (an unknown label goes to Settings) and logged as deprecated.
-`CapellAdmin::registerNavigationGroup()` no longer adds a group. Move to
-`NavigationGroupEnum` before the mapping is removed.
+their own groups. The old group keys and labels are no longer recognised: an
+item that returns one is shown under Settings and logged. Return a
+`NavigationGroupEnum` case instead. `CapellAdmin::registerNavigationGroup()` no
+longer adds a group.
 
 ## Permissions
 

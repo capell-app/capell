@@ -50,25 +50,21 @@ it('records navigation item replacements', function (): void {
     expect(CapellAdmin::getNavigationReplacements())->toBe(['core.redirects' => 'package.redirects']);
 });
 
-it('resolves cases, values, labels and legacy group keys to a fixed group', function (string|NavigationGroupEnum|null $group, ?NavigationGroupEnum $expected): void {
+it('resolves cases, values, keys and labels to a fixed group', function (string|NavigationGroupEnum|null $group, ?NavigationGroupEnum $expected): void {
     expect(resolve(NavigationGroupResolver::class)->resolve($group))->toBe($expected);
 })->with([
     'enum case' => [NavigationGroupEnum::Business, NavigationGroupEnum::Business],
     'case value' => ['marketing', NavigationGroupEnum::Marketing],
     'case translation key' => ['capell-admin::navigation.group_users', NavigationGroupEnum::Users],
     'case label' => ['Reports', NavigationGroupEnum::Reports],
-    'legacy content key' => ['capell-admin::navigation.group_content', NavigationGroupEnum::Website],
-    'legacy publishing label' => ['Publishing', NavigationGroupEnum::Website],
-    'legacy monitoring label' => ['Insights & health', NavigationGroupEnum::Reports],
-    'legacy customers key' => ['capell-admin::navigation.group_customers', NavigationGroupEnum::Business],
-    'legacy growth key' => ['capell-admin::navigation.group_growth', NavigationGroupEnum::Marketing],
-    'legacy system label' => ['System', NavigationGroupEnum::Settings],
     'unknown package group' => ['Bookings', NavigationGroupEnum::Settings],
+    'retired group label' => ['Customers', NavigationGroupEnum::Settings],
+    'retired monitoring label' => ['Insights & health', NavigationGroupEnum::Settings],
     'dashboard' => ['capell-admin::navigation.group_dashboard', null],
     'no group' => [null, null],
 ]);
 
-it('logs a legacy group label once', function (): void {
+it('logs an unknown group label once', function (): void {
     $log = Log::spy();
     $resolver = new NavigationGroupResolver;
 
@@ -76,5 +72,5 @@ it('logs a legacy group label once', function (): void {
     $resolver->resolve('System');
     $resolver->resolve(NavigationGroupEnum::Settings);
 
-    $log->shouldHaveReceived('debug')->withArgs(fn (string $message, array $context): bool => $context === ['group' => 'System', 'mapped_to' => 'settings'])->once();
+    $log->shouldHaveReceived('debug')->withArgs(fn (string $message, array $context): bool => $context === ['group' => 'System'])->once();
 });

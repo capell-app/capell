@@ -75,14 +75,14 @@ it('resolves settings metadata labels and navigation groups', function (): void 
     $translated = new SettingsGroupMetadata(
         group: 'translated',
         label: 'capell-admin::navigation.settings',
-        navigationGroup: 'capell-admin::navigation.group_system',
+        navigationGroup: 'capell-admin::navigation.group_settings',
     );
 
     expect($plain->getLabel())->toBe('Plain settings')
         ->and($plain->getNavigationGroup())->toBe('Tools')
         ->and(new SettingsGroupMetadata(group: 'none', label: 'None')->getNavigationGroup())->toBeNull()
         ->and($translated->getLabel())->toBe(__('capell-admin::navigation.settings'))
-        ->and($translated->getNavigationGroup())->toBe(__('capell-admin::navigation.group_system'));
+        ->and($translated->getNavigationGroup())->toBe(__('capell-admin::navigation.group_settings'));
 });
 
 it('resolves the configured media backend with spatie as the default', function (): void {

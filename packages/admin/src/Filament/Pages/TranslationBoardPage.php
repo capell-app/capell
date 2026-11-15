@@ -8,6 +8,7 @@ use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\Translations\BuildTranslationBoardRowsAction;
 use Capell\Admin\Data\Translations\TranslationBoardLanguageData;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Enums\TranslationBoardStatus;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Core\Models\Language;
@@ -54,9 +55,9 @@ final class TranslationBoardPage extends Page
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_websites');
+        return NavigationGroupEnum::Website;
     }
 
     #[Override]

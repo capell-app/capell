@@ -81,7 +81,7 @@ $registry->registerMetadata(new SettingsGroupMetadata(
     group: 'example',
     label: 'example::settings.title',
     icon: Heroicon::OutlinedCog6Tooth,
-    navigationGroup: 'capell-admin::navigation.group_system',
+    navigationGroup: 'settings',
     packageName: 'capell-app/example',
 ));
 $registry->register('example', ExampleSettingsSchema::class);
