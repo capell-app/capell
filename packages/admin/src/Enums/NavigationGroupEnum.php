@@ -22,6 +22,7 @@ enum NavigationGroupEnum: string implements HasLabel
     case Reports = 'reports';
     case Users = 'users';
     case Settings = 'settings';
+    case Developer = 'developer';
 
     #[Override]
     public function getLabel(): string
@@ -36,6 +37,7 @@ enum NavigationGroupEnum: string implements HasLabel
             self::Reports => __('capell-admin::navigation.group_reports'),
             self::Users => __('capell-admin::navigation.group_users'),
             self::Settings => __('capell-admin::navigation.group_settings'),
+            self::Developer => __('capell-admin::navigation.group_developer'),
         };
     }
 

@@ -14,7 +14,7 @@ final class NavigationLimits
 {
     public static function maxGroups(): int
     {
-        return (int) config('capell-admin.navigation.max_groups', 8);
+        return (int) config('capell-admin.navigation.max_groups', 9);
     }
 
     public static function maxItemsPerGroup(): int

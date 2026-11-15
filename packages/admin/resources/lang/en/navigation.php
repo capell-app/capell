@@ -32,6 +32,7 @@ return [
     'group_security' => 'Security',
     'group_users' => 'Users',
     'group_settings' => 'Settings',
+    'group_developer' => 'Developer',
     'group_websites' => 'Website',
     'group_workflow' => 'Publishing',
     'languages' => 'Languages',

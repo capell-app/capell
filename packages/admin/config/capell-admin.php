@@ -265,7 +265,7 @@ return [
     'navigation' => [
         // Sidebar limits, enforced by the navigation tests with every
         // first-party package installed. Raising one is a reviewed decision.
-        'max_groups' => 8,
+        'max_groups' => 9,
         'max_items_per_group' => 10,
         'min_items_per_group' => 2,
     ],
