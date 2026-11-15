@@ -213,11 +213,18 @@ $composer = is_string($composer) && $composer !== '' ? $composer : 'composer';
 $results = [];
 $startedAt = hrtime(true);
 
-foreach ($stages as $name => $script) {
-    fwrite(STDOUT, sprintf("\n%s\n▶ %s (%s)\n%s\n", str_repeat('═', 64), $name, $script, str_repeat('═', 64)));
-
+/**
+ * Run one stage and return its exit code and wall time. With an output file the stage's streams go there
+ * instead of the terminal, so a stage running beside another can be printed whole afterwards.
+ *
+ * @return array{exitCode: int, seconds: float}
+ */
+$runStage = static function (string $name, string $script, ?string $outputFile = null) use ($composer): array {
     $stageStartedAt = hrtime(true);
-    $process = proc_open([$composer, $script], [STDIN, STDOUT, STDERR], $pipes);
+    $descriptors = $outputFile === null
+        ? [STDIN, STDOUT, STDERR]
+        : [STDIN, ['file', $outputFile, 'w'], ['file', $outputFile, 'a']];
+    $process = proc_open([$composer, $script], $descriptors, $pipes);
 
     if (! is_resource($process)) {
         $exitCode = 127;
@@ -226,16 +233,75 @@ foreach ($stages as $name => $script) {
         $exitCode = proc_close($process);
     }
 
-    $results[$name] = [
+    return [
         'exitCode' => $exitCode,
         'seconds' => (hrtime(true) - $stageStartedAt) / 1_000_000_000,
     ];
+};
 
-    if ($failFast && $exitCode !== 0) {
+$banner = static fn (string $name, string $script): string => sprintf(
+    "\n%s\n▶ %s (%s)\n%s\n",
+    str_repeat('═', 64),
+    $name,
+    $script,
+    str_repeat('═', 64),
+);
+
+/**
+ * The read-only static stages of a quick run never write the tree the tests read, so they run beside the
+ * tests instead of before them. The full run rewrites files (Rector, Pint) and --fail-fast must stop at
+ * the first failure, so both stay strictly sequential, as does CAPELL_PREFLIGHT_SERIAL=1.
+ *
+ * @var list<string> $overlappedStatic
+ */
+$overlappedStatic = array_values(array_intersect(['phpstan', 'rector', 'pint', 'prettier', 'eslint'], array_keys($stages)));
+$overlap = ! $all && ! $failFast && isset($stages['tests']) && $overlappedStatic !== []
+    && getenv('CAPELL_PREFLIGHT_SERIAL') !== '1';
+$sequential = $overlap ? array_diff_key($stages, array_flip([...$overlappedStatic, 'tests'])) : $stages;
+
+foreach ($sequential as $name => $script) {
+    fwrite(STDOUT, $banner($name, $script));
+    $results[$name] = $runStage($name, $script);
+
+    if ($failFast && $results[$name]['exitCode'] !== 0) {
         fwrite(STDERR, sprintf("\nPreflight stopped after failed stage: %s\n", $name));
 
         break;
     }
+}
+
+if ($overlap) {
+    fwrite(STDOUT, sprintf(
+        "\n%s\nRunning tests beside %s (CAPELL_PREFLIGHT_SERIAL=1 runs them one after another)\n%s\n",
+        str_repeat('═', 64),
+        implode(', ', $overlappedStatic),
+        str_repeat('═', 64),
+    ));
+
+    $testsOutput = tempnam(sys_get_temp_dir(), 'capell-preflight-tests-');
+    $testsStartedAt = hrtime(true);
+    $testsProcess = proc_open(
+        [$composer, $stages['tests']],
+        [STDIN, ['file', $testsOutput, 'w'], ['file', $testsOutput, 'a']],
+        $testPipes,
+    );
+
+    foreach ($overlappedStatic as $name) {
+        fwrite(STDOUT, $banner($name, $stages[$name]));
+        $results[$name] = $runStage($name, $stages[$name]);
+    }
+
+    $testsExitCode = is_resource($testsProcess) ? proc_close($testsProcess) : 127;
+    fwrite(STDOUT, $banner('tests', $stages['tests']));
+    fwrite(STDOUT, (string) file_get_contents($testsOutput));
+    unlink($testsOutput);
+    $results['tests'] = [
+        'exitCode' => $testsExitCode,
+        'seconds' => (hrtime(true) - $testsStartedAt) / 1_000_000_000,
+    ];
+
+    // Report in the declared stage order whatever order the stages finished in.
+    $results = array_replace(array_intersect_key($stages, $results), $results);
 }
 
 $failed = array_filter(

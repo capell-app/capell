@@ -89,6 +89,8 @@ final class CapellPackageLoader
 
         foreach ($this->registry->all() as $manifest) {
             $runtimeProvidersSelected = $this->shouldLoadRuntimeProviders($manifest);
+            $snapshot = ProviderRegistrationSnapshot::take($this->app);
+            $packageProviders = [];
 
             foreach ($this->resolveProviders($manifest, $runtimeProvidersSelected) as $provider) {
                 try {
@@ -107,6 +109,7 @@ final class CapellPackageLoader
                         fn (): mixed => $this->app->register($provider),
                     ));
                     $loadedProviders[] = $provider;
+                    $packageProviders[] = $provider;
                     foreach ($contexts as $context) {
                         $this->receipts->rememberProviderContext($provider, $context);
                     }
@@ -130,6 +133,9 @@ final class CapellPackageLoader
                         provider: $provider,
                         reason: $this->providerFailureReason($provider, $throwable),
                     );
+
+                    $snapshot?->restore();
+                    $loadedProviders = array_values(array_diff($loadedProviders, $packageProviders));
 
                     break;
                 }

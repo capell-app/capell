@@ -48,7 +48,6 @@
         "staudenmeir/eloquent-has-many-deep": "^1.7",
         "staudenmeir/eloquent-json-relations": "^1.1",
         "symfony/filesystem": "^7.2|^8.0",
-        "symfony/html-sanitizer": "^7.0|^8.0",
         "symfony/process": "^7.2|^8.0",
         "symfony/routing": "^7.2|^8.0"
     },

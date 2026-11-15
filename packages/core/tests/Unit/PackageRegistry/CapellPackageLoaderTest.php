@@ -13,9 +13,11 @@ use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Tests\Support\BootingReceiptTestProvider;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
 
 it('always includes metadata and install providers for discovered packages', function (): void {
@@ -174,6 +176,109 @@ it('keeps an extension receipt owner while a registered provider boots', functio
         ->toHaveCount(1)
         ->and($receipts->forPackage('vendor/boot-receipt')[0]->providerBucket)->toBe('runtime')
         ->and($receipts->forPackage('vendor/boot-receipt')[0]->foundationBuiltIn)->toBeFalse();
+});
+
+it('rolls back earlier provider bindings when a later provider of the same package is quarantined', function (): void {
+    app()->instance('binding-from-before-the-package', 'kept');
+
+    $earlier = new class(app()) extends ServiceProvider
+    {
+        #[Override]
+        public function register(): void
+        {
+            $this->app->instance('quarantined-package-binding', new stdClass);
+            $this->app->singleton('quarantined-package-singleton', static fn (): stdClass => new stdClass);
+            $this->app->alias('quarantined-package-binding', 'quarantined-package-alias');
+        }
+    };
+    $later = new class(app()) extends ServiceProvider
+    {
+        #[Override]
+        public function register(): void
+        {
+            throw new RuntimeException('later provider failed');
+        }
+    };
+    $name = 'vendor/partial-registration';
+    CapellCore::registerPackage($name);
+    CapellCore::markPackageInstalled($name);
+
+    $loaded = packageLoader(packageLoaderRegistry($name, ['runtime' => [$earlier::class, $later::class]]))->loadProviders();
+
+    expect(CapellCore::isPackageEnabled($name))->toBeFalse()
+        ->and(app()->bound('quarantined-package-binding'))->toBeFalse()
+        ->and(app()->bound('quarantined-package-singleton'))->toBeFalse()
+        ->and(app()->bound('quarantined-package-alias'))->toBeFalse()
+        ->and(app()->getProvider($earlier::class))->toBeNull()
+        ->and($loaded)->toBe([])
+        ->and(resolve('binding-from-before-the-package'))->toBe('kept');
+});
+
+it('never boots an earlier provider of a package whose later provider is quarantined', function (): void {
+    // Package providers load before the application boots, so the rollback runs on an unbooted container.
+    $testApplication = app();
+    $application = new Illuminate\Foundation\Application(base_path());
+    Container::setInstance($testApplication);
+    $bootLog = new ArrayObject;
+    $application->instance('provider-rollback-boot-log', $bootLog);
+
+    $earlier = new class($application) extends ServiceProvider
+    {
+        public function boot(): void
+        {
+            $this->app->make('provider-rollback-boot-log')->append('earlier booted');
+        }
+    };
+    $later = new class(app()) extends ServiceProvider
+    {
+        #[Override]
+        public function register(): void
+        {
+            throw new RuntimeException('later provider failed');
+        }
+    };
+    $name = 'vendor/partial-boot';
+    CapellCore::registerPackage($name);
+    CapellCore::markPackageInstalled($name);
+
+    new CapellPackageLoader($application, packageLoaderRegistry($name, ['runtime' => [$earlier::class, $later::class]]), receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
+    $application->boot();
+
+    expect($bootLog->getArrayCopy())->toBe([]);
+});
+
+it('keeps the providers of a healthy package when another package is quarantined', function (): void {
+    $healthy = new class(app()) extends ServiceProvider
+    {
+        #[Override]
+        public function register(): void
+        {
+            $this->app->instance('healthy-package-binding', 'present');
+        }
+    };
+    $failing = new class(app()) extends ServiceProvider
+    {
+        #[Override]
+        public function register(): void
+        {
+            throw new RuntimeException('provider failed');
+        }
+    };
+    $registry = new CapellPackageRegistry;
+    $registry->fill([
+        'vendor/healthy' => CapellManifestData::fromArray(capellManifestV3Array(name: 'vendor/healthy', surfaces: ['admin', 'frontend'], providers: ['runtime' => [$healthy::class]])),
+        'vendor/failing' => CapellManifestData::fromArray(capellManifestV3Array(name: 'vendor/failing', surfaces: ['admin', 'frontend'], providers: ['runtime' => [$failing::class]])),
+    ]);
+
+    foreach (['vendor/healthy', 'vendor/failing'] as $name) {
+        CapellCore::registerPackage($name);
+        CapellCore::markPackageInstalled($name);
+    }
+
+    $loaded = packageLoader($registry)->loadProviders();
+
+    expect($loaded)->toBe([$healthy::class])
+        ->and(resolve('healthy-package-binding'))->toBe('present');
 });
 
 /** @param array<string, list<class-string>> $providers */
