@@ -111,7 +111,7 @@ final class ResolveResponsiveImageAction
         }
 
         $extension = self::TYPES[$type]['extension'];
-        $version = sha1($path . '|' . $storage->size($path) . '|' . $storage->lastModified($path));
+        $version = substr(hash('sha256', $path . '|' . $storage->size($path) . '|' . $storage->lastModified($path)), 0, 40);
         $entries = [];
         $source = null;
 
