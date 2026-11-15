@@ -30,10 +30,10 @@ final class GuidedSetupScreenshotFixture
 
         $meta = is_array($site->meta) ? $site->meta : [];
         unset($meta['first_run']['published_at'], $meta['guided_setup'], $meta['site_spec_hash'], $meta['site_spec_applied_hash']);
-        $meta[ResolveGuidedSetupStateAction::FRESH_INSTALL_META_KEY] = [
+        data_set($meta, ResolveGuidedSetupStateAction::FRESH_INSTALL_META_KEY, [
             'home_uuid' => (string) $home->uuid,
             'home_copy' => ResolveGuidedSetupStateAction::homeCopyStamp($home),
-        ];
+        ]);
         $site->forceFill(['meta' => $meta])->saveQuietly();
 
         $refusal = ResolveGuidedSetupStateAction::refusalFor($site->refresh());
