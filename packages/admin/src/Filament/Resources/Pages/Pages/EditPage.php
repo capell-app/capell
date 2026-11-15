@@ -50,6 +50,7 @@ use Capell\Admin\Filament\Concerns\Validate\PageValidation;
 use Capell\Admin\Filament\Contracts\HasPageResource;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Pages\Actions\PreviewDraftPageHeaderAction;
+use Capell\Admin\Filament\Resources\Pages\Actions\ReviewAiContentHeaderAction;
 use Capell\Admin\Filament\Resources\Pages\Actions\RevisionsHeaderAction;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
@@ -697,6 +698,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ...$topLevelExtenderActions,
             ...$pipeline->pagePreviewActions(),
             PreviewDraftPageHeaderAction::make(),
+            ReviewAiContentHeaderAction::make(),
             Action::make('impact-preview')
                 ->label(__('capell-admin::impact.heading'))
                 ->modalDescription(__('capell-admin::impact.description'))
