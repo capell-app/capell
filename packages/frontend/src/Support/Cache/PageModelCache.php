@@ -46,6 +46,42 @@ final class PageModelCache
     }
 
     /**
+     * Hydrate an ordered set of models with one eager load for all cold IDs, so a
+     * listing costs a constant number of queries however many of its models are cold.
+     * Cache hits still use the same validation, tracking and fallback path as get().
+     *
+     * @param  class-string<Model&Pageable<Model>>  $type
+     * @param  list<int>  $ids
+     * @return Collection<int, Model&Pageable<Model>>
+     */
+    public function getMany(
+        string $type,
+        array $ids,
+        ?Site $site,
+        Language $language,
+        bool $withEvents = true,
+        bool $useCache = true,
+    ): Collection {
+        $loaded = null;
+        $models = new Collection;
+
+        foreach ($ids as $id) {
+            $model = $this->getUsingLoader($type, $id, $site, $language, $withEvents, $useCache, function (string $modelClass) use (&$loaded, $ids, $site, $language, $id): ?Model {
+                // Lazy so a fully warm listing does not perform a batch query.
+                $loaded ??= $this->loadModels($modelClass, $ids, $site, $language, reuseRelations: true);
+
+                return $loaded->get($id);
+            });
+
+            if ($model instanceof Pageable) {
+                $models->push($model);
+            }
+        }
+
+        return $models;
+    }
+
+    /**
      * Hydrate an ordered set of ancestors with one eager load for all cold IDs.
      * Cache hits still use the same validation, tracking and fallback path as get().
      *
