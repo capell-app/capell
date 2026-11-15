@@ -213,12 +213,14 @@ esac
 
 # ---------------------------------------------------------------------------
 # Lock drift. vendor/ is cloned from the primary, so it matches the primary's
-# composer.lock, not necessarily this branch's. The pre-commit hook refuses a
-# commit whose installed dependencies differ from the lock, so say so now
-# rather than at the first commit.
+# composer.lock, not necessarily this branch's, and the primary's install can
+# itself hold packages its lock no longer lists. The pre-commit hook refuses a
+# commit whose installed dependencies differ from the lock, so reconcile this
+# worktree's own vendor/ with its own lock now. vendor/ is an owned copy, so the
+# install cannot reach the primary checkout.
 # ---------------------------------------------------------------------------
-if [ -f composer.lock ]; then
-    lock_drift=$(php -r '
+lock_drift() {
+    php -r '
         $lock = json_decode((string) file_get_contents("composer.lock"), true);
         $installed = is_file("vendor/composer/installed.json")
             ? json_decode((string) file_get_contents("vendor/composer/installed.json"), true) : [];
@@ -230,12 +232,28 @@ if [ -f composer.lock ]; then
                 printf("  %s: locked %s, installed %s\n", $name, $expected[$name] ?? "none", $actual[$name] ?? "none");
             }
         }
-    ' 2>&1) || lock_drift="  could not compare composer.lock with vendor/composer/installed.json"
-    if [ -n "$lock_drift" ]; then
-        echo >&2
-        echo "WARNING: vendor/ was cloned from the primary checkout and differs from this branch's composer.lock:" >&2
-        printf '%s\n' "$lock_drift" | head -20 >&2
-        echo "Run 'composer install' here before committing; the pre-commit hook refuses a vendor/ that differs from the lock." >&2
+    ' 2>&1 || echo "  could not compare composer.lock with vendor/composer/installed.json"
+}
+if [ -f composer.lock ]; then
+    drift=$(lock_drift)
+    if [ -n "$drift" ]; then
+        echo "vendor/ was cloned from the primary checkout and differs from this branch's composer.lock:"
+        printf '%s\n' "$drift" | head -20
+        echo "Running 'composer install' to match this worktree's vendor/ to its own lock."
+        if ! composer install --no-interaction --no-progress; then
+            echo >&2
+            echo "FAILED: 'composer install' could not match vendor/ to this branch's composer.lock." >&2
+            echo "The pre-commit hook refuses this vendor/; fix the install, then re-run with --force." >&2
+            exit 1
+        fi
+        drift=$(lock_drift)
+        if [ -n "$drift" ]; then
+            echo >&2
+            echo "FAILED: vendor/ still differs from this branch's composer.lock after 'composer install':" >&2
+            printf '%s\n' "$drift" | head -20 >&2
+            exit 1
+        fi
+        echo "OK: vendor/ matches this branch's composer.lock."
     fi
 fi
 

@@ -108,18 +108,55 @@ grep -qx 'ci' "$FIXTURE_NPM_LOG"
 test -e node_modules/@capell-app/sibling-tools
 test "$(readlink node_modules/@capell-app/sibling-tools)" = "$(cd "$fixture/sibling-tools" && pwd -P)"
 echo 'PASS non-clone fallback re-points linked sibling packages'
-# A branch whose composer.lock differs from the cloned vendor/ is told to run composer install.
+# A branch whose composer.lock differs from the cloned vendor/ gets its own install,
+# so the first commit is not refused by the pre-commit lock check.
+mkdir -p "$fixture/composer-installs" "$fixture/composer-fails"
+real_composer=$(command -v composer)
+cat > "$fixture/composer-installs/composer" <<COMPOSER
+#!/bin/sh
+if [ "\$1" = install ]; then
+    echo install >> "\$FIXTURE_COMPOSER_LOG"
+    php -r '\$lock = json_decode(file_get_contents("composer.lock"), true); file_put_contents("vendor/composer/installed.json", json_encode(["packages" => array_merge(\$lock["packages"], \$lock["packages-dev"])]));'
+    exit 0
+fi
+exec "$real_composer" "\$@"
+COMPOSER
+cat > "$fixture/composer-fails/composer" <<COMPOSER
+#!/bin/sh
+[ "\$1" = install ] && { echo 'Your lock file does not contain a compatible set of packages.' >&2; exit 2; }
+exec "$real_composer" "\$@"
+COMPOSER
+chmod +x "$fixture/composer-installs/composer" "$fixture/composer-fails/composer"
+export FIXTURE_COMPOSER_LOG="$fixture/composer.log"
 cd "$fixture/primary"
 git worktree add -q "$fixture/nested/drift" -b fixture-drift
 cd "$fixture/nested/drift"
 printf '{"packages":[{"name":"acme/library","version":"2.0.0"}],"packages-dev":[]}\n' > composer.lock
-drift_output=$(bash "$script" --host-only 2>&1 >/dev/null)
+drift_output=$(PATH="$fixture/composer-installs:$PATH" bash "$script" --host-only 2>&1)
 printf '%s\n' "$drift_output" | grep -q "acme/library: locked 2.0.0, installed none"
-printf '%s\n' "$drift_output" | grep -q "Run 'composer install' here before committing"
-echo 'PASS lock drift is reported with the composer install remedy'
-cd "$fixture/nested/fallback"
-if bash "$script" --host-only --force 2>&1 >/dev/null | grep -q 'differs from this branch'; then
-    echo 'FAIL lock drift warning shown without a composer.lock' >&2
+printf '%s\n' "$drift_output" | grep -q "OK: vendor/ matches this branch's composer.lock."
+grep -qx install "$FIXTURE_COMPOSER_LOG"
+php -r '$installed = json_decode(file_get_contents("vendor/composer/installed.json"), true); if (array_column($installed["packages"], "version", "name") !== ["acme/library" => "2.0.0"]) { throw new RuntimeException("vendor/ was not matched to the lock"); }'
+echo 'PASS lock drift is reconciled with this worktree install'
+# An install that cannot match the lock fails provisioning instead of leaving a vendor/ the hook refuses.
+cd "$fixture/primary"
+git worktree add -q "$fixture/nested/drift-fails" -b fixture-drift-fails
+cd "$fixture/nested/drift-fails"
+printf '{"packages":[{"name":"acme/library","version":"2.0.0"}],"packages-dev":[]}\n' > composer.lock
+if failed_output=$(PATH="$fixture/composer-fails:$PATH" bash "$script" --host-only 2>&1); then
+    echo 'FAIL provisioning succeeded although vendor/ still differs from the lock' >&2
     exit 1
 fi
-echo 'PASS no lock drift warning without a lock difference'
+printf '%s\n' "$failed_output" | grep -q "FAILED: 'composer install' could not match vendor/"
+echo 'PASS an install that cannot match the lock fails provisioning'
+: > "$FIXTURE_COMPOSER_LOG"
+cd "$fixture/nested/fallback"
+if PATH="$fixture/composer-installs:$PATH" bash "$script" --host-only --force 2>&1 >/dev/null | grep -q 'differs from this branch'; then
+    echo 'FAIL lock drift reported without a composer.lock' >&2
+    exit 1
+fi
+if [ -s "$FIXTURE_COMPOSER_LOG" ]; then
+    echo 'FAIL composer install ran without a lock difference' >&2
+    exit 1
+fi
+echo 'PASS no install without a lock difference'
