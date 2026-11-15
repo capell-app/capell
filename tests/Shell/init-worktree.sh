@@ -107,3 +107,18 @@ grep -qx 'ci' "$FIXTURE_NPM_LOG"
 test -e node_modules/@capell-app/sibling-tools
 test "$(readlink node_modules/@capell-app/sibling-tools)" = "$(cd "$fixture/sibling-tools" && pwd -P)"
 echo 'PASS non-clone fallback re-points linked sibling packages'
+# A branch whose composer.lock differs from the cloned vendor/ is told to run composer install.
+cd "$fixture/primary"
+git worktree add -q "$fixture/nested/drift" -b fixture-drift
+cd "$fixture/nested/drift"
+printf '{"packages":[{"name":"acme/library","version":"2.0.0"}],"packages-dev":[]}\n' > composer.lock
+drift_output=$(bash "$script" --host-only 2>&1 >/dev/null)
+printf '%s\n' "$drift_output" | grep -q "acme/library: locked 2.0.0, installed none"
+printf '%s\n' "$drift_output" | grep -q "Run 'composer install' here before committing"
+echo 'PASS lock drift is reported with the composer install remedy'
+cd "$fixture/nested/fallback"
+if bash "$script" --host-only --force 2>&1 >/dev/null | grep -q 'differs from this branch'; then
+    echo 'FAIL lock drift warning shown without a composer.lock' >&2
+    exit 1
+fi
+echo 'PASS no lock drift warning without a lock difference'
