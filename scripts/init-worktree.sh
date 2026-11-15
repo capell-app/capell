@@ -276,21 +276,10 @@ fi
 # resolves against the wrong directory and dangles, which breaks the screenshot
 # runner. Re-point each such link at the absolute location the primary's link
 # resolves to. They are siblings of the primary, not part of it, so nothing here
-# reaches into the primary checkout's own tree.
+# reaches into the primary checkout's own tree. npm's postinstall runs the
+# same script, so a later `npm ci` here repairs the links too.
 # ---------------------------------------------------------------------------
-if [ -d node_modules/@capell-app ]; then
-    for linked in node_modules/@capell-app/*; do
-        [ -L "$linked" ] || continue
-        [ -e "$linked" ] && continue
-        primary_target=$(cd "$PRIMARY_ROOT/node_modules/@capell-app/$(basename "$linked")" 2>/dev/null && pwd -P) || primary_target=""
-        if [ -n "$primary_target" ] && [ -e "$primary_target" ] && [ "${primary_target#"$PRIMARY_ROOT"/}" = "$primary_target" ]; then
-            ln -sfn "$primary_target" "$linked"
-            echo "Re-pointed $linked at $primary_target."
-        else
-            echo "WARNING: $linked dangles and its sibling package could not be located; run npm ci here." >&2
-        fi
-    done
-fi
+bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repoint-linked-siblings.sh"
 
 cat <<'EOF'
 

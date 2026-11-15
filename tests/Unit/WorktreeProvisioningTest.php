@@ -26,3 +26,22 @@ it('provisions new source mappings without mutating the primary autoloader', fun
         ->and($process->getOutput())->toContain('PASS non-clone fallback re-points linked sibling packages')
         ->and($process->getOutput())->toContain('PASS primary autoload metadata unchanged');
 });
+
+it('re-points a worktree npm link that npm ci left dangling, and never touches the primary', function (): void {
+    $finder = new ExecutableFinder;
+
+    if (PHP_OS_FAMILY === 'Windows' || $finder->find('bash') === null || $finder->find('git') === null) {
+        test()->markTestSkipped('Re-pointing worktree npm links requires Unix, Bash and Git.');
+    }
+
+    $root = dirname(__DIR__, 2);
+    $process = new Process(['bash', $root . '/tests/Shell/repoint-linked-siblings.sh'], $root);
+    $process->setTimeout(120);
+    $process->run();
+
+    expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())
+        ->and($process->getOutput())->toContain('PASS dangling worktree link re-pointed at the primary sibling, and its .bin shim resolves')
+        ->and($process->getOutput())->toContain('PASS healthy and unknown links are left alone')
+        ->and($process->getOutput())->toContain('PASS primary checkout is never modified')
+        ->and($process->getOutput())->toContain('PASS outside a git repository it exits cleanly');
+});

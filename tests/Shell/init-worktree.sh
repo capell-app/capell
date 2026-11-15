@@ -53,6 +53,7 @@ mkdir -p "$fixture/stubs"
 cat > "$fixture/stubs/npm" <<'NPM'
 #!/bin/sh
 echo "$*" >> "$FIXTURE_NPM_LOG"
+[ "$1" = ci ] || exit 0
 mkdir -p node_modules/@capell-app
 ln -sfn ../../../sibling-tools node_modules/@capell-app/sibling-tools
 NPM
