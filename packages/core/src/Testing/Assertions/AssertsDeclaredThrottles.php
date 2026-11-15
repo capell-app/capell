@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
  */
 final class AssertsDeclaredThrottles
 {
-    private const string CONTRACT_ID = 'security.throttles';
+    public const string CONTRACT_ID = 'security.throttles';
 
     public static function run(string $manifestPath): void
     {
