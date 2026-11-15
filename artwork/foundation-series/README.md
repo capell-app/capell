@@ -2,7 +2,7 @@
 
 The Core, Admin, Frontend, Installer, and Marketplace README heroes and marketplace cards are complete Nano Banana Pro compositions. They are not produced by the retired SVG/background renderer.
 
-The root repository README's banner (`docs/images/capell-readme-hero.jpg`) is a separate composition with its own prompt and regeneration recipe: see `readme-banner-prompt.txt` and `readme-banner-recipe.md` in this directory.
+The root repository README's banner (`docs/images/capell-readme-hero.jpg` for dark, `docs/images/capell-readme-hero-light.jpg` for light) is rendered from HTML: see `readme-banner-recipe.md` in this directory.
 
 ![Capell Core Nano Banana artwork](../../packages/core/docs/assets/readme/hero.jpg)
 

@@ -464,11 +464,6 @@ return [
     'page_urls' => 'Page URLs',
     'page_urls_description' => 'Page URLs define access paths and aliases.',
     'page_type' => 'Page type',
-    'page_type_chooser_default_badge' => 'Default',
-    'page_type_chooser_description' => 'Choose the page type first so the create form can show the right fields, layout defaults, and guidance.',
-    'page_type_chooser_heading' => 'Choose a page type',
-    'page_type_chooser_no_guidance' => 'No editor guidance has been added for this page type yet.',
-    'page_type_chooser_usage' => '{0}No pages use this type yet|{1}:count page uses this type|[2,*]:count pages use this type',
     'pages' => 'Pages',
     'pages_card' => 'Page cards',
     'recently_deleted' => 'Recently deleted',
@@ -787,4 +782,5 @@ return [
     'snapshot_reason_to_blocks' => 'Before convert to blocks',
     'snapshot_reason_to_html' => 'Before convert to HTML',
     'snapshot_reason_restore' => 'Before restore',
+    'quick_create_page_description' => 'Add the title now and fill in the content afterwards. The page is created without leaving this list.',
 ];

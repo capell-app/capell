@@ -6,7 +6,18 @@ Manage who can sign in to the admin and what they can do. Capell uses **site-sco
 
 ![Capell roles list](../images/generated/admin/roles-list.png)
 
+## Invite someone
+
+Use **Invite someone** at the top of the Users list to send a link instead of setting a password for the person.
+
+![The invitation form on the Users list](../images/generated/admin/action-invite-user.png)
+
+The person opens the link from their email and chooses their own password.
+
+![The page where an invited person chooses a password](../images/generated/admin/action-accept-invitation.png)
+
 ## Add a user
+
 1. Open **Users** in the admin sidebar.
 2. Click the create action.
 3. Fill **Name**, **Email**, and set a **Password** (and **Password confirmation**).
@@ -14,16 +25,20 @@ Manage who can sign in to the admin and what they can do. Capell uses **site-sco
 5. Save. The user can now sign in to the admin panel (`/admin` by default; see [Admin domain and path](admin-domain.md)).
 
 ## Change a user's password
+
 1. Open **Users** and edit the user.
 2. Enter a new **Password** and **Password confirmation**.
 3. Save. (Passwords are stored hashed; you cannot read an existing password back.)
 
 ## Manage roles
+
 - Open **Roles** to create roles and choose the permissions each role grants.
 - Assign roles to a user from the user's edit screen (**Roles** field), or per site from the **Manage site permissions** action on a site's edit page (see below).
 
 ## Give someone access to one specific site
+
 Roles are scoped per site. To make someone an editor on just one site:
+
 1. Open **Sites** and edit the target site.
 2. Click **Manage site permissions**.
 3. Add the user and assign their role for this site.
@@ -31,12 +46,15 @@ Roles are scoped per site. To make someone an editor on just one site:
 The same person can hold a different role on each site, or none.
 
 ## Restrict a page type to certain roles
+
 On a page type's configurator tab you can choose which roles may see and edit pages of that type. Users without one of the listed roles cannot access those pages.
 
 ## Offboard someone
+
 - Remove their roles to revoke access while keeping their account, or
 - Delete the user from the **Users** list to remove the account entirely.
 
 ## Approval workflows and the RBAC model
+
 - Approval workflows (submit → review → approve) are provided by the optional `capell-app/publishing-studio` package, not by core.
 - For the underlying RBAC model (Spatie teams, policies, page-type restrictions) see the developer guide: [permissions and approval](../../packages/admin/docs/permissions-and-approval.md).

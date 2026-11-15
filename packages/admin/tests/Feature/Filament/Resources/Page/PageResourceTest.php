@@ -275,7 +275,37 @@ it('mounts quick create with layout defaults for the context site', function (st
         'site_id' => $siteB->id,
         'layout_id' => $defaultLayout === 'site' ? $layoutB->id : $sharedLayout?->id,
     ], $schemaName);
-})->with(['editor', 'list tab', 'list filter'])->with(['none', 'site', 'shared']);
+})->with(['editor'])->with(['none', 'site', 'shared']);
+
+it('quick creates from the list with the layout default of the context site', function (string $context, string $defaultLayout): void {
+    test()->actingAsAdmin();
+    $language = Language::factory()->english()->createOne();
+    $siteA = Site::factory()->language($language)->withTranslations($language)->createOne(['default' => true]);
+    $siteB = Site::factory()->language($language)->withTranslations($language)->createOne(['default' => false]);
+    Blueprint::factory()->page()->default()->createOne();
+    Layout::factory()->site($siteA)->createOne(['default' => true]);
+    $layoutB = Layout::factory()->site($siteB)->createOne(['default' => $defaultLayout === 'site']);
+    $sharedLayout = $defaultLayout === 'shared'
+        ? Layout::factory()->createOne(['site_id' => null, 'default' => true])
+        : null;
+
+    $list = match ($context) {
+        'list tab' => Livewire::test(ListPages::class)->set('activeTab', (string) $siteB->id),
+        'list filter' => Livewire::test(ListPages::class)->set('activeTab', 'all')->filterTable('site_id', $siteB->id),
+        default => throw new InvalidArgumentException('Unknown quick-create context: ' . $context),
+    };
+
+    $list->mountAction('create')
+        ->assertSchemaStateSet(['site_id' => $siteB->id])
+        ->fillForm(['title' => 'Context page'])
+        ->callMountedAction()
+        ->assertHasNoFormErrors();
+
+    $page = Page::query()->where('name', 'Context page')->sole();
+
+    expect($page->site_id)->toBe($siteB->id)
+        ->and($page->layout_id)->toBe($defaultLayout === 'site' ? $layoutB->id : $sharedLayout?->id);
+})->with(['list tab', 'list filter'])->with(['site', 'shared']);
 
 it('preserves unsupported content and clears stale choices when a creation form changes site', function (bool $quickCreate): void {
     test()->actingAsAdmin();

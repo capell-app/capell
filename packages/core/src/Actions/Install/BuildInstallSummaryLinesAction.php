@@ -51,7 +51,7 @@ final class BuildInstallSummaryLinesAction
             ...$this->installedLines($handoff),
             $this->row(__('capell-core::install.handoff.summary.site'), $handoff->urls['public'] !== '' ? $handoff->urls['public'] : __('capell-core::install.handoff.summary.unavailable')),
             $this->row(__('capell-core::install.handoff.summary.admin'), $handoff->urls['admin'] ?? __('capell-core::install.handoff.summary.unavailable')),
-            $this->row(__('capell-core::install.handoff.summary.home_page'), $handoff->firstPage['status']),
+            $this->row(__('capell-core::install.handoff.summary.home_page'), DescribeInstallFirstPageStatusAction::run($handoff->firstPage['status'], $handoff->urls['admin'] !== null)),
             $this->row(__('capell-core::install.handoff.summary.checks'), __('capell-core::install.handoff.summary.checks_value', [
                 'migrations' => $handoff->outcomes['migrations'],
                 'setup' => $handoff->outcomes['setup'],

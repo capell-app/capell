@@ -1,57 +1,31 @@
 # Root README banner recipe
 
-The root [README](../../README.md) hero at `docs/images/capell-readme-hero.jpg` (2880×1222,
-progressive JPEG, quality 86) is a Nano Banana Pro composition on the dark drafting-grid
-language, generated and composited with the process below. Keep the exported file smaller
-than the asset it replaces.
+The root [README](../../README.md) shows one of two banners, picked by the reader's GitHub
+theme through a `<picture>` element:
 
-![The committed root README hero](../../docs/images/capell-readme-hero.jpg)
+- `docs/images/capell-readme-hero.jpg`: dark, also used by the organisation profile;
+- `docs/images/capell-readme-hero-light.jpg`: light.
 
-## Generation
+Both are 2880×1200 progressive JPEGs rendered from
+[readme-banner/banner.html](readme-banner/banner.html). No image model is involved: the
+wordmark is the canonical [capell-logo.svg](capell-logo.svg) (navy on light, recoloured
+cream on dark) and the type is Sora from `readme-banner/fonts`.
 
-Run [readme-banner-generate.py](readme-banner-generate.py) (Gemini
-`gemini-3-pro-image-preview`, aspect 21:9, size 4K; requires `GEMINI_API_KEY` and Homebrew
-`rsvg-convert`) with [readme-banner-prompt.txt](readme-banner-prompt.txt) and these
-reference images, in order:
+## Rendering
 
-1. the capell.app hero artwork as the 3D style reference (its cream background is
-   explicitly overridden — the banner background is `#071312` with a `#16302A` grid);
-2. the Laravel logomark (solid filled ribbon — the model reliably draws it hollow, which
-   the compositing pass corrects);
-3. the Filament wordmark;
-4. the canonical Capell wordmark, navy and white, rasterized from `capell-logo.svg` at
-   1600px (the script does this itself).
+```bash
+artwork/foundation-series/readme-banner/render.sh
+```
 
-## Compositing pass (the part that actually matters)
+The script needs Google Chrome (override the path with `CHROME`) and ImageMagick. It writes
+both JPEGs into `docs/images/`.
 
-Per this directory's standing rule, model-redrawn branding never reaches a committed
-asset. After generation, erase the model's rendition of every mark and composite the real
-artwork over the erased regions:
+## Layout notes
 
-- the white Capell wordmark (rasterized from `capell-logo.svg` with its navy swapped to
-  white);
-- the debossed Laravel mark on the Core plinth (from the canonical solid-red SVG);
-- the white Filament wordmark in the admin panel's sidebar brand slot;
-- the four stack tiles under the frontend window: Blade lettering plus the Livewire,
-  Inertia, and Vue marks rasterized from their official SVGs and rotated to sit on the
-  tile faces.
-
-## Tagline removal (2026-11-12)
-
-The original composition carried the tagline "Starts where custom builds end." under the
-wordmark. It was removed to follow the heading rules in `docs/standards/ui-writing.md`: the
-text band was replaced with a grid-aligned patch of the same drafting grid copied 221 px
-lower in the 6336×2688 master, feathered at the edges. No other pixel changed. The prompt
-now asks for the wordmark alone on the left.
-
-## Export
-
-Downscale the 6336×2688 master to 2880×1222 and export progressive JPEG at quality 86.
-
-## Provenance
-
-The 2026-08-06 masters (`banner-v4-final3.png` is the approved final), prompt iterations,
-generation script, and reference set are preserved outside the repository at
-`~/Clients/Capell/artwork/readme-banner-2026-08/`. This recipe was reconstructed on
-2026-08-08 from those surviving artifacts after the original session's files were lost
-uncommitted.
+- Tagline lines are set in `banner.html`: the first line says what Capell is, the second
+  gives the evidence. Keep the second line close to the wordmark's width so both stay
+  readable at phone width (about 360px).
+- The drafting grid is offset so one horizontal line runs along the wordmark's underline
+  and one vertical line meets its left edge. Recalculate `background-position` if the
+  wordmark's size or position changes.
+- The teal glow behind the wordmark is weaker on light (`--glow: 5%`) than on dark (16%).

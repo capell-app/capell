@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 use Capell\Admin\Actions\Redirects\BuildRedirectAdviceAction;
+use Capell\Admin\Filament\Actions\Page\CreatePageAction;
+use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Filament\Resources\PageUrls\Pages\ManagePageUrls;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
@@ -15,6 +17,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Gate;
@@ -138,11 +141,13 @@ it('rejects creating pages with a layout owned by another site', function (): vo
     $otherLayout = Layout::factory()->site($otherSite)->create();
     $type = Blueprint::factory()->page()->default()->create();
 
+    $assignedPage = Page::factory()->site($assignedSite)->withTranslations()->create();
+
     test()->actingAs(createScopedUserForAdminSiteScopedFormTest(collect([$assignedSite->getKey()])));
 
-    Livewire::test(ListPages::class)
+    Livewire::test(EditPage::class, ['record' => $assignedPage->getRouteKey()])
         ->assertSuccessful()
-        ->mountAction('create')
+        ->mountAction(TestAction::make(CreatePageAction::class))
         ->set('mountedActions.0.data.translations', [])
         ->set('mountedActions.0.data.site_id', $assignedSite->getKey())
         ->set('mountedActions.0.data.layout_id', $otherLayout->getKey())

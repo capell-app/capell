@@ -352,3 +352,29 @@ test('initializes custom-field editor and public entries once with the selected 
         /require a local origin/,
     )
 })
+
+test('puts the install before guided setup only for a run of the guided setup entry', () => {
+    assert.ok(
+        commandsForEntries([{ id: 'action-coverage-guided-setup' }]).includes(
+            'Workbench\\App\\Support\\GuidedSetupScreenshotFixture::initialize();',
+        ),
+    )
+    assert.ok(
+        !commandsForEntries([{ id: 'action-coverage-site' }]).some((command) =>
+            command.includes('GuidedSetupScreenshotFixture'),
+        ),
+    )
+    assert.ok(
+        !commandsForEntries([{ id: 'action-coverage-guided-setup' }]).some(
+            (command) => command.includes('ActionScreenshotFixture'),
+        ),
+    )
+    assert.throws(
+        () =>
+            commandsForEntries([
+                { id: 'action-coverage-guided-setup' },
+                { id: 'action-coverage-site' },
+            ]),
+        /must be captured on its own/,
+    )
+})
