@@ -32,10 +32,16 @@ final class HostMonitorAlertNotification extends Notification
 
     public function subject(): string
     {
-        return (string) __('capell-core::health.host_monitor.notification.subject.' . $this->event, [
+        $replace = [
             'node' => $this->assessment->sample->node ?? 'unknown',
             'status' => $this->assessment->status->label(),
-        ]);
+        ];
+
+        return (string) match ($this->event) {
+            'reminder' => __('capell-core::health.host_monitor.notification.subject.reminder', $replace),
+            'recovered' => __('capell-core::health.host_monitor.notification.subject.recovered', $replace),
+            default => __('capell-core::health.host_monitor.notification.subject.raised', $replace),
+        };
     }
 
     /** @return list<string> */

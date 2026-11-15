@@ -31,6 +31,10 @@ enum HostMonitorStatus: string
 
     public function label(): string
     {
-        return __('capell-core::health.host_monitor.status.' . $this->value);
+        return match ($this) {
+            self::Ok => __('capell-core::health.host_monitor.status.ok'),
+            self::Warning => __('capell-core::health.host_monitor.status.warning'),
+            self::Critical => __('capell-core::health.host_monitor.status.critical'),
+        };
     }
 }

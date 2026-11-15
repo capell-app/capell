@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\HostMonitor;
 
+use Capell\Core\Octane\Resettable;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Scheduling\CallbackEvent;
@@ -18,7 +19,7 @@ use Illuminate\Console\Scheduling\Event;
  * Tasks started with runInBackground() are not waited for, so their CPU time is
  * not counted here.
  */
-final class SchedulerRunRecorder
+final class SchedulerRunRecorder implements Resettable
 {
     private const int KEEP_SLOWEST = 3;
 
@@ -26,6 +27,11 @@ final class SchedulerRunRecorder
     private ?array $run = null;
 
     public function __construct(private readonly HostMonitorStore $store) {}
+
+    public function flushOctaneState(): void
+    {
+        $this->run = null;
+    }
 
     public function starting(): void
     {

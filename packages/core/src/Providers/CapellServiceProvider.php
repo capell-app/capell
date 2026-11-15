@@ -1050,6 +1050,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerHostMonitor(): self
     {
         $this->app->singleton(SchedulerRunRecorder::class);
+        $this->app->tag([SchedulerRunRecorder::class], Resettable::TAG);
         $this->app->bind(HostMetricsSource::class, LocalHostMetricsSource::class);
 
         Event::listen(ScheduledTaskStarting::class, static function (): void {
