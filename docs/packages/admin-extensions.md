@@ -415,8 +415,8 @@ permissions in place.
 Core Capell keeps to at most 9 groups and 10 top-level items in each group,
 and every group except Media holds at least 2 items. The limits live in
 `capell-admin.navigation` and are enforced by tests against the core sidebar.
-A site with many packages installed can go over the item limit; the extra items
-then move under a **More** item instead of failing.
+A site with many packages installed can go over the item limit; every item still
+shows in its group.
 
 To keep a group short:
 

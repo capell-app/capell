@@ -81,21 +81,17 @@ it('shows a replacement in the replaced item place and hides the replaced item o
         ->and(organisedLabels($withoutReplacement)['Website'])->toBe(['Pages', 'Redirects']);
 });
 
-it('moves items over the group limit under a More item', function (): void {
+it('lists every item in a group beyond the core item limit', function (): void {
     config()->set('capell-admin.navigation.max_items_per_group', 3);
     $items = [];
     foreach (['A', 'B', 'C', 'D', 'E'] as $label) {
-        $items[] = NavigationItem::make($label)->group(NavigationGroupEnum::Reports)->url('/admin/' . strtolower($label))->isActiveWhen(fn (): bool => $label === 'E');
+        $items[] = NavigationItem::make($label)->group(NavigationGroupEnum::Reports)->url('/admin/' . strtolower($label));
     }
 
     $groups = resolve(AdminNavigationOrganiser::class)->organise([NavigationGroup::make()->items($items)]);
-    $reportItems = collect($groups[0]->getItems());
-    $more = $reportItems->last();
 
-    expect($reportItems->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['A', 'B', 'More'])
-        ->and(collect($more?->getChildItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['C', 'D', 'E'])
-        ->and($more?->getUrl())->toBe('/admin/c')
-        ->and($more?->isActive())->toBeTrue();
+    expect(collect($groups[0]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())
+        ->toBe(['A', 'B', 'C', 'D', 'E']);
 });
 
 it('keeps a child with no group of its own under its parent', function (): void {
