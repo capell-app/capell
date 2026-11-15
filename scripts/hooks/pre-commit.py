@@ -18,7 +18,7 @@ class HookFailure(RuntimeError):
 # Refresh this fingerprint when reviewing a change to the repository hook set.
 # Unknown configurations keep the conservative all-dependencies behaviour.
 KNOWN_HOOK_CONFIG_SHA256 = '4a2884b48252ba73822186b1b94ab3bdf95cc6918de0f110df478d345263ccf5'
-KNOWN_HOOK_IMPLEMENTATION_SHA256 = 'e5feda6009b1dddb79e2ef6115c1581ec49909f319beecefd056025611622c4e'
+KNOWN_HOOK_IMPLEMENTATION_SHA256 = 'f7b728efe6afb1bf37e40b223199998dbe14b9f1169a647bfc65175f695e1a2b'
 HOOK_IMPLEMENTATIONS = (
     'scripts/guards/index-integrity.sh', 'scripts/guards/pre-commit-analysis.sh',
     'scripts/guards/pre-push-analysis.sh', 'scripts/check-debugging.py',
@@ -232,8 +232,7 @@ def main():
     merge_head = Path(os.fsdecode(run(['git', 'rev-parse', '--git-path', 'MERGE_HEAD'], cwd=root)).strip())
     if not merge_head.is_absolute():
         merge_head = root / merge_head
-    if merge_head.exists():
-        raise HookFailure('A merge is in progress; snapshot hook semantics for merge conflicts are not yet supported.')
+    merge_parents = merge_head.read_text().split() if merge_head.exists() else []
     if not index_path.is_file() or not objects.is_dir():
         raise HookFailure('The active index or object directory is missing; no files were changed.')
     if '\n' in str(objects):
@@ -277,6 +276,12 @@ def main():
             modes[name] = mode
         changed = run(['git', 'diff', '--cached', '--name-only', '--no-ext-diff', '-z', '--diff-filter=ACMRTUXB'], cwd=snapshot, env=env).split(b'\0')
         changed = [name for name in changed if name]
+        # A merge commit is checked as the merged tree. Unmerged entries are already refused above, so every path is
+        # resolved; only paths that differ from every parent (conflict resolutions and combined results) are checked,
+        # because a path equal to one parent was already accepted when that parent was committed.
+        for parent in merge_parents:
+            differs = set(run(['git', 'diff', '--cached', '--name-only', '--no-ext-diff', '-z', '--diff-filter=ACMRTUXB', parent], cwd=snapshot, env=env).split(b'\0'))
+            changed = [name for name in changed if name in differs]
         if any(name not in modes for name in changed):
             raise HookFailure('A staged path is absent from the copied index; review and retry.')
         if any(modes.get(name) == b'120000' for name in changed):
