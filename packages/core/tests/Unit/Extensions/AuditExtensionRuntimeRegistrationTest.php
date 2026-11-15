@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
+use Capell\Core\Contracts\Extensions\RunsScheduledExtensionJob;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
@@ -308,6 +309,21 @@ it('reports declared-only and loaded-only receipt drift', function (): void {
     $loadedDirectory = makeRuntimeRegistrationAuditPackage('vendor/loaded-only', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.other']);
     recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/loaded-only', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.unlisted', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
     expect(runtimeRegistrationAuditResults($loadedDirectory, 'Runtime contribution is not declared in the manifest.', ['runtime']))->toHaveCount(1);
+});
+
+it('does not report a declared scheduled job as missing because no runtime registry records scheduled-job receipts', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/scheduled-job', RunsScheduledExtensionJob::class, [
+        'type' => 'scheduled-job',
+        'name' => 'vendor-package-prune',
+        'command' => 'vendor:prune',
+        'frequency' => 'daily',
+    ]);
+
+    expect(runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime']))->toBe([]);
 });
 
 it('reports wrong receipt owner and provider bucket with diagnostics', function (): void {

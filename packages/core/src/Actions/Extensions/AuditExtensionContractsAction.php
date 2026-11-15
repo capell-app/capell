@@ -492,9 +492,12 @@ final class AuditExtensionContractsAction
             }
 
             $actual = $matching[0] ?? null;
+            // Packages schedule their own jobs, so no runtime registry records a
+            // scheduled-job receipt that a declaration could be reconciled against.
             if ($actual === null && in_array($type, [
                 ExtensionContributionType::OutboundEvent,
                 ExtensionContributionType::BlueprintSubject,
+                ExtensionContributionType::ScheduledJob,
             ], true)) {
                 continue;
             }
