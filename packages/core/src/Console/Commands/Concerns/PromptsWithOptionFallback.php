@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands\Concerns;
 
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Illuminate\Console\Command;
-use RuntimeException;
 
 /**
  * Helpers for commands that use Laravel Prompts and must also work in
@@ -27,7 +27,7 @@ use RuntimeException;
 trait PromptsWithOptionFallback
 {
     /**
-     * Abort with a clear RuntimeException when a prompt needs interactive
+     * Abort with a clear NonInteractiveInputRequiredException when a prompt needs interactive
      * input but the console is non-interactive (e.g. `--no-interaction`,
      * a non-TTY CI runner, a Docker build).
      *
@@ -43,10 +43,6 @@ trait PromptsWithOptionFallback
             return;
         }
 
-        throw new RuntimeException(sprintf(
-            '%s is required in non-interactive mode.%s',
-            $requirement,
-            $hint !== '' ? ' ' . $hint : '',
-        ));
+        throw new NonInteractiveInputRequiredException($requirement, $hint);
     }
 }

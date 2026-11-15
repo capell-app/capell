@@ -304,7 +304,7 @@ public function boot(): void
 }
 ```
 
-Use your application's Composer name for `ownerPackage`. Optional packages register the descriptor through `$this->surface()->blueprintSubject(...)` in `bootInstalledPackage()` and declare a `blueprint-subject` contribution in `capell.json`. That helper also populates the legacy page-type collection. `CapellCore::registerPageType(new PageTypeData(...))` alone only populates that legacy collection; it does not register a blueprint subject, and writing an unregistered string to `Blueprint.type` throws `UnknownBlueprintSubjectException`.
+Use your application's Composer name for `ownerPackage`. Optional packages register the descriptor through `$this->surface()->blueprintSubject(...)` in `bootInstalledRuntime()` and declare a `blueprint-subject` contribution in `capell.json`. That helper also populates the legacy page-type collection. `CapellCore::registerPageType(new PageTypeData(...))` alone only populates that legacy collection; it does not register a blueprint subject, and writing an unregistered string to `Blueprint.type` throws `UnknownBlueprintSubjectException`.
 
 Choose this only when you are integrating a separate domain subject and can own those contracts. An ordinary Page assigned to a Case study blueprint needs no new subject registration.
 

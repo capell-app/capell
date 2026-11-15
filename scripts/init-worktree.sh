@@ -212,6 +212,34 @@ case "$resolved" in
 esac
 
 # ---------------------------------------------------------------------------
+# Lock drift. vendor/ is cloned from the primary, so it matches the primary's
+# composer.lock, not necessarily this branch's. The pre-commit hook refuses a
+# commit whose installed dependencies differ from the lock, so say so now
+# rather than at the first commit.
+# ---------------------------------------------------------------------------
+if [ -f composer.lock ]; then
+    lock_drift=$(php -r '
+        $lock = json_decode((string) file_get_contents("composer.lock"), true);
+        $installed = is_file("vendor/composer/installed.json")
+            ? json_decode((string) file_get_contents("vendor/composer/installed.json"), true) : [];
+        $versions = static fn (array $packages): array => array_column($packages, "version", "name");
+        $expected = $versions(array_merge($lock["packages"] ?? [], $lock["packages-dev"] ?? []));
+        $actual = $versions($installed["packages"] ?? []);
+        foreach (array_keys($expected + $actual) as $name) {
+            if (($expected[$name] ?? null) !== ($actual[$name] ?? null)) {
+                printf("  %s: locked %s, installed %s\n", $name, $expected[$name] ?? "none", $actual[$name] ?? "none");
+            }
+        }
+    ' 2>&1) || lock_drift="  could not compare composer.lock with vendor/composer/installed.json"
+    if [ -n "$lock_drift" ]; then
+        echo >&2
+        echo "WARNING: vendor/ was cloned from the primary checkout and differs from this branch's composer.lock:" >&2
+        printf '%s\n' "$lock_drift" | head -20 >&2
+        echo "Run 'composer install' here before committing; the pre-commit hook refuses a vendor/ that differs from the lock." >&2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # node_modules. `composer preflight` runs prettier and eslint, so a worktree
 # without node_modules/ fails the entire preflight before a single PHP stage
 # runs — the error names npm but reads like the worktree itself is broken.

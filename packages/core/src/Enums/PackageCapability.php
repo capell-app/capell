@@ -55,6 +55,7 @@ enum PackageCapability: string
     case AutomationWebhooks = 'automation-webhooks';
     case AuthoringSurface = 'authoring-surface';
     case Beacon = 'beacon';
+    case BlockRichTextRenderSanitization = 'block-rich-text-render-sanitization';
     case BrowserInstaller = 'browser-installer';
     case CacheBlocking = 'cache-blocking';
     case CacheInvalidation = 'cache-invalidation';
@@ -70,6 +71,8 @@ enum PackageCapability: string
     case Dashboard = 'dashboard';
     case DashboardReports = 'dashboard-reports';
     case DashboardReportsAdmin = 'dashboard-reports-admin';
+    case DesignSpecV1 = 'design-spec-v1';
+    case DeterministicThemeCompiler = 'deterministic-theme-compiler';
     case DeliveryAudit = 'delivery-audit';
     case Deployments = 'deployments';
     case DeploymentsAdmin = 'deployments-admin';
@@ -141,6 +144,7 @@ enum PackageCapability: string
     case PreviewLinkManagement = 'preview-link-management';
     case PreviewOnly = 'preview-only';
     case ProviderAdapters = 'provider-adapters';
+    case ProjectBuildCapellThemeArtifact = 'project-build-capell-theme-artifact';
     case PublicActions = 'public-actions';
     case PublicForm = 'public-form';
     case PublicPageApi = 'public-page-api';

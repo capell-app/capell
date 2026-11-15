@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Data\Install\ArtisanCommandResultData;
+use Capell\Core\Exceptions\ArtisanCommandNotFoundException;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Illuminate\Support\Facades\Artisan;
@@ -115,7 +116,7 @@ it('falls back to the fresh application with equivalent CLI arguments output and
 it('reports a translated error for a command missing from both applications', function (): void {
     withFreshArtisanFixture(function (CallArtisanCommandAction $action): void {
         expect(fn (): ArtisanCommandResultData => $action->handle('test:missing-install'))
-            ->toThrow(RuntimeException::class, __('capell-core::install.command.not_found', ['command' => 'test:missing-install']));
+            ->toThrow(ArtisanCommandNotFoundException::class, __('capell-core::install.command.not_found', ['command' => 'test:missing-install']));
     });
 });
 

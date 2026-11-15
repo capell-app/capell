@@ -43,7 +43,7 @@ announcement-bar/
 └── tests/Feature/AnnouncementBarFrontendTest.php
 ```
 
-Every file in this tree is written out below. Settings migrations are timestamped like Laravel migrations (`YYYY_MM_DD_HHMMSS_*`); the settings migrator resolves them by name, so an untimestamped filename will not be published.
+Every source file in this tree is written out below. The test harness files (`phpunit.xml.dist`, `tests/TestCase.php` and `tests/Pest.php`) come from [Testing packages](testing-packages.md#standalone-package-harness). Settings migrations are timestamped like Laravel migrations (`YYYY_MM_DD_HHMMSS_*`); the settings migrator resolves them by name, so an untimestamped filename will not be published.
 
 Keep the package small until this works. Add migrations, jobs, widgets, or Marketplace metadata only when the package really needs them.
 
@@ -71,10 +71,31 @@ flowchart LR
 {
     "name": "acme/announcement-bar",
     "type": "library",
+    "require": {
+        "capell-app/core": "^1.0",
+        "capell-app/admin": "^1.0",
+        "capell-app/frontend": "^1.0",
+        "lorisleiva/laravel-actions": "^2.9",
+        "spatie/laravel-data": "^4.0",
+        "spatie/laravel-settings": "^3.4"
+    },
     "autoload": {
         "psr-4": {
             "Acme\\AnnouncementBar\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Acme\\AnnouncementBar\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0"
+    },
+    "scripts": {
+        "test": "pest"
     },
     "extra": {
         "laravel": {
@@ -516,10 +537,10 @@ use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\View\View;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvider
@@ -528,6 +549,7 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     public static string $packageName = 'acme/announcement-bar';
 
+    #[Override]
     public function configurePackage(Package $package): void
     {
         $package
@@ -540,19 +562,13 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
             ->hasTranslations();
     }
 
-    protected function bootInstalledPackage(): self
+    #[Override]
+    protected function bootInstalledRuntime(): void
     {
-        $this->registerSettings();
+        $this->surface()->settingsClass('announcement-bar', AnnouncementBarSettings::class);
+
         $this->registerAdmin();
         $this->registerFrontend();
-
-        return $this;
-    }
-
-    private function registerSettings(): void
-    {
-        app(SettingsSchemaRegistry::class)
-            ->registerSettingsClass('announcement-bar', AnnouncementBarSettings::class);
     }
 
     private function registerAdmin(): void
@@ -580,15 +596,16 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 }
 ```
 
-`bootInstalledPackage()` — not spatie-package-tools' `packageBooted()` — is where package registration belongs. `AbstractPackageServiceProvider` calls it only when the extension record is installed, which is what makes "required but not enabled" mean "renders nothing". Registering in `packageBooted()` runs unconditionally, so a disabled package would still add its admin page and render hook.
+`bootInstalledRuntime()` — not spatie-package-tools' `packageBooted()` — is where package registration belongs, and `$this->surface()` is the typed registrar for the settings, page types, components and other surfaces Core owns. `AbstractPackageServiceProvider` runs the hook once per bootstrap while the extension is installed and enabled, which is what makes "required but not enabled" mean "renders nothing". Registering in `packageBooted()` runs unconditionally, so a disabled package would still add its admin page and render hook. The `capell:make:extension` scaffold uses this same shape and tests both the enabled and disabled states.
 
-The base class offers three boot hooks:
+The base class offers these boot hooks:
 
-| Hook                          | Runs                                                        |
-| ----------------------------- | ----------------------------------------------------------- |
-| `bootPackage()`               | Always, including during `package:discover`. Metadata only. |
-| `bootInstalledPackage()`      | Only when the package is installed. Normal registration.    |
-| `bootWhenInstalled(callable)` | Same gate, for one-off blocks.                              |
+| Hook                          | Runs                                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `bootPackage()`               | Always, including during `package:discover`. Metadata only.                                    |
+| `bootInstalledRuntime()`      | Once per bootstrap while the package is installed and enabled. The default for new packages.   |
+| `bootInstalledPackage()`      | Legacy gate that still works. Do not use it in new packages.                                   |
+| `bootWhenInstalled(callable)` | Same installed gate, for one-off blocks inside `bootPackage()`.                                |
 
 If a package has separate install/runtime/admin/frontend providers, keep provider buckets in `capell.json` aligned with those responsibilities. Do not register Filament resources from a frontend-only provider.
 

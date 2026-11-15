@@ -28,6 +28,10 @@ class HookTest(unittest.TestCase):
             (self.root / directory).mkdir(parents=True, exist_ok=True)
         for name in ("pre-commit-analysis.sh", "pre-commit-analysis.py"):
             shutil.copyfile(REPOSITORY / "scripts/guards" / name, self.root / "scripts/guards" / name)
+        # Without the checkout's own PHPStan the guard falls back to the Docker-only ./capell wrapper and exits 127,
+        # which reads as a hook defect. Name the missing precondition instead.
+        if not (REPOSITORY / "vendor/phpstan/phpstan/phpstan").is_file():
+            self.fail(f"{REPOSITORY}/vendor has no PHPStan; run composer install or scripts/init-worktree.sh first.")
         (self.root / "vendor").symlink_to(REPOSITORY / "vendor", target_is_directory=True)
         # Composer requires these project files relative to the autoload base
         # directory, which the HEAD export now anchors to itself rather than to Core.
