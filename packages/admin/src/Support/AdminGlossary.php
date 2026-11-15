@@ -7,6 +7,9 @@ namespace Capell\Admin\Support;
 /**
  * Plain words editors see in place of technical ones. Editor screens use
  * `term`; `instead_of` names the word it replaces so checks can keep it out.
+ *
+ * This is copy only. Core draws no help or glossary interface; an optional
+ * extension may present these words to editors.
  */
 final class AdminGlossary
 {
