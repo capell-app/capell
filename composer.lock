@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "659b9d6425cacc48bc2cd48cc17bcf45",
+    "content-hash": "86e444e337e5cd875b6f89edefd8195a",
     "packages": [
         {
             "name": "aimeos/laravel-nestedset",
@@ -938,85 +938,6 @@
                 }
             ],
             "time": "2026-03-20T21:10:52+00:00"
-        },
-        {
-            "name": "cms-multi/filament-clear-cache",
-            "version": "3.0.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/cms-multi/filament-clear-cache.git",
-                "reference": "694a7e29ae61884f8f30dde8ef5f77f5a9c4aef3"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/cms-multi/filament-clear-cache/zipball/694a7e29ae61884f8f30dde8ef5f77f5a9c4aef3",
-                "reference": "694a7e29ae61884f8f30dde8ef5f77f5a9c4aef3",
-                "shasum": ""
-            },
-            "require": {
-                "filament/filament": "^4.0 || ^5.0",
-                "filament/notifications": "^4.0 || ^5.0",
-                "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
-                "php": "^8.2",
-                "spatie/laravel-package-tools": "^1.15"
-            },
-            "require-dev": {
-                "larastan/larastan": "^3.0",
-                "laravel/pint": "^1.0",
-                "orchestra/testbench": "^10.0 || ^11.0",
-                "pestphp/pest": "^4.0",
-                "pestphp/pest-plugin-laravel": "^4.0",
-                "pestphp/pest-plugin-livewire": "^4.0",
-                "phpstan/extension-installer": "^1.4",
-                "phpstan/phpstan": "^2.1",
-                "phpstan/phpstan-deprecation-rules": "^2.0",
-                "phpstan/phpstan-phpunit": "^2.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "aliases": {
-                        "FilamentClearCache": "CmsMulti\\FilamentClearCache\\Facades\\FilamentClearCache"
-                    },
-                    "providers": [
-                        "CmsMulti\\FilamentClearCache\\FilamentClearCacheServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "CmsMulti\\FilamentClearCache\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "howdu",
-                    "email": "cms.multi2@gmail.com",
-                    "role": "Developer"
-                }
-            ],
-            "description": "Clear your cache easily from within filament",
-            "homepage": "https://github.com/cms-multi/filament-clear-cache",
-            "keywords": [
-                "filament-clear-cache",
-                "filamentphp",
-                "laravel"
-            ],
-            "support": {
-                "issues": "https://github.com/cms-multi/filament-clear-cache/issues",
-                "source": "https://github.com/cms-multi/filament-clear-cache"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/howdu",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-05-13T17:11:56+00:00"
         },
         {
             "name": "codewithdennis/filament-select-tree",

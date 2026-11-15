@@ -26,7 +26,7 @@ tree-style tools as `AdminToolItem` entries.
 
 1. **Container tagging:** Tools are tagged into Laravel's service container with the key `AdminToolItem::TAG` (`'capell-admin:admin-tool-items'`)
 2. **Registry lookup:** The `AdminToolRegistry` resolves tagged tools from the container in registration order
-3. **Render hook:** `CapellAdminPlugin` injects the tools Livewire component into Filament's topbar via `PanelsRenderHook::GLOBAL_SEARCH_AFTER`
+3. **Render hook:** `CapellAdminPlugin` injects the workspaces modal and the tools Livewire component into Filament's topbar via `PanelsRenderHook::GLOBAL_SEARCH_BEFORE`, ahead of the site switcher and the search box
 4. **Livewire component:** The `AdminTools` Livewire component calls `AdminToolRegistry::all()` to fetch tools
 5. **Blade rendering:** The template iterates tools and calls `$tool->render()` to output each one
 

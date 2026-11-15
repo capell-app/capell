@@ -18,7 +18,7 @@ class HookFailure(RuntimeError):
 # Refresh this fingerprint when reviewing a change to the repository hook set.
 # Unknown configurations keep the conservative all-dependencies behaviour.
 KNOWN_HOOK_CONFIG_SHA256 = '4a2884b48252ba73822186b1b94ab3bdf95cc6918de0f110df478d345263ccf5'
-KNOWN_HOOK_IMPLEMENTATION_SHA256 = 'e84333b80c665d8385f4c5750c9ef3abe7ba90ef9dd3cd76e9621a42be8ad2aa'
+KNOWN_HOOK_IMPLEMENTATION_SHA256 = '854f36a1cce17f02fe8fc7ad2cf6f46a76cdaf2778cff6b0eec5805d270293ed'
 HOOK_IMPLEMENTATIONS = (
     'scripts/guards/index-integrity.sh', 'scripts/guards/pre-commit-analysis.sh',
     'scripts/guards/pre-push-analysis.sh', 'scripts/check-debugging.py',

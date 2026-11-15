@@ -128,7 +128,6 @@ use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Listeners\RevokePendingInvitation;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
-use Capell\Admin\Livewire\Header\ClearCacheButton;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
 use Capell\Admin\Macros\Database\BuilderMacros;
@@ -164,7 +163,6 @@ use Capell\Admin\Support\Activity\AdminActivitySettingsReader;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
@@ -183,7 +181,6 @@ use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
 use Capell\Admin\Support\Cache\UnavailableStaticSiteGenerationDispatcher;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\ContentGraph\SharedDeleteImpact;
-use Capell\Admin\Support\CoreAdminHelpEntries;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
 use Capell\Admin\Support\Dashboard\DefaultDashboardAnalyticsDataProvider;
@@ -295,7 +292,6 @@ use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Closure;
-use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
 use Filament\Facades\Filament;
@@ -361,9 +357,6 @@ use Throwable;
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
     public const string CSS_LAYER_ORDER_ASSET_ID = 'admin-layer-order';
-
-    /** The name Livewire generates for the vendor clear-cache component, which earlier pages' snapshots carry. */
-    public const string VENDOR_CLEAR_CACHE_COMPONENT = 'cms-multi.filament-clear-cache.http.livewire.clear-cache';
 
     public static string $name = 'capell-admin';
 
@@ -436,15 +429,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
-
-        // The vendor clear-cache button checks nothing on the server; Capell's subclass allows only global
-        // administrators. Set before any panel registers the plugin, overriding a host's configuration. The
-        // role key is not read, because the subclass decides visibility itself; it only keeps the vendor
-        // default from admitting everyone should the component ever fall back to the vendor class.
-        config([
-            'filament-clear-cache.livewireComponentClass' => ClearCacheButton::class,
-            'filament-clear-cache.role' => config('capell.roles.super_admin', 'super_admin'),
-        ]);
 
         // Native make() and legacy factories use the container too. The native
         // original-path fallback reads model attributes before its allow callback,
@@ -594,12 +578,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
         $this->app->singleton(ImportEntryRegistry::class);
-        $this->app->scoped(AdminHelpRegistry::class, function (): AdminHelpRegistry {
-            $registry = new AdminHelpRegistry;
-            CoreAdminHelpEntries::register($registry);
-
-            return $registry;
-        });
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
@@ -797,12 +775,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootInstalledPackage(): self
     {
-        FilamentClearCache::addCommand('capell:admin-clear-cache');
-        // Pages rendered before Capell guarded the button carry snapshots under the vendor component's
-        // generated name, and Livewire would resolve that name to the unguarded vendor class. A registered
-        // name wins, so replayed snapshots reach the guarded button.
-        Livewire::component(self::VENDOR_CLEAR_CACHE_COMPONENT, ClearCacheButton::class);
-
         return $this
             ->registerAboutInfo()
             ->registerWidgetComponents()

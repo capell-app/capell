@@ -120,6 +120,7 @@ return [
     'region_activity' => 'Recent activity',
     'region_additional' => 'Additional dashboard panels',
     'additional_description' => 'More tools and insights for your site.',
+    'filters_hint' => 'These choices change what is shown below.',
     'filter_all_sites' => 'All sites',
     'filter_all_languages' => 'All languages',
     'analytics_views' => 'Observed views',
@@ -297,5 +298,5 @@ return [
     'first_run_hidden_title' => 'List hidden for you',
     'first_run_hidden_body' => 'Other people still see it. To bring it back, open your account menu and choose Help: Get your site ready.',
     'first_run_help_menu_item' => 'Help: Get your site ready',
-    'analytics_no_visits_yet' => 'No visits recorded in this period yet.',
+    'analytics_no_visits_yet' => 'No visits were recorded in this period. Choose a longer period above, or check back once people have visited your site.',
 ];
