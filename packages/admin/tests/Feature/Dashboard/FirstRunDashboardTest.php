@@ -39,6 +39,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Exceptions;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class)->group('widget');
 
@@ -548,23 +549,26 @@ it('offers the site filter when the person can reach more than one site', functi
         ->assertSee(__('capell-admin::dashboard.filter_all_sites'));
 });
 
-it('leaves out the period filter when the person cannot see any visit panel', function (): void {
+it('leaves out the period filter when the person is not allowed to see the visit panels', function (): void {
     workFirstFreshInstall();
-    config()->set('capell-admin.dashboard.work_first.widgets', [
-        PageViewsWidget::class => false,
-        PopularPagesWidget::class => false,
-        RisingPagesWidget::class => false,
-    ]);
-    $this->actingAsAdmin();
+    // An assigned-sites editor without the analytics role: the visit panels stay in the layout but are not viewable.
     [$site] = unpublishedDashboardSite();
     SiteDomain::query()->where('site_id', $site->id)->update(['language_id' => $site->language_id]);
     RecordSitePublishedAction::run($site->id);
+    $actor = test()->createUser();
+    $actor->assignedSiteIds = collect([$site->id]);
+    Permission::findOrCreate('ViewAny:Page', 'web');
+    $actor->givePermissionTo('ViewAny:Page');
+    test()->actingAs($actor);
     app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider(DashboardAnalyticsAvailabilityEnum::Available));
     nextDashboardRequest();
 
+    expect(PageViewsWidget::canView())->toBeFalse();
+
     Livewire::test(CapellDashboard::class)
         ->assertOk()
-        ->assertDontSee(__('capell-admin::dashboard.work_first_analytics_period'));
+        ->assertDontSee(__('capell-admin::dashboard.work_first_analytics_period'))
+        ->assertDontSee(__('capell-admin::dashboard.filters_hint'));
 });
 
 it('returns a person who hides the checklist to the normal dashboard, and the restore brings the setup layout back', function (): void {
