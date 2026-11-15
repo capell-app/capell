@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Actions\Extensions\EnforceExtensionVerificationAction;
 use Capell\Core\Actions\Marketplace\EnforceExtensionAuthorisationAction;
+use Capell\Core\Actions\Permissions\SyncPackagePermissionsAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Data\PackageData;
@@ -38,11 +39,13 @@ class EnablePackageAction
         if ($package->getKind() === 'bundle') {
             foreach ($package->getRequirements() as $memberName) {
                 CapellCore::markPackageInstalled($memberName, $actor);
+                SyncPackagePermissionsAction::run(CapellCore::getPackage($memberName));
                 RefreshInstalledPackageRuntimeAction::run(CapellCore::getPackage($memberName), replayBootedCallbacks: false);
             }
         }
 
         CapellCore::markPackageInstalled($package->name, $actor);
+        SyncPackagePermissionsAction::run($package);
         RefreshInstalledPackageRuntimeAction::run($package, replayBootedCallbacks: false);
         RestartQueueWorkersAction::run();
     }

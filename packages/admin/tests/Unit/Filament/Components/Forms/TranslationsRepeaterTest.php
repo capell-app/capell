@@ -364,6 +364,38 @@ it('flags a translation whose default language was edited more recently', functi
     ]);
 });
 
+it('names only the default-language fields that changed since the translation was saved', function (): void {
+    test()->actingAsAdmin();
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+
+    $site = Site::factory()->language($english)->createOne();
+    $blueprint = Blueprint::factory()->page()->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+
+    $englishTranslation = savedTranslationForTest($page, $english, 'Welcome', now()->subDay());
+    $welshTranslation = savedTranslationForTest($page, $welsh, 'Croeso', now()->subDay());
+
+    $component = mountedBaseTranslationsRepeaterForTest([
+        'site_id' => $site->getKey(),
+        'blueprint_id' => $blueprint->getKey(),
+        'translations' => [],
+    ]);
+
+    expect($component->resolveItemBadge($welshTranslation, ['title' => null]))
+        ->toHaveKey('label', __('capell-admin::generic.translation_complete'));
+
+    $englishTranslation->update(['title' => 'Welcome to our shop']);
+
+    expect($component->resolveItemBadge($welshTranslation->refresh(), ['title' => null]))->toBe([
+        'label' => __('capell-admin::generic.translation_outdated'),
+        'color' => 'warning',
+        'tooltip' => __('capell-admin::generic.translation_outdated_fields_info', [
+            'fields' => __('capell-admin::generic.translation_field_title'),
+        ]),
+    ]);
+});
+
 it('does not report a freshly cloned language row as complete', function (): void {
     test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();

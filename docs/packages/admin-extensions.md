@@ -420,6 +420,22 @@ CapellAdmin::registerNavigationGroup(
 
 Capell resolves translated labels before merging, so multiple packages can register the same group independently without creating duplicate sidebar groups. Position can be `Start`, `End`, `Before`, or `After`; `Before` and `After` require `relativeTo`.
 
+## Permissions
+
+A package declares the permissions it adds in the `permissions` list of `capell.json`. Name each one `Verb:Subject` in PascalCase, such as `View:ExtensionCookbook` or `Manage:ExtensionCookbook`.
+
+```json
+{
+    "permissions": ["View:ExtensionCookbook", "Manage:ExtensionCookbook"]
+}
+```
+
+When the package is installed or enabled, Capell creates each declared permission for the `web` guard and grants it to the super admin role. No other role receives it: an administrator assigns it to roles from the Roles screen. Running install or enable again changes nothing, and a grant an administrator already made stays.
+
+Wire the permission into a policy so the admin screens honour it. The policy method checks the same string, for example `$user->can('View:ExtensionCookbook')`. A manifest permission with no policy check grants nothing by itself, and `capell:extension-audit` reports a contribution that names a permission the manifest does not declare.
+
+Uninstalling a package leaves its permissions and role grants in place, so assignments survive a reinstall and audit history stays readable. Delete the permissions from the Roles screen when you retire them for good.
+
 ## Debugging Admin Extensions
 
 If an admin contribution is missing, start with [Extension Troubleshooting](extension-troubleshooting.md). The common fixes are:

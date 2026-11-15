@@ -6,6 +6,9 @@ namespace Capell\Core\Contracts;
 
 use Capell\Core\Data\PackageData;
 
+/**
+ * @api
+ */
 interface PackageLifecycleAction
 {
     /**

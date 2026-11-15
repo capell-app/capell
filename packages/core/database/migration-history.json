@@ -165,6 +165,14 @@
             "9a7e56d13c8483c0a682b055e0a7b33616180b0236372f39fe0eac16bab977ee"
         ]
     },
+    "create_capell_idempotency_keys_table": {
+        "names": [
+            "2026_11_15_000010_create_capell_idempotency_keys_table"
+        ],
+        "sha256": [
+            "3eb2b6a235a94521fc2d3d129518a62bcff94e41163866b5be7c1f6a12c37b66"
+        ]
+    },
     "create_capell_inbound_webhook_events_table": {
         "names": [
             "2026_11_12_000001_create_capell_inbound_webhook_events_table"

@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Awobaz\Compoships\Compoships;
 use Capell\Core\Actions\Content\ExtractTextContentAction;
+use Capell\Core\Actions\Translations\RecordTranslationSourceFingerprintsAction;
 use Capell\Core\Casts\DynamicContentCast;
 use Capell\Core\Concerns\HasCapellMedia;
 use Capell\Core\Concerns\HasCapellTable;
@@ -223,6 +224,14 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
             ->where('collection_name', MediaCollectionEnum::BackgroundImage->value);
     }
 
+    #[Override]
+    protected static function booted(): void
+    {
+        static::saving(static function (Translation $translation): void {
+            RecordTranslationSourceFingerprintsAction::run($translation);
+        });
+    }
+
     /** @return Attribute<string|null, never> */
     protected function label(): Attribute
     {
@@ -332,6 +341,7 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
     {
         return [
             'meta' => 'json',
+            'source_fingerprints' => 'array',
             'content' => DynamicContentCast::class,
         ];
     }

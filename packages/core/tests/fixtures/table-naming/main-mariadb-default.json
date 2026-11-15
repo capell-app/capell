@@ -157,6 +157,14 @@
         ],
         "foreign_keys": []
     },
+    "capell_ai_provenance": {
+        "indexes": [
+            "capell_ai_provenance_field_unique",
+            "capell_ai_provenance_pageable_confirmed_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_extension_health_alerts": {
         "indexes": [
             "capell_extension_health_alerts_affected_install_id_index",
@@ -189,6 +197,15 @@
             "capell_extensions_marketplace_runtime_status_index",
             "capell_extensions_provider_recovery_state_index",
             "capell_extensions_status_index",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_inbound_webhook_events": {
+        "indexes": [
+            "capell_inbound_webhook_events_provider_event_unique",
+            "capell_inbound_webhook_events_status_index",
+            "capell_inbound_webhook_events_subject_index",
             "primary"
         ],
         "foreign_keys": []

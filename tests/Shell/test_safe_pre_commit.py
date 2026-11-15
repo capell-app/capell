@@ -302,6 +302,27 @@ while not (p / 'continue').exists():
         self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'staged\n')
         self.assertNotEqual(Path((self.events / 'cwd').read_text()), self.root)
 
+    def test_merge_commit_checks_only_paths_that_differ_from_every_parent(self):
+        (self.events / 'continue').write_text('go')
+        branch = self.git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+        self.git('switch', '-q', '-c', 'topic')
+        (self.root / 'file.txt').write_text('topic\n')
+        (self.root / 'other.txt').write_text('topic other\n')
+        self.git('commit', '-qam', 'topic')
+        self.git('switch', '-q', branch)
+        (self.root / 'file.txt').write_text('mainline\n')
+        self.git('commit', '-qam', 'mainline')
+        self.assertNotEqual(self.git('merge', '--no-commit', '--no-ff', 'topic', check=False).returncode, 0)
+        (self.root / 'file.txt').write_text('resolved\n')
+        self.git('add', 'file.txt')
+        self.assertEqual(self.install().returncode, 0)
+        result = subprocess.run(['git', 'commit', '--no-edit'], cwd=self.root, capture_output=True, text=True,
+                                env=self.env, timeout=300)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(self.git('rev-list', '--parents', '-n1', 'HEAD').stdout.split()), 3)
+        checked = (self.events / 'arguments').read_text().split()
+        self.assertEqual(checked, ['file.txt'])
+
     def test_formatter_failure_does_not_change_original(self):
         self.assertEqual(self.install().returncode, 0)
         path = self.root / 'file.txt'

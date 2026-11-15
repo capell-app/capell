@@ -8,6 +8,9 @@ use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchema;
 use InvalidArgumentException;
 
+/**
+ * @api
+ */
 class SettingsSchemaRegistry
 {
     /** @var array<string, SettingsGroupMetadata> */
