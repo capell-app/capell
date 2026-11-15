@@ -659,12 +659,17 @@ link.symlink_to(target, target_is_directory=True)
         self.assertIn('Dependency symlink', result.stderr)
         self.assertFalse((self.events / 'ready').exists())
 
-    def stage_screenshot_tools_link(self, sibling):
+    def stage_screenshot_tools_link(self, sibling, shim=None):
         external = Path(self.temp.name) / sibling
         external.mkdir()
         (external / 'package.json').write_text('{"name":"@capell-app/screenshot-tools","version":"1.0.0"}')
+        (external / 'cli.js').write_text('#!/usr/bin/env node\n')
         (self.root / 'node_modules/@capell-app').mkdir(parents=True)
         (self.root / 'node_modules/@capell-app/screenshot-tools').symlink_to(f'../../../{sibling}', target_is_directory=True)
+        if shim is not None:
+            # npm links package binaries into .bin as relative symlinks that run through the package link.
+            (self.root / 'node_modules/.bin').mkdir(parents=True)
+            (self.root / 'node_modules/.bin' / shim).symlink_to('../@capell-app/screenshot-tools/cli.js')
         link = {'resolved': f'../{sibling}', 'link': True}
         (self.root / 'package.json').write_text(json.dumps({'name': 'fixture', 'devDependencies': {'@capell-app/screenshot-tools': 'file:../capell-screenshot-tools'}}))
         (self.root / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
@@ -687,6 +692,18 @@ link.symlink_to(target, target_is_directory=True)
         result = self.stage_screenshot_tools_link('capell-screenshot-tools')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.events / 'ready').exists())
+
+    def test_package_binary_shims_that_run_through_the_sanctioned_link_are_tolerated(self):
+        (self.events / 'continue').write_text('go')
+        result = self.stage_screenshot_tools_link('capell-screenshot-tools', shim='capell-screenshots')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.events / 'ready').exists())
+
+    def test_a_package_binary_shim_through_a_lookalike_link_is_still_refused(self):
+        result = self.stage_screenshot_tools_link('other-tools', shim='capell-screenshots')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Dependency symlink', result.stderr)
+        self.assertFalse((self.events / 'ready').exists())
 
     def test_a_lookalike_dependency_link_outside_the_checkout_is_still_refused(self):
         result = self.stage_screenshot_tools_link('other-tools')

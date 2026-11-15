@@ -98,6 +98,20 @@ def is_sanctioned_external_link(root, directory, relative, target):
             and target == Path(os.path.abspath(root.parent / SANCTIONED_NPM_LINK_SIBLING)))
 
 
+def is_sanctioned_link_shim(root, directory, target):
+    """A shim such as node_modules/.bin/capell-screenshots names a file inside the sanctioned link.
+
+    The sanctioned link dangles inside the snapshot, so a shim that resolves through it dangles
+    there too. It is tolerated only while the real link still points at the sanctioned sibling.
+    """
+    if directory != 'node_modules':
+        return False
+    link = root / directory / SANCTIONED_NPM_LINK
+    if not link.is_symlink() or not target.is_relative_to(Path(os.path.abspath(link))):
+        return False
+    return is_sanctioned_external_link(root, directory, SANCTIONED_NPM_LINK, Path(os.path.abspath(link.parent / os.readlink(link))))
+
+
 def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True):
     names = (['vendor'] if include_vendor else []) + (['node_modules'] if include_node else [])
     sources = [(name, root / name) for name in names if (root / name).is_dir()]
@@ -143,7 +157,8 @@ def copy_dependencies(root, snapshot, *, include_vendor=True, include_node=True)
             if info[0] != 'link':
                 continue
             link = destination / relative
-            if is_sanctioned_external_link(root, name, relative, Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))):
+            target = Path(os.path.abspath(os.path.join((source / relative).parent, info[1])))
+            if is_sanctioned_external_link(root, name, relative, target) or is_sanctioned_link_shim(root, name, target):
                 continue
             if not link.resolve().is_relative_to(snapshot.resolve()) or not link.exists():
                 raise HookFailure(f'Dependency symlink {source / relative} has no safe snapshot target.')
