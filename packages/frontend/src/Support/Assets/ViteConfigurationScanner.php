@@ -72,16 +72,30 @@ final class ViteConfigurationScanner
 
         $objectStart = $exportMatch[0][1] + strlen($exportMatch[0][0]);
 
-        if (preg_match_all('/\bplugins\s*:\s*\[/', $code, $matches, PREG_OFFSET_CAPTURE, $objectStart) === 0) {
-            return null;
-        }
+        $depth = 0;
+        $length = strlen($code);
 
-        foreach ($matches[0] as [$match, $offset]) {
-            $between = substr($code, $objectStart, $offset - $objectStart);
+        // Walk the exported object only: depth below zero means its closing brace has been passed.
+        for ($index = $objectStart; $index < $length; $index++) {
+            $character = $code[$index];
 
-            // Depth zero relative to the exported object means a direct property of it.
-            if (substr_count($between, '{') === substr_count($between, '}')) {
-                return $offset + strlen($match);
+            if ($character === '{') {
+                $depth++;
+
+                continue;
+            }
+
+            if ($character === '}') {
+                if (--$depth < 0) {
+                    return null;
+                }
+
+                continue;
+            }
+
+            if ($depth === 0 && preg_match('/\Gplugins\s*:\s*\[/', $code, $match, 0, $index) === 1
+                && ($index === 0 || preg_match('/[A-Za-z0-9_$]/', $code[$index - 1]) !== 1)) {
+                return $index + strlen($match[0]);
             }
         }
 

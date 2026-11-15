@@ -34,7 +34,7 @@ final class FrontendVitePluginRegistry extends AbstractKeyedRegistry
         foreach ($this->allItems() as $existing) {
             // One build calls each plugin once, so two packages cannot ask for it with different options.
             throw_if(
-                $existing['module'] === $module && $existing['options'] !== $options,
+                $existing['module'] === $module && self::normalised($existing['options']) !== self::normalised($options),
                 InvalidArgumentException::class,
                 sprintf('The Vite plugin %s is already registered with different options.', $module),
             );
@@ -61,5 +61,20 @@ final class FrontendVitePluginRegistry extends AbstractKeyedRegistry
     public function modules(): array
     {
         return array_column($this->all(), 'module');
+    }
+
+    /**
+     * Options compared without regard to key order, so equal options declared differently still match.
+     *
+     * @param  array<mixed>  $options
+     * @return array<mixed>
+     */
+    private static function normalised(array $options): array
+    {
+        if (! array_is_list($options)) {
+            ksort($options);
+        }
+
+        return array_map(static fn (mixed $value): mixed => is_array($value) ? self::normalised($value) : $value, $options);
     }
 }

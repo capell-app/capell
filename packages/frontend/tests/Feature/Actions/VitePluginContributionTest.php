@@ -60,6 +60,11 @@ it('accepts npm package names only and lists each plugin once with its options',
         ->and(fn () => $registry->register('vue()', 'capell-app/x'))->toThrow(InvalidArgumentException::class)
         ->and(fn () => $registry->register('@vitejs/plugin-vue', 'capell-app/x', ['template' => []]))->toThrow(InvalidArgumentException::class, 'different options')
         ->and(fn () => $registry->register('vite-plugin-list', 'capell-app/x', ['a', 'b']))->toThrow(InvalidArgumentException::class, 'named options');
+
+    $registry->register('vite-plugin-keyed', 'capell-app/first', ['alpha' => 1, 'beta' => ['x' => 1, 'y' => 2]]);
+    $registry->register('vite-plugin-keyed', 'capell-app/second', ['beta' => ['y' => 2, 'x' => 1], 'alpha' => 1]);
+
+    expect($registry->modules())->toContain('vite-plugin-keyed');
 });
 
 it('writes registered plugins into the Vite manifest and keeps the inputs-only shape without them', function (): void {
@@ -141,6 +146,7 @@ it('asks for a manual edit when a package needs a plugin the configuration canno
 })->with([
     'no plugins array' => [VITE_HELPER_IMPORT . "\nexport default { input: [...capellViteInputs(), 'resources/js/app.js'] };\n"],
     'configuration function' => [VITE_HELPER_IMPORT . "\nexport default defineConfig(({ mode }) => ({ plugins: [laravel({ input: [...capellViteInputs(), 'resources/js/app.js'] })] }));\n"],
+    'plugins only in a later object' => [VITE_HELPER_IMPORT . "\nexport default defineConfig({ build: { outDir: 'public/build' } });\nconst other = { plugins: [legacy()] };\n"],
     'only a commented helper' => [VITE_HELPER_IMPORT . "\n// capellVitePlugins()\nexport default { input: [...capellViteInputs(), 'resources/js/app.js'] };\n"],
 ]);
 
