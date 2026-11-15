@@ -19,32 +19,50 @@ final class ThemeFontCatalogue
     /** Public path the Foundation theme publishes its font bundle to. */
     public const string BUNDLE_PATH = '/vendor/capell-theme-foundation/fonts/';
 
+    /** Roles a family can play; editors group their choices by it and the mono faces are offered for code only. */
+    public const array ROLES = ['sans', 'serif', 'mono', 'system'];
+
     private const string SANS = "'Inter', system-ui, sans-serif";
 
     /**
-     * @return array<string, array{family: string, stack: string, file: string|null}>
+     * @return array<string, array{family: string, stack: string, file: string|null, role: string}>
      */
     public static function all(): array
     {
         return [
-            'inter' => self::entry('Inter', self::SANS, 'Inter-Variable.woff2'),
-            'sora' => self::entry('Sora', "'Sora', 'Inter', system-ui, sans-serif", 'Sora-Variable.woff2'),
-            'manrope' => self::entry('Manrope', "'Manrope', 'Inter', system-ui, sans-serif", 'Manrope-Variable.woff2'),
-            'archivo' => self::entry('Archivo', "'Archivo', 'Inter', system-ui, sans-serif", 'Archivo-Variable.woff2'),
-            'space-grotesk' => self::entry('Space Grotesk', "'Space Grotesk', 'Inter', system-ui, sans-serif", 'SpaceGrotesk-Variable.woff2'),
-            'ibm-plex-sans' => self::entry('IBM Plex Sans', "'IBM Plex Sans', 'Inter', system-ui, sans-serif", 'IBMPlexSans-Variable.woff2'),
-            'source-sans' => self::entry('Source Sans 3', "'Source Sans 3', 'Inter', system-ui, sans-serif", 'SourceSans3-Variable.woff2'),
-            'playfair' => self::entry('Playfair Display', "'Playfair Display', Georgia, serif", 'PlayfairDisplay-Variable.woff2'),
-            'fraunces' => self::entry('Fraunces', "'Fraunces', Georgia, serif", 'Fraunces-Variable.woff2'),
-            'newsreader' => self::entry('Newsreader', "'Newsreader', Georgia, serif", 'Newsreader-Variable.woff2'),
-            'source-serif' => self::entry('Source Serif 4', "'Source Serif 4', Georgia, serif", 'SourceSerif4-Variable.woff2'),
-            'ibm-plex-mono' => self::entry('IBM Plex Mono', "'IBM Plex Mono', ui-monospace, monospace", 'IBMPlexMono-Regular.woff2'),
-            'jetbrains-mono' => self::entry('JetBrains Mono', "'JetBrains Mono', ui-monospace, monospace", 'JetBrainsMono-Variable.woff2'),
+            'inter' => self::entry('Inter', self::SANS, 'Inter-Variable.woff2', 'sans'),
+            'sora' => self::entry('Sora', "'Sora', 'Inter', system-ui, sans-serif", 'Sora-Variable.woff2', 'sans'),
+            'manrope' => self::entry('Manrope', "'Manrope', 'Inter', system-ui, sans-serif", 'Manrope-Variable.woff2', 'sans'),
+            'archivo' => self::entry('Archivo', "'Archivo', 'Inter', system-ui, sans-serif", 'Archivo-Variable.woff2', 'sans'),
+            'space-grotesk' => self::entry('Space Grotesk', "'Space Grotesk', 'Inter', system-ui, sans-serif", 'SpaceGrotesk-Variable.woff2', 'sans'),
+            'ibm-plex-sans' => self::entry('IBM Plex Sans', "'IBM Plex Sans', 'Inter', system-ui, sans-serif", 'IBMPlexSans-Variable.woff2', 'sans'),
+            'source-sans' => self::entry('Source Sans 3', "'Source Sans 3', 'Inter', system-ui, sans-serif", 'SourceSans3-Variable.woff2', 'sans'),
+            'playfair' => self::entry('Playfair Display', "'Playfair Display', Georgia, serif", 'PlayfairDisplay-Variable.woff2', 'serif'),
+            'fraunces' => self::entry('Fraunces', "'Fraunces', Georgia, serif", 'Fraunces-Variable.woff2', 'serif'),
+            'newsreader' => self::entry('Newsreader', "'Newsreader', Georgia, serif", 'Newsreader-Variable.woff2', 'serif'),
+            'source-serif' => self::entry('Source Serif 4', "'Source Serif 4', Georgia, serif", 'SourceSerif4-Variable.woff2', 'serif'),
+            'ibm-plex-mono' => self::entry('IBM Plex Mono', "'IBM Plex Mono', ui-monospace, monospace", 'IBMPlexMono-Regular.woff2', 'mono'),
+            'jetbrains-mono' => self::entry('JetBrains Mono', "'JetBrains Mono', ui-monospace, monospace", 'JetBrainsMono-Variable.woff2', 'mono'),
             // Self-hosted by the Almanac theme's own stylesheet, not the Foundation bundle.
-            'bricolage-grotesque' => self::entry('Bricolage Grotesque Almanac', "'Bricolage Grotesque Almanac', 'Inter', system-ui, sans-serif", null),
+            'bricolage-grotesque' => self::entry('Bricolage Grotesque Almanac', "'Bricolage Grotesque Almanac', 'Inter', system-ui, sans-serif", null, 'sans'),
             // No font file: the visitor's system interface font.
-            'system' => self::entry('system-ui', 'system-ui, -apple-system, sans-serif', null),
+            'system' => self::entry('system-ui', 'system-ui, -apple-system, sans-serif', null, 'system'),
         ];
+    }
+
+    /**
+     * Family names keyed by catalogue key, for an editor's font select.
+     *
+     * @return array<string, string>
+     */
+    public static function options(): array
+    {
+        return array_map(static fn (array $entry): string => $entry['family'], self::all());
+    }
+
+    public static function role(string $key): ?string
+    {
+        return self::all()[$key]['role'] ?? null;
     }
 
     public static function has(string $key): bool
@@ -76,10 +94,10 @@ final class ThemeFontCatalogue
     }
 
     /**
-     * @return array{family: string, stack: string, file: string|null}
+     * @return array{family: string, stack: string, file: string|null, role: string}
      */
-    private static function entry(string $family, string $stack, ?string $file): array
+    private static function entry(string $family, string $stack, ?string $file, string $role): array
     {
-        return ['family' => $family, 'stack' => $stack, 'file' => $file];
+        return ['family' => $family, 'stack' => $stack, 'file' => $file, 'role' => $role];
     }
 }

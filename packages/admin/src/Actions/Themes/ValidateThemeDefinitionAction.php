@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Themes;
 
 use Capell\Admin\Data\Themes\ThemeDiagnosticsData;
 use Capell\Core\Models\Theme;
+use Capell\Core\ThemeStudio\Assets\ThemeTokenValidator;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemeFrontendBuildAssetsData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
@@ -59,6 +60,17 @@ final class ValidateThemeDefinitionAction
 
         if (! $hasPresets) {
             $errors[] = __('capell-admin::theme-library.diagnostics.missing_presets');
+        }
+
+        $validator = resolve(ThemeTokenValidator::class);
+        foreach ($definition->presets as $preset) {
+            $unknown = $validator->unknownFontKeys($preset->values, $preset->typePairing);
+            if ($unknown !== []) {
+                $errors[] = __('capell-admin::theme-library.diagnostics.unknown_fonts', [
+                    'preset' => $preset->key,
+                    'fonts' => implode(', ', $unknown),
+                ]);
+            }
         }
 
         if (! $hasPreviewImage) {

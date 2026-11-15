@@ -155,3 +155,35 @@ function themeDefinitionWithFrontendBuildAssets(ThemeFrontendBuildAssetsData $bu
         frontend: ['assets' => $buildAssets],
     );
 }
+
+it('refuses a definition whose preset names a font the catalogue does not hold', function (): void {
+    $preset = static fn (string $key, array $values, ?string $pairing = null): ThemePresetData => new ThemePresetData(key: $key, name: ucfirst($key), description: $key, previewImage: '/themes/fonts-' . $key . '.jpg', values: $values, typePairing: $pairing);
+    $definition = new ThemeDefinitionData(
+        key: 'fonts',
+        name: 'Fonts',
+        description: 'Font keys.',
+        package: 'capell-app/theme-fonts',
+        previewImage: '/themes/fonts.jpg',
+        tags: [],
+        bestFit: [],
+        presets: [
+            $preset('catalogue', ['headingFont' => 'fraunces', 'bodyFont' => 'source-serif']),
+            $preset('retired', ['headingFont' => 'sans', 'bodyFont' => 'mono']),
+            $preset('pairing', [], 'newsreader+serif'),
+        ],
+        includedSections: ['navigation'],
+        assets: [],
+    );
+    $registry = new ThemeRegistry;
+    $registry->register(definition: $definition);
+
+    app()->instance(ThemeRegistry::class, $registry);
+
+    $diagnostics = ValidateThemeDefinitionAction::run('fonts', $definition, Theme::factory()->make(['key' => 'fonts']));
+
+    expect($diagnostics->isValid())->toBeFalse()
+        ->and($diagnostics->errors)->toBe([
+            __('capell-admin::theme-library.diagnostics.unknown_fonts', ['preset' => 'retired', 'fonts' => 'sans, mono']),
+            __('capell-admin::theme-library.diagnostics.unknown_fonts', ['preset' => 'pairing', 'fonts' => 'serif']),
+        ]);
+});

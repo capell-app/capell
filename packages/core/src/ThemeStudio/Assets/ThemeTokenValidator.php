@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\ThemeStudio\Assets;
 
+use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
+
 final class ThemeTokenValidator
 {
     /**
@@ -34,6 +36,31 @@ final class ThemeTokenValidator
         }
 
         return [sprintf('Contrast pair %s ratio %.2f is below %.2f.', $label, $ratio, $minimumRatio)];
+    }
+
+    /**
+     * The font keys in brand or preset values that are not in the font catalogue. An unknown key would otherwise
+     * render as the catalogue's default face without anyone noticing, so definitions and editors refuse it.
+     *
+     * @param  array<string, mixed>  $values
+     * @return list<string>
+     */
+    public function unknownFontKeys(array $values, ?string $typePairing = null): array
+    {
+        $keys = [];
+        foreach (['headingFont', 'bodyFont'] as $field) {
+            if (array_key_exists($field, $values)) {
+                $keys[] = is_string($values[$field]) ? trim($values[$field]) : '';
+            }
+        }
+
+        if ($typePairing !== null) {
+            foreach (explode('+', $typePairing, 2) as $key) {
+                $keys[] = trim($key);
+            }
+        }
+
+        return array_values(array_unique(array_filter($keys, static fn (string $key): bool => ! ThemeFontCatalogue::has($key))));
     }
 
     public function safeCssValue(string $value): bool

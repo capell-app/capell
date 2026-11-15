@@ -29,6 +29,7 @@ use Capell\Admin\Support\Themes\ThemeEditorExtensionRegistry;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\ColorPicker;
@@ -170,14 +171,20 @@ class FoundationThemeConfigurator implements ConfiguratorInterface
                     ->options(ThemeStudioRadiusEnum::options())
                     ->default('md')
                     ->live(),
-                TextInput::make('headingFont')
+                Select::make('headingFont')
                     ->label(__('capell-admin::theme-editor.fields.heading_font'))
-                    ->default('inter')
-                    ->live(debounce: 400),
-                TextInput::make('bodyFont')
+                    ->options(ThemeFontCatalogue::options())
+                    ->in(array_keys(ThemeFontCatalogue::all()))
+                    ->default(ThemeFontCatalogue::DEFAULT_KEY)
+                    ->selectablePlaceholder(false)
+                    ->live(),
+                Select::make('bodyFont')
                     ->label(__('capell-admin::theme-editor.fields.body_font'))
-                    ->default('inter')
-                    ->live(debounce: 400),
+                    ->options(ThemeFontCatalogue::options())
+                    ->in(array_keys(ThemeFontCatalogue::all()))
+                    ->default(ThemeFontCatalogue::DEFAULT_KEY)
+                    ->selectablePlaceholder(false)
+                    ->live(),
             ]);
     }
 
