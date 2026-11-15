@@ -100,7 +100,7 @@ repos:
         entry: .pre-commit/prettier.sh
         require_serial: true
         language: script
-        files: \.blade\.php$|\.css$|\.js$|\.yml$
+        files: \.blade\.php$|\.css$|\.js$|\.yml$|^packages/.*\.(json|md)$
         stages: [pre-commit]
       - id: composer-public-files-no-local-paths
         name: Composer public files do not use local paths
