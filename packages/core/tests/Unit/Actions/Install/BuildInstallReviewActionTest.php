@@ -71,7 +71,7 @@ it('counts requested downloads separately from downloaded packages and their dep
         extraPackages: ['vendor/new-download', 'vendor/already-downloaded'],
     );
     $review = BuildInstallReviewAction::run($input);
-    expect($review->items[__('capell-core::install.review.summary')])->toContain('1 package downloads requested; 3 already downloaded packages')
+    expect($review->items[__('capell-core::install.review.summary')])->toContain('1 to download with Composer; 3 already downloaded')
         ->and($review->items[__('capell-core::install.review.packages')])->toContain('vendor/already-downloaded')
         ->and($review->items[__('capell-core::install.review.packages')])->not->toContain('vendor/dependency')
         ->and($review->items[__('capell-core::install.review.dependencies')])->toContain('vendor/dependency')

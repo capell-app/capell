@@ -52,6 +52,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
 beforeEach(function (): void {
+    // The review tables wrap to the terminal; a wide one keeps each value on a single line to assert on.
+    putenv('COLUMNS=240');
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
@@ -60,6 +62,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    putenv('COLUMNS');
     FakeProcessFactory::verifyBound();
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
@@ -515,7 +518,7 @@ it('includes an explicitly requested asset build in a plan without applying it',
         '--plan' => true,
         '--no-interaction' => true,
     ])
-        ->expectsOutputToContain('Install frontend dependencies and build assets with the application package manager')
+        ->expectsOutputToContain('Install frontend dependencies and build assets')
         ->assertSuccessful();
 
     expect($fake->callCount)->toBe(0);
@@ -1182,6 +1185,52 @@ it('leads the interactive review with the essentials and collapses the step list
         ->doesntExpectOutputToContain('Run preflight checks')
         ->expectsConfirmation('Install Capell with these settings?', 'no')
         ->assertExitCode(Command::SUCCESS);
+});
+
+it('summarises the steps of a non-interactive install instead of printing them before they run', function (): void {
+    setupInstallTest(['test']);
+    $fake = bindFakeRunInstallAction();
+    $output = new BufferedOutput;
+
+    $exit = Artisan::call('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--fresh' => 'force',
+        '--name' => 'CI Admin',
+        '--email' => 'ci-build@example.test',
+        '--password' => 'password123',
+        '--clear-cache' => true,
+        '--no-frontend-build' => true,
+        '--no-interaction' => true,
+    ], $output);
+    $text = $output->fetch();
+
+    expect($exit)->toBe(Command::SUCCESS)
+        ->and($text)->toContain('steps will run in order. Re-run with -v to list every step.')
+        ->and($text)->not->toContain('Run preflight checks')
+        ->and($fake->callCount)->toBe(1);
+});
+
+it('keeps the review tables inside a narrow terminal', function (): void {
+    setupInstallTest(['test']);
+    bindFakeRunInstallAction();
+    putenv('COLUMNS=70');
+    $output = new BufferedOutput;
+
+    Artisan::call('capell:install', [
+        '--plan' => true,
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--name' => 'CI Admin',
+        '--email' => 'ci-build@example.test',
+        '--password' => 'password123',
+        '--no-interaction' => true,
+    ], $output);
+
+    $lines = array_filter(explode("\n", $output->fetch()), fn (string $line): bool => str_starts_with($line, '│') || str_starts_with($line, '┌'));
+
+    expect($lines)->not->toBeEmpty()
+        ->and(array_filter($lines, fn (string $line): bool => mb_strwidth($line) > 70))->toBeEmpty();
 });
 
 it('describes each package in the checklist so newcomers can see what they add', function (): void {
@@ -2476,7 +2525,7 @@ it('can run an npm build after installing a frontend package', function (): void
         ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
         ->expectsConfirmation('Build production frontend assets now?', 'yes')
-        ->expectsOutput('Install frontend dependencies and build assets with the application package manager')
+        ->expectsOutputToContain('Install frontend dependencies and build assets')
         ->expectsOutput('Production build completed successfully.')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
@@ -3814,7 +3863,8 @@ it('plans an install on a fresh SQLite project without creating or reading the d
             '--plan' => true,
             '--no-interaction' => true,
         ])
-            ->expectsOutputToContain('The database file will be created at ' . $path)
+            ->expectsOutputToContain('The database file will be created at')
+            ->expectsOutputToContain($path)
             ->assertSuccessful();
 
         expect(is_file($path))->toBeFalse()

@@ -39,7 +39,6 @@ use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
-use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\Install\InstallSuiteSelectionData;
 use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Data\InstallInputData;
@@ -91,6 +90,9 @@ use RuntimeException;
 use Spatie\LaravelPackageTools\Commands\Concerns\AskToStarRepoOnGitHub;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 use Symfony\Component\Console\Formatter\OutputFormatter;
+use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Helper\TableSeparator;
+use Symfony\Component\Console\Terminal;
 use Throwable;
 
 class InstallCommand extends Command implements InstallOrchestrationHost
@@ -272,26 +274,31 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $result;
     }
 
+    /**
+     * The numbered steps are listed in full for a preview (--plan) or with -v. Otherwise they are
+     * summarised in one line, because the install reports each step as it runs.
+     */
     #[Override]
-    public function outputPlan(InstallInputData $inputData, bool $collapseWhenInteractive = false): void
+    public function outputPlan(InstallInputData $inputData, bool $collapse = false): void
     {
         $steps = InstallPlan::steps($inputData);
 
         $this->newLine();
-        $this->line('<fg=blue;options=bold>Capell Install Plan</>');
-        $this->newLine();
 
-        if ($collapseWhenInteractive && $this->input->isInteractive() && ! $this->output->isVerbose()) {
+        if ($collapse && ! $this->output->isVerbose()) {
             $this->line(__('capell-core::install.review.plan_collapsed', ['count' => $steps->count()]));
             $this->newLine();
 
             return;
         }
 
-        $steps->each(function (InstallStepData $step, int $index): void {
-            $this->line(sprintf('%d. %s', $index + 1, $step->label));
-        });
+        $numberWidth = strlen((string) $steps->count());
+        $rows = [];
+        foreach ($steps->values() as $index => $step) {
+            $rows[] = [str_pad((string) ($index + 1), $numberWidth, ' ', STR_PAD_LEFT), $step->label];
+        }
 
+        $this->renderTable('Capell Install Plan', $rows);
         $this->newLine();
     }
 
@@ -820,7 +827,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
-        $this->outputPlan($inputData, collapseWhenInteractive: true);
+        $this->outputPlan($inputData, collapse: true);
 
         if (! $this->reviewInstallation($inputData)) {
             foreach ($originalTableConfig as $key => $value) {
@@ -1221,8 +1228,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     }
 
     /**
-     * Lead with the handful of facts a newcomer needs, then list the mechanical detail as bullets.
-     * The execution steps are omitted because the plan printed straight after the review lists them.
+     * Lead with the handful of facts a newcomer needs in one table, then list the mechanical detail in a
+     * second one. The execution steps are omitted because the plan printed straight after the review lists them.
      *
      * @param  array<string, string>  $items
      * @param  array<string, list<string>>  $lists
@@ -1241,25 +1248,78 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ];
 
         $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
-        $this->newLine();
-        $this->line('<options=bold>' . __('capell-core::install.review.essentials_title') . '</>');
 
+        $essentials = [];
         foreach ($essentialLabels as $label) {
             if (isset($items[$label]) && $items[$label] !== $none) {
-                $this->line(OutputFormatter::escape('  ' . $label . ': ' . $items[$label]));
+                $essentials[] = [$label, implode("\n", preg_split('/(?:; | — )(?![^(]*\))/', $items[$label]) ?: [$items[$label]])];
             }
         }
 
-        $this->newLine();
-        $this->line('<options=bold>' . __('capell-core::install.review.details_title') . '</>');
-
+        $details = [];
         foreach (array_filter($lists) as $label => $entries) {
-            $this->line(OutputFormatter::escape('  ' . $label));
-
-            foreach ($entries as $entry) {
-                $this->line(OutputFormatter::escape('    • ' . $entry));
-            }
+            $details[] = [$label, count($entries) === 1
+                ? $entries[0]
+                : implode("\n", array_map(fn (string $entry): string => '• ' . $entry, $entries))];
         }
+
+        // Both tables share their column widths so they line up as one block.
+        $widths = $this->tableWidths([...$essentials, ...$details]);
+        $this->renderTable(__('capell-core::install.review.essentials_title'), $essentials, widths: $widths);
+        $this->newLine();
+        $this->renderTable(__('capell-core::install.review.details_title'), $details, widths: $widths, separateRows: true);
+    }
+
+    /**
+     * The label column fits its longest label; the value column fills the terminal up to a readable maximum.
+     *
+     * @param  list<array{0: string, 1: string}>  $rows
+     * @return array{0: int, 1: int}
+     */
+    private function tableWidths(array $rows): array
+    {
+        $labelWidth = $rows === [] ? 0 : max(array_map(fn (array $row): int => mb_strwidth($row[0]), $rows));
+
+        return [$labelWidth, min(100, max(20, (new Terminal)->getWidth() - $labelWidth - 7))];
+    }
+
+    /**
+     * Draw a titled two-column table whose second column wraps to the terminal, so long prose stays
+     * inside the box. A single long token such as a path or URL is left whole so it can be copied.
+     *
+     * @param  list<array{0: string, 1: string}>  $rows
+     * @param  array{0: int, 1: int}|null  $widths  label and value column widths; fitted to the rows when omitted
+     */
+    private function renderTable(string $title, array $rows, ?array $widths = null, bool $separateRows = false): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        [$labelWidth, $valueWidth] = $widths ?? $this->tableWidths($rows);
+        $table = new Table($this->output);
+        $table->setStyle('box')->setHeaderTitle(OutputFormatter::escape($title))->setColumnWidth(0, $labelWidth);
+
+        if ($widths !== null) {
+            $table->setColumnWidth(1, $valueWidth);
+        }
+
+        foreach ($rows as $index => $row) {
+            if ($separateRows && $index > 0) {
+                $table->addRow(new TableSeparator);
+            }
+
+            $lines = array_map(
+                fn (string $line): string => implode("\n", array_map(
+                    OutputFormatter::escape(...),
+                    explode("\n", wordwrap($line, $valueWidth)),
+                )),
+                explode("\n", $row[1]),
+            );
+            $table->addRow([OutputFormatter::escape($row[0]), implode("\n", $lines)]);
+        }
+
+        $table->render();
     }
 
     private function finishPlanOnlyInstall(InstallInputData $inputData): int
