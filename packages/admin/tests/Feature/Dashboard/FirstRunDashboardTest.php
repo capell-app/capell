@@ -470,6 +470,56 @@ it('shows the work-first visit panels after go-live only once visits are recorde
     expect($html)->toContain(firstRunWidgetMarker(PageViewsWidget::class));
 });
 
+it('keeps the period filter, introduced by a hint, when analytics is connected so a longer period can be chosen', function (): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+    RecordSitePublishedAction::run($site->id);
+    app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider(DashboardAnalyticsAvailabilityEnum::Available));
+    nextDashboardRequest();
+
+    Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertSee(__('capell-admin::dashboard.filters_hint'))
+        ->assertSee(__('capell-admin::dashboard.work_first_analytics_period'))
+        ->assertSee(__('capell-admin::dashboard.analytics_no_visits_yet'));
+});
+
+it('leaves the filters out when nothing on the dashboard could change', function (DashboardAnalyticsAvailabilityEnum $availability): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+    SiteDomain::query()->where('site_id', $site->id)->update(['language_id' => $site->language_id]);
+    RecordSitePublishedAction::run($site->id);
+    app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider($availability));
+    nextDashboardRequest();
+
+    // One site and one language leave no choice to make, and no visit figures use the period.
+    Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertDontSee(__('capell-admin::dashboard.filters_hint'))
+        ->assertDontSee(__('capell-admin::dashboard.work_first_analytics_period'));
+})->with([
+    'analytics not set up' => DashboardAnalyticsAvailabilityEnum::NotConfigured,
+    'analytics could not load' => DashboardAnalyticsAvailabilityEnum::Unavailable,
+]);
+
+it('keeps the filter bar for a language choice even when no period applies', function (): void {
+    workFirstFreshInstall();
+    $this->actingAsAdmin();
+    [$site] = unpublishedDashboardSite();
+    RecordSitePublishedAction::run($site->id);
+    app()->instance(DashboardAnalyticsDataProvider::class, new EmptyAnalyticsDataProvider(DashboardAnalyticsAvailabilityEnum::NotConfigured));
+    nextDashboardRequest();
+
+    // The unpublished site has two languages, so the language filter stays and the hint introduces it.
+    Livewire::test(CapellDashboard::class)
+        ->assertOk()
+        ->assertSee(__('capell-admin::dashboard.filters_hint'))
+        ->assertSee(__('capell-admin::dashboard.filter_all_languages'))
+        ->assertDontSee(__('capell-admin::dashboard.work_first_analytics_period'));
+});
+
 it('returns a person who hides the checklist to the normal dashboard, and the restore brings the setup layout back', function (): void {
     $this->actingAsAdmin();
     $user = $this->authenticatedUser();

@@ -288,8 +288,10 @@ it('explains why installer deletion is unavailable when server-side tooling is d
     Livewire::withoutLazyLoading();
 
     Livewire::test(InstallerWarning::class)
-        ->assertSee('Server-side package changes are disabled')
-        ->assertSee('capell-app/installer');
+        ->assertSee(__('capell-installer::widgets.delete_installer_tooling_disabled'))
+        ->assertSee('composer remove capell-app/installer')
+        ->assertSee(__('capell-installer::widgets.delete_installer_copy'))
+        ->assertActionDisabled('deleteInstaller');
 });
 
 it('does not display the disabled-tooling explanation when package changes are enabled', function (): void {
@@ -299,7 +301,9 @@ it('does not display the disabled-tooling explanation when package changes are e
     Livewire::withoutLazyLoading();
 
     Livewire::test(InstallerWarning::class)
-        ->assertDontSee('Server-side package changes are disabled');
+        ->assertDontSee(__('capell-installer::widgets.delete_installer_tooling_disabled'))
+        ->assertDontSee('composer remove capell-app/installer')
+        ->assertActionEnabled('deleteInstaller');
 });
 
 it('explains when installer deletion requires global administrator access', function (): void {

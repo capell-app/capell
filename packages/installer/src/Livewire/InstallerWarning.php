@@ -40,6 +40,8 @@ final class InstallerWarning extends Component implements HasActions, HasForms
     {
         return Action::make('deleteInstaller')
             ->authorize(fn (): bool => $this->canDeleteInstaller())
+            ->disabled(fn (): bool => ! $this->canDeleteInstaller())
+            ->tooltip(fn (): ?string => $this->canDeleteInstaller() ? null : (string) __('capell-installer::widgets.delete_installer_disabled_tooltip'))
             ->label(__('capell-installer::widgets.delete_installer_action'))
             ->color('danger')
             ->outlined()

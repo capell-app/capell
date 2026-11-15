@@ -98,6 +98,8 @@ class CapellDashboard extends Dashboard
     /** @var list<string>|null */
     private ?array $layoutWidgetKeysCache = null;
 
+    private ?int $accessibleSiteCountCache = null;
+
     /**
      * Restoring a hidden checklist comes first and ends in one redirect to the plain
      * dashboard address. A site nobody has set up yet then opens guided setup instead
@@ -156,6 +158,7 @@ class CapellDashboard extends Dashboard
                 ? Select::make('site_id')->options(fn (): array => SiteAccess::forActor(auth()->user(), acrossAssignedSites: true)->query(Site::class)->orderBy('name')->pluck('name', 'id')->all())
                 : SiteSelect::make('site_id'))
                 ->label(__('capell-admin::form.site'))
+                ->visible(fn (): bool => ! $this->workFirstEnabled() || $this->workFirstHasSiteChoice())
                 ->default(null)
                 ->placeholder(__('capell-admin::dashboard.filter_all_sites'))
                 ->selectablePlaceholder(),
@@ -173,6 +176,7 @@ class CapellDashboard extends Dashboard
                 ->selectablePlaceholder(),
             Select::make('date_range')
                 ->label($this->periodFilterLabel())
+                ->visible(fn (): bool => ! $this->workFirstEnabled() || $this->workFirstShowsPerformance())
                 ->helperText(fn (): ?string => $this->workFirstEnabled() ? (string) __('capell-admin::dashboard.work_first_period_help') : null)
                 ->options(fn (): array => $this->workFirstEnabled() ? [
                     DashboardDateRangeEnum::Today->value => __('capell-admin::dashboard.work_first_period_1'),
@@ -277,7 +281,7 @@ class CapellDashboard extends Dashboard
             $components[] = Grid::make(1)->schema($checklist)->columnSpanFull();
         }
 
-        $components[] = $this->getFiltersFormContentComponent();
+        array_push($components, ...$this->filtersContent());
         $attention = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === NeedsAttentionFilamentWidget::class));
         if ($this->getWidgetsSchemaComponents($attention) !== []) {
             $components[] = Grid::make(1)->schema($this->getWidgetsSchemaComponents($attention))->columnSpanFull();
@@ -557,6 +561,76 @@ class CapellDashboard extends Dashboard
      */
     private function workFirstContent(Schema $schema, array $widgets): Schema
     {
+        $ordered = $this->workFirstOrderedWidgets($widgets);
+        $checklist = $this->getWidgetsSchemaComponents([FirstRunChecklistFilamentWidget::class]);
+
+        // Visit panels wait until the source has counted something; one sentence says why.
+        $analyticsNotice = null;
+        if (array_any($ordered, $this->isWorkFirstAnalyticsWidget(...))
+            && ($this->isFirstRun() || ! $this->analyticsReportsData())) {
+            $ordered = array_values(array_filter($ordered, fn (string|WidgetConfiguration $widget): bool => ! $this->isWorkFirstAnalyticsWidget($widget)));
+            $analyticsNotice = $this->isFirstRun() ? null : $this->analyticsNotice();
+        }
+
+        return $schema->components([
+            ...($checklist === [] ? [] : [Grid::make(1)->schema($checklist)->columnSpanFull()]),
+            ...$this->filtersContent(),
+            Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($ordered))->columnSpanFull(),
+            ...($analyticsNotice === null ? [] : [Text::make($analyticsNotice)->columnSpanFull()]),
+        ]);
+    }
+
+    /**
+     * The filter bar, introduced by one line saying it changes what follows.
+     * A bar with nothing to choose is left out, so a new or single-site
+     * dashboard never shows controls that do nothing.
+     *
+     * @return list<Component>
+     */
+    private function filtersContent(): array
+    {
+        if ($this->workFirstEnabled() && ! $this->workFirstHasSiteChoice() && count($this->workFirstLanguages()) <= 1 && ! $this->workFirstShowsPerformance()) {
+            return [];
+        }
+
+        return [
+            Text::make(__('capell-admin::dashboard.filters_hint'))->color('gray')->columnSpanFull(),
+            $this->getFiltersFormContentComponent(),
+        ];
+    }
+
+    /** Whether the person can reach more than one site, so choosing a site means something. */
+    private function workFirstHasSiteChoice(): bool
+    {
+        $actor = auth()->user();
+        $this->accessibleSiteCountCache ??= $actor === null
+            ? 0
+            : SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)->count();
+
+        return $this->accessibleSiteCountCache > 1;
+    }
+
+    /**
+     * Whether the period can change anything: visit panels are in the person's layout
+     * and analytics is connected. A connected source with no visits in this period
+     * keeps the filter, because a longer period may hold some.
+     */
+    private function workFirstShowsPerformance(): bool
+    {
+        return ! $this->isFirstRun()
+            && ($this->analyticsSnapshot()?->isAvailable() ?? false)
+            && array_any($this->workFirstOrderedWidgets($this->getWidgets()), $this->isWorkFirstAnalyticsWidget(...));
+    }
+
+    /**
+     * The widgets the person's layout selects, in order, before visit panels are
+     * withheld for a site that has recorded nothing yet.
+     *
+     * @param  array<class-string<Widget>|WidgetConfiguration>  $widgets
+     * @return list<class-string<Widget>|WidgetConfiguration>
+     */
+    private function workFirstOrderedWidgets(array $widgets): array
+    {
         $priority = $this->defaultWorkFirstWidgets();
         $leading = [];
         foreach ($priority as $class) {
@@ -588,23 +662,7 @@ class CapellDashboard extends Dashboard
         }
 
         // The checklist always leads during first run, so it never also sits in the personal layout.
-        $ordered = array_values(array_filter($ordered, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) !== FirstRunChecklistFilamentWidget::class));
-        $checklist = $this->getWidgetsSchemaComponents([FirstRunChecklistFilamentWidget::class]);
-
-        // Visit panels wait until the source has counted something; one sentence says why.
-        $analyticsNotice = null;
-        if (array_any($ordered, $this->isWorkFirstAnalyticsWidget(...))
-            && ($this->isFirstRun() || ! $this->analyticsReportsData())) {
-            $ordered = array_values(array_filter($ordered, fn (string|WidgetConfiguration $widget): bool => ! $this->isWorkFirstAnalyticsWidget($widget)));
-            $analyticsNotice = $this->isFirstRun() ? null : $this->analyticsNotice();
-        }
-
-        return $schema->components([
-            ...($checklist === [] ? [] : [Grid::make(1)->schema($checklist)->columnSpanFull()]),
-            $this->getFiltersFormContentComponent(),
-            Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($ordered))->columnSpanFull(),
-            ...($analyticsNotice === null ? [] : [Text::make($analyticsNotice)->columnSpanFull()]),
-        ]);
+        return array_values(array_filter($ordered, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) !== FirstRunChecklistFilamentWidget::class));
     }
 
     private function editWorkFirstLayoutAction(): Action
