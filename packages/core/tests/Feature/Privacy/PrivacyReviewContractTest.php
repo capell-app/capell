@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Privacy\PrivacyReviewLedger;
 use Capell\Core\Contracts\Privacy\PrivacyReviewResolutions;
+use Capell\Core\Data\Privacy\OpenPrivacyReviewData;
 use Capell\Core\Data\Privacy\PrivacyReviewCandidateData;
 use Capell\Core\Data\Privacy\PrivacySubject;
+use Capell\Core\Models\Site;
+use Capell\Core\Support\Privacy\EmptyPrivacyReviewLedger;
 use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\Privacy\UnresolvedPrivacyReviewResolutions;
 use Capell\Core\Tests\Feature\Privacy\Fixtures\EmailListPrivacyContributor;
 use Capell\Core\Tests\Feature\Privacy\Fixtures\ReviewingPrivacyEraser;
+use Illuminate\Foundation\Auth\User;
 
 it('collects review candidates only from supporting erasers that report them, in contributor order', function (): void {
     $sharedBooking = new PrivacyReviewCandidateData('bookings', 'booking', 7, PrivacyReviewCandidateData::REASON_FOREIGN_DESCENDANT, siteId: 2);
@@ -68,6 +73,28 @@ it('treats every candidate as unresolved until a privacy package binds resolutio
 
     expect($resolutions)->toBeInstanceOf(UnresolvedPrivacyReviewResolutions::class)
         ->and($resolutions->for(PrivacySubject::forEmail('jane@example.test'), 'contacts', 'contact'))->toBe([]);
+});
+
+it('has no holds, retained records or resolutions until a privacy package binds a review ledger', function (): void {
+    $ledger = resolve(PrivacyReviewLedger::class);
+    $review = new OpenPrivacyReviewData(1, 'customer-portal', 'portal-account', 7, null);
+
+    expect($ledger)->toBeInstanceOf(EmptyPrivacyReviewLedger::class)
+        ->and($ledger->retained('bookings'))->toBe([])
+        ->and($ledger->open('newsletter', 'provider-subscriber', [1, 2], includeDelivered: true, onOpenRequestsOnly: true))->toBe([])
+        ->and($ledger->resolve($review, PrivacyReviewLedger::RESOLUTION_ERASED, new User, 'confirmed', 'console'))->toBeFalse()
+        ->and($ledger->held(PrivacySubject::forEmail('jane@example.test'), 'newsletter', 'provider-subscriber'))->toBe([]);
+});
+
+it('matches an open review to the record whose request holds it', function (): void {
+    $owner = (new Site)->forceFill(['id' => 5]);
+    $other = (new Site)->forceFill(['id' => 6]);
+    $review = new OpenPrivacyReviewData(1, 'customer-portal', 'portal-account', 7, ['type' => $owner->getMorphClass(), 'id' => '5']);
+    $emailOnly = new OpenPrivacyReviewData(2, 'customer-portal', 'portal-account', 7, null);
+
+    expect($review->isFor($owner))->toBeTrue()
+        ->and($review->isFor($other))->toBeFalse()
+        ->and($emailOnly->isFor($owner))->toBeFalse();
 });
 
 it('validates review candidate scope', function (string $contributor, string $type, int $id, string $reason): void {
