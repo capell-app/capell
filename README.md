@@ -1,6 +1,9 @@
 # Capell CMS
 
-![The Capell wordmark on a dark drafting grid, beside an isometric model of a cream Core foundation stamped with the Laravel mark, forking into separate Admin and Frontend structures with Blade, Livewire, Inertia, and Vue tiles docked beneath the frontend window](docs/images/capell-readme-hero.jpg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/capell-readme-hero.jpg">
+  <img alt="The Capell wordmark on a faint drafting grid, above the lines “Extensible Laravel CMS” and “Strict coding standards. Painless upgrades.”" src="docs/images/capell-readme-hero-light.jpg">
+</picture>
 
 [![Foundation 1.x](https://img.shields.io/badge/Foundation-1.x-2F855A?style=flat-square)](docs/operations/support-policy.md)
 [![Test Matrix](https://img.shields.io/github/actions/workflow/status/capell-app/capell/test-full.yml?branch=main&style=flat-square&label=test%20matrix&logo=githubactions&logoColor=white)](https://github.com/capell-app/capell/actions/workflows/test-full.yml)

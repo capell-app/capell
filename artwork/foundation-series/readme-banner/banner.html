@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+:root{--bg:#f6f1e6;--ink:#001d3d;--grid:rgba(0,29,61,.06);--teal:#1f8a78;--glow:5%;--logo:url(../capell-logo.svg)}
+.dark{--bg:#071312;--ink:#f3ecdc;--grid:rgba(120,190,170,.09);--teal:#4cc4a8;--glow:16%;--logo:url(capell-logo-cream.svg)}
+body{margin:0}
+.b{width:1440px;height:600px;position:relative;overflow:hidden;background-color:var(--bg);
+ background-image:radial-gradient(ellipse 55% 70% at 50% 46%, color-mix(in srgb,var(--teal) var(--glow),transparent),transparent 70%),linear-gradient(var(--grid) 1.5px,transparent 1.5px),linear-gradient(90deg,var(--grid) 1.5px,transparent 1.5px);
+ background-size:auto,48px 48px,48px 48px;background-position:0 0,46px 23px,46px 23px}
+.logo{position:absolute;left:335px;top:146px;width:770px;height:172px;background:var(--logo) no-repeat center/contain}
+.tag{position:absolute;left:0;right:0;top:350px;text-align:center;font-family:Sora;font-weight:300;color:var(--ink);font-size:44px;line-height:1.45;letter-spacing:.3em;text-transform:uppercase;padding-left:.3em}
+@font-face{font-family:Sora;src:url(fonts/sora-latin-400-normal.woff2) format('woff2');font-weight:400}
+@font-face{font-family:Sora;src:url(fonts/sora-latin-600-normal.woff2) format('woff2');font-weight:600}
+.tag{top:384px;font-size:42px;font-weight:600;letter-spacing:.2em;padding-left:.2em}
+.sub{display:inline-block;margin-top:16px;font-size:30px;font-weight:400;letter-spacing:.09em;opacity:.8}
+</style></head><body>
+<div class="b" id="b"><div class="logo"></div><div class="tag">Extensible Laravel CMS<br><span class="sub">Strict coding standards. Painless upgrades.</span></div></div>
+<script>if(location.hash==='#dark')document.getElementById('b').classList.add('dark')</script>
+</body></html>
