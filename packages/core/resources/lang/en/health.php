@@ -56,6 +56,36 @@ return [
             'remediation' => 'Check the configured cache service and credentials, then rerun the Capell health checks.',
         ],
     ],
+    'host_monitor' => [
+        'label' => 'Server load',
+        'disabled' => 'Server load monitoring is turned off.',
+        'no_samples' => 'No server readings have been recorded yet. The scheduler records one every minute once it is running.',
+        'healthy' => 'Load is :load across :cores cores, and memory and the scheduler are within their limits.',
+        'remediation' => 'Open Site Health to see which processes and scheduled tasks are using the CPU. Each scheduled command starts its own PHP process, so many per-minute tasks add up; lower how often they run, or run them in the scheduler process instead.',
+        'status' => [
+            'ok' => 'Healthy',
+            'warning' => 'Warning',
+            'critical' => 'Critical',
+        ],
+        'reasons' => [
+            'load' => 'Five-minute load is :load across :cores CPU cores, so the server has more work than it can run at once.',
+            'memory' => 'Only :available% of memory is still available to programs.',
+            'swap' => ':used% of swap is in use, so the server is moving memory to disk.',
+            'scheduler_cpu' => 'Each scheduler run uses :seconds CPU seconds, :percent% of what the cores supply in a minute, across :processes separate PHP processes.',
+            'scheduler_wall' => 'A scheduler run takes :seconds seconds, close enough to the next minute to overlap with it.',
+        ],
+        'notification' => [
+            'subject' => [
+                'raised' => 'Server load :status on :node',
+                'reminder' => 'Server load is still :status on :node',
+                'recovered' => 'Server load on :node is back to normal',
+            ],
+            'busiest' => 'Busiest processes: :processes.',
+            'slowest' => 'Slowest scheduled tasks: :tasks.',
+            'clear' => 'Load, memory and the scheduler are back within their limits.',
+            'footer' => 'Open Site Health in the Capell admin for the full readings. Change when these messages are sent in the capell.health.host.notifications configuration.',
+        ],
+    ],
     'hosting_platform' => [
         'label' => 'Hosting platform',
         'platforms' => [

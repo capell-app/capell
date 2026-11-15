@@ -12,6 +12,7 @@ use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
+use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Media\ImageUrlPolicy;
@@ -261,5 +262,6 @@ it('runs two operations without leaking classified Capell state', function (): v
             ExtensionCommercialPolicy::class,
             ThemeViewRegistrar::class,
             FrontendLocaleScope::class,
+            SchedulerRunRecorder::class,
         ]);
 });

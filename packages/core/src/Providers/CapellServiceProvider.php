@@ -8,6 +8,7 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Actions\HostMonitor\RecordHostSampleAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
@@ -73,6 +74,7 @@ use Capell\Core\Contracts\Capabilities\FormCatalogue;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Contracts\Health\HostMetricsSource;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
@@ -179,6 +181,8 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\HostMonitor\LocalHostMetricsSource;
+use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Http\DnsHostAddressResolver;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
@@ -282,6 +286,9 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Composer\InstalledVersions;
 use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -470,6 +477,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
             ->registerSchedulerHeartbeat()
+            ->registerHostMonitor()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
@@ -1034,6 +1042,31 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             })
                 ->name(SchedulerHeartbeat::SCHEDULE_NAME)
                 ->everyFiveMinutes();
+        });
+
+        return $this;
+    }
+
+    private function registerHostMonitor(): self
+    {
+        $this->app->singleton(SchedulerRunRecorder::class);
+        $this->app->tag([SchedulerRunRecorder::class], Resettable::TAG);
+        $this->app->bind(HostMetricsSource::class, LocalHostMetricsSource::class);
+
+        Event::listen(ScheduledTaskStarting::class, static function (): void {
+            resolve(SchedulerRunRecorder::class)->starting();
+        });
+        Event::listen(ScheduledTaskFinished::class, [SchedulerRunRecorder::class, 'finished']);
+        Event::listen(ScheduledTaskFailed::class, [SchedulerRunRecorder::class, 'failed']);
+
+        // A closure, not a command: a command would start another PHP process every minute,
+        // which is the cost this monitor exists to expose.
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->call(static function (): void {
+                resolve(RecordHostSampleAction::class)->handle();
+            })
+                ->name('capell:host-monitor-sample')
+                ->everyMinute();
         });
 
         return $this;
