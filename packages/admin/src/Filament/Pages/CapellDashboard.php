@@ -603,12 +603,27 @@ class CapellDashboard extends Dashboard
 
     /**
      * The site filter is hidden when there is no site to choose between, so a value left
-     * in it (a saved scope, the session or a shared link) must not keep scoping the
-     * dashboard with no control to clear it.
+     * in it that names a site the person cannot reach (a saved scope, the session or a
+     * shared link) must not keep scoping the dashboard with no control to clear it. A
+     * value naming their one reachable site is kept, as it was before the control hid.
      */
     private function clearHiddenSiteFilter(): void
     {
-        if ($this->workFirstEnabled() && is_array($this->filters) && ! $this->workFirstHasSiteChoice()) {
+        $actor = auth()->user();
+        if (! $this->workFirstEnabled() || ! is_array($this->filters) || $this->workFirstHasSiteChoice()) {
+            return;
+        }
+
+        $siteId = $this->workFirstSiteFilter();
+        if ($siteId === null) {
+            return;
+        }
+
+        $reachable = $actor !== null
+            && $siteId > 0
+            && SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)->whereKey($siteId)->exists();
+
+        if (! $reachable) {
             $this->filters['site_id'] = null;
         }
     }
