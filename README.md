@@ -51,7 +51,7 @@ php artisan capell:install --demo --package-mode=all --theme=default --url=http:
 
 The command sets the local site URL explicitly and asks for the first administrator. A successful run prints `All checks passed` and `Installation complete`, followed by the Capell Install Handoff. If a required step fails, the command exits non-zero and does not print the success message.
 
-The public Foundation line is **1.x**, as recorded in the [changelog](CHANGELOG.md) and split-package Composer aliases. Read the [support window and LTS policy](docs/operations/support-policy.md) for security coverage, upgrade commitments and dates still to be confirmed.
+The public Foundation line is **1.x**, as recorded in the [changelog](https://github.com/capell-app/capell/blob/main/CHANGELOG.md) and split-package Composer aliases. Read the [support window and LTS policy](docs/operations/support-policy.md) for security coverage, upgrade commitments and dates still to be confirmed.
 
 The canonical installation entry point for an existing Laravel application is `capell-app/installer`. The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line; it does not replace the guided Installer workflow.
 
