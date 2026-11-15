@@ -204,7 +204,7 @@
         },
         "core.testing.extension-harness": {
             "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",
-            "signature": "507646d95887d5491cbd3ffb01f1f99543f49f899468e828a4f6d7491e92d9db",
+            "signature": "08158b9167c438f1495b1dff08dd8904d9107c2d5c01250f281b778dd311eae5",
             "contractTestId": "core.extension-test-harness"
         },
         "frontend.dto.cache-invalidation-rule": {
@@ -357,7 +357,8 @@
         "2026_11_14_000001_share_translation_media_with_translatable_owner.php",
         "2026_11_14_000010_create_capell_ai_provenance_table.php",
         "2026_11_15_000001_add_source_fingerprints_to_translations_table.php",
-        "2026_11_15_000010_create_capell_idempotency_keys_table.php"
+        "2026_11_15_000010_create_capell_idempotency_keys_table.php",
+        "2026_11_15_000020_add_claim_tokens_to_capell_idempotency_keys_table.php"
     ],
     "configKeys": []
 }
