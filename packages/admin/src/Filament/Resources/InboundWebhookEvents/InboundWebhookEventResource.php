@@ -45,7 +45,7 @@ final class InboundWebhookEventResource extends Resource
     #[Override]
     public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return NavigationGroupEnum::Developer;
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]
