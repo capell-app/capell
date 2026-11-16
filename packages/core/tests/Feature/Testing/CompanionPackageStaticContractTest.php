@@ -245,6 +245,20 @@ it('runs the static checks in the suite unless a complete decision record opts t
     (new CompanionPackageContractSuite)->run(suiteContractFor($optedOut));
 });
 
+it('requires privacy contributors in the suite for personal data unless a decision record opts the package out', function (): void {
+    $files = ['database/migrations/2026_01_01_000000_create_contacts_table.php' => "<?php\n\nSchema::create('contacts', function (Blueprint \$table): void {\n    \$table->string('email');\n});\n"];
+    $enforced = staticContractPackage($files);
+    $optedOut = staticContractPackage([
+        ...$files,
+        'docs/decisions/contract-opt-out-privacy.personal-data.md' => "# Privacy opt-out\n\n## Decision\n\nNo exporter or eraser.\n\n## Reason\n\nThe addresses are staff-entered system senders, not people.\n",
+    ]);
+
+    expect(fn () => (new CompanionPackageContractSuite)->run(suiteContractFor($enforced)))
+        ->toThrow(AssertionError::class, '[privacy.personal-data]');
+
+    (new CompanionPackageContractSuite)->run(suiteContractFor($optedOut));
+});
+
 it('rejects incomplete decision records and records for checks that cannot be opted out', function (string $file, string $contents, string $message): void {
     $root = staticContractPackage(['docs/decisions/' . $file => $contents]);
 
