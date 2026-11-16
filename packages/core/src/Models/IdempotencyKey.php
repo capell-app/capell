@@ -20,7 +20,8 @@ use Override;
  * @property string $payload_hash
  * @property IdempotencyKeyStatus $status
  * @property array<string, mixed>|null $result
- * @property CarbonImmutable $expires_at
+ * @property string|null $claim_token
+ * @property CarbonImmutable|null $expires_at null for a completed result kept permanently
  */
 final class IdempotencyKey extends Model
 {
@@ -38,22 +39,23 @@ final class IdempotencyKey extends Model
         'key',
         'payload_hash',
         'status',
+        'claim_token',
         'result',
         'expires_at',
     ];
 
     /** @var list<string> */
-    protected $hidden = ['result'];
+    protected $hidden = ['result', 'claim_token'];
 
     public function hasExpired(): bool
     {
-        return $this->expires_at->isPast();
+        return $this->expires_at instanceof CarbonImmutable && $this->expires_at->isPast();
     }
 
     /** @return Builder<self> */
     public function prunable(): Builder
     {
-        return self::query()->where('expires_at', '<', CarbonImmutable::now());
+        return self::query()->whereNotNull('expires_at')->where('expires_at', '<', CarbonImmutable::now());
     }
 
     /** @return array<string, string> */

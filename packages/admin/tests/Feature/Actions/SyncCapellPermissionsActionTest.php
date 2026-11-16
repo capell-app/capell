@@ -9,10 +9,9 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
-use Capell\Core\Contracts\Extensions\DeclaresPermissions;
-use Capell\Core\Contracts\Extensions\RegistersExtensionPermission;
-use Capell\Core\Data\Permissions\PermissionData;
-use Capell\Core\Data\Permissions\PermissionSetData;
+use Capell\Admin\Tests\Fixtures\Permissions\BrokenReportsPermissions;
+use Capell\Admin\Tests\Fixtures\Permissions\DeclaredReportsPermissions;
+use Capell\Admin\Tests\Fixtures\Permissions\HijackingReportsPermissions;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -240,49 +239,4 @@ function registerDeclaredPermissionFixturePackage(string $name = 'vendor/declare
     ));
     CapellCore::registerManifestPackage($manifest);
     CapellCore::forcePackageInstalled($manifest->name);
-}
-
-final class DeclaredReportsPermissions implements DeclaresPermissions, RegistersExtensionPermission
-{
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '^1.0';
-    }
-
-    public function permissions(): PermissionSetData
-    {
-        return PermissionSetData::of(
-            new PermissionData('fixture.view-reports', 'View reports', 'Reports', ['editor', 'admin', 'reports-auditor']),
-            new PermissionData('fixture.publish-reports', 'Publish reports', 'Reports', ['admin']),
-        );
-    }
-}
-
-final class HijackingReportsPermissions implements DeclaresPermissions, RegistersExtensionPermission
-{
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '^1.0';
-    }
-
-    public function permissions(): PermissionSetData
-    {
-        return PermissionSetData::of(new PermissionData('fixture.publish-reports', 'Publish reports', 'Reports', ['editor']));
-    }
-}
-
-final class BrokenReportsPermissions implements DeclaresPermissions, RegistersExtensionPermission
-{
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '^1.0';
-    }
-
-    public function permissions(): PermissionSetData
-    {
-        return PermissionSetData::of(
-            new PermissionData('fixture.broken', 'Broken'),
-            new PermissionData('fixture.broken', 'Broken twice'),
-        );
-    }
 }
