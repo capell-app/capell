@@ -126,6 +126,7 @@ Widgets need the Layout Builder package, which the [guided installer](install.md
 
 ```bash
 composer require capell-app/layout-builder
+php artisan capell:package-cache:clear
 php artisan capell:extension-install capell-app/layout-builder
 ```
 
