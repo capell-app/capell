@@ -31,6 +31,8 @@ declare(strict_types=1);
 return [
     'activity' => 'activity log entry',
     'activities' => 'activity log',
+    'inbound_webhook_event' => 'webhook event',
+    'inbound_webhook_events' => 'webhook events',
     'block_template' => 'block template',
     'block_templates' => 'block templates',
     'blueprint' => 'blueprint',

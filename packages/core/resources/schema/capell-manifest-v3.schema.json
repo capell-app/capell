@@ -774,7 +774,8 @@
                     "form-submissions",
                     "site-access-registrations",
                     "publishing-workflow",
-                    "campaign-conversions"
+                    "campaign-conversions",
+                    "layout-widget-host"
                 ]
             },
             "additionalProperties": {

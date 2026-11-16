@@ -7,6 +7,7 @@ namespace Capell\Core\Testing\Contracts;
 use AssertionError;
 use Capell\Core\Testing\Assertions\AssertsDeclaredThrottles;
 use Capell\Core\Testing\Assertions\AssertsGuardedOutboundHttp;
+use Capell\Core\Testing\Assertions\AssertsPrivacyContributors;
 use Capell\Core\Testing\Assertions\AssertsPublicViewSafety;
 
 /**
@@ -25,6 +26,7 @@ final readonly class ContractOptOutRecords
         AssertsGuardedOutboundHttp::CONTRACT_ID,
         AssertsPublicViewSafety::CONTRACT_ID,
         AssertsDeclaredThrottles::CONTRACT_ID,
+        AssertsPrivacyContributors::CONTRACT_ID,
     ];
 
     private const string PREFIX = 'contract-opt-out-';

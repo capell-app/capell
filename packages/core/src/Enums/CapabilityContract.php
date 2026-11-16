@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Enums;
 
 use Capell\Core\Contracts\Capabilities\FormCatalogue;
+use Capell\Core\Contracts\Capabilities\LayoutWidgetHost as LayoutWidgetHostContract;
 use Capell\Core\Events\Capabilities\CampaignConversionRecorded;
 use Capell\Core\Events\Capabilities\FormSubmissionReceived;
 use Capell\Core\Events\Capabilities\PublishingWorkspaceTransitioned;
@@ -33,6 +34,9 @@ enum CapabilityContract: string
     /** Dispatches CampaignConversionRecorded for every recorded conversion. */
     case CampaignConversions = 'campaign-conversions';
 
+    /** Previews, reads and invalidates the widgets page layouts place. Resolved through CapabilityRegistry. */
+    case LayoutWidgetHost = 'layout-widget-host';
+
     public static function forContract(string $contract): ?self
     {
         return array_find(self::cases(), static fn (self $capability): bool => $capability->contract() === $contract);
@@ -56,6 +60,7 @@ enum CapabilityContract: string
     {
         return match ($this) {
             self::FormCatalogue => FormCatalogue::class,
+            self::LayoutWidgetHost => LayoutWidgetHostContract::class,
             default => null,
         };
     }
@@ -68,7 +73,7 @@ enum CapabilityContract: string
     public function event(): ?string
     {
         return match ($this) {
-            self::FormCatalogue => null,
+            self::FormCatalogue, self::LayoutWidgetHost => null,
             self::FormSubmissions => FormSubmissionReceived::class,
             self::SiteAccessRegistrations => SiteAccessRegistrationApproved::class,
             self::PublishingWorkflow => PublishingWorkspaceTransitioned::class,
