@@ -9,6 +9,7 @@ use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Resources\BlockTemplates\BlockTemplateResource;
 use Capell\Admin\Filament\Resources\Blueprints\BlueprintResource;
+use Capell\Admin\Filament\Resources\InboundWebhookEvents\InboundWebhookEventResource;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
@@ -24,6 +25,8 @@ enum ResourceEnum: string
     case Activity = ActivityResource::class;
 
     case BlockTemplate = BlockTemplateResource::class;
+
+    case InboundWebhookEvent = InboundWebhookEventResource::class;
 
     case Language = LanguageResource::class;
 

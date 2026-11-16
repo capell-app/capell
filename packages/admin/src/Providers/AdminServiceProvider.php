@@ -150,6 +150,7 @@ use Capell\Admin\Observers\PageObserver as AdminPageObserver;
 use Capell\Admin\Policies\ActivityPolicy;
 use Capell\Admin\Policies\BlockTemplatePolicy;
 use Capell\Admin\Policies\BlueprintPolicy;
+use Capell\Admin\Policies\InboundWebhookEventPolicy;
 use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\MediaPolicy;
@@ -276,6 +277,7 @@ use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\ExtensionHealthAlert;
+use Capell\Core\Models\InboundWebhookEvent;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
@@ -1432,6 +1434,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             Site::class => SitePolicy::class,
             Blueprint::class => BlueprintPolicy::class,
             Language::class => LanguagePolicy::class,
+            InboundWebhookEvent::class => InboundWebhookEventPolicy::class,
             Theme::class => ThemePolicy::class,
             SiteDomain::class => SiteDomainPolicy::class,
         ];
