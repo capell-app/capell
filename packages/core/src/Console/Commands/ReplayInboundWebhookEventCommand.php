@@ -34,11 +34,11 @@ final class ReplayInboundWebhookEventCommand extends Command
         $outcome = ReplayInboundWebhookEventAction::run($event, $this->option('force') === true);
 
         if (! $outcome->queued()) {
-            $this->error((string) __(match ($outcome) {
-                InboundWebhookReplayOutcome::Ignored => 'capell-core::message.webhook_replay_ignored',
-                InboundWebhookReplayOutcome::AlreadyProcessed => 'capell-core::message.webhook_replay_processed',
-                default => 'capell-core::message.webhook_replay_already_queued',
-            }));
+            $this->error((string) match ($outcome) {
+                InboundWebhookReplayOutcome::Ignored => __('capell-core::message.webhook_replay_ignored'),
+                InboundWebhookReplayOutcome::AlreadyProcessed => __('capell-core::message.webhook_replay_processed'),
+                default => __('capell-core::message.webhook_replay_already_queued'),
+            });
 
             return self::FAILURE;
         }

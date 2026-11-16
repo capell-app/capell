@@ -36,7 +36,7 @@ final class InboundWebhookEventsTable implements TableConfigurator
                 TextColumn::make('status')
                     ->label(__('capell-admin::inbound_webhooks.status'))
                     ->badge()
-                    ->formatStateUsing(static fn (InboundWebhookEventStatus $state): string => (string) __('capell-admin::inbound_webhooks.statuses.' . $state->value))
+                    ->formatStateUsing(static fn (InboundWebhookEventStatus $state): string => self::statusLabel($state))
                     ->color(static fn (InboundWebhookEventStatus $state): string => match ($state) {
                         InboundWebhookEventStatus::Processed => 'success',
                         InboundWebhookEventStatus::Failed => 'danger',
@@ -65,7 +65,7 @@ final class InboundWebhookEventsTable implements TableConfigurator
                 SelectFilter::make('status')
                     ->label(__('capell-admin::inbound_webhooks.status'))
                     ->options(collect(InboundWebhookEventStatus::cases())->mapWithKeys(
-                        static fn (InboundWebhookEventStatus $status): array => [$status->value => (string) __('capell-admin::inbound_webhooks.statuses.' . $status->value)],
+                        static fn (InboundWebhookEventStatus $status): array => [$status->value => self::statusLabel($status)],
                     )->all()),
                 SelectFilter::make('provider')
                     ->label(__('capell-admin::inbound_webhooks.provider'))
@@ -95,9 +95,30 @@ final class InboundWebhookEventsTable implements TableConfigurator
             ->action(static function (InboundWebhookEvent $record, array $data): void {
                 $outcome = ReplayInboundWebhookEventAction::run($record, ($data['force'] ?? false) === true);
 
-                $notification = Notification::make()->title((string) __('capell-admin::inbound_webhooks.replay_outcomes.' . $outcome->value));
+                $notification = Notification::make()->title(self::outcomeLabel($outcome));
 
                 ($outcome === InboundWebhookReplayOutcome::Queued ? $notification->success() : $notification->warning())->send();
             });
+    }
+
+    private static function statusLabel(InboundWebhookEventStatus $status): string
+    {
+        return (string) match ($status) {
+            InboundWebhookEventStatus::Received => __('capell-admin::inbound_webhooks.statuses.received'),
+            InboundWebhookEventStatus::Processing => __('capell-admin::inbound_webhooks.statuses.processing'),
+            InboundWebhookEventStatus::Processed => __('capell-admin::inbound_webhooks.statuses.processed'),
+            InboundWebhookEventStatus::Ignored => __('capell-admin::inbound_webhooks.statuses.ignored'),
+            InboundWebhookEventStatus::Failed => __('capell-admin::inbound_webhooks.statuses.failed'),
+        };
+    }
+
+    private static function outcomeLabel(InboundWebhookReplayOutcome $outcome): string
+    {
+        return (string) match ($outcome) {
+            InboundWebhookReplayOutcome::Queued => __('capell-admin::inbound_webhooks.replay_outcomes.queued'),
+            InboundWebhookReplayOutcome::Ignored => __('capell-admin::inbound_webhooks.replay_outcomes.ignored'),
+            InboundWebhookReplayOutcome::AlreadyProcessed => __('capell-admin::inbound_webhooks.replay_outcomes.already-processed'),
+            InboundWebhookReplayOutcome::AlreadyQueued => __('capell-admin::inbound_webhooks.replay_outcomes.already-queued'),
+        };
     }
 }
