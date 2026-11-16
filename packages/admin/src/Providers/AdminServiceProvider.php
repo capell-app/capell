@@ -206,6 +206,7 @@ use Capell\Admin\Support\Diagnostics\HostLoadSiteHealthReportExtender;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
 use Capell\Admin\Support\Enums\CoreEnumPresentationContributor;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
+use Capell\Admin\Support\Extensions\AdminContributionReceiptPreparer;
 use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
 use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
@@ -264,6 +265,7 @@ use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
 use Capell\Core\Contracts\DoctorCheck;
+use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
@@ -651,6 +653,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
 
         $this->registerNotificationGroups();
+
+        $this->app->tag([AdminContributionReceiptPreparer::class], PreparesExtensionContributionReceipts::TAG);
 
         $this->app->singleton(
             AdminRuntimeActivator::class,
