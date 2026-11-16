@@ -37,6 +37,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Clusters\Cluster;
 use Filament\Contracts\Plugin;
 use Filament\Facades\Filament as FilamentFacade;
 use Filament\FilamentManager;
@@ -592,7 +593,15 @@ class CapellAdminPlugin implements Plugin
                 && ! is_subclass_of($page, FilamentSettingsPage::class),
         ));
 
-        foreach ($pages as $page) {
+        // A cluster is a page with its own route that its resources link to, so it has to
+        // be on the panel before the panel routes are built, like every other package page.
+        $clusters = $this->discoverInstalledPackageFilamentClasses(
+            subPath: 'Filament/Clusters',
+            pattern: '*Cluster.php',
+            baseClass: Cluster::class,
+        );
+
+        foreach ([...$pages, ...$clusters] as $page) {
             CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page($page));
         }
 
