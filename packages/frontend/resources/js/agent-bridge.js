@@ -134,6 +134,31 @@
         if (!sameOriginFormAction(form)) return null
         return form
     }
+    // A fragment is a JSON data island the page already renders, addressed by a
+    // stable semantic id. It is read at call time and never fetched or executed.
+    const fragmentTarget = (binding) =>
+        binding &&
+        binding.type === 'fragment' &&
+        typeof binding.target === 'string' &&
+        /^[a-z][a-z0-9]*(?:[-_.][a-z0-9]+)*$/.test(binding.target)
+            ? binding.target
+            : null
+    const fragmentData = (target) => {
+        const node = document.getElementById?.(target)
+        if (
+            !node ||
+            String(node.tagName).toUpperCase() !== 'SCRIPT' ||
+            String(
+                node.type ?? node.getAttribute?.('type') ?? '',
+            ).toLowerCase() !== 'application/json'
+        )
+            return undefined
+        try {
+            return JSON.parse(node.textContent ?? 'null')
+        } catch {
+            return undefined
+        }
+    }
     const fieldControls = (form, name) => {
         const named = form.elements?.namedItem?.(name)
         if (!named) return []
@@ -313,6 +338,9 @@
                     ? formBinding(tool.binding, tool.inputSchema)
                     : null
             if (tool.effect !== 'read' && !form) continue
+            const fragment =
+                tool.effect === 'read' ? fragmentTarget(tool.binding) : null
+            if (fragment && fragmentData(fragment) === undefined) continue
             const confirmationMessage =
                 typeof manifest.messages?.confirmForm === 'string' &&
                 manifest.messages.confirmForm.length > 0 &&
@@ -333,6 +361,7 @@
             const inline = binding === 'inline'
             if (
                 !form &&
+                !fragment &&
                 !inline &&
                 !(typedEndpoint
                     ? sameOriginEndpoint(binding)
@@ -367,6 +396,14 @@
                             if (!validate(input, tool.inputSchema))
                                 throw new Error('Invalid tool input.')
                             if (inline) return result(graph())
+                            if (fragment) {
+                                const data = fragmentData(fragment)
+                                if (data === undefined)
+                                    throw new Error(
+                                        'This tool is no longer available.',
+                                    )
+                                return result(data)
+                            }
                             const url = new URL(binding, location.origin)
                             Object.entries(input).forEach(([key, value]) =>
                                 append(url.searchParams, key, value),

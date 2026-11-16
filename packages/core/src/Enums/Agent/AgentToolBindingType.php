@@ -11,4 +11,7 @@ enum AgentToolBindingType: string
     case Form = 'form';
     case Search = 'search';
     case PropertyQuery = 'property-query';
+
+    /** Reads an on-page JSON data island addressed by a stable, semantic element id. */
+    case Fragment = 'fragment';
 }

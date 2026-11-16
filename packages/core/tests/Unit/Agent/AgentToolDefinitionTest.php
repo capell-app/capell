@@ -113,3 +113,22 @@ it('constrains each binding target to its declarative public shape', function ()
             'binding' => ['type' => 'search', 'target' => 'Site Search'],
         ])))->toThrow(InvalidArgumentException::class, 'stable identifier');
 });
+
+it('accepts a read-only fragment binding addressed by a semantic element id', function (): void {
+    $definition = (new AgentToolDefinitionNormalizer)->normalize(agentToolDefinitionFixture([
+        'binding' => ['type' => 'fragment', 'target' => 'capell-social-feed-posts'],
+    ]));
+
+    expect($definition->binding->type)->toBe(AgentToolBindingType::Fragment)
+        ->and($definition->binding->target)->toBe('capell-social-feed-posts');
+});
+
+it('rejects fragment bindings that write or address a record key', function (array $overrides, string $message): void {
+    expect(fn (): AgentToolDefinitionData => (new AgentToolDefinitionNormalizer)->normalize(agentToolDefinitionFixture($overrides)))
+        ->toThrow(InvalidArgumentException::class, $message);
+})->with([
+    'write effect' => [['effect' => 'write', 'binding' => ['type' => 'fragment', 'target' => 'capell-social-feed-posts']], 'Fragment agent tool bindings are read-only.'],
+    'numeric record key' => [['binding' => ['type' => 'fragment', 'target' => 'social-feed-42']], 'Fragment agent tool binding target must be a semantic id without numbers.'],
+    'selector' => [['binding' => ['type' => 'fragment', 'target' => '#posts > li']], 'Agent tool fragment id must be a stable identifier.'],
+    'editor state' => [['binding' => ['type' => 'fragment', 'target' => 'wire:snapshot']], 'Agent tool fragment id must be a stable identifier.'],
+]);
