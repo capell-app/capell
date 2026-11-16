@@ -135,14 +135,14 @@ it('reports the outcome of every check and the warning count in the json report'
 
 it('reports manifest contract warnings as a warning and manifest contract errors as a failure', function (): void {
     bindFakeAction(AuditExtensionContractsAction::class, [
-        ['severity' => 'warning'],
-        ['severity' => 'warning'],
+        ['package' => 'acme/package', 'manifest_path' => 'capell.json', 'severity' => 'warning', 'message' => 'Contract finding.', 'context' => []],
+        ['package' => 'acme/package', 'manifest_path' => 'capell.json', 'severity' => 'warning', 'message' => 'Contract finding.', 'context' => []],
     ]);
     $warning = resolve(ManifestContractsCheck::class)->check();
 
     bindFakeAction(AuditExtensionContractsAction::class, [
-        ['severity' => 'warning'],
-        ['severity' => 'error'],
+        ['package' => 'acme/package', 'manifest_path' => 'capell.json', 'severity' => 'warning', 'message' => 'Contract finding.', 'context' => []],
+        ['package' => 'acme/package', 'manifest_path' => 'capell.json', 'severity' => 'error', 'message' => 'Contract finding.', 'context' => []],
     ]);
     $failure = resolve(ManifestContractsCheck::class)->check();
 
