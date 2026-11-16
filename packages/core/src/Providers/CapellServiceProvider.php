@@ -161,6 +161,7 @@ use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\Cache\ResilientDataStructureCache;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
@@ -314,6 +315,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Override;
+use Spatie\LaravelData\Support\Caching\DataStructureCache;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\Models\Role;
@@ -679,6 +681,14 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         $this->app->singleton(CapellCacheManager::class);
+        // Data structures are cached in the configured store, which on a fresh install is a database
+        // table the migrations have not created yet. Read it as a miss rather than abort the install.
+        $this->app->extend(
+            DataStructureCache::class,
+            static fn (DataStructureCache $cache): DataStructureCache => $cache::class === DataStructureCache::class
+                ? new ResilientDataStructureCache((array) config('data.structure_caching.cache'))
+                : $cache,
+        );
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->app->singletonIf(InstalledRuntimeLifecycle::class);

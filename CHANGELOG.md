@@ -25,6 +25,7 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
+- Stopped `capell:install` aborting with "no such table: cache" on a fresh app that caches in the database: Data structure cache reads now count as misses until the migrations have created the cache table.
 - Registered the compiled Admin theme during panel installation, preserving explicit themes and reporting customised provider methods that need manual configuration.
 - Resolved missing installer packages before application or database changes, clarified catalogue licensing and first-site URLs, and reported partial failures with focused recovery commands.
 - Preserved local Core path constraints during Composer downloads and avoided borrowing vendor migration stubs from a different installed version.
