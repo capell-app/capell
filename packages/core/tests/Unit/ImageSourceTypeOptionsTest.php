@@ -29,16 +29,22 @@ describe('ImageSourceType options', function (): void {
         expect(ImageSourceType::options())->not->toBeEmpty();
     });
 
-    it('returns the same array on repeated calls via static cache', function (): void {
+    it('returns the same array on repeated calls', function (): void {
         $firstCall = ImageSourceType::options();
         $secondCall = ImageSourceType::options();
 
         expect($firstCall)->toBe($secondCall);
     });
 
+    it('reads labels from the current translations on every call', function (): void {
+        expect(ImageSourceType::options()[ImageSourceType::Url->value])->toBe('URL');
+
+        Lang::addLines(['media.image_source.url' => 'Web address'], 'en', 'capell');
+
+        expect(ImageSourceType::options()[ImageSourceType::Url->value])->toBe('Web address');
+    });
+
     it('recomputes translated labels when the locale changes', function (): void {
-        // Uses throwaway locales because the memo is a method static that
-        // survives for the life of the process, including across tests.
         Lang::addLines(['media.image_source.url' => 'From a URL'], 'enum-options-first', 'capell');
         Lang::addLines(['media.image_source.url' => 'Depuis une URL'], 'enum-options-second', 'capell');
 
