@@ -14,8 +14,6 @@ enum CacheEnum: string
 
     case Pages = 'pages';
 
-    case PageMedia = 'page-media';
-
     /**
      * Generate a custom cache key with a prefix.
      *
@@ -68,13 +66,17 @@ enum CacheEnum: string
     /**
      * Generate a cache key for page languages.
      *
+     * Page IDs are only unique within one pageable type, so the type is part of the key:
+     * a blog article and a page with the same ID must not share language URLs.
+     *
+     * @param  string  $pageableType  The pageable morph class
      * @param  int  $pageId  The page ID
      * @param  int  $languageId  The language ID
      * @return string The cache key
      */
-    public static function pageLanguages(int $pageId, int $languageId): string
+    public static function pageLanguages(string $pageableType, int $pageId, int $languageId): string
     {
-        return sprintf('page-languages-%d-language-%d', $pageId, $languageId);
+        return sprintf('page-languages-%s-%d-language-%d', $pageableType, $pageId, $languageId);
     }
 
     /**
@@ -92,13 +94,16 @@ enum CacheEnum: string
     /**
      * Generate a cache key for canonical pages.
      *
+     * Scoped by pageable type for the same reason as {@see self::pageLanguages()}.
+     *
+     * @param  string  $pageableType  The pageable morph class
      * @param  int  $pageId  The page ID
      * @param  int  $languageId  The language ID
      * @return string The cache key
      */
-    public static function pageCanonicals(int $pageId, int $languageId): string
+    public static function pageCanonicals(string $pageableType, int $pageId, int $languageId): string
     {
-        return sprintf('page-canonicals-%d-%d', $pageId, $languageId);
+        return sprintf('page-canonicals-%s-%d-%d', $pageableType, $pageId, $languageId);
     }
 
     /**
@@ -189,17 +194,6 @@ enum CacheEnum: string
             $siteId,
             $languageId,
         );
-    }
-
-    /**
-     * Generate a cache key for page media.
-     *
-     * @param  int  $pageId  The page ID
-     * @return string The cache key
-     */
-    public static function pageMedia(int $pageId): string
-    {
-        return self::PageMedia->value . '-' . $pageId;
     }
 
     public static function pages(int $languageId, ?int $siteId, ?int $limit = null, array $options = []): string

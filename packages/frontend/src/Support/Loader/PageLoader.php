@@ -43,7 +43,7 @@ class PageLoader
      */
     public static function getCanonicalPages(Pageable $page, Language $language): Collection
     {
-        $key = CacheEnum::pageCanonicals($page->id, $language->id);
+        $key = CacheEnum::pageCanonicals($page->getMorphClass(), $page->id, $language->id);
 
         $fromCache = true;
 
