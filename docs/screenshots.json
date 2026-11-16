@@ -473,7 +473,7 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Choose a page type')"
+                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('New page')"
                 }
             ],
             "docsPage": "docs/getting-started/create-your-first-page.md",
@@ -1015,6 +1015,74 @@
             "package": "documentation",
             "surface": "admin",
             "targetType": "admin-surface",
+            "scenario": "admin-index",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-invite-user",
+            "title": "Invite someone to the admin.",
+            "target": "UserResource/ListUsers",
+            "url": "/users",
+            "waitFor": "table",
+            "docsPage": "docs/admin/users-and-roles.md",
+            "output": "docs/images/generated/admin/action-invite-user.png",
+            "interactions": [
+                {
+                    "type": "click",
+                    "selector": "button:has-text(\"Invite someone\")"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "text=Send invitation"
+                }
+            ],
+            "covers": [
+                "packages/admin/src/Filament/Resources/Users/Actions/InviteUserHeaderAction.php",
+                "packages/admin/src/Filament/Resources/Users/Pages/ListUsers.php"
+            ],
+            "notes": "The invitation form opened from the Users list header."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "scenario": "admin-index",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-guided-setup",
+            "title": "Guided setup page.",
+            "target": "GuidedSetup",
+            "url": "/setup",
+            "waitFor": "body",
+            "docsPage": "docs/getting-started/create-your-first-page.md",
+            "output": "docs/images/generated/admin/action-guided-setup.png",
+            "covers": [
+                "packages/admin/src/Filament/Pages/GuidedSetup.php"
+            ],
+            "notes": "The setup page where a new site is created from the first-run flow."
+        },
+        {
+            "package": "documentation",
+            "surface": "frontend",
+            "targetType": "frontend-url",
+            "target": null,
+            "scenario": "frontend-page",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-accept-invitation",
+            "title": "Accept an invitation.",
+            "url": "/screenshot-fixtures/actions/accept-invitation",
+            "waitFor": "form",
+            "docsPage": "docs/admin/users-and-roles.md",
+            "output": "docs/images/generated/admin/action-accept-invitation.png",
+            "covers": [
+                "packages/admin/src/Filament/Pages/Auth/AcceptInvitation.php"
+            ],
+            "notes": "The page an invited person reaches from the signed email link, captured without a session."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
             "scenario": "admin-form",
             "colorSchemes": ["light"],
             "required": true,
@@ -1107,9 +1175,7 @@
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-editor",
             "title": "Case study fields alongside the real Extension Cookbook schema contribution.",
@@ -1145,9 +1211,7 @@
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-validation",
             "title": "Client name validation on the real page editor.",
@@ -1192,9 +1256,7 @@
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-reopened",
             "title": "Saved Client name after reopening the real page editor.",
@@ -1251,9 +1313,7 @@
             "target": null,
             "scenario": "frontend-page",
             "docsPage": "docs/getting-started/add-a-custom-page-field.md",
-            "colorSchemes": [
-                "light"
-            ],
+            "colorSchemes": ["light"],
             "required": true,
             "id": "custom-page-fields-public",
             "title": "Client name rendered by the standard anonymous page route.",

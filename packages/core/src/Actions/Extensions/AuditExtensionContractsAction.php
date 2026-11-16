@@ -6,6 +6,8 @@ namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Actions\Agent\AuditAgentToolManifestAction;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
+use Capell\Core\Data\Extensions\DeprecationData;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
@@ -14,6 +16,7 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Extensions\Deprecations;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Filesystem\ExportIgnoredPath;
@@ -37,6 +40,8 @@ final class AuditExtensionContractsAction
     use AsFake;
     use AsObject;
 
+    public const string RUNTIME_DEPRECATIONS = '<runtime-deprecations>';
+
     /**
      * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
@@ -45,6 +50,7 @@ final class AuditExtensionContractsAction
     {
         $results = [];
         $manifestPaths = $this->manifestPaths($path);
+        $this->prepareLazyContributionReceipts();
 
         if ($path !== null && $path !== '' && $manifestPaths === []) {
             return [$this->result(
@@ -113,6 +119,7 @@ final class AuditExtensionContractsAction
 
         if ($path === null || $path === '') {
             array_push($results, ...$this->orderingResults());
+            array_push($results, ...$this->deprecationResults());
         }
 
         return $results;
@@ -165,6 +172,23 @@ final class AuditExtensionContractsAction
                 'remediation' => 'Declare an agent-capability tool or agent_tools: none with a reason.',
             ],
         )];
+    }
+
+    /**
+     * Deprecated surfaces used while this process ran. They are warnings: the
+     * surface still works, but the extension must move off it before removal.
+     *
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function deprecationResults(): array
+    {
+        return array_map(fn (DeprecationData $deprecation): array => $this->result(
+            package: 'runtime',
+            manifestPath: self::RUNTIME_DEPRECATIONS,
+            severity: 'warning',
+            message: sprintf('%s is deprecated and is removed in %s.', $deprecation->surface, $deprecation->removal),
+            context: [...$deprecation->toArray(), 'remediation' => 'Use ' . $deprecation->replacement . ' instead.'],
+        ), resolve(Deprecations::class)->all());
     }
 
     /**
@@ -379,6 +403,15 @@ final class AuditExtensionContractsAction
         ];
     }
 
+    private function prepareLazyContributionReceipts(): void
+    {
+        foreach (app()->tagged(PreparesExtensionContributionReceipts::TAG) as $preparer) {
+            if ($preparer instanceof PreparesExtensionContributionReceipts) {
+                $preparer->prepareContributionReceipts();
+            }
+        }
+    }
+
     /**
      * Reconcile only contexts explicitly supplied by the caller. An audit of a
      * package directory is commonly run outside that package's runtime; treating
@@ -434,6 +467,31 @@ final class AuditExtensionContractsAction
             }
         }
 
+        foreach ($manifest->contributionTraceability->contributions ?? [] as $entry) {
+            $expected[] = [$entry->type, $entry->key, $entry->providerBucket, $entry->class, null];
+        }
+
+        // A type declared with explicit keys is reconciled key by key. A type declared only by
+        // type (a contribution without keys, or a deferred contribution) accepts any receipt of
+        // that type, matching the type-level contract packages enforce for their manifests.
+        $keyedTypes = [];
+        foreach ($expected as [$type]) {
+            $keyedTypes[$type->value] = true;
+        }
+
+        $typeDeclaredTypes = [];
+        foreach ($manifest->contributes as $contribution) {
+            if (! isset($keyedTypes[$contribution->type->value])) {
+                $typeDeclaredTypes[$contribution->type->value] = true;
+            }
+        }
+
+        foreach ($manifest->contributionTraceability->deferredContributions ?? [] as $deferredType) {
+            if (! isset($keyedTypes[$deferredType])) {
+                $typeDeclaredTypes[$deferredType] = true;
+            }
+        }
+
         $matchedReceiptIds = [];
         foreach ($expected as [$type, $key, $expectedBucket, $expectedClass, $receiptImplementation]) {
             if (! in_array($expectedBucket, $bootedBuckets, true)) {
@@ -467,9 +525,14 @@ final class AuditExtensionContractsAction
             }
 
             $actual = $matching[0] ?? null;
+            // Packages schedule their own jobs, so no runtime registry records a
+            // scheduled-job receipt that a declaration could be reconciled against.
+            // Page variations are recorded only while a front-end page renders.
             if ($actual === null && in_array($type, [
                 ExtensionContributionType::OutboundEvent,
                 ExtensionContributionType::BlueprintSubject,
+                ExtensionContributionType::ScheduledJob,
+                ExtensionContributionType::PageVariation,
             ], true)) {
                 continue;
             }
@@ -517,6 +580,10 @@ final class AuditExtensionContractsAction
             }
 
             if (isset($matchedReceiptIds[spl_object_id($receipt)])) {
+                continue;
+            }
+
+            if (isset($typeDeclaredTypes[$receipt->type->value])) {
                 continue;
             }
 

@@ -9,11 +9,17 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
+use Capell\Admin\Tests\Fixtures\Permissions\BrokenReportsPermissions;
+use Capell\Admin\Tests\Fixtures\Permissions\DeclaredReportsPermissions;
+use Capell\Admin\Tests\Fixtures\Permissions\HijackingReportsPermissions;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\TableName;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -160,3 +166,77 @@ it('is idempotent', function (): void {
     expect(Permission::query()->where('name', CapellPermission::ManageSitePermissions->name())->count())->toBe(1)
         ->and(Permission::query()->where('name', CapellPermission::ImpersonateUsers->name())->count())->toBe(1);
 });
+
+it('seeds typed package permissions and grants their default roles on install', function (): void {
+    registerDeclaredPermissionFixturePackage();
+    Role::findOrCreate('editor', 'web');
+    Role::findOrCreate('admin', 'web');
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
+
+    expect(Permission::query()->where('name', 'fixture.publish-reports')->where('guard_name', 'web')->exists())->toBeTrue()
+        ->and(Permission::query()->where('name', 'fixture.view-reports')->where('guard_name', 'web')->exists())->toBeTrue()
+        ->and(Role::findByName('editor', 'web')->hasPermissionTo('fixture.view-reports', 'web'))->toBeTrue()
+        ->and(Role::findByName('editor', 'web')->hasPermissionTo('fixture.publish-reports', 'web'))->toBeFalse()
+        ->and(Role::findByName('admin', 'web')->hasPermissionTo('fixture.publish-reports', 'web'))->toBeTrue()
+        ->and(Role::query()->where('name', 'reports-auditor')->exists())->toBeFalse();
+});
+
+it('does not give back a declared permission an administrator removed when it upgrades', function (): void {
+    registerDeclaredPermissionFixturePackage();
+    $editor = Role::findOrCreate('editor', 'web');
+    Role::findOrCreate('admin', 'web');
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
+    $editor->revokePermissionTo('fixture.view-reports');
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    expect($editor->refresh()->hasPermissionTo('fixture.view-reports', 'web'))->toBeFalse()
+        ->and(Role::findByName('admin', 'web')->hasPermissionTo('fixture.publish-reports', 'web'))->toBeTrue();
+});
+
+it('grants the defaults of a key the manifest listed before the package typed it', function (): void {
+    $editor = Role::findOrCreate('editor', 'web');
+    Permission::findOrCreate('fixture.view-reports', 'web');
+    registerDeclaredPermissionFixturePackage();
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    expect($editor->refresh()->hasPermissionTo('fixture.view-reports', 'web'))->toBeTrue();
+});
+
+it('keeps a permission with the package that declared it first', function (): void {
+    $log = Log::spy();
+    registerDeclaredPermissionFixturePackage();
+    registerDeclaredPermissionFixturePackage('vendor/zz-reports-copy', HijackingReportsPermissions::class);
+    $editor = Role::findOrCreate('editor', 'web');
+    Role::findOrCreate('admin', 'web');
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
+
+    expect($editor->refresh()->hasPermissionTo('fixture.publish-reports', 'web'))->toBeFalse()
+        ->and(DB::table(TableName::resolve('admin_permission_default_grants'))->where('permission', 'fixture.publish-reports')->value('package'))
+        ->toBe('vendor/declared-reports');
+    $log->shouldHaveReceived('warning')->withArgs(fn (string $message, array $context): bool => $context['package'] === 'vendor/zz-reports-copy')->atLeast()->once();
+});
+
+it('still syncs every other package when one package declares permissions badly', function (): void {
+    registerDeclaredPermissionFixturePackage('vendor/broken-reports', BrokenReportsPermissions::class);
+    registerDeclaredPermissionFixturePackage();
+    $editor = Role::findOrCreate('editor', 'web');
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
+
+    expect($editor->refresh()->hasPermissionTo('fixture.view-reports', 'web'))->toBeTrue();
+});
+
+/** @param class-string $class */
+function registerDeclaredPermissionFixturePackage(string $name = 'vendor/declared-reports', string $class = DeclaredReportsPermissions::class): void
+{
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: $name,
+        overrides: ['contributes' => [['type' => 'permission', 'class' => $class]]],
+    ));
+    CapellCore::registerManifestPackage($manifest);
+    CapellCore::forcePackageInstalled($manifest->name);
+}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
@@ -31,9 +32,9 @@ final class AnalyticsDashboard extends CapellDashboard
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_reports');
+        return NavigationGroupEnum::Reports;
     }
 
     #[Override]

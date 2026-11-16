@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
+use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -19,6 +20,7 @@ final class WriteViteInputManifestAction
     public function __construct(
         private readonly Filesystem $files,
         private readonly FrontendViteInputRegistry $registry,
+        private readonly FrontendVitePluginRegistry $pluginRegistry,
     ) {}
 
     /**
@@ -37,10 +39,20 @@ final class WriteViteInputManifestAction
             ->all();
         $path = base_path('bootstrap/cache/capell-vite-inputs.json');
 
+        $manifest = ['inputs' => $inputs];
+        $plugins = $this->pluginRegistry->all();
+
+        if ($plugins !== []) {
+            $manifest['plugins'] = array_map(
+                static fn (array $plugin): array => ['module' => $plugin['module'], 'options' => (object) $plugin['options']],
+                $plugins,
+            );
+        }
+
         $this->files->ensureDirectoryExists(dirname($path));
         $this->files->put(
             $path,
-            JsonCodec::encode(['inputs' => $inputs], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
+            JsonCodec::encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
         );
 
         return array_values($inputs);

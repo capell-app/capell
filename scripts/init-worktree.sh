@@ -212,6 +212,52 @@ case "$resolved" in
 esac
 
 # ---------------------------------------------------------------------------
+# Lock drift. vendor/ is cloned from the primary, so it matches the primary's
+# composer.lock, not necessarily this branch's, and the primary's install can
+# itself hold packages its lock no longer lists. The pre-commit hook refuses a
+# commit whose installed dependencies differ from the lock, so reconcile this
+# worktree's own vendor/ with its own lock now. vendor/ is an owned copy, so the
+# install cannot reach the primary checkout.
+# ---------------------------------------------------------------------------
+lock_drift() {
+    php -r '
+        $lock = json_decode((string) file_get_contents("composer.lock"), true);
+        $installed = is_file("vendor/composer/installed.json")
+            ? json_decode((string) file_get_contents("vendor/composer/installed.json"), true) : [];
+        $versions = static fn (array $packages): array => array_column($packages, "version", "name");
+        $expected = $versions(array_merge($lock["packages"] ?? [], $lock["packages-dev"] ?? []));
+        $actual = $versions($installed["packages"] ?? []);
+        foreach (array_keys($expected + $actual) as $name) {
+            if (($expected[$name] ?? null) !== ($actual[$name] ?? null)) {
+                printf("  %s: locked %s, installed %s\n", $name, $expected[$name] ?? "none", $actual[$name] ?? "none");
+            }
+        }
+    ' 2>&1 || echo "  could not compare composer.lock with vendor/composer/installed.json"
+}
+if [ -f composer.lock ]; then
+    drift=$(lock_drift)
+    if [ -n "$drift" ]; then
+        echo "vendor/ was cloned from the primary checkout and differs from this branch's composer.lock:"
+        printf '%s\n' "$drift" | head -20
+        echo "Running 'composer install' to match this worktree's vendor/ to its own lock."
+        if ! composer install --no-interaction --no-progress; then
+            echo >&2
+            echo "FAILED: 'composer install' could not match vendor/ to this branch's composer.lock." >&2
+            echo "The pre-commit hook refuses this vendor/; fix the install, then re-run with --force." >&2
+            exit 1
+        fi
+        drift=$(lock_drift)
+        if [ -n "$drift" ]; then
+            echo >&2
+            echo "FAILED: vendor/ still differs from this branch's composer.lock after 'composer install':" >&2
+            printf '%s\n' "$drift" | head -20 >&2
+            exit 1
+        fi
+        echo "OK: vendor/ matches this branch's composer.lock."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # node_modules. `composer preflight` runs prettier and eslint, so a worktree
 # without node_modules/ fails the entire preflight before a single PHP stage
 # runs — the error names npm but reads like the worktree itself is broken.
@@ -248,21 +294,10 @@ fi
 # resolves against the wrong directory and dangles, which breaks the screenshot
 # runner. Re-point each such link at the absolute location the primary's link
 # resolves to. They are siblings of the primary, not part of it, so nothing here
-# reaches into the primary checkout's own tree.
+# reaches into the primary checkout's own tree. npm's postinstall runs the
+# same script, so a later `npm ci` here repairs the links too.
 # ---------------------------------------------------------------------------
-if [ -d node_modules/@capell-app ]; then
-    for linked in node_modules/@capell-app/*; do
-        [ -L "$linked" ] || continue
-        [ -e "$linked" ] && continue
-        primary_target=$(cd "$PRIMARY_ROOT/node_modules/@capell-app/$(basename "$linked")" 2>/dev/null && pwd -P) || primary_target=""
-        if [ -n "$primary_target" ] && [ -e "$primary_target" ] && [ "${primary_target#"$PRIMARY_ROOT"/}" = "$primary_target" ]; then
-            ln -sfn "$primary_target" "$linked"
-            echo "Re-pointed $linked at $primary_target."
-        else
-            echo "WARNING: $linked dangles and its sibling package could not be located; run npm ci here." >&2
-        fi
-    done
-fi
+bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/repoint-linked-siblings.sh"
 
 cat <<'EOF'
 

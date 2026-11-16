@@ -5,6 +5,10 @@ function isFirstRunEntry(entry) {
     return entry.id.startsWith('admin-dashboard-first-run')
 }
 
+function isGuidedSetupEntry(entry) {
+    return entry.id === 'action-coverage-guided-setup'
+}
+
 function hasRecordStateSeed(entries) {
     const seededEntryIds = new Set([
         'admin-pages-list',
@@ -70,6 +74,15 @@ export function commandsForEntries(entries, frontendOrigin = null) {
         )
     }
 
+    // Setup is owed only to a site nobody has published, which undoes the demo install's publish for every other capture.
+    const guidedSetup = entries.filter(isGuidedSetupEntry)
+
+    if (guidedSetup.length > 0 && guidedSetup.length !== entries.length) {
+        throw new Error(
+            'The guided setup entry changes shared data and must be captured on its own: run it with --only documentation:action-coverage-guided-setup and no other entry.',
+        )
+    }
+
     if (
         entries.some(
             (entry) =>
@@ -82,9 +95,22 @@ export function commandsForEntries(entries, frontendOrigin = null) {
         )
     }
 
-    if (entries.some((entry) => entry.id.startsWith('action-coverage-'))) {
+    // Setup is refused once a person has edited a page, and the action fixture saves pages.
+    if (
+        entries.some(
+            (entry) =>
+                entry.id.startsWith('action-coverage-') &&
+                !isGuidedSetupEntry(entry),
+        )
+    ) {
         commands.push(
             'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
+        )
+    }
+
+    if (guidedSetup.length > 0) {
+        commands.push(
+            'Workbench\\App\\Support\\GuidedSetupScreenshotFixture::initialize();',
         )
     }
 

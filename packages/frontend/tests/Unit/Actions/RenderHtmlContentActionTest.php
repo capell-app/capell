@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\HtmlSanitizerProfile;
+use Capell\Core\Support\Security\HtmlSanitizerProfileExtension;
+use Capell\Core\Support\Security\HtmlSanitizerProfileRegistry;
 use Capell\Frontend\Actions\RenderHtmlContentAction;
 
 it('sanitizes html without evaluating blade by default', function (): void {
@@ -9,7 +12,7 @@ it('sanitizes html without evaluating blade by default', function (): void {
 
     $html = '<p>Hello <strong>reader</strong></p><script>alert("xss")</script>@php echo "executed"; @endphp';
 
-    expect(RenderHtmlContentAction::run($html)->toHtml())->toBe('<p>Hello <strong>reader</strong></p>&#64;php echo &#34;executed&#34;; &#64;endphp');
+    expect(RenderHtmlContentAction::run($html)->toHtml())->toBe('<p>Hello <strong>reader</strong></p>@php echo "executed"; @endphp');
 });
 
 it('preserves sanitized html longer than the sanitizer default input limit', function (): void {
@@ -23,20 +26,27 @@ it('preserves sanitized html longer than the sanitizer default input limit', fun
         ->not->toContain('script');
 });
 
-it('does not share sanitizer state between configured allowlists', function (): void {
-    $html = '<p data-first="one" data-second="two">Hello</p>';
+it('sanitises through the rich text profile, keeping classes and dropping undeclared attributes', function (): void {
+    $html = '<p class="lead" data-track="x" style="color:red" onclick="steal()">Hello <a href="javascript:alert(1)">link</a></p>';
 
-    config()->set('capell-frontend.html_content_allowed_attributes', ['data-first']);
+    $rendered = RenderHtmlContentAction::run($html)->toHtml();
 
-    expect(RenderHtmlContentAction::run($html)->toHtml())
-        ->toBe('<p data-first="one">Hello</p>');
-
-    config()->set('capell-frontend.html_content_allowed_attributes', ['data-second']);
-
-    expect(RenderHtmlContentAction::run($html)->toHtml())
-        ->toBe('<p data-second="two">Hello</p>');
+    expect($rendered)->toContain('<p class="lead">Hello')
+        ->not->toContain('data-track')
+        ->not->toContain('style=')
+        ->not->toContain('onclick')
+        ->not->toContain('javascript:');
 });
 
+it('keeps extra markup a package declares through a rich text profile extension', function (): void {
+    resolve(HtmlSanitizerProfileRegistry::class)->extend(
+        HtmlSanitizerProfile::RichText,
+        new HtmlSanitizerProfileExtension(['p' => ['data-track']]),
+    );
+
+    expect(RenderHtmlContentAction::run('<p data-track="hero">Hello</p>')->toHtml())
+        ->toBe('<p data-track="hero">Hello</p>');
+});
 it('interpolates simple scalar tokens without evaluating expressions or directives', function (): void {
     config()->set('capell-frontend.render_html_content_with_blade', false);
 
@@ -45,7 +55,7 @@ it('interpolates simple scalar tokens without evaluating expressions or directiv
     expect(RenderHtmlContentAction::run($html, [
         'title' => 'Safe title',
         'page' => ['title' => 'Nested title'],
-    ])->toHtml())->toBe('<p>Safe title</p><p>Nested title</p><p>{{ $title }}</p>&#64;php echo &#34;executed&#34;; &#64;endphp');
+    ])->toHtml())->toBe('<p>Safe title</p><p>Nested title</p><p>{{ $title }}</p>@php echo "executed"; @endphp');
 });
 
 it('leaves unknown simple tokens inert', function (): void {

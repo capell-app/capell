@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use Capell\Admin\Support\CompanionNavigationGroups;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator;
 use PHPUnit\Framework\Assert;
 
-it('translates every referenced navigation group in every shipped admin locale', function (): void {
+it('translates every group and referenced legacy group key in every shipped admin locale', function (): void {
     $filesystem = new Filesystem;
     $packagesDirectory = dirname(__DIR__, 4);
     $languageDirectory = $packagesDirectory . '/admin/resources/lang';
@@ -17,12 +17,7 @@ it('translates every referenced navigation group in every shipped admin locale',
 
     $translator = new Translator($loader, 'en');
 
-    // Companion-only groups are part of Admin's translation contract even when
-    // Notes, Socials, Social Feeds and Shopify Commerce are not installed here.
-    $navigationGroupKeys = CompanionNavigationGroups::LABELS;
-
     $sourceReferences = [];
-
     foreach ($filesystem->directories($packagesDirectory) as $packageDirectory) {
         foreach ($filesystem->allFiles($packageDirectory . '/src') as $sourceFile) {
             if ($sourceFile->getExtension() !== 'php') {
@@ -34,42 +29,32 @@ it('translates every referenced navigation group in every shipped admin locale',
         }
     }
 
-    expect($sourceReferences)->not->toBeEmpty();
-
-    $navigationGroupKeys = array_unique([...$navigationGroupKeys, ...$sourceReferences]);
+    $keys = array_unique([
+        ...array_map(fn (NavigationGroupEnum $case): string => $case->translationKey(), NavigationGroupEnum::cases()),
+        ...$sourceReferences,
+    ]);
     $navigationFiles = glob($languageDirectory . '/*/navigation.php');
-
     assert(is_array($navigationFiles));
     expect($navigationFiles)->not->toBeEmpty();
 
     foreach ($navigationFiles as $navigationFile) {
         $locale = basename(dirname($navigationFile));
 
-        foreach ($navigationGroupKeys as $navigationGroupKey) {
-            $translation = $translator->get($navigationGroupKey, [], $locale, false);
-
-            expect($translation)
-                ->toBeString()
-                ->not->toBeEmpty();
-
-            Assert::assertNotSame($navigationGroupKey, $translation, $locale . ': ' . $navigationGroupKey);
+        foreach ($keys as $key) {
+            $translation = $translator->get($key, [], $locale, false);
+            expect($translation)->toBeString()->not->toBeEmpty();
+            Assert::assertNotSame($key, $translation, $locale . ': ' . $key);
         }
     }
 });
 
-it('keeps the translated companion group map in step with the declared labels', function (): void {
-    expect(array_keys(CompanionNavigationGroups::translated()))->toBe(CompanionNavigationGroups::LABELS);
-});
+it('names every sidebar group after what people manage, in sentence case', function (): void {
+    $banned = ['people', 'content', 'growth', 'insights', 'insights & health', 'publishing', 'operations', 'integrations', 'system', 'workflow', 'site'];
 
-it('uses sentence case for English sidebar group headings', function (): void {
-    /** @var array<string, string> $translations */
-    $translations = require __DIR__ . '/../../../resources/lang/en/navigation.php';
+    foreach (NavigationGroupEnum::cases() as $case) {
+        $label = $case->getLabel();
 
-    foreach ($translations as $key => $label) {
-        if (! str_starts_with($key, 'group_') && ! str_starts_with($key, 'workspace_')) {
-            continue;
-        }
-
-        expect($label)->toBe(ucfirst(strtolower($label)));
+        expect(strtolower($label))->not->toBeIn($banned)
+            ->and($label)->toBe(ucfirst(strtolower($label)));
     }
 });

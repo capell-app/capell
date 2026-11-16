@@ -6,6 +6,7 @@ use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInpu
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 
 beforeEach(function (): void {
     config()->set('app.url', 'https://example.test');
@@ -48,7 +49,7 @@ it('blocks an expired paid extension when the issuer key is untrusted or malform
         'marketplace_runtime_allowed' => true,
         'marketplace_signed_activation' => ['installed_receipt' => validInstalledReceipt()],
     ]);
-    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => $key]);
+    app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys(keys: ['test-issuer' => $key]));
 
     $gate = ResolveExtensionRuntimeGateAction::run($extension);
 
@@ -63,7 +64,7 @@ it('blocks an expired paid extension when the issuer key is untrusted or malform
 function validInstalledReceipt(): array
 {
     $keys = sodium_crypto_sign_seed_keypair(str_repeat("\x02", 32));
-    config()->set('capell.extensions.marketplace_receipt_public_keys', ['test-issuer' => base64_encode(sodium_crypto_sign_publickey($keys))]);
+    app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys(keys: ['test-issuer' => base64_encode(sodium_crypto_sign_publickey($keys))]));
     $receipt = [
         'receipt_version' => 2,
         'purpose' => 'capell-installed-receipt',

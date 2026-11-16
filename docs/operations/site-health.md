@@ -103,6 +103,63 @@ _Healthy looks like deliberate global and per-site maintenance state, with gener
 - Static generation is a separate operation; an ordinary `capell:static-site` run can read existing cached HTML and does not establish freshness.
 - Keep queues running for package jobs that purge CDN cache, generate assets, or refresh static output.
 
+## Server load monitor
+
+Capell records one reading of the server every minute from the scheduler: load against the number of CPU cores, available memory, swap, and what each scheduler run costs. When load stays high, the dashboard shows a warning above everything else and **Site Health → Server load** shows the readings for each server, the busiest processes and the slowest scheduled tasks. `php artisan capell:doctor` reports the same result as `core.host.load`, an advisory check that never blocks a deployment.
+
+The monitor takes its readings inside the scheduler process, so it adds no PHP process of its own. It needs the scheduler to be running; without it no readings are recorded and the check reports that none exist yet.
+
+### Why a busy scheduler shows up here
+
+Every scheduled command starts its own `php artisan` process, and each one boots the whole application before it does any work. On a small server a dozen per-minute commands can use more CPU than the site's web requests. Each reading therefore records how many processes a scheduler run started and how many CPU seconds the run used, so a server can look idle between minutes and still be overloaded at the start of each one.
+
+To reduce the cost:
+
+- Run cheap checks less often. A command that polls every minute rarely needs to.
+- Run work inside the scheduler process with `Schedule::call()` or `Schedule::job()` instead of `Schedule::command()` where the work does not need its own process.
+- Enable the CLI opcache file cache for the scheduler (`opcache.enable_cli=1` and `opcache.file_cache=<writable directory owned by the scheduler user>`). CLI opcache memory is lost when each process exits, so only the file cache avoids compiling the framework again for every task. Give the directory to the scheduler user alone, because PHP runs the code stored in it.
+
+### Warning levels
+
+A reading counts only when the last few agree, so a single busy minute does not raise a warning. Once raised, the status holds until the same number of readings agree it has cleared.
+
+| Signal            | Warning                                            | Critical                                           |
+| ----------------- | -------------------------------------------------- | -------------------------------------------------- |
+| Load              | Five-minute load is 0.75 per core or more          | Five-minute load is 1.5 per core or more           |
+| Memory            | 15% or less available                              | 7% or less available                               |
+| Swap              | 60% or more in use                                 | 90% or more in use                                 |
+| Scheduler CPU     | One run uses 30% of what the cores supply a minute | One run uses 60% of what the cores supply a minute |
+| Scheduler overlap | A run takes 50 seconds or more                     | A run takes 90 seconds or more                     |
+
+### Notifications
+
+Notifications are off by default. Switch them on and choose where messages go. A message is sent when a problem is first confirmed or gets worse, as a reminder while it lasts, and once when it clears. Messages name the readings that crossed a limit and the busiest processes, without command arguments.
+
+| Variable                                     | Default   | Used for                                                                                                     |
+| -------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| `CAPELL_HEALTH_HOST_ENABLED`                 | `true`    | Turn the monitor, dashboard warning and doctor check on or off                                               |
+| `CAPELL_HEALTH_HOST_SUSTAINED_SAMPLES`       | `5`       | Consecutive one-minute readings that must agree before the status changes                                    |
+| `CAPELL_HEALTH_HOST_HISTORY_SAMPLES`         | `60`      | How many recent readings to keep for each server                                                             |
+| `CAPELL_HEALTH_HOST_LOAD_WARNING`            | `0.75`    | Five-minute load per core that raises a warning                                                              |
+| `CAPELL_HEALTH_HOST_LOAD_CRITICAL`           | `1.5`     | Five-minute load per core that raises a critical alert                                                       |
+| `CAPELL_HEALTH_HOST_MEMORY_WARNING`          | `15`      | Percentage of memory still available at or below which a warning is raised                                   |
+| `CAPELL_HEALTH_HOST_MEMORY_CRITICAL`         | `7`       | Percentage of memory still available at or below which a critical alert is raised                            |
+| `CAPELL_HEALTH_HOST_SWAP_WARNING`            | `60`      | Percentage of swap in use that raises a warning                                                              |
+| `CAPELL_HEALTH_HOST_SWAP_CRITICAL`           | `90`      | Percentage of swap in use that raises a critical alert                                                       |
+| `CAPELL_HEALTH_HOST_SCHEDULER_CPU_WARNING`   | `0.3`     | Share of one minute's CPU supply that one scheduler run may use before a warning                             |
+| `CAPELL_HEALTH_HOST_SCHEDULER_CPU_CRITICAL`  | `0.6`     | Share of one minute's CPU supply that one scheduler run may use before a critical alert                      |
+| `CAPELL_HEALTH_HOST_SCHEDULER_WALL_WARNING`  | `50`      | Seconds one scheduler run may take before a warning                                                          |
+| `CAPELL_HEALTH_HOST_SCHEDULER_WALL_CRITICAL` | `90`      | Seconds one scheduler run may take before a critical alert                                                   |
+| `CAPELL_HEALTH_HOST_NOTIFY`                  | `false`   | Send messages when the status changes                                                                        |
+| `CAPELL_HEALTH_HOST_NOTIFY_CHANNELS`         | `mail`    | Comma-separated channels: `mail`, `webhook`                                                                  |
+| `CAPELL_HEALTH_HOST_NOTIFY_MAIL_TO`          | empty     | Comma-separated email addresses that receive the messages                                                    |
+| `CAPELL_HEALTH_HOST_NOTIFY_WEBHOOK_URL`      | empty     | HTTP or HTTPS address that receives a JSON body with a `text` field, as Slack and Mattermost webhooks accept |
+| `CAPELL_HEALTH_HOST_NOTIFY_MINIMUM`          | `warning` | Lowest status that sends a message: `warning` or `critical`                                                  |
+| `CAPELL_HEALTH_HOST_NOTIFY_REMINDER_MINUTES` | `360`     | Minutes between reminders while a problem lasts; `0` turns reminders off                                     |
+| `CAPELL_HEALTH_HOST_NOTIFY_RECOVERY`         | `true`    | Send one message when the server returns to normal                                                           |
+
+On a multi-node installation each server records its own readings under its node name (`CAPELL_NODE_ID`, or the host name) in the shared cache, so one dashboard shows every server. Readings live in the cache store only; clearing the cache loses the recent history and nothing else.
+
 ## Optimiser and assets
 
 - Treat frontend optimisation failures as job failures. Public pages should continue to load normal CSS and JavaScript rather than falling back to generated critical CSS.
@@ -123,3 +180,7 @@ Then run package-level or full-suite checks based on the release scope:
 vendor/bin/pest packages/frontend/tests --configuration=phpunit.xml
 composer preflight
 ```
+
+## Deprecated features
+
+When code uses a surface that Capell or an extension has deprecated, it is recorded with its replacement and its removal. `php artisan capell:doctor` lists them under `core.extensions.deprecations` and `php artisan capell:extension-audit` lists them as warnings. Neither blocks a deployment, but each listed use stops working at its removal. Extensions record a use with `Deprecations::trigger($surface, $replacement, $removal)`. A deprecated route uses the `capell.deprecated:<surface>,<since>,<sunset>,<replacement>` middleware, which also sends the `Deprecation`, `Sunset` and, for an address replacement, `Link` headers. Check that an extension is installed and enabled with `ExtensionPresence::isActive($composerName)` rather than asking Composer.

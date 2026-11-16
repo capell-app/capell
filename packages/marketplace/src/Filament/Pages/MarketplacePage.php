@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\UpdateMarketplaceSettingsAction;
 use Capell\Marketplace\Enums\MarketplacePermission;
@@ -59,9 +60,9 @@ final class MarketplacePage extends Page implements HasActions
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return NavigationGroupEnum::Settings;
     }
 
     #[Override]

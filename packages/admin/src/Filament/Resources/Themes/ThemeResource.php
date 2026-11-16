@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Themes;
 
 use BackedEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Concerns\HasNavigationBadge;
@@ -21,6 +22,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
+use UnitEnum;
 
 class ThemeResource extends Resource
 {
@@ -80,9 +82,9 @@ class ThemeResource extends Resource
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_websites');
+        return NavigationGroupEnum::Design;
     }
 
     #[Override]

@@ -10,9 +10,11 @@ it('restores the Rector cache before running transformations', function (): void
     $names = array_column($steps, 'name');
     $cacheIndex = array_search('Cache Rector result cache', $names, true);
     $checkIndex = array_search('Apply Rector transformations', $names, true);
+    $changedIndex = array_search('Apply Rector transformations on changed files', $names, true);
 
     expect($cacheIndex)->not->toBeFalse()
-        ->and($checkIndex)->not->toBeFalse();
+        ->and($checkIndex)->not->toBeFalse()
+        ->and($changedIndex)->not->toBeFalse();
 
     $cache = $steps[$cacheIndex];
     $phpstan = $steps[array_search('Cache PHPStan result cache', $names, true)];
@@ -20,6 +22,7 @@ it('restores the Rector cache before running transformations', function (): void
     $hash = "\${{ hashFiles('composer.lock', 'rector.php', 'packages/*/rector.php') }}";
 
     expect($cacheIndex)->toBeLessThan($checkIndex)
+        ->and($cacheIndex)->toBeLessThan($changedIndex)
         ->and($cache['uses'])->toBe($phpstan['uses'])
         ->and($cache['with']['path'])->toBe('var/rector')
         ->and($cache['with']['key'])->toBe($prefix . $hash . '-${{ github.sha }}')
@@ -28,7 +31,11 @@ it('restores the Rector cache before running transformations', function (): void
             $prefix,
         ])
         ->and($cache)->not->toHaveKey('if')
-        ->and($steps[$checkIndex])->not->toHaveKeys(['if', 'continue-on-error']);
+        ->and($steps[$changedIndex]['if'])->toBe("github.event_name == 'pull_request'")
+        ->and($steps[$changedIndex]['run'])->toBe('scripts/rector-changed.sh')
+        ->and($steps[$checkIndex]['if'])->toBe("github.event_name != 'pull_request'")
+        ->and($steps[$changedIndex])->not->toHaveKey('continue-on-error')
+        ->and($steps[$checkIndex])->not->toHaveKey('continue-on-error');
 });
 
 it('retains the full quality commands and Rector change detection', function (): void {

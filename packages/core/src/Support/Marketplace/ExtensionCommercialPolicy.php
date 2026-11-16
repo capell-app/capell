@@ -14,7 +14,10 @@ use Capell\Core\Support\Packages\TrustedCorePackages;
  */
 final class ExtensionCommercialPolicy
 {
-    public function __construct(private readonly CommercialCatalogueStore $catalogue) {}
+    public function __construct(
+        private readonly CommercialCatalogueStore $catalogue,
+        private readonly TrustedMarketplaceIssuerKeys $issuerKeys,
+    ) {}
 
     public function clear(): void
     {
@@ -22,14 +25,12 @@ final class ExtensionCommercialPolicy
     }
 
     /**
-     * Issuer enforcement switches on when the deployment provisions an issuer public key. Until
-     * then Core keeps the legacy paid-flag behaviour so existing installs keep running.
+     * Issuer enforcement is on whenever Core carries a committed issuer key. Configuration and
+     * APP_ENV can neither add a key nor switch enforcement off.
      */
     public function enforcing(): bool
     {
-        $keys = config('capell.extensions.marketplace_receipt_public_keys', []);
-
-        return is_array($keys) && array_any($keys, static fn (mixed $key, mixed $id): bool => is_string($id) && $id !== '' && is_string($key) && $key !== '');
+        return $this->issuerKeys->all() !== [];
     }
 
     public function requiresAuthorisation(string $name, ?CapellExtension $extension = null): bool

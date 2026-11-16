@@ -474,8 +474,8 @@ final class RunCapellUpgradeAction
         $passed = true;
 
         if (in_array('all', $selected, true)) {
-            if ($this->shouldSkipOptimizeClearForTestbench()) {
-                $io->line('Skipped optimize:clear; Testbench package manifests are shared across parallel tests');
+            if ($this->shouldSkipOptimizeClear()) {
+                $io->line('Skipped optimize:clear; capell.install.skip_optimize_clear is enabled');
             } else {
                 $passed = $this->clearCache($io, 'optimize:clear');
 
@@ -521,13 +521,11 @@ final class RunCapellUpgradeAction
     }
 
     /**
-     * Under Testbench the application boots from a skeleton whose cached package manifests the
-     * test harness relies on. Match the skeleton by name rather than by its vendor path, because
-     * parallel test processes boot from per-process copies of it.
+     * Test harnesses opt out through configuration, because their cached package manifests are shared
+     * across parallel tests; the decision never depends on where the application lives.
      */
-    private function shouldSkipOptimizeClearForTestbench(): bool
+    private function shouldSkipOptimizeClear(): bool
     {
-        return app()->runningUnitTests()
-            && str_contains(app()->bootstrapPath(), 'testbench');
+        return (bool) config('capell.install.skip_optimize_clear', false);
     }
 }

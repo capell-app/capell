@@ -1,4 +1,13 @@
 {
+    "create_admin_permission_default_grants_table": {
+        "names": [
+            "2026_11_15_000001_create_admin_permission_default_grants_table"
+        ],
+        "sha256": [
+            "8b1d785af844e0c47c582c77d924db7ec38afa88a8285be36f9a7b10cadd6db5",
+            "ef33fd804268a333da2703c99b3bf57c2a86bd279795fd392cdc6f9a1129f0d7"
+        ]
+    },
     "create_admin_transfer_origins_table": {
         "names": [
             "2026_11_04_000001_create_admin_transfer_origins_table"

@@ -7,7 +7,6 @@ namespace Capell\Core\Tests\Support\Octane;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
@@ -35,7 +34,6 @@ use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Actions\RequirePackageAction;
-use Capell\Core\Actions\SanitizeSiteSpecSectionHtmlAction;
 use Capell\Core\Concerns\HasModelRelations;
 use Capell\Core\EventSourcing\Rollback\RollbackValidatorRegistry;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
@@ -48,9 +46,11 @@ use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
+use Capell\Core\Support\Extensions\Deprecations;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
@@ -98,6 +98,7 @@ use Capell\Frontend\Support\Assets\FrontendAssetsService;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
+use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
 use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
@@ -140,7 +141,6 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => CapellCoreManager::class,
             ThemePreviewContext::class => ThemePreviewContext::class,
             FrontendContextReader::class => FrontendState::class,
-            AdminHelpRegistry::class => AdminHelpRegistry::class,
         ];
     }
 
@@ -168,6 +168,7 @@ final class SingletonLifetimeInventory
             InstallPatchRegistry::class => self::boot('Install patches are package boot registrations.'),
             ExtensionContributionReceiptRegistry::class => self::boot('Contribution receipts and boot contexts are package boot registrations.'),
             ExtensionOrderingAudit::class => self::boot('Ordering audit sources are package boot registrations and collect diagnostics from boot registries.'),
+            Deprecations::class => self::boot('Deprecations are keyed by surface, so a worker holds at most one entry per deprecated surface; keeping them across requests lets the audit and doctor see boot-time uses.'),
             PresentationPresetRegistry::class => self::boot('Presentation presets are package boot registrations.'),
             PrivacySubjectRegistry::class => self::boot('Privacy exporters and erasers are package boot registrations or container tags discovered once; export and erase hold no request state.'),
             PublicationReadinessRegistry::class => self::boot('Publication readiness contributors are package boot registrations; explicit clear is reserved for test/runtime reset boundaries.'),
@@ -177,6 +178,7 @@ final class SingletonLifetimeInventory
             PagePresentationRegistry::class => self::boot('Page presentation definitions are package boot registrations.'),
             WidgetPresentationRegistry::class => self::boot('Widget presentation definitions are package boot registrations.'),
             ThemeTokenStore::class => self::boot('Theme tokens are package boot registrations.'),
+            SchedulerRunRecorder::class => self::tagged('Holds the tallies for the current scheduler minute only inside the scheduler process; the Octane flush clears them so a worker never carries a run into a request.'),
             CapellCoreManager::class => self::tagged('Boot registrations persist while the manager selectively flushes only operation-derived default-page state.'),
             ComponentRegistry::class => self::tagged('Boot component registrations and namespaces persist while discovered components and the cache-presence memo are selectively flushed.'),
             CommercialCatalogueStore::class => self::delegated('The package registry runtime flush clears the memoised catalogue so a catalogue stored by another worker is re-read and re-verified.'),
@@ -243,6 +245,7 @@ final class SingletonLifetimeInventory
             FrontendResourceRegistry::class => self::boot('Frontend resources are package boot registrations.'),
             FrontendPackageDependencyRegistry::class => self::boot('Frontend package dependencies are package boot registrations.'),
             FrontendViteInputRegistry::class => self::boot('Vite inputs are package boot registrations.'),
+            FrontendVitePluginRegistry::class => self::boot('Vite plugins are package boot registrations.'),
             CacheInvalidationDependencyRegistry::class => self::boot('Invalidation dependencies are package boot registrations.'),
             PublicRenderDataCacheDependencyRegistry::class => self::boot('Public render-data cache dependencies are package boot registrations.'),
             DefaultFrontendResourcePlanRenderer::class => self::stateless('The renderer retains collaborators but no operation-derived values.'),
@@ -276,7 +279,6 @@ final class SingletonLifetimeInventory
             ExtensionQuarantine::class => 'The missing-table flag only suppresses repeated warnings for the process lifetime and carries no operation data.',
             ExtensibleModel::class => 'Extension fillable and cast declarations are deliberate model boot registries.',
             ManifestLoader::class => 'Registered manifest autoload paths are process boot metadata and prevent duplicate Composer loaders.',
-            SanitizeSiteSpecSectionHtmlAction::class => 'The sanitizer is an immutable process-wide parser cache.',
             DemoPackageAction::class => 'The static process factory is a test-only override with an explicit reset API; production operations never populate it.',
             InstallDeveloperToolingAction::class => 'Static collaborators and paths are test-only overrides with explicit reset APIs; production operations never populate them.',
             RequirePackageAction::class => 'The static process factory is a test-only override with an explicit reset API; production operations never populate it.',

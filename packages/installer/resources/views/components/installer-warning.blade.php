@@ -10,6 +10,7 @@
         $installUrl ??= route('capell-installer.show');
         $installGuideUrl ??= Route::has('filament.admin.pages.install-guide') ? InstallGuidePage::getUrl() : $installUrl;
         $shouldShowWarning ??= $installerPackageIsInstalled;
+        $removalCommand = 'composer remove capell-app/installer';
     @endphp
 
     @if ($shouldShowWarning)
@@ -80,7 +81,38 @@
                     @endif
 
                     @if ($capellIsInstalled && ! config('capell.server_side_tooling', false))
-                        <p class="text-sm">{{ __('capell-installer::widgets.delete_installer_tooling_disabled') }}</p>
+                        <div
+                            class="flex flex-col gap-2 text-sm"
+                            data-installer-manual-removal
+                            x-data="{ copied: false }"
+                        >
+                            <p>{{ __('capell-installer::widgets.delete_installer_tooling_disabled') }}</p>
+                            <p>{{ __('capell-installer::widgets.delete_installer_manual_steps') }}</p>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <code
+                                    class="rounded-md bg-gray-100 px-2 py-1 font-mono dark:bg-white/10"
+                                    data-installer-removal-command
+                                    >{{ $removalCommand }}</code
+                                >
+                                <x-filament::link
+                                    tag="button"
+                                    type="button"
+                                    x-on:click="navigator.clipboard.writeText(@js($removalCommand)).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
+                                >
+                                    <span
+                                        x-show="! copied"
+                                        >{{ __('capell-installer::widgets.delete_installer_copy') }}</span
+                                    >
+                                    <span
+                                        x-show="copied"
+                                        x-cloak
+                                    >
+                                        {{ __('capell-installer::widgets.delete_installer_copied') }}
+                                    </span>
+                                </x-filament::link>
+                            </div>
+                            <p>{{ __('capell-installer::widgets.delete_installer_hosted_note') }}</p>
+                        </div>
                     @endif
                 </div>
             </x-slot>

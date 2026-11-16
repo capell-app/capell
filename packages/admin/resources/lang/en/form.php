@@ -253,7 +253,10 @@ return [
     'html_editor_helper' => 'Choose the rich text editor used for HTML content fields.',
     'icon' => 'Icon',
     'image' => 'Image',
-    'image_source_type' => 'Image source',
+    'image_source_type' => 'Add image from',
+    'image_source_option_media' => 'Media library',
+    'image_source_option_upload' => 'Upload a file',
+    'image_source_option_url' => 'Paste a link',
     'image_source_policy' => 'Image source policy',
     'image_source_policy_helper' => 'Optional override for image fields using this blueprint. Schema-locked fields ignore this.',
     'image_source_upload' => 'Uploaded image',
@@ -564,4 +567,6 @@ return [
     'layout_element_asset_configurator' => 'Layout element asset configurator',
     'widget_type' => 'Element type',
     'snapshot_to_restore' => 'Snapshot to restore',
+    'no_parent_page' => 'No parent (top level)',
+    'publish_now' => 'Publish now',
 ];

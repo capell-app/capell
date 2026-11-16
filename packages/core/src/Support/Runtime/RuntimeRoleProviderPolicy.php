@@ -35,7 +35,6 @@ final class RuntimeRoleProviderPolicy
         'FilamentImpersonate\\',
         'FilamentPeek\\',
         'FilamentSelectTree\\',
-        'FilamentClearCache\\',
         'BadgeableColumn\\',
         'IconPicker\\',
         'PluginEssentials\\',

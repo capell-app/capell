@@ -33,7 +33,7 @@ it('shows editors a concise task navigation', function (): void {
     $items = $groups->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()));
     $allItems = flattenTaskNavigation($groups->all());
 
-    expect($groups->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())->toContain('Content', 'Media')
+    expect($groups->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())->toContain('Website', 'Media')
         ->and(count($allItems))->toBeLessThanOrEqual(10)
         ->and($items->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())->toContain(PageResource::getUrl())
         ->not->toContain(UserResource::getUrl());

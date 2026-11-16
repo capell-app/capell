@@ -39,17 +39,18 @@ use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallProfileData;
 use Capell\Core\Data\Install\InstallRunResultData;
-use Capell\Core\Data\Install\InstallStepData;
 use Capell\Core\Data\Install\InstallSuiteSelectionData;
 use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\InstallSkipReason;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Exceptions\UnknownInstallPreset;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Filesystem\AbsolutePath;
+use Capell\Core\Support\Install\Cli\DisplayWidthWrapper;
 use Capell\Core\Support\Install\Cli\FilamentAdminInstallPreflight;
 use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
@@ -91,6 +92,9 @@ use RuntimeException;
 use Spatie\LaravelPackageTools\Commands\Concerns\AskToStarRepoOnGitHub;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 use Symfony\Component\Console\Formatter\OutputFormatter;
+use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Helper\TableSeparator;
+use Symfony\Component\Console\Terminal;
 use Throwable;
 
 class InstallCommand extends Command implements InstallOrchestrationHost
@@ -272,26 +276,31 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return $result;
     }
 
+    /**
+     * The numbered steps are listed in full for a preview (--plan) or with -v. Otherwise they are
+     * summarised in one line, because the install reports each step as it runs.
+     */
     #[Override]
-    public function outputPlan(InstallInputData $inputData, bool $collapseWhenInteractive = false): void
+    public function outputPlan(InstallInputData $inputData, bool $collapse = false): void
     {
         $steps = InstallPlan::steps($inputData);
 
         $this->newLine();
-        $this->line('<fg=blue;options=bold>Capell Install Plan</>');
-        $this->newLine();
 
-        if ($collapseWhenInteractive && $this->input->isInteractive() && ! $this->output->isVerbose()) {
+        if ($collapse && ! $this->output->isVerbose()) {
             $this->line(__('capell-core::install.review.plan_collapsed', ['count' => $steps->count()]));
             $this->newLine();
 
             return;
         }
 
-        $steps->each(function (InstallStepData $step, int $index): void {
-            $this->line(sprintf('%d. %s', $index + 1, $step->label));
-        });
+        $numberWidth = strlen((string) $steps->count());
+        $rows = [];
+        foreach ($steps->values() as $index => $step) {
+            $rows[] = [str_pad((string) ($index + 1), $numberWidth, ' ', STR_PAD_LEFT), $step->label];
+        }
 
+        $this->renderTable('Capell Install Plan', $rows);
         $this->newLine();
     }
 
@@ -698,12 +707,21 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->logInstallDebug('resolving admin user');
-        [$userId, $resolvedNewUser, $exitCode] = $userPrompter->resolveUserInput(
-            $userEmailOption,
-            $newUser,
-            $freshInstall,
-            $this->shouldUseFreshDemoDefaults(),
-        );
+
+        try {
+            [$userId, $resolvedNewUser, $exitCode] = $userPrompter->resolveUserInput(
+                $userEmailOption,
+                $newUser,
+                $freshInstall,
+                $this->shouldUseFreshDemoDefaults(),
+            );
+        } catch (NonInteractiveInputRequiredException $nonInteractiveInputRequiredException) {
+            // Name every missing option in one run instead of failing again at the role-user step.
+            throw $this->roleUserPasswordIsMissing()
+                ? $nonInteractiveInputRequiredException->withAlsoRequired('Pass --role-user-password=<password> when using --role-users.')
+                : $nonInteractiveInputRequiredException;
+        }
+
         if ($exitCode !== null) {
             $this->logInstallDebug('admin user resolution failed', [
                 'exit_code' => $exitCode,
@@ -820,7 +838,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
-        $this->outputPlan($inputData, collapseWhenInteractive: true);
+        $this->outputPlan($inputData, collapse: true);
+        $this->outputFreshInstallWarning($inputData);
 
         if (! $this->reviewInstallation($inputData)) {
             foreach ($originalTableConfig as $key => $value) {
@@ -879,6 +898,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             removeInstallerPackage: $removeInstallerPackage,
             cachesToClear: $cachesToClear,
         );
+    }
+
+    private function roleUserPasswordIsMissing(): bool
+    {
+        $password = $this->option('role-user-password');
+
+        return ! $this->input->isInteractive()
+            && (bool) $this->option('role-users')
+            && (! is_string($password) || $password === '');
     }
 
     /**
@@ -1221,8 +1249,9 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     }
 
     /**
-     * Lead with the handful of facts a newcomer needs, then list the mechanical detail as bullets.
-     * The execution steps are omitted because the plan printed straight after the review lists them.
+     * Lead with the handful of facts a newcomer needs in one table, then list the mechanical detail in a
+     * second one. The execution steps are left out: a line after the review summarises them, and
+     * `--plan` or `-v` lists them.
      *
      * @param  array<string, string>  $items
      * @param  array<string, list<string>>  $lists
@@ -1241,25 +1270,100 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ];
 
         $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
-        $this->newLine();
-        $this->line('<options=bold>' . __('capell-core::install.review.essentials_title') . '</>');
 
+        $essentials = [];
         foreach ($essentialLabels as $label) {
             if (isset($items[$label]) && $items[$label] !== $none) {
-                $this->line(OutputFormatter::escape('  ' . $label . ': ' . $items[$label]));
+                $essentials[] = [$label, implode("\n", preg_split('/(?:; | — )(?![^(]*\))/', $items[$label]) ?: [$items[$label]])];
             }
         }
 
-        $this->newLine();
-        $this->line('<options=bold>' . __('capell-core::install.review.details_title') . '</>');
-
+        $details = [];
         foreach (array_filter($lists) as $label => $entries) {
-            $this->line(OutputFormatter::escape('  ' . $label));
-
-            foreach ($entries as $entry) {
-                $this->line(OutputFormatter::escape('    • ' . $entry));
-            }
+            $details[] = [$label, count($entries) === 1
+                ? $entries[0]
+                : implode("\n", array_map(fn (string $entry): string => '• ' . $entry, $entries))];
         }
+
+        // Both tables share their column widths so they line up as one block.
+        $widths = $this->tableWidths([...$essentials, ...$details]);
+        $this->renderTable(__('capell-core::install.review.essentials_title'), $essentials, widths: $widths);
+        $this->newLine();
+        $this->renderTable(__('capell-core::install.review.details_title'), $details, widths: $widths, separateRows: true);
+    }
+
+    /**
+     * The label column fits its longest label up to a cap; the value column fills the terminal up to a
+     * readable maximum. Both are measured in display columns.
+     *
+     * @param  list<array{0: string, 1: string}>  $rows
+     * @return array{0: int, 1: int}
+     */
+    private function tableWidths(array $rows): array
+    {
+        $labelWidth = $rows === [] ? 0 : min(24, max(array_map(fn (array $row): int => mb_strwidth($row[0]), $rows)));
+
+        return [$labelWidth, min(100, max(20, (new Terminal)->getWidth() - $labelWidth - 7))];
+    }
+
+    /**
+     * Draw a titled two-column table that wraps both columns to fixed display widths, so a long value
+     * stays inside the box instead of pushing the table past the screen edge.
+     *
+     * @param  list<array{0: string, 1: string}>  $rows
+     * @param  array{0: int, 1: int}|null  $widths  label and value column widths; fitted to the rows when omitted
+     */
+    private function renderTable(string $title, array $rows, ?array $widths = null, bool $separateRows = false): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        [$labelWidth, $valueWidth] = $widths ?? $this->tableWidths($rows);
+        $table = new Table($this->output);
+        $table->setStyle('box')
+            ->setHeaderTitle(OutputFormatter::escape($title))
+            ->setColumnWidth(0, $labelWidth)
+            ->setColumnWidth(1, $valueWidth);
+
+        foreach ($rows as $index => $row) {
+            if ($separateRows && $index > 0) {
+                $table->addRow(new TableSeparator);
+            }
+
+            $table->addRow([
+                $this->wrapTableCell($row[0], $labelWidth),
+                $this->wrapTableCell($row[1], $valueWidth),
+            ]);
+        }
+
+        $table->render();
+    }
+
+    /** Wrap each line of a cell to the column width and escape it so text such as `<email>` is not read as a formatter tag. */
+    private function wrapTableCell(string $text, int $width): string
+    {
+        $lines = [];
+
+        foreach (explode("\n", $text) as $line) {
+            array_push($lines, ...DisplayWidthWrapper::wrap($line, $width));
+        }
+
+        return implode("\n", array_map(OutputFormatter::escape(...), $lines));
+    }
+
+    /** A fresh install erases the database, so say so directly above the confirmation, where the review is last seen. */
+    private function outputFreshInstallWarning(InstallInputData $inputData): void
+    {
+        if (! $inputData->freshInstall || $this->option('plan')) {
+            return;
+        }
+
+        $connection = (string) config('database.default');
+        $this->line('<fg=red;options=bold>' . OutputFormatter::escape((string) __('capell-core::install.review.fresh_warning', [
+            'database' => $connection . ' / ' . config('database.connections.' . $connection . '.database'),
+        ])) . '</>');
+        $this->newLine();
     }
 
     private function finishPlanOnlyInstall(InstallInputData $inputData): int

@@ -324,7 +324,7 @@ class TranslationsRepeater extends RepeaterTabs
      * it delegates to and keeps it directly testable.
      *
      * @param  array<string, array<int, string>|null>  $keys
-     * @return array{label: string, color: string, tooltip: string}|null
+     * @return array{label: ?string, color: string, tooltip: string}|null
      */
     public function resolveItemBadge(Translation $record, array $keys): ?array
     {
@@ -352,8 +352,10 @@ class TranslationsRepeater extends RepeaterTabs
             }
 
             if ($defaultTranslation instanceof Translation && $this->mirrorsDefault($record, $defaultTranslation, $keys)) {
+                // No visible badge: an untranslated language is the normal starting
+                // state, so the explanation lives in the tab's hover text only.
                 return [
-                    'label' => __('capell-admin::generic.translation_untranslated'),
+                    'label' => null,
                     'color' => 'gray',
                     'tooltip' => __('capell-admin::generic.translation_untranslated_info'),
                 ];

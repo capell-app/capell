@@ -17,7 +17,6 @@ use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
 use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Capell\Tests\AbstractTestCase;
-use CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider;
 use CodeWithDennis\FilamentSelectTree\FilamentSelectTreeServiceProvider;
 use Filament\Actions\ActionsServiceProvider;
 use Filament\FilamentServiceProvider;
@@ -71,7 +70,6 @@ abstract class MarketplaceTestCase extends AbstractTestCase
             FilamentAdjacencyListServiceProvider::class,
             FilamentShieldServiceProvider::class,
             FilamentSelectTreeServiceProvider::class,
-            FilamentClearCacheServiceProvider::class,
             FilamentPeekServiceProvider::class,
             FilamentImpersonateServiceProvider::class,
             FormsServiceProvider::class,

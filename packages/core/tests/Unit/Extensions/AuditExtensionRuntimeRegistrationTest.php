@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
+use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
+use Capell\Core\Contracts\Extensions\RegistersExtensionPageType;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
+use Capell\Core\Contracts\Extensions\RunsScheduledExtensionJob;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
@@ -310,6 +313,68 @@ it('reports declared-only and loaded-only receipt drift', function (): void {
     expect(runtimeRegistrationAuditResults($loadedDirectory, 'Runtime contribution is not declared in the manifest.', ['runtime']))->toHaveCount(1);
 });
 
+it('does not report a declared scheduled job as missing because no runtime registry records scheduled-job receipts', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/scheduled-job', RunsScheduledExtensionJob::class, [
+        'type' => 'scheduled-job',
+        'name' => 'vendor-package-prune',
+        'command' => 'vendor:prune',
+        'frequency' => 'daily',
+    ]);
+
+    expect(runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime']))->toBe([]);
+});
+
+it('does not report a declared page variation as missing because only a front-end render records its receipt', function (): void {
+    app()->instance(ExtensionContributionReceiptRegistry::class, new ExtensionContributionReceiptRegistry);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/page-variation', RegistersExtensionPageType::class, [
+        'type' => 'page-variation',
+        'name' => 'article',
+        'modelClass' => stdClass::class,
+        'resourceName' => 'article',
+    ]);
+
+    expect(runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime']))->toBe([]);
+});
+
+it('runs tagged receipt preparers before reconciling lazily recorded receipts', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/lazy-receipt', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.declared']);
+
+    $preparer = new class($receipts) implements PreparesExtensionContributionReceipts
+    {
+        public int $calls = 0;
+
+        public function __construct(private readonly ExtensionContributionReceiptRegistry $receipts) {}
+
+        public function prepareContributionReceipts(): void
+        {
+            if (++$this->calls > 1) {
+                return;
+            }
+
+            recordTestReceipt($this->receipts, new ExtensionContributionReceiptData('vendor/lazy-receipt', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.lazy', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+        }
+    };
+    app()->instance('test.lazy-receipt-preparer', $preparer);
+    app()->tag(['test.lazy-receipt-preparer'], PreparesExtensionContributionReceipts::TAG);
+
+    // The lazily recorded receipt is only visible to the audit once the preparer has run.
+    $results = runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime']);
+
+    expect($results)->toHaveCount(1)
+        ->and($results[0]['context']['contributionKey'] ?? null)->toBe('vendor-package.lazy')
+        ->and($preparer->calls)->toBe(1);
+});
+
 it('reports wrong receipt owner and provider bucket with diagnostics', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/other', 'admin', ExtensionContributionType::OutboundEvent, 'vendor-package.event', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
@@ -492,4 +557,64 @@ it('does not warn when a declared blueprint subject is registered at runtime', f
     );
 
     expect(runtimeRegistrationAuditResults($directory, BLUEPRINT_SUBJECT_WARNING))->toBe([]);
+});
+
+it('reconciles runtime receipts declared through manifest contribution traceability', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/traced', 'runtime', ExtensionContributionType::RenderHook, 'vendor-traced-hook', 'Vendor\\Traced\\Hook', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/traced', 'runtime', ExtensionContributionType::RenderHook, 'vendor-untraced-hook', 'Vendor\\Traced\\Other', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/traced', 'admin', ExtensionContributionType::AdminResource, 'resource:Traced:default', 'Vendor\\Traced\\Resource', 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/traced', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-traced.event']);
+    $manifest = json_decode((string) file_get_contents($directory . '/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['contributionTraceability'] = ['contributions' => [
+        ['type' => 'render-hook', 'key' => 'vendor-traced-hook', 'providerBucket' => 'runtime'],
+        ['type' => 'admin-resource', 'key' => 'resource:Traced:default', 'providerBucket' => 'runtime'],
+        ['type' => 'render-hook', 'key' => 'vendor-missing-hook', 'providerBucket' => 'runtime'],
+    ]];
+    file_put_contents($directory . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+
+    $loadedOnly = runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime', 'admin']);
+    expect($loadedOnly)->toHaveCount(1)
+        ->and($loadedOnly[0]['context']['contributionKey'])->toBe('vendor-untraced-hook');
+
+    $wrongBucket = runtimeRegistrationAuditResults($directory, 'Runtime contribution is registered in the wrong provider bucket.', ['runtime', 'admin']);
+    expect($wrongBucket)->toHaveCount(1)
+        ->and($wrongBucket[0]['context'])->toMatchArray(['contributionKey' => 'resource:Traced:default', 'expectedBucket' => 'runtime', 'actualBucket' => 'admin']);
+
+    $declaredOnly = runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime', 'admin']);
+    expect($declaredOnly)->toHaveCount(1)
+        ->and($declaredOnly[0]['context']['contributionKey'])->toBe('vendor-missing-hook');
+});
+
+it('accepts runtime receipts of a type the manifest defers, and still reports undeclared types', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/type-level', 'runtime', ExtensionContributionType::Model, 'model:Vendor\\TypeLevel\\Models\\Area', 'Vendor\\TypeLevel\\Models\\Area', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/type-level', 'runtime', ExtensionContributionType::Model, 'model:Vendor\\TypeLevel\\Models\\Grant', 'Vendor\\TypeLevel\\Models\\Grant', 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/type-level', 'runtime', ExtensionContributionType::RenderHook, 'vendor-type-level-hook', 'Vendor\\TypeLevel\\Hook', 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/type-level', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-type-level.event']);
+    $manifest = json_decode((string) file_get_contents($directory . '/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['contributionTraceability'] = ['deferredContributions' => ['model']];
+    file_put_contents($directory . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+
+    $loadedOnly = runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime']);
+
+    expect(array_column(array_column($loadedOnly, 'context'), 'contributionKey'))->toBe(['vendor-type-level-hook']);
+});
+
+it('accepts every runtime receipt of a type declared without keys', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/unkeyed', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-unkeyed.first', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/unkeyed', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-unkeyed.second', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/unkeyed', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event']);
+
+    expect(runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime']))->toBe([]);
 });

@@ -37,6 +37,7 @@ use Capell\Core\Support\Manifest\Validation\ManifestValidationRules;
 use Capell\Core\Support\Manifest\Validation\MarketplaceSectionValidator;
 use Capell\Core\Support\Manifest\Validation\PerformanceSectionValidator;
 use Capell\Core\Support\Manifest\Validation\PrivacySectionValidator;
+use Capell\Core\Support\Manifest\Validation\RolesAndInstallSectionValidator;
 use Capell\Core\Support\Manifest\Validation\SecuritySectionValidator;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Support\ServiceProvider;
@@ -101,6 +102,9 @@ final class ManifestValidator
         'themeKey',
         'runtime',
         'defaultSelected',
+        'roles',
+        'rolePriority',
+        'install',
         'demo',
         'order',
         'installPath',
@@ -132,6 +136,7 @@ final class ManifestValidator
             new MarketplaceSectionValidator($this->rules),
             new CapabilityContractsSectionValidator,
             new PrivacySectionValidator,
+            new RolesAndInstallSectionValidator,
         ];
     }
 

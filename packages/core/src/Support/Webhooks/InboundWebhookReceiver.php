@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Webhooks;
 
+use Capell\Core\Contracts\Webhooks\AcceptsFormEncodedWebhooks;
+use Capell\Core\Contracts\Webhooks\AcceptsTextPlainJsonWebhooks;
 use Capell\Core\Contracts\Webhooks\InboundWebhookHandler;
 use Capell\Core\Contracts\Webhooks\InboundWebhookProvider;
 use Capell\Core\Enums\InboundWebhookEventStatus;
@@ -20,7 +22,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Receives one webhook delivery for a provider:
  *
- * 1. refuses anything that is not JSON (415) or is larger than MAX_BODY_BYTES
+ * 1. refuses anything that is not JSON (415), or a form body for a provider that
+ *    accepts one (AcceptsFormEncodedWebhooks), or is larger than MAX_BODY_BYTES
  *    (413), before the body is verified or decoded;
  * 2. asks the provider to verify the signature and signed timestamp, and answers
  *    a bare 400 when it cannot, without saying which check failed;
@@ -40,7 +43,7 @@ final readonly class InboundWebhookReceiver
 
     public function receive(Request $request, InboundWebhookProvider $provider): JsonResponse
     {
-        if (! $request->isJson()) {
+        if (! $this->acceptsContentType($request, $provider)) {
             return new JsonResponse(['ok' => false], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
 
@@ -103,5 +106,17 @@ final readonly class InboundWebhookReceiver
         }
 
         return new JsonResponse(['ok' => true], Response::HTTP_ACCEPTED);
+    }
+
+    private function acceptsContentType(Request $request, InboundWebhookProvider $provider): bool
+    {
+        if ($request->isJson()) {
+            return true;
+        }
+
+        $mediaType = strtolower(trim(explode(';', (string) $request->headers->get('Content-Type'))[0]));
+
+        return ($provider instanceof AcceptsFormEncodedWebhooks && $mediaType === 'application/x-www-form-urlencoded')
+            || ($provider instanceof AcceptsTextPlainJsonWebhooks && $mediaType === 'text/plain');
     }
 }

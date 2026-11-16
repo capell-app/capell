@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Layouts;
 
 use BackedEnum;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
@@ -28,6 +29,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
+use UnitEnum;
 
 class LayoutResource extends SiteScopedResource implements ValidatesDelete
 {
@@ -136,9 +138,9 @@ class LayoutResource extends SiteScopedResource implements ValidatesDelete
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return (string) __('capell-admin::navigation.group_websites');
+        return NavigationGroupEnum::Design;
     }
 
     #[Override]

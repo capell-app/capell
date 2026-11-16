@@ -260,7 +260,7 @@ pipeline, not in Blade. Set `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE=log` i
 production if you would rather record violations than return an error page. Any value
 other than `log` is treated as `exception`.
 
-HTML content rendering is sanitized by `RenderHtmlContentAction`; Blade directives are not evaluated. Allow only attributes that are safe for public CMS output through `capell-frontend.html_content_allowed_attributes`. See `packages/frontend/docs/security.md`.
+HTML content rendering is sanitized by `RenderHtmlContentAction`; Blade directives are not evaluated. It uses the Core `RichText` sanitiser profile; declare any extra markup as an `HtmlSanitizerProfileExtension`. See `packages/frontend/docs/security.md`.
 
 ## Installer Config
 

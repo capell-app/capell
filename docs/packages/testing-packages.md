@@ -102,7 +102,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('database.connections.sqlite.database', ':memory:');
 
         // Must happen before the application boots: the provider's
-        // bootInstalledPackage() gate is evaluated during boot.
+        // bootInstalledRuntime() gate is evaluated during boot.
         ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
     }
 
@@ -134,7 +134,7 @@ Provider order matters, and `LaravelSettingsServiceProvider` must come **after**
 
 Data and permissions providers go before Capell, which resolves their bindings during boot. This is the order Capell's own base test case uses.
 
-**Timing matters more than the call itself.** `AbstractPackageServiceProvider` evaluates the installed gate for `bootInstalledPackage()` during application boot. Calling `ExtensionTestHarness::markPackageInstalled()` from the test body — or from `setUp()` after `parent::setUp()` — is too late: the gate has already resolved to "not installed", so your bridge, settings, and render hooks were never registered and every registration assertion fails. Put it in `defineEnvironment()` (or `getEnvironmentSetUp()`), as above. Capell's own admin test case does exactly this.
+**Timing matters more than the call itself.** `AbstractPackageServiceProvider` evaluates the installed gate for `bootInstalledRuntime()` during application boot. Calling `ExtensionTestHarness::markPackageInstalled()` from the test body — or from `setUp()` after `parent::setUp()` — is too late: the gate has already resolved to "not installed", so your bridge, settings, and render hooks were never registered and every registration assertion fails. Put it in `defineEnvironment()` (or `getEnvironmentSetUp()`), as above. Capell's own admin test case does exactly this.
 
 `ExtensionTestHarness::markPackageInstalled()` is the supported way to simulate an installed package in tests and is part of the stable `ExtensionTestHarness` surface. `CapellCore::forcePackageInstalled()` underneath it is `@internal`; do not call it from package tests.
 
@@ -175,26 +175,28 @@ it('registers the announcement render hook', function (): void {
 
 ### 4. Settings groups in tests
 
-Spatie settings need their migration applied before the group hydrates, or every property read throws. Apply your package's settings migrations in `defineDatabaseMigrations()`:
+Spatie settings need their migration applied before the group hydrates, or every property read throws.
+
+Add a `migratePackageSettings()` helper to the base `TestCase`. It creates Spatie's `settings` table first, then runs the package's settings migrations, and a test that reads settings calls it before the first read:
 
 ```php
-protected function defineDatabaseMigrations(): void
+use ReflectionClass;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+
+/** Create Spatie's settings table, then apply this package's settings migrations. */
+protected function migratePackageSettings(): void
 {
-    $this->loadLaravelMigrations();
+    $settingsTable = dirname((string) new ReflectionClass(LaravelSettingsServiceProvider::class)->getFileName(), 2)
+        . '/database/migrations/create_settings_table.php.stub';
+    (require $settingsTable)->up();
 
-    $coreMigrationPath = $this->coreMigrationPath();
-
-    foreach (CapellCore::getMigrations() as $migrationName) {
-        $this->loadMigrationsFrom(sprintf('%s/%s.php', $coreMigrationPath, $migrationName));
-    }
-
-    foreach (glob(__DIR__ . '/../database/settings/*.php') ?: [] as $settingsMigration) {
+    foreach (glob(dirname(__DIR__) . '/database/settings/*.php') ?: [] as $settingsMigration) {
         (require $settingsMigration)->up();
     }
 }
 ```
 
-This replaces the `defineDatabaseMigrations()` from step 3 — it is the same method with the settings loop appended, not a second one. `__DIR__` is your `tests/` directory, so `../database/settings` is the package's own settings directory; get the depth wrong and `glob()` returns an empty array, the loop silently does nothing, and every settings property read then throws.
+`dirname(__DIR__)` is the package root, so `/database/settings` is the package's own settings directory; get the depth wrong and `glob()` returns an empty array, the loop silently does nothing, and every settings property read then throws. The `capell:make:extension` scaffold generates the same helper in its `tests/TestCase.php`.
 
 ### 5. `tests/Pest.php`
 
@@ -214,11 +216,85 @@ Then run the suite from the package root:
 vendor/bin/pest
 ```
 
+<a id="contract-assertions"></a>
+
+### Contract assertions
+
+`ExtensionTestHarness` is a stable surface that checks the manifest and the runtime wiring Capell relies on. Point it at the package root once, then chain only the assertions the package needs:
+
+```php
+use Capell\Core\Enums\RuntimeRole;
+use Capell\Core\Testing\ExtensionTestHarness;
+
+it('declares a manifest Capell accepts', function (): void {
+    ExtensionTestHarness::forPath(dirname(__DIR__, 2))->assertManifestValid();
+});
+
+it('declares the contributions the package ships', function (): void {
+    ExtensionTestHarness::forPath(dirname(__DIR__, 2))
+        ->assertContributionRegistered('setting', AnnouncementBarSettings::class)
+        ->assertRoutesOwnedByPackage()
+        ->assertScheduledJobsRegistered();
+});
+
+it('declares nothing that is unsafe to cache publicly', function (): void {
+    ExtensionTestHarness::forPath(dirname(__DIR__, 2))->assertNoUnsafePublicCache();
+});
+
+it('boots its providers for the authoring runtime role', function (): void {
+    $providers = ExtensionTestHarness::forPath(dirname(__DIR__, 2))->bootProviders(app(), RuntimeRole::Authoring);
+
+    expect($providers)->toContain(AnnouncementBarServiceProvider::class);
+});
+
+it('declares a theme manifest the theme loader accepts', function (): void {
+    ExtensionTestHarness::forPath(dirname(__DIR__, 2))
+        ->assertThemeManifest()
+        ->assertThemeUsesSafeAssetUrls();
+});
+```
+
+- `assertManifestValid()` runs the same validator as `capell:extension-audit` and Marketplace submission, and fails with the first problem.
+- `assertContributionRegistered($type, $class)` fails when `capell.json` does not declare that contribution.
+- `assertRoutesOwnedByPackage()` fails when a route contribution has no `namePrefix`, and `assertScheduledJobsRegistered()` fails when a scheduled job has no schedule.
+- `assertNoUnsafePublicCache()` fails when the cache safety metadata would let private output into the public cache.
+- `bootProviders($app, $role)` registers the package through the production provider loader for a runtime role, so provider isolation and boot behaviour are tested, not only metadata.
+- `assertThemeManifest()` and `assertThemeUsesSafeAssetUrls()` are for theme packages.
+
+<a id="companion-package-contract"></a>
+
+### Companion package contract
+
+Every Capell package runs the companion package contract. Build the contract from the package's own files and run it:
+
+```php
+use Capell\Core\Testing\Data\CompanionPackageContractData;
+use Capell\Core\Testing\ExtensionTestHarness;
+
+it('meets the companion package contract', function (): void {
+    ExtensionTestHarness::assertCompanionPackageContract(
+        CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
+    );
+});
+```
+
+`forPackage()` reads `capell.json`, the first runtime provider (or the first metadata provider) and every migration under `database/migrations`. Pass `authorizationAssertion`, `cacheInvalidationAssertion`, `lifecycleAssertion` or `publicRender` closures to exercise the package's own behaviour as well.
+
+Each failure starts with a check ID in brackets. These checks always run:
+
+- `[manifest.valid]`, `[provider.boot]` and `[migration.discovery]`.
+- `[security.throttles]`: declared throttles match the registered routes.
+- `[security.outbound-http]`: every class in `src` that opens an outbound connection is listed in `security.externalHttpClients.clients`, and every listed class still opens one. An SDK that wraps its own transport goes in `manualClients`. A stream read whose target is neither a URL nor evidently local needs `// capell-security-scan: local-stream <reason>` or `// capell-security-scan: remote-stream <reason>` on the line before it. Every statement that builds a request through the `Http` facade must set a total timeout, with `timeout()` or a `'timeout'` request option. For an address that comes from configuration, content or a user, use `OutboundHttp::guarded()`.
+- `[public-output.views]`: public Blade views hold no authoring markers, signed editor URLs, record keys, secrets, queries or cache access. Views under `filament`, `admin`, `editor`, `frontend-authoring`, `screenshots` and `mail` directories are not public, so keep admin views there.
+- `[privacy.personal-data]`: a package whose migrations create a personal-data column (email, phone, IP address, user agent, names, date of birth, postcode and their hashed forms) registers both a Core privacy subject exporter and eraser, so a privacy request finds and removes that data. Registering only one side fails too.
+
+A package opts out of `security.throttles`, `security.outbound-http`, `public-output.views` or `privacy.personal-data` only with a decision record at `docs/decisions/contract-opt-out-<check id>.md`. The record needs a `## Decision` and a `## Reason` section, each with text. An incomplete record, or a record for any other check, fails with `[contract.opt-out]`.
+
 ### What is not available outside the monorepo
 
 Capell's internal test helpers live under the `Capell\Tests\` namespace, which is mapped in this repository's `autoload-dev` only. `CreatesAdminUser`, `TestingFrontend`, `IsolatedTestbenchSkeleton`, `PackageTestDatabaseGuard`, and the `Capell\Tests\Support\Fakes\*` doubles are **not** shipped to third-party packages. Do not reference them; write the equivalent fixture in your own package.
 
-`CapellCore::registerManifestPackage()`, `CapellCore::getMigrations()`, and `CapellCore::getSettingMigrations()` are shipped API and safe to use. `ExtensionTestHarness::markPackageInstalled()` is marked `@internal` but is the supported test mechanism, as noted above.
+`CapellCore::registerManifestPackage()`, `CapellCore::getMigrations()`, and `CapellCore::getSettingMigrations()` are shipped API and safe to use. `ExtensionTestHarness::markPackageInstalled()` is the supported way to simulate an installed package, as noted above.
 
 <a id="generated-extension-consumer-check"></a>
 

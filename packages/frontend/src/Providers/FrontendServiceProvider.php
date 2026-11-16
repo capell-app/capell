@@ -91,6 +91,7 @@ use Capell\Frontend\Support\Assets\FrontendAssetsService;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
+use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Assets\PublicFrontendAssetUrl;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
 use Capell\Frontend\Support\Assets\ViteManifestReader;
@@ -527,6 +528,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         );
         $this->app->singleton(FrontendPackageDependencyRegistry::class);
         $this->app->singleton(FrontendViteInputRegistry::class);
+        $this->app->singleton(FrontendVitePluginRegistry::class);
         $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
             ->mapWithKeys(fn (FrontendResourceGroupData $group, string $key): array => [
                 $key => $group->label,
@@ -798,7 +800,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             group: 'frontend',
             label: 'capell-admin::generic.frontend_settings',
             icon: Heroicon::OutlinedGlobeAlt,
-            navigationGroup: 'capell-admin::navigation.group_system',
+            navigationGroup: 'settings',
             navigationSort: 92,
             packageName: self::$packageName,
         ));

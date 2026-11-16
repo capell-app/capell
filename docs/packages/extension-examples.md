@@ -40,7 +40,7 @@ final class ExampleAdminBridge implements AdminBridge
             group: 'example',
             label: 'capell-example::settings.title',
             icon: Heroicon::OutlinedCog6Tooth,
-            navigationGroup: 'capell-admin::navigation.group_system',
+            navigationGroup: 'settings',
             packageName: 'vendor/example',
         ));
 
@@ -246,7 +246,7 @@ final class ExampleAdminServiceProvider extends ServiceProvider
             group: 'example',
             label: 'capell-example::settings.title',
             icon: Heroicon::OutlinedCog6Tooth,
-            navigationGroup: 'capell-admin::navigation.group_system',
+            navigationGroup: 'settings',
             packageName: 'vendor/example',
         ));
 

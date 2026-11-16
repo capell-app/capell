@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Contracts\Security\SanitizesPublicHtml;
+use Capell\Core\Enums\HtmlSanitizerProfile;
 use Capell\Frontend\Support\SafeHtml;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
-use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 /**
  * @method static SafeHtml run(string $content, array $context = [])
@@ -25,7 +25,7 @@ class RenderHtmlContentAction
     {
         return SafeHtml::sanitize(
             $this->interpolateTokens($content, $context),
-            fn (string $html): string => $this->sanitizer()->sanitize($html),
+            fn (string $html): string => resolve(SanitizesPublicHtml::class)->sanitize($html, HtmlSanitizerProfile::RichText),
         );
     }
 
@@ -68,28 +68,5 @@ class RenderHtmlContentAction
         }
 
         return [true, $value];
-    }
-
-    private function sanitizer(): HtmlSanitizer
-    {
-        $config = (new HtmlSanitizerConfig)
-            ->allowSafeElements()
-            ->allowRelativeLinks()
-            ->allowRelativeMedias()
-            ->withMaxInputLength(-1);
-
-        foreach (config('capell-frontend.html_content_allowed_attributes', ['class']) as $attribute) {
-            if (! is_string($attribute)) {
-                continue;
-            }
-
-            if ($attribute === '') {
-                continue;
-            }
-
-            $config = $config->allowAttribute($attribute, '*');
-        }
-
-        return new HtmlSanitizer($config);
     }
 }

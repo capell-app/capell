@@ -50,7 +50,7 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
             group: MarketplaceSettings::group(),
             label: 'capell-marketplace::settings.title',
             icon: Heroicon::OutlinedCog6Tooth,
-            navigationGroup: 'capell-admin::navigation.group_system',
+            navigationGroup: 'settings',
             navigationSort: 93,
             packageName: MarketplaceServiceProvider::$packageName,
         ));

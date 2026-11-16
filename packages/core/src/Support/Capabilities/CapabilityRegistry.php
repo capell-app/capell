@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Capabilities;
 
 use Capell\Core\Contracts\Capabilities\FormCatalogue;
+use Capell\Core\Contracts\Capabilities\LayoutWidgetHost;
 use Capell\Core\Enums\CapabilityContract;
 use Capell\Core\Exceptions\CapabilityRegistrationException;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
@@ -30,6 +31,7 @@ final class CapabilityRegistry extends AbstractKeyedRegistry
     /** @var array<class-string, class-string> */
     private const array NULL_IMPLEMENTATIONS = [
         FormCatalogue::class => NullFormCatalogue::class,
+        LayoutWidgetHost::class => NullLayoutWidgetHost::class,
     ];
 
     private bool $frozen = false;

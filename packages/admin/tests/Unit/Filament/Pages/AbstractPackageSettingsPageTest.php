@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Navigation\BuildSettingsHubAction;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageMissingClassPage;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestPage;
@@ -16,6 +18,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
@@ -58,12 +61,13 @@ it('uses settings group metadata for navigation and page title', function (): vo
         group: 'abstract-page-test',
         label: 'Test package',
         icon: 'heroicon-o-cog',
-        navigationGroup: 'Package settings',
+        navigationGroup: 'marketing',
         navigationSort: 42,
     ));
 
     expect(AbstractPackageSettingsPageTestPage::getNavigationLabel())->toBe('Test package')
-        ->and(AbstractPackageSettingsPageTestPage::getNavigationGroup())->toBe('Package settings')
+        ->and(AbstractPackageSettingsPageTestPage::getNavigationGroup())->toBe(NavigationGroupEnum::Marketing)
+        ->and(AbstractPackageSettingsPageTestPage::shouldRegisterNavigation())->toBeFalse()
         ->and(AbstractPackageSettingsPageTestPage::getNavigationSort())->toBe(42)
         ->and(AbstractPackageSettingsPageTestPage::getNavigationIcon())->toBe('heroicon-o-cog')
         ->and((new AbstractPackageSettingsPageTestPage)->getTitle())->toBe('Test package');
@@ -237,4 +241,26 @@ it('shows trusted package settings uninstall when no dependents block it', funct
     $uninstallAction->call();
 
     expect(CapellCore::isPackageInstalled('capell-app/frontend'))->toBeFalse();
+});
+
+it('lists package settings pages in the settings hub under their sidebar group', function (): void {
+    resolve(SettingsSchemaRegistry::class)->registerMetadata(new SettingsGroupMetadata(
+        group: 'abstract-page-test',
+        label: 'Test package',
+        navigationGroup: 'marketing',
+    ));
+    // The fixture page is not on the test panel, so give its URL a route.
+    Route::get('/admin/abstract-package-settings-test', fn (): string => '')->name('filament.admin.pages.abstract-package-settings-page-test-page');
+    test()->actingAsAdmin();
+
+    $groups = BuildSettingsHubAction::run([
+        AbstractPackageSettingsPageTestPage::class,
+        ExtensionsPage::class,
+    ]);
+
+    expect($groups)->toHaveCount(1)
+        ->and($groups[0]->group)->toBe(NavigationGroupEnum::Marketing)
+        ->and($groups[0]->entries[0]->label)->toBe('Test package')
+        ->and($groups[0]->entries[0]->url)->toBe(AbstractPackageSettingsPageTestPage::getUrl())
+        ->and($groups[0]->entries[0]->configured)->toBeNull();
 });

@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-07-09T05:40:57.033Z",
+    "generatedAt": "2026-11-15T08:42:41.332Z",
     "description": "Current custom Filament action surfaces that still need explicit screenshot manifest coverage. Remove entries as manifests gain covers[] links.",
     "uncovered": [
         {
@@ -66,12 +66,6 @@
             "repo": "current",
             "file": "packages/admin/src/Filament/Components/Forms/PageSelect.php",
             "actions": ["HintEditAction"],
-            "reasons": ["custom action maker"]
-        },
-        {
-            "repo": "current",
-            "file": "packages/admin/src/Filament/Components/Forms/RepeaterTabs.php",
-            "actions": ["Action"],
             "reasons": ["custom action maker"]
         },
         {
@@ -203,19 +197,19 @@
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/Pages/Extensions/Tables/ExtensionsTable.php",
-            "actions": ["Action"],
+            "actions": [
+                "Action",
+                "DeleteExtensionAction",
+                "EnableExtensionAction",
+                "InstallExtensionAction",
+                "UninstallExtensionAction"
+            ],
             "reasons": ["custom action maker"]
         },
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/Pages/ExtensionsPage.php",
             "actions": ["Action"],
-            "reasons": ["custom action maker"]
-        },
-        {
-            "repo": "current",
-            "file": "packages/admin/src/Filament/Resources/Languages/Pages/ManageLanguages.php",
-            "actions": ["ExportTranslationsAction"],
             "reasons": ["custom action maker"]
         },
         {
@@ -233,8 +227,8 @@
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/RelationManagers/AbstractPagesRelationManager.php",
-            "actions": ["Action"],
-            "reasons": ["custom action maker"]
+            "actions": ["Action", "EditAction"],
+            "reasons": ["custom action maker", "custom url()"]
         },
         {
             "repo": "current",
@@ -253,6 +247,16 @@
             "file": "packages/admin/src/Filament/Resources/Blueprints/Pages/ManageBlueprints.php",
             "actions": ["CreateBlueprintAction"],
             "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/Languages/Pages/ManageLanguages.php",
+            "actions": ["CreateAction", "ExportTranslationsAction"],
+            "reasons": [
+                "custom action maker",
+                "custom after()",
+                "custom modalDescription()"
+            ]
         },
         {
             "repo": "current",
@@ -289,6 +293,8 @@
                 "FrontendSourceMapHeaderAction",
                 "PreviewDraftPageHeaderAction",
                 "ReplicatePageAction",
+                "RestorePageAction",
+                "ReviewAiContentHeaderAction",
                 "RevisionsHeaderAction"
             ],
             "reasons": ["custom action maker"]
@@ -303,15 +309,27 @@
             "repo": "current",
             "file": "packages/admin/src/Filament/Resources/Pages/Tables/PagesTable.php",
             "actions": [
+                "Action",
                 "BulkMovePagesBulkAction",
                 "BulkPublishPagesBulkAction",
                 "BulkRevertToDraftBulkAction",
                 "BulkSchedulePagesBulkAction",
+                "DeleteAction",
+                "DeleteBulkAction",
+                "EditAction",
                 "ExportPagesBulkAction",
+                "ForceDeleteBulkAction",
                 "ReplicatePageAction",
+                "RestorePageBulkAction",
                 "VisitUrlAction"
             ],
-            "reasons": ["custom action maker"]
+            "reasons": [
+                "custom action maker",
+                "custom after()",
+                "custom before()",
+                "custom modalContent()",
+                "custom url()"
+            ]
         },
         {
             "repo": "current",
@@ -328,8 +346,13 @@
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/Resources/PageUrls/Tables/PageUrlsTable.php",
-            "actions": ["Action"],
-            "reasons": ["custom action maker"]
+            "actions": ["Action", "EditAction", "ReplicateAction"],
+            "reasons": [
+                "custom action maker",
+                "custom modalDescription()",
+                "custom modalHeading()",
+                "custom schema()"
+            ]
         },
         {
             "repo": "current",
@@ -355,10 +378,16 @@
             "actions": [
                 "Action",
                 "CreateSiteAction",
+                "DeleteAction",
                 "ManageSitePermissionsAction",
-                "ReplicateSiteAction"
+                "ReplicateSiteAction",
+                "RestoreAction"
             ],
-            "reasons": ["custom action maker"]
+            "reasons": [
+                "custom action maker",
+                "custom modalDescription()",
+                "custom using()"
+            ]
         },
         {
             "repo": "current",
@@ -369,8 +398,20 @@
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/Resources/Sites/Tables/SitesTable.php",
-            "actions": ["ExportSitesBulkAction", "ReplicateSiteAction"],
-            "reasons": ["custom action maker"]
+            "actions": [
+                "Action",
+                "DeleteAction",
+                "DeleteBulkAction",
+                "ExportSitesBulkAction",
+                "ReplicateSiteAction",
+                "RestoreAction",
+                "RestoreBulkAction"
+            ],
+            "reasons": [
+                "custom action maker",
+                "custom modalDescription()",
+                "custom using()"
+            ]
         },
         {
             "repo": "current",
@@ -387,14 +428,19 @@
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/Resources/Themes/Tables/ThemesTable.php",
-            "actions": ["Action"],
-            "reasons": ["custom action maker"]
+            "actions": [
+                "Action",
+                "DeleteAction",
+                "DeleteBulkAction",
+                "EditAction"
+            ],
+            "reasons": ["custom action maker", "custom before()"]
         },
         {
             "repo": "current",
             "file": "packages/admin/src/Filament/Widgets/Dashboard/ListPagesFilamentWidget.php",
-            "actions": ["Action"],
-            "reasons": ["custom action maker"]
+            "actions": ["Action", "EditAction"],
+            "reasons": ["custom action maker", "custom url()"]
         },
         {
             "repo": "current",

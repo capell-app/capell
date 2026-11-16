@@ -12,6 +12,7 @@ use Capell\Frontend\Actions\ResolveFrontendDependencyPlanAction;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
+use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Illuminate\Console\Command;
 
 use function Laravel\Prompts\confirm;
@@ -87,6 +88,13 @@ final class AfterInstallCommand extends Command
         $this->line('- Published assets: package-owned public/vendor files remain outside Vite');
         $this->line('- Build command: ' . implode(' ', $buildCommand));
         $this->line('- Vite input integration: ' . ($viteIntegrated ? 'present' : 'missing'));
+
+        $vitePlugins = resolve(FrontendVitePluginRegistry::class)->modules();
+
+        if ($vitePlugins !== []) {
+            $pluginsIntegrated = resolve(PrepareFrontendInstallationAction::class)->vitePluginHelperIsIntegrated();
+            $this->line('- Vite plugins: ' . implode(', ', $vitePlugins) . ($pluginsIntegrated ? '' : ' (capellVitePlugins() will be added to the Vite configuration)'));
+        }
 
         if (! $viteIntegrated) {
             $this->warn('Add this exact Vite integration:');

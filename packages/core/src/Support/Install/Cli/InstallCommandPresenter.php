@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install\Cli;
 
 use Capell\Core\Actions\Install\BuildInstallSummaryLinesAction;
+use Capell\Core\Actions\Install\DescribeInstallFirstPageStatusAction;
 use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallStoppedStepData;
 use Capell\Core\Support\Install\InstallRunState;
@@ -70,7 +71,7 @@ final class InstallCommandPresenter
         $components->twoColumnDetail('Doctor', $handoff->outcomes['doctor']);
         $components->twoColumnDetail('Admin URL', $handoff->urls['admin'] ?? 'Unavailable');
         $components->twoColumnDetail('Public URL', $handoff->urls['public']);
-        $components->twoColumnDetail('First page', $handoff->firstPage['status']);
+        $components->twoColumnDetail('First page', DescribeInstallFirstPageStatusAction::run($handoff->firstPage['status'], $handoff->urls['admin'] !== null));
         $components->twoColumnDetail('Warnings', (string) ($handoff->warningCount ?? count($handoff->warnings)));
 
         if ($handoff->warnings !== []) {

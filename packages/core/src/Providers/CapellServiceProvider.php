@@ -8,6 +8,7 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Actions\HostMonitor\RecordHostSampleAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
@@ -70,15 +71,19 @@ use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Capabilities\FormCatalogue;
+use Capell\Core\Contracts\Capabilities\LayoutWidgetHost;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Contracts\Health\HostMetricsSource;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
+use Capell\Core\Contracts\Privacy\PrivacyReviewLedger;
+use Capell\Core\Contracts\Privacy\PrivacyReviewResolutions;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\RedirectResolver;
@@ -106,12 +111,14 @@ use Capell\Core\EventSourcing\Contracts\PageStateContributor;
 use Capell\Core\EventSourcing\Contributors\AiProvenancePageStateContributor;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
+use Capell\Core\Http\Middleware\DeprecatedHttpSurface;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
+use Capell\Core\Listeners\RebuildPackageCacheAfterPackageDiscovery;
 use Capell\Core\Listeners\RecordSitePublishedOnHomePagePublication;
 use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
@@ -173,11 +180,14 @@ use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\SchedulerHeartbeat;
+use Capell\Core\Support\Extensions\Deprecations;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\HostMonitor\LocalHostMetricsSource;
+use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Http\DnsHostAddressResolver;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
@@ -220,7 +230,9 @@ use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Privacy\DefaultConsentDecisionProvider;
+use Capell\Core\Support\Privacy\EmptyPrivacyReviewLedger;
 use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
+use Capell\Core\Support\Privacy\UnresolvedPrivacyReviewResolutions;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
@@ -280,6 +292,10 @@ use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Composer\InstalledVersions;
+use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -389,6 +405,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             return;
         }
 
+        Event::listen(CommandFinished::class, RebuildPackageCacheAfterPackageDiscovery::class);
+
         $package->hasCommands([
             AgentSchemaVerifyCommand::class,
             AuditSiteDomainOriginsCommand::class,
@@ -466,6 +484,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerBackupPruneSchedule()
             ->registerSecurityScanSchedule()
             ->registerSchedulerHeartbeat()
+            ->registerHostMonitor()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
             ->registerComponentTypes()
@@ -477,6 +496,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerContentGraphExtractors()
             ->registerThemeRuntime()
             ->registerMultiNodeUploadGuard()
+            ->registerDeprecatedHttpSurfaceMiddleware()
             ->registerPublicReadResponseCaching()
             ->registerOptimization()
             ->registerLockdownStore()
@@ -671,6 +691,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         });
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->singleton(ExtensionOrderingAudit::class);
+        $this->app->singleton(Deprecations::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, BootsExtensionContributionReceiptContext::class);
 
@@ -694,6 +715,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         // Optional packages provide Core capability contracts while booting; consumers resolve them by interface.
         $this->app->singleton(CapabilityRegistry::class);
         $this->app->bind(FormCatalogue::class, static fn (Application $app): FormCatalogue => $app->make(CapabilityRegistry::class)->get(FormCatalogue::class));
+        $this->app->bind(LayoutWidgetHost::class, static fn (Application $app): LayoutWidgetHost => $app->make(CapabilityRegistry::class)->get(LayoutWidgetHost::class));
         $this->app->bindIf(SecurityWeaknessAnalyser::class, NullSecurityWeaknessAnalyser::class);
         $this->app->tag([DebugEnabledCheck::class, UrlNotHttpsCheck::class, KeyMissingCheck::class,
             InsecureCookieCheck::class, InstallerEnabledCheck::class, SecurityAdvisoryCheck::class,
@@ -728,6 +750,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         ));
         $this->app->singleton(PublicationReadinessRegistry::class, fn ($app): PublicationReadinessRegistry => new PublicationReadinessRegistry($app));
         $this->app->singleton(PrivacySubjectRegistry::class, fn ($app): PrivacySubjectRegistry => new PrivacySubjectRegistry($app));
+        $this->app->bindIf(PrivacyReviewResolutions::class, UnresolvedPrivacyReviewResolutions::class);
+        $this->app->bindIf(PrivacyReviewLedger::class, EmptyPrivacyReviewLedger::class);
         $this->app->singleton(HealthCheckRegistry::class);
         $this->callAfterResolving(HealthCheckRegistry::class, function (HealthCheckRegistry $registry): void {
             $path = config('capell.health.disk.path');
@@ -1035,6 +1059,31 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    private function registerHostMonitor(): self
+    {
+        $this->app->singleton(SchedulerRunRecorder::class);
+        $this->app->tag([SchedulerRunRecorder::class], Resettable::TAG);
+        $this->app->bind(HostMetricsSource::class, LocalHostMetricsSource::class);
+
+        Event::listen(ScheduledTaskStarting::class, static function (): void {
+            resolve(SchedulerRunRecorder::class)->starting();
+        });
+        Event::listen(ScheduledTaskFinished::class, [SchedulerRunRecorder::class, 'finished']);
+        Event::listen(ScheduledTaskFailed::class, [SchedulerRunRecorder::class, 'failed']);
+
+        // A closure, not a command: a command would start another PHP process every minute,
+        // which is the cost this monitor exists to expose.
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->call(static function (): void {
+                resolve(RecordHostSampleAction::class)->handle();
+            })
+                ->name('capell:host-monitor-sample')
+                ->everyMinute();
+        });
+
+        return $this;
+    }
+
     private function registerSecurityScanSchedule(): self
     {
         if (config('capell.multi_node', false) === true) {
@@ -1173,6 +1222,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->callAfterResolving(Router::class, function (Router $router): void {
             $this->registerThemePreviewMiddleware($router);
+        });
+
+        return $this;
+    }
+
+    private function registerDeprecatedHttpSurfaceMiddleware(): self
+    {
+        $this->callAfterResolving(Router::class, static function (Router $router): void {
+            $router->aliasMiddleware(DeprecatedHttpSurface::ALIAS, DeprecatedHttpSurface::class);
         });
 
         return $this;

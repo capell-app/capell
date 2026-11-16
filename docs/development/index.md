@@ -87,6 +87,7 @@ Optional-package commands such as `capell:static-site` and `capell:xml-sitemap` 
 | Understand page revisions and rollback  | [Page event history](page-event-history.md)                     |
 | Add settings migrations                 | [Settings migrations](settings-migrations.md)                   |
 | Work with public page API output        | [Public page API](public-page-api.md)                           |
+| Maintain first-party packages           | [First-party package maintenance](first-party-package-maintenance.md) |
 | Understand CI and Pest shards           | [CI and test shards](ci.md)                                     |
 | Measure Blade view test coverage        | [Blade view coverage](blade-view-coverage.md)                   |
 | Look up config keys and env vars        | [Configuration reference](configuration.md)                     |

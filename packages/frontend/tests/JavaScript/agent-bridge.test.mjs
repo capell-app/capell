@@ -19,6 +19,7 @@ function fixture({
     confirmResult = true,
     formPrevented = false,
     confirmationMessage = 'Submit this form?',
+    fragments = {},
     formProperties = {
         email: { type: 'string', maxLength: 200 },
         message: { type: 'string', maxLength: 500 },
@@ -125,6 +126,7 @@ function fixture({
             }
         },
         getElementById(id) {
+            if (Object.hasOwn(fragments, id)) return fragments[id]
             return formExists && id === 'contact-form' ? form : null
         },
     }
@@ -452,4 +454,93 @@ test('selects one member of a radio group and rejects unknown choices', async ()
     assert.equal(form.submissions, 1)
     await assert.rejects(form.registered[2].execute({ contact: 'unknown' }))
     assert.equal(form.submissions, 1)
+})
+
+const postsIsland = (posts, overrides = {}) => ({
+    tagName: 'SCRIPT',
+    type: 'application/json',
+    textContent: JSON.stringify(posts),
+    ...overrides,
+})
+const fragmentTool = (overrides = {}) => ({
+    name: 'social-feeds.list',
+    description: 'List the social posts shown on this page',
+    effect: 'read',
+    binding: { type: 'fragment', target: 'capell-social-feed-posts' },
+    inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+    },
+    ...overrides,
+})
+
+test('reads a fragment island at call time without a request', async () => {
+    const posts = [{ text: 'Hello', permalink: 'https://social.example/p' }]
+    const island = postsIsland(posts)
+    const harness = fixture({
+        fragments: { 'capell-social-feed-posts': island },
+    })
+    harness.addManifest({ capellAgentSchema: 1, tools: [fragmentTool()] })
+    const tool = harness.registered.find((t) => t.name === 'social-feeds.list')
+
+    assert.ok(tool)
+    assert.deepEqual(
+        JSON.parse((await tool.execute({})).content[0].text),
+        posts,
+    )
+    island.textContent = JSON.stringify([{ text: 'Updated' }])
+    assert.deepEqual(JSON.parse((await tool.execute({})).content[0].text), [
+        { text: 'Updated' },
+    ])
+    assert.equal(harness.requests.length, 0)
+})
+
+test('refuses fragment tools that write, lack an island or point at non-JSON markup', () => {
+    const harness = fixture({
+        fragments: {
+            'capell-social-feed-posts': postsIsland([]),
+            'capell-executable': postsIsland([], { type: 'text/javascript' }),
+            'capell-markup': { tagName: 'DIV', textContent: '[]' },
+        },
+    })
+    harness.addManifest({
+        capellAgentSchema: 1,
+        tools: [
+            fragmentTool({ name: 'social-feeds.write', effect: 'write' }),
+            fragmentTool({
+                name: 'missing.list',
+                binding: { type: 'fragment', target: 'capell-missing' },
+            }),
+            fragmentTool({
+                name: 'script.list',
+                binding: { type: 'fragment', target: 'capell-executable' },
+            }),
+            fragmentTool({
+                name: 'markup.list',
+                binding: { type: 'fragment', target: 'capell-markup' },
+            }),
+            fragmentTool({
+                name: 'selector.list',
+                binding: { type: 'fragment', target: '#posts' },
+            }),
+        ],
+    })
+
+    assert.deepEqual(
+        harness.registered
+            .map((t) => t.name)
+            .filter((n) => !['page.get', 'site.pages.query'].includes(n)),
+        [],
+    )
+})
+
+test('fails closed when a fragment island is removed after registration', async () => {
+    const fragments = { 'capell-social-feed-posts': postsIsland([]) }
+    const harness = fixture({ fragments })
+    harness.addManifest({ capellAgentSchema: 1, tools: [fragmentTool()] })
+    const tool = harness.registered.find((t) => t.name === 'social-feeds.list')
+    delete fragments['capell-social-feed-posts']
+
+    await assert.rejects(tool.execute({}), /no longer available/)
 })

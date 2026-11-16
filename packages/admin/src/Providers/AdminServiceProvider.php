@@ -38,6 +38,7 @@ use Capell\Admin\Contracts\Dashboard\RecentlyPublishedDataProvider;
 use Capell\Admin\Contracts\Dashboard\SiteStatsDataProvider;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
+use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidget;
 use Capell\Admin\Contracts\EnumPresentationContributor;
 use Capell\Admin\Contracts\Extenders\PageAuthoringValidator;
@@ -102,6 +103,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\FirstRunChecklistFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\HostLoadAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
@@ -124,11 +126,11 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilame
 use Capell\Admin\Http\Middleware\AuthorisePeekPreview;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
+use Capell\Admin\Listeners\GrantPanelAccessToInstallUser;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Listeners\RevokePendingInvitation;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
-use Capell\Admin\Livewire\Header\ClearCacheButton;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
 use Capell\Admin\Macros\Database\BuilderMacros;
@@ -148,6 +150,7 @@ use Capell\Admin\Observers\PageObserver as AdminPageObserver;
 use Capell\Admin\Policies\ActivityPolicy;
 use Capell\Admin\Policies\BlockTemplatePolicy;
 use Capell\Admin\Policies\BlueprintPolicy;
+use Capell\Admin\Policies\InboundWebhookEventPolicy;
 use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\MediaPolicy;
@@ -164,7 +167,6 @@ use Capell\Admin\Support\Activity\AdminActivitySettingsReader;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Admin\Support\AdminEventRegistry;
 use Capell\Admin\Support\AdminEventRouter;
-use Capell\Admin\Support\AdminHelpRegistry;
 use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
@@ -183,7 +185,6 @@ use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
 use Capell\Admin\Support\Cache\UnavailableStaticSiteGenerationDispatcher;
 use Capell\Admin\Support\CapellAdminManager;
 use Capell\Admin\Support\ContentGraph\SharedDeleteImpact;
-use Capell\Admin\Support\CoreAdminHelpEntries;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
 use Capell\Admin\Support\Dashboard\DefaultDashboardAnalyticsDataProvider;
@@ -201,9 +202,11 @@ use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
 use Capell\Admin\Support\Diagnostics\Checks\AdminRouteOwnershipCheck;
 use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
+use Capell\Admin\Support\Diagnostics\HostLoadSiteHealthReportExtender;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
 use Capell\Admin\Support\Enums\CoreEnumPresentationContributor;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
+use Capell\Admin\Support\Extensions\AdminContributionReceiptPreparer;
 use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
 use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
@@ -231,7 +234,8 @@ use Capell\Admin\Support\Media\AdminUploadGrantRepository;
 use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
-use Capell\Admin\Support\Navigation\WorkspaceNavigation;
+use Capell\Admin\Support\Navigation\AdminNavigationOrganiser;
+use Capell\Admin\Support\Navigation\NavigationGroupResolver;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
@@ -261,18 +265,21 @@ use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
 use Capell\Core\Contracts\DoctorCheck;
+use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
+use Capell\Core\Events\InstallUserCreated;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\ExtensionHealthAlert;
+use Capell\Core\Models\InboundWebhookEvent;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
@@ -295,7 +302,6 @@ use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Closure;
-use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
 use Filament\Facades\Filament;
@@ -361,9 +367,6 @@ use Throwable;
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
     public const string CSS_LAYER_ORDER_ASSET_ID = 'admin-layer-order';
-
-    /** The name Livewire generates for the vendor clear-cache component, which earlier pages' snapshots carry. */
-    public const string VENDOR_CLEAR_CACHE_COMPONENT = 'cms-multi.filament-clear-cache.http.livewire.clear-cache';
 
     public static string $name = 'capell-admin';
 
@@ -436,15 +439,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
-
-        // The vendor clear-cache button checks nothing on the server; Capell's subclass allows only global
-        // administrators. Set before any panel registers the plugin, overriding a host's configuration. The
-        // role key is not read, because the subclass decides visibility itself; it only keeps the vendor
-        // default from admitting everyone should the component ever fall back to the vendor class.
-        config([
-            'filament-clear-cache.livewireComponentClass' => ClearCacheButton::class,
-            'filament-clear-cache.role' => config('capell.roles.super_admin', 'super_admin'),
-        ]);
 
         // Native make() and legacy factories use the container too. The native
         // original-path fallback reads model attributes before its allow callback,
@@ -594,12 +588,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminPermissionSynchronizerContract::class, AdminPermissionSynchronizer::class);
         $this->app->singleton(AdminSchemaExtensionPipeline::class);
         $this->app->singleton(ImportEntryRegistry::class);
-        $this->app->scoped(AdminHelpRegistry::class, function (): AdminHelpRegistry {
-            $registry = new AdminHelpRegistry;
-            CoreAdminHelpEntries::register($registry);
-
-            return $registry;
-        });
 
         $this->app->tag([], PageTableExtender::TAG);
         $this->app->tag([], PageEditExtender::TAG);
@@ -608,6 +596,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->tag([AdminDashboardSettingsContributor::class], DashboardSettingsContributor::TAG);
         $this->app->tag([ExtensionHealthSiteHealthWidget::class], SiteHealthWidget::TAG);
+        $this->app->tag([HostLoadSiteHealthReportExtender::class], SiteHealthReportExtender::TAG);
 
         $this->app->singletonIf(ContentHealthDataProvider::class, NullContentHealthDataProvider::class);
         $this->app->singletonIf(DashboardAnalyticsDataProvider::class, DefaultDashboardAnalyticsDataProvider::class);
@@ -635,7 +624,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // can replace it. Admin never names the replacement; the bridge does.
         $this->app->bind(ExtensionRemovalCoordinator::class, InRequestExtensionRemovalCoordinator::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
-        $this->app->scoped(WorkspaceNavigation::class);
+        $this->app->scoped(NavigationGroupResolver::class);
+        $this->app->scoped(AdminNavigationOrganiser::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
         $this->app->scoped(MediaDuplicateIndex::class);
@@ -663,6 +653,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         });
 
         $this->registerNotificationGroups();
+
+        $this->app->tag([AdminContributionReceiptPreparer::class], PreparesExtensionContributionReceipts::TAG);
 
         $this->app->singleton(
             AdminRuntimeActivator::class,
@@ -797,12 +789,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootInstalledPackage(): self
     {
-        FilamentClearCache::addCommand('capell:admin-clear-cache');
-        // Pages rendered before Capell guarded the button carry snapshots under the vendor component's
-        // generated name, and Livewire would resolve that name to the unguarded vendor class. A registered
-        // name wins, so replayed snapshots reach the guarded button.
-        Livewire::component(self::VENDOR_CLEAR_CACHE_COMPONENT, ClearCacheButton::class);
-
         return $this
             ->registerAboutInfo()
             ->registerWidgetComponents()
@@ -814,6 +800,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerModelInterceptors()
             ->registerPageUrlRewritePrompt()
             ->registerInvitationRevocation()
+            ->registerInstallUserPanelAccess()
             ->registerExtensionNavigationBadgeInvalidation()
             ->registerActAsOwnerAuditing()
             ->registerEventSourcingBridges()
@@ -1253,6 +1240,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $widgets = [
             DashboardEnum::Main->value => [
                 SecurityAttentionFilamentWidget::class,
+                HostLoadAttentionFilamentWidget::class,
                 SiteStatsOverviewFilamentWidget::class,
                 AnalyticsOverviewFilamentWidget::class,
                 AnalyticsTrendFilamentWidget::class,
@@ -1450,6 +1438,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             Site::class => SitePolicy::class,
             Blueprint::class => BlueprintPolicy::class,
             Language::class => LanguagePolicy::class,
+            InboundWebhookEvent::class => InboundWebhookEventPolicy::class,
             Theme::class => ThemePolicy::class,
             SiteDomain::class => SiteDomainPolicy::class,
         ];
@@ -1514,6 +1503,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     private function registerPageUrlRewritePrompt(): self
     {
         Event::listen(PageUrlsRewritten::class, [RememberPageUrlRewriteForPrompt::class, 'handle']);
+
+        return $this;
+    }
+
+    private function registerInstallUserPanelAccess(): self
+    {
+        Event::listen(InstallUserCreated::class, [GrantPanelAccessToInstallUser::class, 'handle']);
 
         return $this;
     }
@@ -1638,7 +1634,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 group: $group,
                 label: $settings['label'],
                 icon: $settings['icon'],
-                navigationGroup: 'capell-admin::navigation.group_settings',
+                navigationGroup: 'settings',
                 navigationSort: $settings['sort'],
                 packageName: $settings['package'],
             ));

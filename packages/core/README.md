@@ -105,7 +105,6 @@ vendor/bin/pest tests/Arch tests/Unit/Manifest
 | Laravel                    | `^13.0`                                                        |
 | Filament support           | `^5.7.6`                                                       |
 | Symfony filesystem/process | `^7.2` or `^8.0`                                               |
-| Symfony HTML sanitizer     | `^7.0` or `^8.0`                                               |
 | Runtime                    | PHP-FPM; Laravel Octane with Swoole, RoadRunner, or FrankenPHP |
 
 Each Capell 1.x minor receives security fixes for at least 24 months from its release date. The latest 1.x minor remains supported while 1.x is current and for at least 12 months after the next major release. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.

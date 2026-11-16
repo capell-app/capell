@@ -10,7 +10,9 @@ use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Core\Actions\Permissions\ResolveDeclaredPermissionsAction;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Data\Permissions\PermissionSetData;
 use Capell\Core\Facades\CapellCore;
 use Filament\Facades\Filament;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -24,6 +26,12 @@ class SyncCapellPermissionsAction
 
     public function handle(PermissionSyncMode $mode = PermissionSyncMode::Install): void
     {
+        $declared = ResolveDeclaredPermissionsAction::run();
+        $declaredKeys = array_values(array_unique(array_merge(...array_map(
+            static fn (PermissionSetData $set): array => $set->keys(),
+            array_values($declared),
+        ))));
+
         AssignPermissionsToRole::run(
             resources: array_merge(
                 ResourceEnum::cases(),
@@ -35,6 +43,9 @@ class SyncCapellPermissionsAction
             permissions: array_values(CapellCore::getPackages(withoutCore: false)
                 ->filter(fn (PackageData $package): bool => CapellCore::isPackageEnabled($package->name))
                 ->flatMap(fn (PackageData $package): array => $package->manifest->permissions ?? $package->permissions)
+                ->merge($declaredKeys)
+                ->unique()
+                ->values()
                 ->all()),
         );
 
@@ -52,6 +63,8 @@ class SyncCapellPermissionsAction
             GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
             SeedRolePresetRolesAction::run(syncExisting: false);
         }
+
+        GrantDeclaredPermissionRolesAction::run($declared);
 
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }

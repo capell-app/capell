@@ -1,0 +1,4 @@
+{
+    "description": "Ed25519 public keys of the Capell Marketplace issuer. Production runtimes trust only these keys for installed receipts and the commercial catalogue. Public halves only.",
+    "keys": {}
+}

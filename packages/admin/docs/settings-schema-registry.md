@@ -48,7 +48,7 @@ private function registerSettingsSchemas(): self
         group: 'yourgroup',
         label: 'your-package::settings.title',
         icon: Heroicon::OutlinedCog6Tooth,
-        navigationGroup: 'capell-admin::navigation.group_system',
+        navigationGroup: 'settings',
         packageName: 'capell-app/your-package',
     ));
 

@@ -107,6 +107,91 @@ BASH);
     rmdir($temporary);
 });
 
+/**
+ * A fake Composer whose `analyze` and `test:preflight` each wait for the other to have started, so a
+ * sequential runner can never satisfy both: the proof of overlap is the rendezvous, not a timing.
+ *
+ * @return array{directory: string, composer: string, log: string}
+ */
+function preflightRendezvousComposer(): array
+{
+    $directory = sys_get_temp_dir() . '/capell-preflight-overlap-' . bin2hex(random_bytes(6));
+    mkdir($directory, recursive: true);
+    $composer = $directory . '/composer';
+    file_put_contents($composer, <<<'BASH'
+#!/usr/bin/env bash
+echo "$1" >> "$CAPELL_PREFLIGHT_TEST_LOG"
+case "$1" in
+    analyze) mine=analyze; other=test:preflight ;;
+    test:preflight) mine=test:preflight; other=analyze ;;
+    *) exit 0 ;;
+esac
+touch "$CAPELL_PREFLIGHT_TEST_DIR/started.$mine"
+if [ "${CAPELL_PREFLIGHT_TEST_RENDEZVOUS:-0}" = 1 ]; then
+    for _ in $(seq 1 300); do
+        [ -e "$CAPELL_PREFLIGHT_TEST_DIR/started.$other" ] && exit 0
+        sleep 0.1
+    done
+    echo "$mine never saw $other start" >&2
+    exit 9
+fi
+BASH);
+    chmod($composer, 0755);
+
+    return ['directory' => $directory, 'composer' => $composer, 'log' => $directory . '/calls.log'];
+}
+
+function runPreflightRendezvous(array $fixture, array $arguments, array $environment = []): Process
+{
+    $process = new Process(
+        [PHP_BINARY, dirname(__DIR__, 2) . '/scripts/run-preflight.php', ...$arguments],
+        dirname(__DIR__, 2),
+        $environment + [
+            'COMPOSER_BINARY' => $fixture['composer'],
+            'CAPELL_PREFLIGHT_TEST_LOG' => $fixture['log'],
+            'CAPELL_PREFLIGHT_TEST_DIR' => $fixture['directory'],
+        ],
+    );
+    // Hang ceiling only: a busy host must slow this down, never fail it.
+    $process->setTimeout(300);
+    $process->run();
+
+    return $process;
+}
+
+it('runs the quick preflight tests beside the static analysis and reports every stage in order', function (): void {
+    $fixture = preflightRendezvousComposer();
+
+    try {
+        $process = runPreflightRendezvous($fixture, ['phpstan', 'tests'], ['CAPELL_PREFLIGHT_TEST_RENDEZVOUS' => '1']);
+
+        expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())
+            ->and(file($fixture['log'], FILE_IGNORE_NEW_LINES))->toEqualCanonicalizing(['analyze', 'test:preflight'])
+            ->and($process->getOutput())->toContain('PASS phpstan')->toContain('PASS tests')
+            ->and(strpos($process->getOutput(), 'PASS phpstan'))->toBeLessThan(strpos($process->getOutput(), 'PASS tests'));
+    } finally {
+        array_map(unlink(...), glob($fixture['directory'] . '/{*,.[!.]*}', GLOB_BRACE) ?: []);
+        rmdir($fixture['directory']);
+    }
+});
+
+it('keeps the preflight stages one after another when asked or when it would rewrite files', function (array $arguments, array $environment): void {
+    $fixture = preflightRendezvousComposer();
+
+    try {
+        $process = runPreflightRendezvous($fixture, $arguments, $environment);
+
+        expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput())
+            ->and(file($fixture['log'], FILE_IGNORE_NEW_LINES))->toBe(['analyze', 'test:preflight']);
+    } finally {
+        array_map(unlink(...), glob($fixture['directory'] . '/{*,.[!.]*}', GLOB_BRACE) ?: []);
+        rmdir($fixture['directory']);
+    }
+})->with([
+    'serial switch' => [['phpstan', 'tests'], ['CAPELL_PREFLIGHT_SERIAL' => '1']],
+    'full preflight' => [['--all', 'phpstan', 'tests'], []],
+]);
+
 it('can stop after the first failed preflight gate for focused iteration', function (): void {
     $root = dirname(__DIR__, 2);
     $temporary = sys_get_temp_dir() . '/capell-preflight-runner-' . bin2hex(random_bytes(6));

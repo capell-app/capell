@@ -15,7 +15,6 @@ use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
-use CmsMulti\FilamentClearCache\FilamentClearCacheServiceProvider;
 use CodeWithDennis\FilamentSelectTree\FilamentSelectTreeServiceProvider;
 use Composer\InstalledVersions;
 use Filament\Actions\ActionsServiceProvider;
@@ -240,7 +239,6 @@ final class BootProfiles
             FilamentAdjacencyListServiceProvider::class,
             FilamentShieldServiceProvider::class,
             FilamentSelectTreeServiceProvider::class,
-            FilamentClearCacheServiceProvider::class,
             FilamentPeekServiceProvider::class,
             FilamentImpersonateServiceProvider::class,
             IconPickerServiceProvider::class,

@@ -7,10 +7,13 @@ namespace Capell\Frontend\Actions;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
+use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Assets\ViteConfigurationLocator;
+use Capell\Frontend\Support\Assets\ViteConfigurationScanner;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 use stdClass;
 
 final class PrepareFrontendInstallationAction
@@ -23,6 +26,17 @@ final class PrepareFrontendInstallationAction
     public function handle(?FrontendDependencyPlanData $plan = null, ?ProgressReporter $reporter = null): void
     {
         throw_unless($this->viteInputHelperIsIntegrated(), FrontendResourcePlanException::class, 'Capell Vite inputs are not integrated. Add the Capell Vite input helper before preparing frontend assets.');
+
+        // An application integrated before a package needed a Vite plugin gets the plugin helper now,
+        // before anything is written, so a configuration that cannot be edited changes nothing.
+        if (! $this->vitePluginHelperIsIntegrated()) {
+            try {
+                IntegrateViteInputsAction::run();
+            } catch (RuntimeException $runtimeException) {
+                throw new FrontendResourcePlanException($runtimeException->getMessage(), $runtimeException->getCode(), previous: $runtimeException);
+            }
+        }
+
         $plan ??= ResolveFrontendDependencyPlanAction::run();
         $path = base_path('package.json');
         $package = json_decode($this->files->get($path), flags: JSON_THROW_ON_ERROR);
@@ -52,6 +66,7 @@ final class PrepareFrontendInstallationAction
         $written = $this->files->put($path, json_encode($package, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
         throw_if($written === false, FrontendResourcePlanException::class, 'Unable to write application package.json. Check install-time file permissions.');
         WriteViteInputManifestAction::run(GenerateTailwindAssetsAction::run());
+
         $reporter?->report(sprintf('Frontend assets prepared. Before opening Admin or the public page, run %s install and %s run build.', $plan->manager->value, $plan->manager->value));
     }
 
@@ -65,5 +80,17 @@ final class PrepareFrontendInstallationAction
         $config = $this->files->get($path);
 
         return str_contains($config, 'capellViteInputs') && str_contains($config, 'capell-vite-inputs.js');
+    }
+
+    /** True when no package needs a Vite plugin, or the configuration already loads them. */
+    public function vitePluginHelperIsIntegrated(): bool
+    {
+        if (resolve(FrontendVitePluginRegistry::class)->all() === []) {
+            return true;
+        }
+
+        $path = new ViteConfigurationLocator($this->files)->find();
+
+        return $path !== null && preg_match('/\bcapellVitePlugins\s*\(/', ViteConfigurationScanner::code($this->files->get($path))) === 1;
     }
 }

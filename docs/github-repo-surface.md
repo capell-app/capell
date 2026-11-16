@@ -171,6 +171,10 @@ workflow touched. Pinning fixes that regardless of split timing.
 
 ### 8. Make `capell-app/.github` public and update its profile README
 
+**Done (2026-07-30).** `capell-app/.github` is public and `profile/README.md`
+renders at `github.com/capell-app`. [`docs/org-profile-README.md`](org-profile-README.md)
+mirrors that live file. The steps below are kept as history.
+
 **Correction (2026-07-29): this repo already exists.** An earlier version of
 this doc said `capell-app/.github` needed to be created — that was wrong.
 Verified via `gh api repos/capell-app/.github`:

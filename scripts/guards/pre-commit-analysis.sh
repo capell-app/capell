@@ -13,6 +13,9 @@ fi
 # Match Core's host PHP convention; ./capell is a Docker-only wrapper.
 [ ! -d /opt/homebrew/opt/php@8.4/bin ] || export PATH="/opt/homebrew/opt/php@8.4/bin:$PATH"
 if command -v php >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 && [ -f vendor/phpstan/phpstan/phpstan ]; then
-    exec php scripts/with-lock.php capell-static -- python3 -B scripts/guards/pre-commit-analysis.py "$@"
+    php scripts/with-lock.php capell-static -- python3 -B scripts/guards/pre-commit-analysis.py "$@"
+else
+    ./capell exec php scripts/with-lock.php capell-static -- python3 -B scripts/guards/pre-commit-analysis.py "$@"
 fi
-exec ./capell exec php scripts/with-lock.php capell-static -- python3 -B scripts/guards/pre-commit-analysis.py "$@"
+# Clean: remember the tree so the pre-push analysis can skip this commit.
+scripts/guards/analysed-trees.sh record

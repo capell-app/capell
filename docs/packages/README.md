@@ -199,7 +199,7 @@ Frontend package code must preserve public HTML safety. Anonymous output must no
 | Public widget           | `LayoutWidgetRegistry::register(...)` with `LayoutWidgetTarget::FrontendBlade` or `FrontendLivewire`, when the Layout Builder package is installed. |
 | Package CSS/JS          | `TailwindAssetsRegistry::registerSource(...)` and `registerImport(...)`.                                                                            |
 | Page cache invalidation | `CacheInvalidationRegistry::registerDependency(...)`.                                                                                               |
-| Static-site export hook | `StaticSiteExtensionRegistry::register(...)` when the static export package is installed.                                                           |
+| Static-site export hook | `StaticSiteExtensionRegistry::register(...)` (HTML Cache package) when that package is installed.                                                           |
 
 ## Database And Migrations
 

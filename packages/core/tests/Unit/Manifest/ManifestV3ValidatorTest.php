@@ -16,6 +16,7 @@ use Capell\Core\Contracts\Extensions\RunsScheduledExtensionJob;
 use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
 use Capell\Core\Enums\CapabilityContract;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Manifest\CapellManifestData;
@@ -1333,3 +1334,121 @@ it('runs every registered manifest section validator', function (string $section
     'capability contracts' => ['capabilityContracts', 'capabilityContracts'],
     'privacy' => ['privacy', 'privacy'],
 ]);
+
+it('accepts declared public endpoint throttles that cover every throttled route', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'publicSurface' => ['throttledRoutes' => ['capell-example.submit']],
+        'throttles' => [
+            'capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.submit']],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))->not->toThrow(InvalidManifestException::class);
+});
+
+it('keeps accepting throttled routes from packages that have not declared throttles yet', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = ['publicSurface' => ['throttledRoutes' => ['capell-example.submit']]];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects malformed or incomplete public endpoint throttle declarations', function (array $throttles, string $message): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['security'] = [
+        'publicSurface' => ['throttledRoutes' => ['capell-example.submit']],
+        'throttles' => $throttles,
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $message);
+})->with([
+    'throttled route left uncovered' => [['capell-example-other' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.other']]], 'capell-example.submit'],
+    'purpose outside the naming convention' => [['submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.submit']]], 'security.throttles.submit'],
+    'zero attempts' => [['capell-example-submit' => ['maxAttempts' => 0, 'decaySeconds' => 60, 'routes' => ['capell-example.submit']]], 'maxAttempts'],
+    'string window' => [['capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => '60', 'routes' => ['capell-example.submit']]], 'decaySeconds'],
+    'missing routes' => [['capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60]], 'routes'],
+    'unknown field' => [['capell-example-submit' => ['maxAttempts' => 5, 'decaySeconds' => 60, 'routes' => ['capell-example.submit'], 'key' => 'email']], 'security.throttles.capell-example-submit.key'],
+    'not an object' => [['capell-example-submit' => 5], 'security.throttles.capell-example-submit'],
+]);
+
+it('declares public endpoint throttles in the manifest v3 json schema', function (): void {
+    $schema = json_decode((string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect(data_get($schema, 'properties.security.properties.throttles.additionalProperties.required'))->toBe(['maxAttempts', 'decaySeconds', 'routes'])
+        ->and(data_get($schema, 'properties.security.properties.throttles.additionalProperties.additionalProperties'))->toBeFalse();
+});
+
+it('accepts and reads package roles, role priority and install metadata', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['roles'] = ['default-theme', 'workflow-final'];
+    $manifest['rolePriority'] = 20;
+    $manifest['install'] = [
+        'tips' => [['variant' => 'blog', 'priority' => 5]],
+        'legacyTables' => [['name' => 'tags', 'configKey' => 'tags.table', 'migration' => 'create_tags_table']],
+    ];
+
+    $data = CapellManifestData::fromArray($manifest);
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class)
+        ->and($data->roles)->toBe([PackageRole::DefaultTheme, PackageRole::WorkflowFinal])
+        ->and($data->rolePriority)->toBe(20)
+        ->and($data->installTips[0]->variant)->toBe('blog')
+        ->and($data->installTips[0]->priority)->toBe(5)
+        ->and($data->legacyTables[0]->configKey)->toBe('tags.table')
+        ->and($data->toArray())->toMatchArray([
+            'roles' => ['default-theme', 'workflow-final'],
+            'rolePriority' => 20,
+            'install' => $manifest['install'],
+        ]);
+});
+
+it('leaves roles and install metadata empty and out of the output when a manifest declares none', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+
+    $data = CapellManifestData::fromArray($manifest);
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class)
+        ->and($data->roles)->toBe([])
+        ->and($data->rolePriority)->toBe(0)
+        ->and($data->installTips)->toBe([])
+        ->and($data->legacyTables)->toBe([])
+        ->and($data->toArray())->not->toHaveKeys(['roles', 'rolePriority', 'install']);
+});
+
+it('rejects invalid role and install declarations', function (array $fields, string $field): void {
+    $manifest = [...manifestV3Fixture('valid-premium-package'), ...$fields];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, $field);
+})->with([
+    'roles as a string' => [['roles' => 'default-theme'], 'roles'],
+    'an unknown role' => [['roles' => ['made-up']], 'roles'],
+    'a non-string role' => [['roles' => [1]], 'roles'],
+    'a non-integer priority' => [['rolePriority' => '5'], 'rolePriority'],
+    'install as a list' => [['install' => ['tips']], 'install'],
+    'an unknown install field' => [['install' => ['hints' => []]], 'install.hints'],
+    'tips as an object' => [['install' => ['tips' => ['variant' => 'blog']]], 'install.tips'],
+    'a tip without a priority' => [['install' => ['tips' => [['variant' => 'blog']]]], 'install.tips.0.priority'],
+    'a tip with a string priority' => [['install' => ['tips' => [['variant' => 'blog', 'priority' => '1']]]], 'install.tips.0.priority'],
+    'a tip with an empty variant' => [['install' => ['tips' => [['variant' => '', 'priority' => 1]]]], 'install.tips.0.variant'],
+    'a tip with an unknown field' => [['install' => ['tips' => [['variant' => 'a', 'priority' => 1, 'x' => 1]]]], 'install.tips.0.x'],
+    'a legacy table without a migration' => [['install' => ['legacyTables' => [['name' => 'tags', 'configKey' => 'tags.table']]]], 'install.legacyTables.0.migration'],
+    'a legacy table that is a list' => [['install' => ['legacyTables' => [['tags']]]], 'install.legacyTables.0'],
+]);
+
+it('declares roles and install metadata in the manifest v3 json schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.roles.items.enum'))->toBe(PackageRole::values())
+        ->and(data_get($schema, 'properties.rolePriority.type'))->toBe('integer')
+        ->and(data_get($schema, 'properties.install.properties.tips.items.required'))->toBe(['variant', 'priority'])
+        ->and(data_get($schema, 'properties.install.properties.legacyTables.items.required'))->toBe(['name', 'configKey', 'migration']);
+});

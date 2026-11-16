@@ -57,6 +57,7 @@ return [
     'capell-frontend.foundation_theme' => 'Public fallback paired with default_layout; classified by the existing combined configuration row.',
     'capell-frontend.tailwind.imports' => 'Public advanced build input; classified for the ranked frontend configuration documentation backlog.',
     'capell-frontend.tailwind.plugins' => 'Public advanced build input; classified for the ranked frontend configuration documentation backlog.',
+    'capell.install.skip_optimize_clear' => 'Internal test isolation seam: harnesses skip optimize:clear because their package manifests are shared; not a supported installer override.',
     'capell-installer.database_table_cache.key' => 'Internal cache namespace, not a supported installer override.',
     'capell-installer.installation_state_cache.host' => 'Internal test isolation seam, not a supported installer override.',
     'capell-installer.installation_state_cache.key' => 'Internal cache namespace, not a supported installer override.',

@@ -71,6 +71,10 @@ jobs:
         run: pipx install pre-commit==4.7.0
       - name: Test content guards
         run: python3 -B tests/Shell/test_content_guards.py
+      - name: Test that the Prettier commit hook covers what CI checks
+        run: python3 -B tests/Shell/test_prettier_hook_coverage.py
+      - name: Test that changed-file Rector runs without PHP_BINARY
+        run: bash tests/Shell/rector-changed-php-binary.sh
       # Commit-time guards can be skipped (--no-verify, or an amend that staged
       # other files); this re-runs them over every file the change touches.
       - name: Check changed files for debugging calls and do-not-commit markers
@@ -201,7 +205,22 @@ jobs:
             phpstan-${{ runner.os }}-${{ hashFiles('composer.lock', 'phpstan.neon', 'phpstan/**/*.neon') }}-
             phpstan-${{ runner.os }}-
 
+      # Pull requests analyse only the PHP they change; merge groups, main pushes and the
+      # nightly schedule keep the whole-project run, so nothing merges unanalysed.
+      - name: Run PHPStan on changed files
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA...HEAD" | grep -E '^(packages|tests)/.+\.php$|^scripts/benchmark-boot.*\.php$' || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No changed PHP files for PHPStan."
+            exit 0
+          fi
+          composer analyze:diff -- "${files[@]}"
+
       - name: Run PHPStan
+        if: github.event_name != 'pull_request'
         run: composer phpstan
 
       # Advisory only (it cannot fail the gate), so it runs on main pushes rather than on every
@@ -226,7 +245,14 @@ jobs:
             rector-${{ runner.os }}-${{ hashFiles('composer.lock', 'rector.php', 'packages/*/rector.php') }}-
             rector-${{ runner.os }}-
 
+      - name: Apply Rector transformations on changed files
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: scripts/rector-changed.sh
+
       - name: Apply Rector transformations
+        if: github.event_name != 'pull_request'
         run: composer rector
 
       - name: Verify Rector left no uncommitted changes

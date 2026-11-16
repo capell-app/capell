@@ -11,11 +11,6 @@ return [
         // Explicit package names, honoured only in the local application environment.
         'local_development' => [],
         'marketplace_instance_id' => env('CAPELL_MARKETPLACE_INSTANCE_ID'),
-        // Trusted issuer key ID => base64 Ed25519 public key; only the Marketplace issuer key,
-        // never the project build key or an installation secret. Provisioning a key switches
-        // on issuer enforcement, so import the signed catalogue in the same step
-        // (capell:marketplace:import-receipts): without it every non-Core package fails closed.
-        'marketplace_receipt_public_keys' => [],
         'verification' => [
             // Leniency applies to local install and enable paths only; Marketplace is always strict.
             'strict' => (bool) env('CAPELL_EXTENSION_VERIFICATION_STRICT', true),
@@ -67,6 +62,48 @@ return [
             'path' => env('CAPELL_HEALTH_DISK_PATH'),
             'minimum_free_bytes' => (int) env('CAPELL_HEALTH_MINIMUM_FREE_BYTES', 1073741824),
             'timeout_seconds' => (int) env('CAPELL_HEALTH_DISK_TIMEOUT_SECONDS', 10),
+        ],
+        // Samples this server once a minute and warns when load, memory, swap or the
+        // scheduler's own CPU use stays high. Notifications are off until switched on.
+        'host' => [
+            'enabled' => (bool) env('CAPELL_HEALTH_HOST_ENABLED', true),
+            // Consecutive samples (one a minute) that must agree before the status changes.
+            'sustained_samples' => (int) env('CAPELL_HEALTH_HOST_SUSTAINED_SAMPLES', 5),
+            'history_samples' => (int) env('CAPELL_HEALTH_HOST_HISTORY_SAMPLES', 60),
+            // Five-minute load average divided by the number of CPU cores.
+            'load' => [
+                'warning_ratio' => (float) env('CAPELL_HEALTH_HOST_LOAD_WARNING', 0.75),
+                'critical_ratio' => (float) env('CAPELL_HEALTH_HOST_LOAD_CRITICAL', 1.5),
+            ],
+            // Percentage of memory still available to programs.
+            'memory' => [
+                'warning_available_percent' => (float) env('CAPELL_HEALTH_HOST_MEMORY_WARNING', 15),
+                'critical_available_percent' => (float) env('CAPELL_HEALTH_HOST_MEMORY_CRITICAL', 7),
+            ],
+            'swap' => [
+                'warning_used_percent' => (float) env('CAPELL_HEALTH_HOST_SWAP_WARNING', 60),
+                'critical_used_percent' => (float) env('CAPELL_HEALTH_HOST_SWAP_CRITICAL', 90),
+            ],
+            // CPU seconds one scheduler run uses, as a share of what the cores can supply in a minute,
+            // and how long a run takes. A run that lasts a minute overlaps the next one.
+            'scheduler' => [
+                'warning_cpu_ratio' => (float) env('CAPELL_HEALTH_HOST_SCHEDULER_CPU_WARNING', 0.3),
+                'critical_cpu_ratio' => (float) env('CAPELL_HEALTH_HOST_SCHEDULER_CPU_CRITICAL', 0.6),
+                'warning_wall_seconds' => (int) env('CAPELL_HEALTH_HOST_SCHEDULER_WALL_WARNING', 50),
+                'critical_wall_seconds' => (int) env('CAPELL_HEALTH_HOST_SCHEDULER_WALL_CRITICAL', 90),
+            ],
+            'notifications' => [
+                'enabled' => (bool) env('CAPELL_HEALTH_HOST_NOTIFY', false),
+                // Any of: mail, webhook.
+                'channels' => array_values(array_filter(array_map(trim(...), explode(',', (string) env('CAPELL_HEALTH_HOST_NOTIFY_CHANNELS', 'mail'))))),
+                'mail_to' => array_values(array_filter(array_map(trim(...), explode(',', (string) env('CAPELL_HEALTH_HOST_NOTIFY_MAIL_TO', ''))))),
+                // Receives a JSON body with a "text" field, which Slack and Mattermost incoming webhooks accept.
+                'webhook_url' => env('CAPELL_HEALTH_HOST_NOTIFY_WEBHOOK_URL'),
+                // The lowest status that sends a message: warning or critical.
+                'minimum_status' => env('CAPELL_HEALTH_HOST_NOTIFY_MINIMUM', 'warning'),
+                'reminder_minutes' => (int) env('CAPELL_HEALTH_HOST_NOTIFY_REMINDER_MINUTES', 360),
+                'notify_on_recovery' => (bool) env('CAPELL_HEALTH_HOST_NOTIFY_RECOVERY', true),
+            ],
         ],
     ],
 
@@ -389,6 +426,9 @@ return [
         'debug_package_selection' => (bool) env('CAPELL_INSTALL_DEBUG_PACKAGE_SELECTION', env('CAPELL_INSTALL_DEBUG', false)),
         'welcome_routes_web_path' => env('CAPELL_INSTALL_WELCOME_ROUTES_WEB_PATH', base_path('routes/web.php')),
         'welcome_env_path' => env('CAPELL_INSTALL_WELCOME_ENV_PATH', base_path('.env')),
+
+        // Test harnesses set this so the installer leaves the shared framework caches in place; a real install never does.
+        'skip_optimize_clear' => (bool) env('CAPELL_INSTALL_SKIP_OPTIMIZE_CLEAR', false),
 
         // Install suites, offered as "What are you building?" in the CLI installer.
         // `packages` always install; `recommended` entries are pre-ticked and `optional`

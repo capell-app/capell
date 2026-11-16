@@ -13,6 +13,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
@@ -33,6 +34,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -52,6 +54,9 @@ use Symfony\Component\Console\Output\BufferedOutput;
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
 beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
+    // The review tables wrap to the terminal; a wide one keeps each value on a single line to assert on.
+    putenv('COLUMNS=240');
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
@@ -60,11 +65,13 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    putenv('COLUMNS');
     FakeProcessFactory::verifyBound();
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
     cleanupInstallTestApplicationFiles();
+    $this->workspace->restore();
 });
 
 afterEach(function (): void {
@@ -515,7 +522,7 @@ it('includes an explicitly requested asset build in a plan without applying it',
         '--plan' => true,
         '--no-interaction' => true,
     ])
-        ->expectsOutputToContain('Install frontend dependencies and build assets with the application package manager')
+        ->expectsOutputToContain('Install frontend dependencies and build assets')
         ->assertSuccessful();
 
     expect($fake->callCount)->toBe(0);
@@ -1177,11 +1184,119 @@ it('leads the interactive review with the essentials and collapses the step list
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsOutputToContain('What you are setting up')
         ->expectsOutputToContain('Also happening along the way')
-        ->expectsOutputToContain('steps will run in order. Re-run with -v to list every step.')
+        ->expectsOutputToContain('steps will run in order. Run capell:install --plan to list them without installing.')
+        ->doesntExpectOutputToContain('will delete every table')
         ->doesntExpectOutputToContain('Execution steps')
         ->doesntExpectOutputToContain('Run preflight checks')
         ->expectsConfirmation('Install Capell with these settings?', 'no')
         ->assertExitCode(Command::SUCCESS);
+});
+
+it('summarises the steps of a non-interactive install instead of printing them before they run', function (): void {
+    setupInstallTest(['test']);
+    $fake = bindFakeRunInstallAction();
+    $output = new BufferedOutput;
+
+    $exit = Artisan::call('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--fresh' => 'force',
+        '--name' => 'CI Admin',
+        '--email' => 'ci-build@example.test',
+        '--password' => 'password123',
+        '--clear-cache' => true,
+        '--no-frontend-build' => true,
+        '--no-interaction' => true,
+    ], $output);
+    $text = $output->fetch();
+
+    expect($exit)->toBe(Command::SUCCESS)
+        ->and($text)->toContain('steps will run in order. Run capell:install --plan to list them without installing.')
+        ->and($text)->not->toContain('Run preflight checks')
+        ->and($text)->toContain('<ci-build@example.test>')
+        ->and($text)->toContain('This install will delete every table and all data in')
+        ->and($fake->callCount)->toBe(1);
+});
+
+it('lists every step of a real install when it runs verbosely', function (): void {
+    setupInstallTest(['test']);
+    bindFakeRunInstallAction();
+    $output = new BufferedOutput(BufferedOutput::VERBOSITY_VERBOSE);
+
+    Artisan::call('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--fresh' => 'force',
+        '--name' => 'CI Admin',
+        '--email' => 'ci-build@example.test',
+        '--password' => 'password123',
+        '--clear-cache' => true,
+        '--no-frontend-build' => true,
+        '--no-interaction' => true,
+    ], $output);
+    $text = $output->fetch();
+
+    expect($text)->toContain('Capell Install Plan')
+        ->and($text)->toContain('Run preflight checks')
+        ->and($text)->not->toContain('to list them without installing');
+});
+
+it('keeps both review tables the same width when the database path is longer than the terminal', function (): void {
+    setupInstallTest(['capell-app/core']);
+    bindFakeRunInstallAction();
+    putenv('COLUMNS=80');
+    $original = config('database.default');
+    $path = storage_path('framework/testing/' . str_repeat('a-very-long-directory-name/', 6) . 'database.sqlite');
+    config([
+        'database.default' => 'long-sqlite',
+        'database.connections.long-sqlite' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true],
+    ]);
+    $output = new BufferedOutput;
+
+    try {
+        Artisan::call('capell:install', [
+            '--plan' => true,
+            '--package-mode' => 'custom',
+            '--packages' => 'capell-app/core',
+            '--url' => 'https://example.test',
+            '--name' => 'CI Admin',
+            '--email' => 'ci-build@example.test',
+            '--password' => 'password123',
+            '--no-interaction' => true,
+        ], $output);
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('long-sqlite');
+    }
+
+    $lines = array_values(array_filter(explode("\n", $output->fetch()), fn (string $line): bool => str_starts_with($line, '│') || str_starts_with($line, '┌') || str_starts_with($line, '└')));
+    $widths = array_unique(array_map(mb_strwidth(...), $lines));
+
+    expect($lines)->not->toBeEmpty()
+        ->and($widths)->toHaveCount(1)
+        ->and(max($widths))->toBeLessThanOrEqual(80);
+});
+
+it('keeps the review tables inside a narrow terminal', function (): void {
+    setupInstallTest(['test']);
+    bindFakeRunInstallAction();
+    putenv('COLUMNS=70');
+    $output = new BufferedOutput;
+
+    Artisan::call('capell:install', [
+        '--plan' => true,
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--name' => 'CI Admin',
+        '--email' => 'ci-build@example.test',
+        '--password' => 'password123',
+        '--no-interaction' => true,
+    ], $output);
+
+    $lines = array_filter(explode("\n", $output->fetch()), fn (string $line): bool => str_starts_with($line, '│') || str_starts_with($line, '┌'));
+
+    expect($lines)->not->toBeEmpty()
+        ->and(array_filter($lines, fn (string $line): bool => mb_strwidth($line) > 70))->toBeEmpty();
 });
 
 it('describes each package in the checklist so newcomers can see what they add', function (): void {
@@ -2097,6 +2212,32 @@ it('requires a password when creating role users non-interactively', function ()
         ->assertExitCode(Command::FAILURE);
 });
 
+it('names the admin details and the role-user password together when both are missing', function (): void {
+    setupInstallTest();
+    dropUsersTableForInstallTest();
+
+    expect(fn () => artisanCommand('capell:install', [
+        '--packages' => 'test',
+        '--url' => 'https://example.test',
+        '--role-users' => true,
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--no-interaction' => true,
+    ])->run())->toThrow(
+        NonInteractiveInputRequiredException::class,
+        'Admin user is required in non-interactive mode. Pass --name=<name>, --email=<email>, and --password=<password>. Also: Pass --role-user-password=<password> when using --role-users.',
+    );
+});
+
+it('keeps the original missing-input failure when another requirement is added', function (): void {
+    $original = new NonInteractiveInputRequiredException('Admin user', 'Pass --user=<email>.');
+
+    $combined = $original->withAlsoRequired('Pass --role-user-password=<password>.');
+
+    expect($combined->getMessage())->toBe('Admin user is required in non-interactive mode. Pass --user=<email>. Also: Pass --role-user-password=<password>.')
+        ->and($combined->getPrevious())->toBe($original);
+});
+
 it('allows creating a new admin user when users already exist', function (): void {
     setupInstallTest();
     createTestUser();
@@ -2476,7 +2617,7 @@ it('can run an npm build after installing a frontend package', function (): void
         ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
         ->expectsConfirmation('Build production frontend assets now?', 'yes')
-        ->expectsOutput('Install frontend dependencies and build assets with the application package manager')
+        ->expectsOutputToContain('Install frontend dependencies and build assets')
         ->expectsOutput('Production build completed successfully.')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
@@ -3803,8 +3944,10 @@ it('plans an install on a fresh SQLite project without creating or reading the d
         'database.connections.fresh-sqlite' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => '', 'foreign_key_constraints' => true],
     ]);
 
+    $output = new BufferedOutput;
+
     try {
-        artisanCommand('capell:install', [
+        $exit = Artisan::call('capell:install', [
             '--package-mode' => 'custom',
             '--packages' => 'capell-app/core',
             '--url' => 'https://hartley.test',
@@ -3813,11 +3956,15 @@ it('plans an install on a fresh SQLite project without creating or reading the d
             '--password' => 'a-long-private-password',
             '--plan' => true,
             '--no-interaction' => true,
-        ])
-            ->expectsOutputToContain('The database file will be created at ' . $path)
-            ->assertSuccessful();
+        ], $output);
 
-        expect(is_file($path))->toBeFalse()
+        // A long path wraps across table rows, so compare it with the borders and padding removed.
+        $flattened = preg_replace('/[│\s]+/u', '', $output->fetch());
+
+        expect($exit)->toBe(Command::SUCCESS)
+            ->and($flattened)->toContain('Thedatabasefilewillbecreatedat')
+            ->and($flattened)->toContain(preg_replace('/\s+/', '', $path))
+            ->and(is_file($path))->toBeFalse()
             ->and($fake->callCount)->toBe(0);
     } finally {
         config(['database.default' => $original]);

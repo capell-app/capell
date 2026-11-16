@@ -13,6 +13,7 @@ use Capell\Core\Support\TableName;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Throwable;
 
 /**
@@ -56,11 +57,26 @@ final class ResolveInstallFirstPageStatusAction
                 return 'draft';
             }
 
-            return GetEditPageResourceUrlAction::run($page) !== null
+            return $this->editUrl($page) !== null
                 ? 'editable'
                 : 'present_unverified';
         } catch (Throwable) {
             return 'unavailable';
+        }
+    }
+
+    /**
+     * Admin may have been required by this very install, so its routes can be
+     * unregistered in the installing process even though the page is live and
+     * editable once the application boots. That is an unverified page, not an
+     * unreadable state.
+     */
+    private function editUrl(Page $page): ?string
+    {
+        try {
+            return GetEditPageResourceUrlAction::run($page);
+        } catch (RouteNotFoundException) {
+            return null;
         }
     }
 

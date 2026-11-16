@@ -118,7 +118,7 @@ class ImageSourcePicker extends Group
         $defaultSource = $this->resolveDefaultSource($allowedValues);
 
         $mediaField = MediaLibraryFileUpload::make($this->mediaName)
-            ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Media))
+            ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Media, $defaultSource))
             ->saved(static fn (Get $get): bool => self::selectedSourceStoresMedia((string) ($get($typePath) ?? $defaultSource)))
             ->columnSpanFull();
 
@@ -141,7 +141,7 @@ class ImageSourcePicker extends Group
                     ->label(__('capell-admin::form.image_source_url'))
                     ->helperText(__('capell-admin::form.image_source_url_helper'))
                     ->placeholder('https://images.unsplash.com/photo-1497366754035-f200968a6e72')
-                    ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Url))
+                    ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Url, $defaultSource))
                     ->dehydrated(static fn (Get $get): bool => ($get($typePath) ?? $defaultSource) === ImageSourceType::Url->value)
                     ->rules([
                         static fn (): Closure => static function (string $attribute, mixed $value, Closure $fail): void {
@@ -162,7 +162,7 @@ class ImageSourcePicker extends Group
                     ->disk('public')
                     ->directory('capell/image-sources')
                     ->visibility('public')
-                    ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Upload))
+                    ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Upload, $defaultSource))
                     ->dehydrated(static fn (Get $get): bool => ($get($typePath) ?? $defaultSource) === ImageSourceType::Upload->value)
                     ->columnSpanFull(),
                 $mediaField,
@@ -180,13 +180,18 @@ class ImageSourcePicker extends Group
             ->label(__('capell-admin::form.image_source_type'))
             ->options($this->sourceOptions())
             ->default($defaultSource)
-            ->inline()
+            ->formatStateUsing(static fn (?string $state): string => $state ?? $defaultSource)
+            ->grouped()
             ->columnSpanFull();
     }
 
-    protected function sourceVisibilityJs(string $typePath, ImageSourceType $source): string
+    /**
+     * Records saved before a source was chosen have no type yet; treat them as
+     * the default source so an input is always visible instead of a bare choice.
+     */
+    protected function sourceVisibilityJs(string $typePath, ImageSourceType $source, string $defaultSource): string
     {
-        return sprintf("\$get('%s') === '%s'", $typePath, $source->value);
+        return sprintf("(\$get('%s') ?? '%s') === '%s'", $typePath, $defaultSource, $source->value);
     }
 
     /**
@@ -194,8 +199,17 @@ class ImageSourcePicker extends Group
      */
     protected function sourceOptions(): array
     {
+        // Library first: it is the usual choice, and the others are fallbacks.
+        $order = [ImageSourceType::Media, ImageSourceType::Upload, ImageSourceType::Url];
+
         return collect($this->allowedSources)
-            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => resolve(EnumPresentationRegistry::class)->label($source)])
+            ->sortBy(static fn (ImageSourceType $source): int => in_array($source, $order, true) ? (int) array_search($source, $order, true) : count($order))
+            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => match ($source) {
+                ImageSourceType::Media => (string) __('capell-admin::form.image_source_option_media'),
+                ImageSourceType::Upload => (string) __('capell-admin::form.image_source_option_upload'),
+                ImageSourceType::Url => (string) __('capell-admin::form.image_source_option_url'),
+                default => resolve(EnumPresentationRegistry::class)->label($source),
+            }])
             ->all();
     }
 

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 1,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "action-coverage-guided-setup",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-3574/docs/images/generated/admin/action-guided-setup.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-11-15T08:42:27.365Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "cddbe95bc1656ae33fbcefc67a6b22bbc975e80f",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "ba29cdb90a2d75db25fe65227ca420fc94e46917",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "e70d0cb645ddabd74cdfcec19585ff9dc8af89d40dee626d25aeb54779e33a14"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "fae774038d2e31e0de6e52ae05b41a7601deea737925ea4ead258d22a4313d67"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "documentation",
+        "id": "action-coverage-guided-setup",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/action-guided-setup.png",
+          "sha256": "b14180facb6327f9e92002beae08d3e4449176f0a72fa178f5e8eebd66c43067"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2a6d1549966dfb71cfec48ebbb83acd2caf5d4d4edbef22a3607a7109bbe0905"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "ba29cdb90a2d75db25fe65227ca420fc94e46917"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/setup",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 1\nSkipped: 0\nFailed: 0\n- captured documentation:action-coverage-guided-setup -> /Users/ben/Sites/.capell-wt/core-3574/docs/images/generated/admin/action-guided-setup.png"
+}

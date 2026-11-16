@@ -21,7 +21,7 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 | Add package settings migrations        | `database/settings/*` plus package install/setup registration                 | Core                  |
 | Add developer-tooling makers           | `MakerRegistryInterface::register(...)`                                       | Core                  |
 | Load vendor build assets conditionally | `VendorAssetConditionRegistry::register(...)`                                 | Core/Frontend         |
-| Add static export files                | `StaticSiteExtensionRegistry::register(...)`                                  | Static export package |
+| Add static export files                | `StaticSiteExtensionRegistry::register(...)` (HTML Cache package)                                  | Static export package |
 | Extend ownership/export mapping        | `OwnershipMap::register(...)`                                                 | Migration Assistant   |
 
 ## Admin Runtime
@@ -37,14 +37,15 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 | Add user menu actions                                                                                        | `CapellAdmin::registerUserMenuItem(...)`                                                                            | Admin |
 | Add admin header tools                                                                                       | Tag an `AdminToolItem` with `AdminToolItem::TAG`                                                                    | Admin |
 | Add welcome tour steps                                                                                       | `CapellAdmin::registerWelcomeTourStep(...)`                                                                         | Admin |
-| Add navigation groups                                                                                        | `CapellAdmin::registerNavigationGroup(...)`                                                                         | Admin |
+| Place a screen in the sidebar                                                                                | Return a `NavigationGroupEnum` case from `getNavigationGroup()`                                                     | Admin |
+| Replace a core sidebar item                                                                                  | `CapellAdmin::replaceNavigationItem(...)`                                                                           | Admin |
 | Add content widgets                                                                                          | `CapellAdmin::registerWidget(...)` or `registerDiscoverableWidgets(...)`                                            | Admin |
 | Add fields to page, site, layout, or user forms                                                              | Tagged schema extenders such as `PageSchemaExtender::TAG`                                                           | Admin |
 | Add page/site/resource header actions                                                                        | Tagged action extenders such as `PageHeaderActionExtender::TAG`                                                     | Admin |
 | Modify page, user, or resource tables                                                                        | Tagged table extenders such as `PageTableExtender::TAG`                                                             | Admin |
 | Extend the installed Extensions page                                                                         | `ExtensionsPageActionRegistry` or `ExtensionsPageExtender::TAG`                                                     | Admin |
 | Subscribe to admin serving events                                                                            | `CapellAdmin::serving(...)`                                                                                         | Admin |
-| Register activity resource links/display/revert behaviour                                                     | `CapellAdmin::registerActivityResourceLink(...)`, `ActivityChangeSetBuilder::TAG`, and `ActivityRevertHandler::TAG` | Admin |
+| Register activity resource links/display/revert behaviour                                                    | `CapellAdmin::registerActivityResourceLink(...)`, `ActivityChangeSetBuilder::TAG`, and `ActivityRevertHandler::TAG` | Admin |
 
 ## Frontend Runtime
 

@@ -8,8 +8,10 @@ use Capell\Core\Testing\Data\CompanionPackageContractData;
 function validCompanionContract(array $overrides = []): CompanionPackageContractData
 {
     $root = dirname(__DIR__, 5);
+    $packageRoot = sys_get_temp_dir() . '/capell-companion-' . bin2hex(random_bytes(6));
+    mkdir($packageRoot);
     $values = [
-        'packageRoot' => $root . '/packages/core',
+        'packageRoot' => $packageRoot,
         'manifestPath' => $root . '/packages/core/capell.json',
         'providerClass' => null,
         'migrations' => [],

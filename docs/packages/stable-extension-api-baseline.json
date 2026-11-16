@@ -114,7 +114,7 @@
         },
         "core.dto.extension-contribution-traceability": {
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityData",
-            "signature": "241a67b28572c64ec1a87f56062b9d0bd6adcf892c94dab329c307b1a96db019",
+            "signature": "550052f35522474061a2f373a5c4befb07bc785a13c50cd73d363c92463e6b96",
             "contractTestId": "core.extension-contribution-traceability"
         },
         "core.dto.project-build-artifact-reference": {
@@ -204,7 +204,7 @@
         },
         "core.testing.extension-harness": {
             "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",
-            "signature": "507646d95887d5491cbd3ffb01f1f99543f49f899468e828a4f6d7491e92d9db",
+            "signature": "08158b9167c438f1495b1dff08dd8904d9107c2d5c01250f281b778dd311eae5",
             "contractTestId": "core.extension-test-harness"
         },
         "frontend.dto.cache-invalidation-rule": {
@@ -263,8 +263,8 @@
         "staudenmeir/eloquent-has-many-deep": "^1.7",
         "staudenmeir/eloquent-json-relations": "^1.1",
         "symfony/filesystem": "^7.2|^8.0",
-        "symfony/html-sanitizer": "^7.0|^8.0",
-        "symfony/process": "^7.2|^8.0"
+        "symfony/process": "^7.2|^8.0",
+        "symfony/routing": "^7.2|^8.0"
     },
     "migrations": [
         "2026_05_10_190832_02_create_languages_table.php",
@@ -357,7 +357,8 @@
         "2026_11_14_000001_share_translation_media_with_translatable_owner.php",
         "2026_11_14_000010_create_capell_ai_provenance_table.php",
         "2026_11_15_000001_add_source_fingerprints_to_translations_table.php",
-        "2026_11_15_000010_create_capell_idempotency_keys_table.php"
+        "2026_11_15_000010_create_capell_idempotency_keys_table.php",
+        "2026_11_15_000020_add_claim_tokens_to_capell_idempotency_keys_table.php"
     ],
     "configKeys": []
 }
