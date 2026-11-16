@@ -10,6 +10,7 @@ use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Support\Diagnostics\Checks\AbstractDoctorCheck;
 use Capell\Core\Support\Diagnostics\Checks\ConfigFilesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DatabaseBackupBinariesCheck;
+use Capell\Core\Support\Diagnostics\Checks\DeprecationsCheck;
 use Capell\Core\Support\Diagnostics\Checks\HostingPlatformCheck;
 use Capell\Core\Support\Diagnostics\Checks\HostLoadCheck;
 use Capell\Core\Support\Diagnostics\Checks\ManifestContractsCheck;
@@ -33,6 +34,7 @@ function deliberatelyNonBlockingDoctorChecks(): array
         SharedCacheStoreCheck::class => ['severity' => DoctorCheckSeverity::Warning, 'reason' => 'A non-shared cache is correct on one server; advice for multi-node hosting.'],
         HostingPlatformCheck::class => ['severity' => DoctorCheckSeverity::Warning, 'reason' => 'Hosting hazards stop background work, not page rendering, and must never block a deploy.'],
         HostLoadCheck::class => ['severity' => DoctorCheckSeverity::Warning, 'reason' => 'A busy server still serves pages; sustained load is advice for the operator and must never block a deploy.'],
+        DeprecationsCheck::class => ['severity' => DoctorCheckSeverity::Warning, 'reason' => 'A deprecated surface still works until its removal; the listing is advice for the upgrade.'],
         ConfigFilesCheck::class => ['severity' => DoctorCheckSeverity::Info, 'reason' => 'Informational: always passes.'],
     ];
 }

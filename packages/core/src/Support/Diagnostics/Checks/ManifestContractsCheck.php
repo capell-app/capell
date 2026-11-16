@@ -31,7 +31,11 @@ final class ManifestContractsCheck extends AbstractDoctorCheck
 
     protected function run(bool $installSummary): DoctorCheckResultData
     {
-        $results = AuditExtensionContractsAction::run(allowExportIgnoredScreenshots: true);
+        // Runtime deprecations have their own doctor check; counting them here too would report each one twice.
+        $results = array_filter(
+            AuditExtensionContractsAction::run(allowExportIgnoredScreenshots: true),
+            static fn (array $result): bool => $result['manifest_path'] !== AuditExtensionContractsAction::RUNTIME_DEPRECATIONS,
+        );
         $errors = array_filter($results, static fn (array $result): bool => $result['severity'] === 'error');
 
         if ($errors !== []) {

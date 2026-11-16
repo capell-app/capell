@@ -180,3 +180,7 @@ Then run package-level or full-suite checks based on the release scope:
 vendor/bin/pest packages/frontend/tests --configuration=phpunit.xml
 composer preflight
 ```
+
+## Deprecated features
+
+When code uses a surface that Capell or an extension has deprecated, it is recorded with its replacement and its removal. `php artisan capell:doctor` lists them under `core.extensions.deprecations` and `php artisan capell:extension-audit` lists them as warnings. Neither blocks a deployment, but each listed use stops working at its removal. Extensions record a use with `Deprecations::trigger($surface, $replacement, $removal)`. A deprecated route uses the `capell.deprecated:<surface>,<since>,<sunset>,<replacement>` middleware, which also sends the `Deprecation`, `Sunset` and, for an address replacement, `Link` headers. Check that an extension is installed and enabled with `ExtensionPresence::isActive($composerName)` rather than asking Composer.

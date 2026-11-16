@@ -14,6 +14,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Diagnostics\Checks\ConfigFilesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DatabaseBackupBinariesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DefaultThemeAndLayoutCheck;
+use Capell\Core\Support\Diagnostics\Checks\DeprecationsCheck;
 use Capell\Core\Support\Diagnostics\Checks\ExtensionVerificationCheck;
 use Capell\Core\Support\Diagnostics\Checks\FoundationVersionAlignmentCheck;
 use Capell\Core\Support\Diagnostics\Checks\GeneratedTailwindCssCheck;
@@ -59,6 +60,7 @@ final class BuildDoctorReportAction
         InstalledPackagesCheck::class,
         InstalledRuntimeCheck::class,
         ExtensionVerificationCheck::class,
+        DeprecationsCheck::class,
         SecurityPostureCheck::class,
         FoundationVersionAlignmentCheck::class,
         ViteInputsCheck::class,
