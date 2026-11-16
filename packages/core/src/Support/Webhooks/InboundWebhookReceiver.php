@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Webhooks;
 
 use Capell\Core\Contracts\Webhooks\AcceptsFormEncodedWebhooks;
+use Capell\Core\Contracts\Webhooks\AcceptsTextPlainJsonWebhooks;
 use Capell\Core\Contracts\Webhooks\InboundWebhookHandler;
 use Capell\Core\Contracts\Webhooks\InboundWebhookProvider;
 use Capell\Core\Enums\InboundWebhookEventStatus;
@@ -115,6 +116,7 @@ final readonly class InboundWebhookReceiver
 
         $mediaType = strtolower(trim(explode(';', (string) $request->headers->get('Content-Type'))[0]));
 
-        return $provider instanceof AcceptsFormEncodedWebhooks && $mediaType === 'application/x-www-form-urlencoded';
+        return ($provider instanceof AcceptsFormEncodedWebhooks && $mediaType === 'application/x-www-form-urlencoded')
+            || ($provider instanceof AcceptsTextPlainJsonWebhooks && $mediaType === 'text/plain');
     }
 }

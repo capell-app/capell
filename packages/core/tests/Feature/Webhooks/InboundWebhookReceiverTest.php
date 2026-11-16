@@ -11,6 +11,7 @@ use Capell\Core\Tests\CoreTestCase;
 use Capell\Core\Tests\Feature\Webhooks\Fixtures\FormEncodedTestWebhookProvider;
 use Capell\Core\Tests\Feature\Webhooks\Fixtures\RecordingInboundWebhookHandler;
 use Capell\Core\Tests\Feature\Webhooks\Fixtures\TestInboundWebhookProvider;
+use Capell\Core\Tests\Feature\Webhooks\Fixtures\TextPlainJsonTestWebhookProvider;
 use Illuminate\Bus\UniqueLock;
 use Illuminate\Console\Scheduling\Event as ScheduleEvent;
 use Illuminate\Console\Scheduling\Schedule;
@@ -305,6 +306,27 @@ it('accepts a signed form body for a provider that opts in, and verifies it over
     'forged form body' => ['application/x-www-form-urlencoded', 'guess', 400, 0],
     'multipart body' => ['multipart/form-data; boundary=x', null, 415, 0],
     'plain text body' => ['text/plain', null, 415, 0],
+]);
+
+it('accepts a signed JSON body labelled text/plain only for a provider that opts in', function (string $uri, string $contentType, ?string $secret, int $status, int $stored): void {
+    Queue::fake();
+    Route::middleware('web')->group(fn () => Route::capellWebhook('test-webhooks/text-plain-provider', TextPlainJsonTestWebhookProvider::class));
+    $body = json_encode(['id' => 'evt_text', 'type' => 'order.paid', 'data' => ['email' => 'a@example.test']], JSON_THROW_ON_ERROR);
+
+    $response = $this->call('POST', $uri, server: [
+        'CONTENT_TYPE' => $contentType,
+        'HTTP_X_TEST_SIGNATURE' => HmacTimestampSignature::sign($body, $secret ?? TestInboundWebhookProvider::SECRET, Date::now()->getTimestamp()),
+    ], content: $body);
+
+    $response->assertStatus($status);
+
+    expect(InboundWebhookEvent::query()->where('event_id', 'evt_text')->count())->toBe($stored);
+})->with([
+    'text/plain JSON' => ['/test-webhooks/text-plain-provider', 'text/plain', null, 202, 1],
+    'text/plain JSON with a charset' => ['/test-webhooks/text-plain-provider', 'text/plain; charset=UTF-8', null, 202, 1],
+    'forged text/plain JSON' => ['/test-webhooks/text-plain-provider', 'text/plain', 'guess', 400, 0],
+    'form body to the text/plain provider' => ['/test-webhooks/text-plain-provider', 'application/x-www-form-urlencoded', null, 415, 0],
+    'text/plain to a provider that has not opted in' => ['/test-webhooks/provider', 'text/plain', null, 415, 0],
 ]);
 
 it("answers a sender's GET check of the URL only for a provider that opts in, and stores nothing", function (): void {
