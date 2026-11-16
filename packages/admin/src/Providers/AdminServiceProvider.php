@@ -213,6 +213,7 @@ use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
+use Capell\Admin\Support\Filament\ArrayRecordColumnState;
 use Capell\Admin\Support\Icons\FlagIconRenderer;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminInstallState;
@@ -698,6 +699,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        // Array-record tables (Extensions, Marketplace) must survive column state callbacks that
+        // other packages register for Eloquent records only.
+        ArrayRecordColumnState::register();
         // A host route answering on an admin panel's path keeps serving, but shares the panel's URLs, so it is
         // reported. Only uncached boots check: a cached application reports it through the doctor check.
         $this->app->booted(static function (Application $app): void {
