@@ -60,6 +60,15 @@ final class TrustedCorePackages
             || self::isDefaultInstallSelection($package->name);
     }
 
+    /**
+     * Whether the package sits under the vendor that owns the foundation aggregate. Only that
+     * vendor's packages may be installed automatically because a catalogue entry claims a role.
+     */
+    public static function isFoundationVendorPackage(string $packageName): bool
+    {
+        return str_starts_with($packageName, explode('/', self::PACKAGE_NAMES[0], 2)[0] . '/');
+    }
+
     public static function isCoreRuntimePackage(string $packageName): bool
     {
         return in_array($packageName, self::CORE_RUNTIME_PACKAGE_NAMES, true);

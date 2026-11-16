@@ -63,7 +63,8 @@ function bindInstallDeveloperToolingState(bool $installed): void
 
         public function toolingPackageName(): string
         {
-            return 'vendor/dev-tooling';
+            // Differs from the package resolved with the plan, so a test sees which one the action uses.
+            return 'vendor/cached-tooling';
         }
     });
 }
@@ -150,7 +151,7 @@ it('requires boost and capell agent-bridge then configures boost tooling', funct
     });
     CapellCore::shouldReceive('clearExtensionCache')->once();
 
-    InstallDeveloperToolingAction::run(new NullProgressReporter, configureBoost: true);
+    InstallDeveloperToolingAction::run(new NullProgressReporter, configureBoost: true, plannedToolingPackage: 'vendor/dev-tooling');
 
     expect($commands)->toContain([
         'composer',

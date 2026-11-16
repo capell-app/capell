@@ -258,3 +258,17 @@ it('reports circular requirements instead of recursing during package expansion'
         ['capell-app/package-a'],
     ))->toThrow(Exception::class, 'Circular dependency detected in packages');
 });
+
+it('orders workflow-final packages by their exact priority, including negative and very large values', function (): void {
+    registerWorkflowPackage('vendor/negative', sort: 99, roles: [PackageRole::WorkflowFinal], rolePriority: -1);
+    registerWorkflowPackage('vendor/zero', sort: 1, roles: [PackageRole::WorkflowFinal], rolePriority: 0);
+    registerWorkflowPackage('vendor/largest', sort: 1, roles: [PackageRole::WorkflowFinal], rolePriority: PHP_INT_MAX);
+    registerWorkflowPackage('vendor/plain', sort: 50);
+
+    $orderedPackages = resolve(PackageWorkflowPlanner::class)->expandAndOrder(
+        CapellCore::getPackages(),
+        ['vendor/largest', 'vendor/zero', 'vendor/plain', 'vendor/negative'],
+    );
+
+    expect($orderedPackages->keys()->all())->toBe(['vendor/plain', 'vendor/negative', 'vendor/zero', 'vendor/largest']);
+});

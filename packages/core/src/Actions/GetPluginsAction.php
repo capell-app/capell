@@ -98,8 +98,8 @@ class GetPluginsAction
                     'visibility' => $package['visibility'] ?? 'catalogue',
                     'declaredRoles' => $this->declaredRoles($package['roles'] ?? null),
                     'declaredRolePriority' => is_int($package['rolePriority'] ?? null) ? $package['rolePriority'] : null,
-                    'declaredInstallTips' => $this->declaredRows($package['installTips'] ?? null, ExtensionInstallTipData::fromArray(...)),
-                    'declaredLegacyTables' => $this->declaredRows($package['legacyTables'] ?? null, ExtensionLegacyTableData::fromArray(...)),
+                    'declaredInstallTips' => $this->declaredRows($package['installTips'] ?? null, ExtensionInstallTipData::tryFromArray(...)),
+                    'declaredLegacyTables' => $this->declaredRows($package['legacyTables'] ?? null, ExtensionLegacyTableData::tryFromArray(...)),
                 ])
                 ->all(),
             Collection::class,
@@ -157,9 +157,12 @@ class GetPluginsAction
     }
 
     /**
+     * Catalogue rows are untrusted, so a malformed row is dropped instead of aborting discovery
+     * for every package in the response.
+     *
      * @template TRow of object
      *
-     * @param  callable(array<string, mixed>): TRow  $factory
+     * @param  callable(array<string, mixed>): ?TRow  $factory
      * @return list<TRow>
      */
     private function declaredRows(mixed $rows, callable $factory): array
@@ -168,9 +171,9 @@ class GetPluginsAction
             return [];
         }
 
-        return array_values(array_map(
-            $factory,
-            array_filter($rows, is_array(...)),
+        return array_values(array_filter(
+            array_map($factory, array_filter($rows, is_array(...))),
+            static fn (?object $row): bool => $row !== null,
         ));
     }
 

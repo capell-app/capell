@@ -22,6 +22,9 @@ final class WriteTableConfigurationAction
     use AsFake;
     use AsObject;
 
+    /** Config files this action can rewrite; a table setting under any other root cannot be saved. */
+    public const array SUPPORTED_ROOTS = ['capell', 'permission', 'settings', 'tags', 'activitylog'];
+
     /** @param array<string, string> $values */
     public function handle(array $values, ?string $directory = null): void
     {
@@ -42,7 +45,7 @@ final class WriteTableConfigurationAction
         foreach ($values as $key => $value) {
             $parts = explode('.', $key);
             $file = array_shift($parts);
-            throw_unless(is_string($file) && isset($sources[$file]) && $parts !== [], RuntimeException::class, 'Unsupported table configuration key: ' . $key);
+            throw_unless(is_string($file) && in_array($file, self::SUPPORTED_ROOTS, true) && $parts !== [], RuntimeException::class, 'Unsupported table configuration key: ' . $key);
             throw_unless($value === '' || preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,62}$/D', $value) === 1, RuntimeException::class, 'Invalid table name for ' . $key);
             $grouped[$file][] = [$parts, $value];
         }

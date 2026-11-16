@@ -7,6 +7,8 @@ use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\PackageRoleResolver;
+use Capell\Core\Support\Plugins\PluginPackagesFetcher;
+use Illuminate\Support\Collection;
 
 beforeEach(function (): void {
     CapellCore::clearPackages();
@@ -50,12 +52,12 @@ it('does not infer a role from a package name', function (): void {
 
 it('falls back to a cached catalogue entry for a package that is not installed', function (): void {
     bindCachedCatalogue([
-        ['name' => 'vendor/catalogue-tooling', 'type' => PackageTypeEnum::Plugin->value, 'roles' => ['developer-tooling']],
+        ['name' => 'capell-app/catalogue-tooling', 'type' => PackageTypeEnum::Plugin->value, 'roles' => ['developer-tooling']],
     ]);
 
     $resolver = resolve(PackageRoleResolver::class);
 
-    expect($resolver->packageNameWithRole(PackageRole::DeveloperTooling))->toBe('vendor/catalogue-tooling')
+    expect($resolver->packageNameWithRole(PackageRole::DeveloperTooling))->toBe('capell-app/catalogue-tooling')
         ->and($resolver->hasInstalledPackageWithRole(PackageRole::DeveloperTooling))->toBeFalse();
 });
 
@@ -80,4 +82,76 @@ it('lets the installed manifest answer instead of a stale catalogue entry for th
     expect($known->get('vendor/tooling'))->toBeInstanceOf(PackageData::class)
         ->and($known->get('vendor/tooling')?->isInstalled())->toBeTrue()
         ->and(resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DeveloperTooling))->toBeNull();
+});
+
+it('does not let a catalogue entry from another vendor claim a role that installs unprompted', function (): void {
+    bindCachedCatalogue([
+        ['name' => 'evil/theme', 'type' => 'theme', 'themeKey' => 'default', 'roles' => ['default-theme'], 'rolePriority' => -1],
+        ['name' => 'evil/tooling', 'type' => 'plugin', 'roles' => ['developer-tooling']],
+        ['name' => 'evil/scaffold', 'type' => 'plugin', 'roles' => ['scaffold-full-profile']],
+        defaultThemeCatalogueEntry(),
+    ]);
+
+    $resolver = resolve(PackageRoleResolver::class);
+
+    expect($resolver->packageNameWithRole(PackageRole::DefaultTheme))->toBe('capell-app/theme-foundation')
+        ->and($resolver->packageNameWithRole(PackageRole::DeveloperTooling))->toBeNull()
+        ->and($resolver->packageNameWithRole(PackageRole::ScaffoldFullProfile))->toBeNull();
+});
+
+it('still honours a role on a package the user installed from any vendor', function (): void {
+    registerRolePackage('vendor/own-theme', PackageRole::DefaultTheme);
+
+    expect(resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DefaultTheme))->toBe('vendor/own-theme');
+});
+
+it('ignores a candidate whose name is not a valid Composer package name', function (): void {
+    bindCachedCatalogue([
+        ['name' => 'capell-app/base"quoted', 'type' => 'plugin', 'roles' => ['scaffold-full-profile']],
+        ['name' => 'capell-app/has space', 'type' => 'plugin', 'roles' => ['scaffold-full-profile']],
+    ]);
+
+    expect(resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::ScaffoldFullProfile))->toBeNull();
+});
+
+it('does not read the catalogue when an installed package already holds the role', function (): void {
+    registerRolePackage('vendor/own-theme', PackageRole::DefaultTheme);
+    app()->bind(PluginPackagesFetcher::class, fn (): PluginPackagesFetcher => new class extends PluginPackagesFetcher
+    {
+        #[Override]
+        public function getCached(): Collection
+        {
+            throw new RuntimeException('The catalogue must not be read.');
+        }
+
+        #[Override]
+        public function fetch(bool $force = false): Collection
+        {
+            throw new RuntimeException('The catalogue must not be fetched.');
+        }
+    });
+
+    expect(resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DefaultTheme, refreshCatalogue: true))->toBe('vendor/own-theme');
+});
+
+it('fetches the catalogue again on request when the cached copy was cleared', function (): void {
+    app()->bind(PluginPackagesFetcher::class, fn (): PluginPackagesFetcher => new class extends PluginPackagesFetcher
+    {
+        #[Override]
+        public function getCached(): Collection
+        {
+            return collect();
+        }
+
+        #[Override]
+        public function fetch(bool $force = false): Collection
+        {
+            return collect([['name' => 'capell-app/catalogue-tooling', 'type' => 'plugin', 'roles' => ['developer-tooling']]]);
+        }
+    });
+
+    $resolver = resolve(PackageRoleResolver::class);
+
+    expect($resolver->packageNameWithRole(PackageRole::DeveloperTooling))->toBeNull()
+        ->and($resolver->packageNameWithRole(PackageRole::DeveloperTooling, refreshCatalogue: true))->toBe('capell-app/catalogue-tooling');
 });

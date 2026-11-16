@@ -153,7 +153,7 @@ it('returns downloadable theme packages as extra install packages', function ():
 });
 
 it('includes the package that declares the default-theme role when installing the default theme', function (): void {
-    bindCachedCatalogue([defaultThemeCatalogueEntry('vendor/starter-theme')]);
+    bindCachedCatalogue([defaultThemeCatalogueEntry('capell-app/starter-theme')]);
 
     [$packages, $extraPackages] = installPackageSetComposer()->includeSelectedThemePackage(
         collect(),
@@ -162,7 +162,7 @@ it('includes the package that declares the default-theme role when installing th
     );
 
     expect($packages)->toBeEmpty()
-        ->and($extraPackages)->toBe(['vendor/starter-theme']);
+        ->and($extraPackages)->toBe(['capell-app/starter-theme']);
 });
 
 function installPackageSetComposer(): InstallPackageSetComposer

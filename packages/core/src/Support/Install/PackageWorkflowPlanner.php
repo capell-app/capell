@@ -37,7 +37,8 @@ final class PackageWorkflowPlanner
     {
         $orderedPackages = $packages
             ->sortBy(fn (PackageData $package): array => [
-                $this->finalPackageRank($package),
+                $this->isFinalPackage($package) ? 1 : 0,
+                $this->isFinalPackage($package) ? $package->rolePriority() : 0,
                 $package->getSort(),
                 $package->name,
             ]);
@@ -245,13 +246,12 @@ final class PackageWorkflowPlanner
 
     /**
      * Packages that declare the workflow-final role install after every other package, in the
-     * order of their `rolePriority`, so a workflow package never runs before what it governs.
+     * order of their `rolePriority` (negative values included), so a workflow package never
+     * runs before what it governs.
      */
-    private function finalPackageRank(PackageData $package): int
+    private function isFinalPackage(PackageData $package): bool
     {
-        return $package->hasRole(PackageRole::WorkflowFinal)
-            ? 1 + max(0, $package->rolePriority())
-            : 0;
+        return $package->hasRole(PackageRole::WorkflowFinal);
     }
 
     private function isComposerOnlyCorePackageName(string $packageName): bool

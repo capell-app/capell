@@ -100,7 +100,7 @@ final class MakeThemeCommand extends Command
             return CommandAlias::FAILURE;
         }
 
-        $baseThemePackage = resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DefaultTheme);
+        $baseThemePackage = resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DefaultTheme, refreshCatalogue: true);
 
         if ($baseThemePackage === null) {
             $this->error('A scaffolded theme builds on the package that declares the default-theme role, and none is installed or listed in the Marketplace catalogue. Install that package, then run this again.');

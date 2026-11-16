@@ -56,7 +56,7 @@ it('has no package to install for the default theme until one declares the defau
 it('finds the default theme package from a catalogue entry that declares the role', function (): void {
     bindThemePackageCandidatesRemotePackages(Collection::make([
         [
-            'name' => 'vendor/catalogue-starter',
+            'name' => 'capell-app/catalogue-starter',
             'type' => PackageTypeEnum::Theme->value,
             'themeKey' => 'default',
             'roles' => ['default-theme'],
@@ -65,7 +65,7 @@ it('finds the default theme package from a catalogue entry that declares the rol
 
     $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
 
-    expect($candidates->packageNameForThemeKey('default'))->toBe('vendor/catalogue-starter')
+    expect($candidates->packageNameForThemeKey('default'))->toBe('capell-app/catalogue-starter')
         ->and($candidates->optionDataForCatalogue()['default']->static)->toBeTrue();
 });
 

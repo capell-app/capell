@@ -24,9 +24,10 @@ final class FindTableCollisionsAction
 
     /**
      * @param  list<string>  $packages
+     * @param  list<array{name: string, configKey: string, migration: string}>  $declaredLegacyTables  Declarations captured with the plan
      * @return list<TableCollisionData>
      */
-    public function handle(array $packages): array
+    public function handle(array $packages, array $declaredLegacyTables = []): array
     {
         if (MissingSqliteDatabase::path() !== null) {
             return [];
@@ -34,7 +35,7 @@ final class FindTableCollisionsAction
 
         $adopted = config()->array('capell.database.adopted_tables', []);
 
-        return array_values(array_filter($this->planned($packages), static function (TableCollisionData $table) use ($adopted): bool {
+        return array_values(array_filter($this->planned($packages, $declaredLegacyTables), static function (TableCollisionData $table) use ($adopted): bool {
             if (! Schema::hasTable($table->table) || in_array($table->name, $adopted, true)) {
                 return false;
             }
@@ -45,9 +46,10 @@ final class FindTableCollisionsAction
 
     /**
      * @param  list<string>  $packages
+     * @param  list<array{name: string, configKey: string, migration: string}>  $declaredLegacyTables
      * @return list<TableCollisionData>
      */
-    public function planned(array $packages): array
+    public function planned(array $packages, array $declaredLegacyTables = []): array
     {
         $tables = [];
         $packageRoots = ['core'];
@@ -89,7 +91,7 @@ final class FindTableCollisionsAction
             ['stored_events', config('capell.database.external_tables.stored_events', 'stored_events'), 'capell.database.external_tables.stored_events', '2026_06_26_000001_create_stored_events_table'],
             ['snapshots', config('capell.database.external_tables.snapshots', 'snapshots'), 'capell.database.external_tables.snapshots', '2026_06_26_000002_create_snapshots_table'],
         ];
-        foreach ($this->legacyTables($packages) as $legacy) {
+        foreach ($this->legacyTables($packages, $declaredLegacyTables) as $legacy) {
             $external[] = [$legacy->name, config($legacy->configKey, $legacy->name), $legacy->configKey, $legacy->migration];
         }
 
@@ -102,15 +104,48 @@ final class FindTableCollisionsAction
     }
 
     /**
-     * Tables that packages declare in their manifest `install.legacyTables` because an earlier
-     * owner may already hold them. A package in the plan always contributes its tables. Without
-     * an earlier owner from `capell.database.legacy_table_owners` installed the rest stay quiet;
-     * once one is, every package that declares such a table is checked, in the plan or not.
+     * The legacy tables the known packages declare for this plan, as plain rows an install input
+     * can carry. Call it while the catalogue is cached: the install steps clear that cache.
      *
+     * @param  list<string>  $packages
+     * @return list<array{name: string, configKey: string, migration: string}>
+     */
+    public function declaredLegacyTables(array $packages): array
+    {
+        return array_map(
+            static fn (ExtensionLegacyTableData $table): array => $table->toArray(),
+            $this->knownLegacyTables($packages),
+        );
+    }
+
+    /**
+     * Tables that packages declare in their manifest `install.legacyTables` because an earlier
+     * owner may already hold them, plus declarations captured with the plan for packages that
+     * are not registered yet. A package in the plan always contributes its tables. Without an
+     * earlier owner from `capell.database.legacy_table_owners` installed the rest stay quiet;
+     * once one is, every package that declares such a table is checked, in the plan or not.
+     * A declaration whose config key sits outside the files the installer can rewrite is skipped,
+     * because a collision on it could be reported but never resolved.
+     *
+     * @param  list<string>  $packages
+     * @param  list<array{name: string, configKey: string, migration: string}>  $declared
+     * @return list<ExtensionLegacyTableData>
+     */
+    private function legacyTables(array $packages, array $declared): array
+    {
+        $captured = array_filter(array_map(ExtensionLegacyTableData::tryFromArray(...), $declared));
+
+        return array_values(collect([...$this->knownLegacyTables($packages), ...$captured])
+            ->filter($this->canSaveConfigKey(...))
+            ->unique(static fn (ExtensionLegacyTableData $table): string => $table->name)
+            ->all());
+    }
+
+    /**
      * @param  list<string>  $packages
      * @return list<ExtensionLegacyTableData>
      */
-    private function legacyTables(array $packages): array
+    private function knownLegacyTables(array $packages): array
     {
         $earlierOwnerInstalled = array_any(
             config()->array('capell.database.legacy_table_owners', []),
@@ -120,7 +155,13 @@ final class FindTableCollisionsAction
         return array_values(resolve(PackageRoleResolver::class)->knownPackages()
             ->filter(static fn (PackageData $package): bool => $earlierOwnerInstalled || in_array($package->name, $packages, true))
             ->flatMap(static fn (PackageData $package): array => $package->legacyTables())
+            ->filter($this->canSaveConfigKey(...))
             ->unique(static fn (ExtensionLegacyTableData $table): string => $table->name)
             ->all());
+    }
+
+    private function canSaveConfigKey(ExtensionLegacyTableData $table): bool
+    {
+        return in_array(explode('.', $table->configKey)[0], WriteTableConfigurationAction::SUPPORTED_ROOTS, true);
     }
 }

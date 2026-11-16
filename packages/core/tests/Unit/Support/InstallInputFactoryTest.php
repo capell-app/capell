@@ -339,3 +339,33 @@ it('falls back to the configured filament-shield super-admin role name for examp
         ]);
     }
 });
+
+it('resolves the developer tooling package and the declared legacy tables while the plan is built', function (): void {
+    bindCachedCatalogue([
+        defaultThemeCatalogueEntry(),
+        ['name' => 'capell-app/catalogue-tooling', 'type' => 'plugin', 'roles' => ['developer-tooling']],
+        [
+            'name' => 'vendor/needs-tags',
+            'type' => 'plugin',
+            'legacyTables' => [['name' => 'catalogue_tags', 'configKey' => 'tags.catalogue_tags.table_name', 'migration' => 'create_tag_tables']],
+        ],
+    ]);
+    CapellCore::clearPackages();
+    CapellCore::registerPackage('capell-app/core');
+    CapellCore::registerPackage('capell-app/admin');
+
+    $inputData = new InstallInputFactory(new PackageWorkflowPlanner)->fromWebInput([
+        'site_url' => 'https://example.test',
+        'language' => 'en',
+        'admin_user_mode' => 'create',
+        'new_user_name' => 'Admin',
+        'new_user_email' => 'admin@example.test',
+        'new_user_password' => 'password123',
+        'packages' => ['capell-app/admin'],
+        'extra_packages' => ['vendor/needs-tags'],
+        'install_developer_tooling' => true,
+    ]);
+
+    expect($inputData->developerToolingPackage)->toBe('capell-app/catalogue-tooling')
+        ->and(array_column($inputData->legacyTables, 'name'))->toBe(['catalogue_tags']);
+});

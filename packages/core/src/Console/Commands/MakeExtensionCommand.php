@@ -79,7 +79,7 @@ final class MakeExtensionCommand extends Command
             return CommandAlias::FAILURE;
         }
 
-        $profilePackage = resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::ScaffoldFullProfile);
+        $profilePackage = resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::ScaffoldFullProfile, refreshCatalogue: true);
 
         if ($profile === PackageScaffoldProfile::Full && $profilePackage === null) {
             $this->error('The full profile builds on the package that declares the scaffold-full-profile role, and none is installed or listed in the Marketplace catalogue. Install that package, or pass --profile=minimal.');

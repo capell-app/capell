@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\GetPluginsAction;
+use Capell\Core\Data\Manifest\ExtensionInstallTipData;
+use Capell\Core\Data\Manifest\ExtensionLegacyTableData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageTypeEnum;
@@ -330,4 +332,31 @@ it('carries the roles, priority, install tips and legacy tables a catalogue entr
         ->and($package?->installTips())->toHaveCount(1)
         ->and($package?->installTips()[0]->variant)->toBe('package_blog')
         ->and($package?->legacyTables()[0]->configKey)->toBe('tags.table');
+});
+
+it('drops malformed install metadata from a catalogue entry instead of failing discovery', function (): void {
+    bindPluginPackagesFetcher(Collection::make([
+        [
+            'name' => 'vendor/broken',
+            'type' => PackageTypeEnum::Plugin->value,
+            'installTips' => [
+                ['variant' => ['not', 'a', 'string'], 'priority' => 0],
+                ['variant' => 'package_blog', 'priority' => 'high'],
+                ['variant' => 'Not A Variant', 'priority' => 1],
+                ['variant' => 'package_events', 'priority' => 4],
+            ],
+            'legacyTables' => [
+                ['name' => ['x'], 'configKey' => 'tags.table', 'migration' => 'create_tags'],
+                ['name' => 'tags', 'configKey' => 'no_dot_path', 'migration' => 'create_tags'],
+                ['name' => 'tags', 'configKey' => 'tags.table', 'migration' => 'create_tags'],
+            ],
+        ],
+        ['name' => 'vendor/fine', 'type' => PackageTypeEnum::Plugin->value, 'defaultSelected' => true],
+    ]));
+
+    $download = GetPluginsAction::run('download');
+
+    expect($download->get('vendor/fine'))->not->toBeNull()
+        ->and(array_map(fn (ExtensionInstallTipData $tip): string => $tip->variant, $download->get('vendor/broken')?->installTips() ?? []))->toBe(['package_events'])
+        ->and(array_map(fn (ExtensionLegacyTableData $table): string => $table->configKey, $download->get('vendor/broken')?->legacyTables() ?? []))->toBe(['tags.table']);
 });
