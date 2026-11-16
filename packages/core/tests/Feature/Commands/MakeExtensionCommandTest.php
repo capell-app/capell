@@ -36,6 +36,7 @@ it('builds the full profile on the package that declares the scaffold-full-profi
     artisanCommand('capell:make-extension', [
         'package' => 'vendor/role-example',
         '--profile' => 'full',
+        '--name' => 'Role Example',
         '--path' => $packagesDirectory,
     ])->assertExitCode(Command::SUCCESS);
 
@@ -49,6 +50,7 @@ it('builds the full profile on the package that declares the scaffold-full-profi
 
 it('refuses the full profile before writing anything when no package declares the role', function (): void {
     CapellCore::clearPackages();
+    bindCachedCatalogue([]);
     $packagesDirectory = makeExtensionWorkbenchDirectory();
 
     artisanCommand('capell:make-extension', [
@@ -64,11 +66,13 @@ it('refuses the full profile before writing anything when no package declares th
 
 it('still scaffolds the minimal profile when no package declares the role', function (): void {
     CapellCore::clearPackages();
+    bindCachedCatalogue([]);
     $packagesDirectory = makeExtensionWorkbenchDirectory();
 
     artisanCommand('capell:make-extension', [
         'package' => 'vendor/minimal-only',
         '--profile' => 'minimal',
+        '--name' => 'Minimal Only',
         '--path' => $packagesDirectory,
     ])->assertExitCode(Command::SUCCESS);
 

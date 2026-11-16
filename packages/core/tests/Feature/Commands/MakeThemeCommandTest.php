@@ -235,6 +235,7 @@ it('builds a scaffolded theme on the package that declares the default-theme rol
 
 it('refuses to scaffold a theme before writing anything when no package declares the default-theme role', function (): void {
     CapellCore::clearPackages();
+    bindCachedCatalogue([]);
     $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-norole-' . bin2hex(random_bytes(6));
     mkdir($packagesDirectory, 0755, true);
 

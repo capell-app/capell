@@ -301,7 +301,10 @@ it('detects Tags collisions and writes each package-specific table setting', fun
     try {
         Schema::create('tags', fn (Blueprint $table) => $table->id());
         Schema::create('taggables', fn (Blueprint $table) => $table->id());
-        $collisions = FindTableCollisionsAction::run(['capell-app/tags']);
+        $collisions = FindTableCollisionsAction::run(['vendor/tags-extension'], [
+            ['name' => 'tags', 'configKey' => 'capell.database.external_tables.tags', 'migration' => 'create_tag_tables'],
+            ['name' => 'taggables', 'configKey' => 'tags.taggable.table_name', 'migration' => 'create_tag_tables'],
+        ]);
         expect(collect($collisions)->pluck('table')->all())->toContain('tags', 'taggables');
         $changes = ResolveTableCollisionsAction::run($collisions, null, ['tags' => 'content_tags', 'taggables' => 'content_taggables']);
         WriteTableConfigurationAction::run($changes, $directory);
