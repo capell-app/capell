@@ -32,7 +32,7 @@ In **Blueprints**, create a page blueprint named **Case study**, with key `case-
 
 Keep the built-in `page` subject: `case-study` is this blueprint's key, not a new subject type. This walkthrough needs no subject registration. For a separate model, use the [blueprint subject registry](../packages/custom-page-fields.md#a-new-subject-is-more-than-a-field).
 
-The starter kit already includes a case-study configurator and a client field. If you are using it, inspect its [existing implementation](https://github.com/capell-app/starter-kit/blob/main/app/Filament/Configurators/Pages/CaseStudyPageConfigurator.php), then choose one implementation rather than adding a second client input. The walkthrough below uses a namespaced metadata key so the storage contract is explicit.
+The starter kit already includes a case-study configurator and a client field. If you are using it, inspect its [existing implementation](https://github.com/capell-app/starter-kit/blob/main/app/Filament/Configurators/Pages/CaseStudyPageConfigurator.php), then choose one implementation rather than adding a second client input. The walkthrough below uses a namespaced metadata key so the storage contract is explicit. Because the new field is required, adding it to the starter's `case-study` blueprint means its existing case study cannot be saved until you enter a client name. Enter a client name for that page when you test the field.
 
 ## 1. Define the editor field
 

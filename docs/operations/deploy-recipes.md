@@ -14,7 +14,13 @@ Then reload PHP-FPM, and [refresh public HTML](deploy-and-cache-refresh.md#refre
 
 `capell:upgrade` runs migrations and upgrade steps. `capell:frontend-after-install --apply` generates the Capell frontend stylesheet and runs `npm run build`. Generated CSS is not kept in Git, so a deploy that skips this step fails Capell Doctor. `capell:runtime-refresh` rebuilds caches, warms pages, runs Doctor and restarts queues. Run `capell:upgrade --dry-run` first when you want to review the plan.
 
-Capell records the content of `vendor/composer/installed.json` with each runtime cache and rebuilds any cache whose recorded install set no longer matches, so a cache written before the last `composer install` is not trusted. Installing with `--no-dev` over a tree that had development packages therefore does not need the caches deleted by hand, provided PHP-FPM is reloaded after the install. `capell:runtime-refresh` still regenerates the full runtime caches.
+Run the recipe in a fresh release directory, as Deployer, Forge and Ploi do. Installing with `--no-dev` over a directory that was installed with development packages makes `composer install` stop in `package:discover` with `Class "Laravel\Boost\BoostServiceProvider" not found`, because the generated runtime caches still list the development providers. If you must convert such a directory, delete those caches first, then run the recipe:
+
+```bash
+rm -rf bootstrap/cache/capell-runtime bootstrap/cache/capell-*.php bootstrap/cache/filament
+```
+
+`capell:runtime-refresh` rebuilds the caches again. Reload PHP-FPM after the install so running workers do not keep serving the old provider list.
 
 ## Deployer
 
