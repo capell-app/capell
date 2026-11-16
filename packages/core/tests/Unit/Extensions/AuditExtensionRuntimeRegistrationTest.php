@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
+use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
+use Capell\Core\Contracts\Extensions\RegistersExtensionPageType;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
 use Capell\Core\Contracts\Extensions\RunsScheduledExtensionJob;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
@@ -324,6 +326,53 @@ it('does not report a declared scheduled job as missing because no runtime regis
     ]);
 
     expect(runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime']))->toBe([]);
+});
+
+it('does not report a declared page variation as missing because only a front-end render records its receipt', function (): void {
+    app()->instance(ExtensionContributionReceiptRegistry::class, new ExtensionContributionReceiptRegistry);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/page-variation', RegistersExtensionPageType::class, [
+        'type' => 'page-variation',
+        'name' => 'article',
+        'modelClass' => stdClass::class,
+        'resourceName' => 'article',
+    ]);
+
+    expect(runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime']))->toBe([]);
+});
+
+it('runs tagged receipt preparers before reconciling lazily recorded receipts', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/lazy-receipt', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.declared']);
+
+    $preparer = new class($receipts) implements PreparesExtensionContributionReceipts
+    {
+        public int $calls = 0;
+
+        public function __construct(private readonly ExtensionContributionReceiptRegistry $receipts) {}
+
+        public function prepareContributionReceipts(): void
+        {
+            if (++$this->calls > 1) {
+                return;
+            }
+
+            recordTestReceipt($this->receipts, new ExtensionContributionReceiptData('vendor/lazy-receipt', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.lazy', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+        }
+    };
+    app()->instance('test.lazy-receipt-preparer', $preparer);
+    app()->tag(['test.lazy-receipt-preparer'], PreparesExtensionContributionReceipts::TAG);
+
+    // The lazily recorded receipt is only visible to the audit once the preparer has run.
+    $results = runtimeRegistrationAuditResults($directory, 'Runtime contribution is not declared in the manifest.', ['runtime']);
+
+    expect($results)->toHaveCount(1)
+        ->and($results[0]['context']['contributionKey'] ?? null)->toBe('vendor-package.lazy')
+        ->and($preparer->calls)->toBe(1);
 });
 
 it('reports wrong receipt owner and provider bucket with diagnostics', function (): void {

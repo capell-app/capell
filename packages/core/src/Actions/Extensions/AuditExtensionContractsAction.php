@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Actions\Agent\AuditAgentToolManifestAction;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
@@ -45,6 +46,7 @@ final class AuditExtensionContractsAction
     {
         $results = [];
         $manifestPaths = $this->manifestPaths($path);
+        $this->prepareLazyContributionReceipts();
 
         if ($path !== null && $path !== '' && $manifestPaths === []) {
             return [$this->result(
@@ -379,6 +381,15 @@ final class AuditExtensionContractsAction
         ];
     }
 
+    private function prepareLazyContributionReceipts(): void
+    {
+        foreach (app()->tagged(PreparesExtensionContributionReceipts::TAG) as $preparer) {
+            if ($preparer instanceof PreparesExtensionContributionReceipts) {
+                $preparer->prepareContributionReceipts();
+            }
+        }
+    }
+
     /**
      * Reconcile only contexts explicitly supplied by the caller. An audit of a
      * package directory is commonly run outside that package's runtime; treating
@@ -494,10 +505,12 @@ final class AuditExtensionContractsAction
             $actual = $matching[0] ?? null;
             // Packages schedule their own jobs, so no runtime registry records a
             // scheduled-job receipt that a declaration could be reconciled against.
+            // Page variations are recorded only while a front-end page renders.
             if ($actual === null && in_array($type, [
                 ExtensionContributionType::OutboundEvent,
                 ExtensionContributionType::BlueprintSubject,
                 ExtensionContributionType::ScheduledJob,
+                ExtensionContributionType::PageVariation,
             ], true)) {
                 continue;
             }
