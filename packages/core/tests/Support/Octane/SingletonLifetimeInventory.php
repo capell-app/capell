@@ -46,6 +46,7 @@ use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
+use Capell\Core\Support\Extensions\Deprecations;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Health\HealthCheckRegistry;
@@ -167,6 +168,7 @@ final class SingletonLifetimeInventory
             InstallPatchRegistry::class => self::boot('Install patches are package boot registrations.'),
             ExtensionContributionReceiptRegistry::class => self::boot('Contribution receipts and boot contexts are package boot registrations.'),
             ExtensionOrderingAudit::class => self::boot('Ordering audit sources are package boot registrations and collect diagnostics from boot registries.'),
+            Deprecations::class => self::boot('Deprecations are keyed by surface, so a worker holds at most one entry per deprecated surface; keeping them across requests lets the audit and doctor see boot-time uses.'),
             PresentationPresetRegistry::class => self::boot('Presentation presets are package boot registrations.'),
             PrivacySubjectRegistry::class => self::boot('Privacy exporters and erasers are package boot registrations or container tags discovered once; export and erase hold no request state.'),
             PublicationReadinessRegistry::class => self::boot('Publication readiness contributors are package boot registrations; explicit clear is reserved for test/runtime reset boundaries.'),
