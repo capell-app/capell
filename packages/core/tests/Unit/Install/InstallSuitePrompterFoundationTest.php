@@ -13,19 +13,20 @@ use Laravel\Prompts\Prompt;
 beforeEach(function (): void {
     CapellCore::clearPackages();
 
-    foreach (['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace', 'capell-app/welcome-tour'] as $packageName) {
+    foreach (['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace', 'vendor/tour'] as $packageName) {
         CapellCore::registerPackage(name: $packageName);
     }
 
     CapellCore::getPackage('capell-app/admin')->requirements = ['capell-app/core'];
     CapellCore::getPackage('capell-app/frontend')->requirements = ['capell-app/core'];
     CapellCore::getPackage('capell-app/marketplace')->requirements = ['capell-app/admin', 'capell-app/core'];
-    CapellCore::getPackage('capell-app/welcome-tour')->requirements = ['capell-app/admin', 'capell-app/core'];
+    CapellCore::getPackage('vendor/tour')->requirements = ['capell-app/admin', 'capell-app/core'];
+    CapellCore::getPackage('vendor/tour')->defaultSelected = true;
 });
 
 it('keeps the default packages the plain checklist pre-ticks when a suite installs what they build on', function (): void {
     expect(resolve(InstallSuitePrompter::class)->foundationPackages(['capell-app/admin', 'capell-app/frontend']))
-        ->toBe(['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace', 'capell-app/welcome-tour']);
+        ->toBe(['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace', 'vendor/tour']);
 });
 
 it('adds no admin-side defaults to a suite that leaves the admin out', function (): void {

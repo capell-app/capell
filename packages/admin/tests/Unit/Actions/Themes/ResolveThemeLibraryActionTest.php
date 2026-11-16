@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Themes\ResolveThemeLibraryAction;
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
@@ -78,10 +79,29 @@ it('resolves pending theme installs from tagged providers', function (): void {
         ]);
 });
 
-it('ignores unused legacy foundation theme records when the default foundation definition is registered', function (): void {
+it('keeps a legacy foundation record visible when the default definition comes from a package without the default-theme role', function (): void {
+    registerRolePackage('vendor/starter-theme', PackageRole::DefaultTheme);
     $registry = new ThemeRegistry;
     $registry->register(
-        definition: themeLibraryTestDefinition('default', 'Foundation', package: 'capell-app/foundation-theme'),
+        definition: themeLibraryTestDefinition('default', 'Foundation', package: 'vendor/some-other-theme'),
+    );
+    app()->instance(ThemeRegistry::class, $registry);
+
+    Theme::factory()->createOne([
+        'name' => 'Foundation',
+        'key' => 'foundation',
+    ]);
+
+    $library = ResolveThemeLibraryAction::run();
+
+    expect($library['installed'])->not->toBeEmpty();
+});
+
+it('ignores unused legacy foundation theme records when the default foundation definition is registered', function (): void {
+    registerRolePackage('vendor/starter-theme', PackageRole::DefaultTheme);
+    $registry = new ThemeRegistry;
+    $registry->register(
+        definition: themeLibraryTestDefinition('default', 'Foundation', package: 'vendor/starter-theme'),
     );
     app()->instance(ThemeRegistry::class, $registry);
 

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\GetPluginsAction;
+use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -59,8 +61,8 @@ it('returns merged set for explicit All filter and default (installed + remote n
 
     $all = nonTrustedPluginNames('All');
     $default = nonTrustedPluginNames();
-    expect($default)->toEqual(['installed-alpha', 'beta-remote', 'capell-app/welcome-tour'])
-        ->and($all)->toEqual(['installed-alpha', 'beta-remote', 'capell-app/welcome-tour']);
+    expect($default)->toEqual(['installed-alpha', 'beta-remote'])
+        ->and($all)->toEqual(['installed-alpha', 'beta-remote']);
 });
 
 it('returns only installed packages when filter is install', function (): void {
@@ -93,7 +95,7 @@ it('returns only remote uninstalled packages when filter is download', function 
     bindPluginPackagesFetcher($remote);
 
     $notInstalled = nonTrustedPluginNames('download');
-    expect($notInstalled)->toEqual(['epsilon-remote', 'capell-app/welcome-tour']);
+    expect($notInstalled)->toEqual(['epsilon-remote']);
 });
 
 it('installed vs download filters return distinct sets', function (): void {
@@ -113,7 +115,7 @@ it('installed vs download filters return distinct sets', function (): void {
     expect($installTab)
         ->toEqual(['installed-alpha'])
         ->and($notInstalled)
-        ->toEqual(['zeta-remote', 'capell-app/welcome-tour']);
+        ->toEqual(['zeta-remote']);
 });
 
 it('fetches remote packages when cache is empty', function (): void {
@@ -126,7 +128,7 @@ it('fetches remote packages when cache is empty', function (): void {
     bindPluginPackagesFetcher($fetched, true);
 
     $names = nonTrustedPluginNames();
-    expect($names)->toEqual(['alpha', 'beta-remote', 'capell-app/welcome-tour']);
+    expect($names)->toEqual(['alpha', 'beta-remote']);
 });
 
 it('defaults to merged set for unknown filter casing', function (): void {
@@ -141,8 +143,8 @@ it('defaults to merged set for unknown filter casing', function (): void {
 
     $unknown = nonTrustedPluginNames('Installed');
     $default = nonTrustedPluginNames();
-    expect($unknown)->toEqual(['installed-alpha', 'omega-remote', 'capell-app/welcome-tour'])
-        ->and($default)->toEqual(['installed-alpha', 'omega-remote', 'capell-app/welcome-tour']);
+    expect($unknown)->toEqual(['installed-alpha', 'omega-remote'])
+        ->and($default)->toEqual(['installed-alpha', 'omega-remote']);
 });
 
 it('skips remote entries with non-package type or missing name', function (): void {
@@ -157,7 +159,7 @@ it('skips remote entries with non-package type or missing name', function (): vo
     bindPluginPackagesFetcher($remote);
 
     $names = nonTrustedPluginNames();
-    expect($names)->toEqual(['foo', 'bar-remote', 'theme-one', 'capell-app/welcome-tour']);
+    expect($names)->toEqual(['foo', 'bar-remote', 'theme-one']);
 });
 
 it('keeps remote theme package metadata for installer theme selection', function (): void {
@@ -218,7 +220,7 @@ it('does not treat string false remote default selection as selected', function 
 
     bindPluginPackagesFetcher($remote);
 
-    expect(nonTrustedPluginNames('download'))->toBe(['capell-app/welcome-tour']);
+    expect(nonTrustedPluginNames('download'))->toBe([]);
 });
 
 it('does not treat remote core metadata as installer package selection authority', function (): void {
@@ -232,7 +234,7 @@ it('does not treat remote core metadata as installer package selection authority
 
     bindPluginPackagesFetcher($remote);
 
-    expect(nonTrustedPluginNames('download'))->toBe(['capell-app/welcome-tour']);
+    expect(nonTrustedPluginNames('download'))->toBe([]);
 });
 
 it('ignores remote core metadata on plugin package data', function (): void {
@@ -285,12 +287,47 @@ it('deduplicates installed package appearing in remote list', function (): void 
     bindPluginPackagesFetcher($remote);
 
     $names = nonTrustedPluginNames();
-    expect($names)->toEqual(['dup-alpha', 'new-remote', 'capell-app/welcome-tour']);
+    expect($names)->toEqual(['dup-alpha', 'new-remote']);
 });
 
-it('returns the default welcome tour selection when no packages are registered and the remote cache is empty', function (): void {
+it('offers no optional package when none is registered and the remote cache is empty', function (): void {
     bindPluginPackagesFetcher(Collection::make(), true);
     $result = nonTrustedPluginNames();
 
-    expect($result)->toBe(['capell-app/welcome-tour']);
+    expect($result)->toBe([]);
+});
+
+it('offers an optional package as a default selection only when its catalogue entry declares it', function (): void {
+    bindPluginPackagesFetcher(Collection::make([
+        ['name' => 'vendor/tour', 'type' => PackageTypeEnum::Package->value, 'defaultSelected' => true],
+        ['name' => 'vendor/quiet', 'type' => PackageTypeEnum::Package->value],
+    ]));
+
+    $download = GetPluginsAction::run('download')->keyBy(fn (PackageData $package): string => $package->name);
+
+    expect($download->has('vendor/tour'))->toBeTrue()
+        ->and($download->get('vendor/tour')?->defaultSelected)->toBeTrue()
+        ->and($download->has('vendor/quiet'))->toBeFalse();
+});
+
+it('carries the roles, priority, install tips and legacy tables a catalogue entry declares', function (): void {
+    bindPluginPackagesFetcher(Collection::make([
+        [
+            'name' => 'vendor/workflow',
+            'type' => PackageTypeEnum::Plugin->value,
+            'roles' => ['workflow-final', 'not-a-role', 7],
+            'rolePriority' => 3,
+            'installTips' => [['variant' => 'package_blog', 'priority' => 2], 'ignored'],
+            'legacyTables' => [['name' => 'tags', 'configKey' => 'tags.table', 'migration' => 'create_tags']],
+        ],
+    ]));
+
+    $package = GetPluginsAction::run('download')->get('vendor/workflow');
+
+    expect($package?->roles())->toBe([PackageRole::WorkflowFinal])
+        ->and($package?->hasRole(PackageRole::WorkflowFinal))->toBeTrue()
+        ->and($package?->rolePriority())->toBe(3)
+        ->and($package?->installTips())->toHaveCount(1)
+        ->and($package?->installTips()[0]->variant)->toBe('package_blog')
+        ->and($package?->legacyTables()[0]->configKey)->toBe('tags.table');
 });

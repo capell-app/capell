@@ -17,7 +17,7 @@
     "namespace": "{{ escapedNamespace }}",
     "surfaces": ["admin", "frontend", "console", "shared"],
     "dependencies": {
-        "requires": ["capell-app/core", "capell-app/admin", "capell-app/frontend", "capell-app/layout-builder"],
+        "requires": ["capell-app/core", "capell-app/admin", "capell-app/frontend", "{{ profilePackage }}"],
         "supports": [],
         "conflicts": []
     },

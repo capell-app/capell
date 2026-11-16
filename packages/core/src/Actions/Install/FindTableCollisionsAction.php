@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\Install\TableCollisionData;
+use Capell\Core\Data\Manifest\ExtensionLegacyTableData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Install\MissingSqliteDatabase;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Capell\Core\Support\TableName;
 use Composer\InstalledVersions;
 use Illuminate\Support\Facades\Schema;
@@ -86,9 +89,8 @@ final class FindTableCollisionsAction
             ['stored_events', config('capell.database.external_tables.stored_events', 'stored_events'), 'capell.database.external_tables.stored_events', '2026_06_26_000001_create_stored_events_table'],
             ['snapshots', config('capell.database.external_tables.snapshots', 'snapshots'), 'capell.database.external_tables.snapshots', '2026_06_26_000002_create_snapshots_table'],
         ];
-        if (InstalledVersions::isInstalled('spatie/laravel-tags') || in_array('capell-app/tags', $packages, true)) {
-            $external[] = ['tags', config('capell.database.external_tables.tags', 'tags'), 'capell.database.external_tables.tags', 'create_tag_tables'];
-            $external[] = ['taggables', config('tags.taggable.table_name', 'taggables'), 'tags.taggable.table_name', 'create_tag_tables'];
+        foreach ($this->legacyTables($packages) as $legacy) {
+            $external[] = [$legacy->name, config($legacy->configKey, $legacy->name), $legacy->configKey, $legacy->migration];
         }
 
         foreach ($external as [$name, $table, $key, $migration]) {
@@ -97,5 +99,28 @@ final class FindTableCollisionsAction
         }
 
         return $tables;
+    }
+
+    /**
+     * Tables that packages declare in their manifest `install.legacyTables` because an earlier
+     * owner may already hold them. A package in the plan always contributes its tables. Without
+     * an earlier owner from `capell.database.legacy_table_owners` installed the rest stay quiet;
+     * once one is, every package that declares such a table is checked, in the plan or not.
+     *
+     * @param  list<string>  $packages
+     * @return list<ExtensionLegacyTableData>
+     */
+    private function legacyTables(array $packages): array
+    {
+        $earlierOwnerInstalled = array_any(
+            config()->array('capell.database.legacy_table_owners', []),
+            static fn (mixed $owner): bool => is_string($owner) && InstalledVersions::isInstalled($owner),
+        );
+
+        return array_values(resolve(PackageRoleResolver::class)->knownPackages()
+            ->filter(static fn (PackageData $package): bool => $earlierOwnerInstalled || in_array($package->name, $packages, true))
+            ->flatMap(static fn (PackageData $package): array => $package->legacyTables())
+            ->unique(static fn (ExtensionLegacyTableData $table): string => $table->name)
+            ->all());
     }
 }

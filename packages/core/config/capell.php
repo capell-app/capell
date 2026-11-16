@@ -24,6 +24,12 @@ return [
         // Map a Capell base table name to its complete database table name.
         'table_aliases' => [],
         'adopted_tables' => [],
+        // Composer packages that may already hold tables a Capell package declares in its
+        // manifest `install.legacyTables`. While one is installed, every declared table is
+        // checked for a collision, whether or not its package is in the install plan.
+        'legacy_table_owners' => [
+            'spatie/laravel-tags',
+        ],
         // Tables owned by external packages that do not expose table-name config.
         'external_tables' => [
             'media' => 'media',
@@ -382,6 +388,12 @@ return [
     ],
     // Cached plugin packages list
     'plugins' => [],
+    // Packages that no longer exist and may remain only in an upgrade ledger. The version audit
+    // ignores them, so a retired package is not reported as a missing install. The installer
+    // is always ignored; list others here.
+    'retired_packages' => [
+        'capell-app/url-manager',
+    ],
 
     'media' => [
         'backend' => env('CAPELL_MEDIA_BACKEND', 'spatie'),

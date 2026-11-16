@@ -30,7 +30,7 @@ use Illuminate\Database\Eloquent\Model;
  *     key: 'structured-content.collection',
  *     label: 'Collection',
  *     modelClass: Collection::class,
- *     ownerPackage: 'capell-app/structured-content-library',
+ *     ownerPackage: 'vendor/structured-content',
  *     groups: [BlueprintGroupEnum::Default],
  *     defaultSchemaSeeder: CreateDefaultCollectionBlueprintAction::class,
  * ));

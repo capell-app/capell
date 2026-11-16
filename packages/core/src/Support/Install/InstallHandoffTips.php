@@ -6,7 +6,10 @@ namespace Capell\Core\Support\Install;
 
 use Capell\Core\Data\Install\InstallHandoffFactsData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\Manifest\ExtensionInstallTipData;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Data\PackageData;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use InvalidArgumentException;
 
 /**
@@ -31,23 +34,21 @@ final class InstallHandoffTips
     /** The guide every handoff points at for creating or editing the first page. */
     public const string FIRST_PAGE_GUIDE_URL = 'https://docs.capell.app/getting-started/create-your-first-page/';
 
-    private const string THEME_PACKAGE_PREFIX = 'capell-app/theme-';
-
     private const int MAX_PACKAGE_TIPS = 2;
 
     /**
-     * Content packages that do nothing useful until an editor adds the first record,
-     * mapped to their tip variant. Order is priority order: the first installed entries
-     * win the two package tip slots.
+     * Tip variants a package may name in its manifest `install.tips`. Each is a translation key
+     * written out in {@see self::tip()}; a variant outside this list is ignored, so a manifest
+     * can never break the handoff with a key Core has no copy for.
      *
-     * @var array<string, string>
+     * @var list<string>
      */
-    private const array CONTENT_PACKAGES = [
-        'capell-app/blog' => 'package_blog',
-        'capell-app/form-builder' => 'package_form_builder',
-        'capell-app/events' => 'package_events',
-        'capell-app/knowledge-base' => 'package_knowledge_base',
-        'capell-app/bookings' => 'package_bookings',
+    private const array PACKAGE_TIP_VARIANTS = [
+        'package_blog',
+        'package_form_builder',
+        'package_events',
+        'package_knowledge_base',
+        'package_bookings',
     ];
 
     /**
@@ -165,43 +166,48 @@ final class InstallHandoffTips
      */
     private function themeTip(InstallHandoffFactsData $facts): ?array
     {
+        $knownPackages = resolve(PackageRoleResolver::class)->knownPackages();
+
         $themePackage = collect($facts->selectedPackages)
-            ->first(fn (string $package): bool => str_starts_with($package, self::THEME_PACKAGE_PREFIX));
+            ->first(fn (string $package): bool => $knownPackages->get($package)?->getKind() === 'theme');
 
         if (! is_string($themePackage)) {
-            $themeKey = $facts->selectedThemeKey;
+            $themeKey = is_string($facts->selectedThemeKey) ? trim($facts->selectedThemeKey) : '';
 
-            if (! is_string($themeKey) || trim($themeKey) === '') {
+            if ($themeKey === '') {
                 return null;
             }
 
-            $themePackage = str_starts_with($themeKey, 'capell-app/')
-                ? $themeKey
-                : self::THEME_PACKAGE_PREFIX . trim($themeKey);
+            $themePackage = $knownPackages
+                ->first(fn (PackageData $package): bool => $package->getThemeKey() === $themeKey)
+                ->name ?? $themeKey;
         }
 
         return $this->tip(self::KEY_THEME, 'theme', ['package' => $themePackage]);
     }
 
     /**
+     * The tips the selected packages declare in their manifests, lowest priority first, so the
+     * first selected entries win the package tip slots.
+     *
      * @param  list<string>  $selectedPackages
      * @return list<array{key: string, label: string, detail: string}>
      */
     private function contentPackageTips(array $selectedPackages): array
     {
-        $tips = [];
+        $knownPackages = resolve(PackageRoleResolver::class)->knownPackages();
 
-        foreach (self::CONTENT_PACKAGES as $package => $variant) {
-            if (count($tips) === self::MAX_PACKAGE_TIPS) {
-                break;
-            }
-
-            if (in_array($package, $selectedPackages, true)) {
-                $tips[] = $this->tip('package:' . $package, $variant);
-            }
-        }
-
-        return $tips;
+        return array_values(collect($selectedPackages)
+            ->unique()
+            ->flatMap(fn (string $package): array => array_map(
+                static fn (ExtensionInstallTipData $tip): array => ['package' => $package, 'tip' => $tip],
+                $knownPackages->get($package)?->installTips() ?? [],
+            ))
+            ->filter(static fn (array $entry): bool => in_array($entry['tip']->variant, self::PACKAGE_TIP_VARIANTS, true))
+            ->sortBy(static fn (array $entry): array => [$entry['tip']->priority, $entry['package']])
+            ->take(self::MAX_PACKAGE_TIPS)
+            ->map(fn (array $entry): array => $this->tip('package:' . $entry['package'], $entry['tip']->variant))
+            ->all());
     }
 
     /**

@@ -22,6 +22,7 @@ it('preserves selected theme key from console input', function (): void {
 });
 
 it('defaults web package selection to all core packages', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -112,6 +113,7 @@ it('keeps web theme selection empty when no theme is selected', function (): voi
 });
 
 it('does not include package default selected optional packages in the all core web package selection', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -146,6 +148,7 @@ it('does not include package default selected optional packages in the all core 
 });
 
 it('includes configured default package names in the default web package selection', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -281,6 +284,7 @@ it('does not include demo packages when web demo content is disabled', function 
 });
 
 it('supports all and custom web package selection modes', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');

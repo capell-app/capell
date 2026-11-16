@@ -16,7 +16,7 @@
     "namespace": "{{ escapedNamespace }}",
     "surfaces": ["frontend", "shared"],
     "dependencies": {
-        "requires": ["capell-app/core", "capell-app/frontend", "capell-app/theme-foundation"],
+        "requires": ["capell-app/core", "capell-app/frontend", "{{ baseThemePackage }}"],
         "supports": [],
         "conflicts": []
     },

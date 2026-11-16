@@ -93,7 +93,7 @@ final class CapellPackageRegistry extends AbstractKeyedRegistry
     /**
      * Builds a map of PHP namespace prefix → package short name for all registered packages.
      * The short name is the portion of the composer package name after the final slash
-     * (e.g. `capell-app/seo-suite` → `seo-suite`).
+     * (e.g. `vendor/seo-suite` → `seo-suite`).
      *
      * @return array<string, string>
      */

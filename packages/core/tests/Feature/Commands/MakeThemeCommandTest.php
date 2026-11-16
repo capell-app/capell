@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\VendorAssetEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
@@ -14,6 +15,9 @@ use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
     $this->workspace = new OwnedApplicationPaths(app());
+
+    // A scaffolded theme builds on whichever package declares the default-theme role.
+    registerRolePackage('vendor/starter-theme', PackageRole::DefaultTheme);
 });
 
 afterEach(function (): void {
@@ -62,7 +66,7 @@ it('creates a project-local theme package scaffold', function (): void {
         ->and($manifest['capabilities'])->toBe(['frontend-rendering', 'tailwind-assets'])
         ->and($manifest['providers']['runtime'])->toBe(['App\\EquidynamicsTheme\\EquidynamicsThemeServiceProvider'])
         ->and($composer['extra']['laravel']['providers'])->toBe(['App\\EquidynamicsTheme\\EquidynamicsThemeServiceProvider'])
-        ->and($composer['require'])->toHaveKey('capell-app/theme-foundation')
+        ->and($composer['require'])->toHaveKey('vendor/starter-theme')
         ->and($composer['require-dev'])->toHaveKeys(['orchestra/testbench', 'pestphp/pest', 'pestphp/pest-plugin-laravel'])
         ->and($composer['scripts']['test'])->toBe('pest');
 
@@ -208,4 +212,40 @@ it('warns when an absolute scaffold path lies outside the project', function ():
 
     expect($readme)->toContain($outside . '/equidynamics-theme')
         ->toContain('outside this project');
+});
+
+it('builds a scaffolded theme on the package that declares the default-theme role', function (): void {
+    $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-role-' . bin2hex(random_bytes(6));
+    mkdir($packagesDirectory, 0755, true);
+
+    artisanCommand('capell:make-theme', [
+        'theme' => 'rolebased',
+        '--package' => 'app/rolebased-theme',
+        '--path' => $packagesDirectory,
+        '--local' => true,
+    ])->assertExitCode(Command::SUCCESS);
+
+    $manifest = json_decode((string) file_get_contents($packagesDirectory . '/rolebased-theme/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $composer = json_decode((string) file_get_contents($packagesDirectory . '/rolebased-theme/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($manifest['dependencies']['requires'])->toContain('vendor/starter-theme')
+        ->and($composer['require'])->toHaveKey('vendor/starter-theme')
+        ->not->toHaveKey('capell-app/theme-foundation');
+});
+
+it('refuses to scaffold a theme before writing anything when no package declares the default-theme role', function (): void {
+    CapellCore::clearPackages();
+    $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-norole-' . bin2hex(random_bytes(6));
+    mkdir($packagesDirectory, 0755, true);
+
+    artisanCommand('capell:make-theme', [
+        'theme' => 'orphan',
+        '--package' => 'app/orphan-theme',
+        '--path' => $packagesDirectory,
+        '--local' => true,
+    ])
+        ->expectsOutputToContain('default-theme')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($packagesDirectory . '/orphan-theme')->not->toBeDirectory();
 });

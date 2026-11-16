@@ -10,6 +10,7 @@ use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
@@ -100,11 +101,15 @@ function setupInstallTest(array $packageNames = ['test'], bool $foundationThemeA
 
     }
 
+    // The default theme is whichever package declares the default-theme role; the catalogue lists it.
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
+
     if ($foundationThemeAvailable) {
         CapellCore::registerPackage(
             name: 'capell-app/theme-foundation',
             path: realpath(__DIR__ . '/../../../../../tests/fixtures/install-package'),
         );
+        CapellCore::getPackage('capell-app/theme-foundation')->declaredRoles = [PackageRole::DefaultTheme];
     }
 
     if (in_array('capell-app/admin', $packageNames, true)) {
@@ -1345,6 +1350,7 @@ function configureInstallSuiteForTest(bool $demo = false): void
     GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
         'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin, isPaid: false),
         'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin, isPaid: false),
+        'capell-app/theme-foundation' => new PackageData(name: 'capell-app/theme-foundation', type: PackageTypeEnum::Theme, themeKey: 'default', declaredRoles: [PackageRole::DefaultTheme]),
         'capell-app/events' => new PackageData(name: 'capell-app/events', type: PackageTypeEnum::Plugin, description: 'Recurring events.', tier: 'free'),
     ]));
 }
@@ -3626,6 +3632,7 @@ function configureInstallPresetsForTest(): void
     GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
         'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin, isPaid: false),
         'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin, isPaid: false),
+        'capell-app/theme-foundation' => new PackageData(name: 'capell-app/theme-foundation', type: PackageTypeEnum::Theme, themeKey: 'default', declaredRoles: [PackageRole::DefaultTheme]),
     ]));
 }
 

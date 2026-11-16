@@ -60,6 +60,11 @@ function bindInstallDeveloperToolingState(bool $installed): void
         {
             return $this->installed;
         }
+
+        public function toolingPackageName(): string
+        {
+            return 'vendor/dev-tooling';
+        }
     });
 }
 
@@ -167,7 +172,7 @@ it('requires boost and capell agent-bridge then configures boost tooling', funct
     ])->toContain([
         'composer',
         'require',
-        'capell-app/agent-bridge:*',
+        'vendor/dev-tooling:*',
         '--dev',
         'laravel/boost',
         '--with-all-dependencies',
@@ -399,4 +404,20 @@ it('skips boost configuration for already installed developer tooling unless req
     expect($reporter->messages)
         ->toContain('✓ Laravel Boost and Capell Agent Bridge are already installed.')
         ->toContain('✓ Boost configuration skipped. Pass --developer-tooling without --no-boost-install to run boost:install explicitly.');
+});
+
+it('refuses to install developer tooling when no package declares the developer-tooling role', function (): void {
+    CapellCore::clearPackages();
+    app()->instance(DeveloperToolingInstallationState::class, new DeveloperToolingInstallationState);
+    $commands = [];
+    InstallDeveloperToolingAction::setProcessFactory(function (array $command) use (&$commands): never {
+        $commands[] = $command;
+
+        throw new RuntimeException('Composer must not run without a tooling package to require.');
+    });
+
+    expect(fn (): mixed => InstallDeveloperToolingAction::run(new NullProgressReporter, configureBoost: false))
+        ->toThrow(RuntimeException::class, 'developer-tooling role');
+
+    expect(array_filter($commands, static fn (array $command): bool => in_array('require', $command, true)))->toBe([]);
 });

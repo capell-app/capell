@@ -94,6 +94,7 @@ class InstallDeveloperToolingAction
                 $reporter->report('✓ Boost configuration skipped. Pass --developer-tooling without --no-boost-install to run boost:install explicitly.');
             }
         } else {
+            $this->toolingPackage();
             $this->configureAgentBridgeRepository($reporter);
             $this->configureGithubProtocols($reporter);
             $this->requirePackages($reporter);
@@ -129,16 +130,31 @@ class InstallDeveloperToolingAction
         return 'capell-app/core';
     }
 
+    /**
+     * The package that declares the developer-tooling role. Without one there is nothing to
+     * install, so this stops before any Composer command runs.
+     */
+    private function toolingPackage(): string
+    {
+        $toolingPackage = resolve(DeveloperToolingInstallationState::class)->toolingPackageName();
+
+        throw_if($toolingPackage === null, RuntimeException::class, 'No installed or catalogue package declares the developer-tooling role, so there is no developer tooling to install. Refresh the Marketplace catalogue or install the package that provides it, then run this again.');
+
+        return $toolingPackage;
+    }
+
     private function requirePackages(ProgressReporter $reporter): void
     {
+        $toolingPackage = $this->toolingPackage();
+
         $reporter->step('Installing AI / Agent Bridge developer tooling…');
 
         $command = [
             'composer',
             'require',
-            'capell-app/agent-bridge:*',
+            $toolingPackage . ':*',
             '--dev',
-            'laravel/boost',
+            DeveloperToolingInstallationState::BOOST_PACKAGE_NAME,
             '--with-all-dependencies',
             '--no-interaction',
             '--prefer-dist',

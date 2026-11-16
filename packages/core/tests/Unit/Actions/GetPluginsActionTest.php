@@ -28,5 +28,5 @@ it('returns plugin list with none installed', function (): void {
 
     expect($plugins)
         ->toBeInstanceOf(Collection::class)
-        ->and($nonTrustedPlugins->all())->toBe(['capell-app/welcome-tour']);
+        ->and($nonTrustedPlugins->all())->toBe([]);
 });

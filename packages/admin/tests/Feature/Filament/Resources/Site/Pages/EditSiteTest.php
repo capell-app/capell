@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Actions\Page\ReplicateSiteAction;
 use Capell\Admin\Filament\Resources\Sites\Pages\EditSite;
 use Capell\Admin\Tests\Feature\Filament\Resources\Site\Pages\Fixtures\ApiTranslatorContract;
+use Capell\Core\Enums\PackageRole;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -72,6 +74,42 @@ it('can save', function (): void {
         ->name->toBe($newData->name)
         ->language_id->toBe($newData->language_id)
         ->meta->contact_page_id->toBe($contactPage->id);
+});
+
+it('shows the built-in social fields unless an installed package declares the site-social-fields role', function (bool $packageInstalled, bool $fieldsVisible): void {
+    if ($packageInstalled) {
+        registerRolePackage('vendor/site-socials', PackageRole::SiteSocialFields);
+    }
+
+    $site = Site::factory()
+        ->language(Language::factory()->english()->create())
+        ->theme(Theme::factory()->createOne())
+        ->create();
+
+    $component = Livewire::test(EditSite::class, ['record' => $site->getRouteKey()])->assertSuccessful();
+
+    foreach (['meta.social_links', 'meta.twitter'] as $field) {
+        $fieldsVisible
+            ? $component->assertFormFieldIsVisible($field)
+            : $component->assertFormFieldIsHidden($field);
+    }
+})->with([
+    'no package declares the role' => [false, true],
+    'a package declares the role' => [true, false],
+]);
+
+it('does not treat a package called socials as owning the social fields', function (): void {
+    CapellCore::registerPackage('capell-app/socials');
+    CapellCore::forcePackageInstalled('capell-app/socials');
+
+    $site = Site::factory()
+        ->language(Language::factory()->english()->create())
+        ->theme(Theme::factory()->createOne())
+        ->create();
+
+    Livewire::test(EditSite::class, ['record' => $site->getRouteKey()])
+        ->assertFormFieldIsVisible('meta.social_links')
+        ->assertFormFieldIsVisible('meta.twitter');
 });
 
 it('can edit database-backed site fields from the admin form', function (): void {

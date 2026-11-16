@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Data\Manifest\ExtensionInstallTipData;
+use Capell\Core\Data\Manifest\ExtensionLegacyTableData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
@@ -93,6 +96,10 @@ class GetPluginsAction
                     'extendsPackage' => $package['extends'] ?? $package['extendsPackage'] ?? null,
                     'previewImageUrl' => MarketplaceAssetUrl::toUrl($this->stringValue($package['previewImageUrl'] ?? $package['preview_image_url'] ?? $package['image_url'] ?? $package['logo_url'] ?? null)),
                     'visibility' => $package['visibility'] ?? 'catalogue',
+                    'declaredRoles' => $this->declaredRoles($package['roles'] ?? null),
+                    'declaredRolePriority' => is_int($package['rolePriority'] ?? null) ? $package['rolePriority'] : null,
+                    'declaredInstallTips' => $this->declaredRows($package['installTips'] ?? null, ExtensionInstallTipData::fromArray(...)),
+                    'declaredLegacyTables' => $this->declaredRows($package['legacyTables'] ?? null, ExtensionLegacyTableData::fromArray(...)),
                 ])
                 ->all(),
             Collection::class,
@@ -131,6 +138,40 @@ class GetPluginsAction
             defaultSelected: TrustedCorePackages::isDefaultInstallSelection($packageName),
             kind: 'package',
         );
+    }
+
+    /** @return list<PackageRole> */
+    private function declaredRoles(mixed $roles): array
+    {
+        if (! is_array($roles)) {
+            return [];
+        }
+
+        return array_values(array_unique(
+            array_filter(array_map(
+                static fn (mixed $role): ?PackageRole => is_string($role) ? PackageRole::tryFrom($role) : null,
+                $roles,
+            )),
+            SORT_REGULAR,
+        ));
+    }
+
+    /**
+     * @template TRow of object
+     *
+     * @param  callable(array<string, mixed>): TRow  $factory
+     * @return list<TRow>
+     */
+    private function declaredRows(mixed $rows, callable $factory): array
+    {
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            $factory,
+            array_filter($rows, is_array(...)),
+        ));
     }
 
     private function booleanValue(mixed $value): bool
