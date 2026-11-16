@@ -86,6 +86,20 @@ it('ignores retired packages that remain only in the upgrade ledger', function (
     expect($audit->ledgerOnly)->toBe(['capell-app/ordinary-retired-drift']);
 });
 
+it('ignores every package listed as retired in configuration', function (): void {
+    config(['capell.retired_packages' => ['vendor/gone-for-good']]);
+
+    foreach (['vendor/gone-for-good', 'capell-app/url-manager'] as $package) {
+        UpgradeLogEntry::query()->create([
+            'type' => 'version_snapshot', 'key' => $package, 'package' => $package,
+            'status' => 'recorded', 'ran_at' => now()->subDay(),
+            'meta' => ['to_version' => '1.0.0'],
+        ]);
+    }
+
+    expect(AuditInstalledVersionsAction::run([])->ledgerOnly)->toBe(['capell-app/url-manager']);
+});
+
 it('uses the newest id when version snapshots share a timestamp', function (): void {
     $ranAt = now()->startOfSecond();
 

@@ -7,7 +7,9 @@ namespace Capell\Core\Support\Install;
 use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Composer\InstalledVersions;
@@ -24,36 +26,16 @@ final class ThemePackageCandidates
 
     public const string LEGACY_FOUNDATION_KEY = 'foundation';
 
-    private const array FOUNDATION_PACKAGE_NAMES = [
-        'capell-app/theme-foundation',
-        'capell-app/foundation-theme',
-        'capell-theme/foundation',
-    ];
-
-    /** @var array<string, array{name: string, description: string, package: string|null, preview: string|null}> */
+    /** @var array<string, array{name: string, description: string, preview: string|null}> */
     private const array STATIC_OPTIONS = [
         self::NONE_KEY => [
             'name' => 'No theme',
             'description' => 'Install Capell without a starter theme.',
-            'package' => null,
             'preview' => null,
         ],
         self::DEFAULT_KEY => [
             'name' => 'Default',
             'description' => 'Built-in starter theme provided by Capell Frontend.',
-            'package' => 'capell-app/theme-foundation',
-            'preview' => null,
-        ],
-        'corporate' => [
-            'name' => 'Corporate',
-            'description' => 'Editorial business theme for company and service websites.',
-            'package' => 'capell-app/theme-corporate',
-            'preview' => null,
-        ],
-        'saas' => [
-            'name' => 'SaaS',
-            'description' => 'Product-focused theme for software and subscription sites.',
-            'package' => 'capell-app/theme-saas',
             'preview' => null,
         ],
     ];
@@ -91,7 +73,7 @@ final class ThemePackageCandidates
             ->merge($this->downloadablePackages()->only($extraPackageNames));
 
         return array_replace(
-            $this->staticOptions(),
+            $this->staticOptions($packages),
             $this->localAppThemeOptions(),
             $this->optionDataFromPackages($packages),
         );
@@ -108,13 +90,13 @@ final class ThemePackageCandidates
     /** @return array<string, ThemeInstallOptionData> */
     public function optionDataForInstalledPackages(): array
     {
+        $installedPackages = CapellCore::getPackages(sortByDependencies: true)
+            ->filter(fn (PackageData $package): bool => $package->isInstalled());
+
         return array_replace(
-            $this->staticOptions(),
+            $this->staticOptions($installedPackages),
             $this->localAppThemeOptions(),
-            $this->optionDataFromPackages(
-                CapellCore::getPackages(sortByDependencies: true)
-                    ->filter(fn (PackageData $package): bool => $package->isInstalled()),
-            ),
+            $this->optionDataFromPackages($installedPackages),
         );
     }
 
@@ -124,14 +106,16 @@ final class ThemePackageCandidates
      */
     public function optionDataForCatalogue(?Collection $remote = null): array
     {
+        $registeredPackages = CapellCore::getPackages(sortByDependencies: true);
+        $downloadablePackages = $this->downloadablePackages($remote);
+
         return array_replace(
-            $this->staticOptions(),
-            $this->optionDataFromPackages($this->downloadablePackages($remote)),
+            $this->staticOptions($registeredPackages->merge($downloadablePackages)),
+            $this->optionDataFromPackages($downloadablePackages),
             $this->localAppThemeOptions(),
             $this->localThemeOptions(),
             $this->optionDataFromPackages(
-                CapellCore::getPackages(sortByDependencies: true)
-                    ->filter(fn (PackageData $package): bool => $package->getThemeKey() !== null),
+                $registeredPackages->filter(fn (PackageData $package): bool => $package->getThemeKey() !== null),
             ),
         );
     }
@@ -187,16 +171,24 @@ final class ThemePackageCandidates
         return $themeKey === self::LEGACY_FOUNDATION_KEY ? self::DEFAULT_KEY : $themeKey;
     }
 
-    /** @return array<string, ThemeInstallOptionData> */
-    private function staticOptions(): array
+    /**
+     * The default option installs whichever package declares the default-theme role, when one is
+     * installed or listed in the catalogue; without one it has no package to install.
+     *
+     * @param  Collection<string, PackageData>  $packages
+     * @return array<string, ThemeInstallOptionData>
+     */
+    private function staticOptions(Collection $packages): array
     {
+        $defaultThemePackage = resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DefaultTheme, $packages);
+
         return collect(self::STATIC_OPTIONS)
             ->mapWithKeys(fn (array $option, string $key): array => [
                 $key => new ThemeInstallOptionData(
                     key: $key,
                     name: $option['name'],
                     description: $option['description'],
-                    packageName: $option['package'],
+                    packageName: $key === self::DEFAULT_KEY ? $defaultThemePackage : null,
                     previewImageUrl: $option['preview'],
                     static: true,
                 ),
@@ -212,7 +204,7 @@ final class ThemePackageCandidates
     {
         return $packages
             ->filter(fn (PackageData $package): bool => $package->getThemeKey() !== null)
-            ->reject(fn (PackageData $package): bool => in_array($package->name, self::FOUNDATION_PACKAGE_NAMES, true))
+            ->reject(fn (PackageData $package): bool => $package->hasRole(PackageRole::DefaultTheme) || $package->getThemeKey() === self::DEFAULT_KEY)
             ->mapWithKeys(fn (PackageData $package): array => [
                 (string) $package->getThemeKey() => new ThemeInstallOptionData(
                     key: (string) $package->getThemeKey(),
@@ -345,7 +337,7 @@ final class ThemePackageCandidates
             return null;
         }
 
-        if (in_array($packageName, self::FOUNDATION_PACKAGE_NAMES, true)) {
+        if ($themeKey === self::DEFAULT_KEY || $this->declaresDefaultThemeRole($manifest)) {
             return null;
         }
 
@@ -356,6 +348,13 @@ final class ThemePackageCandidates
             packageName: $packageName,
             previewImageUrl: $this->previewImageUrl($manifest),
         );
+    }
+
+    /** @param  array<string, mixed>  $manifest */
+    private function declaresDefaultThemeRole(array $manifest): bool
+    {
+        return is_array($manifest['roles'] ?? null)
+            && in_array(PackageRole::DefaultTheme->value, $manifest['roles'], true);
     }
 
     /** @return array<string, mixed> */

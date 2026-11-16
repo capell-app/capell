@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Admin\Tests\AdminTestCase;
+use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\PackageRole;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Core\Tests\CoreTestCase;
 use Capell\Frontend\Tests\FrontendTestCase;
@@ -235,6 +239,54 @@ function artisanCommand(string $command, array $parameters = []): PendingCommand
     throw_unless($pendingCommand instanceof PendingCommand, RuntimeException::class, 'Expected Laravel test artisan command output to be mocked.');
 
     return $pendingCommand;
+}
+
+/**
+ * Register an installed package that declares the given roles, as its manifest would, so a test
+ * can exercise code that finds a package by what it does instead of by its Composer name.
+ */
+function registerRolePackage(string $name, PackageRole ...$roles): PackageData
+{
+    CapellCore::registerPackage($name);
+    CapellCore::forcePackageInstalled($name);
+
+    $package = CapellCore::getPackage($name);
+    $package->declaredRoles = array_values($roles);
+
+    return $package;
+}
+
+/**
+ * Make the Marketplace catalogue cache hold these entries, so code that falls back to the cached
+ * catalogue for packages that are not installed reads them without a network call.
+ *
+ * @param  list<array<string, mixed>>  $entries
+ */
+function bindCachedCatalogue(array $entries): void
+{
+    app()->bind(PluginPackagesFetcher::class, fn (): PluginPackagesFetcher => new class(collect($entries)) extends PluginPackagesFetcher
+    {
+        /** @param  Collection<int, array<string, mixed>>  $entries */
+        public function __construct(private readonly Collection $entries) {}
+
+        #[Override]
+        public function getCached(): Collection
+        {
+            return $this->entries;
+        }
+
+        #[Override]
+        public function fetch(bool $force = false): Collection
+        {
+            return $this->entries;
+        }
+    });
+}
+
+/** A catalogue entry for the package that declares the default-theme role. */
+function defaultThemeCatalogueEntry(string $name = 'capell-app/theme-foundation'): array
+{
+    return ['name' => $name, 'type' => 'theme', 'themeKey' => 'default', 'roles' => ['default-theme']];
 }
 
 function filamentObjectName(object $object): ?string

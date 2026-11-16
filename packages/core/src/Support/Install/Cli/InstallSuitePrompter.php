@@ -135,7 +135,7 @@ final class InstallSuitePrompter
     public function foundationPackages(array $suitePackages): array
     {
         $defaults = CapellCore::getPackages(sortByDependencies: true)
-            ->filter(fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelection($package->name)
+            ->filter(fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelectionPackage($package)
                 && $package->isVisibleInCatalogue()
                 && ! in_array($package->name, $suitePackages, true))
             ->filter(function (PackageData $package) use ($suitePackages): bool {

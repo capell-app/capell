@@ -6,12 +6,16 @@ use Capell\Core\Actions\Diagnostics\BuildThemeDoctorReportAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Enums\PackageRole;
 use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
     $this->workspace = new OwnedApplicationPaths(app());
+
+    // A scaffolded theme builds on whichever package declares the default-theme role.
+    registerRolePackage('vendor/starter-theme', PackageRole::DefaultTheme);
 });
 
 afterEach(function (): void {

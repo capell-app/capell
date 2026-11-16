@@ -7,7 +7,9 @@ namespace Capell\Admin\Actions\Themes;
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Data\Themes\ThemeLibraryCardData;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\TableName;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
@@ -94,7 +96,7 @@ final class ResolveThemeLibraryAction
 
         return $theme->key === 'foundation'
             && $foundationDefinition instanceof ThemeDefinitionData
-            && $foundationDefinition->package === 'capell-app/foundation-theme'
+            && in_array($foundationDefinition->package, resolve(PackageRoleResolver::class)->installedPackageNamesWithRole(PackageRole::DefaultTheme), true)
             && ! $theme->sites()->exists();
     }
 }

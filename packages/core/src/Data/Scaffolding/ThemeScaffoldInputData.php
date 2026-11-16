@@ -18,6 +18,8 @@ final readonly class ThemeScaffoldInputData
         public string $extends = 'default',
         public bool $local = true,
         public ?string $projectRoot = null,
+        /** The package that declares the default-theme role; a scaffolded theme builds on it. */
+        public ?string $baseThemePackage = null,
     ) {}
 
     /**
@@ -35,6 +37,7 @@ final readonly class ThemeScaffoldInputData
             '{{ providerClass }}' => $this->providerClass(),
             '{{ escapedRuntimeProvider }}' => str_replace('\\', '\\\\', $this->namespace . '\\' . $this->providerClass()),
             '{{ extends }}' => $this->extends,
+            '{{ baseThemePackage }}' => $this->baseThemePackage ?? '',
             '{{ jsonRepositoryUrl }}' => $this->jsonStringValue($this->packageDirectory()),
             '{{ doctorPath }}' => $this->shellArgument($this->packageDirectory()),
             '{{ localRegistration }}' => $this->local ? 'true' : 'false',

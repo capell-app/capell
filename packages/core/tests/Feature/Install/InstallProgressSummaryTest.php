@@ -85,6 +85,8 @@ beforeEach(function (): void {
     CapellExtension::query()->where('composer_name', 'capell-app/core')->delete();
     CapellCore::clearExtensionCache();
     InstallRunState::clearStoppedStep();
+    // The default theme is whichever package declares the default-theme role; the catalogue lists it.
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     bindProgressScenarioExecutor();
     // The Composer dry-run needs the network and the host project's lock file.
     app()->instance(ProcessFactoryInterface::class, new class implements ProcessFactoryInterface

@@ -8,7 +8,9 @@ use Capell\Core\Actions\Scaffolding\ScaffoldThemePackageAction;
 use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Support\Filesystem\AbsolutePath;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -98,6 +100,14 @@ final class MakeThemeCommand extends Command
             return CommandAlias::FAILURE;
         }
 
+        $baseThemePackage = resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::DefaultTheme, refreshCatalogue: true);
+
+        if ($baseThemePackage === null) {
+            $this->error('A scaffolded theme builds on the package that declares the default-theme role, and none is installed or listed in the Marketplace catalogue. Install that package, then run this again.');
+
+            return CommandAlias::FAILURE;
+        }
+
         $namespace = $this->namespaceForPackage($packageName);
 
         ScaffoldThemePackageAction::run(new ThemeScaffoldInputData(
@@ -110,6 +120,7 @@ final class MakeThemeCommand extends Command
             extends: $extends,
             local: $this->option('local') === true,
             projectRoot: getcwd() ?: null,
+            baseThemePackage: $baseThemePackage,
         ));
 
         $this->info(sprintf('Created Capell theme: %s', $themeKey));

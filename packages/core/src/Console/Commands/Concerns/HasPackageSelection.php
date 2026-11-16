@@ -234,7 +234,7 @@ trait HasPackageSelection
     private function corePromptPackages(Collection $packages): Collection
     {
         return $packages->filter(
-            fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelection($package->name),
+            fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelectionPackage($package),
         );
     }
 
@@ -245,7 +245,7 @@ trait HasPackageSelection
     private function extraPromptPackages(Collection $packages): Collection
     {
         return $packages->reject(
-            fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelection($package->name),
+            fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelectionPackage($package),
         );
     }
 

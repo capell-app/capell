@@ -6,6 +6,7 @@ use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Enums\Install\InstallReadinessStage;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
@@ -502,6 +503,7 @@ it('reports composer file permissions when packages will be required', function 
 });
 
 it('dry-runs developer tooling packages as dev requirements', function (): void {
+    registerRolePackage('vendor/dev-tooling', PackageRole::DeveloperTooling);
     $temporaryDirectory = storage_path('framework/testing/installer-preflight-' . uniqid());
     File::makeDirectory($temporaryDirectory, 0755, true);
 
@@ -533,7 +535,7 @@ it('dry-runs developer tooling packages as dev requirements', function (): void 
                 'status' => 'pass',
             ])
             ->and($arguments)->toContain("require\n")
-            ->and($arguments)->toContain("capell-app/agent-bridge:*\n")
+            ->and($arguments)->toContain("vendor/dev-tooling:*\n")
             ->and($arguments)->toContain("laravel/boost:*\n")
             ->and($arguments)->toContain("--dev\n")
             ->and($arguments)->not->toContain('--repository')

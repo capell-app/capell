@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
@@ -22,21 +23,54 @@ afterEach(function (): void {
     resolve(LocalAppThemeDefinitionRepository::class)->clearCache();
 });
 
-it('returns static offline theme choices', function (): void {
+/** Register the package that declares the default-theme role, as a manifest would. */
+function registerDefaultThemePackage(string $name = 'capell-app/theme-foundation'): void
+{
+    CapellCore::registerPackage($name, type: PackageTypeEnum::Theme);
+    CapellCore::getPackage($name)->themeKey = 'default';
+    CapellCore::getPackage($name)->declaredRoles = [PackageRole::DefaultTheme];
+    CapellCore::forcePackageInstalled($name);
+}
+
+it('returns the offline choices without naming any optional theme package', function (): void {
     $options = new ThemePackageCandidates(new PackageWorkflowPlanner)
         ->optionsForSelection([]);
 
     expect($options)->toHaveKey('none')
         ->toHaveKey('default')
-        ->toHaveKey('corporate')
-        ->toHaveKey('saas')
+        ->not->toHaveKey('corporate')
+        ->not->toHaveKey('saas')
         ->and($options['default'])->toBe('Default');
 });
 
+it('has no package to install for the default theme until one declares the default-theme role', function (): void {
+    $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
+
+    expect($candidates->packageNameForThemeKey('default'))->toBeNull();
+
+    registerDefaultThemePackage('vendor/starter-theme');
+
+    expect($candidates->packageNameForThemeKey('default'))->toBe('vendor/starter-theme');
+});
+
+it('finds the default theme package from a catalogue entry that declares the role', function (): void {
+    bindThemePackageCandidatesRemotePackages(Collection::make([
+        [
+            'name' => 'capell-app/catalogue-starter',
+            'type' => PackageTypeEnum::Theme->value,
+            'themeKey' => 'default',
+            'roles' => ['default-theme'],
+        ],
+    ]));
+
+    $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
+
+    expect($candidates->packageNameForThemeKey('default'))->toBe('capell-app/catalogue-starter')
+        ->and($candidates->optionDataForCatalogue()['default']->static)->toBeTrue();
+});
+
 it('ignores installed foundation theme packages because default is built in', function (): void {
-    CapellCore::registerPackage('capell-app/theme-foundation', type: PackageTypeEnum::Theme);
-    CapellCore::getPackage('capell-app/theme-foundation')->themeKey = 'default';
-    CapellCore::forcePackageInstalled('capell-app/theme-foundation');
+    registerDefaultThemePackage();
 
     CapellCore::registerPackage('capell-app/theme-corporate', type: PackageTypeEnum::Theme);
     CapellCore::getPackage('capell-app/theme-corporate')->themeKey = 'corporate';
@@ -49,11 +83,13 @@ it('ignores installed foundation theme packages because default is built in', fu
 
     expect($options)->toHaveKey('default')
         ->toHaveKey('corporate')
-        ->toHaveKey('saas')
+        ->not->toHaveKey('saas')
         ->and(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBe('capell-app/theme-foundation');
 });
 
-it('keeps historical foundation package names from replacing the built-in default', function (string $name): void {
+it('keeps catalogue packages that claim the default theme key from replacing the built-in default', function (string $name): void {
+    registerDefaultThemePackage();
+
     bindThemePackageCandidatesRemotePackages(Collection::make([
         [
             'name' => $name,
@@ -75,9 +111,7 @@ it('includes downloadable theme packages from the install catalogue', function (
         'capell.marketplace_web_url' => 'https://capell-test.app',
     ]);
 
-    CapellCore::registerPackage('capell-app/theme-foundation', type: PackageTypeEnum::Theme);
-    CapellCore::getPackage('capell-app/theme-foundation')->themeKey = 'default';
-    CapellCore::forcePackageInstalled('capell-app/theme-foundation');
+    registerDefaultThemePackage();
 
     bindThemePackageCandidatesRemotePackages(Collection::make([
         [
@@ -131,7 +165,7 @@ it('reports selected theme keys only for installable theme candidates', function
     $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
 
     expect($candidates->containsThemeKey('corporate', ['capell-app/theme-corporate']))->toBeTrue()
-        ->and($candidates->containsThemeKey('saas', ['capell-app/theme-corporate']))->toBeTrue()
+        ->and($candidates->containsThemeKey('saas', ['capell-app/theme-corporate']))->toBeFalse()
         ->and($candidates->containsThemeKey('missing', ['capell-app/theme-corporate']))->toBeFalse();
 });
 

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 
@@ -15,9 +16,13 @@ function registerWorkflowPackage(
     int $sort = 0,
     array $supportingPackages = [],
     string $visibility = 'catalogue',
+    array $roles = [],
+    ?int $rolePriority = null,
 ): void {
     CapellCore::registerPackage(name: $packageName);
     $package = CapellCore::getPackage($packageName);
+    $package->declaredRoles = array_values($roles);
+    $package->declaredRolePriority = $rolePriority;
     $package->requirements = $requirements;
     $package->sort = $sort;
     $package->supportingPackages = $supportingPackages;
@@ -126,27 +131,52 @@ it('can include installed package requirements for fresh installs', function ():
         ]);
 });
 
-it('keeps worktree workflow packages last', function (): void {
-    registerWorkflowPackage('capell-app/worktree', sort: 1);
+it('keeps packages that declare the workflow-final role last', function (): void {
+    registerWorkflowPackage('vendor/workflow', sort: 1, roles: [PackageRole::WorkflowFinal]);
     registerWorkflowPackage('capell-app/blog', sort: 30);
     registerWorkflowPackage('capell-app/form-builder', sort: 10);
 
     $orderedPackages = resolve(PackageWorkflowPlanner::class)->expandAndOrder(
         CapellCore::getPackages(),
-        ['capell-app/worktree', 'capell-app/blog', 'capell-app/form-builder'],
+        ['vendor/workflow', 'capell-app/blog', 'capell-app/form-builder'],
     );
 
     expect($orderedPackages->keys()->all())->toBe([
         'capell-app/form-builder',
         'capell-app/blog',
-        'capell-app/worktree',
+        'vendor/workflow',
     ]);
+});
+
+it('orders several workflow-final packages by role priority and then name', function (): void {
+    registerWorkflowPackage('vendor/late', sort: 1, roles: [PackageRole::WorkflowFinal], rolePriority: 5);
+    registerWorkflowPackage('vendor/early', sort: 99, roles: [PackageRole::WorkflowFinal], rolePriority: 1);
+    registerWorkflowPackage('vendor/plain', sort: 50);
+
+    $orderedPackages = resolve(PackageWorkflowPlanner::class)->expandAndOrder(
+        CapellCore::getPackages(),
+        ['vendor/late', 'vendor/plain', 'vendor/early'],
+    );
+
+    expect($orderedPackages->keys()->all())->toBe(['vendor/plain', 'vendor/early', 'vendor/late']);
+});
+
+it('does not give a package workflow-final treatment because of its name', function (): void {
+    registerWorkflowPackage('capell-app/publishing-studio', sort: 1);
+    registerWorkflowPackage('capell-app/blog', sort: 30);
+
+    $orderedPackages = resolve(PackageWorkflowPlanner::class)->expandAndOrder(
+        CapellCore::getPackages(),
+        ['capell-app/publishing-studio', 'capell-app/blog'],
+    );
+
+    expect($orderedPackages->keys()->all())->toBe(['capell-app/publishing-studio', 'capell-app/blog']);
 });
 
 it('installs workflow packages before packages that require them', function (): void {
     registerWorkflowPackage('capell-app/admin', sort: 10);
     registerWorkflowPackage('capell-app/frontend', sort: 20);
-    registerWorkflowPackage('capell-app/publishing-studio', ['capell-app/admin'], 100);
+    registerWorkflowPackage('capell-app/publishing-studio', ['capell-app/admin'], 100, roles: [PackageRole::WorkflowFinal]);
     registerWorkflowPackage('capell-app/foundation-theme', [
         'capell-app/admin',
         'capell-app/frontend',
@@ -227,4 +257,18 @@ it('reports circular requirements instead of recursing during package expansion'
         CapellCore::getPackages(),
         ['capell-app/package-a'],
     ))->toThrow(Exception::class, 'Circular dependency detected in packages');
+});
+
+it('orders workflow-final packages by their exact priority, including negative and very large values', function (): void {
+    registerWorkflowPackage('vendor/negative', sort: 99, roles: [PackageRole::WorkflowFinal], rolePriority: -1);
+    registerWorkflowPackage('vendor/zero', sort: 1, roles: [PackageRole::WorkflowFinal], rolePriority: 0);
+    registerWorkflowPackage('vendor/largest', sort: 1, roles: [PackageRole::WorkflowFinal], rolePriority: PHP_INT_MAX);
+    registerWorkflowPackage('vendor/plain', sort: 50);
+
+    $orderedPackages = resolve(PackageWorkflowPlanner::class)->expandAndOrder(
+        CapellCore::getPackages(),
+        ['vendor/largest', 'vendor/zero', 'vendor/plain', 'vendor/negative'],
+    );
+
+    expect($orderedPackages->keys()->all())->toBe(['vendor/plain', 'vendor/negative', 'vendor/zero', 'vendor/largest']);
 });

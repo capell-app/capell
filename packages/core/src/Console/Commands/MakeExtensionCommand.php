@@ -8,8 +8,10 @@ use Capell\Core\Actions\Scaffolding\ScaffoldPackageAction;
 use Capell\Core\Console\Commands\Concerns\DeprecatesMakerAliases;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\Scaffolding\PackageScaffoldInputData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageScaffoldProfile;
 use Capell\Core\Support\Filesystem\AbsolutePath;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as CommandAlias;
@@ -77,6 +79,17 @@ final class MakeExtensionCommand extends Command
             return CommandAlias::FAILURE;
         }
 
+        // Only the full profile builds on a role package, so the minimal profile never resolves one.
+        $profilePackage = $profile === PackageScaffoldProfile::Full
+            ? resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::ScaffoldFullProfile, refreshCatalogue: true)
+            : null;
+
+        if ($profile === PackageScaffoldProfile::Full && $profilePackage === null) {
+            $this->error('The full profile builds on the package that declares the scaffold-full-profile role, and none is installed or listed in the Marketplace catalogue. Install that package, or pass --profile=minimal.');
+
+            return CommandAlias::FAILURE;
+        }
+
         $targetDirectory = $this->targetDirectory($packageName);
 
         if ($targetDirectory === null) {
@@ -110,6 +123,7 @@ final class MakeExtensionCommand extends Command
             tier: $tier,
             targetPath: $targetDirectory,
             profile: $profile,
+            profilePackage: $profilePackage,
         ));
 
         $this->info(sprintf('Created Capell package: %s', $packageName));

@@ -13,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use RuntimeException;
 use SplFileInfo;
 
 final class ScaffoldPackageAction
@@ -25,6 +26,8 @@ final class ScaffoldPackageAction
      */
     public function handle(PackageScaffoldInputData $input): void
     {
+        throw_if($input->profile === PackageScaffoldProfile::Full && $input->profilePackage === null, RuntimeException::class, 'The full profile builds on the package that declares the scaffold-full-profile role, and no installed or catalogue package declares it. Install that package, or scaffold the minimal profile.');
+
         File::ensureDirectoryExists($input->targetPath);
 
         File::put(
@@ -48,7 +51,7 @@ final class ScaffoldPackageAction
         if ($input->profile === PackageScaffoldProfile::Full) {
             $requires['capell-app/admin'] = '^1.0';
             $requires['capell-app/frontend'] = '^1.0';
-            $requires['capell-app/layout-builder'] = '^1.0';
+            $requires[(string) $input->profilePackage] = '^1.0';
             $requires['spatie/laravel-data'] = '^4.0';
         }
 

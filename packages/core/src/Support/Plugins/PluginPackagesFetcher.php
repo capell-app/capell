@@ -23,7 +23,7 @@ class PluginPackagesFetcher
 {
     private const int MAX_RESPONSE_BYTES = 1048576;
 
-    private const int CACHE_SCHEMA = 2;
+    private const int CACHE_SCHEMA = 3;
 
     /** @return Collection<int, array<string, mixed>> */
     public function fetchWithinBudget(float $seconds): Collection
@@ -211,6 +211,11 @@ class PluginPackagesFetcher
             'themeKey' => $manifest['theme']['key'] ?? $manifest['themeKey'] ?? null,
             'extendsPackage' => $manifest['theme']['extends'] ?? $manifest['extends'] ?? null,
             'visibility' => $manifest['visibility'] ?? 'catalogue',
+            'defaultSelected' => $manifest['defaultSelected'] ?? false,
+            'roles' => is_array($manifest['roles'] ?? null) ? $manifest['roles'] : [],
+            'rolePriority' => is_int($manifest['rolePriority'] ?? null) ? $manifest['rolePriority'] : null,
+            'installTips' => is_array($manifest['install']['tips'] ?? null) ? $manifest['install']['tips'] : [],
+            'legacyTables' => is_array($manifest['install']['legacyTables'] ?? null) ? $manifest['install']['legacyTables'] : [],
         ];
     }
 

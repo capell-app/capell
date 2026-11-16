@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use Capell\Core\Actions\Install\DetectInitialInstallationAction;
+use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
@@ -76,6 +77,8 @@ final class InstallInputFactory
             ? $this->exampleRoleUsers($this->roleUserPassword($validated, $newUser))
             : [];
 
+        $catalogueFacts = $this->catalogueFacts($installDeveloperTooling, $selectedInstallPackageNames);
+
         return new InstallInputData(
             siteUrl: (string) $validated['site_url'],
             packages: $selectedPackages,
@@ -105,6 +108,8 @@ final class InstallInputFactory
             selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
             initialInstallation: DetectInitialInstallationAction::run(),
             siteName: $siteName,
+            developerToolingPackage: $catalogueFacts['developerToolingPackage'],
+            legacyTables: $catalogueFacts['legacyTables'],
         );
     }
 
@@ -145,6 +150,8 @@ final class InstallInputFactory
         bool $publish = false,
         ?string $suiteKey = null,
     ): InstallInputData {
+        $catalogueFacts = $this->catalogueFacts($installDeveloperTooling, array_values(array_unique([...$packages, ...$extraPackages])));
+
         return new InstallInputData(
             siteUrl: $siteUrl,
             packages: $packages,
@@ -172,6 +179,8 @@ final class InstallInputFactory
             presetKey: $presetKey,
             publish: $publish,
             suiteKey: $suiteKey,
+            developerToolingPackage: $catalogueFacts['developerToolingPackage'],
+            legacyTables: $catalogueFacts['legacyTables'],
         );
     }
 
@@ -196,6 +205,21 @@ final class InstallInputFactory
                 password: $password,
                 roleName: 'editor',
             ),
+        ];
+    }
+
+    /**
+     * What the install steps need from the Marketplace catalogue, resolved now because the steps
+     * clear the cached catalogue and must not depend on the network.
+     *
+     * @param  list<string>  $packageNames
+     * @return array{developerToolingPackage: ?string, legacyTables: list<array{name: string, configKey: string, migration: string}>}
+     */
+    private function catalogueFacts(bool $installDeveloperTooling, array $packageNames): array
+    {
+        return [
+            'developerToolingPackage' => $installDeveloperTooling ? resolve(DeveloperToolingInstallationState::class)->toolingPackageName() : null,
+            'legacyTables' => resolve(FindTableCollisionsAction::class)->declaredLegacyTables($packageNames),
         ];
     }
 

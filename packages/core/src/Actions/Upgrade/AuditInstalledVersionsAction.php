@@ -14,11 +14,13 @@ class AuditInstalledVersionsAction
     use AsObject;
 
     /**
+     * Foundation aggregate members that left the ledger. Other retired packages come from
+     * `capell.retired_packages`.
+     *
      * @var array<int, string>
      */
-    private const array RETIRED_LEDGER_PACKAGES = [
+    private const array RETIRED_AGGREGATE_PACKAGES = [
         'capell-app/installer',
-        'capell-app/url-manager',
     ];
 
     /**
@@ -33,7 +35,8 @@ class AuditInstalledVersionsAction
         $ledgerOnly = array_values(array_diff(
             array_keys($ledger),
             array_keys($composerVersions),
-            self::RETIRED_LEDGER_PACKAGES,
+            self::RETIRED_AGGREGATE_PACKAGES,
+            config()->array('capell.retired_packages', []),
         ));
 
         $downgrades = [];

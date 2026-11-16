@@ -6,9 +6,11 @@ use Capell\Core\Actions\Install\AssertTableOwnershipAction;
 use Capell\Core\Actions\Install\FindTableCollisionsAction;
 use Capell\Core\Actions\Install\PrepareVendorTableMigrationAction;
 use Capell\Core\Data\Install\TableCollisionData;
+use Capell\Core\Data\Manifest\ExtensionLegacyTableData;
 use Capell\Core\EventSourcing\Models\Snapshot;
 use Capell\Core\EventSourcing\Models\StoredEvent;
 use Capell\Core\Exceptions\ForeignTableException;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Term;
@@ -584,4 +586,82 @@ it('does not report a table the host explicitly adopts as a collision', function
     config()->set('capell.database.adopted_tables', ['media']);
 
     expect($collisions())->not->toContain('adopted_media_library');
+});
+
+describe('legacy tables a package declares in its manifest', function (): void {
+    beforeEach(function (): void {
+        CapellCore::clearPackages();
+        config()->set('capell.database.table_prefix', '');
+        config()->set('capell.database.table_aliases', []);
+        CapellCore::registerPackage('vendor/labels');
+        CapellCore::getPackage('vendor/labels')->declaredLegacyTables = [
+            new ExtensionLegacyTableData('labels', 'capell.database.external_tables.labels', 'create_label_tables'),
+            new ExtensionLegacyTableData('labelled', 'tags.labelled.table_name', 'create_label_tables'),
+            // Its config root is not a file the installer can rewrite, so a collision on it could never be resolved.
+            new ExtensionLegacyTableData('orphaned', 'unsupported.orphaned.table_name', 'create_label_tables'),
+        ];
+    });
+
+    $legacyNames = static fn (array $packages): array => array_values(array_map(
+        static fn (TableCollisionData $table): string => $table->name . '=' . $table->table . ' via ' . $table->configKey,
+        array_filter(
+            resolve(FindTableCollisionsAction::class)->planned($packages),
+            static fn (TableCollisionData $table): bool => in_array($table->name, ['labels', 'labelled', 'orphaned'], true),
+        ),
+    ));
+
+    it('plans the declared tables when the declaring package is in the plan', function () use ($legacyNames): void {
+        config()->set('capell.database.external_tables.labels', 'custom_labels');
+
+        expect($legacyNames(['vendor/labels']))->toBe([
+            'labels=custom_labels via capell.database.external_tables.labels',
+            'labelled=labelled via tags.labelled.table_name',
+        ]);
+    });
+
+    it('leaves the declared tables out when the package is not in the plan and no earlier owner is installed', function () use ($legacyNames): void {
+        config()->set('capell.database.legacy_table_owners', ['vendor/never-installed']);
+
+        expect($legacyNames(['capell-app/admin']))->toBe([]);
+    });
+
+    it('checks the declared tables of every known package while an earlier owner is installed', function () use ($legacyNames): void {
+        // Composer always has this package, so it stands in for the earlier owner.
+        config()->set('capell.database.legacy_table_owners', ['pestphp/pest']);
+
+        expect($legacyNames(['capell-app/admin']))->toBe([
+            'labels=labels via capell.database.external_tables.labels',
+            'labelled=labelled via tags.labelled.table_name',
+        ]);
+    });
+
+    it('plans tables captured with the install plan after the catalogue has been cleared', function (): void {
+        CapellCore::clearPackages();
+        bindCachedCatalogue([]);
+        $declared = [
+            ['name' => 'labels', 'configKey' => 'capell.database.external_tables.labels', 'migration' => 'create_label_tables'],
+            ['name' => 'orphaned', 'configKey' => 'unsupported.orphaned.table_name', 'migration' => 'create_label_tables'],
+            ['name' => ['not', 'a', 'string'], 'configKey' => 'tags.x.table_name', 'migration' => 'create_label_tables'],
+            // A key that holds a group of settings rather than a table name cannot be planned.
+            ['name' => 'grouped', 'configKey' => 'capell.database', 'migration' => 'create_label_tables'],
+            ['name' => "newline\n", 'configKey' => 'tags.newline.table_name', 'migration' => 'create_label_tables'],
+        ];
+
+        $planned = array_map(
+            static fn (TableCollisionData $table): string => $table->name,
+            array_filter(
+                resolve(FindTableCollisionsAction::class)->planned(['vendor/labels'], $declared),
+                static fn (TableCollisionData $table): bool => in_array($table->name, ['labels', 'orphaned', 'grouped', "newline\n"], true),
+            ),
+        );
+
+        expect(array_values($planned))->toBe(['labels']);
+    });
+
+    it('does not plan a table because a package has a particular name', function () use ($legacyNames): void {
+        CapellCore::clearPackages();
+        CapellCore::registerPackage('capell-app/tags');
+
+        expect($legacyNames(['capell-app/tags']))->toBe([]);
+    });
 });

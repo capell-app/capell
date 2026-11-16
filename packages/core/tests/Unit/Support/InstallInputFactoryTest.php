@@ -22,6 +22,7 @@ it('preserves selected theme key from console input', function (): void {
 });
 
 it('defaults web package selection to all core packages', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -112,6 +113,7 @@ it('keeps web theme selection empty when no theme is selected', function (): voi
 });
 
 it('does not include package default selected optional packages in the all core web package selection', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -146,6 +148,7 @@ it('does not include package default selected optional packages in the all core 
 });
 
 it('includes configured default package names in the default web package selection', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -281,6 +284,7 @@ it('does not include demo packages when web demo content is disabled', function 
 });
 
 it('supports all and custom web package selection modes', function (): void {
+    bindCachedCatalogue([defaultThemeCatalogueEntry()]);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -334,4 +338,34 @@ it('falls back to the configured filament-shield super-admin role name for examp
             'filament-shield.super_admin.name' => $originalShieldRole,
         ]);
     }
+});
+
+it('resolves the developer tooling package and the declared legacy tables while the plan is built', function (): void {
+    bindCachedCatalogue([
+        defaultThemeCatalogueEntry(),
+        ['name' => 'capell-app/catalogue-tooling', 'type' => 'plugin', 'roles' => ['developer-tooling']],
+        [
+            'name' => 'vendor/needs-tags',
+            'type' => 'plugin',
+            'legacyTables' => [['name' => 'catalogue_tags', 'configKey' => 'tags.catalogue_tags.table_name', 'migration' => 'create_tag_tables']],
+        ],
+    ]);
+    CapellCore::clearPackages();
+    CapellCore::registerPackage('capell-app/core');
+    CapellCore::registerPackage('capell-app/admin');
+
+    $inputData = new InstallInputFactory(new PackageWorkflowPlanner)->fromWebInput([
+        'site_url' => 'https://example.test',
+        'language' => 'en',
+        'admin_user_mode' => 'create',
+        'new_user_name' => 'Admin',
+        'new_user_email' => 'admin@example.test',
+        'new_user_password' => 'password123',
+        'packages' => ['capell-app/admin'],
+        'extra_packages' => ['vendor/needs-tags'],
+        'install_developer_tooling' => true,
+    ]);
+
+    expect($inputData->developerToolingPackage)->toBe('capell-app/catalogue-tooling')
+        ->and(array_column($inputData->legacyTables, 'name'))->toBe(['catalogue_tags']);
 });

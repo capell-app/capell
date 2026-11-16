@@ -10,8 +10,9 @@ use Capell\Admin\Filament\Components\Forms\Site\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
 use Capell\Admin\Filament\Components\Forms\SocialIcons;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
@@ -69,8 +70,8 @@ class DetailsTab
                                     ->label(__('capell-admin::form.twitter_handle'))
                                     ->placeholder('@yourhandle')
                                     ->maxLength(50)
-                                    ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
-                                    ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials')),
+                                    ->dehydrated(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage())
+                                    ->visible(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage()),
                             ]),
                     ]),
 
@@ -98,8 +99,8 @@ class DetailsTab
                             ->schema(function () use ($schema): array {
                                 $sectionComponents = [
                                     SocialIcons::make('social_links')
-                                        ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
-                                        ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials')),
+                                        ->dehydrated(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage())
+                                        ->visible(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage()),
                                 ];
 
                                 return collect(app()->tagged(SiteSchemaExtender::TAG))
@@ -110,5 +111,14 @@ class DetailsTab
                             }),
                     ]),
             ]);
+    }
+
+    /**
+     * The package that declares the site-social-fields role owns the social fields, so these
+     * built-in ones step aside when it is installed.
+     */
+    private static function siteSocialFieldsOwnedByPackage(): bool
+    {
+        return resolve(PackageRoleResolver::class)->hasInstalledPackageWithRole(PackageRole::SiteSocialFields);
     }
 }

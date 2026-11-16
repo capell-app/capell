@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Scaffolding\ScaffoldThemePackageAction;
 use Capell\Core\Data\Scaffolding\ThemeScaffoldInputData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Console\Command\Command;
+
+beforeEach(function (): void {
+    registerRolePackage('vendor/starter-theme', PackageRole::DefaultTheme);
+});
 
 it('discovers a generated local theme in the application theme directory', function (): void {
     $root = getcwd() . '/var/cap-2334/theme-' . bin2hex(random_bytes(8));
@@ -43,7 +48,7 @@ it('refuses to overwrite a local manifest when the action is called twice', func
     app()->setBasePath($root);
 
     try {
-        $input = new ThemeScaffoldInputData('app/example-theme', 'App\\ExampleTheme', 'example-theme', 'example', 'Example', $root . '/package', local: true);
+        $input = new ThemeScaffoldInputData('app/example-theme', 'App\\ExampleTheme', 'example-theme', 'example', 'Example', $root . '/package', local: true, baseThemePackage: 'vendor/starter-theme');
         ScaffoldThemePackageAction::run($input);
         $path = $root . '/resources/views/capell/themes/capell-app/example/theme.json';
         $original = file_get_contents($path);

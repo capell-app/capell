@@ -26,6 +26,8 @@ final class ScaffoldThemePackageAction
      */
     public function handle(ThemeScaffoldInputData $input): void
     {
+        throw_if($input->baseThemePackage === null, RuntimeException::class, 'A scaffolded theme builds on the package that declares the default-theme role, and no installed or catalogue package declares it. Install that package, then scaffold the theme again.');
+
         if ($input->local) {
             $this->writeLocalManifest($input);
         }
@@ -96,7 +98,7 @@ final class ScaffoldThemePackageAction
             'require' => [
                 'capell-app/core' => '^1.0',
                 'capell-app/frontend' => '^1.0',
-                'capell-app/theme-foundation' => '^1.0',
+                (string) $input->baseThemePackage => '^1.0',
                 'spatie/laravel-package-tools' => '^1.14',
             ],
             'autoload' => [

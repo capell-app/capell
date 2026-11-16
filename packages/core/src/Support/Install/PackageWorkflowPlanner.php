@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Exception;
@@ -12,12 +13,6 @@ use Illuminate\Support\Collection;
 
 final class PackageWorkflowPlanner
 {
-    /** @var list<string> */
-    private const array FINAL_PACKAGE_NAMES = [
-        'capell-app/publishing-studio',
-        'capell-app/worktree',
-    ];
-
     /**
      * @param  Collection<string, PackageData>  $availablePackages
      * @param  array<int, string>  $selectedPackageNames
@@ -42,7 +37,8 @@ final class PackageWorkflowPlanner
     {
         $orderedPackages = $packages
             ->sortBy(fn (PackageData $package): array => [
-                $this->finalPackageRank($package->name),
+                $this->isFinalPackage($package) ? 1 : 0,
+                $this->isFinalPackage($package) ? $package->rolePriority() : 0,
                 $package->getSort(),
                 $package->name,
             ]);
@@ -248,11 +244,14 @@ final class PackageWorkflowPlanner
         return $sortedPackages;
     }
 
-    private function finalPackageRank(string $packageName): int
+    /**
+     * Packages that declare the workflow-final role install after every other package, in the
+     * order of their `rolePriority` (negative values included), so a workflow package never
+     * runs before what it governs.
+     */
+    private function isFinalPackage(PackageData $package): bool
     {
-        $rank = array_search($packageName, self::FINAL_PACKAGE_NAMES, true);
-
-        return is_int($rank) ? $rank + 1 : 0;
+        return $package->hasRole(PackageRole::WorkflowFinal);
     }
 
     private function isComposerOnlyCorePackageName(string $packageName): bool

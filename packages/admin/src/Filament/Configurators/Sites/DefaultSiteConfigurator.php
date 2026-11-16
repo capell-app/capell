@@ -28,10 +28,11 @@ use Capell\Admin\Filament\Components\Forms\SocialIcons;
 use Capell\Admin\Filament\Components\Forms\TranslationLanguageSelect;
 use Capell\Admin\Filament\Concerns\HasConfigurator;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\CapellCoreHelper;
+use Capell\Core\Support\Packages\PackageRoleResolver;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
@@ -130,6 +131,15 @@ class DefaultSiteConfigurator implements ConfiguratorInterface
             ->label(__('filament-panels::resources/pages/create-record.form.actions.create.label'))
             ->submit('create')
             ->keyBindings(['mod+s']);
+    }
+
+    /**
+     * The package that declares the site-social-fields role owns the social fields, so these
+     * built-in ones step aside when it is installed.
+     */
+    private static function siteSocialFieldsOwnedByPackage(): bool
+    {
+        return resolve(PackageRoleResolver::class)->hasInstalledPackageWithRole(PackageRole::SiteSocialFields);
     }
 
     private function makeDetailsStep(Schema $schema): Step
@@ -308,11 +318,11 @@ class DefaultSiteConfigurator implements ConfiguratorInterface
                     ->helperText(__('capell-admin::generic.twitter_handle_info'))
                     ->placeholder('@yourhandle')
                     ->maxLength(50)
-                    ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
-                    ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials')),
+                    ->dehydrated(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage())
+                    ->visible(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage()),
                 SocialIcons::make('social_links')
-                    ->dehydrated(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
-                    ->visible(static fn (): bool => ! CapellCore::isPackageInstalled('capell-app/socials'))
+                    ->dehydrated(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage())
+                    ->visible(static fn (): bool => ! self::siteSocialFieldsOwnedByPackage())
                     ->columnSpanFull(),
             ]);
     }

@@ -16,6 +16,8 @@ final readonly class PackageScaffoldInputData
         public string $tier,
         public string $targetPath,
         public PackageScaffoldProfile $profile,
+        /** The package that declares the scaffold-full-profile role; the full profile builds on it. */
+        public ?string $profilePackage = null,
     ) {}
 
     /**
@@ -41,6 +43,7 @@ final readonly class PackageScaffoldInputData
             '{{ packageClass }}' => class_basename($this->namespace),
             '{{ settingsGroup }}' => str_replace('-', '_', $this->slug),
             '{{ widgetKey }}' => str_replace('/', '.', $this->packageName),
+            '{{ profilePackage }}' => $this->profilePackage ?? '',
         ];
     }
 

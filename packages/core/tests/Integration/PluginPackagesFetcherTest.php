@@ -135,6 +135,46 @@ it('reads current catalogue identities tiers versions and all pages', function (
         ->and($packages->pluck('requirements', 'name')->get('capell-app/address'))->toBe(['capell-app/admin']);
 });
 
+it('carries default selection, roles, install tips and legacy tables from a catalogue manifest', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    Http::fake([
+        'https://catalogue.capell.test/extensions' => Http::response([
+            'data' => [
+                [
+                    'composer_name' => 'vendor/declares', 'kind' => 'tool',
+                    'manifest' => [
+                        'defaultSelected' => true,
+                        'roles' => ['workflow-final'],
+                        'rolePriority' => 4,
+                        'install' => [
+                            'tips' => [['variant' => 'package_blog', 'priority' => 10]],
+                            'legacyTables' => [['name' => 'labels', 'configKey' => 'labels.table', 'migration' => 'create_labels']],
+                        ],
+                    ],
+                ],
+                ['composer_name' => 'vendor/silent', 'kind' => 'tool', 'manifest' => ['roles' => 'not-a-list', 'install' => 'nope']],
+            ],
+            'meta' => ['last_page' => 1],
+        ]),
+    ]);
+
+    $packages = resolve(PluginPackagesFetcher::class)->fetch(force: true)->keyBy('name');
+
+    expect($packages->get('vendor/declares'))->toMatchArray([
+        'defaultSelected' => true,
+        'roles' => ['workflow-final'],
+        'rolePriority' => 4,
+        'installTips' => [['variant' => 'package_blog', 'priority' => 10]],
+        'legacyTables' => [['name' => 'labels', 'configKey' => 'labels.table', 'migration' => 'create_labels']],
+    ])->and($packages->get('vendor/silent'))->toMatchArray([
+        'defaultSelected' => false,
+        'roles' => [],
+        'rolePriority' => null,
+        'installTips' => [],
+        'legacyTables' => [],
+    ]);
+});
+
 it('does not reuse a catalogue cached for a different source', function (): void {
     config(['capell.plugins_source_url' => 'https://old.capell.test/packages.json']);
     Http::fake(['*' => Http::response(['packages' => [['name' => 'old/package']]])]);

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\PackageRole;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Testing\ExtensionTestHarness;
 use Capell\Core\Tests\Support\NestedTestProcess;
 use Illuminate\Support\Facades\Blade;
@@ -20,6 +22,62 @@ if (! function_exists('makeExtensionWorkbenchDirectory')) {
         return $directory;
     }
 }
+
+beforeEach(function (): void {
+    // The full profile builds on whichever package declares this role; the tests need one installed.
+    registerRolePackage('vendor/widget-host', PackageRole::ScaffoldFullProfile);
+});
+
+it('builds the full profile on the package that declares the scaffold-full-profile role', function (): void {
+    CapellCore::clearPackages();
+    registerRolePackage('vendor/other-widget-host', PackageRole::ScaffoldFullProfile);
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+
+    artisanCommand('capell:make-extension', [
+        'package' => 'vendor/role-example',
+        '--profile' => 'full',
+        '--name' => 'Role Example',
+        '--path' => $packagesDirectory,
+    ])->assertExitCode(Command::SUCCESS);
+
+    $manifest = json_decode((string) file_get_contents($packagesDirectory . '/role-example/capell.json'), true, flags: JSON_THROW_ON_ERROR);
+    $composer = json_decode((string) file_get_contents($packagesDirectory . '/role-example/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($manifest['dependencies']['requires'])->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'vendor/other-widget-host'])
+        ->and($composer['require'])->toHaveKey('vendor/other-widget-host')
+        ->not->toHaveKey('capell-app/layout-builder');
+});
+
+it('refuses the full profile before writing anything when no package declares the role', function (): void {
+    CapellCore::clearPackages();
+    bindCachedCatalogue([]);
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+
+    artisanCommand('capell:make-extension', [
+        'package' => 'vendor/no-host',
+        '--profile' => 'full',
+        '--path' => $packagesDirectory,
+    ])
+        ->expectsOutputToContain('scaffold-full-profile')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($packagesDirectory . '/no-host')->not->toBeDirectory();
+});
+
+it('still scaffolds the minimal profile when no package declares the role', function (): void {
+    CapellCore::clearPackages();
+    bindCachedCatalogue([]);
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+
+    artisanCommand('capell:make-extension', [
+        'package' => 'vendor/minimal-only',
+        '--profile' => 'minimal',
+        '--name' => 'Minimal Only',
+        '--path' => $packagesDirectory,
+    ])->assertExitCode(Command::SUCCESS);
+
+    expect($packagesDirectory . '/minimal-only/capell.json')->toBeFile();
+});
 
 it('creates a minimal package scaffold without modifying root composer dependencies', function (): void {
     $packagesDirectory = makeExtensionWorkbenchDirectory();
@@ -127,7 +185,7 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($manifest['providers']['runtime'])->toBe([])
         ->and($manifest['providers']['admin'])->toBe(['Vendor\\ExampleTools\\Providers\\AdminServiceProvider'])
         ->and($manifest['providers']['frontend'])->toBe([])
-        ->and($manifest['dependencies']['requires'])->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/layout-builder'])
+        ->and($manifest['dependencies']['requires'])->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'vendor/widget-host'])
         ->and($manifest['contributes'])->toBe([
             [
                 'type' => 'content-widget',
@@ -148,7 +206,7 @@ it('creates a full package scaffold with live safe examples', function (): void 
             ],
         ])
         ->and($manifest['performance']['cacheSafety']['cacheable'])->toBeFalse()
-        ->and($composer['require'])->toHaveKeys(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/layout-builder', 'spatie/laravel-data', 'spatie/laravel-package-tools'])
+        ->and($composer['require'])->toHaveKeys(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'vendor/widget-host', 'spatie/laravel-data', 'spatie/laravel-package-tools'])
         ->and($composer['extra']['laravel']['providers'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider'])
         ->and($composer['scripts'])->toBe([
             'post-autoload-dump' => ['@php vendor/bin/testbench package:discover --ansi'],
