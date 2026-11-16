@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\Security\PersonalDataSourceScanner;
 use Capell\Core\Testing\Assertions\AssertsPrivacyContributors;
 
@@ -73,3 +74,34 @@ it('fails a package that registers only one side even without personal-data colu
     'eraser only' => ['$registry->registerEraser(new Eraser);', 'registers a privacy eraser but no exporter'],
     'exporter only' => ['$registry->registerExporter(new Exporter);', 'registers a privacy exporter but no eraser'],
 ]);
+
+it('recognises registrations through an alias, a fully qualified name or the tag value', function (string $source): void {
+    AssertsPrivacyContributors::run(privacyContractPackage('email', $source));
+
+    expect(true)->toBeTrue();
+})->with([
+    'alias' => ["use Capell\\Core\\Support\\Privacy\\PrivacySubjectRegistry as Privacy;\n\$this->app->tag([E::class], Privacy::EXPORTER_TAG); \$this->app->tag([R::class], Privacy::ERASER_TAG);"],
+    'fully qualified' => ['$this->app->tag([E::class], ' . PrivacySubjectRegistry::class . '::EXPORTER_TAG); $this->app->tag([R::class], ' . PrivacySubjectRegistry::class . '::ERASER_TAG);'],
+    'tag values' => ["\$this->app->tag([E::class], 'capell.privacy.subject-exporter'); \$this->app->tag([R::class], 'capell.privacy.subject-eraser');"],
+]);
+
+it('does not count registrations written inside strings', function (): void {
+    $source = "\$doc = 'PrivacySubjectRegistry::EXPORTER_TAG ->registerEraser(';";
+
+    expect(fn () => AssertsPrivacyContributors::run(privacyContractPackage('email', $source)))
+        ->toThrow(AssertionError::class, 'stores personal data (email)');
+});
+
+it('ignores commented-out columns and scans migrations in subdirectories', function (): void {
+    $commented = privacyContractPackage(null);
+    file_put_contents($commented . '/database/migrations/2026_01_01_000000_create_notes.php', "<?php\n// \$table->string('email');\n/* \$table->string('phone'); */\n\$table->string('title');");
+
+    $nested = privacyContractPackage(null);
+    mkdir($nested . '/database/migrations/2026', 0777, true);
+    file_put_contents($nested . '/database/migrations/2026/2026_01_01_000000_create_people.php', '<?php $table->string("email");');
+
+    $scanner = new PersonalDataSourceScanner;
+
+    expect($scanner->personalDataColumns($commented))->toBe([])
+        ->and($scanner->personalDataColumns($nested))->toBe(['email']);
+});

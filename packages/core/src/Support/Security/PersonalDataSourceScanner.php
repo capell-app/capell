@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Security;
 
+use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use PhpToken;
 use Symfony\Component\Finder\Finder;
 
@@ -23,12 +24,6 @@ final class PersonalDataSourceScanner
     /** Laravel's ipAddress() with no name creates an ip_address column. */
     public const string DEFAULT_IP_ADDRESS_COLUMN_PATTERN = '/->ipAddress\(\s*\)/';
 
-    /** @var list<string> */
-    private const array EXPORTER_REGISTRATIONS = ['PrivacySubjectRegistry::EXPORTER_TAG', '->registerExporter('];
-
-    /** @var list<string> */
-    private const array ERASER_REGISTRATIONS = ['PrivacySubjectRegistry::ERASER_TAG', '->registerEraser('];
-
     /**
      * The personal-data columns the package's migrations create, sorted.
      *
@@ -38,7 +33,8 @@ final class PersonalDataSourceScanner
     {
         $columns = [];
 
-        foreach ($this->files(rtrim($packageRoot, DIRECTORY_SEPARATOR) . '/database/migrations') as $source) {
+        foreach ($this->files(rtrim($packageRoot, DIRECTORY_SEPARATOR) . '/database/migrations') as $migration) {
+            $source = $this->withoutComments($migration);
             preg_match_all(self::PERSONAL_DATA_COLUMN_PATTERN, $source, $matches);
 
             foreach ($matches[1] as $column) {
@@ -57,22 +53,45 @@ final class PersonalDataSourceScanner
 
     public function registersExporter(string $packageRoot): bool
     {
-        return $this->sourceContainsAny($packageRoot, self::EXPORTER_REGISTRATIONS);
+        return $this->registers($packageRoot, 'EXPORTER_TAG', PrivacySubjectRegistry::EXPORTER_TAG, 'registerExporter');
     }
 
     public function registersEraser(string $packageRoot): bool
     {
-        return $this->sourceContainsAny($packageRoot, self::ERASER_REGISTRATIONS);
+        return $this->registers($packageRoot, 'ERASER_TAG', PrivacySubjectRegistry::ERASER_TAG, 'registerEraser');
     }
 
-    /** @param  list<string>  $needles */
-    private function sourceContainsAny(string $packageRoot, array $needles): bool
+    /**
+     * Whether the package's code (not its comments or strings) registers a contributor: the registry's tag constant,
+     * named directly, fully qualified or through an alias, the tag's literal value, or the registry method.
+     */
+    private function registers(string $packageRoot, string $tagConstant, string $tagValue, string $method): bool
     {
         foreach ($this->files(rtrim($packageRoot, DIRECTORY_SEPARATOR) . '/src') as $source) {
             $code = $this->withoutComments($source);
+            $registryNames = ['privacysubjectregistry' => true];
 
-            foreach ($needles as $needle) {
-                if (str_contains($code, $needle)) {
+            if (preg_match_all('/\bPrivacySubjectRegistry\s+as\s+(\w+)/i', $code, $aliases) > 0) {
+                foreach ($aliases[1] as $alias) {
+                    $registryNames[strtolower($alias)] = true;
+                }
+            }
+
+            $tokens = array_values(array_filter(PhpToken::tokenize($code), static fn (PhpToken $token): bool => ! $token->isIgnorable()));
+
+            foreach ($tokens as $index => $token) {
+                if ($token->is(T_CONSTANT_ENCAPSED_STRING) && trim($token->text, '\'"') === $tagValue) {
+                    return true;
+                }
+
+                if ($token->is(T_STRING) && $token->text === $method && ($tokens[$index - 1] ?? null)?->is([T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR]) === true && ($tokens[$index + 1] ?? null)?->is('(') === true) {
+                    return true;
+                }
+
+                if ($token->is([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED])
+                    && isset($registryNames[strtolower(substr(strrchr('\\' . $token->text, '\\') ?: '', 1))])
+                    && ($tokens[$index + 1] ?? null)?->is(T_DOUBLE_COLON) === true
+                    && ($tokens[$index + 2]->text ?? null) === $tagConstant) {
                     return true;
                 }
             }
