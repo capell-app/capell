@@ -6,6 +6,7 @@ namespace Capell\Core\Contracts\Capabilities;
 
 use Capell\Core\Data\Capabilities\LayoutWidgetMatchData;
 use Capell\Core\Data\Capabilities\LayoutWidgetPlacementData;
+use Capell\Core\Data\Capabilities\LayoutWidgetPlacementRequestData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 
@@ -52,4 +53,21 @@ interface LayoutWidgetHost
      * @return list<int>
      */
     public function pagesPlacing(LayoutWidgetMatchData $match, array $siteIds): array;
+
+    /**
+     * Whether editors can choose this widget component, so a package can offer to place its
+     * widget only when the host will render it.
+     */
+    public function offersComponent(string $component): bool;
+
+    /**
+     * Place the requested widget on the page's own layout, after its page content widget, or at
+     * the end of its first container when it has none. A page whose layout other pages share gets
+     * its own copy first, so the widget appears on this page only. An enabled widget with the
+     * same component and match value is reused; otherwise a new widget is created under the next
+     * free key. Placing a widget the layout already shows changes nothing.
+     *
+     * Returns false when the host cannot place widgets, or the page has no layout or no container.
+     */
+    public function placeWidget(Page $page, LayoutWidgetPlacementRequestData $request): bool;
 }

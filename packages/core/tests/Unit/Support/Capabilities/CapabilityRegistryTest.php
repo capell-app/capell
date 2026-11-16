@@ -7,6 +7,7 @@ use Capell\Core\Contracts\Capabilities\LayoutWidgetHost;
 use Capell\Core\Data\Capabilities\CampaignConversionData;
 use Capell\Core\Data\Capabilities\FormReferenceData;
 use Capell\Core\Data\Capabilities\LayoutWidgetMatchData;
+use Capell\Core\Data\Capabilities\LayoutWidgetPlacementRequestData;
 use Capell\Core\Data\Capabilities\PublishingWorkspaceTransitionData;
 use Capell\Core\Data\Capabilities\SiteAccessRegistrationData;
 use Capell\Core\Data\Capabilities\SubmittedFormData;
@@ -156,6 +157,8 @@ it('gives consumers the null layout widget host when no layout package provides 
         ->and($host->withPreviewWidgets($page, $language, ['main' => ['widgets' => []]], [], static fn (bool $registered): string => $registered ? 'preview' : 'saved'))->toBe('saved')
         ->and($host->placement('anything'))->toBeNull()
         ->and($host->pagesPlacing(new LayoutWidgetMatchData('layout-widget', 'form_handle', ['contact']), [1]))->toBe([])
+        ->and($host->offersComponent('layout-widget'))->toBeFalse()
+        ->and($host->placeWidget($page, layoutWidgetPlacementRequest('contact')))->toBeFalse()
         ->and($registry->isProvided(LayoutWidgetHost::class))->toBeFalse()
         ->and(resolve(LayoutWidgetHost::class))->toBeInstanceOf(NullLayoutWidgetHost::class);
 });
@@ -170,10 +173,35 @@ it('resolves the layout package that hosts widgets through the contract', functi
         ->and($host->placement('known')?->metaString('form_handle'))->toBe('contact')
         ->and($host->withPreviewWidgets(new Page, new Language, ['main' => []], [], static fn (bool $registered): string => $registered ? 'preview' : 'saved'))->toBe('preview')
         ->and($host->pagesPlacing(new LayoutWidgetMatchData('layout-widget', 'form_handle', ['contact']), [3]))->toBe([11, 12])
+        ->and($host->offersComponent('layout-widget'))->toBeTrue()
+        ->and($host->placeWidget(new Page, layoutWidgetPlacementRequest('contact')))->toBeTrue()
         ->and($registry->provided())->toBe([CapabilityContract::LayoutWidgetHost])
         ->and(CapabilityContract::forContract(LayoutWidgetHost::class))->toBe(CapabilityContract::LayoutWidgetHost)
         ->and(CapabilityContract::LayoutWidgetHost->event())->toBeNull();
 });
+
+it('refuses a widget placement without a key prefix, component, match key or match value', function (string $keyPrefix, string $component, string $matchKey, array $meta): void {
+    expect(fn (): LayoutWidgetPlacementRequestData => new LayoutWidgetPlacementRequestData($keyPrefix, 'Contact form', $component, $matchKey, $meta, 'Contact layout'))
+        ->toThrow(InvalidArgumentException::class);
+})->with([
+    'blank key prefix' => [' ', 'layout-widget', 'form_handle', ['form_handle' => 'contact']],
+    'blank component' => ['form-contact', '', 'form_handle', ['form_handle' => 'contact']],
+    'blank match key' => ['form-contact', 'layout-widget', ' ', ['form_handle' => 'contact']],
+    'missing match value' => ['form-contact', 'layout-widget', 'form_handle', ['component' => 'layout-widget']],
+    'blank match value' => ['form-contact', 'layout-widget', 'form_handle', ['form_handle' => '  ']],
+]);
+
+function layoutWidgetPlacementRequest(string $handle): LayoutWidgetPlacementRequestData
+{
+    return new LayoutWidgetPlacementRequestData(
+        keyPrefix: 'form-' . $handle,
+        name: 'Contact form',
+        component: 'layout-widget',
+        matchKey: 'form_handle',
+        meta: ['component' => 'layout-widget', 'form_handle' => $handle],
+        layoutName: 'Contact layout',
+    );
+}
 
 it('refuses a widget match without a component or meta key', function (string $component, string $metaKey): void {
     expect(fn (): LayoutWidgetMatchData => new LayoutWidgetMatchData($component, $metaKey, ['contact']))
