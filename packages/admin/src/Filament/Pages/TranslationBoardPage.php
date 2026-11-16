@@ -18,7 +18,6 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -121,10 +120,11 @@ final class TranslationBoardPage extends Page
     /** @return list<TranslationBoardLanguageData> */
     private function boardLanguages(Site $site): array
     {
-        /** @var Builder<Language> $query */
-        $query = $site->languages()->getQuery();
-
-        return array_values($query->ordered()
+        // Query through the relation, not its underlying builder: the relation selects
+        // only language columns, while the bare builder selects every joined column and
+        // the translation row's id would replace the language id.
+        return array_values($site->languages()
+            ->ordered()
             ->get()
             ->unique('id')
             ->map(static fn (Language $language): TranslationBoardLanguageData => new TranslationBoardLanguageData(

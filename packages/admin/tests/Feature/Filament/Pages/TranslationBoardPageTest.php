@@ -58,6 +58,24 @@ it('flags a page as needing an update once its default-language title changes', 
         ->assertDontSeeHtml('data-status="copied"');
 });
 
+it('reads board languages by their own ids when translation ids differ', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    // Another site's translations come first, so this site's translation rows no
+    // longer share ids with the languages they point at.
+    Site::factory()->language($french)->withTranslations([$french, $english])->createOne();
+    $site = Site::factory()->language($english)->default()->withTranslations([$english, $french])->createOne();
+    grantTranslationBoardAccessForTest();
+    translationBoardPageForTest($site, [$english->getKey() => 'About us', $french->getKey() => 'À propos']);
+
+    $component = Livewire::test(TranslationBoardPage::class)
+        ->set('site_id', $site->getKey())
+        ->assertSee('About us');
+
+    expect(array_map(static fn ($language): int => $language->id, $component->viewData('languages')))
+        ->toBe([$english->getKey(), $french->getKey()]);
+});
+
 it('explains that a single-language site has nothing to track', function (): void {
     $english = Language::factory()->english()->createOne();
     Site::factory()->language($english)->default()->createOne();
