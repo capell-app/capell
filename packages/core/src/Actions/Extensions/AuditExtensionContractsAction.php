@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Extensions;
 use Capell\Core\Actions\Agent\AuditAgentToolManifestAction;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\PreparesExtensionContributionReceipts;
+use Capell\Core\Data\Extensions\DeprecationData;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
@@ -15,6 +16,7 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Extensions\Deprecations;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Filesystem\ExportIgnoredPath;
@@ -37,6 +39,8 @@ final class AuditExtensionContractsAction
 {
     use AsFake;
     use AsObject;
+
+    public const string RUNTIME_DEPRECATIONS = '<runtime-deprecations>';
 
     /**
      * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
@@ -115,6 +119,7 @@ final class AuditExtensionContractsAction
 
         if ($path === null || $path === '') {
             array_push($results, ...$this->orderingResults());
+            array_push($results, ...$this->deprecationResults());
         }
 
         return $results;
@@ -167,6 +172,23 @@ final class AuditExtensionContractsAction
                 'remediation' => 'Declare an agent-capability tool or agent_tools: none with a reason.',
             ],
         )];
+    }
+
+    /**
+     * Deprecated surfaces used while this process ran. They are warnings: the
+     * surface still works, but the extension must move off it before removal.
+     *
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function deprecationResults(): array
+    {
+        return array_map(fn (DeprecationData $deprecation): array => $this->result(
+            package: 'runtime',
+            manifestPath: self::RUNTIME_DEPRECATIONS,
+            severity: 'warning',
+            message: sprintf('%s is deprecated and is removed in %s.', $deprecation->surface, $deprecation->removal),
+            context: [...$deprecation->toArray(), 'remediation' => 'Use ' . $deprecation->replacement . ' instead.'],
+        ), resolve(Deprecations::class)->all());
     }
 
     /**

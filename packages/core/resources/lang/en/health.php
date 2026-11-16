@@ -56,6 +56,12 @@ return [
             'remediation' => 'Check the configured cache service and credentials, then rerun the Capell health checks.',
         ],
     ],
+    'deprecations' => [
+        'label' => 'Deprecated features',
+        'none' => 'No deprecated features were used.',
+        'entry' => ':surface is deprecated and is removed in :removal. Use :replacement instead.',
+        'remediation' => 'Move each listed use to its replacement before upgrading past the removal.',
+    ],
     'host_monitor' => [
         'label' => 'Server load',
         'disabled' => 'Server load monitoring is turned off.',

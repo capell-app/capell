@@ -111,6 +111,7 @@ use Capell\Core\EventSourcing\Contracts\PageStateContributor;
 use Capell\Core\EventSourcing\Contributors\AiProvenancePageStateContributor;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
+use Capell\Core\Http\Middleware\DeprecatedHttpSurface;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
@@ -179,6 +180,7 @@ use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\SchedulerHeartbeat;
+use Capell\Core\Support\Extensions\Deprecations;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
@@ -494,6 +496,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerContentGraphExtractors()
             ->registerThemeRuntime()
             ->registerMultiNodeUploadGuard()
+            ->registerDeprecatedHttpSurfaceMiddleware()
             ->registerPublicReadResponseCaching()
             ->registerOptimization()
             ->registerLockdownStore()
@@ -688,6 +691,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         });
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->singleton(ExtensionOrderingAudit::class);
+        $this->app->singleton(Deprecations::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, BootsExtensionContributionReceiptContext::class);
 
@@ -1218,6 +1222,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         $this->callAfterResolving(Router::class, function (Router $router): void {
             $this->registerThemePreviewMiddleware($router);
+        });
+
+        return $this;
+    }
+
+    private function registerDeprecatedHttpSurfaceMiddleware(): self
+    {
+        $this->callAfterResolving(Router::class, static function (Router $router): void {
+            $router->aliasMiddleware(DeprecatedHttpSurface::ALIAS, DeprecatedHttpSurface::class);
         });
 
         return $this;
