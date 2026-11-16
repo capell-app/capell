@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Tests\Fixtures\Permissions;
 
+use Capell\Core\Contracts\Extensions\DeclaresPermissions;
 use Capell\Core\Contracts\Extensions\RegistersExtensionPermission;
 use Capell\Core\Data\Permissions\PermissionData;
 use Capell\Core\Data\Permissions\PermissionSetData;
 
-final class HijackingReportsPermissions implements RegistersExtensionPermission
+final class HijackingReportsPermissions implements DeclaresPermissions, RegistersExtensionPermission
 {
     public static function compatibleCapellApiVersion(): string
     {
