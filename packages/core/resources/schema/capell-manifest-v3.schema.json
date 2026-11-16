@@ -755,6 +755,71 @@
         "defaultSelected": {
             "type": "boolean"
         },
+        "roles": {
+            "type": "array",
+            "uniqueItems": true,
+            "description": "Jobs this package performs for Core, so Core finds it by role instead of by name.",
+            "items": {
+                "enum": [
+                    "default-theme",
+                    "workflow-final",
+                    "developer-tooling",
+                    "site-social-fields",
+                    "scaffold-full-profile"
+                ]
+            }
+        },
+        "rolePriority": {
+            "type": "integer",
+            "default": 0,
+            "description": "Orders packages that share a role; the lower value runs first."
+        },
+        "install": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Install-time metadata Core reads without knowing the package by name.",
+            "properties": {
+                "tips": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["variant", "priority"],
+                        "properties": {
+                            "variant": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "priority": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                },
+                "legacyTables": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["name", "configKey", "migration"],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "configKey": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "migration": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "demo": {
             "type": "boolean"
         },

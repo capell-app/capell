@@ -6,8 +6,11 @@ namespace Capell\Core\Data;
 
 use BackedEnum;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
+use Capell\Core\Data\Manifest\ExtensionInstallTipData;
+use Capell\Core\Data\Manifest\ExtensionLegacyTableData;
 use Capell\Core\Data\Manifest\ExtensionPerformanceBudgetData;
 use Capell\Core\Data\Manifest\ExtensionProviderData;
+use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
@@ -336,6 +339,34 @@ class PackageData extends Data
     public function isHiddenFromMarketplace(): bool
     {
         return $this->hiddenFromMarketplace || $this->manifest?->marketplaceHidden === true;
+    }
+
+    /** @return list<PackageRole> */
+    public function roles(): array
+    {
+        return $this->manifest->roles ?? [];
+    }
+
+    public function hasRole(PackageRole $role): bool
+    {
+        return in_array($role, $this->roles(), true);
+    }
+
+    public function rolePriority(): int
+    {
+        return $this->manifest->rolePriority ?? 0;
+    }
+
+    /** @return list<ExtensionInstallTipData> */
+    public function installTips(): array
+    {
+        return $this->manifest->installTips ?? [];
+    }
+
+    /** @return list<ExtensionLegacyTableData> */
+    public function legacyTables(): array
+    {
+        return $this->manifest->legacyTables ?? [];
     }
 
     public function isDemo(): bool
