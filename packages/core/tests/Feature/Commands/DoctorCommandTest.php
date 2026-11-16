@@ -359,8 +359,8 @@ it('reports manifest v3 contract checks', function (): void {
 it('surfaces manifest contract errors from the extension audit action', function (): void {
     seedHealthyDoctorInstall();
     bindFakeAction(AuditExtensionContractsAction::class, [
-        ['severity' => 'warning'],
-        ['severity' => 'error'],
+        ['package' => 'acme/package', 'manifest_path' => 'capell.json', 'severity' => 'warning', 'message' => 'Contract finding.', 'context' => []],
+        ['package' => 'acme/package', 'manifest_path' => 'capell.json', 'severity' => 'error', 'message' => 'Contract finding.', 'context' => []],
     ]);
 
     $report = BuildDoctorReportAction::run();
