@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Capabilities\FormCatalogue;
+use Capell\Core\Contracts\Capabilities\LayoutWidgetHost;
 use Capell\Core\Data\Capabilities\CampaignConversionData;
 use Capell\Core\Data\Capabilities\FormReferenceData;
+use Capell\Core\Data\Capabilities\LayoutWidgetMatchData;
 use Capell\Core\Data\Capabilities\PublishingWorkspaceTransitionData;
 use Capell\Core\Data\Capabilities\SiteAccessRegistrationData;
 use Capell\Core\Data\Capabilities\SubmittedFormData;
@@ -14,10 +16,14 @@ use Capell\Core\Events\Capabilities\FormSubmissionReceived;
 use Capell\Core\Events\Capabilities\PublishingWorkspaceTransitioned;
 use Capell\Core\Events\Capabilities\SiteAccessRegistrationApproved;
 use Capell\Core\Exceptions\CapabilityRegistrationException;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\Capabilities\NullFormCatalogue;
+use Capell\Core\Support\Capabilities\NullLayoutWidgetHost;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Tests\Support\CapabilityFormCatalogueFixture;
+use Capell\Core\Tests\Support\CapabilityLayoutWidgetHostFixture;
 use Capell\Core\Tests\Support\FailingCapabilityFormCatalogueFixture;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Debug\ExceptionHandler;
@@ -139,3 +145,37 @@ it('maps every capability to exactly one typed contract or Core event', function
         ->and(interface_exists((string) $target) || class_exists((string) $target))->toBeTrue()
         ->and($capability->version())->toBe(1);
 })->with(CapabilityContract::cases());
+
+it('gives consumers the null layout widget host when no layout package provides one', function (): void {
+    $registry = new CapabilityRegistry;
+    $host = $registry->get(LayoutWidgetHost::class);
+    $page = new Page;
+    $language = new Language;
+
+    expect($host)->toBeInstanceOf(NullLayoutWidgetHost::class)
+        ->and($host->withPreviewWidgets($page, $language, ['main' => ['widgets' => []]], [], static fn (bool $registered): string => $registered ? 'preview' : 'saved'))->toBe('saved')
+        ->and($host->placement('anything'))->toBeNull()
+        ->and($host->pagesPlacing(new LayoutWidgetMatchData('layout-widget', 'form_handle', ['contact']), [1]))->toBe([])
+        ->and($registry->isProvided(LayoutWidgetHost::class))->toBeFalse()
+        ->and(resolve(LayoutWidgetHost::class))->toBeInstanceOf(NullLayoutWidgetHost::class);
+});
+
+it('resolves the layout package that hosts widgets through the contract', function (): void {
+    $registry = new CapabilityRegistry;
+    $registry->provide(LayoutWidgetHost::class, CapabilityLayoutWidgetHostFixture::class);
+
+    $host = $registry->get(LayoutWidgetHost::class);
+
+    expect($host)->toBeInstanceOf(CapabilityLayoutWidgetHostFixture::class)
+        ->and($host->placement('known')?->metaString('form_handle'))->toBe('contact')
+        ->and($host->withPreviewWidgets(new Page, new Language, ['main' => []], [], static fn (bool $registered): string => $registered ? 'preview' : 'saved'))->toBe('preview')
+        ->and($host->pagesPlacing(new LayoutWidgetMatchData('layout-widget', 'form_handle', ['contact']), [3]))->toBe([11, 12])
+        ->and($registry->provided())->toBe([CapabilityContract::LayoutWidgetHost])
+        ->and(CapabilityContract::forContract(LayoutWidgetHost::class))->toBe(CapabilityContract::LayoutWidgetHost)
+        ->and(CapabilityContract::LayoutWidgetHost->event())->toBeNull();
+});
+
+it('refuses a widget match without a component or meta key', function (string $component, string $metaKey): void {
+    expect(fn (): LayoutWidgetMatchData => new LayoutWidgetMatchData($component, $metaKey, ['contact']))
+        ->toThrow(InvalidArgumentException::class);
+})->with(['no component' => ['', 'form_handle'], 'no meta key' => ['layout-widget', ' ']]);
