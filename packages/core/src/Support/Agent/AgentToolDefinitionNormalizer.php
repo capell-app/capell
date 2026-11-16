@@ -41,7 +41,7 @@ final class AgentToolDefinitionNormalizer
         $effect = AgentToolEffect::tryFrom($this->string($definition['effect'] ?? null, 'effect'));
         throw_unless($effect instanceof AgentToolEffect, InvalidArgumentException::class, 'Agent tool effect must be read or write.');
 
-        $binding = $this->binding($definition['binding'] ?? null);
+        $binding = $this->binding($definition['binding'] ?? null, $effect);
 
         return new AgentToolDefinitionData(
             name: $name,
@@ -139,7 +139,7 @@ final class AgentToolDefinitionNormalizer
         }
     }
 
-    private function binding(mixed $binding): AgentToolBindingData
+    private function binding(mixed $binding, AgentToolEffect $effect): AgentToolBindingData
     {
         throw_if(! is_array($binding) || array_is_list($binding), InvalidArgumentException::class, 'Agent tool binding must be an object.');
 
@@ -156,9 +156,18 @@ final class AgentToolDefinitionNormalizer
             AgentToolBindingType::Endpoint => $this->assertEndpointTarget($target),
             AgentToolBindingType::Form => $this->assertStableIdentifier($target, 'form id'),
             AgentToolBindingType::Search, AgentToolBindingType::PropertyQuery => $this->assertStableIdentifier($target, 'binding target'),
+            AgentToolBindingType::Fragment => $this->assertFragmentBinding($target, $effect),
         };
 
         return new AgentToolBindingData(type: $type, target: $target);
+    }
+
+    private function assertFragmentBinding(string $target, AgentToolEffect $effect): void
+    {
+        throw_if($effect !== AgentToolEffect::Read, InvalidArgumentException::class, 'Fragment agent tool bindings are read-only.');
+        // A semantic element id such as `capell-social-feed-posts`, never a record key.
+        throw_if(preg_match('/\d/', $target) === 1, InvalidArgumentException::class, 'Fragment agent tool binding target must be a semantic id without numbers.');
+        $this->assertStableIdentifier($target, 'fragment id');
     }
 
     private function assertInlineTarget(string $target): void
