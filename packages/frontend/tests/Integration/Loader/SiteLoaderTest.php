@@ -143,6 +143,43 @@ it('returns the current page url directly when a site has one language', functio
         ]);
 });
 
+it('keeps language urls apart for different pageable types that share an id', function (): void {
+    $english = Language::factory()->english()->create();
+    $site = Site::factory()->language($english)->withTranslations($english)->create();
+    $page = Page::factory()
+        ->site($site)
+        ->published()
+        ->withTranslations($english, ['title' => 'Shared id page'], slug: '/shared-id-page')
+        ->create();
+    $page->load('pageUrl.siteDomain', 'pageUrls.siteDomain', 'blueprint');
+
+    // Another pageable type (a blog article, an event) numbers its records independently,
+    // so the same id can belong to a different record with its own address.
+    $article = new class extends Page
+    {
+        public function getMorphClass(): string
+        {
+            return 'test-article';
+        }
+    };
+    $article->setRawAttributes($page->getAttributes(), true);
+    $article->exists = true;
+
+    $articleUrl = $page->pageUrl->replicate()->fill(['url' => '/articles/shared-id-article']);
+    $articleUrl->setRelation('siteDomain', $page->pageUrl->siteDomain);
+    $article->setRelation('pageUrl', $articleUrl)
+        ->setRelation('pageUrls', new EloquentCollection([$articleUrl]))
+        ->setRelation('blueprint', $page->blueprint);
+
+    $pageLanguages = SiteLoader::pageLanguages($site, $english, $page);
+    $articleLanguages = SiteLoader::pageLanguages($site, $english, $article);
+
+    expect($article->getKey())->toBe($page->getKey())
+        ->and($pageLanguages[0]['url'])->toBe($page->pageUrl->full_url)
+        ->and($articleLanguages[0]['url'])->toBe($articleUrl->full_url)
+        ->and($articleLanguages[0]['url'])->not->toBe($pageLanguages[0]['url']);
+});
+
 it('returns empty sites without querying languages', function (bool $cached): void {
     if ($cached) {
         CapellCore::setToCache(CacheEnum::Sites->value, (new Site)->newCollection());
