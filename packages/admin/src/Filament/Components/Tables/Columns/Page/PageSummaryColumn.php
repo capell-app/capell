@@ -8,6 +8,9 @@ use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+
+use function Filament\Support\generate_href_html;
+
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Support\HtmlString;
 
@@ -21,12 +24,16 @@ class PageSummaryColumn extends TextColumn
             ->html()
             ->wrap()
             ->toggleable()
+            // The summary carries its own edit and public-page links, so the table must not
+            // wrap the cell in the row link as well: an anchor inside an anchor is invalid
+            // HTML and browsers re-parse it, moving the visible summary out of the edit link.
+            ->disabledClick()
             ->formatStateUsing(fn (?string $state, Page $record): HtmlString => $this->summary($record, $state));
     }
 
     private function summary(Page $page, ?string $state): HtmlString
     {
-        $title = e((string) ($state ?? $page->name));
+        $title = $this->titleMarkup($page, e((string) ($state ?? $page->name)));
         $ancestors = $this->ancestors($page);
         $url = $this->urlMarkup($page);
         $children = $this->children($page);
@@ -37,7 +44,7 @@ class PageSummaryColumn extends TextColumn
             <div class="capell-page-summary min-w-0 space-y-1.5 py-1.5 text-left">
                 {$ancestors}
                 <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <span class="truncate font-medium text-gray-950 dark:text-white">{$title}</span>
+                    {$title}
                     {$children}
                 </div>
                 {$url}
@@ -49,6 +56,25 @@ class PageSummaryColumn extends TextColumn
         HTML;
 
         return new HtmlString($html);
+    }
+
+    private function titleMarkup(Page $page, string $title): string
+    {
+        $editUrl = $this->hasTable() ? $this->getTable()->getRecordUrl($page) : null;
+
+        if (! is_string($editUrl) || $editUrl === '') {
+            return <<<HTML
+                <span class="truncate font-medium text-gray-950 dark:text-white">{$title}</span>
+            HTML;
+        }
+
+        // Filament's own href builder keeps the panel's SPA navigation behaviour that the
+        // row link would have applied.
+        $href = generate_href_html($editUrl)->toHtml();
+
+        return <<<HTML
+            <a {$href} class="truncate font-medium text-gray-950 hover:underline focus-visible:underline focus-visible:outline-none dark:text-white" data-page-summary-edit-link="true">{$title}</a>
+        HTML;
     }
 
     private function urlMarkup(Page $page): string
@@ -69,7 +95,7 @@ class PageSummaryColumn extends TextColumn
         }
 
         return <<<HTML
-            <a href="{$fullUrl}" target="_blank" class="block truncate font-mono text-xs text-primary-600 hover:underline dark:text-primary-400">{$label}</a>
+            <a href="{$fullUrl}" target="_blank" rel="noopener noreferrer" class="block truncate font-mono text-xs text-primary-600 hover:underline dark:text-primary-400">{$label}</a>
         HTML;
     }
 

@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Components\Tables\Actions\VisitUrlAction;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Support\Pages\PagePublishSentinel;
+use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
@@ -24,6 +25,8 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
+use Dom\Element;
+use Dom\HTMLDocument;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -384,6 +387,59 @@ it('renders page summary and publish status in the pages table', function (): vo
         ->assertTableActionVisible(VisitUrlAction::getDefaultName(), record: $page);
 
     expect($component->instance()->isTableColumnToggledHidden('blueprint.name'))->toBeFalse();
+});
+
+it('links the page summary to its edit page without nesting links inside the row link', function (): void {
+    $site = Site::factory()
+        ->withTranslations(siteDomainData: [
+            'scheme' => 'https',
+            'domain' => 'example.test',
+            'path' => null,
+        ])
+        ->createOne();
+    $parent = Page::factory()->site($site)->withTranslations()->createOne(['name' => 'Summary parent']);
+    $page = Page::factory()->site($site)->parent($parent)->withTranslations()->createOne(['name' => 'Summary child']);
+    $page->pageUrls()->whereNull('type')->update(['url' => '/summary-child']);
+
+    $html = Livewire::test(ListPages::class)
+        ->toggleAllTableColumns()
+        ->assertSuccessful()
+        ->html();
+
+    // The server must never send an anchor inside another anchor: a browser closes the
+    // outer one and re-parents the rest, which is what hid the visible summary from its
+    // edit link. Parsed documents cannot show this, so read the markup as sent.
+    preg_match_all('/<(\/?)a[\s>]/i', (string) $html, $tags);
+    $depth = 0;
+    $deepest = 0;
+
+    foreach ($tags[1] as $closing) {
+        $depth = max(0, $depth + ($closing === '/' ? -1 : 1));
+        $deepest = max($deepest, $depth);
+    }
+
+    expect(substr_count((string) $html, 'capell-page-summary'))->toBeGreaterThan(0)
+        ->and($deepest)->toBe(1);
+
+    $document = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+    $editLink = collect($document->querySelectorAll('[data-page-summary-edit-link]'))
+        ->first(fn (Element $link): bool => trim($link->textContent ?? '') === 'Summary child');
+
+    expect($editLink)->toBeInstanceOf(Element::class)
+        ->and($editLink?->getAttribute('href'))->toStartWith(GetEditPageResourceUrlAction::run($page));
+
+    $publicLink = $document->querySelector('.capell-page-summary a[href="https://example.test/summary-child"]');
+
+    expect($publicLink)->toBeInstanceOf(Element::class)
+        ->and($publicLink?->getAttribute('rel'))->toBe('noopener noreferrer');
+
+    $parentLink = collect($document->querySelectorAll('a'))
+        ->first(fn (Element $link): bool => trim($link->textContent ?? '') === 'Summary parent'
+            && ! $link->closest('.capell-page-summary') instanceof Element);
+
+    expect($parentLink)->toBeInstanceOf(Element::class)
+        ->and($parentLink?->getAttribute('href'))->toBe(GetEditPageResourceUrlAction::run($parent));
 });
 
 it('groups related page record actions', function (): void {
