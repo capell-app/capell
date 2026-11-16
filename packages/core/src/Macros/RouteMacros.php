@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Macros;
 
+use Capell\Core\Contracts\Webhooks\AnswersWebhookValidationRequests;
 use Capell\Core\Contracts\Webhooks\InboundWebhookProvider;
+use Capell\Core\Http\Controllers\Webhooks\AnswerWebhookValidationController;
 use Capell\Core\Http\Controllers\Webhooks\ReceiveInboundWebhookController;
 use Closure;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -37,6 +39,13 @@ final class RouteMacros
             throw_unless(is_subclass_of($provider, InboundWebhookProvider::class), InvalidArgumentException::class, sprintf('A webhook route needs a class that implements %s.', InboundWebhookProvider::class));
             throw_if($perMinute < 1, InvalidArgumentException::class, 'A webhook route must allow at least one request a minute.');
 
+            $throttle = sprintf('throttle:%d,1,capell-webhook-%s:', $perMinute, substr(hash('sha256', $provider), 0, 16));
+
+            if (is_subclass_of($provider, AnswersWebhookValidationRequests::class)) {
+                $this->get($uri, AnswerWebhookValidationController::class)
+                    ->middleware($throttle);
+            }
+
             return $this->post($uri, ReceiveInboundWebhookController::class)
                 ->defaults(ReceiveInboundWebhookController::PROVIDER_ROUTE_DEFAULT, $provider)
                 ->withoutMiddleware([
@@ -44,7 +53,7 @@ final class RouteMacros
                     ValidateCsrfToken::class,
                     VerifyCsrfToken::class,
                 ])
-                ->middleware(sprintf('throttle:%d,1,capell-webhook-%s:', $perMinute, substr(hash('sha256', $provider), 0, 16)));
+                ->middleware($throttle);
         };
     }
 }
