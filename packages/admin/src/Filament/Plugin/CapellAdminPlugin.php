@@ -516,7 +516,59 @@ class CapellAdminPlugin implements Plugin
     private function replacePanelResources(Panel $panel, array $resources): void
     {
         $panelResources = new ReflectionProperty($panel, 'resources');
+        $previous = array_values(array_unique($panelResources->getValue($panel)));
         $panelResources->setValue($panel, $resources);
+
+        // Panel::resources() would append rather than replace, so it cannot be used here.
+        // A cached component manifest already carries the cluster membership.
+        if (! $panel->hasCachedComponents()) {
+            $this->synchroniseResourceClusters($panel, $previous, $resources);
+        }
+    }
+
+    /**
+     * Keep Filament's cluster membership in step with a replaced resource list. Panel::resources()
+     * is the only thing that fills it, and Cluster::shouldRegisterNavigation() reads it, so a
+     * resource set directly on the panel would leave its cluster without navigation.
+     *
+     * @param  list<class-string<resource>>  $previous
+     * @param  list<class-string<resource>>  $resources
+     */
+    private function synchroniseResourceClusters(Panel $panel, array $previous, array $resources): void
+    {
+        $property = new ReflectionProperty($panel, 'clusteredComponents');
+
+        /** @var array<class-string, list<class-string>> $clustered */
+        $clustered = $property->getValue($panel);
+
+        foreach (array_diff($previous, $resources) as $removed) {
+            $cluster = $this->resourceCluster($removed);
+
+            if ($cluster !== null && isset($clustered[$cluster])) {
+                $clustered[$cluster] = array_values(array_diff($clustered[$cluster], [$removed]));
+            }
+        }
+
+        foreach ($resources as $resource) {
+            $cluster = $this->resourceCluster($resource);
+
+            if ($cluster !== null && ! in_array($resource, $clustered[$cluster] ?? [], true)) {
+                $clustered[$cluster][] = $resource;
+            }
+        }
+
+        $property->setValue($panel, $clustered);
+    }
+
+    /**
+     * @param  class-string<resource>  $resource
+     * @return class-string|null
+     */
+    private function resourceCluster(string $resource): ?string
+    {
+        $cluster = $resource::getCluster();
+
+        return is_string($cluster) && $cluster !== '' ? $cluster : null;
     }
 
     private function registerSettings(Panel $panel): self
