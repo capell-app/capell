@@ -14,9 +14,15 @@ use Symfony\Component\Finder\SplFileInfo;
  *
  * Only checks whose arguments are ability strings name a permission; a check
  * with a model or class argument calls a policy method and is left to the
- * policy. Shield keys ("Verb:Subject") count as declared when the subject is
- * one Shield generates for the package: a resource's model, or a page or
- * widget class.
+ * policy, and so is a bare method name such as "update" (Filament's
+ * ->authorize('update') checks the record's policy). Permission keys always
+ * carry a separator (":", "." or "-"). Shield keys ("Verb:Subject") count as
+ * declared when the subject is one Shield generates for the package: a
+ * resource's model, or a page or widget class.
+ *
+ * A check that is not a role permission, such as a Sanctum token ability, is
+ * declared with `// capell-permission-scan: token-ability <reason>` on the line
+ * before it.
  *
  * @method static list<string> run(string $packagePath, list<string> $declaredKeys)
  */
@@ -47,6 +53,11 @@ final class FindUndeclaredPermissionsAction
 
     private const string MIDDLEWARE = '/[\'"]can:([^,\'"\s]+)[\'"]/';
 
+    /** A policy method name: an identifier with no permission-key separator. */
+    private const string POLICY_METHOD = '/^[a-z][A-Za-z0-9]*$/';
+
+    private const string OPT_OUT = '/\/\/\s*capell-permission-scan:\s*token-ability\s+\S/';
+
     /**
      * @param  list<string>  $declaredKeys
      * @return list<string> undeclared abilities, sorted
@@ -59,7 +70,9 @@ final class FindUndeclaredPermissionsAction
 
         foreach ($files as $file) {
             foreach ($this->abilities($this->source($file)) as $ability) {
-                if (! in_array($ability, $declaredKeys, true) && ! $this->isGeneratedShieldKey($ability, $subjects)) {
+                if (preg_match(self::POLICY_METHOD, $ability) !== 1
+                    && ! in_array($ability, $declaredKeys, true)
+                    && ! $this->isGeneratedShieldKey($ability, $subjects)) {
                     $undeclared[$ability] = true;
                 }
             }
@@ -99,7 +112,7 @@ final class FindUndeclaredPermissionsAction
     /** PHP comments are dropped so commented-out or documented checks do not count. */
     private function source(SplFileInfo $file): string
     {
-        $contents = $file->getContents();
+        $contents = $this->withoutOptedOutLines($file->getContents());
 
         if (str_ends_with($file->getFilename(), '.blade.php')) {
             return (string) preg_replace('/\{\{--.*?--\}\}/s', '', $contents);
@@ -116,6 +129,20 @@ final class FindUndeclaredPermissionsAction
         }
 
         return $source;
+    }
+
+    /** Blanks each line declared not to be a role permission check by the marker on the line before. */
+    private function withoutOptedOutLines(string $contents): string
+    {
+        $lines = explode("\n", $contents);
+
+        foreach (array_keys($lines) as $index) {
+            if ($index > 0 && preg_match(self::OPT_OUT, $lines[$index - 1]) === 1) {
+                $lines[$index] = '';
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /** @return list<SplFileInfo> */
