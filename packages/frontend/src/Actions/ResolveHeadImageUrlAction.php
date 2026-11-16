@@ -9,6 +9,7 @@ use Capell\Core\Enums\MediaConversionEnum;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
 
 /**
  * Picks the public share image for a page: the page's social image, then its
@@ -26,7 +27,7 @@ final class ResolveHeadImageUrlAction
             ?? $this->loadedMedia($page, 'image')
             ?? $this->loadedMedia($site, 'image');
 
-        if (! $media instanceof MediaContract) {
+        if (! $media instanceof MediaContract || ! $this->isPublic($media)) {
             return null;
         }
 
@@ -35,7 +36,59 @@ final class ResolveHeadImageUrlAction
             MediaConversionEnum::Medium->value,
         ]);
 
-        return $url !== '' ? $url : null;
+        return $url !== '' && ! $this->isSignedUrl($url) ? $url : null;
+    }
+
+    /**
+     * An allow-list: only an Eloquent media row on a disk configured as public (and a
+     * public conversions disk, when it has one) is shared. A row on a private or unknown
+     * disk never becomes a share image, and neither does a backend that does not record
+     * public visibility on its rows.
+     */
+    private function isPublic(MediaContract $media): bool
+    {
+        if (! $media instanceof Model) {
+            return false;
+        }
+
+        $attributes = $media->getAttributes();
+
+        if (! $media instanceof SpatieMedia && ($attributes['visibility'] ?? null) !== 'public') {
+            return false;
+        }
+
+        $disk = $attributes['disk'] ?? null;
+
+        if (! is_string($disk) || ! $this->isPublicDisk($disk)) {
+            return false;
+        }
+
+        $conversionsDisk = $attributes['conversions_disk'] ?? null;
+
+        return $conversionsDisk === null || $conversionsDisk === '' || (is_string($conversionsDisk) && $this->isPublicDisk($conversionsDisk));
+    }
+
+    private function isPublicDisk(string $disk): bool
+    {
+        $config = config('filesystems.disks.' . $disk);
+
+        return is_array($config) && ($config['visibility'] ?? null) === 'public';
+    }
+
+    private function isSignedUrl(string $url): bool
+    {
+        $query = parse_url($url, PHP_URL_QUERY);
+
+        if (! is_string($query) || $query === '') {
+            return false;
+        }
+
+        parse_str($query, $parameters);
+
+        return array_any(
+            array_keys($parameters),
+            static fn (int|string $parameter): bool => in_array(strtolower((string) $parameter), ['signature', 'expires', 'x-amz-signature', 'x-amz-expires', 'x-goog-signature', 'sig', 'se'], true),
+        );
     }
 
     private function loadedMedia(?object $model, string $relation): ?MediaContract

@@ -271,3 +271,27 @@ it('lets an SEO head hook replace the default share image', function (): void {
         'twitter:image' => 'https://cdn.example.test/seo-card.png',
     ]);
 });
+
+it('never shares an image stored on a private disk', function (): void {
+    config()->set('filesystems.disks.private-media', [
+        'driver' => 'local',
+        'root' => storage_path('app/private-media'),
+        'url' => 'https://files.example.test/private-media',
+        'visibility' => 'private',
+    ]);
+    $language = Language::factory()->createOne();
+    $theme = Theme::factory()->defaultMeta()->create();
+    $site = Site::factory()->language($language)->theme($theme)->withTranslations($language, ['title' => 'Example Site'])->create();
+    $layout = Layout::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations($language, ['title' => 'Example Page'])->create();
+    Media::factory()->model($page)->collection(MediaCollectionEnum::SocialImage)->state(['disk' => 'private-media', 'conversions_disk' => 'private-media', 'file_name' => 'board-minutes.jpg'])->create();
+    Media::factory()->model($site)->collection(MediaCollectionEnum::Image)->state(['disk' => 'private-media', 'conversions_disk' => 'private-media', 'file_name' => 'site-minutes.jpg'])->create();
+    $site->load(['language', 'siteDomain', 'siteDomains', 'translation', 'image']);
+    $page->load(['pageUrl.siteDomain', 'pageUrls.language', 'pageUrls.siteDomain', 'translation', 'image', 'socialImage']);
+    Frontend::swap(new FrontendContext(site: $site, language: $language, page: $page, layout: $layout, theme: $theme, params: [], slug: null));
+
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+
+    expect(renderedShareImageTags())->toBe(['twitter:card' => 'summary'])
+        ->and($html)->not->toContain('board-minutes')->not->toContain('site-minutes')->not->toContain('files.example.test');
+});
