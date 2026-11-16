@@ -71,11 +71,15 @@ final class ServicePageConfigurator extends DefaultPageConfigurator
 }
 ```
 
-Register it in the `boot()` method of `app/Providers/AppServiceProvider.php`, beside the case study configurator:
+Add this import to `app/Providers/AppServiceProvider.php`:
 
 ```php
 use App\Filament\Configurators\Pages\ServicePageConfigurator;
+```
 
+Then register the configurator in its `boot()` method, beside the case study configurator:
+
+```php
 CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::configurator(
     class: ServicePageConfigurator::class, group: 'Pages', name: 'Service', owner: 'app',
 ));
@@ -126,12 +130,16 @@ Create the Blade view `resources/views/widgets/project-note.blade.php`:
 <p class="project-note">Talk to us about a similar project.</p>
 ```
 
-Register it in `boot()` in `app/Providers/AppServiceProvider.php`:
+Add these imports to `app/Providers/AppServiceProvider.php`:
 
 ```php
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Support\Renderables\RenderableRegistry;
+```
 
+Then register the renderable in its `boot()` method:
+
+```php
 app(RenderableRegistry::class)->register(new RenderableDefinitionData(
     key: 'project-note',
     type: 'layout-widget',
