@@ -50,6 +50,7 @@ use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Exception;
 use Filament\Actions\Action;
+use Filament\Clusters\Cluster;
 use Filament\Pages\Page;
 use Filament\Resources\Resource as FilamentResource;
 use Filament\Support\Icons\Heroicon;
@@ -642,7 +643,10 @@ class CapellAdminManager
      */
     private function suppressExtensionPageNativeNavigation(string $page): void
     {
+        // A cluster is the parent of its resources' navigation. Silencing it, when it does not
+        // redeclare the flag, would also silence the shared flag of every other page.
         if ($page === ExtensionsPage::class
+            || is_subclass_of($page, Cluster::class)
             || is_subclass_of($page, SiteHealthSubpage::class)
             || isset($this->suppressedExtensionPageNavigation[$page])) {
             return;

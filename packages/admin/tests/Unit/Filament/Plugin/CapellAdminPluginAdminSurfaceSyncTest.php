@@ -7,12 +7,15 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Tests\Fixtures\ClusterPackage\src\Filament\Clusters\FixtureCluster;
+use Capell\Admin\Tests\Fixtures\ClusterPackage\src\Filament\Resources\Widgets\FixtureClusteredResource;
 use Capell\Admin\Tests\Fixtures\ClusterPackage\src\Providers\ClusterFixtureServiceProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestLatePage;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestLateResource;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Filament\Facades\Filament;
+use Filament\Pages\Page as FilamentPage;
 use Filament\Panel;
 use Illuminate\Support\Facades\File;
 
@@ -189,4 +192,58 @@ it('replaces panel resources directly while Filament component caching is active
     $replacePanelResources->invoke($plugin, $panel, [TestLateResource::class]);
 
     expect($panel->getResources())->toContain(TestLateResource::class);
+});
+
+it('registers contributed clustered resources with their cluster so it shows in navigation', function (): void {
+    CapellAdmin::clearAdminSurfaceContributions();
+    CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(FixtureCluster::class));
+    CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(FixtureClusteredResource::class, group: 'Widgets'));
+
+    $plugin = CapellAdminPlugin::make();
+    $panel = Panel::make()->id('clustered-resource-sync');
+
+    $synchronizeAdminSurface = Closure::bind(
+        fn (Panel $panel): CapellAdminPlugin => $this->synchronizeAdminSurface($panel),
+        $plugin,
+        $plugin::class,
+    );
+
+    $synchronizeAdminSurface($panel);
+    $synchronizeAdminSurface($panel);
+
+    expect($panel->getResources())->toContain(FixtureClusteredResource::class)
+        ->and($panel->getClusteredComponents(FixtureCluster::class))->toBe([FixtureClusteredResource::class]);
+
+    Filament::setCurrentPanel($panel);
+
+    expect(FixtureCluster::shouldRegisterNavigation())->toBeTrue();
+});
+
+it('drops a resource from its cluster when it stops registering with the panel', function (): void {
+    $plugin = CapellAdminPlugin::make();
+    $panel = Panel::make()->id('clustered-resource-removal');
+
+    $replacePanelResources = new ReflectionMethod($plugin, 'replacePanelResources');
+    $replacePanelResources->invoke($plugin, $panel, [FixtureClusteredResource::class]);
+
+    expect($panel->getClusteredComponents(FixtureCluster::class))->toBe([FixtureClusteredResource::class]);
+
+    $replacePanelResources->invoke($plugin, $panel, []);
+
+    expect($panel->getClusteredComponents(FixtureCluster::class))->toBe([]);
+});
+
+it('does not silence the shared navigation flag when an extension page is a cluster', function (): void {
+    $flag = new ReflectionProperty(FilamentPage::class, 'shouldRegisterNavigation');
+    $original = $flag->getValue();
+
+    try {
+        $flag->setValue(null, true);
+
+        CapellAdmin::registerExtensionPage('vendor/cluster-fixture', FixtureCluster::class);
+
+        expect($flag->getValue())->toBeTrue();
+    } finally {
+        $flag->setValue(null, $original);
+    }
 });
