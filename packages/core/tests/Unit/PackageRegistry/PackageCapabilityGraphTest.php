@@ -267,3 +267,22 @@ it('types every capability currently published by the commercial AI packages', f
             ->not->toBeNull(sprintf('Missing typed capability [%s].', $capability));
     }
 });
+
+it('types the capabilities the marketplace curates for public listings', function (): void {
+    $curated = [
+        'socials', 'socials-profiles', 'socials-sharing', 'socials-widget', 'socials-registry',
+        'blog', 'privacy-safe-content-metrics', 'public-url-registry', 'record-switcher',
+        'audience-rules', 'goal-tracking', 'refund-records', 'paid-gated-access-fulfillment', 'site-lockdown',
+    ];
+
+    $graph = BuildPackageCapabilityGraphAction::run([
+        'vendor/curated' => CapellManifestData::fromArray(capellManifestV3Array(
+            name: 'vendor/curated',
+            overrides: ['capabilities' => $curated],
+        )),
+    ]);
+
+    expect($graph->unknownFor('vendor/curated'))->toBe([])
+        ->and($graph->packageHas('vendor/curated', PackageCapability::SiteLockdown))->toBeTrue()
+        ->and($graph->packagesWith(PackageCapability::Socials))->toBe(['vendor/curated']);
+});
