@@ -160,8 +160,16 @@ final class FindTableCollisionsAction
             ->all());
     }
 
+    /**
+     * Whether the declaration names a table setting the installer can plan and rewrite: a file it
+     * supports, and a key that holds a table name rather than a group of settings.
+     */
     private function canSaveConfigKey(ExtensionLegacyTableData $table): bool
     {
-        return in_array(explode('.', $table->configKey)[0], WriteTableConfigurationAction::SUPPORTED_ROOTS, true);
+        $configured = config($table->configKey, $table->name);
+
+        return in_array(explode('.', $table->configKey)[0], WriteTableConfigurationAction::SUPPORTED_ROOTS, true)
+            && is_string($configured)
+            && $configured !== '';
     }
 }

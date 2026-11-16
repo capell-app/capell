@@ -33,7 +33,7 @@ final class PackageRoleResolver
         PackageRole::ScaffoldFullProfile,
     ];
 
-    private const string COMPOSER_NAME_PATTERN = '~^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]|-{1,2})?[a-z0-9]+)*$~';
+    private const string COMPOSER_NAME_PATTERN = '~^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]|-{1,2})?[a-z0-9]+)*$~D';
 
     /**
      * Packages that declare the role, lowest `rolePriority` first and then by name, so a tie is

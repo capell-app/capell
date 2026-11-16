@@ -343,6 +343,7 @@ it('drops malformed install metadata from a catalogue entry instead of failing d
                 ['variant' => ['not', 'a', 'string'], 'priority' => 0],
                 ['variant' => 'package_blog', 'priority' => 'high'],
                 ['variant' => 'Not A Variant', 'priority' => 1],
+                ['variant' => "package_blog\n", 'priority' => 1],
                 ['variant' => 'package_events', 'priority' => 4],
             ],
             'legacyTables' => [

@@ -38,9 +38,9 @@ final class ExtensionLegacyTableData extends Data
         $configKey = $data['configKey'] ?? null;
         $migration = $data['migration'] ?? null;
 
-        if (! is_string($name) || preg_match('/^\w+$/', $name) !== 1
-            || ! is_string($configKey) || preg_match('/^\w+(\.\w+)+$/', $configKey) !== 1
-            || ! is_string($migration) || preg_match('/^[A-Za-z0-9_.-]+$/', $migration) !== 1) {
+        if (! is_string($name) || preg_match('/^\w+$/D', $name) !== 1
+            || ! is_string($configKey) || preg_match('/^\w+(\.\w+)+$/D', $configKey) !== 1
+            || ! is_string($migration) || preg_match('/^[A-Za-z0-9_.-]+$/D', $migration) !== 1) {
             return null;
         }
 

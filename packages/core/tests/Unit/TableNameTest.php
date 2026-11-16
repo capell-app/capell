@@ -642,13 +642,16 @@ describe('legacy tables a package declares in its manifest', function (): void {
             ['name' => 'labels', 'configKey' => 'capell.database.external_tables.labels', 'migration' => 'create_label_tables'],
             ['name' => 'orphaned', 'configKey' => 'unsupported.orphaned.table_name', 'migration' => 'create_label_tables'],
             ['name' => ['not', 'a', 'string'], 'configKey' => 'tags.x.table_name', 'migration' => 'create_label_tables'],
+            // A key that holds a group of settings rather than a table name cannot be planned.
+            ['name' => 'grouped', 'configKey' => 'capell.database', 'migration' => 'create_label_tables'],
+            ['name' => "newline\n", 'configKey' => 'tags.newline.table_name', 'migration' => 'create_label_tables'],
         ];
 
         $planned = array_map(
             static fn (TableCollisionData $table): string => $table->name,
             array_filter(
                 resolve(FindTableCollisionsAction::class)->planned(['vendor/labels'], $declared),
-                static fn (TableCollisionData $table): bool => in_array($table->name, ['labels', 'orphaned'], true),
+                static fn (TableCollisionData $table): bool => in_array($table->name, ['labels', 'orphaned', 'grouped', "newline\n"], true),
             ),
         );
 

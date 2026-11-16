@@ -35,7 +35,7 @@ final class ExtensionInstallTipData extends Data
         $variant = $data['variant'] ?? null;
         $priority = $data['priority'] ?? 0;
 
-        if (! is_string($variant) || preg_match('/^[a-z][a-z0-9_]*$/', $variant) !== 1 || ! is_int($priority)) {
+        if (! is_string($variant) || preg_match('/^[a-z][a-z0-9_]*$/D', $variant) !== 1 || ! is_int($priority)) {
             return null;
         }
 

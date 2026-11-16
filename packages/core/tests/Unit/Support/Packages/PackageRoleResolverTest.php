@@ -109,6 +109,7 @@ it('ignores a candidate whose name is not a valid Composer package name', functi
     bindCachedCatalogue([
         ['name' => 'capell-app/base"quoted', 'type' => 'plugin', 'roles' => ['scaffold-full-profile']],
         ['name' => 'capell-app/has space', 'type' => 'plugin', 'roles' => ['scaffold-full-profile']],
+        ['name' => "capell-app/trailing-newline\n", 'type' => 'plugin', 'roles' => ['scaffold-full-profile']],
     ]);
 
     expect(resolve(PackageRoleResolver::class)->packageNameWithRole(PackageRole::ScaffoldFullProfile))->toBeNull();
