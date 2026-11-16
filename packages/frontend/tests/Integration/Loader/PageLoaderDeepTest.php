@@ -33,3 +33,37 @@ it('loads children and respects optionalLanguage flag', function (): void {
         ->toHaveCount(2)
         ->and($children->pluck('id')->toArray())->toContain($child1->id, $child2->id);
 });
+
+it('keeps canonical pages apart for different pageable types that share an id', function (): void {
+    config()->set('cache.default', 'array');
+
+    $english = Language::factory()->english()->create();
+    $site = Site::factory()->language($english)->withTranslations($english)->create();
+    $target = Page::factory()->site($site)->published()->withTranslations($english, slug: '/canonical-target')->create();
+
+    // Another pageable type numbers its records independently, so the same id names a
+    // different record with its own canonical pages.
+    $article = new class extends Page
+    {
+        public function getMorphClass(): string
+        {
+            return 'test-article';
+        }
+    };
+    $article->setRawAttributes($target->getAttributes(), true);
+    $article->exists = true;
+
+    $pageCanonical = Page::factory()->site($site)->published()->withTranslations($english, slug: '/points-at-page')->create([
+        'meta' => ['canonical_pageable_type' => $target->getMorphClass(), 'canonical_pageable_id' => $target->getKey()],
+    ]);
+    $articleCanonical = Page::factory()->site($site)->published()->withTranslations($english, slug: '/points-at-article')->create([
+        'meta' => ['canonical_pageable_type' => 'test-article', 'canonical_pageable_id' => $target->getKey()],
+    ]);
+
+    $forPage = PageLoader::getCanonicalPages($target, $english)->modelKeys();
+    $forArticle = PageLoader::getCanonicalPages($article, $english)->modelKeys();
+
+    expect($article->getKey())->toBe($target->getKey())
+        ->and($forPage)->toBe([$pageCanonical->getKey()])
+        ->and($forArticle)->toBe([$articleCanonical->getKey()]);
+});
