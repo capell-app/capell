@@ -122,9 +122,16 @@ A page type here is a blueprint on ordinary Page records. Registering a new mode
 
 ## 6. Add a public widget
 
-Widgets need the Layout Builder package, which the [guided installer](install.md) adds and the starter kit does not include. Three things connect a widget: a Blade component, a renderable registered under a key, and a widget record that names that key.
+Widgets need the Layout Builder package, which the [guided installer](install.md) adds and the starter kit does not include. On the starter kit, install it first:
 
-Create the Blade view `resources/views/widgets/project-note.blade.php`:
+```bash
+composer require capell-app/layout-builder
+php artisan capell:extension-install capell-app/layout-builder
+```
+
+Three things connect a widget: a Blade component, a renderable registered under a key, and a widget record that names that key. The layout must also print its containers.
+
+Create the Blade component `resources/views/components/widgets/project-note.blade.php`. The renderable's `blade` value is a component name, so the file belongs under `components`:
 
 ```blade
 <p class="project-note">Talk to us about a similar project.</p>
@@ -147,22 +154,31 @@ app(RenderableRegistry::class)->register(new RenderableDefinitionData(
 ));
 ```
 
-The following placement example assumes the installed demo has a `breadcrumbs` widget and a `home` layout. Create the record and place it on that layout:
+The starter kit's layout does not print containers yet. In `resources/views/capell/themes/capell-app/studio/layout.blade.php`, add this inside `<main id="main">`, before the `<h1>`:
+
+```blade
+<x-capell-layout-builder::layout.area :layout="$layout" :public-render-data="$publicRenderData" />
+```
+
+Create the widget record and place it in the `main` container of the starter's `studio` layout:
 
 ```bash
 php artisan tinker --execute='
-$blueprint = Capell\LayoutBuilder\Models\Widget::where("key", "breadcrumbs")->value("blueprint_id");
-$widget = Capell\LayoutBuilder\Models\Widget::firstOrCreate(["key" => "project-note"], ["name" => "Project note", "blueprint_id" => $blueprint, "status" => true]);
+$blueprint = Capell\Core\Models\Blueprint::firstOrCreate(["key" => "note", "type" => Capell\LayoutBuilder\Enums\LayoutTypeEnum::Widget->value], ["name" => "Note", "default" => true]);
+$widget = Capell\LayoutBuilder\Models\Widget::firstOrCreate(["key" => "project-note"], ["name" => "Project note", "blueprint_id" => $blueprint->id, "status" => true]);
 $widget->update(["component" => "project-note"]);
-$layout = Capell\Core\Models\Layout::where("key", "home")->first();
-$containers = $layout->containers;
-$containers["main"]["widgets"][] = ["widget_key" => "project-note"];
-$layout->update(["containers" => $containers]);
+$layout = Capell\Core\Models\Layout::where("key", "studio")->first();
+$containers = $layout->containers ?? [];
+$placed = collect($containers["main"]["widgets"] ?? [])->contains(fn ($item) => ($item["widget_key"] ?? null) === "project-note");
+if (! $placed) {
+    $containers["main"]["widgets"][] = ["widget_key" => "project-note"];
+    $layout->update(["containers" => $containers]);
+}
 '
 php artisan cache:clear
 ```
 
-Reload `/` and confirm the note appears. Run the placement once, because each run adds another copy to the layout.
+Reload `/` and confirm the note appears above the page heading. The placement is safe to run again, because it adds the widget only when the layout does not already contain it. On a site that already has a layout with containers, change `"studio"` to your layout key and skip the layout edit.
 
 ## Related guides
 
