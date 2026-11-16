@@ -84,6 +84,11 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Filament/Components/Forms/UserSelect.php' => ['setUp|$this->userModel()::query()->whereKey($value)->value(\'name\')', 'userQuery|$this->userModel()::query()->limit(10)'],
             // Role and permission definitions are installation-wide provisioning for
             // the acting guard; they hold no site content.
+            'packages/admin/src/Actions/GrantDeclaredPermissionRolesAction.php' => [
+                'handle|' . DB::class . '::table($table)->where(\'guard_name\', $guard)->pluck(\'package\', \'permission\')->all()',
+                'handle|' . DB::class . '::table($table)->insert([\'package\' => $package, \'permission\' => $permission->key, \'guard_name\' => $guard, \'granted_at\' => now()])',
+                'grant|$roleModel::query()->where(\'name\', $roleName)->where(\'guard_name\', $guard)->first()',
+            ],
             'packages/admin/src/Actions/AssignPermissionsToRole.php' => [
                 'grantSuperAdminPermissions|$permissionModel::query()->where(\'guard_name\', $guardName)->whereIn(\'name\', $permissions)->pluck($this->modelKeyName($permissionModel))->all()',
                 'grantSuperAdminPermissions|' . Utils::class . "::getRoleModel()::firstOrCreate(['name' => " . Utils::class . '::getSuperAdminName(), \'guard_name\' => $guardName, ' . Utils::class . '::getTenantModelForeignKey() => $tenantId])->permissions()->syncWithoutDetaching($permissionIds)',

@@ -10,14 +10,15 @@ use Capell\Core\Testing\Assertions\AssertsDeclaredThrottles;
 use Capell\Core\Testing\Assertions\AssertsExtensionManifest;
 use Capell\Core\Testing\Assertions\AssertsGuardedOutboundHttp;
 use Capell\Core\Testing\Assertions\AssertsPackageLifecycle;
+use Capell\Core\Testing\Assertions\AssertsPrivacyContributors;
 use Capell\Core\Testing\Assertions\AssertsPublicOutputSafety;
 use Capell\Core\Testing\Assertions\AssertsPublicViewSafety;
 use Capell\Core\Testing\Data\CompanionPackageContractData;
 use Closure;
 
 /**
- * The contract every companion package meets. The manifest, lifecycle, outbound HTTP, public view and throttle
- * checks always run; a package opts out of one of the static checks only with a decision record (see
+ * The contract every companion package meets. The manifest, lifecycle, outbound HTTP, public view, throttle and
+ * personal-data privacy checks always run; a package opts out of one of the static checks only with a decision record (see
  * ContractOptOutRecords). The authorization, cache invalidation and rendered-output checks run when the package's
  * own test supplies the closure that exercises them.
  */
@@ -44,6 +45,10 @@ final class CompanionPackageContractSuite
 
         if (! $optOuts->allows(AssertsPublicViewSafety::CONTRACT_ID)) {
             AssertsPublicViewSafety::run($contract->packageRoot);
+        }
+
+        if (! $optOuts->allows(AssertsPrivacyContributors::CONTRACT_ID)) {
+            AssertsPrivacyContributors::run($contract->packageRoot);
         }
 
         if ($contract->authorizationAssertion instanceof Closure && ($contract->authorizationAssertion)() !== true) {

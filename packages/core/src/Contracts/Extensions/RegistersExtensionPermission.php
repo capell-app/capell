@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Capell\Core\Contracts\Extensions;
 
 /**
- * Marks the class declared by a permission manifest contribution.
+ * The class declared by a permission manifest contribution.
  *
- * The manifest describes the permission surface; this contract lets Capell
- * validate the implementation class before the owning authorization
- * integration consumes it.
+ * The manifest's `permissions` list is the static surface Marketplace and install review read
+ * without loading code; the typed declaration is what admin seeds and grants.
  */
-interface RegistersExtensionPermission extends ExtensionContribution {}
+interface RegistersExtensionPermission extends DeclaresPermissions, ExtensionContribution {}
