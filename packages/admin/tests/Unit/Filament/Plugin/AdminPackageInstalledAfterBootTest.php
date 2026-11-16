@@ -35,7 +35,7 @@ final class AdminPackageInstalledAfterBootTest extends AbstractTestCase
         app()->instance(InstallDeveloperToolingAction::class, new class extends InstallDeveloperToolingAction
         {
             #[Override]
-            public function handle(ProgressReporter $reporter, bool $configureBoost): void {}
+            public function handle(ProgressReporter $reporter, bool $configureBoost, ?string $plannedToolingPackage = null): void {}
         });
     }
 

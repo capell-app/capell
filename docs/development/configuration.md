@@ -48,6 +48,11 @@ package tables. These names do not inherit the Capell table prefix or aliases.
 deliberately adopted, such as `login_audit` aliased to `authentication_log`. The installer then does not
 report that table as a collision. Only list a table whose package migrations adopt an existing table.
 
+`capell.database.legacy_table_owners` (`spatie/laravel-tags` by default) lists Composer packages that may
+already hold a table a Capell package took over. A Capell package declares those tables in its manifest
+`install.legacyTables`. The installer always checks the declared tables of the packages in the install plan;
+while one of these owners is installed it checks the declared tables of every known package as well.
+
 A prefix may contain letters, numbers and underscores, must not start with a number, and
 must leave the longest Capell table name within 63 characters (the PostgreSQL identifier
 cap). Capell never takes over a table it did not create: an upgrade or migration that
@@ -381,24 +386,25 @@ The agent tool throttle uses Laravel’s rate limiter cache store (`cache.limite
 
 Commonly adjusted, and not settable through the environment:
 
-| Config key                                            | Default                                                                     | Effect                                                                                      |
-| ----------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `capell.default_pages`                                | `home`, `error_404`, `maintenance`, `welcome`                               | Pages created automatically for a new site                                                  |
-| `capell.media.crop_presets`                           | `thumbnail` 320×320, `card` 800×600, `hero` 1600×900, `open_graph` 1200×630 | Named crop presets offered on media edit; changing these changes generated derivative sizes |
-| `capell.media.model`                                  | `Capell\Core\Models\Media`                                                  | Media model class override                                                                  |
-| `capell-frontend.default_layout` / `foundation_theme` | `default` / `default`                                                       | Fallbacks when a site or page specifies none                                                |
-| `capell-frontend.redirect_default_site`               | `true`                                                                      | Redirects unmatched hosts to the default site instead of returning 404                      |
-| `capell-frontend.pagination_limit`                    | `12`                                                                        | Page-list page size when a caller passes no limit                                           |
-| `capell-frontend.meta_title_seperator`                | `' \| '`                                                                    | Separator between site and page name in `<title>`. Note the spelling of the key.            |
-| `capell-frontend.date_format`                         | `M jS, Y`                                                                   | Publish-date format on asset cards and tiles                                                |
-| `capell-frontend.tailwind.sources`                    | `resources/views/**/*.blade.php`                                            | Globs scanned for Tailwind class extraction                                                 |
-| `capell-frontend.tailwind.validate_sources`           | `false`                                                                     | Validates those globs before generating assets                                              |
-| `capell-admin.navigation_badge_counts`                | `false`                                                                     | Global switch for admin navigation badge count queries                                      |
-| `capell-admin.resources.page.navigation_badge`        | `false`                                                                     | Hides the Pages navigation badge even when counts are enabled                               |
-| `capell-admin.resources.user.navigation_badge`        | `false`                                                                     | Hides the Users navigation badge even when counts are enabled                               |
-| `capell-admin.shortcuts`                              | `g p`, `g s`, `g t`, `g ,`, `g w`, `/`                                      | Admin keyboard shortcut map                                                                 |
-| `capell-admin.social_types`                           | 8 networks                                                                  | Social link types offered in the site social-icons form                                     |
-| `capell-installer.database_table_cache.store`         | `file`                                                                      | Cache store for the installer's table-existence cache                                       |
+| Config key                                            | Default                                                                     | Effect                                                                                                                             |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `capell.default_pages`                                | `home`, `error_404`, `maintenance`, `welcome`                               | Pages created automatically for a new site                                                                                         |
+| `capell.retired_packages`                             | `capell-app/url-manager`                                                    | Packages that no longer exist and may remain only in an upgrade ledger. The version audit does not report them as missing installs |
+| `capell.media.crop_presets`                           | `thumbnail` 320×320, `card` 800×600, `hero` 1600×900, `open_graph` 1200×630 | Named crop presets offered on media edit; changing these changes generated derivative sizes                                        |
+| `capell.media.model`                                  | `Capell\Core\Models\Media`                                                  | Media model class override                                                                                                         |
+| `capell-frontend.default_layout` / `foundation_theme` | `default` / `default`                                                       | Fallbacks when a site or page specifies none                                                                                       |
+| `capell-frontend.redirect_default_site`               | `true`                                                                      | Redirects unmatched hosts to the default site instead of returning 404                                                             |
+| `capell-frontend.pagination_limit`                    | `12`                                                                        | Page-list page size when a caller passes no limit                                                                                  |
+| `capell-frontend.meta_title_seperator`                | `' \| '`                                                                    | Separator between site and page name in `<title>`. Note the spelling of the key.                                                   |
+| `capell-frontend.date_format`                         | `M jS, Y`                                                                   | Publish-date format on asset cards and tiles                                                                                       |
+| `capell-frontend.tailwind.sources`                    | `resources/views/**/*.blade.php`                                            | Globs scanned for Tailwind class extraction                                                                                        |
+| `capell-frontend.tailwind.validate_sources`           | `false`                                                                     | Validates those globs before generating assets                                                                                     |
+| `capell-admin.navigation_badge_counts`                | `false`                                                                     | Global switch for admin navigation badge count queries                                                                             |
+| `capell-admin.resources.page.navigation_badge`        | `false`                                                                     | Hides the Pages navigation badge even when counts are enabled                                                                      |
+| `capell-admin.resources.user.navigation_badge`        | `false`                                                                     | Hides the Users navigation badge even when counts are enabled                                                                      |
+| `capell-admin.shortcuts`                              | `g p`, `g s`, `g t`, `g ,`, `g w`, `/`                                      | Admin keyboard shortcut map                                                                                                        |
+| `capell-admin.social_types`                           | 8 networks                                                                  | Social link types offered in the site social-icons form                                                                            |
+| `capell-installer.database_table_cache.store`         | `file`                                                                      | Cache store for the installer's table-existence cache                                                                              |
 
 ### Keys read by optional packages, not by this repository
 
