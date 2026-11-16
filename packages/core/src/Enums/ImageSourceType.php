@@ -23,12 +23,10 @@ enum ImageSourceType: string implements HasLabel
      */
     public static function options(): array
     {
-        /** @var array<string, array<string, string>> $optionsByLocale */
-        static $optionsByLocale = [];
-
-        $locale = app()->getLocale();
-
-        return $optionsByLocale[$locale] ??= collect(self::cases())
+        // Labels are read from the translator on every call. The translator already keeps
+        // each loaded group, and a process-wide memo would keep serving labels from a
+        // translator that has since been replaced or given new lines.
+        return collect(self::cases())
             ->mapWithKeys(fn (self $case): array => [$case->value => $case->getLabel()])
             ->all();
     }

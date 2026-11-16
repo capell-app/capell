@@ -58,6 +58,29 @@ it('flags a page as needing an update once its default-language title changes', 
         ->assertDontSeeHtml('data-status="copied"');
 });
 
+it('keeps each language in its own column when language ids differ from translation ids', function (): void {
+    // Creating French first gives the languages ids in the opposite order to the
+    // site's translation rows, so a board that read the translation's id as the
+    // language's id would swap the columns and show the French title as the page name.
+    $french = Language::factory()->french()->createOne();
+    $english = Language::factory()->english()->createOne();
+    $site = Site::factory()->language($english)->default()->withTranslations([$english, $french])->createOne();
+    grantTranslationBoardAccessForTest();
+
+    $partial = translationBoardPageForTest($site, [$english->getKey() => 'About us']);
+
+    $component = Livewire::test(TranslationBoardPage::class)
+        ->assertSee('About us');
+
+    $languages = $component->viewData('languages');
+    $cells = collect($component->viewData('rows'))->firstWhere('pageId', $partial->getKey())->cells;
+
+    expect(array_map(static fn ($language): array => [$language->id, $language->isDefault], $languages))
+        ->toBe([[(int) $english->getKey(), true], [(int) $french->getKey(), false]])
+        ->and(array_map(static fn ($cell): array => [$cell->languageId, $cell->status->value], $cells))
+        ->toBe([[(int) $english->getKey(), 'done'], [(int) $french->getKey(), 'missing']]);
+});
+
 it('explains that a single-language site has nothing to track', function (): void {
     $english = Language::factory()->english()->createOne();
     Site::factory()->language($english)->default()->createOne();
