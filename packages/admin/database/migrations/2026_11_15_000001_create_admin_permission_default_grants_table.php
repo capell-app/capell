@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('package');
             $table->string('permission');
             $table->string('guard_name');
-            $table->timestamp('granted_at');
+            $table->dateTime('granted_at');
             $table->unique(['permission', 'guard_name']);
         });
     }
