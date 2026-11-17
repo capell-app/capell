@@ -216,7 +216,18 @@ it('registers contributed clustered resources with their cluster so it shows in 
 
     Filament::setCurrentPanel($panel);
 
-    expect(FixtureCluster::shouldRegisterNavigation())->toBeTrue();
+    // Core silences the shared page flag for every contributed page that does not redeclare it, and that
+    // state outlives a test. Poison it here so the result never depends on which test ran first: a
+    // cluster keeps its own navigation by redeclaring the flag, as package clusters do.
+    $shared = new ReflectionProperty(FilamentPage::class, 'shouldRegisterNavigation');
+    $previous = $shared->getValue();
+    $shared->setValue(null, false);
+
+    try {
+        expect(FixtureCluster::shouldRegisterNavigation())->toBeTrue();
+    } finally {
+        $shared->setValue(null, $previous);
+    }
 });
 
 it('drops a resource from its cluster when it stops registering with the panel', function (): void {
