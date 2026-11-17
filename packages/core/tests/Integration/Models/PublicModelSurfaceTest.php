@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\GenerateThemeImageAction;
+use Capell\Core\Contracts\DraftableContract;
 use Capell\Core\Enums\CacheTime;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\PageOrderEnum;
@@ -102,6 +103,7 @@ it('hydrates public page model behavior across publish windows urls ordering and
         ->and($child->has_title_or_content)->toBeTrue()
         ->and($child->url_params)->toBe(['year' => 'int'])
         ->and($child->shouldLogVisit())->toBeTrue()
+        ->and($child)->toBeInstanceOf(DraftableContract::class)
         ->and($child->getDraftKey())->toBe((string) $child->getKey())
         ->and($child->getPublishDate())->not->toBeNull()
         ->and($child->getPublishStatus())->toBe(PublishStatusEnum::published)

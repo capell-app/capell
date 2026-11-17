@@ -2241,7 +2241,7 @@ it('runs a single install step via the run-step endpoint', function (): void {
         ->once()
         ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
-    withSession(installerAccessSessionData($installId))->post(
+    $response = withSession(installerAccessSessionData($installId))->post(
         route('capell-installer.run-step'),
         [
             'install_id' => $installId,
@@ -2255,7 +2255,9 @@ it('runs a single install step via the run-step endpoint', function (): void {
             'currentStep' => InstallPlan::STEP_PREPARE_ENVIRONMENT,
             'status' => 'running',
         ])
-        ->assertJsonStructure(['nextStep', 'lines', 'logPath']);
+        ->assertJsonStructure(['nextStep', 'lines', 'logPath', 'csrfToken']);
+
+    expect($response->json('csrfToken'))->toBeString()->not->toBeEmpty();
 
     expect(resolve(InstallerSessionRepository::class)->stepDiagnostics($installId))
         ->toHaveKey(InstallPlan::STEP_PREPARE_ENVIRONMENT . '.peakMemoryBytes');
@@ -2900,44 +2902,6 @@ it('blocks install progress, report, success, and cancel routes without install 
 
     expect(Cache::get('capell.install.lock'))->toBe(['installId' => $installId])
         ->and(Cache::get(sprintf('capell.install.%s.success', $installId)))->not->toBeNull();
-});
-
-// ─── CSRF token in responses ─────────────────────────────────────────────────
-
-it('includes a csrfToken in every run-step response', function (): void {
-    $installId = '66666666-6666-4666-a666-666666666666';
-    $inputData = new InstallInputData(
-        siteUrl: 'https://example.com',
-        packages: [],
-        languages: ['en'],
-        demoContent: false,
-        cachesToClear: [],
-        generateSitemap: false,
-        generateStaticSite: false,
-        newUser: new NewUserData(name: 'Admin', email: 'admin@example.com', password: 'password123'),
-    );
-    $plan = InstallPlan::build($inputData);
-
-    Cache::put(sprintf('capell.install.%s.input', $installId), $inputData->toArray());
-    Cache::put(sprintf('capell.install.%s.plan', $installId), $plan);
-    Cache::put(sprintf('capell.install.%s.current_step', $installId), InstallPlan::STEP_PREPARE_ENVIRONMENT);
-    Cache::put(sprintf('capell.install.%s.completed_steps', $installId), [InstallPlan::STEP_PREFLIGHT_CHECKS]);
-
-    RunInstallStepAction::spy()
-        ->shouldReceive('handle')
-        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
-
-    $response = withSession(installerAccessSessionData($installId))->post(
-        route('capell-installer.run-step'),
-        ['install_id' => $installId, 'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT],
-        ['Accept' => 'application/json'],
-    );
-
-    $response->assertOk()
-        ->assertJsonStructure(['csrfToken'])
-        ->assertJson(['status' => 'running']);
-
-    expect($response->json('csrfToken'))->toBeString()->not->toBeEmpty();
 });
 
 it('cancel preserves the cancelled status and clears other cache keys and the lock', function (): void {

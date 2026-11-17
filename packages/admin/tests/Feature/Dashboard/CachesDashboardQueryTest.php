@@ -7,105 +7,71 @@ namespace Capell\Admin\Tests\Feature\Dashboard;
 use Capell\Admin\Concerns\CachesDashboardQuery;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\CachesDashboardQueryTestClass;
 use Illuminate\Support\Facades\Cache;
-use ReflectionClass;
 
 beforeEach(function (): void {
     Cache::flush();
+    $this->freezeTime();
 });
 
-it('caches query results and executes callback only once', function (): void {
-    $testObject = new CachesDashboardQueryTestClass;
+it('reuses a query result until the default five-minute cache expires', function (): void {
+    $widget = new CachesDashboardQueryTestClass;
 
-    $callCount = 0;
-    $callback = function () use (&$callCount): string {
-        $callCount++;
-
-        return 'test-result';
+    $executions = 0;
+    $query = function () use (&$executions): int {
+        return ++$executions;
     };
 
-    // First call should execute the callback
-    $result1 = $testObject->cacheQueryResult($callback, 'test-key');
-    expect($result1)->toBe('test-result');
-    expect($callCount)->toBe(1);
+    expect($widget->cacheQueryResult($query, 'dashboard:query'))->toBe(1);
 
-    // Second call should return cached value without executing callback
-    $result2 = $testObject->cacheQueryResult($callback, 'test-key');
-    expect($result2)->toBe('test-result');
-    expect($callCount)->toBe(1); // Still 1, not 2
+    $this->travel(299)->seconds();
+
+    expect($widget->cacheQueryResult($query, 'dashboard:query'))->toBe(1)
+        ->and($executions)->toBe(1);
+
+    $this->travel(1)->second();
+
+    expect($widget->cacheQueryResult($query, 'dashboard:query'))->toBe(2);
 });
 
-it('returns mixed type results correctly', function (): void {
-    $testObject = new CachesDashboardQueryTestClass;
-
-    // Test with array result
-    $arrayResult = $testObject->cacheQueryResult(
-        fn (): array => ['status' => 'healthy', 'count' => 42],
-        'array-key',
-    );
-    expect($arrayResult)->toBe(['status' => 'healthy', 'count' => 42]);
-
-    // Test with object result
-    $objectResult = $testObject->cacheQueryResult(
-        fn (): object => (object) ['data' => 'value'],
-        'object-key',
-    );
-    expect($objectResult->data)->toBe('value');
-
-    // Test with scalar result
-    $scalarResult = $testObject->cacheQueryResult(
-        fn (): int => 123,
-        'scalar-key',
-    );
-    expect($scalarResult)->toBe(123);
-});
-
-it('uses default TTL of 300 seconds', function (): void {
-    $testObject = new CachesDashboardQueryTestClass;
-
-    $testObject->cacheQueryResult(fn (): string => 'data', 'ttl-test');
-
-    // Verify the cache entry exists
-    expect(Cache::get('ttl-test'))->toBe('data');
-});
-
-it('allows overriding default TTL via dashboardCacheTtl method', function (): void {
-    $class = new class
+it('expires a query result at the configured widget lifetime', function (): void {
+    $widget = new class
     {
         use CachesDashboardQuery;
 
         protected function dashboardCacheTtl(): int
         {
-            return 60; // 1 minute instead of 5
+            return 60;
         }
     };
 
-    $class->cacheQueryResult(fn (): string => 'custom-ttl-data', 'custom-ttl-key');
+    expect($widget->cacheQueryResult(fn (): string => 'original result', 'dashboard:query'))
+        ->toBe('original result');
 
-    // Verify the cache entry exists
-    expect(Cache::get('custom-ttl-key'))->toBe('custom-ttl-data');
+    $this->travel(59)->seconds();
+
+    expect($widget->cacheQueryResult(fn (): string => 'too early', 'dashboard:query'))
+        ->toBe('original result');
+
+    $this->travel(1)->second();
+
+    expect($widget->cacheQueryResult(fn (): string => 'refreshed result', 'dashboard:query'))
+        ->toBe('refreshed result');
 });
 
-it('clears cache for a specific widget', function (): void {
-    $testObject = new CachesDashboardQueryTestClass;
+it('keeps values isolated by key when a widget clears one query result', function (): void {
+    $widget = new CachesDashboardQueryTestClass;
+    $details = ['total' => 42, 'status' => ['ready' => true]];
+    $summary = (object) ['name' => 'Summary'];
 
-    // Cache a value
-    $testObject->cacheQueryResult(fn (): string => 'data', 'cache-key');
+    expect($widget->cacheQueryResult(fn (): array => $details, 'dashboard:details'))->toBe($details)
+        ->and($widget->cacheQueryResult(fn (): object => $summary, 'dashboard:summary'))->toEqual($summary)
+        ->and($widget->cacheQueryResult(fn (): int => 42, 'dashboard:total'))->toBe(42)
+        ->and($widget->cacheQueryResult(fn (): bool => false, 'dashboard:flag'))->toBeFalse();
 
-    expect(Cache::get('cache-key'))->toBe('data');
+    $widget->clearCacheForWidget('dashboard:details');
 
-    // Clear the cache
-    $testObject->clearCacheForWidget('cache-key');
-
-    // Verify the cache was cleared
-    expect(Cache::get('cache-key'))->toBeNull();
-});
-
-it('returns correct default TTL of 300 seconds', function (): void {
-    $testObject = new CachesDashboardQueryTestClass;
-
-    // Access the protected method using reflection
-    $reflection = new ReflectionClass($testObject);
-    $method = $reflection->getMethod('dashboardCacheTtl');
-
-    expect($method->invoke($testObject))->toBe(300);
+    expect($widget->cacheQueryResult(fn (): array => [], 'dashboard:details'))->toBe([])
+        ->and($widget->cacheQueryResult(fn (): object => (object) [], 'dashboard:summary'))->toEqual($summary)
+        ->and($widget->cacheQueryResult(fn (): int => 0, 'dashboard:total'))->toBe(42)
+        ->and($widget->cacheQueryResult(fn (): bool => true, 'dashboard:flag'))->toBeFalse();
 });
