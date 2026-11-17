@@ -130,6 +130,18 @@ class ReleaseVerificationLockTest(unittest.TestCase):
         self.assertEqual(child.returncode, 0, error)
         self.assertEqual(output, 'ran\n')
 
+    def test_admitted_heavy_work_refuses_instead_of_holding_its_slots_idle(self):
+        with self.path.open('w+') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            json.dump({'schema': 1, 'owner': 'a' * 32, 'pid': os.getpid()}, lock)
+            lock.flush()
+            child = self.helper(HEAVY_SLOT_OWNER=json.dumps({'token': 'c' * 32}))
+            output, error = child.communicate(timeout=self.ceiling())
+        self.assertEqual(child.returncode, 75, error)
+        self.assertEqual(output, '')
+        self.assertIn(f'(pid {os.getpid()})', error)
+        self.assertIn('Refusing to wait', error)
+
     def test_native_helper_accepts_only_live_owner_or_explicit_opt_out(self):
         for environment in [{'CAPELL_RELEASE_VERIFICATION_OWNER': 'a' * 32}, {'CAPELL_NO_RELEASE_LOCK': '1'}]:
             with self.path.open('w+') as lock:

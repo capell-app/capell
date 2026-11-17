@@ -2,22 +2,19 @@
 
 declare(strict_types=1);
 
-use Symfony\Component\Process\Process;
+use Capell\Core\Tests\Support\PhpStanFixtureAnalysis;
 
 it('reports internal Capell class use without reporting stable or unrelated classes', function (): void {
     $root = dirname(__DIR__, 5);
     $fixture = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/InternalClassConsumer.php';
     $config = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/extension-rule.neon';
-    $process = new Process([PHP_BINARY, $root . '/vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', '--configuration=' . $config, $fixture], $root);
-    $process->run();
+    $analysis = PhpStanFixtureAnalysis::run($root, $config, $fixture);
+    $ruleMessages = $analysis->messagesWithIdentifier($fixture, 'capell.internalClass');
 
-    expect($process->getExitCode())->toBe(1);
-    $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
-    $messages = $result['files'][$fixture]['messages'] ?? $result['error_details'][$fixture] ?? [];
-    $ruleMessages = array_values(array_filter($messages, static fn (array $message): bool => ($message['identifier'] ?? null) === 'capell.internalClass'));
-
-    expect($ruleMessages)->not->toBeEmpty()
-        ->and(implode(' ', array_column($ruleMessages, 'message')))->toContain('DoctorCheck', 'FrontendComponentContributor')
+    expect($analysis->exitCode)->toBe(1, $analysis->diagnostic())
+        ->and($analysis->generalErrors())->toBe([], $analysis->diagnostic())
+        ->and($ruleMessages)->not->toBeEmpty()
+        ->and(implode(' ', $ruleMessages))->toContain('DoctorCheck', 'FrontendComponentContributor')
         ->not->toContain('ExtensionContribution')->not->toContain('DateTimeImmutable');
 });
 
@@ -25,15 +22,12 @@ it('reports internal Capell method, property and constant use without reporting 
     $root = dirname(__DIR__, 5);
     $fixture = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/InternalMemberConsumer.php';
     $config = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/extension-rule.neon';
-    $process = new Process([PHP_BINARY, $root . '/vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', '--configuration=' . $config, $fixture], $root);
-    $process->run();
-
-    $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
-    $messages = $result['files'][$fixture]['messages'] ?? $result['error_details'][$fixture] ?? [];
-    $reported = array_column(array_filter($messages, static fn (array $message): bool => ($message['identifier'] ?? null) === 'capell.internalMember'), 'message');
+    $analysis = PhpStanFixtureAnalysis::run($root, $config, $fixture);
+    $reported = $analysis->messagesWithIdentifier($fixture, 'capell.internalMember');
     $text = implode("\n", $reported);
 
-    expect($reported)->toHaveCount(5)
+    expect($analysis->generalErrors())->toBe([], $analysis->diagnostic())
+        ->and($reported)->toHaveCount(5, $analysis->diagnostic())
         ->and($text)->toContain('::hiddenMethod', '::hiddenProperty', '::hiddenStaticMethod', '::hiddenStatic', '::HIDDEN_CONSTANT')
         ->not->toContain('openMethod')->not->toContain('openProperty')->not->toContain('OPEN_CONSTANT');
 });
@@ -42,14 +36,11 @@ it('reports nothing for the provider the end-to-end tutorial tells authors to wr
     $root = dirname(__DIR__, 5);
     $directory = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/src';
     $config = $root . '/packages/core/tests/Unit/PHPStan/Fixtures/extension-rule.neon';
-    $process = new Process([PHP_BINARY, $root . '/vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', '--configuration=' . $config, $directory], $root);
-    $process->run();
+    $analysis = PhpStanFixtureAnalysis::run($root, $config, $directory);
 
-    $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
-
-    expect($process->getExitCode())->toBe(0, $process->getOutput())
-        ->and($result['files'] ?? [])->toBe([])
-        ->and($result['error_details'] ?? [])->toBe([]);
+    expect($analysis->exitCode)->toBe(0, $analysis->diagnostic())
+        ->and($analysis->generalErrors())->toBe([], $analysis->diagnostic())
+        ->and($analysis->fileMessages())->toBe([]);
 });
 
 it('keeps the tutorial provider snippet identical to the analysed fixture', function (): void {
