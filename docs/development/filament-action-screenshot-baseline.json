@@ -505,6 +505,12 @@
             "file": "packages/marketplace/src/Filament/Support/MarketplaceInstallActionPresenter.php",
             "actions": ["Action"],
             "reasons": ["custom action maker"]
+        },
+        {
+            "repo": "current",
+            "file": "packages/admin/src/Filament/Resources/InboundWebhookEvents/Tables/InboundWebhookEventsTable.php",
+            "actions": ["Action"],
+            "reasons": ["custom action maker"]
         }
     ]
 }
