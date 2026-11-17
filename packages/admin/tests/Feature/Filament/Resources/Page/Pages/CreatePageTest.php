@@ -16,6 +16,7 @@ use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -46,16 +47,6 @@ beforeEach(function (): void {
     test()->actingAsAdmin();
 });
 
-it('labels the primary create action as save and publish', function (): void {
-    $component = new CreatePage;
-    $method = new ReflectionMethod($component, 'getCreateFormAction');
-
-    /** @var Action $createAction */
-    $createAction = $method->invoke($component);
-    expect($createAction)->toBeInstanceOf(Action::class)
-        ->and(filamentText($createAction->getLabel()))->toBe(__('capell-admin::button.save_and_publish'));
-});
-
 it('renders guided setup and publish sections on the create page form', function (): void {
     Language::factory()->createOne();
     Site::factory()->withTranslations()->createOne();
@@ -70,11 +61,13 @@ it('renders guided setup and publish sections on the create page form', function
         ->assertSee(__('capell-admin::form.publish_setup'))
         ->assertSee(__('capell-admin::generic.publish_setup_description'))
         ->assertSee(__('capell-admin::generic.page_layout_select_info'))
-        ->assertSee('Save as draft')
-        ->assertSee('Save and Publish');
+        ->assertSee('Save as draft');
 
-    $label = domElement(domXPath($form->html()), '//label[@for="form.visible_from"]');
-    expect(trim(domText($label)))->toBe(__('capell-admin::form.visible_from'));
+    $document = domXPath($form->html());
+    $label = domElement($document, '//label[@for="form.visible_from"]');
+    $submit = domElement($document, '//form[@id="form"]//button[@type="submit"]');
+    expect(trim(domText($label)))->toBe(__('capell-admin::form.visible_from'))
+        ->and(trim(domText($submit)))->toBe(__('capell-admin::button.save_and_publish'));
 
     expect(strip_tags($form->html()))->toContain('To schedule a future date, save as draft first, then use Schedule.')
         ->not->toContain('leave it empty and use Publish now');
@@ -101,19 +94,19 @@ test(
         $language = Language::factory()->createOne();
         $site = Site::factory()->recycle($language)->withTranslations()->create();
         $type = Blueprint::factory()->page()->admin('configurator', $configurator::getKey())->create();
-
-        $newData = Page::factory()->make();
+        Layout::factory()->site($site)->createOne();
+        $name = 'New page';
 
         Livewire::test(CreatePage::class)
             ->assertSuccessful()
             ->set('data.translations', [])
             ->fillForm([
-                'name' => $newData->name,
+                'name' => $name,
                 'blueprint_id' => $type->id,
                 'translations' => [
                     (string) Str::uuid() => [
                         'language_id' => $language->id,
-                        'title' => $newData->name,
+                        'title' => $name,
                     ],
                 ],
             ])
@@ -121,12 +114,12 @@ test(
             ->assertHasNoFormErrors();
 
         assertDatabaseHas(Page::class, [
-            'name' => $newData->name,
+            'name' => $name,
             'site_id' => $site->id,
         ]);
 
         assertDatabaseHas(Translation::class, [
-            'title' => $newData->name,
+            'title' => $name,
             'language_id' => $language->id,
         ]);
     },
@@ -142,33 +135,33 @@ test(
 // else asserts that, so dropping the override would otherwise leave the suite green.
 it('rolls back the page when the filament create page fails saving authoring data', function (): void {
     $language = Language::factory()->createOne();
-    Site::factory()->recycle($language)->withTranslations()->create();
+    $site = Site::factory()->recycle($language)->withTranslations()->create();
     $type = Blueprint::factory()->page()->admin('configurator', DefaultPageConfigurator::getKey())->create();
-
-    $newData = Page::factory()->make();
+    Layout::factory()->site($site)->createOne();
+    $name = 'New page';
 
     Event::listen('eloquent.creating: ' . Translation::class, function (): void {
         throw new RuntimeException('Translation creation failed.');
     });
 
-    expect(function () use ($language, $type, $newData): void {
+    expect(function () use ($language, $type, $name): void {
         Livewire::test(CreatePage::class)
             ->assertSuccessful()
             ->set('data.translations', [])
             ->fillForm([
-                'name' => $newData->name,
+                'name' => $name,
                 'blueprint_id' => $type->id,
                 'translations' => [
                     (string) Str::uuid() => [
                         'language_id' => $language->id,
-                        'title' => $newData->name,
+                        'title' => $name,
                     ],
                 ],
             ])
             ->call('create');
     })->toThrow(RuntimeException::class, 'Translation creation failed.');
 
-    assertDatabaseMissing(Page::class, ['name' => $newData->name]);
+    assertDatabaseMissing(Page::class, ['name' => $name]);
 });
 
 it('prevents creating a page if parent missing languages', function (): void {
@@ -179,7 +172,7 @@ it('prevents creating a page if parent missing languages', function (): void {
 
     $parent = Page::factory()->site($site)->withTranslations($language1)->create();
 
-    $newData = Page::factory()->site($site)->make();
+    $name = 'New page';
 
     assertDatabaseCount(Language::class, 2);
 
@@ -187,7 +180,7 @@ it('prevents creating a page if parent missing languages', function (): void {
         ->assertSuccessful()
         ->set('data.translations', [])
         ->fillForm([
-            'name' => $newData->name,
+            'name' => $name,
             'site_id' => $site->id,
             'parent_id' => $parent->id,
         ])
@@ -196,7 +189,7 @@ it('prevents creating a page if parent missing languages', function (): void {
         ->assertSee(__('capell-admin::parent_languages.missing', ['languages' => $language2->name]));
 
     assertDatabaseMissing(Page::class, [
-        'name' => $newData->name,
+        'name' => $name,
         'parent_id' => $parent->id,
     ]);
 });
@@ -209,9 +202,10 @@ describe('from edit page', function (): void {
             $page = Page::factory()->withTranslations()->create();
             $type = Blueprint::factory()->page()->admin('configurator', $configurator::getKey())->create();
             $language = $page->site->language;
+            $originalTranslation = $page->translations()->where('language_id', $language->id)->firstOrFail();
 
-            $newData = Page::factory()->make();
-            $slug = str($newData->name)->slug()->toString();
+            $name = 'New page';
+            $slug = str($name)->slug()->toString();
 
             Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
                 ->assertSuccessful()
@@ -219,46 +213,50 @@ describe('from edit page', function (): void {
                 ->set('mountedActions.0.data.translations', [])
                 ->fillForm([
                     'blueprint_id' => $type->id,
-                    'name' => $newData->name,
+                    'name' => $name,
                     'parent_id' => null,
                     'translations' => [
                         (string) Str::uuid() => [
                             'language_id' => $language->id,
-                            'title' => $newData->name,
+                            'title' => $name,
                             'meta' => [
                                 'slug' => $slug,
                             ],
                         ],
                     ],
                 ])
+                ->set('mountedActions.0.data.hide_system_pages', false)
+                ->assertSchemaStateSet([
+                    'name' => $name,
+                    'blueprint_id' => $type->id,
+                    'system_pages' => false,
+                    'site_id' => $page->site_id,
+                ])
                 ->callMountedAction()
                 ->assertHasNoFormErrors();
 
-            // Original not changed?
             assertDatabaseHas(Page::class, [
+                'id' => $page->id,
                 'name' => $page->name,
             ]);
 
             assertDatabaseHas(Translation::class, [
+                'id' => $originalTranslation->id,
                 'translatable_id' => $page->getKey(),
                 'translatable_type' => $page->getMorphClass(),
-                'title' => $page->translations->firstWhere('language_id', $language->id)->title,
+                'title' => $originalTranslation->title,
                 'language_id' => $language->id,
             ]);
 
-            // New
             assertDatabaseHas(Page::class, [
-                'name' => $newData->name,
+                'name' => $name,
+                'blueprint_id' => $type->id,
+                'site_id' => $page->site_id,
             ]);
 
             assertDatabaseHas(Translation::class, [
-                'title' => $newData->name,
+                'title' => $name,
                 'language_id' => $language->id,
-            ]);
-
-            // Ensure the original is not modified
-            assertDatabaseHas(Translation::class, [
-                'title' => $page->translations->first()->title,
             ]);
 
             assertDatabaseHas(PageUrl::class, [
@@ -277,26 +275,26 @@ describe('from edit page', function (): void {
         $type = Blueprint::factory()->page()->admin('configurator', DefaultPageConfigurator::getKey())->create();
         $language = $page->site->language;
 
-        $newData = Page::factory()->make();
-        $slug = str($newData->name)->slug()->toString();
+        $name = 'New page';
+        $slug = str($name)->slug()->toString();
 
         Event::listen('eloquent.creating: ' . Translation::class, function (): void {
             throw new RuntimeException('Translation creation failed.');
         });
 
-        expect(function () use ($page, $type, $language, $newData, $slug): void {
+        expect(function () use ($page, $type, $language, $name, $slug): void {
             Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
                 ->assertSuccessful()
                 ->mountAction(TestAction::make(CreatePageAction::class))
                 ->set('mountedActions.0.data.translations', [])
                 ->fillForm([
                     'blueprint_id' => $type->id,
-                    'name' => $newData->name,
+                    'name' => $name,
                     'parent_id' => null,
                     'translations' => [
                         (string) Str::uuid() => [
                             'language_id' => $language->id,
-                            'title' => $newData->name,
+                            'title' => $name,
                             'meta' => ['slug' => $slug],
                         ],
                     ],
@@ -304,7 +302,7 @@ describe('from edit page', function (): void {
                 ->callMountedAction();
         })->toThrow(RuntimeException::class, 'Translation creation failed.');
 
-        assertDatabaseMissing(Page::class, ['name' => $newData->name]);
+        assertDatabaseMissing(Page::class, ['name' => $name]);
     });
 
     it('required fields are required', function (): void {
@@ -334,7 +332,7 @@ describe('from the editor create action', function (): void {
         $layoutEnum = $typeEum->defaultLayoutEnum();
         $layout = resolve(LayoutCreator::class)->create($layoutEnum);
 
-        $newData = Page::factory()->make();
+        $name = 'New page';
 
         Livewire::test(EditPage::class, ['record' => Page::factory()->site($site)->createOne()->getRouteKey()])
             ->assertSuccessful()
@@ -343,26 +341,25 @@ describe('from the editor create action', function (): void {
             ->fillForm([
                 'site_id' => $site->id,
                 'blueprint_id' => $type->id,
-                'name' => $newData->name,
+                'name' => $name,
                 'layout_id' => $layout->id,
             ])
-            // ->callMountedAction()
             ->set('mountedActions.0.data.hide_system_pages', false)
             ->set(
                 'mountedActions.0.data.translations',
                 $site->languages->mapWithKeys(fn (Language $language): array => [
                     (string) Str::uuid() => [
                         'language_id' => $language->getKey(),
-                        'title' => $newData->name,
+                        'title' => $name,
                         'meta' => [
-                            'slug' => str($newData->name)->slug()->toString(),
+                            'slug' => str($name)->slug()->toString(),
                         ],
                     ],
                 ])
                     ->toArray(),
             )
             ->assertSchemaStateSet([
-                'name' => $newData->name,
+                'name' => $name,
                 'blueprint_id' => $type->id,
                 'layout_id' => $layout->id,
                 'system_pages' => false,
@@ -372,70 +369,13 @@ describe('from the editor create action', function (): void {
             ->assertHasNoFormErrors();
 
         assertDatabaseHas(Page::class, [
-            'name' => $newData->name,
+            'name' => $name,
             'blueprint_id' => $type->id,
             'layout_id' => $layout->id,
             'site_id' => $site->id,
         ]);
     })
         ->with(PageTypeEnum::cases());
-
-    test(
-        'can create configurator page',
-        /** @param class-string<ConfiguratorInterface> $configurator */
-        function (string $configurator): void {
-            $type = Blueprint::factory()->page()->admin('configurator', $configurator::getKey())->create();
-
-            $language = Language::factory()->createOne();
-            $site = Site::factory()->recycle($language)->hasSiteDomains()->create();
-
-            $newData = Page::factory()->make();
-
-            Livewire::test(EditPage::class, ['record' => Page::factory()->site($site)->createOne()->getRouteKey()])
-                ->assertSuccessful()
-                ->mountAction(TestAction::make(CreatePageAction::class))
-                ->set('mountedActions.0.data.translations', [])
-                ->fillForm([
-                    'site_id' => $site->id,
-                    'blueprint_id' => $type->id,
-                    'name' => $newData->name,
-                ])
-                // ->callMountedAction()
-                ->set('mountedActions.0.data.hide_system_pages', false)
-                ->set(
-                    'mountedActions.0.data.translations',
-                    $site->languages->mapWithKeys(fn (Language $language): array => [
-                        (string) Str::uuid() => [
-                            'language_id' => $language->getKey(),
-                            'title' => $newData->name,
-                            'meta' => [
-                                'slug' => str($newData->name)->slug()->toString(),
-                            ],
-                        ],
-                    ])
-                        ->toArray(),
-                )
-                ->assertSchemaStateSet([
-                    'name' => $newData->name,
-                    'blueprint_id' => $type->id,
-                    'system_pages' => false,
-                    'site_id' => $site->id,
-                ])
-                ->callMountedAction()
-                ->assertHasNoFormErrors();
-
-            assertDatabaseHas(Page::class, [
-                'name' => $newData->name,
-                'blueprint_id' => $type->id,
-                'site_id' => $site->id,
-            ]);
-        },
-    )
-        ->with([
-            [DefaultPageConfigurator::class],
-            [LandingPageConfigurator::class],
-            [ResultsPageConfigurator::class],
-        ]);
 
 });
 
