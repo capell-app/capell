@@ -103,7 +103,8 @@ it('unlocks sensitive setup data only for a current bootstrap session', function
     $html = $this->get(route('capell-installer.show'))->assertOk()->content();
     expect(str_contains((string) $html, 'private-operator@example.test'))->toBeFalse();
 
-    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('b', 64)])
+    $this->withHeader('X-Capell-Installer-Secret', str_repeat('b', 64))
+        ->post(route('capell-installer.unlock'))
         ->assertRedirect(route('capell-installer.show'));
     $this->travel(31)->minutes();
     $html = $this->get(route('capell-installer.show'))->assertOk()->content();

@@ -28,6 +28,7 @@ use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\PatchedPhpRuntime;
 use Capell\Tests\Support\StylesheetRuntime;
 use Composer\InstalledVersions;
@@ -162,12 +163,18 @@ function bindInstallerDeveloperToolingInstallationState(bool $installed): void
 }
 
 beforeEach(function (): void {
+    $bootstrapSecret = str_repeat('a', 64);
     config([
-        'capell-installer.bootstrap.secret' => str_repeat('a', 64),
+        'capell-installer.bootstrap.secret' => $bootstrapSecret,
         'capell-installer.bootstrap.expires_at' => now()->addMinutes(30)->timestamp,
     ]);
-    $this->withHeader('X-Capell-Installer-Secret', str_repeat('a', 64));
-    $this->post(route('capell-installer.unlock'))->assertRedirect(route('capell-installer.show'));
+    // InstallerBootstrapTest exercises the HTTP unlock and secret rotation.
+    $this->withSession(['capell.installer.bootstrap_digest' => hash('sha256', $bootstrapSecret)]);
+    // InstallerPreflightTest covers actual binary and Composer checks.
+    app()->when(InstallerPreflight::class)
+        ->needs(ProcessFactoryInterface::class)
+        ->give(static fn (): FakeProcessFactory => (new FakeProcessFactory)->byDefault(output: 'Command available'));
+
     bindInstallerDeveloperToolingInstallationState(false);
     config(['queue.default' => 'database']);
 });
@@ -259,12 +266,12 @@ it('shows the installer when capell core is not yet recorded as installed', func
         ->assertSee(__('capell-installer::installer.heading'))
         ->assertSee('aria-label="Capell"', false)
         ->assertSee('id="install-form"', false)
-        ->assertDontSee(__('capell-installer::installer.already_installed_message'));
-});
-
-it('passes the expected installer page data to the install view', function (): void {
-    get(route('capell-installer.show'))
-        ->assertOk()
+        ->assertDontSee(__('capell-installer::installer.already_installed_message'))
+        ->assertSee('rel="icon"', false)
+        ->assertSee('type="image/svg+xml"', false)
+        ->assertSee('data:image/svg+xml;base64,', false)
+        ->assertSee('capell-installer-logo-mark', false)
+        ->assertSee('capell-installer-logo-text', false)
         ->assertViewHas('installId')
         ->assertViewHas('installStatus', 'idle')
         ->assertViewHas('cancelUrl')
@@ -362,22 +369,6 @@ it('serves the installer page with fresh session-only cache headers', function (
         ->and($headers->getCacheControlDirective('must-revalidate'))->toBeTrue()
         ->and($headers->getCacheControlDirective('private'))->toBeTrue()
         ->and($headers->getCacheControlDirective('max-age'))->toBe('0');
-});
-
-it('uses a self-contained capell favicon on the installer page', function (): void {
-    get(route('capell-installer.show'))
-        ->assertOk()
-        ->assertSee('rel="icon"', false)
-        ->assertSee('type="image/svg+xml"', false)
-        ->assertSee('data:image/svg+xml;base64,', false);
-});
-
-it('shows a bundled Capell logo on the installer page before admin is installed', function (): void {
-    get(route('capell-installer.show'))
-        ->assertOk()
-        ->assertSee('aria-label="Capell"', false)
-        ->assertSee('capell-installer-logo-mark', false)
-        ->assertSee('capell-installer-logo-text', false);
 });
 
 it('shows a direct web installer package checklist', function (): void {
@@ -537,7 +528,7 @@ it('renders syntactically valid progress scripts', function (): void {
 
     expect($checked)->toBeGreaterThan(0);
 });
-it('renders usable installer configuration and submit labels', function (): void {
+it('renders installer navigation and translated client messages', function (): void {
     $page = installerShowMarkup();
     $config = installerRenderedConfig($page);
     $expected = [
@@ -551,11 +542,17 @@ it('renders usable installer configuration and submit labels', function (): void
     }
 
     expect(domElement($page, '//*[@data-submit-label]')->textContent)->not->toBeEmpty();
-});
-it('does not render a separate review step', function (): void {
-    $page = installerShowMarkup();
+
     expect(domCount($page, '//*[@data-step-trigger="review" or @data-installer-step="review"]'))->toBe(0);
+
+    expect($config['messages']['serverTimeoutError'])->toBe(__('capell-installer::installer.server_timeout_error'));
+
+    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-step ") and contains(concat(" ", normalize-space(@class), " "), " active ")]'))->toBe(1)
+        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-tabs ")]'))->toBe(0);
+
+    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-nav ")]'))->toBe(0);
 });
+
 it('animates installer step navigation with distinct back and continue pacing', function (): void {
     $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
 
@@ -563,7 +560,7 @@ it('animates installer step navigation with distinct back and continue pacing', 
     expect($styles)->toContain('prefers-reduced-motion');
 });
 
-it('delivers a plain surface background for preflight panels', function (): void {
+it('keeps the preflight and installer step panel backgrounds distinct', function (): void {
     $result = StylesheetRuntime::inspect(dirname(__DIR__, 2) . '/resources/css/installer.css');
     $rules = array_filter($result['rules'], static fn (array $rule): bool => $rule['classes'] === ['preflight-panel']);
     expect($rules)->not->toBeEmpty();
@@ -573,15 +570,7 @@ it('delivers a plain surface background for preflight panels', function (): void
             expect($background['gradients'])->toBe([]);
         }
     }
-});
 
-it('renders preflight checks as a high-density utility panel', function (): void {
-    $page = installerShowMarkup();
-    expect(domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-panel ")]')->textContent)->not->toBeEmpty()
-        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-utility-footer ")]'))->toBe(0);
-});
-it('delivers the brand panel background for installer steps', function (): void {
-    $result = StylesheetRuntime::inspect(dirname(__DIR__, 2) . '/resources/css/installer.css');
     $rules = array_filter($result['rules'], static fn (array $rule): bool => $rule['classes'] === ['installer-step-panel']);
     expect($rules)->not->toBeEmpty();
     $variables = [];
@@ -596,9 +585,6 @@ it('delivers the brand panel background for installer steps', function (): void 
     expect($variables)->toContain('--brand-panel');
 });
 
-it('does not render the removed installer nav', function (): void {
-    expect(domCount(installerShowMarkup(), '//*[contains(concat(" ", normalize-space(@class), " "), " installer-nav ")]'))->toBe(0);
-});
 it('renders AI Agent Bridge developer tooling separately from downloadable packages', function (): void {
     bindSetupPluginPackagesFetcher(Collection::make([
         ['name' => 'capell-app/remote-extension', 'description' => 'Remote extension'],
@@ -733,19 +719,14 @@ it('renders progress loading and failure regions with an expanded technical log'
     }
 
     expect(domCount($page, '//details[@id="technical-log-panel" and @open]'))->toBe(1);
-});
-it('places the diagnostic download form above the console output', function (): void {
-    $page = installerShowMarkup();
+
     $form = installerElement($page, '//form[@id="report-link"]');
     expect($form->getAttribute('method'))->toBe('GET')
         ->and($form->getAttribute('target'))->toBe('_blank')
         ->and(domCount($page, '//button[@form="report-link" and @type="submit"]'))->toBe(1)
         ->and(domCount($page, '//*[@id="report-link"]/following-sibling::*[@id="log"]'))->toBe(1);
 });
-it('provides a translated server timeout message to the installer', function (): void {
-    $config = installerRenderedConfig(installerShowMarkup());
-    expect($config['messages']['serverTimeoutError'])->toBe(__('capell-installer::installer.server_timeout_error'));
-});
+
 it('renders preflight feedback and removes post-install operational toggles', function (): void {
     $response = get(route('capell-installer.show'))
         ->assertOk()
@@ -765,10 +746,7 @@ it('renders preflight feedback and removes post-install operational toggles', fu
     if (InstalledVersions::isInstalled('livewire/livewire')) {
         $response->assertSee(__('capell-installer::installer.environment_livewire'));
     }
-});
 
-it('labels the overall preflight status with its translation rather than a raw key', function (): void {
-    $response = get(route('capell-installer.show'))->assertOk();
     $status = $response->viewData('preflightReport')['status'];
 
     expect($status)->toBeIn(['pass', 'warning', 'fail']);
@@ -776,6 +754,10 @@ it('labels the overall preflight status with its translation rather than a raw k
     $response
         ->assertSee(__('capell-installer::installer.preflight_status_' . $status), false)
         ->assertDontSee('capell-installer::installer.preflight_status_', false);
+
+    $page = installerMarkup($response->content());
+    expect(domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-panel ")]')->textContent)->not->toBeEmpty()
+        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-utility-footer ")]'))->toBe(0);
 });
 
 it('translates every preflight status the preflight can report', function (string $status): void {
@@ -784,11 +766,6 @@ it('translates every preflight status the preflight can report', function (strin
     expect(__($key))->not->toBe($key)->not->toBeEmpty();
 })->with(['pass', 'warning', 'fail']);
 
-it('uses the left rail step navigation as the installer progress indicator', function (): void {
-    $page = installerShowMarkup();
-    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-step ") and contains(concat(" ", normalize-space(@class), " "), " active ")]'))->toBe(1)
-        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-tabs ")]'))->toBe(0);
-});
 it('combines site setup and admin login into the site step', function (): void {
     $html = get(route('capell-installer.show'))
         ->assertOk()
@@ -855,9 +832,8 @@ it('renders a preflight cache warning without reading a missing database cache t
 });
 
 it('renders admin panel changes as a grouped automatic or manual choice', function (): void {
-    $html = get(route('capell-installer.show'))
-        ->assertOk()
-        ->content();
+    $response = get(route('capell-installer.show'))->assertOk();
+    $html = $response->content();
 
     expect($html)
         ->toContain('class="admin-panel-changes"')
@@ -872,11 +848,8 @@ it('renders admin panel changes as a grouped automatic or manual choice', functi
         ->not->toContain('Schema discovery')
         ->not->toContain('name="admin_panel"')
         ->not->toContain('name="admin_discover_schemas"');
-});
 
-it('shows the admin installer docs link with the manual admin panel changes option', function (): void {
-    get(route('capell-installer.show'))
-        ->assertOk()
+    $response
         ->assertSee('href="https://docs.capell.app/core/admin/setup/"', false)
         ->assertSee('Manual setup guide')
         ->assertSee('Connect the selected Filament panel to Capell and discover its authoring resources.')

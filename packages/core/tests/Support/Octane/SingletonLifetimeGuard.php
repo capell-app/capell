@@ -43,8 +43,8 @@ final class SingletonLifetimeGuard
     /** @var array<string, array<array-key, mixed>> */
     private array $scanResults = [];
 
-    /** @var list<string>|null */
-    private ?array $productionFileList = null;
+    /** @var array{calls: array<string, list<MethodCall>>, static: array<string, string>}|null */
+    private ?array $productionFindings = null;
 
     /** @param array<string, string> $dynamicBindingTargets */
     public function __construct(
@@ -77,34 +77,22 @@ final class SingletonLifetimeGuard
     {
         $targets = [];
 
-        foreach ($this->productionFiles() as $file) {
-            $nodes = $this->parse((string) file_get_contents($file));
+        foreach ($this->productionCalls(['tag']) as $call) {
+            $tag = $call->args[1]->value ?? null;
+            $services = $call->args[0]->value ?? null;
+            if ($this->classConstOwner($tag) !== $resettableClass) {
+                continue;
+            }
 
-            foreach ((new NodeFinder)->findInstanceOf($nodes, MethodCall::class) as $call) {
-                if (! $call->name instanceof Identifier) {
-                    continue;
-                }
+            if (! $services instanceof Array_) {
+                continue;
+            }
 
-                if ($call->name->toString() !== 'tag') {
-                    continue;
-                }
+            foreach ($services->items as $item) {
+                $target = $this->className($item?->value);
 
-                $tag = $call->args[1]->value ?? null;
-                $services = $call->args[0]->value ?? null;
-                if ($this->classConstOwner($tag) !== $resettableClass) {
-                    continue;
-                }
-
-                if (! $services instanceof Array_) {
-                    continue;
-                }
-
-                foreach ($services->items as $item) {
-                    $target = $this->className($item?->value);
-
-                    if ($target !== null) {
-                        $targets[$target] = true;
-                    }
+                if ($target !== null) {
+                    $targets[$target] = true;
                 }
             }
         }
@@ -115,11 +103,46 @@ final class SingletonLifetimeGuard
     /** @return array<string, string> */
     public function mutatedStaticState(): array
     {
-        return $this->scanResults['static'] ??= $this->scanMutatedStaticState();
+        return $this->productionFindings()['static'];
     }
 
     /** @return list<string> */
     public function staticMutationsInSource(string $source): array
+    {
+        return $this->staticMutationsInNodes($this->parse($source));
+    }
+
+    /** @return list<string> */
+    public function mutableInstanceState(string $class): array
+    {
+        if (! class_exists($class)) {
+            return [];
+        }
+
+        return array_values(array_unique($this->mutableStateFor(new ReflectionClass($class), [])));
+    }
+
+    /** @return list<string> */
+    public function bindingTargetsInSource(string $source, array $methods = ['singleton', 'singletonIf']): array
+    {
+        $targets = [];
+
+        foreach ($this->namedCalls($this->parse($source), $methods) as $call) {
+            $target = $this->bindingTarget($call) ?? $this->className($call->args[0]->value ?? null);
+
+            if ($target !== null) {
+                $targets[] = $target;
+            }
+        }
+
+        return $targets;
+    }
+
+    /**
+     * @param  array<Node>  $nodes
+     * @return list<string>
+     */
+    private function staticMutationsInNodes(array $nodes): array
     {
         // This bounded guard recognizes direct assignment (including array
         // dimensions), assign-op, increment/decrement, unset, and method calls
@@ -127,7 +150,6 @@ final class SingletonLifetimeGuard
         // local alias or an arbitrary function cannot be inferred reliably;
         // reflection of every bound concrete plus the exact inventory covers
         // the service-lifetime side of that boundary.
-        $nodes = $this->parse($source);
         $finder = new NodeFinder;
         $declared = [];
 
@@ -150,6 +172,10 @@ final class SingletonLifetimeGuard
                     $declared[$class][$propertyItem->name->toString()] = true;
                 }
             }
+        }
+
+        if ($declared === []) {
+            return [];
         }
 
         $mutated = [];
@@ -201,53 +227,25 @@ final class SingletonLifetimeGuard
         return array_keys($mutated);
     }
 
-    /** @return list<string> */
-    public function mutableInstanceState(string $class): array
-    {
-        if (! class_exists($class)) {
-            return [];
-        }
-
-        return array_values(array_unique($this->mutableStateFor(new ReflectionClass($class), [])));
-    }
-
-    /** @return list<string> */
-    public function bindingTargetsInSource(string $source, array $methods = ['singleton', 'singletonIf']): array
-    {
-        $targets = [];
-
-        foreach ($this->bindingCalls($this->parse($source), $methods) as $call) {
-            $target = $this->bindingTarget($call) ?? $this->className($call->args[0]->value ?? null);
-
-            if ($target !== null) {
-                $targets[] = $target;
-            }
-        }
-
-        return $targets;
-    }
-
     /** @return array<string, string> */
     private function scanUnresolvedClosureBindings(): array
     {
         $unresolved = [];
 
-        foreach ($this->productionFiles() as $file) {
-            foreach ($this->bindingCalls($this->parse((string) file_get_contents($file)), ['singleton', 'singletonIf', 'scoped']) as $call) {
-                $concrete = $call->args[1]->value ?? null;
-                if (! $concrete instanceof Closure && ! $concrete instanceof ArrowFunction) {
-                    continue;
-                }
+        foreach ($this->productionCalls(['singleton', 'singletonIf', 'scoped']) as $file => $call) {
+            $concrete = $call->args[1]->value ?? null;
+            if (! $concrete instanceof Closure && ! $concrete instanceof ArrowFunction) {
+                continue;
+            }
 
-                if ($this->bindingTarget($call) !== null) {
-                    continue;
-                }
+            if ($this->bindingTarget($call) !== null) {
+                continue;
+            }
 
-                $abstract = $this->className($call->args[0]->value ?? null);
+            $abstract = $this->className($call->args[0]->value ?? null);
 
-                if ($abstract !== null) {
-                    $unresolved[$abstract] = $file;
-                }
+            if ($abstract !== null) {
+                $unresolved[$abstract] = $file;
             }
         }
 
@@ -256,23 +254,10 @@ final class SingletonLifetimeGuard
         return $unresolved;
     }
 
-    /** @return array<string, string> */
-    private function scanMutatedStaticState(): array
-    {
-        $hazards = [];
-
-        foreach ($this->productionFiles() as $file) {
-            foreach ($this->staticMutationsInSource((string) file_get_contents($file)) as $class) {
-                $hazards[$class] = $file;
-            }
-        }
-
-        ksort($hazards);
-
-        return $hazards;
-    }
-
-    /** @return array<string, array{file: string, abstract: string}> */
+    /**
+     * @param  list<string>  $methods
+     * @return array<string, array{file: string, abstract: string}>
+     */
     private function bindingTargets(array $methods): array
     {
         return $this->scanResults['bindings:' . implode(',', $methods)] ??= $this->scanBindingTargets($methods);
@@ -286,21 +271,19 @@ final class SingletonLifetimeGuard
     {
         $targets = [];
 
-        foreach ($this->productionFiles() as $file) {
-            foreach ($this->bindingCalls($this->parse((string) file_get_contents($file)), $methods) as $call) {
-                $abstract = $this->className($call->args[0]->value ?? null);
-                $target = $this->bindingTarget($call)
-                    ?? ($abstract !== null ? ($this->dynamicBindingTargets[$abstract] ?? $abstract) : null);
-                if ($target === null) {
-                    continue;
-                }
-
-                if (! str_starts_with((string) $target, 'Capell\\')) {
-                    continue;
-                }
-
-                $targets[$target] = ['file' => $file, 'abstract' => $abstract ?? $target];
+        foreach ($this->productionCalls($methods) as $file => $call) {
+            $abstract = $this->className($call->args[0]->value ?? null);
+            $target = $this->bindingTarget($call)
+                ?? ($abstract !== null ? ($this->dynamicBindingTargets[$abstract] ?? $abstract) : null);
+            if ($target === null) {
+                continue;
             }
+
+            if (! str_starts_with((string) $target, 'Capell\\')) {
+                continue;
+            }
+
+            $targets[$target] = ['file' => $file, 'abstract' => $abstract ?? $target];
         }
 
         ksort($targets);
@@ -308,8 +291,12 @@ final class SingletonLifetimeGuard
         return $targets;
     }
 
-    /** @return list<MethodCall> */
-    private function bindingCalls(array $nodes, array $methods): array
+    /**
+     * @param  array<Node>  $nodes
+     * @param  list<string>  $methods
+     * @return list<MethodCall>
+     */
+    private function namedCalls(array $nodes, array $methods): array
     {
         $calls = (new NodeFinder)->find(
             $nodes,
@@ -369,10 +356,46 @@ final class SingletonLifetimeGuard
         return $new->class instanceof Name ? $new->class->toString() : null;
     }
 
-    /** @return list<string> */
-    private function productionFiles(): array
+    /**
+     * @param  list<string>  $methods
+     * @return iterable<string, MethodCall>
+     */
+    private function productionCalls(array $methods): iterable
     {
-        return $this->productionFileList ??= $this->scanProductionFiles();
+        foreach ($this->productionFindings()['calls'] as $file => $calls) {
+            foreach ($calls as $call) {
+                if ($call->name instanceof Identifier && in_array($call->name->toString(), $methods, true)) {
+                    yield $file => $call;
+                }
+            }
+        }
+    }
+
+    /** @return array{calls: array<string, list<MethodCall>>, static: array<string, string>} */
+    private function productionFindings(): array
+    {
+        if ($this->productionFindings !== null) {
+            return $this->productionFindings;
+        }
+
+        $callSites = [];
+        $hazards = [];
+
+        foreach ($this->scanProductionFiles() as $file) {
+            $nodes = $this->parse((string) file_get_contents($file));
+            $calls = $this->namedCalls($nodes, ['singleton', 'singletonIf', 'scoped', 'tag']);
+            if ($calls !== []) {
+                $callSites[$file] = $calls;
+            }
+
+            foreach ($this->staticMutationsInNodes($nodes) as $class) {
+                $hazards[$class] = $file;
+            }
+        }
+
+        ksort($hazards);
+
+        return $this->productionFindings = ['calls' => $callSites, 'static' => $hazards];
     }
 
     /** @return list<string> */
