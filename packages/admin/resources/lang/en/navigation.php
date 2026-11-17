@@ -9,7 +9,7 @@ return [
     'group_business' => 'Business',
 
     'activity_trail' => 'Activity Log',
-    'inbound_webhook_events' => 'Webhook Events',
+    'inbound_webhook_events' => 'Webhook events',
     'block_templates' => 'Block templates',
     'blueprints' => 'Blueprints',
     'broken_links' => 'Broken links',
