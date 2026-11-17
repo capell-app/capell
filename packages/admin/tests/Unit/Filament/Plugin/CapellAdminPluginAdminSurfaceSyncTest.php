@@ -18,7 +18,6 @@ use Filament\Facades\Filament;
 use Filament\Pages\Page as FilamentPage;
 use Filament\Panel;
 use Illuminate\Support\Facades\File;
-use ReflectionProperty;
 
 afterEach(function (): void {
     CapellAdmin::clearAdminSurfaceContributions();
