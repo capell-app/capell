@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Tests\Support\PhpStanFixtureAnalysis;
 use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\Process\Process;
 
 it('reports Eloquent models in public render data but not hydrated data or unmarked classes', function (): void {
     $root = dirname(__DIR__, 5);
@@ -52,17 +52,32 @@ it('reports Eloquent models in public render data but not hydrated data or unmar
     file_put_contents($config, "includes:\n    - {$root}/packages/core/extension-phpstan.neon\n\nparameters:\n    level: 0\n    tmpDir: {$directory}/cache\n");
 
     try {
-        $process = new Process([PHP_BINARY, $root . '/vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', '--configuration=' . $config, '--autoload-file=' . $root . '/vendor/autoload.php', $fixture], $root);
-        $process->run();
-
-        $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
-        $messages = $result['files'][$fixture]['messages'] ?? $result['error_details'][$fixture] ?? [];
-        $reported = array_column(array_filter($messages, static fn (array $message): bool => ($message['identifier'] ?? null) === 'capell.publicRenderDataModel'), 'message');
+        $analysis = PhpStanFixtureAnalysis::run($root, $config, $fixture, $root . '/vendor/autoload.php');
+        $reported = $analysis->messagesWithIdentifier($fixture, 'capell.publicRenderDataModel');
         $text = implode("\n", $reported);
 
-        expect($reported)->toHaveCount(2)
+        expect($analysis->generalErrors())->toBe([], $analysis->diagnostic())
+            ->and($reported)->toHaveCount(2, $analysis->diagnostic())
             ->and($text)->toContain('ModelCarryingRenderData::$site', 'ModelCarryingRenderData::$sites')
             ->not->toContain('HydratedRenderData')->not->toContain('UnmarkedModelHolder')->not->toContain('::$title');
+    } finally {
+        new Filesystem()->remove($directory);
+    }
+});
+
+it('fails with the analyser error when PHPStan cannot run, instead of reading an empty report', function (): void {
+    $root = dirname(__DIR__, 5);
+    $directory = sys_get_temp_dir() . '/capell-phpstan-analyser-failure-' . bin2hex(random_bytes(6));
+    mkdir($directory);
+    $fixture = $directory . '/Clean.php';
+    file_put_contents($fixture, "<?php\n\ndeclare(strict_types=1);\n\nfinal class CapellCleanFixture {}\n");
+    $config = $directory . '/phpstan.neon';
+    // The analyser stops before it reports anything, as a crashed run does.
+    file_put_contents($config, "includes:\n    - {$directory}/capell-missing-configuration.neon\n");
+
+    try {
+        expect(fn (): PhpStanFixtureAnalysis => PhpStanFixtureAnalysis::run($root, $config, $fixture))
+            ->toThrow(RuntimeException::class, 'capell-missing-configuration.neon');
     } finally {
         new Filesystem()->remove($directory);
     }

@@ -113,6 +113,16 @@ if ($releaseGate) {
                 && function_exists('posix_kill') && posix_kill($record['pid'], 0)
                 && is_string($record['owner'] ?? null) && hash_equals($record['owner'], $owner);
 
+            if (! $nested && is_string(getenv('HEAVY_SLOT_OWNER')) && getenv('HEAVY_SLOT_OWNER') !== '') {
+                // Work the heavy queue has admitted holds host slots. Waiting here
+                // for a whole release verification would keep them idle for hours
+                // and starve every job queued behind it, so refuse and say why.
+                $holder = is_array($record) && is_int($record['pid'] ?? null) ? ' (pid ' . $record['pid'] . ')' : '';
+                fwrite(STDERR, "Full release verification{$holder} holds the host gate. Refusing to wait for it inside a heavy admission, which would hold its slots idle; run this again once that verification ends.\n");
+
+                exit(75);
+            }
+
             if (! $nested) {
                 fwrite(STDERR, "Waiting for full release verification to release the host gate.\n");
 
