@@ -71,9 +71,10 @@ final readonly class PhpStanFixtureAnalysis
     /** @return list<array<string, mixed>> */
     public function messagesFor(string $file): array
     {
-        $files = $this->section('files');
-        $details = $this->section('error_details');
-        $messages = is_array($files[$file]['messages'] ?? null) ? $files[$file]['messages'] : ($details[$file] ?? []);
+        $files = $this->keyedByPath($this->section('files'));
+        $details = $this->keyedByPath($this->section('error_details'));
+        $path = $this->path($file);
+        $messages = is_array($files[$path]['messages'] ?? null) ? $files[$path]['messages'] : ($details[$path] ?? []);
 
         return array_values(array_filter(is_array($messages) ? $messages : [], is_array(...)));
     }
@@ -115,6 +116,33 @@ final readonly class PhpStanFixtureAnalysis
     private static function excerpt(string $text): string
     {
         return mb_strlen($text) > 4000 ? mb_substr($text, 0, 4000) . "\n… (truncated)" : $text;
+    }
+
+    /**
+     * PHPStan reports each file under its normalised path. A caller's path can
+     * differ, for example "/var/tmp//Consumer.php" when TMPDIR is unset on macOS
+     * (sys_get_temp_dir() then returns "/var/tmp/"), so both sides are resolved.
+     */
+    private function path(string $file): string
+    {
+        $resolved = realpath($file);
+
+        return $resolved !== false ? $resolved : (string) preg_replace('~/{2,}~', '/', $file);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $section
+     * @return array<string, mixed>
+     */
+    private function keyedByPath(array $section): array
+    {
+        $keyed = [];
+
+        foreach ($section as $file => $entry) {
+            $keyed[$this->path((string) $file)] = $entry;
+        }
+
+        return $keyed;
     }
 
     /** @return array<array-key, mixed> */
