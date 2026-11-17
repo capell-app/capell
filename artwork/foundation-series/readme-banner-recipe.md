@@ -11,6 +11,16 @@ Both are 2880×1200 progressive JPEGs rendered from
 wordmark is the canonical [capell-logo.svg](capell-logo.svg) (navy on light, recoloured
 cream on dark) and the type is Sora from `readme-banner/fonts`.
 
+## Result
+
+The dark banner:
+
+![Capell README banner, dark version](../../docs/images/capell-readme-hero.jpg)
+
+The light banner:
+
+![Capell README banner, light version](../../docs/images/capell-readme-hero-light.jpg)
+
 ## Rendering
 
 ```bash
