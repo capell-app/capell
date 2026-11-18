@@ -37,6 +37,10 @@ This page does not name a latest published version. Local repository refs do not
 
 The extension API version is separate from the Foundation release version. A package's `capellApiVersion` constraint must match the extension API it has tested; matching the constraint alone does not prove behavioural compatibility.
 
+## Roadmap
+
+The [public roadmap](https://capell.app/roadmap) lists what Capell plans to build next. It is the place to look for upcoming work. It does not change the support windows above, and a roadmap item is not a release date unless the roadmap gives one. A feature that has shipped is recorded in the changelog and release notes, not by the roadmap alone.
+
 ## PHP, Laravel and Filament compatibility
 
 The aggregate [Composer manifest](../../composer.json) currently requires PHP `^8.4`, Laravel `^13.0` and Filament `^5.7.6`. The [installation requirements](../getting-started/install.md#requirements) describe the required runtime and extensions. The [Core support policy](../../packages/core/README.md#requirements-and-support-policy) covers the declared dependency ranges and says that an upstream dependency reaching end of life may require a dependency upgrade to receive a safe fix. These constraints do not promise adoption of an upstream release on a particular date.
@@ -61,5 +65,6 @@ The upgrade tooling records work and reports compatibility findings. It does not
 ## Related guides
 
 - [Upgrading Capell](upgrading.md)
+- [Public roadmap](https://capell.app/roadmap)
 - [Extension API versioning](../packages/extension-api-versioning.md)
 - [Security reporting](../../SECURITY.md#reporting-a-vulnerability)
