@@ -6,6 +6,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 
 function memoPackageName(): string
@@ -60,6 +61,41 @@ it('forgets an enabled answer when the package is disabled or forced off', funct
     CapellCore::forcePackageInstalled($forced, false);
 
     expect(CapellCore::isPackageInstalled($forced))->toBeFalse();
+});
+
+it('asks again after a lifecycle read failed instead of keeping an answer made without the record', function (): void {
+    $preloaded = memoPackageName();
+    CapellCore::registerPackage($preloaded);
+    CapellCore::markPackageInstalled($preloaded);
+    expect(CapellCore::isPackageEnabled($preloaded))->toBeTrue();
+
+    // Registered after the lifecycle records were preloaded, so its record is read on its own.
+    $name = memoPackageName();
+    CapellCore::registerPackage($name);
+    DB::table('capell_extensions')->insert([
+        'composer_name' => $name,
+        'status' => ExtensionStatusEnum::Disabled->value,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $failReads = true;
+    $reads = 0;
+    DB::listen(function (QueryExecuted $query) use (&$failReads, &$reads, $name): void {
+        if (! str_contains($query->sql, 'capell_extensions') || ! in_array($name, $query->bindings, true)) {
+            return;
+        }
+
+        $reads++;
+        throw_if($failReads, RuntimeException::class, 'connection lost');
+    });
+
+    CapellCore::isPackageEnabled($name);
+    $failReads = false;
+    $reads = 0;
+
+    expect(CapellCore::isPackageEnabled($name))->toBeFalse()
+        ->and($reads)->toBeGreaterThan(0);
 });
 
 it('re-reads a lifecycle change another worker stored once the runtime state is flushed', function (): void {
