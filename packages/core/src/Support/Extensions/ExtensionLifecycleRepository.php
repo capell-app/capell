@@ -271,6 +271,26 @@ final class ExtensionLifecycleRepository
         $extension?->delete();
     }
 
+    /**
+     * Reads the durable lifecycle record, bypassing this repository's caches, with a
+     * shared lock for package admission. A disable, quarantine or uninstall updates
+     * or deletes the same row and so needs an exclusive lock: it waits for admitted
+     * work to commit, and admission waits for it.
+     */
+    public function freshRecordForAdmission(string $name): ?CapellExtension
+    {
+        if (! $this->tableExists()) {
+            return null;
+        }
+
+        return CapellExtension::query()->where('composer_name', $name)->sharedLock()->first();
+    }
+
+    public function connectionName(): string
+    {
+        return (string) (new CapellExtension)->getConnection()->getName();
+    }
+
     public function clear(): void
     {
         $this->statusCache = [];

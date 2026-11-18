@@ -30,6 +30,7 @@ use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
+use Capell\Frontend\Actions\BuildPublicHeaderDataAction;
 use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContentVersionAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
 use Capell\Frontend\Actions\WarmCriticalFrontendPagesAction;
@@ -65,6 +66,7 @@ use Capell\Frontend\Contracts\SiteAccessExemptionContributor;
 use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Contracts\UrlSignatureVerifierInterface;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
+use Capell\Frontend\Data\PublicHeaderData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Capell\Frontend\Http\Middleware\DetectVisitorLanguage;
@@ -74,6 +76,7 @@ use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtm
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
+use Capell\Frontend\Http\View\PublicPageResultsViewComposer;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Listeners\PurgeCdnCacheOnPageRollbackSubscriber;
@@ -159,23 +162,6 @@ use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendRequest;
 use Capell\Frontend\Support\Routing\SiteUrlGenerator;
-use Capell\Frontend\Support\Rules\Conditions\AuthStateCondition;
-use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
-use Capell\Frontend\Support\Rules\Conditions\CookieCondition;
-use Capell\Frontend\Support\Rules\Conditions\DateWindowCondition;
-use Capell\Frontend\Support\Rules\Conditions\DomainCondition;
-use Capell\Frontend\Support\Rules\Conditions\EnvironmentCondition;
-use Capell\Frontend\Support\Rules\Conditions\LanguageCondition;
-use Capell\Frontend\Support\Rules\Conditions\LayoutCondition;
-use Capell\Frontend\Support\Rules\Conditions\LocaleCondition;
-use Capell\Frontend\Support\Rules\Conditions\PageCondition;
-use Capell\Frontend\Support\Rules\Conditions\PathCondition;
-use Capell\Frontend\Support\Rules\Conditions\PermissionCondition;
-use Capell\Frontend\Support\Rules\Conditions\QueryParameterCondition;
-use Capell\Frontend\Support\Rules\Conditions\RoleCondition;
-use Capell\Frontend\Support\Rules\Conditions\SessionFlagCondition;
-use Capell\Frontend\Support\Rules\Conditions\SiteCondition;
-use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
 use Capell\Frontend\Support\Security\FilamentAdminAccessChecker;
 use Capell\Frontend\Support\Security\FrontendUrlSignatureService;
 use Capell\Frontend\Support\SiteAccess\SiteAccessExemptionRegistry;
@@ -306,7 +292,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PrivacyRuntimeScript::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
         $this->app->singleton(FrontendEventBootstrapper::class);
-        $this->app->singleton(FrontendRuleConditionRegistry::class);
         $this->app->singleton(ReservedFrontendPathRegistry::class);
         $this->app->singleton(ReservedFrontendDomainRegistry::class);
         $this->app->singleton(ReservedFrontendRequest::class);
@@ -348,6 +333,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(PageModelCache::class);
         $this->app->scoped(PublicPageRenderDataCache::class);
         $this->app->scoped(PageHydrator::class);
+        $this->app->bind(PublicHeaderData::class, static fn (): PublicHeaderData => BuildPublicHeaderDataAction::run());
         $this->app->singleton(StaticPageArtifactStore::class);
         $this->app->singleton(StaticPageArtifactPathResolver::class);
         $this->app->singleton(OnFrontendContextResolved::class);
@@ -363,25 +349,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(FragmentCacheDirective::class);
         $this->app->scoped(FrontendAssetDirective::class);
         $this->app->scoped(WireNavigateDirective::class);
-
-        $this->callAfterResolving(FrontendRuleConditionRegistry::class, function (FrontendRuleConditionRegistry $registry): void {
-            $registry->register(AuthStateCondition::class);
-            $registry->register(CampaignParameterCondition::class);
-            $registry->register(CookieCondition::class);
-            $registry->register(DateWindowCondition::class);
-            $registry->register(DomainCondition::class);
-            $registry->register(EnvironmentCondition::class);
-            $registry->register(LanguageCondition::class);
-            $registry->register(LayoutCondition::class);
-            $registry->register(LocaleCondition::class);
-            $registry->register(PageCondition::class);
-            $registry->register(PathCondition::class);
-            $registry->register(PermissionCondition::class);
-            $registry->register(QueryParameterCondition::class);
-            $registry->register(RoleCondition::class);
-            $registry->register(SessionFlagCondition::class);
-            $registry->register(SiteCondition::class);
-        });
 
         $this->callAfterResolving(
             FrontendResponseRendererRegistry::class,
@@ -840,6 +807,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerViewComposers(): self
     {
+        View::composer('capell::livewire.page.results', PublicPageResultsViewComposer::class);
         View::composer('capell::app', RenderingStrategyViewComposer::class);
 
         return $this;
