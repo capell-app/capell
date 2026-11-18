@@ -40,11 +40,18 @@ if (! $vendorCheck->isSuccessful()) {
     throw new RuntimeException($vendorCheck->getErrorOutput() . $vendorCheck->getOutput());
 }
 
-pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
+// Keep application bindings literal so Pest and its PHPStan extension agree.
+pest()->group('core')->in(__DIR__);
+pest()->extend(PackagesTestCase::class)->in('BladeCoverage', 'Browser', 'Feature', 'Integration', 'Unit');
 pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests');
 pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests');
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests');
-pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests');
+pest()->group('installer')->in('../packages/installer/tests');
+pest()->extend(InstallerTestCase::class)->in(
+    '../packages/installer/tests/Browser',
+    '../packages/installer/tests/Feature',
+    '../packages/installer/tests/Unit',
+);
 pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests');
 pest()->group('database-portability')->in(
     '../packages/core/tests/Feature/Database/DatabasePortabilityEnvironmentTest.php',
