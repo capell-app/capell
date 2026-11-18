@@ -8,9 +8,11 @@ use Capell\Core\Data\Manifest\ExtensionInstallTipData;
 use Capell\Core\Data\Manifest\ExtensionLegacyTableData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageRole;
+use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
+use Capell\Core\Support\Packages\BundledFoundationCatalogue;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Illuminate\Support\Collection;
@@ -57,6 +59,10 @@ class GetPluginsAction
 
         $installedPlugins = $registeredPlugins->filter(fn (PackageData $package): bool => $package->isInstalled());
         $installedPluginsByName = $installedPlugins->keyBy(fn (PackageData $package): string => $package->name);
+
+        // Bundled foundation entries sit under the response, so a fresh install that cannot read
+        // the catalogue still finds the packages it installs unprompted, such as the default theme.
+        $remote = BundledFoundationCatalogue::under($remote);
 
         $remotePackages = PackageData::collect(
             $remote
@@ -129,6 +135,9 @@ class GetPluginsAction
         return new PackageData(
             name: $packageName,
             type: PackageTypeEnum::Package,
+            // Its manifest is not on disk until it is downloaded, so the install plan reads the
+            // scope that decides whether to build frontend assets from here.
+            scopes: $packageName === 'capell-app/frontend' ? [PackageScopeEnum::Frontend] : [],
             description: match ($packageName) {
                 'capell-app/admin' => 'Filament admin panel, resources, dashboards, settings UI, users, page editing, and media UI.',
                 'capell-app/frontend' => 'Public frontend rendering, routes, themes, cache-aware page delivery, and site output.',

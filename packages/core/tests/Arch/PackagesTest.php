@@ -6,13 +6,13 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Support\Logging\FrontendLogger;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
-use Capell\Tests\Support\ArchitectureDependencies;
+use Pest\Arch\Repositories\ObjectsRepository;
 use Pest\Arch\Support\Composer;
 use Saade\FilamentAdjacencyList\Forms\Components\Concerns\HasRelationship;
 
-arch('keeps forbidden PHP functions out of the packages', function (): void {
-    // The Pest PHP preset's restrictions, with var_export allowed by Capell.
-    $symbols = [
+it('keeps forbidden PHP and debug functions out of Core packages', function (): void {
+    // Keep this list aligned with Pest's PHP preset when upgrading Pest. Core permits var_export.
+    $phpSymbols = [
         'debug_zval_dump',
         'debug_backtrace',
         'debug_print_backtrace',
@@ -86,12 +86,52 @@ arch('keeps forbidden PHP functions out of the packages', function (): void {
         'xdebug_var_dump',
         'trap',
     ];
-    ArchitectureDependencies::assertNoForbiddenUses(Composer::userNamespaces(), $symbols, [
+    $debugSymbols = ['dd', 'dump', 'print_r', 'die', 'ray', 'rd', 'var_dump', 'exit', 'env', 'sleep', 'usleep'];
+    $phpExempt = [
         FrontendLogger::class,
         PublicViewQueryGuard::class,
-        // Walking the call stack attributes a contribution to the provider currently booting.
+        // A contribution is attributed to the provider currently booting via the call stack.
         ExtensionContributionReceiptRegistry::class,
-    ]);
+    ];
+    $repository = ObjectsRepository::getInstance();
+
+    // Resolve symbols with Pest's own parser, then check each source object's uses in one pass.
+    $resolve = static function (array $symbols) use ($repository): array {
+        $names = [];
+
+        foreach ($symbols as $symbol) {
+            foreach ($repository->allByNamespace($symbol) as $dependency) {
+                if (str_starts_with($dependency->name, $symbol)) {
+                    $names[$dependency->name] = true;
+                }
+            }
+        }
+
+        return $names;
+    };
+    $phpRestrictions = $resolve($phpSymbols);
+    $debugRestrictions = $resolve($debugSymbols);
+    $violations = [];
+
+    foreach (array_unique(Composer::userNamespaces()) as $namespace) {
+        foreach ($repository->allByNamespace($namespace, false) as $object) {
+            if (! str_starts_with($object->name, $namespace)) {
+                continue;
+            }
+
+            $phpAllowed = array_any($phpExempt, static fn (string $class): bool => str_starts_with($object->name, $class));
+            $debugAllowed = str_starts_with($object->name, EditPage::class);
+
+            foreach ($object->uses as $dependency) {
+                if ((isset($phpRestrictions[$dependency]) && ! $phpAllowed)
+                    || (isset($debugRestrictions[$dependency]) && ! $debugAllowed)) {
+                    $violations[] = sprintf('%s uses %s in %s', $object->name, $dependency, $object->path);
+                }
+            }
+        }
+    }
+
+    expect(array_values(array_unique($violations)))->toBe([]);
 });
 
 arch()->preset()->laravel();
@@ -99,13 +139,6 @@ arch()->preset()->laravel();
 arch()->preset()->security()->ignoring([
     HasRelationship::class,
 ]);
-
-it('does not allow debug functions or forbidden functions')
-    ->expect(['dd', 'dump', 'print_r', 'die', 'ray', 'rd', 'var_dump', 'exit', 'env', 'sleep', 'usleep'])
-    ->toBeUsedInNothing()
-    ->ignoring([
-        EditPage::class,
-    ]);
 
 arch()
     ->expect([

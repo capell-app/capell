@@ -7,6 +7,7 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Install\ThemePackageCandidates;
+use Capell\Core\Support\Packages\BundledFoundationCatalogue;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Filesystem\Filesystem;
@@ -43,10 +44,14 @@ it('returns the offline choices without naming any optional theme package', func
         ->and($options['default'])->toBe('Default');
 });
 
-it('has no package to install for the default theme until one declares the default-theme role', function (): void {
+it('installs the bundled foundation default theme when no catalogue is readable, until a package declares the role', function (): void {
+    bindThemePackageCandidatesRemotePackages(Collection::make());
     $candidates = new ThemePackageCandidates(new PackageWorkflowPlanner);
+    $bundledDefault = BundledFoundationCatalogue::entries()
+        ->first(fn (array $entry): bool => in_array(PackageRole::DefaultTheme->value, $entry['roles'] ?? [], true));
+    assert(is_array($bundledDefault));
 
-    expect($candidates->packageNameForThemeKey('default'))->toBeNull();
+    expect($candidates->packageNameForThemeKey('default'))->toBe($bundledDefault['name']);
 
     registerDefaultThemePackage('vendor/starter-theme');
 

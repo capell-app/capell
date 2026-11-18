@@ -11,6 +11,10 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Cache;
 
 beforeEach(function (): void {
+    // A run is filed under the minute it started and read back from the previous
+    // minute. Pin the clock to the start of a minute: on the real clock a minute
+    // can roll over between starting() and travel(61), and the run is not found.
+    $this->travelTo(now()->startOfMinute());
     Cache::flush();
     resolve(SchedulerRunRecorder::class)->reset();
 });

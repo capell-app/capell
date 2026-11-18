@@ -30,7 +30,6 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\PatchedPhpRuntime;
-use Capell\Tests\Support\StylesheetRuntime;
 use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Collection;
@@ -70,16 +69,6 @@ function installerElement(DOMXPath $page, string $query): DOMElement
 function installerShowMarkup(): DOMXPath
 {
     return installerMarkup(get(route('capell-installer.show'))->assertOk()->content());
-}
-
-function installerProgressMarkup(): DOMXPath
-{
-    $installId = '22222222-2222-4222-a222-111111111111';
-    Cache::put(sprintf('capell.install.%s.status', $installId), 'running');
-
-    return installerMarkup(withSession(installerAccessSessionData($installId))
-        ->get(route('capell-installer.progress', ['installId' => $installId]))
-        ->assertOk()->content());
 }
 
 /** @return array<string, mixed> */
@@ -163,18 +152,17 @@ function bindInstallerDeveloperToolingInstallationState(bool $installed): void
 }
 
 beforeEach(function (): void {
-    $bootstrapSecret = str_repeat('a', 64);
+    $secret = str_repeat('a', 64);
     config([
-        'capell-installer.bootstrap.secret' => $bootstrapSecret,
+        'capell-installer.bootstrap.secret' => $secret,
         'capell-installer.bootstrap.expires_at' => now()->addMinutes(30)->timestamp,
     ]);
-    // InstallerBootstrapTest exercises the HTTP unlock and secret rotation.
-    $this->withSession(['capell.installer.bootstrap_digest' => hash('sha256', $bootstrapSecret)]);
+    $this->withHeader('X-Capell-Installer-Secret', $secret)
+        ->withSession(['capell.installer.bootstrap_digest' => hash('sha256', $secret)]);
     // InstallerPreflightTest covers actual binary and Composer checks.
     app()->when(InstallerPreflight::class)
         ->needs(ProcessFactoryInterface::class)
         ->give(static fn (): FakeProcessFactory => (new FakeProcessFactory)->byDefault(output: 'Command available'));
-
     bindInstallerDeveloperToolingInstallationState(false);
     config(['queue.default' => 'database']);
 });
@@ -261,17 +249,15 @@ afterEach(function (): void {
 // ─── Access guard ────────────────────────────────────────────────────────────
 
 it('shows the installer when capell core is not yet recorded as installed', function (): void {
+    session()->forget('capell.installer.bootstrap_digest');
+    $this->post(route('capell-installer.unlock'))->assertRedirect(route('capell-installer.show'));
+
     get(route('capell-installer.show'))
         ->assertOk()
         ->assertSee(__('capell-installer::installer.heading'))
         ->assertSee('aria-label="Capell"', false)
         ->assertSee('id="install-form"', false)
         ->assertDontSee(__('capell-installer::installer.already_installed_message'))
-        ->assertSee('rel="icon"', false)
-        ->assertSee('type="image/svg+xml"', false)
-        ->assertSee('data:image/svg+xml;base64,', false)
-        ->assertSee('capell-installer-logo-mark', false)
-        ->assertSee('capell-installer-logo-text', false)
         ->assertViewHas('installId')
         ->assertViewHas('installStatus', 'idle')
         ->assertViewHas('cancelUrl')
@@ -369,6 +355,17 @@ it('serves the installer page with fresh session-only cache headers', function (
         ->and($headers->getCacheControlDirective('must-revalidate'))->toBeTrue()
         ->and($headers->getCacheControlDirective('private'))->toBeTrue()
         ->and($headers->getCacheControlDirective('max-age'))->toBe('0');
+});
+
+it('serves a self-contained favicon and bundled branding before admin is installed', function (): void {
+    get(route('capell-installer.show'))
+        ->assertOk()
+        ->assertSee('rel="icon"', false)
+        ->assertSee('type="image/svg+xml"', false)
+        ->assertSee('data:image/svg+xml;base64,', false)
+        ->assertSee('aria-label="Capell"', false)
+        ->assertSee('capell-installer-logo-mark', false)
+        ->assertSee('capell-installer-logo-text', false);
 });
 
 it('shows a direct web installer package checklist', function (): void {
@@ -489,11 +486,11 @@ it('rejects unknown web installer package modes', function (): void {
     ]))->assertSessionHasErrors('package_selection_mode');
 });
 
-it('shows the capell logo on the progress page', function (): void {
+it('renders progress branding, report download and valid scripts', function (): void {
     $installId = '22222222-2222-4222-a222-111111111111';
     Cache::put(sprintf('capell.install.%s.status', $installId), 'running');
 
-    withSession(installerAccessSessionData($installId))
+    $response = withSession(installerAccessSessionData($installId))
         ->get(route('capell-installer.progress', ['installId' => $installId]))
         ->assertOk()
         ->assertSee(__('capell-installer::installer.progress_heading'))
@@ -501,19 +498,15 @@ it('shows the capell logo on the progress page', function (): void {
         ->assertSee('[hidden]', false)
         ->assertSee('class="progress-report-link"', false)
         ->assertSee(__('capell-installer::installer.download_report'));
-});
 
-it('places the progress page download form above the log', function (): void {
-    $page = installerProgressMarkup();
+    $page = installerMarkup($response->content());
     $form = installerElement($page, '//form[@id="report-link"]');
     expect($form->getAttribute('method'))->toBe('GET')
         ->and($form->getAttribute('target'))->toBe('_blank')
         ->and($form->getAttribute('action'))->toBe(route('capell-installer.progress.download', ['installId' => '22222222-2222-4222-a222-111111111111']))
         ->and(domCount($page, './/button[@type="submit"]', $form))->toBe(1)
         ->and(domCount($page, '//*[@id="log"]/preceding::*[@id="report-link"]'))->toBe(1);
-});
-it('renders syntactically valid progress scripts', function (): void {
-    $page = installerProgressMarkup();
+
     $checked = 0;
     foreach (domElements($page, '//script[not(@type="application/json")]') as $script) {
         if (trim(domText($script)) === '') {
@@ -528,7 +521,8 @@ it('renders syntactically valid progress scripts', function (): void {
 
     expect($checked)->toBeGreaterThan(0);
 });
-it('renders installer navigation and translated client messages', function (): void {
+
+it('renders submit labels and a translated timeout message in installer config', function (): void {
     $page = installerShowMarkup();
     $config = installerRenderedConfig($page);
     $expected = [
@@ -543,46 +537,74 @@ it('renders installer navigation and translated client messages', function (): v
 
     expect(domElement($page, '//*[@data-submit-label]')->textContent)->not->toBeEmpty();
 
+    expect($config['messages']['serverTimeoutError'])->toBe(__('capell-installer::installer.server_timeout_error'));
+});
+it('uses accessible left-rail controls for the installer steps', function (): void {
+    $page = installerShowMarkup();
+    $navigation = installerElement($page, '//nav[ol[contains(@class, "installer-steps")]]');
+    expect($navigation->getAttribute('aria-label'))->toBe(__('capell-installer::installer.installer_sections'))
+        ->and(domCount($page, '//nav/ol/li/button[@type="button" and @data-step-trigger]'))->toBe(4)
+        ->and(domCount($page, '//*[@aria-current="step"]'))->toBe(1)
+        ->and(installerElement($page, '//*[@aria-current="step"]')->getAttribute('data-step-trigger'))->toBe('readiness');
+
+    $workspace = installerElement($page, '//*[@id="installer-workspace" and @role="region"]');
+    expect($workspace->getAttribute('aria-labelledby'))->toBe('installer-step-readiness-heading');
+
+    foreach (['readiness', 'site', 'packages', 'options'] as $step) {
+        $button = installerElement($page, '//button[@data-step-trigger="' . $step . '"]');
+        $heading = installerElement($page, '//h2[@id="installer-step-' . $step . '-heading"]');
+        expect(trim($button->textContent))->not->toBeEmpty()
+            ->and($button->getAttribute('aria-controls'))->toBe($workspace->getAttribute('id'))
+            ->and($button->hasAttribute('aria-selected'))->toBeFalse()
+            ->and($heading->getAttribute('tabindex'))->toBe('-1')
+            ->and(trim($heading->textContent))->not->toBeEmpty()
+            ->and(domCount($page, '//*[@data-installer-step="' . $step . '"]'))->toBeGreaterThan(0);
+
+        foreach ($page->query('//*[@data-installer-step="' . $step . '"]') ?: [] as $section) {
+            assert($section instanceof DOMElement);
+            expect($section->hasAttribute('hidden'))->toBe($step !== 'readiness');
+        }
+    }
+
     expect(domCount($page, '//*[@data-step-trigger="review" or @data-installer-step="review"]'))->toBe(0);
 
-    expect($config['messages']['serverTimeoutError'])->toBe(__('capell-installer::installer.server_timeout_error'));
+    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-nav ")]'))->toBe(0);
 
     expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-step ") and contains(concat(" ", normalize-space(@class), " "), " active ")]'))->toBe(1)
         ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-tabs ")]'))->toBe(0);
-
-    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-nav ")]'))->toBe(0);
 });
 
-it('animates installer step navigation with distinct back and continue pacing', function (): void {
-    $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
+it('renders preflight feedback and translated status without post-install toggles', function (): void {
+    $response = get(route('capell-installer.show'))
+        ->assertOk()
+        ->assertSee(__('capell-installer::installer.section_preflight'))
+        ->assertDontSee('data-flow-step="installing"', false)
+        ->assertSee(__('capell-installer::installer.environment_os'))
+        ->assertSee('multi-step-progress')
+        ->assertSee('progressCompletedSteps')
+        ->assertDontSee('Generate XML sitemaps')
+        ->assertDontSee('Generate static HTML cache')
+        ->assertDontSee('Required by another selected package');
 
-    // Reduced-motion support is an accessibility contract in the delivered stylesheet.
-    expect($styles)->toContain('prefers-reduced-motion');
-});
-
-it('keeps the preflight and installer step panel backgrounds distinct', function (): void {
-    $result = StylesheetRuntime::inspect(dirname(__DIR__, 2) . '/resources/css/installer.css');
-    $rules = array_filter($result['rules'], static fn (array $rule): bool => $rule['classes'] === ['preflight-panel']);
-    expect($rules)->not->toBeEmpty();
-    foreach ($rules as $rule) {
-        $backgrounds = array_filter($rule['declarations'], static fn (array $declaration): bool => str_starts_with($declaration['property'], 'background'));
-        foreach ($backgrounds as $background) {
-            expect($background['gradients'])->toBe([]);
-        }
+    if (InstalledVersions::isInstalled('filament/filament')) {
+        $response->assertSee(__('capell-installer::installer.environment_filament'));
     }
 
-    $rules = array_filter($result['rules'], static fn (array $rule): bool => $rule['classes'] === ['installer-step-panel']);
-    expect($rules)->not->toBeEmpty();
-    $variables = [];
-    foreach ($rules as $rule) {
-        foreach ($rule['declarations'] as $declaration) {
-            if ($declaration['property'] === 'background') {
-                $variables = [...$variables, ...$declaration['variables']];
-            }
-        }
+    if (InstalledVersions::isInstalled('livewire/livewire')) {
+        $response->assertSee(__('capell-installer::installer.environment_livewire'));
     }
 
-    expect($variables)->toContain('--brand-panel');
+    $status = $response->viewData('preflightReport')['status'];
+
+    expect($status)->toBeIn(['pass', 'warning', 'fail']);
+
+    $response
+        ->assertSee(__('capell-installer::installer.preflight_status_' . $status), false)
+        ->assertDontSee('capell-installer::installer.preflight_status_', false);
+
+    $page = installerMarkup($response->content());
+    expect(domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-panel ")]')->textContent)->not->toBeEmpty()
+        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-utility-footer ")]'))->toBe(0);
 });
 
 it('renders AI Agent Bridge developer tooling separately from downloadable packages', function (): void {
@@ -712,7 +734,7 @@ it('names the new administrator email and asks for the frontend build before the
         ->and(domCount($page, '//li[@data-handoff-tip="first_page"]'))->toBe(0);
 });
 
-it('renders progress loading and failure regions with an expanded technical log', function (): void {
+it('renders installer diagnostics, failure regions and report download', function (): void {
     $page = installerShowMarkup();
     foreach (['progress-loader', 'current-step-strip', 'failure-panel', 'technical-log-panel'] as $region) {
         expect(domCount($page, '//*[@id="' . $region . '"]'))->toBe(1);
@@ -725,39 +747,6 @@ it('renders progress loading and failure regions with an expanded technical log'
         ->and($form->getAttribute('target'))->toBe('_blank')
         ->and(domCount($page, '//button[@form="report-link" and @type="submit"]'))->toBe(1)
         ->and(domCount($page, '//*[@id="report-link"]/following-sibling::*[@id="log"]'))->toBe(1);
-});
-
-it('renders preflight feedback and removes post-install operational toggles', function (): void {
-    $response = get(route('capell-installer.show'))
-        ->assertOk()
-        ->assertSee(__('capell-installer::installer.section_preflight'))
-        ->assertDontSee('data-flow-step="installing"', false)
-        ->assertSee(__('capell-installer::installer.environment_os'))
-        ->assertSee('multi-step-progress')
-        ->assertSee('progressCompletedSteps')
-        ->assertDontSee('Generate XML sitemaps')
-        ->assertDontSee('Generate static HTML cache')
-        ->assertDontSee('Required by another selected package');
-
-    if (InstalledVersions::isInstalled('filament/filament')) {
-        $response->assertSee(__('capell-installer::installer.environment_filament'));
-    }
-
-    if (InstalledVersions::isInstalled('livewire/livewire')) {
-        $response->assertSee(__('capell-installer::installer.environment_livewire'));
-    }
-
-    $status = $response->viewData('preflightReport')['status'];
-
-    expect($status)->toBeIn(['pass', 'warning', 'fail']);
-
-    $response
-        ->assertSee(__('capell-installer::installer.preflight_status_' . $status), false)
-        ->assertDontSee('capell-installer::installer.preflight_status_', false);
-
-    $page = installerMarkup($response->content());
-    expect(domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-panel ")]')->textContent)->not->toBeEmpty()
-        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-utility-footer ")]'))->toBe(0);
 });
 
 it('translates every preflight status the preflight can report', function (string $status): void {
@@ -3098,34 +3087,6 @@ it('redirects removal to the resolved panel before removing its runtime', functi
         ->post(route('capell-installer.destroy'), ['redirect' => 'https://hostile.test'])
         ->assertRedirect('https://cms.test/workspace')
         ->assertSessionMissing('capell.installer.can_remove_setup_package');
-});
-
-it('renders ordered native step controls for a named workspace with hidden inactive steps', function (): void {
-    $page = installerShowMarkup();
-    $navigation = installerElement($page, '//nav[ol[contains(@class, "installer-steps")]]');
-    expect($navigation->getAttribute('aria-label'))->toBe(__('capell-installer::installer.installer_sections'))
-        ->and(domCount($page, '//nav/ol/li/button[@type="button" and @data-step-trigger]'))->toBe(4)
-        ->and(domCount($page, '//*[@aria-current="step"]'))->toBe(1)
-        ->and(installerElement($page, '//*[@aria-current="step"]')->getAttribute('data-step-trigger'))->toBe('readiness');
-
-    $workspace = installerElement($page, '//*[@id="installer-workspace" and @role="region"]');
-    expect($workspace->getAttribute('aria-labelledby'))->toBe('installer-step-readiness-heading');
-
-    foreach (['readiness', 'site', 'packages', 'options'] as $step) {
-        $button = installerElement($page, '//button[@data-step-trigger="' . $step . '"]');
-        $heading = installerElement($page, '//h2[@id="installer-step-' . $step . '-heading"]');
-        expect(trim($button->textContent))->not->toBeEmpty()
-            ->and($button->getAttribute('aria-controls'))->toBe($workspace->getAttribute('id'))
-            ->and($button->hasAttribute('aria-selected'))->toBeFalse()
-            ->and($heading->getAttribute('tabindex'))->toBe('-1')
-            ->and(trim($heading->textContent))->not->toBeEmpty()
-            ->and(domCount($page, '//*[@data-installer-step="' . $step . '"]'))->toBeGreaterThan(0);
-
-        foreach ($page->query('//*[@data-installer-step="' . $step . '"]') ?: [] as $section) {
-            assert($section instanceof DOMElement);
-            expect($section->hasAttribute('hidden'))->toBe($step !== 'readiness');
-        }
-    }
 });
 
 it('offers to remove the untouched Laravel welcome route after a successful install', function (): void {

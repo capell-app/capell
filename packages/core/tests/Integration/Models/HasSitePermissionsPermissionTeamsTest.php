@@ -6,9 +6,6 @@ use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
-use Capell\Frontend\Data\FrontendRuleContextData;
-use Capell\Frontend\Support\Rules\Conditions\RoleCondition;
-use Illuminate\Http\Request;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -111,21 +108,15 @@ it('restores the team and clears loaded relations after exceptions', function ()
         ->and($user->relationLoaded('permissions'))->toBeFalse();
 });
 
-it('evaluates frontend role conditions against the resolved site', function (): void {
+it('checks a site-scoped role only on the site it was assigned for', function (): void {
     $first = Site::factory()->create();
     $second = Site::factory()->create();
     $role = Role::findOrCreate('editor', 'web');
     $user = HasSitePermissionsTestUser::query()->create(['name' => 'Scoped user', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
     $user->assignRoleForSite($first, $role);
 
-    $request = Request::create('/');
-    $request->setUserResolver(fn () => $user);
-
-    $condition = new RoleCondition;
-
-    expect($condition->evaluate(['role' => 'editor'], new FrontendRuleContextData($request, $first)))->toBeTrue()
-        ->and($condition->evaluate(['role' => 'editor'], new FrontendRuleContextData($request, $second)))->toBeFalse()
-        ->and($condition->evaluate(['role' => 'editor'], new FrontendRuleContextData($request)))->toBeFalse();
+    expect($user->hasRoleForSite($first, 'editor'))->toBeTrue()
+        ->and($user->hasRoleForSite($second, 'editor'))->toBeFalse();
 });
 
 it('exposes only the selected teams role definitions to site operators', function (): void {

@@ -7,6 +7,7 @@ use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\VendorAssetEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\BundledFoundationCatalogue;
 use Capell\Core\Testing\ExtensionTestHarness;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Tests\Support\OwnedApplicationPaths;
@@ -233,20 +234,23 @@ it('builds a scaffolded theme on the package that declares the default-theme rol
         ->not->toHaveKey('capell-app/theme-foundation');
 });
 
-it('refuses to scaffold a theme before writing anything when no package declares the default-theme role', function (): void {
+it('builds a scaffolded theme on the bundled foundation default theme when no catalogue is readable', function (): void {
     CapellCore::clearPackages();
     bindCachedCatalogue([]);
-    $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-norole-' . bin2hex(random_bytes(6));
+    $bundledDefault = BundledFoundationCatalogue::entries()
+        ->first(fn (array $entry): bool => in_array(PackageRole::DefaultTheme->value, $entry['roles'] ?? [], true));
+    assert(is_array($bundledDefault) && is_string($bundledDefault['name'] ?? null));
+    $packagesDirectory = sys_get_temp_dir() . '/capell-make-theme-bundled-' . bin2hex(random_bytes(6));
     mkdir($packagesDirectory, 0755, true);
 
     artisanCommand('capell:make-theme', [
-        'theme' => 'orphan',
-        '--package' => 'app/orphan-theme',
+        'theme' => 'offline',
+        '--package' => 'app/offline-theme',
         '--path' => $packagesDirectory,
         '--local' => true,
-    ])
-        ->expectsOutputToContain('default-theme')
-        ->assertExitCode(Command::FAILURE);
+    ])->assertExitCode(Command::SUCCESS);
 
-    expect($packagesDirectory . '/orphan-theme')->not->toBeDirectory();
+    $composer = json_decode((string) file_get_contents($packagesDirectory . '/offline-theme/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($composer['require'])->toHaveKey($bundledDefault['name']);
 });

@@ -115,7 +115,6 @@ use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendRequest;
-use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
 use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Support\View\ThemeChainResolver;
@@ -236,7 +235,6 @@ final class SingletonLifetimeInventory
             RenderableDynamicDataRegistry::class => self::boot('Dynamic data resolvers are package boot registrations.'),
             RenderHookRegistry::class => self::boot('Render hooks are package boot registrations.'),
             HeadMetadataRegistry::class => self::boot('Default head metadata contributions are package boot registrations.'),
-            FrontendRuleConditionRegistry::class => self::boot('Rule conditions are package boot registrations.'),
             ReservedFrontendPathRegistry::class => self::boot('Reserved paths are package boot registrations.'),
             ReservedFrontendDomainRegistry::class => self::boot('Reserved domains are package boot registrations.'),
             ThemeViewRegistrar::class => self::tagged('View finder namespace hints are restored after every operation.'),
