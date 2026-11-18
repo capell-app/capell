@@ -168,23 +168,6 @@ use Capell\Frontend\Support\Routing\ReservedFrontendDomainRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
 use Capell\Frontend\Support\Routing\ReservedFrontendRequest;
 use Capell\Frontend\Support\Routing\SiteUrlGenerator;
-use Capell\Frontend\Support\Rules\Conditions\AuthStateCondition;
-use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
-use Capell\Frontend\Support\Rules\Conditions\CookieCondition;
-use Capell\Frontend\Support\Rules\Conditions\DateWindowCondition;
-use Capell\Frontend\Support\Rules\Conditions\DomainCondition;
-use Capell\Frontend\Support\Rules\Conditions\EnvironmentCondition;
-use Capell\Frontend\Support\Rules\Conditions\LanguageCondition;
-use Capell\Frontend\Support\Rules\Conditions\LayoutCondition;
-use Capell\Frontend\Support\Rules\Conditions\LocaleCondition;
-use Capell\Frontend\Support\Rules\Conditions\PageCondition;
-use Capell\Frontend\Support\Rules\Conditions\PathCondition;
-use Capell\Frontend\Support\Rules\Conditions\PermissionCondition;
-use Capell\Frontend\Support\Rules\Conditions\QueryParameterCondition;
-use Capell\Frontend\Support\Rules\Conditions\RoleCondition;
-use Capell\Frontend\Support\Rules\Conditions\SessionFlagCondition;
-use Capell\Frontend\Support\Rules\Conditions\SiteCondition;
-use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
 use Capell\Frontend\Support\Security\FilamentAdminAccessChecker;
 use Capell\Frontend\Support\Security\FrontendUrlSignatureService;
 use Capell\Frontend\Support\SiteAccess\SiteAccessExemptionRegistry;
@@ -315,7 +298,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PrivacyRuntimeScript::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
         $this->app->singleton(FrontendEventBootstrapper::class);
-        $this->app->singleton(FrontendRuleConditionRegistry::class);
         $this->app->singleton(ReservedFrontendPathRegistry::class);
         $this->app->singleton(ReservedFrontendDomainRegistry::class);
         $this->app->singleton(ReservedFrontendRequest::class);
@@ -376,25 +358,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(FragmentCacheDirective::class);
         $this->app->scoped(FrontendAssetDirective::class);
         $this->app->scoped(WireNavigateDirective::class);
-
-        $this->callAfterResolving(FrontendRuleConditionRegistry::class, function (FrontendRuleConditionRegistry $registry): void {
-            $registry->register(AuthStateCondition::class);
-            $registry->register(CampaignParameterCondition::class);
-            $registry->register(CookieCondition::class);
-            $registry->register(DateWindowCondition::class);
-            $registry->register(DomainCondition::class);
-            $registry->register(EnvironmentCondition::class);
-            $registry->register(LanguageCondition::class);
-            $registry->register(LayoutCondition::class);
-            $registry->register(LocaleCondition::class);
-            $registry->register(PageCondition::class);
-            $registry->register(PathCondition::class);
-            $registry->register(PermissionCondition::class);
-            $registry->register(QueryParameterCondition::class);
-            $registry->register(RoleCondition::class);
-            $registry->register(SessionFlagCondition::class);
-            $registry->register(SiteCondition::class);
-        });
 
         $this->callAfterResolving(
             FrontendResponseRendererRegistry::class,
