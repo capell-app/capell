@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\ExportSiteSpecAction;
+use Capell\Core\Data\SiteSpec\SiteSpecExportData;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteSpec\SiteSpecJson;
 use Illuminate\Console\Command;
@@ -89,7 +90,14 @@ final class ExportSiteSpecCommand extends Command
         $warnings = [];
 
         foreach ($omitted as $reason => $pages) {
-            $warnings[] = (string) __('capell-core::message.site_spec_export_omitted_' . $reason, ['pages' => implode(', ', $pages)]);
+            $replace = ['pages' => implode(', ', $pages)];
+            $warnings[] = (string) match ($reason) {
+                SiteSpecExportData::OMITTED_NO_PAGE_TYPE => __('capell-core::message.site_spec_export_omitted_no_page_type', $replace),
+                SiteSpecExportData::OMITTED_NOT_HTML => __('capell-core::message.site_spec_export_omitted_not_html', $replace),
+                SiteSpecExportData::OMITTED_NOT_PUBLIC => __('capell-core::message.site_spec_export_omitted_not_public', $replace),
+                SiteSpecExportData::OMITTED_PLACEHOLDER => __('capell-core::message.site_spec_export_omitted_placeholder', $replace),
+                default => __('capell-core::message.site_spec_export_omitted_no_slug', $replace),
+            };
         }
 
         return $warnings;
