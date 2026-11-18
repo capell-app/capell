@@ -1,0 +1,13 @@
+{
+    "description": "Foundation-vendor catalogue entries Core ships so a fresh install that cannot read the Marketplace catalogue still resolves the roles it installs unprompted. Each entry mirrors the package's own capell.json; the live catalogue and an installed manifest both take precedence over it.",
+    "packages": [
+        {
+            "name": "capell-app/theme-foundation",
+            "type": "theme",
+            "kind": "theme",
+            "themeKey": "default",
+            "description": "Pale green theme for documentation and general publishing sites that developers can build on, with a dark version and a command for retired themes.",
+            "roles": ["default-theme"]
+        }
+    ]
+}

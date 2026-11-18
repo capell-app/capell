@@ -9,6 +9,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageRole;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\BundledFoundationCatalogue;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Illuminate\Support\Collection;
@@ -44,7 +45,7 @@ function nonTrustedPluginNames(?string $filter = null): array
 {
     return GetPluginsAction::run($filter)
         ->pluck('name')
-        ->reject(fn (string $packageName): bool => TrustedCorePackages::contains($packageName))
+        ->reject(fn (string $packageName): bool => TrustedCorePackages::contains($packageName) || BundledFoundationCatalogue::contains($packageName))
         ->values()
         ->all();
 }
@@ -292,11 +293,35 @@ it('deduplicates installed package appearing in remote list', function (): void 
     expect($names)->toEqual(['dup-alpha', 'new-remote']);
 });
 
-it('offers no optional package when none is registered and the remote cache is empty', function (): void {
+it('offers only the packages Core ships when none is registered and the remote cache is empty', function (): void {
     bindPluginPackagesFetcher(Collection::make(), true);
     $result = nonTrustedPluginNames();
 
     expect($result)->toBe([]);
+});
+
+it('lets a fresh install with no readable catalogue plan the default theme and a frontend build', function (): void {
+    bindPluginPackagesFetcher(Collection::make(), true);
+
+    $download = GetPluginsAction::run('download', Collection::make());
+    $defaultThemes = $download->filter(fn (PackageData $package): bool => $package->hasRole(PackageRole::DefaultTheme));
+
+    expect($defaultThemes)->toHaveCount(1)
+        ->and(TrustedCorePackages::isFoundationVendorPackage((string) $defaultThemes->keys()->first()))->toBeTrue()
+        ->and($download->filter(fn (PackageData $package): bool => $package->hasFrontendScope())->keys()->all())
+        ->toContain('capell-app/frontend');
+});
+
+it('lets a catalogue entry replace the bundled entry for the same package', function (): void {
+    $bundled = BundledFoundationCatalogue::entries()->first();
+    assert(is_array($bundled) && is_string($bundled['name'] ?? null));
+
+    $download = GetPluginsAction::run('download', Collection::make([
+        [...$bundled, 'description' => 'From the live catalogue.'],
+    ]));
+
+    expect($download->filter(fn (PackageData $package): bool => $package->name === $bundled['name']))->toHaveCount(1)
+        ->and($download->get($bundled['name'])?->getDescription())->toBe('From the live catalogue.');
 });
 
 it('offers an optional package as a default selection only when its catalogue entry declares it', function (): void {
