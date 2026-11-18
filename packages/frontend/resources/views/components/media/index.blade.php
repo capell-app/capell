@@ -30,7 +30,7 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
 @php
     use Capell\Core\Contracts\Media\MediaContract;
     use Capell\Core\Enums\MediaConversionEnum;
-    use Capell\Core\Models\Media as CapellMedia;
+    use Capell\Frontend\Actions\ResolvePublicMediaAltTextAction;
 
     /** @var MediaContract $media */
     throw_unless($media instanceof MediaContract, InvalidArgumentException::class, '"media" must be an instance of ' . MediaContract::class . ', ' . $media::class . ' given.');
@@ -60,13 +60,7 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
         }
     }
 
-    if ($alt === null && $media instanceof CapellMedia) {
-        $localizedAlt = $media->getAltText(Frontend::language());
-
-        $alt = $localizedAlt ?? $media->getName();
-    }
-
-    $alt ??= $media->getName();
+    $alt ??= ResolvePublicMediaAltTextAction::run($media);
 
     $preferredConversion = $sizeConversion instanceof MediaConversionEnum
         ? $sizeConversion->value

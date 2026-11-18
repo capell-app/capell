@@ -1,0 +1,1 @@
+{!! $renderData->renderedComponent !!}

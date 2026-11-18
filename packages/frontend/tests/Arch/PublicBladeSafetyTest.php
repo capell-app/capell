@@ -24,6 +24,8 @@ it('keeps public frontend blade views free of query and authoring patterns', fun
 it('covers representative query and cache access forms with the public Blade guard', function (): void {
     $forbiddenPatterns = publicFrontendBladeForbiddenPatterns();
     $representativeForbiddenForms = [
+        'Core model namespace in Blade' => 'use Capell\Core\Models\Page;',
+        'relationship inspection in Blade' => '$page?->relationLoaded ("translation");',
         'Eloquent query builder in Blade' => 'Page::query()->whereKey(1)->first();',
         'DB facade in Blade' => 'DB::table("pages")->where("id", 1)->first();',
         'cache facade in Blade' => 'Cache::remember("page", 60, static fn (): array => []);',
@@ -162,6 +164,8 @@ function publicFrontendBladeForbiddenPatterns(): array
         'unregistered buffer directive in public Blade' => '/@(?:end)?capellBuffer\b/',
         'Livewire mount directive in public Blade' => '/(?:<livewire:|@livewire\s*\()/i',
         'authored critical CSS partial in public Blade' => '/(?:@include(?:If|When|Unless|First)?\s*\([^)]*critical[-_. ]?css|@component\s*\([^)]*critical[-_. ]?css|<x-[^>\s]*critical[-_.]?css)/i',
+        'Core model namespace in Blade' => '/\bCapell\\\\Core\\\\Models\b/i',
+        'relationship inspection in Blade' => '/(?:->|::)\s*relationLoaded\s*\(/i',
         'Eloquent query builder in Blade' => '/::query\s*\(/',
         'DB facade in Blade' => '/\bDB::/',
         'cache facade in Blade' => '/\bCache::/',
