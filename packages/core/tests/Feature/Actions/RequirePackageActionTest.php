@@ -6,6 +6,7 @@ use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\RequirePackageAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\BundledFoundationCatalogue;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Illuminate\Support\Collection;
@@ -45,9 +46,11 @@ it('clears plugin packages cache and removes installed package from install filt
     expect($fetched->pluck('name')->values()->all())->toEqual(['alpha-remote', 'beta-remote']);
     expect(CapellCore::getFromCache(CacheEnum::ExtensionPackages->value))->toBeInstanceOf(Collection::class);
 
-    // Download filter should show both remote packages (none installed yet).
+    // Download filter shows both remote packages (none installed yet), then the bundled foundation
+    // entries the catalogue does not list.
+    $bundledNames = BundledFoundationCatalogue::entries()->pluck('name')->all();
     $initialInstallNames = requirePackageActionDownloadPackageNames();
-    expect($initialInstallNames)->toEqual(['alpha-remote', 'beta-remote']);
+    expect($initialInstallNames)->toEqual(['alpha-remote', 'beta-remote', ...$bundledNames]);
 
     $packagePath = sys_get_temp_dir() . '/capell-require-action-alpha-' . bin2hex(random_bytes(8));
     mkdir($packagePath, 0777, true);
@@ -76,7 +79,7 @@ it('clears plugin packages cache and removes installed package from install filt
 
         // After installation, download filter should exclude installed package.
         $postInstallNames = requirePackageActionDownloadPackageNames();
-        expect($postInstallNames)->toEqual(['beta-remote'])->not()->toContain('alpha-remote');
+        expect($postInstallNames)->toEqual(['beta-remote', ...$bundledNames])->not()->toContain('alpha-remote');
     } finally {
         if (is_file($packagePath . '/composer.json')) {
             unlink($packagePath . '/composer.json');
