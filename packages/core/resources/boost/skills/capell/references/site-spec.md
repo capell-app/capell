@@ -7,6 +7,7 @@ SiteSpec is Capell's deterministic site handoff contract. Core validates and imp
 - [Import](#import)
 - [Contract](#contract)
 - [Apply to an existing site](#apply-to-an-existing-site)
+- [Export and promote between environments](#export-and-promote-between-environments)
 - [Presets](#presets)
 - [Remote Media Safety](#remote-media-safety)
 - [Package-Owned Blocks](#package-owned-blocks)
@@ -41,6 +42,22 @@ php artisan capell:site-spec-import storage/app/site-spec.json --site=3 --publis
 ```
 
 `--publish` applies the spec and then makes every spec page public through the normal publication pipeline, as the user named with `--user` (an email address or ID), then clears the frontend caches. A private spec's "Coming soon" homepage is replaced with the spec's copy unless an editor already replaced it, and the noindex markers a private import wrote are lifted. Everything that can be refused (a page missing from the site, a user who may not publish it, missing required properties) is checked before anything is written, and the apply and the publish share one transaction, so a failure names the page and leaves the site as it was before the command. Markers such as noindex are lifted only where they still hold exactly what the private import wrote; a noindex an editor or the spec chose is kept. Running it again publishes nothing more. Publishing is deliberate: a private spec never publishes on its own, and `--publish` cannot be combined with `--plan`.
+
+## Export and promote between environments
+
+```bash
+php artisan capell:site-spec-export 3 --output=site-spec/site.json --public
+php artisan capell:site-spec-import site-spec/site.json --site=7 --diff
+php artisan capell:site-spec-import site-spec/site.json --site=7
+```
+
+`capell:site-spec-export` writes a site as a SiteSpec. Without `--output` it prints the JSON alone to standard output and any notes to standard error. The file depends only on the site's content, never on database IDs or row order: object keys are sorted, the home page comes first and the other pages follow by slug, and the layout is fixed. Exporting an unchanged site gives a byte-identical file, so a spec kept in Git shows a diff only when the content changed, and applying an export back to its own site plans no change.
+
+Each page is exported with its name, slug, title and page type, and its body as one `content` section, sanitised as an import would store it. Applying an export compares and updates the name, title and body; the page type is used only for pages the spec creates. A page without a title is exported with its name as the title, so applying the export back writes that title once. Pages are left out, and named in the command output with the reason, when they have no lowercase, hyphenated slug in the site language, no page type, a body built from blocks, or when the home page is still the "Coming soon" or fresh-install placeholder, so a placeholder is never copied over a real home page. A `--public` export also leaves out pages that are not live or whose visibility is restricted, because applying a public spec creates missing pages live and open to everyone. When the home page is left out, the first page by slug comes first, and importing the export as a new site (without `--site`) makes that page the home page. Theme colours are exported only when they are hex values, which is all the contract carries; other colours stay as they are on the target. Theme settings are merged, so a setting removed on the source is left as it is on the target. Only the site name is exported, and applying a spec to an existing site does not change the site's name or other site fields. Navigation and other package-owned parts, page properties and media are not exported yet: a spec carries remote media URLs and Capell keeps only a hash of the URL it imported. Applying an export leaves those parts of the target site as they are. A site with more pages or longer content than the contract allows is not exported, and the command lists what to change.
+
+An export is private unless `--public` is given. A private spec leaves live pages alone, so promoting content to a site whose pages are live needs `--public`, which also sets `acknowledgePublic`.
+
+`--diff` on `capell:site-spec-import` does what `--plan` does and also prints each changed field line by line: `-` for the site's current value and `+` for the spec's. HTML is split at tag boundaries, so a changed paragraph shows as that paragraph. Pages the spec creates show their new values, and pages a private spec holds back are marked as not applied. It writes nothing and cannot be combined with `--publish`.
 
 ## Contract
 

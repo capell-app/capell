@@ -6,6 +6,7 @@ namespace Capell\Core\Support\SiteSpec;
 
 use Capell\Core\Actions\SanitizeSiteSpecSectionHtmlAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
+use Capell\Core\Support\CapellSiteSpecConstraints;
 
 /** Turns a SiteSpec page's sections into the HTML stored as the page body. */
 final class SiteSpecPageContent
@@ -17,5 +18,14 @@ final class SiteSpecPageContent
 
             return $heading . SanitizeSiteSpecSectionHtmlAction::run($section->content);
         })->implode('');
+    }
+
+    /**
+     * A stored page body as an import would write it. A body too long to sanitise is
+     * returned as it is, so it still compares as different from any spec.
+     */
+    public static function sanitisedBody(string $html): string
+    {
+        return mb_strlen($html) > CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH ? $html : SanitizeSiteSpecSectionHtmlAction::run($html);
     }
 }

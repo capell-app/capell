@@ -48,6 +48,7 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 
 - Core owns deterministic SiteSpec validation and import; commercial packages own AI generation and provider calls.
 - Import a local JSON contract with `php artisan capell:site-spec-import path/to/site-spec.json`.
+- Export a site with `php artisan capell:site-spec-export <site-id> --output=site-spec.json`; the file is byte-identical while the site is unchanged, so it can live in Git. `capell:site-spec-import --diff --site=<id>` shows each change line by line without writing.
 - Navigation is applied by an installed package through the `navigation` SiteSpec applier.
 - Remote logo and page images must use the declared HTTPS origin and pass public-DNS, size, and image-type checks.
 - Full contract, registration, and security details live in `references/site-spec.md`.

@@ -15,6 +15,7 @@ use Capell\Core\Enums\SiteSpecPlanAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteSpec\SiteSpecHasher;
+use Capell\Core\Support\SiteSpec\SiteSpecTextDiff;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command as CommandAlias;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Throwable;
 
 final class ImportSiteSpecCommand extends Command
@@ -33,6 +35,7 @@ final class ImportSiteSpecCommand extends Command
         {--keep-published=* : Original spec slugs whose later publication decisions must be preserved}
         {--site= : Apply the spec to this existing site (by ID) instead of creating a new one}
         {--plan : Show what applying the spec would create, update and leave alone, without writing anything}
+        {--diff : Like --plan, and also show each changed field line by line, without writing anything}
         {--publish : After applying to --site, make every spec page public and clear the caches (names a page and changes nothing if one cannot be published)}
         {--user= : With --publish, the email or ID of the user to publish as}';
 
@@ -48,7 +51,7 @@ final class ImportSiteSpecCommand extends Command
             return CommandAlias::FAILURE;
         }
 
-        $planOnly = (bool) $this->option('plan');
+        $planOnly = (bool) $this->option('plan') || (bool) $this->option('diff');
         $siteOption = $this->option('site');
 
         if ($planOnly || $siteOption !== null || $this->option('publish')) {
@@ -120,6 +123,11 @@ final class ImportSiteSpecCommand extends Command
                 $site ??= Site::query()->where('meta->site_spec_applied_hash', $hash)->orWhere('meta->site_spec_hash', $hash)->first();
                 $plan = PlanSiteSpecAction::run($spec, $site);
                 $this->renderPlan($plan);
+
+                if ($this->option('diff')) {
+                    $this->renderDifferences($plan);
+                }
+
                 $this->components->info((string) __('capell-core::message.site_spec_plan_summary', $this->planCounts($plan)));
 
                 return CommandAlias::SUCCESS;
@@ -195,6 +203,46 @@ final class ImportSiteSpecCommand extends Command
         if (! $plan->hasChanges()) {
             $this->components->info((string) __('capell-core::message.site_spec_plan_nothing'));
         }
+    }
+
+    private function renderDifferences(SiteSpecPlanData $plan): void
+    {
+        foreach ($plan->items as $item) {
+            if ($item->differences === []) {
+                continue;
+            }
+
+            $this->newLine();
+            $this->line('<options=bold>' . $this->printable((string) __('capell-core::message.site_spec_diff_item', [
+                'kind' => $item->kind,
+                'key' => $item->key,
+                'action' => $item->action->value,
+            ])) . '</>');
+
+            if ($item->note !== null) {
+                $this->line(OutputFormatter::escape((string) __('capell-core::message.site_spec_diff_not_applied')));
+            }
+
+            foreach ($item->differences as $difference) {
+                $this->line($this->printable((string) __('capell-core::message.site_spec_diff_field', ['field' => $difference->field])));
+
+                foreach (SiteSpecTextDiff::lines($difference->before, $difference->after) as $line) {
+                    $colour = match ($line[0]) {
+                        '-' => 'red',
+                        '+' => 'green',
+                        default => null,
+                    };
+                    $escaped = $this->printable('    ' . $line);
+                    $this->line($colour === null ? $escaped : sprintf('<fg=%s>%s</>', $colour, $escaped));
+                }
+            }
+        }
+    }
+
+    /** Site content escaped for the console, with control characters removed so stored text cannot send terminal codes. */
+    private function printable(string $text): string
+    {
+        return OutputFormatter::escape((string) preg_replace('/[\x00-\x08\x0B-\x1F\x7F\x{80}-\x{9F}]/u', '', $text));
     }
 
     /** @return array{created: int, updated: int, skipped: int} */

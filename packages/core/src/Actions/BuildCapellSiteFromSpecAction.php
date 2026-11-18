@@ -282,7 +282,7 @@ final class BuildCapellSiteFromSpecAction
                 $translation = $page->translations()->where('language_id', $site->language_id)->lockForUpdate()->firstOrFail();
                 throw_unless(
                     $translation->title === 'Coming soon'
-                    && $translation->content === '<h1>Coming soon</h1><p>This site is being prepared.</p>',
+                    && $translation->content === SiteSpecPageDataFactory::PLACEHOLDER_CONTENT,
                     RuntimeException::class,
                     'The homepage was edited after import; review it and explicitly keep it before repair.',
                 );

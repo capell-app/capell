@@ -18,6 +18,7 @@
 | `capell:static-site`            | Pre-generate static HTML cache for pages (capell-app/html-cache) |
 | `capell:doctor`                 | Check install health                                             |
 | `capell:site-spec-import`       | Build a site from a deterministic SiteSpec JSON file             |
+| `capell:site-spec-export`       | Write a site out as a SiteSpec JSON file that diffs cleanly      |
 | `capell:cache-components`       | Cache component definitions                                      |
 | `capell:clear-components-cache` | Clear cached component definitions                               |
 | `capell:publish-components`     | Publish Blade components to app                                  |

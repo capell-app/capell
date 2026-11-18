@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Data\SiteSpec;
 
 use Capell\Core\Enums\SiteSpecPlanAction;
+use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 
 /** One thing applying a SiteSpec would do: create, update or leave a page or the theme. */
@@ -20,6 +21,7 @@ final class SiteSpecPlanItemData extends Data
      * @param  string  $key  The page slug, or the theme key.
      * @param  list<string>  $changes  The fields an update would change.
      * @param  string|null  $note  Why an item is left alone when the spec differs from it; currently `live_page_held`.
+     * @param  list<SiteSpecPlanChangeData>  $differences  Each changed field with its current and new value, for showing the change before it is applied.
      */
     public function __construct(
         public readonly string $kind,
@@ -27,5 +29,7 @@ final class SiteSpecPlanItemData extends Data
         public readonly SiteSpecPlanAction $action,
         public readonly array $changes = [],
         public readonly ?string $note = null,
+        #[DataCollectionOf(SiteSpecPlanChangeData::class)]
+        public readonly array $differences = [],
     ) {}
 }

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Data\SiteSpec\SiteSpecPlanChangeData;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Json\JsonCodec;
+use Illuminate\Support\Arr;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -25,12 +28,41 @@ final class MergeSiteSpecThemeSettingsAction
         return $theme->refresh();
     }
 
-    /** Whether merging would change the theme. */
-    public function wouldChange(Theme $theme, CapellSiteSpecData $spec): bool
+    /**
+     * Each theme setting merging would change, with its current and new value.
+     * Nested settings are named by their path, such as `colors.primary`.
+     *
+     * @return list<SiteSpecPlanChangeData>
+     */
+    public function differences(Theme $theme, CapellSiteSpecData $spec): array
     {
         [$meta, $customCss] = $this->merged($theme, $spec);
+        $before = Arr::dot(is_array($theme->meta) ? $theme->meta : []);
+        $after = Arr::dot($meta);
+        $differences = [];
 
-        return $meta !== (is_array($theme->meta) ? $theme->meta : []) || $customCss !== $theme->custom_css;
+        foreach ($after as $field => $value) {
+            if (($before[$field] ?? null) !== $value) {
+                $differences[] = new SiteSpecPlanChangeData((string) $field, $this->stringValue($before[$field] ?? null), $this->stringValue($value));
+            }
+        }
+
+        if ($customCss !== $theme->custom_css) {
+            $differences[] = new SiteSpecPlanChangeData('custom_css', $theme->custom_css, $customCss);
+        }
+
+        return $differences;
+    }
+
+    private function stringValue(mixed $value): ?string
+    {
+        return match (true) {
+            $value === null => null,
+            is_string($value) => $value,
+            is_scalar($value) => var_export($value, true),
+            is_array($value) => JsonCodec::encode($value),
+            default => get_debug_type($value),
+        };
     }
 
     /** @return array{0: array<array-key, mixed>, 1: string|null} */
