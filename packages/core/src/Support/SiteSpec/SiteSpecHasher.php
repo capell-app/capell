@@ -27,20 +27,6 @@ final class SiteSpecHasher
             }
         }
 
-        $sort = function (array &$value) use (&$sort): void {
-            foreach ($value as &$nested) {
-                if (is_array($nested)) {
-                    $sort($nested);
-                }
-            }
-
-            unset($nested);
-            if (! array_is_list($value)) {
-                ksort($value);
-            }
-        };
-        $sort($payload);
-
-        return hash('sha256', JsonCodec::encode($payload));
+        return hash('sha256', JsonCodec::encode(SiteSpecJson::sortKeys($payload)));
     }
 }

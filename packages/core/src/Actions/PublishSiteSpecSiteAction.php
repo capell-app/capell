@@ -50,7 +50,7 @@ final class PublishSiteSpecSiteAction
 
     private const string PLACEHOLDER_TITLE = 'Coming soon';
 
-    private const string PLACEHOLDER_CONTENT = '<h1>Coming soon</h1><p>This site is being prepared.</p>';
+    private const string PLACEHOLDER_CONTENT = SiteSpecPageDataFactory::PLACEHOLDER_CONTENT;
 
     public function __construct(private readonly AuthorizesPublicationTransition $authorizer) {}
 

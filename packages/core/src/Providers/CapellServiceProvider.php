@@ -23,6 +23,7 @@ use Capell\Core\Console\Commands\CoreFakerCommand;
 use Capell\Core\Console\Commands\CreateBackupCommand;
 use Capell\Core\Console\Commands\DeleteMigrationsCommand;
 use Capell\Core\Console\Commands\DoctorCommand;
+use Capell\Core\Console\Commands\ExportSiteSpecCommand;
 use Capell\Core\Console\Commands\ExtensionAuditCommand;
 use Capell\Core\Console\Commands\ExtensionPlaygroundCommand;
 use Capell\Core\Console\Commands\FakerCommand;
@@ -434,6 +435,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             HealthCheckCommand::class,
             HealthCommand::class,
             InitializeScreenshotRecordStateFixtureCommand::class,
+            ExportSiteSpecCommand::class,
             ImportSiteSpecCommand::class,
             InstallExtensionCommand::class,
             ImportMarketplaceReceiptsCommand::class,

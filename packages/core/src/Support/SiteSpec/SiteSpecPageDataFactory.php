@@ -11,13 +11,16 @@ use Capell\Core\Support\Publishing\PublishSentinel;
 /** Builds the page data a SiteSpec page is created from, private by default. */
 final class SiteSpecPageDataFactory
 {
+    /** The body of the "Coming soon" home page a private import publishes in place of the spec's first page. */
+    public const string PLACEHOLDER_CONTENT = '<h1>Coming soon</h1><p>This site is being prepared.</p>';
+
     /** @return array<string, mixed> */
     public static function make(CapellSiteSpecPageData $page, Language $language, bool $first, bool $public): array
     {
         $content = SiteSpecPageContent::html($page);
 
         if (! $public && $first) {
-            $content = '<h1>Coming soon</h1><p>This site is being prepared.</p>';
+            $content = self::PLACEHOLDER_CONTENT;
         }
 
         return [

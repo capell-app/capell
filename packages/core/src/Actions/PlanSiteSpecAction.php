@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
+use Capell\Core\Data\SiteSpec\SiteSpecPlanChangeData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanItemData;
 use Capell\Core\Enums\SiteSpecPlanAction;
@@ -14,6 +15,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
 use Capell\Core\Support\SiteSpec\SiteSpecPageSlug;
@@ -89,15 +91,35 @@ final class PlanSiteSpecAction
 
     private function pageItem(CapellSiteSpecPageData $pageSpec, ?Page $page, ?Translation $translation, bool $privateSpec, ?Site $site): SiteSpecPlanItemData
     {
+        $proposed = ['name' => $pageSpec->name, 'title' => $pageSpec->title, 'content' => SiteSpecPageContent::html($pageSpec)];
+
         if (! $page instanceof Page || ! $translation instanceof Translation) {
-            return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Create);
+            return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Create, differences: array_map(
+                static fn (string $field, string $after): SiteSpecPlanChangeData => new SiteSpecPlanChangeData($field, null, $after),
+                array_keys($proposed),
+                array_values($proposed),
+            ));
         }
 
-        $changes = array_keys(array_filter([
-            'name' => $page->name !== $pageSpec->name,
-            'title' => $translation->title !== $pageSpec->title,
-            'content' => (string) $translation->content !== SiteSpecPageContent::html($pageSpec),
-        ]));
+        // The current values as the spec would write them: a missing title reads as the page
+        // name, and the body is compared after the sanitising an apply would do, so content
+        // that differs only in markup the import would strip is not rewritten. A block body
+        // never matches an HTML spec.
+        $content = $translation->content;
+        $current = [
+            'name' => $page->name,
+            'title' => filled($translation->title) ? (string) $translation->title : $page->name,
+            'content' => is_string($content) || $content === null ? SiteSpecPageContent::sanitisedBody((string) $content) : JsonCodec::encode((array) $content),
+        ];
+        $differences = [];
+
+        foreach ($proposed as $field => $after) {
+            if ($current[$field] !== $after) {
+                $differences[] = new SiteSpecPlanChangeData($field, $current[$field], $after);
+            }
+        }
+
+        $changes = array_map(static fn (SiteSpecPlanChangeData $difference): string => $difference->field, $differences);
 
         if ($changes === []) {
             return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip);
@@ -107,13 +129,13 @@ final class PlanSiteSpecAction
         if ($privateSpec && ! PublishSentinel::isDraftValue($page->visible_from)) {
             // Guided setup writes the person's home page over the placeholder when they publish.
             if ($site instanceof Site && Page::query()->homePage()->whereKey($page->getKey())->exists() && ResolveGuidedSetupStateAction::isPlaceholderHome($site, $page)) {
-                return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip, $changes, SiteSpecPlanItemData::NOTE_PLACEHOLDER_HOME_KEPT);
+                return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip, $changes, SiteSpecPlanItemData::NOTE_PLACEHOLDER_HOME_KEPT, $differences);
             }
 
-            return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip, $changes, SiteSpecPlanItemData::NOTE_LIVE_PAGE_HELD);
+            return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Skip, $changes, SiteSpecPlanItemData::NOTE_LIVE_PAGE_HELD, $differences);
         }
 
-        return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Update, $changes);
+        return new SiteSpecPlanItemData('page', $pageSpec->slug, SiteSpecPlanAction::Update, $changes, differences: $differences);
     }
 
     private function themeItem(CapellSiteSpecData $spec, Site $site): ?SiteSpecPlanItemData
@@ -124,10 +146,14 @@ final class PlanSiteSpecAction
             return null;
         }
 
+        $differences = MergeSiteSpecThemeSettingsAction::make()->differences($theme, $spec);
+
         return new SiteSpecPlanItemData(
             'theme',
             $theme->key,
-            MergeSiteSpecThemeSettingsAction::make()->wouldChange($theme, $spec) ? SiteSpecPlanAction::Update : SiteSpecPlanAction::Skip,
+            $differences === [] ? SiteSpecPlanAction::Skip : SiteSpecPlanAction::Update,
+            array_map(static fn (SiteSpecPlanChangeData $difference): string => $difference->field, $differences),
+            differences: $differences,
         );
     }
 
