@@ -47,27 +47,40 @@ it('syncs enabled manifest permissions with the existing administrator grant pol
         ->and($otherGuard->refresh()->permissions()->count())->toBe(0);
 })->with([PermissionSyncMode::Install, PermissionSyncMode::Upgrade]);
 
-it('does not materialise permissions from inactive manifests', function (?ExtensionStatusEnum $status): void {
-    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
-        name: 'vendor/inactive',
-        overrides: ['permissions' => ['Manage:InactivePackage']],
-    ));
-    CapellCore::registerManifestPackage($manifest);
-    if ($status instanceof ExtensionStatusEnum) {
-        CapellExtension::query()->create([
-            'composer_name' => $manifest->name,
-            'name' => 'Inactive package',
-            'version' => '1.0.0',
-            'status' => $status,
-            'installed_at' => now(),
-        ]);
-        CapellCore::forcePackageInstalled($manifest->name);
+it('does not materialise permissions from inactive manifests', function (): void {
+    $permissions = [];
+    $inactiveStatuses = [
+        'not-installed' => null,
+        'disabled' => ExtensionStatusEnum::Disabled,
+        'failed' => ExtensionStatusEnum::Failed,
+        'uninstalled' => ExtensionStatusEnum::Uninstalled,
+    ];
+
+    foreach ($inactiveStatuses as $name => $status) {
+        $permission = 'fixture.inactive.' . $name;
+        $permissions[] = $permission;
+        $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+            name: 'vendor/' . $name,
+            overrides: ['permissions' => [$permission]],
+        ));
+        CapellCore::registerManifestPackage($manifest);
+
+        if ($status instanceof ExtensionStatusEnum) {
+            CapellExtension::query()->create([
+                'composer_name' => $manifest->name,
+                'name' => $name,
+                'version' => '1.0.0',
+                'status' => $status,
+                'installed_at' => now(),
+            ]);
+            CapellCore::forcePackageInstalled($manifest->name);
+        }
     }
 
     SyncCapellPermissionsAction::run(PermissionSyncMode::Upgrade);
 
-    expect(Permission::query()->where('name', 'Manage:InactivePackage')->exists())->toBeFalse();
-})->with([null, ExtensionStatusEnum::Disabled, ExtensionStatusEnum::Failed, ExtensionStatusEnum::Uninstalled]);
+    expect(Permission::query()->whereIn('name', $permissions)->pluck('name')->all())->toBe([]);
+});
 
 it('respects Shield settings when granting manifest permissions during upgrade', function (bool $enabled, bool $viaGate): void {
     config()->set('filament-shield.super_admin.enabled', $enabled);
@@ -88,7 +101,7 @@ it('respects Shield settings when granting manifest permissions during upgrade',
         ->and($role->refresh()->hasPermissionTo('Manage:RedirectRules', 'web'))->toBe($enabled && ! $viaGate);
 })->with([[true, false], [true, true], [false, false]]);
 
-it('syncs generated and Capell catalog permissions during install', function (): void {
+it('syncs install permissions and role defaults idempotently', function (): void {
     SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
 
     expect(Permission::query()->pluck('name')->all())->toContain(
@@ -104,10 +117,6 @@ it('syncs generated and Capell catalog permissions during install', function ():
         CapellPermission::ManagePageRestrictions->name(),
         'View:' . class_basename(SiteHealthPage::class),
     );
-});
-
-it('seeds install role defaults', function (): void {
-    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
 
     expect(Role::findByName('editor')->hasPermissionTo('Update:Page', 'web'))->toBeTrue()
         ->and(Role::findByName('editor')->hasPermissionTo('ViewAny:PageUrl', 'web'))->toBeTrue()
@@ -119,6 +128,11 @@ it('seeds install role defaults', function (): void {
         ->and(Role::findByName('super_admin')->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeTrue()
         ->and(Role::findByName('super_admin')->hasPermissionTo('ViewAny:Role', 'web'))->toBeTrue()
         ->and(Role::findByName('super_admin')->hasPermissionTo('View:' . class_basename(SiteHealthPage::class), 'web'))->toBeTrue();
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
+
+    expect(Permission::query()->where('name', CapellPermission::ManageSitePermissions->name())->count())->toBe(1)
+        ->and(Permission::query()->where('name', CapellPermission::ImpersonateUsers->name())->count())->toBe(1);
 });
 
 it('seeds install permissions for contributed package pages', function (): void {
@@ -157,14 +171,6 @@ it('preserves existing custom role permissions during upgrade sync', function ()
     expect($adminRole->hasPermissionTo('custom.client.permission', 'web'))->toBeTrue()
         ->and($adminRole->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeTrue()
         ->and($adminRole->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse();
-});
-
-it('is idempotent', function (): void {
-    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
-    SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
-
-    expect(Permission::query()->where('name', CapellPermission::ManageSitePermissions->name())->count())->toBe(1)
-        ->and(Permission::query()->where('name', CapellPermission::ImpersonateUsers->name())->count())->toBe(1);
 });
 
 it('seeds typed package permissions and grants their default roles on install', function (): void {

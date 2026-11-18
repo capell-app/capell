@@ -33,6 +33,8 @@ use function Pest\Laravel\get;
 
 use Symfony\Component\Process\Process;
 
+require_once dirname(__DIR__, 7) . '/tests/Support/DomQuery.php';
+
 uses(CreatesAdminUser::class)
     ->group('page');
 
@@ -50,36 +52,21 @@ it('cannot see pages', function (): void {
         ->assertForbidden();
 });
 
-it('admin cannot create page without a site', function (): void {
-    test()->actingAsAdmin();
-
-    Language::factory()->default()->create();
-    Blueprint::factory()->page()->default()->create();
-
-    get(PageResource::getUrl('create'))
-        ->assertRedirectToRoute(CreateSite::getRouteName());
-});
-
-it('admin can see create page', function (): void {
+it('redirects creation to site setup until a site exists', function (): void {
     test()->actingAsAdmin();
 
     $language = Language::factory()->default()->create();
     Blueprint::factory()->page()->default()->create();
+    $createUrl = PageResource::getUrl('create');
+
+    get($createUrl)->assertRedirectToRoute(CreateSite::getRouteName());
 
     Site::factory()
         ->has(SiteDomain::factory()->state(['language_id' => $language->id]))
         ->default()
         ->create();
 
-    get(PageResource::getUrl('create'))
-        ->assertOk();
-});
-
-it('admin can see edit page', function (): void {
-    test()->actingAsAdmin();
-
-    get(PageResource::getUrl('edit', ['record' => Page::factory()->createOne()]))
-        ->assertOk();
+    get($createUrl)->assertOk();
 });
 
 it('renders executable Alpine attributes for the translation tabs', function (): void {
@@ -92,19 +79,7 @@ it('renders executable Alpine attributes for the translation tabs', function ():
     $html = $response->getContent();
     throw_if(! is_string($html) || $html === '', RuntimeException::class, 'The page response was empty.');
 
-    $document = new DOMDocument;
-    $previousLibxmlErrors = libxml_use_internal_errors(true);
-    try {
-        $document->loadHTML($html);
-    } finally {
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousLibxmlErrors);
-    }
-
-    $elements = new DOMXPath($document)->query('//*[contains(@x-data, "capellRepeaterTabs")]');
-    throw_if($elements === false, RuntimeException::class, 'The translation tabs query was invalid.');
-    $element = $elements->item(0);
-    throw_unless($element instanceof DOMElement, RuntimeException::class, 'Translation tabs were not rendered.');
+    $element = domElement(domXPath($html), '//*[contains(@x-data, "capellRepeaterTabs")]');
 
     expect($element->getAttribute('x-data'))->toContain('data.activeTab')->not->toContain('@js(')
         ->and($element->getAttribute('x-init'))->toContain('$watch(')->not->toContain('&#039;')->not->toContain('&gt;')
@@ -248,7 +223,7 @@ it('uses a site-compatible creation fallback without replacing explicit choices'
     expect($data['layout_id'])->toBe($shared->id);
 });
 
-it('mounts quick create with layout defaults for the context site', function (string $context, string $defaultLayout): void {
+it('mounts editor quick create with layout defaults for the context site', function (string $defaultLayout): void {
     test()->actingAsAdmin();
     $language = Language::factory()->english()->createOne();
     $siteA = Site::factory()->language($language)->withTranslations($language)->createOne(['default' => true]);
@@ -261,12 +236,7 @@ it('mounts quick create with layout defaults for the context site', function (st
         : null;
     $page = Page::factory()->site($siteB)->layout($layoutB)->withTranslations($language)->createOne();
 
-    $form = match ($context) {
-        'editor' => Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]),
-        'list tab' => Livewire::test(ListPages::class)->set('activeTab', (string) $siteB->id),
-        'list filter' => Livewire::test(ListPages::class)->set('activeTab', 'all')->filterTable('site_id', $siteB->id),
-        default => throw new InvalidArgumentException('Unknown quick-create context: ' . $context),
-    };
+    $form = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
     $action = TestAction::make(CreatePageAction::class);
     $form->mountAction($action)->assertActionMounted($action);
     $schemaName = expectPresent($form->instance()->getMountedActionSchemaName());
@@ -275,7 +245,7 @@ it('mounts quick create with layout defaults for the context site', function (st
         'site_id' => $siteB->id,
         'layout_id' => $defaultLayout === 'site' ? $layoutB->id : $sharedLayout?->id,
     ], $schemaName);
-})->with(['editor'])->with(['none', 'site', 'shared']);
+})->with(['none', 'site', 'shared']);
 
 it('quick creates from the list with the layout default of the context site', function (string $context, string $defaultLayout): void {
     test()->actingAsAdmin();
@@ -396,7 +366,7 @@ it('requires an explicit language decision before saving the destination page', 
         ->and($page->translations()->sole()->meta)->toEqual(['slug' => 'kept-title']);
 });
 
-it('activates a retained translation after confirming language removal', function (bool $quickCreate, bool $retainActive, string $event): void {
+it('activates a retained translation after confirming language removal', function (bool $quickCreate, bool $retainActive): void {
     test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne(['default' => true]);
     $french = Language::factory()->french()->createOne(['default' => false]);
@@ -404,10 +374,13 @@ it('activates a retained translation after confirming language removal', functio
     $siteA = Site::factory()->language($english)->withTranslations([$english, $french, $german])->createOne();
     $siteB = Site::factory()->language($english)->withTranslations($retainActive ? [$english, $german] : [$english])->createOne();
     Blueprint::factory()->page()->default()->createOne();
-    $page = Page::factory()->site($siteA)->withTranslations([$english, $french, $german])->createOne();
-    $form = $quickCreate
-        ? Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->mountAction(TestAction::make(CreatePageAction::class))
-        : Livewire::test(CreatePage::class);
+    if ($quickCreate) {
+        $page = Page::factory()->site($siteA)->withTranslations([$english, $french, $german])->createOne();
+        $form = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->mountAction(TestAction::make(CreatePageAction::class));
+    } else {
+        $form = Livewire::test(CreatePage::class);
+    }
+
     $statePath = $quickCreate ? 'mountedActions.0.data' : 'data';
     $schemaName = $quickCreate ? expectPresent($form->instance()->getMountedActionSchemaName()) : 'form';
     $outerSiteId = $form->get('data.site_id');
@@ -420,33 +393,20 @@ it('activates a retained translation after confirming language removal', functio
             'german' => ['language_id' => $german->id, 'title' => 'Deutscher Titel', 'content' => '<p>German draft</p>'],
         ]);
 
-    // Run the rendered handler against the real Alpine component, then send its
-    // selection through the Livewire state path shared by $wire.$entangle().
+    // Both rendered handlers select the same tab through the Livewire state path shared by $wire.$entangle().
     view()->share('errors', new ViewErrorBag);
     $form->assertSet($statePath . '.activeTab', 1);
     $schema = expectPresent($form->instance()->getSchema($schemaName));
     $repeater = $schema->getComponentByStatePath($statePath . '.translations', withHidden: true, withAbsoluteStatePath: true);
     assert($repeater instanceof TranslationsRepeater);
-    $html = $repeater->toHtml();
-    throw_if($html === '', RuntimeException::class, 'The translation repeater rendered no HTML.');
-    $document = new DOMDocument;
-    $previousLibxmlErrors = libxml_use_internal_errors(true);
-    try {
-        $document->loadHTML($html);
-    } finally {
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousLibxmlErrors);
-    }
-
-    $tabs = new DOMXPath($document)->query($event === 'x-on:expand' ? '//*[@role="tabpanel"]' : '//*[@role="tab"]');
-    throw_unless($tabs !== false, RuntimeException::class, 'Invalid tab query.');
-    $tab = $tabs->item($retainActive ? 2 : 1);
-    throw_unless($tab instanceof DOMElement, RuntimeException::class, 'Expected the non-initial translation tab.');
-    $click = new Process(['node', '--input-type=module', '-e', <<<'JS_WRAP'
+    $document = domXPath($repeater->toHtml());
+    $position = $retainActive ? 2 : 1;
+    $tab = domElement($document, sprintf('(//*[@role="tab"])[%d]', $position + 1));
+    $panel = domElement($document, sprintf('(//*[@role="tabpanel"])[%d]', $position + 1));
+    $process = new Process(['node', '--input-type=module', '-e', <<<'JS_WRAP'
     import { readFileSync } from 'node:fs';
     import capellRepeaterTabs from './packages/admin/resources/js/components/repeater-tabs.js';
-    const { handler, activeTab, panelCount, panelPosition } = JSON.parse(readFileSync(0, 'utf8'));
-    const state = capellRepeaterTabs({ activeTab });
+    const { handlers, activeTab, panelCount, panelPosition } = JSON.parse(readFileSync(0, 'utf8'));
     // Alpine supplies $el: the panel that fired the event, among its sibling panels.
     const panels = Array.from({ length: panelCount }, () => ({
         matches: () => true,
@@ -454,24 +414,33 @@ it('activates a retained translation after confirming language removal', functio
             return { children: panels };
         },
     }));
-    new Function('$el', `with (this) { ${handler} }`).call(state, panels[panelPosition]);
-    process.stdout.write(JSON.stringify({ tab: state.tab, focusedTab: state.focusedTab }));
+    const selections = {};
+    for (const [event, handler] of Object.entries(handlers)) {
+        const state = capellRepeaterTabs({ activeTab });
+        new Function('$el', `with (this) { ${handler} }`).call(state, panels[panelPosition]);
+        selections[event] = { tab: state.tab, focusedTab: state.focusedTab };
+    }
+    process.stdout.write(JSON.stringify(selections));
     JS_WRAP]);
-    $click->setInput(json_encode([
-        'handler' => $tab->getAttribute($event),
+    $process->setInput(json_encode([
+        'handlers' => [
+            'tab click' => $tab->getAttribute('x-on:click.stop'),
+            'panel expansion' => $panel->getAttribute('x-on:expand'),
+        ],
         'activeTab' => $repeater->getActiveTab(),
-        'panelCount' => $tabs->length,
-        'panelPosition' => $retainActive ? 2 : 1,
+        'panelCount' => domCount($document, '//*[@role="tabpanel"]'),
+        'panelPosition' => $position,
     ], JSON_THROW_ON_ERROR));
-    $click->mustRun();
+    $process->mustRun();
 
-    $selection = json_decode($click->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+    $selections = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+    $activeTab = $position + 1;
     $activeTabStatePath = $repeater->getActiveTabStatePath();
-    expect($selection['tab'])->toBe($retainActive ? 3 : 2)
-        ->and($selection['focusedTab'])->toBe($selection['tab'])
-        ->and($activeTabStatePath)->toBe($statePath . '.activeTab');
-    $form->set($activeTabStatePath, $selection['tab'])
-        ->assertSet($activeTabStatePath, $retainActive ? 3 : 2);
+    expect($selections)->toBe([
+        'tab click' => ['tab' => $activeTab, 'focusedTab' => $activeTab],
+        'panel expansion' => ['tab' => $activeTab, 'focusedTab' => $activeTab],
+    ])->and($activeTabStatePath)->toBe($statePath . '.activeTab');
+    $form->set($activeTabStatePath, $selections['tab click']['tab'])->assertSet($activeTabStatePath, $activeTab);
 
     $form->set($statePath . '.site_id', $siteB->id);
     $action = TestAction::make('useSiteLanguages')->schemaComponent('site_id', schema: $schemaName);
@@ -498,8 +467,7 @@ it('activates a retained translation after confirming language removal', functio
             ->and($form->get('data'))->toBe($outerData);
     }
 })->with(['ordinary creation' => false, 'quick create' => true])
-    ->with(['removed active row' => false, 'retained active row moves' => true])
-    ->with(['tab click' => 'x-on:click.stop', 'panel expansion' => 'x-on:expand']);
+    ->with(['removed active row' => false, 'retained active row moves' => true]);
 
 it('keeps compatible content and eligible selections outside the first parent options', function (): void {
     test()->actingAsAdmin();

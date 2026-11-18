@@ -133,6 +133,7 @@ it('builds marketplace table records from filtered marketplace listings', functi
             'author' => ['author' => 'capell-labs'],
             'capability' => ['values' => ['settings', 'invalid', 'search']],
             'free_only' => ['isActive' => true],
+            'installed_status' => ['value' => false],
             'price' => [
                 'price_min' => '10.50',
                 'price_max' => '99',
@@ -955,7 +956,7 @@ it('persists update_available on the catalogue record, not just inside the prese
         ->toBe(MarketplaceInstallState::UpdateAvailable);
 });
 
-it('marks installed marketplace records with update and compatibility state', function (): void {
+it('marks installed marketplace records with update and compatibility state', function (string|bool $installedStatus): void {
     CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
 
@@ -986,7 +987,7 @@ it('marks installed marketplace records with update and compatibility state', fu
 
     $installedRecords = (resolve(MarketplaceCatalogueRecordProvider::class))->records(
         filters: [
-            'installed_status' => ['value' => 'installed'],
+            'installed_status' => ['value' => $installedStatus],
         ],
     );
 
@@ -1013,7 +1014,10 @@ it('marks installed marketplace records with update and compatibility state', fu
     Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
         && $request->data()['installed_status'] === 'installed'
         && str_contains((string) $request->data()['installed_composer_names'], 'capell-app/seo-suite'));
-});
+})->with([
+    'named installed filter' => ['installed'],
+    'legacy boolean filter' => [true],
+]);
 
 it('trusts server-owned marketplace install state before local paid purchase fallbacks', function (): void {
     Http::fake([
@@ -1535,11 +1539,18 @@ it('locks marketplace catalogue records and filters to the configured extension 
         ->all();
 
     expect($records)->toHaveCount(1)
-        ->and($records[0]['kind'])->toBe('theme')
+        ->and($records[0])->toMatchArray([
+            'slug' => 'agency-theme',
+            'composer_name' => 'capell-app/theme-agency',
+            'kind' => 'theme',
+            'is_installed' => false,
+            'is_compatible' => true,
+        ])
         ->and($filterNames)->not->toContain('kind');
 
     Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
-        && $request->data()['kind'] === 'theme');
+        && $request->data()['kind'] === 'theme'
+        && ! array_key_exists('installed_status', $request->data()));
 });
 
 it('handles missing marketplace listings without requesting authorization', function (): void {

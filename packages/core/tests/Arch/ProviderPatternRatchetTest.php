@@ -216,7 +216,7 @@ function providerPatternPhpPaths(string $repositoryRoot, ?callable $filter = nul
 
 function providerPatternExtendsAbstractKeyedRegistry(string $path): bool
 {
-    return array_any(providerPatternNodes($path), fn (Node $node): bool => $node instanceof Class_ && $node->extends?->toString() === AbstractKeyedRegistry::class);
+    return array_any(providerPatternNodes(File::get($path)), fn (Node $node): bool => $node instanceof Class_ && $node->extends?->toString() === AbstractKeyedRegistry::class);
 }
 
 /** @return list<string> */
@@ -224,7 +224,7 @@ function providerPatternFunctionCalls(string $path): array
 {
     $calls = [];
 
-    foreach (providerPatternNodes($path) as $node) {
+    foreach (providerPatternNodes(File::get($path)) as $node) {
         if ($node instanceof FuncCall && $node->name instanceof Name) {
             $calls[] = $node->name->toString();
         }
@@ -238,7 +238,7 @@ function providerPatternStaticCalls(string $path): array
 {
     $calls = [];
 
-    foreach (providerPatternNodes($path) as $node) {
+    foreach (providerPatternNodes(File::get($path)) as $node) {
         if ($node instanceof StaticCall
             && $node->class instanceof Name
             && $node->name instanceof Identifier) {
@@ -255,9 +255,16 @@ function providerPatternStaticCalls(string $path): array
 /** @return list<array{function: string, target: string}> */
 function providerPatternStaticAvailabilityProbes(string $path): array
 {
+    $source = File::get($path);
+    $probeNames = ['class_exists', 'interface_exists', 'method_exists'];
+    // An aliased call still spells out its original function name in the import.
+    if (! array_any($probeNames, static fn (string $name): bool => stripos($source, $name) !== false)) {
+        return [];
+    }
+
     $probes = [];
 
-    foreach (providerPatternNodes($path) as $node) {
+    foreach (providerPatternNodes($source) as $node) {
         if (! $node instanceof FuncCall) {
             continue;
         }
@@ -266,7 +273,7 @@ function providerPatternStaticAvailabilityProbes(string $path): array
             continue;
         }
 
-        if (! in_array($node->name->toString(), ['class_exists', 'interface_exists', 'method_exists'], true)) {
+        if (! in_array($node->name->toString(), $probeNames, true)) {
             continue;
         }
 
@@ -285,9 +292,9 @@ function providerPatternStaticAvailabilityProbes(string $path): array
 }
 
 /** @return list<Node> */
-function providerPatternNodes(string $path): array
+function providerPatternNodes(string $source): array
 {
-    $statements = (new ParserFactory)->createForNewestSupportedVersion()->parse((string) file_get_contents($path)) ?? [];
+    $statements = (new ParserFactory)->createForNewestSupportedVersion()->parse($source) ?? [];
     $traverser = new NodeTraverser;
     $traverser->addVisitor(new NameResolver);
 

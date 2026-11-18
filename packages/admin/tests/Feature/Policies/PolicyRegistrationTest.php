@@ -119,9 +119,10 @@ it('denies domain management to assigned users without site permissions', functi
         ->and(Gate::allows('delete', $domain))->toBeFalse();
 });
 
-it('preserves default admin global resource parity and keeps editors without access', function (string $defaults, ResourceEnum $resource): void {
+it('preserves default admin global resource parity and keeps editors without access', function (string $defaults): void {
+    $resources = [ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language];
     EnsureCapellPermissionsAction::run();
-    AssignPermissionsToRole::run(resources: [$resource]);
+    AssignPermissionsToRole::run(resources: $resources);
     $admin = Role::findOrCreate('admin', 'web');
     $editor = Role::findOrCreate('editor', 'web');
     $admin->syncPermissions([]);
@@ -135,30 +136,33 @@ it('preserves default admin global resource parity and keeps editors without acc
         GrantCapellDefaultRolePermissionsAction::run($defaults === 'install grant' ? PermissionSyncMode::Install : PermissionSyncMode::Upgrade);
     }
 
-    $model = $resource->value::getModel();
-    $record = $model::factory()->createOne();
     $administrator = User::factory()->createOne()->assignRole($admin);
-    $author = User::factory()->createOne()->assignRole($editor);
-    foreach (['viewAny', 'create', 'deleteAny', 'restoreAny', 'forceDeleteAny', 'reorder'] as $ability) {
-        expect(Gate::forUser($administrator)->allows($ability, $model))->toBeTrue()
-            ->and(Gate::forUser($author)->allows($ability, $model))->toBeFalse();
-    }
+    $adminGate = Gate::forUser($administrator);
+    foreach ($resources as $resource) {
+        $model = $resource->value::getModel();
+        $record = $model::factory()->createOne();
+        $author = User::factory()->createOne()->assignRole($editor);
+        $authorGate = Gate::forUser($author);
+        $subjects = [
+            [$model, ['viewAny', 'create', 'deleteAny', 'restoreAny', 'forceDeleteAny', 'reorder']],
+            [$record, ['view', 'update', 'delete', 'restore', 'forceDelete', 'replicate']],
+        ];
 
-    foreach (['view', 'update', 'delete', 'restore', 'forceDelete', 'replicate'] as $ability) {
-        expect(Gate::forUser($administrator)->allows($ability, $record))->toBeTrue()
-            ->and(Gate::forUser($author)->allows($ability, $record))->toBeFalse();
-    }
+        foreach ($subjects as [$subject, $abilities]) {
+            foreach ($abilities as $ability) {
+                expect($adminGate->allows($ability, $subject))->toBeTrue(sprintf('Default admin: %s %s', $resource->name, $ability));
+                expect($authorGate->allows($ability, $subject))->toBeFalse(sprintf('Default editor: %s %s', $resource->name, $ability));
+            }
+        }
 
-    $author->givePermissionTo(ResolveDefaultGlobalResourcePermissionsAction::run($resource));
-
-    foreach (['viewAny', 'create', 'deleteAny', 'restoreAny', 'forceDeleteAny', 'reorder'] as $ability) {
-        expect(Gate::forUser($author)->allows($ability, $model))->toBeTrue();
+        $author->givePermissionTo(ResolveDefaultGlobalResourcePermissionsAction::run($resource));
+        foreach ($subjects as [$subject, $abilities]) {
+            foreach ($abilities as $ability) {
+                expect($authorGate->allows($ability, $subject))->toBeTrue(sprintf('Editor with explicit grant: %s %s', $resource->name, $ability));
+            }
+        }
     }
-
-    foreach (['view', 'update', 'delete', 'restore', 'forceDelete', 'replicate'] as $ability) {
-        expect(Gate::forUser($author)->allows($ability, $record))->toBeTrue();
-    }
-})->with(['fresh install', 'seeder', 'install grant', 'upgrade grant'])->with([ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language]);
+})->with(['fresh install', 'seeder', 'install grant', 'upgrade grant']);
 
 it('preserves explicit denying host policies for a model or its ancestor during provider boot', function (bool $ancestor): void {
     $actor = User::factory()->createOne();

@@ -479,7 +479,7 @@ it('reports public output and queue worker requirements', function (): void {
 });
 
 it('reports composer file permissions when packages will be required', function (): void {
-    $report = resolve(InstallerPreflight::class)->run(new InstallInputData(
+    $report = new InstallerPreflight(new FakeProcessFactory)->run(new InstallInputData(
         siteUrl: 'https://example.test',
         packages: [],
         languages: ['en'],

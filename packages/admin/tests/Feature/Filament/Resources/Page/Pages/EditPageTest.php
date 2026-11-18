@@ -142,13 +142,6 @@ function arrangePageUrlHistory(EditPage $component, PageUrl $canonical, PageUrl 
         ->setRelation('pageUrl', $canonical);
 }
 
-it('can render page', function (): void {
-    get(PageResource::getUrl('edit', [
-        'record' => Page::factory()->createOne(),
-    ]))
-        ->assertSuccessful();
-});
-
 it('routes Page edit stable content and actions through the authenticated context', function (): void {
     $page = Page::factory()->createOne();
     foreach (['View:Page', 'Update:Page'] as $permissionName) {
@@ -305,21 +298,6 @@ it('edit page hides authoring surface markup', function (bool $layoutEditable): 
     'enabled' => [true],
     'disabled' => [false],
 ]);
-
-it('can retrieve data', function (): void {
-    $page = Page::factory()->createOne();
-
-    Livewire::test(EditPage::class, [
-        'record' => $page->getRouteKey(),
-    ])
-        ->assertSuccessful()
-        ->assertSchemaStateSet([
-            'name' => $page->name,
-            'blueprint_id' => $page->blueprint->getKey(),
-            'layout_id' => $page->layout->getKey(),
-            'site_id' => $page->site->getKey(),
-        ]);
-});
 
 it('shows page state and the page url as a link in the edit page subheading', function (): void {
     $site = Site::factory()
@@ -700,12 +678,19 @@ it('rechecks page update authorization when taking over an active page lock', fu
     Date::setTestNow();
 });
 
-it('uses form actions below the edit form by default', function (): void {
+it('loads the page details and places the default actions below the form', function (): void {
     $page = Page::factory()->createOne(['visible_until' => null]);
 
     $livewire = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
-    ])->assertSuccessful();
+    ])
+        ->assertSuccessful()
+        ->assertSchemaStateSet([
+            'name' => $page->name,
+            'blueprint_id' => $page->blueprint->getKey(),
+            'layout_id' => $page->layout->getKey(),
+            'site_id' => $page->site->getKey(),
+        ]);
 
     $component = $livewire->instance();
 
@@ -728,120 +713,7 @@ it('uses form actions below the edit form by default', function (): void {
         ->and($headerActionNames)->not->toContain('cancel');
 });
 
-it('shows the frontend source map header action', function (): void {
-    $page = Page::factory()->createOne();
-
-    $livewire = Livewire::test(EditPage::class, [
-        'record' => $page->getRouteKey(),
-    ])->assertSuccessful();
-
-    $component = $livewire->instance();
-
-    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
-
-    $actionGroup = collect($component->getCachedHeaderActions())
-        ->first(fn (object $action): bool => $action instanceof ActionGroup
-            && ($action->getFlatActions()['frontendSourceMap'] ?? null) instanceof Action);
-
-    assert($actionGroup instanceof ActionGroup);
-
-    $frontendSourceMapAction = $actionGroup->getFlatActions()['frontendSourceMap'];
-
-    expect($actionGroup)->not->toBeNull()
-        ->and($actionGroup->getLabel())->toBe(__('capell-admin::button.more'))
-        ->and(collect($actionGroup->getFlatActions())->keys()->all())->toContain('frontendSourceMap')
-        ->and($frontendSourceMapAction->getLabel())->toBe(__('capell-admin::generic.frontend_source_map'))
-        ->and($frontendSourceMapAction->getTooltip())->toBe(__('capell-admin::generic.frontend_source_map_description'))
-        ->and($frontendSourceMapAction->getModalDescription())->toBe(__('capell-admin::generic.frontend_source_map_description'));
-});
-
-it('shows the frontend resource diagnostics header action', function (): void {
-    $page = Page::factory()->createOne();
-
-    $livewire = Livewire::test(EditPage::class, [
-        'record' => $page->getRouteKey(),
-    ])->assertSuccessful();
-
-    $component = $livewire->instance();
-
-    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
-
-    $actionGroup = collect($component->getCachedHeaderActions())
-        ->first(fn (object $action): bool => $action instanceof ActionGroup
-            && ($action->getFlatActions()['frontendResourceDiagnostics'] ?? null) instanceof Action);
-
-    assert($actionGroup instanceof ActionGroup);
-
-    $frontendResourceDiagnosticsAction = $actionGroup->getFlatActions()['frontendResourceDiagnostics'];
-
-    expect($actionGroup)->not->toBeNull()
-        ->and($actionGroup->getLabel())->toBe(__('capell-admin::button.more'))
-        ->and(collect($actionGroup->getFlatActions())->keys()->all())->toContain('frontendResourceDiagnostics')
-        ->and($frontendResourceDiagnosticsAction->getLabel())->toBe(__('capell-admin::generic.frontend_resource_diagnostics'))
-        ->and($frontendResourceDiagnosticsAction->getTooltip())->toBe(__('capell-admin::generic.frontend_resource_diagnostics_description'))
-        ->and($frontendResourceDiagnosticsAction->getModalDescription())->toBe(__('capell-admin::generic.frontend_resource_diagnostics_description'));
-});
-
-it('does not render content block conversion actions in the page header', function (): void {
-    app()->bind('test-convert-content-to-blocks-header-extender', fn (): ResourceHeaderActionExtender => new class implements ResourceHeaderActionExtender
-    {
-        public function supports(string $pageClass): bool
-        {
-            return $pageClass === EditPage::class;
-        }
-
-        /** @return array<int, Action> */
-        public function actions(): array
-        {
-            return [
-                Action::make('convertContentToBlocks')
-                    ->label(__('capell-admin::button.convert_to_content_blocks')),
-            ];
-        }
-    });
-
-    app()->tag(['test-convert-content-to-blocks-header-extender'], ResourceHeaderActionExtender::TAG);
-
-    $page = Page::factory()->createOne();
-
-    $livewire = Livewire::test(EditPage::class, [
-        'record' => $page->getRouteKey(),
-    ])->assertSuccessful();
-
-    $component = $livewire->instance();
-
-    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
-
-    $headerActionNames = collect($component->getCachedHeaderActions())
-        ->reject(fn (object $action): bool => $action instanceof ActionGroup)
-        ->map(fn (object $action): ?string => filamentObjectName($action))
-        ->filter()
-        ->values()
-        ->all();
-
-    expect($headerActionNames)->not->toContain('convertContentToBlocks');
-});
-
-it('removes the standalone view page header action', function (): void {
-    $page = Page::factory()->withTranslations()->create();
-
-    $livewire = Livewire::test(EditPage::class, [
-        'record' => $page->getRouteKey(),
-    ])->assertSuccessful();
-
-    $component = $livewire->instance();
-
-    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
-
-    // Req #3: the "View page" action group was removed; the live page is now
-    // reachable via the clickable URL link in the subheading instead.
-    $viewPageGroups = collect($component->getCachedHeaderActions())
-        ->filter(fn (object $action): bool => $action instanceof ActionGroup && $action->getLabel() === __('capell-admin::button.view_page'));
-
-    expect($viewPageGroups)->toHaveCount(0);
-});
-
-it('places the sitemap action inside the overflow menu rather than the top-level header', function (): void {
+it('groups the contributed sitemap action and omits contributed block conversion', function (): void {
     // The real sitemap action is contributed by the site-discovery package's
     // ResourceHeaderActionExtender. That package is not loaded in the admin test
     // suite, so register an equivalent fake to exercise the EditPage partition logic.
@@ -858,6 +730,8 @@ it('places the sitemap action inside the overflow menu rather than the top-level
             return [
                 Action::make('sitemap')
                     ->label('Sitemap'),
+                Action::make('convertContentToBlocks')
+                    ->label(__('capell-admin::button.convert_to_content_blocks')),
             ];
         }
     });
@@ -876,15 +750,14 @@ it('places the sitemap action inside the overflow menu rather than the top-level
 
     $headerActions = collect($component->getCachedHeaderActions());
 
-    // The sitemap action must not appear as a top-level header button...
     $topLevelNames = $headerActions
         ->reject(fn (object $action): bool => $action instanceof ActionGroup)
         ->map(fn (object $action): ?string => $action->getName())
         ->all();
 
-    expect($topLevelNames)->not->toContain('sitemap');
+    expect($topLevelNames)->not->toContain('sitemap')
+        ->not->toContain('convertContentToBlocks');
 
-    // ...but it must still be present, nested within an overflow ActionGroup.
     $nestedNames = $headerActions
         ->filter(fn (object $action): bool => $action instanceof ActionGroup)
         ->flatMap(fn (ActionGroup $group): array => array_keys($group->getFlatActions()))
@@ -1426,12 +1299,12 @@ it('requires confirmation before adding redirects from the url change notificati
         ->and($action->getModalDescription())->toBe(__('capell-admin::message.add_url_redirect_confirmation'));
 });
 
-it('shows warning when url changes', function (): void {
+it('warns when the page URL changes and clears the warning on the next save', function (): void {
     $language = Language::factory()->createOne();
     $page = Page::factory()->recycle($language)->withTranslations(slug: 'old-slug')->create();
     $originalUrl = $page->pageUrl()->where('language_id', $language->getKey())->value('url');
 
-    Livewire::test(EditPage::class, [
+    $component = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
     ])
         ->assertSuccessful()
@@ -1463,6 +1336,18 @@ it('shows warning when url changes', function (): void {
     ]);
 
     assertDatabaseCount(PageUrl::class, 2);
+
+    $component
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertNotNotified(__('capell-admin::message.url_changed'));
+
+    $instance = $component->instance();
+
+    throw_unless($instance instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
+
+    expect($instance->urlChanges)->toBe([])
+        ->and($instance->descendantUrlChanges)->toBe([]);
 });
 
 it('does not show warning when url does not change', function (): void {
@@ -1482,34 +1367,6 @@ it('does not show warning when url does not change', function (): void {
         ->assertNotNotified(__('capell-admin::message.url_redirects_added'));
 
     assertDatabaseCount(PageUrl::class, 1);
-});
-
-it('clears url change warning state after a later unchanged save', function (): void {
-    $language = Language::factory()->createOne();
-    $page = Page::factory()->recycle($language)->withTranslations(slug: 'old-slug')->create();
-
-    $component = Livewire::test(EditPage::class, [
-        'record' => $page->getRouteKey(),
-    ])
-        ->assertSuccessful()
-        ->fillForm([
-            sprintf('translations.record-%d.meta.slug', $page->translation->id) => 'new-slug',
-        ])
-        ->call('save')
-        ->assertHasNoFormErrors()
-        ->assertNotified(__('capell-admin::message.url_changed'));
-
-    $component
-        ->call('save')
-        ->assertHasNoFormErrors()
-        ->assertNotNotified(__('capell-admin::message.url_changed'));
-
-    $instance = $component->instance();
-
-    throw_unless($instance instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
-
-    expect($instance->urlChanges)->toBe([])
-        ->and($instance->descendantUrlChanges)->toBe([]);
 });
 
 it('adds url redirect when url changes and user confirms', function (): void {
@@ -2211,21 +2068,40 @@ it('opens the Versions and Activity tabs from the edit screen tab link', functio
     'activity' => ActivityHistoryRelationManager::class,
 ]);
 
-it('marks the page address with a globe icon and keeps its name for screen readers', function (): void {
-    test()->actingAsAdmin();
+it('shows the accessible page address and groups secondary actions under More', function (): void {
     $page = Page::factory()->withTranslations()->createOne();
 
-    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
-        ->assertSeeHtml('<span class="sr-only">' . e(__('capell-admin::form.page_address')) . '</span>');
-});
-
-it('groups secondary page actions, tools and delete under one More menu', function (): void {
-    test()->actingAsAdmin();
-    $page = Page::factory()->withTranslations()->createOne();
-
-    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+    $livewire = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSeeHtml('<span class="sr-only">' . e(__('capell-admin::form.page_address')) . '</span>')
         ->assertSee(__('capell-admin::button.more'))
-        ->assertDontSee(__('capell-admin::button.advanced'))
-        ->assertActionExists('delete')
-        ->assertActionExists('frontendResourceDiagnostics');
+        ->assertDontSee(__('capell-admin::button.advanced'));
+
+    $component = $livewire->instance();
+    assert($component instanceof EditPage);
+
+    $groups = collect($component->getCachedHeaderActions())
+        ->filter(fn (object $action): bool => $action instanceof ActionGroup);
+    $moreGroups = $groups->filter(fn (ActionGroup $group): bool => $group->getLabel() === __('capell-admin::button.more'));
+
+    expect($moreGroups)->toHaveCount(1)
+        ->and($groups->contains(fn (ActionGroup $group): bool => $group->getLabel() === __('capell-admin::button.view_page')))->toBeFalse();
+
+    $more = $moreGroups->first();
+    assert($more instanceof ActionGroup);
+
+    $actions = $more->getFlatActions();
+    expect($actions['delete'] ?? null)->toBeInstanceOf(DeleteAction::class);
+    foreach ([
+        'frontendSourceMap' => ['capell-admin::generic.frontend_source_map', 'capell-admin::generic.frontend_source_map_description'],
+        'frontendResourceDiagnostics' => ['capell-admin::generic.frontend_resource_diagnostics', 'capell-admin::generic.frontend_resource_diagnostics_description'],
+    ] as $name => [$label, $description]) {
+        $action = $actions[$name] ?? null;
+        expect($action)->toBeInstanceOf(Action::class);
+        assert($action instanceof Action);
+
+        expect($action->getLabel())->toBe(__($label))
+            ->and($action->getTooltip())->toBe(__($description))
+            ->and($action->getModalDescription())->toBe(__($description));
+    }
 });

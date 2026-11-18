@@ -28,6 +28,7 @@ use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\PatchedPhpRuntime;
 use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
@@ -158,6 +159,10 @@ beforeEach(function (): void {
     ]);
     $this->withHeader('X-Capell-Installer-Secret', $secret)
         ->withSession(['capell.installer.bootstrap_digest' => hash('sha256', $secret)]);
+    // InstallerPreflightTest covers actual binary and Composer checks.
+    app()->when(InstallerPreflight::class)
+        ->needs(ProcessFactoryInterface::class)
+        ->give(static fn (): FakeProcessFactory => (new FakeProcessFactory)->byDefault(output: 'Command available'));
     bindInstallerDeveloperToolingInstallationState(false);
     config(['queue.default' => 'database']);
 });
@@ -252,12 +257,7 @@ it('shows the installer when capell core is not yet recorded as installed', func
         ->assertSee(__('capell-installer::installer.heading'))
         ->assertSee('aria-label="Capell"', false)
         ->assertSee('id="install-form"', false)
-        ->assertDontSee(__('capell-installer::installer.already_installed_message'));
-});
-
-it('passes the expected installer page data to the install view', function (): void {
-    get(route('capell-installer.show'))
-        ->assertOk()
+        ->assertDontSee(__('capell-installer::installer.already_installed_message'))
         ->assertViewHas('installId')
         ->assertViewHas('installStatus', 'idle')
         ->assertViewHas('cancelUrl')
@@ -821,9 +821,8 @@ it('renders a preflight cache warning without reading a missing database cache t
 });
 
 it('renders admin panel changes as a grouped automatic or manual choice', function (): void {
-    $html = get(route('capell-installer.show'))
-        ->assertOk()
-        ->content();
+    $response = get(route('capell-installer.show'))->assertOk();
+    $html = $response->content();
 
     expect($html)
         ->toContain('class="admin-panel-changes"')
@@ -838,11 +837,8 @@ it('renders admin panel changes as a grouped automatic or manual choice', functi
         ->not->toContain('Schema discovery')
         ->not->toContain('name="admin_panel"')
         ->not->toContain('name="admin_discover_schemas"');
-});
 
-it('shows the admin installer docs link with the manual admin panel changes option', function (): void {
-    get(route('capell-installer.show'))
-        ->assertOk()
+    $response
         ->assertSee('href="https://docs.capell.app/core/admin/setup/"', false)
         ->assertSee('Manual setup guide')
         ->assertSee('Connect the selected Filament panel to Capell and discover its authoring resources.')
@@ -2207,7 +2203,7 @@ it('runs a single install step via the run-step endpoint', function (): void {
         ->once()
         ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
-    withSession(installerAccessSessionData($installId))->post(
+    $response = withSession(installerAccessSessionData($installId))->post(
         route('capell-installer.run-step'),
         [
             'install_id' => $installId,
@@ -2221,7 +2217,9 @@ it('runs a single install step via the run-step endpoint', function (): void {
             'currentStep' => InstallPlan::STEP_PREPARE_ENVIRONMENT,
             'status' => 'running',
         ])
-        ->assertJsonStructure(['nextStep', 'lines', 'logPath']);
+        ->assertJsonStructure(['nextStep', 'lines', 'logPath', 'csrfToken']);
+
+    expect($response->json('csrfToken'))->toBeString()->not->toBeEmpty();
 
     expect(resolve(InstallerSessionRepository::class)->stepDiagnostics($installId))
         ->toHaveKey(InstallPlan::STEP_PREPARE_ENVIRONMENT . '.peakMemoryBytes');
@@ -2871,44 +2869,6 @@ it('blocks install progress, report, success, and cancel routes without install 
 
     expect(Cache::get('capell.install.lock'))->toBe(['installId' => $installId])
         ->and(Cache::get(sprintf('capell.install.%s.success', $installId)))->not->toBeNull();
-});
-
-// ─── CSRF token in responses ─────────────────────────────────────────────────
-
-it('includes a csrfToken in every run-step response', function (): void {
-    $installId = '66666666-6666-4666-a666-666666666666';
-    $inputData = new InstallInputData(
-        siteUrl: 'https://example.com',
-        packages: [],
-        languages: ['en'],
-        demoContent: false,
-        cachesToClear: [],
-        generateSitemap: false,
-        generateStaticSite: false,
-        newUser: new NewUserData(name: 'Admin', email: 'admin@example.com', password: 'password123'),
-    );
-    $plan = InstallPlan::build($inputData);
-
-    Cache::put(sprintf('capell.install.%s.input', $installId), $inputData->toArray());
-    Cache::put(sprintf('capell.install.%s.plan', $installId), $plan);
-    Cache::put(sprintf('capell.install.%s.current_step', $installId), InstallPlan::STEP_PREPARE_ENVIRONMENT);
-    Cache::put(sprintf('capell.install.%s.completed_steps', $installId), [InstallPlan::STEP_PREFLIGHT_CHECKS]);
-
-    RunInstallStepAction::spy()
-        ->shouldReceive('handle')
-        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
-
-    $response = withSession(installerAccessSessionData($installId))->post(
-        route('capell-installer.run-step'),
-        ['install_id' => $installId, 'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT],
-        ['Accept' => 'application/json'],
-    );
-
-    $response->assertOk()
-        ->assertJsonStructure(['csrfToken'])
-        ->assertJson(['status' => 'running']);
-
-    expect($response->json('csrfToken'))->toBeString()->not->toBeEmpty();
 });
 
 it('cancel preserves the cancelled status and clears other cache keys and the lock', function (): void {

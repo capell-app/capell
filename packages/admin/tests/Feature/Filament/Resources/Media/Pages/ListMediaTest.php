@@ -166,18 +166,19 @@ it('lists media with owner labels filters and owner edit actions', function (): 
     $owner = Page::factory()->createOne(['name' => 'Media owner page']);
     $otherOwner = Page::factory()->createOne(['name' => 'Document owner page']);
 
-    $image = $owner
-        ->addMedia(UploadedFile::fake()->image('hero.jpg', 600, 400))
-        ->usingName('Hero image')
-        ->toMediaCollection('images');
+    $image = CapellMedia::factory()->model($owner)->createOne([
+        'collection_name' => 'images',
+        'name' => 'Hero image',
+        'file_name' => 'hero.jpg',
+    ]);
 
-    $document = $otherOwner
-        ->addMedia(UploadedFile::fake()->create('terms.pdf', 20, 'application/pdf'))
-        ->usingName('Terms PDF')
-        ->toMediaCollection('documents');
-    $document->forceFill(['mime_type' => 'application/pdf'])->save();
+    $document = CapellMedia::factory()->model($otherOwner)->fileType('pdf')->createOne([
+        'collection_name' => 'documents',
+        'name' => 'Terms PDF',
+        'file_name' => 'terms.pdf',
+    ]);
 
-    Livewire::test(ListMedia::class)
+    $table = Livewire::test(ListMedia::class)
         ->assertSuccessful()
         ->toggleAllTableColumns()
         ->assertCanSeeTableRecords([$image, $document])
@@ -188,27 +189,25 @@ it('lists media with owner labels filters and owner edit actions', function (): 
         ->assertSee('Media owner page')
         ->assertTableActionVisible('open-owner', $image);
 
-    Livewire::test(ListMedia::class)
+    $table->filterTable('collection_name', 'images')
         ->assertSuccessful()
-        ->filterTable('collection_name', 'images')
         ->assertCanSeeTableRecords([$image])
         ->assertCanNotSeeTableRecords([$document]);
 
-    Livewire::test(ListMedia::class)
-        ->assertSuccessful()
+    $table->removeTableFilter('collection_name')
         ->filterTable('mime_group', 'application/pdf')
+        ->assertSuccessful()
         ->assertCanSeeTableRecords([$document])
         ->assertCanNotSeeTableRecords([$image]);
 
-    Livewire::test(ListMedia::class)
+    $table->filterTable('mime_group', 'image')
         ->assertSuccessful()
-        ->filterTable('mime_group', 'image')
         ->assertCanSeeTableRecords([$image])
         ->assertCanNotSeeTableRecords([$document]);
 
-    Livewire::test(ListMedia::class)
-        ->assertSuccessful()
+    $table->removeTableFilter('mime_group')
         ->filterTable('model_type', $image->model_type)
+        ->assertSuccessful()
         ->assertCanSeeTableRecords([$image, $document]);
 });
 
@@ -217,10 +216,11 @@ it('hides owner edit actions when the actor cannot edit the owner record', funct
         ->name('filament.admin.resources.pages.edit');
 
     $owner = Page::factory()->createOne(['name' => 'Media owner page']);
-    $image = $owner
-        ->addMedia(UploadedFile::fake()->image('hero.jpg', 600, 400))
-        ->usingName('Hero image')
-        ->toMediaCollection('images');
+    $image = CapellMedia::factory()->model($owner)->createOne([
+        'collection_name' => 'images',
+        'name' => 'Hero image',
+        'file_name' => 'hero.jpg',
+    ]);
 
     expect(MediaTable::getOwnerUrl($image))->not->toBeNull();
 
@@ -260,9 +260,10 @@ it('hides owner actions when the related model cannot be resolved to an admin re
 
 it('edits modal-only media owners from the grouped owner actions', function (): void {
     $theme = Theme::factory()->createOne(['name' => 'Media owner theme']);
-    $media = $theme
-        ->addMedia(UploadedFile::fake()->image('theme.jpg', 600, 400))
-        ->toMediaCollection('images');
+    $media = CapellMedia::factory()->model($theme)->createOne([
+        'collection_name' => 'images',
+        'file_name' => 'theme.jpg',
+    ]);
 
     Livewire::test(ListMedia::class)
         ->assertSuccessful()
@@ -333,9 +334,11 @@ it('does not render a synthetic storage preview for a local external video', fun
 
 it('finds renamed media by its editor name and storage filename', function (): void {
     $site = Site::factory()->createOne();
-    $media = $site->addMedia(UploadedFile::fake()->image('random-storage.png'))
-        ->usingName('Campaign hero')
-        ->toMediaCollection('uploads');
+    $media = CapellMedia::factory()->model($site)->fileType('png')->createOne([
+        'collection_name' => 'uploads',
+        'name' => 'Campaign hero',
+        'file_name' => 'random-storage.png',
+    ]);
 
     Livewire::test(ListMedia::class)
         ->assertTableColumnStateSet('name', 'Campaign hero', $media)
@@ -726,11 +729,9 @@ it('shows usage counts and can filter recently deleted media', function (): void
         ->assertCanSeeTableRecords([$image])
         ->assertCanNotSeeTableRecords([$deletedImage])
         ->assertTableColumnExists('usage_count')
-        ->assertTableColumnStateSet('usage_count', 1, $image);
-
-    Livewire::test(ListMedia::class)
-        ->assertSuccessful()
+        ->assertTableColumnStateSet('usage_count', 1, $image)
         ->filterTable('trashed', false)
+        ->assertSuccessful()
         ->assertCanSeeTableRecords([$deletedImage])
         ->assertCanNotSeeTableRecords([$image]);
 });
@@ -799,24 +800,9 @@ it('filters media by tracked attachment use and links positive usage counts', fu
         ->assertCanNotSeeTableRecords([$usedMedia])
         ->assertSee(__('capell-admin::table.no_tracked_uses'));
 
-    $usedLivewire = Livewire::test(ListMedia::class)
-        ->assertSuccessful()
-        ->filterTable('tracked_use', 'used')
-        ->assertCanSeeTableRecords([$usedMedia])
-        ->assertCanNotSeeTableRecords([$unusedMedia]);
-
     $usageColumn = $livewire->instance()->getTable()->getColumn('usage_count');
 
     expect($usageColumn)->not->toBeNull();
-
-    $usedMedia = $usedLivewire->instance()->getTableRecords()->firstWhere('id', $usedMedia->getKey());
-
-    expect($usedMedia)->toBeInstanceOf(CapellMedia::class);
-
-    $usageColumn->record($usedMedia);
-
-    expect($usageColumn->getUrl($usageColumn->getState()))
-        ->toBe(MediaResource::getUrl('edit', ['record' => $usedMedia]));
 
     $unusedMedia = $livewire->instance()->getTableRecords()->firstWhere('id', $unusedMedia->getKey());
 
@@ -829,6 +815,20 @@ it('filters media by tracked attachment use and links positive usage counts', fu
         ->and($usageColumn->getTooltip($usageColumn->getState()))
         ->toBe(__('capell-admin::table.asset_usage_no_tracked_uses_tooltip'))
         ->toBe('No tracked uses');
+
+    $livewire->filterTable('tracked_use', 'used')
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords([$usedMedia])
+        ->assertCanNotSeeTableRecords([$unusedMedia]);
+
+    $usedMedia = $livewire->instance()->getTableRecords()->firstWhere('id', $usedMedia->getKey());
+
+    expect($usedMedia)->toBeInstanceOf(CapellMedia::class);
+
+    $usageColumn->record($usedMedia);
+
+    expect($usageColumn->getUrl($usageColumn->getState()))
+        ->toBe(MediaResource::getUrl('edit', ['record' => $usedMedia]));
 });
 
 it('unifies media health state filters and guarded bulk actions in the media workbench', function (): void {
@@ -914,11 +914,6 @@ it('limits tracked media usage to accessible related records', function (): void
         ->filterTable('tracked_use', 'used')
         ->assertCanSeeTableRecords([$media]);
 
-    Livewire::test(ListMedia::class)
-        ->assertSuccessful()
-        ->filterTable('tracked_use', 'unused')
-        ->assertCanNotSeeTableRecords([$media]);
-
     $usageColumn = $livewire->instance()->getTable()->getColumn('usage_count');
 
     expect($usageColumn)->not->toBeNull();
@@ -941,6 +936,10 @@ it('limits tracked media usage to accessible related records', function (): void
         ->and(collect($usageItems)->pluck('title')->all())
         ->toContain($visiblePage->name)
         ->not->toContain($hiddenPage->name);
+
+    $livewire->filterTable('tracked_use', 'unused')
+        ->assertSuccessful()
+        ->assertCanNotSeeTableRecords([$media]);
 });
 
 it('rejects a forged local path in bulk media uploads without reading or deleting it', function (string $path): void {

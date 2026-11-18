@@ -35,6 +35,7 @@ use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
+use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
@@ -72,6 +73,52 @@ function agentPageUrl(Page $page): PageUrl
     return PageUrl::query()->where('pageable_id', $page->id)->where('pageable_type', $page->getMorphClass())->orderBy('id')->firstOrFail();
 }
 
+/** @return list<int> */
+function seedAgentNavigationPages(SiteDomain $domain, Page $example, int $count): array
+{
+    // These tests read existing pages. Seed their translations and URLs directly
+    // so each extra row does not run page publication and URL regeneration.
+    $pages = Page::factory()->count($count)->site($domain->site_id)
+        ->sequence(fn (Sequence $sequence): array => ['name' => sprintf('Public page %03d', $sequence->index + 1)])
+        ->createQuietly([
+            'layout_id' => $example->layout_id,
+            'blueprint_id' => $example->blueprint_id,
+            'visible_from' => now()->subDay(),
+        ]);
+
+    $ids = [];
+    $urls = [];
+    $translations = [];
+    $pageType = $example->getMorphClass();
+    foreach ($pages as $index => $page) {
+        $ids[] = $page->id;
+        $urls[] = [
+            'site_id' => $domain->site_id,
+            'language_id' => $domain->language_id,
+            'pageable_id' => $page->id,
+            'pageable_type' => $pageType,
+            'url' => sprintf('/public/page-%03d', $index + 1),
+            'status' => true,
+        ];
+        $translations[] = [
+            'language_id' => $domain->language_id,
+            'translatable_id' => $page->id,
+            'translatable_type' => $pageType,
+            'title' => $page->name,
+        ];
+    }
+
+    foreach (array_chunk($urls, 100) as $chunk) {
+        PageUrl::query()->insert($chunk);
+    }
+
+    foreach (array_chunk($translations, 100) as $chunk) {
+        Translation::query()->insert($chunk);
+    }
+
+    return $ids;
+}
+
 /** @return array{0: Page, 1: Page, 2: PropertySet} */
 function agentPropertyPages(SiteDomain $domain): array
 {
@@ -99,10 +146,7 @@ it('omits a restricted page from agent navigation before pagination', function (
     $domain = SiteDomain::factory()->default()->create();
     $restricted = Page::factory()->site($domain->site)->create(['visible_from' => now()->subDay()]);
     Translation::factory()->translatable($restricted)->language($domain->language)->create(['title' => 'Members-only handbook']);
-    foreach (range(1, 50) as $index) {
-        $public = Page::factory()->site($domain->site)->create(['visible_from' => now()->subDay()]);
-        Translation::factory()->translatable($public)->language($domain->language)->create(['title' => sprintf('Public page %02d', $index)]);
-    }
+    seedAgentNavigationPages($domain, $restricted, 50);
 
     $restrictedUrl = agentPageUrl($restricted);
     // Sort the restricted address first so an unfiltered first page would contain it.
@@ -115,7 +159,7 @@ it('omits a restricted page from agent navigation before pagination', function (
         ->assertDontSee('Members-only handbook')
         ->assertDontSee('0-members');
 
-    expect(collect($response->json('data'))->pluck('title')->all())->toContain('Public page 01', 'Public page 50');
+    expect(collect($response->json('data'))->pluck('title')->all())->toContain('Public page 001', 'Public page 050');
 });
 
 it('omits a restricted page and its properties from the agent pages endpoint before pagination', function (): void {
@@ -275,9 +319,7 @@ function recordedAgentReadBatchUrls(PublicPageReadEligibility $eligibility, int 
 it('pages agent navigation past a restricted page with a bounded batched scan', function (): void {
     $domain = SiteDomain::factory()->default()->create();
     $restricted = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Members-only handbook'])->published()->create();
-    foreach (range(1, 260) as $index) {
-        Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create();
-    }
+    seedAgentNavigationPages($domain, $restricted, 260);
 
     $restrictedUrl = agentPageUrl($restricted);
     $restrictedUrl->forceFill(['url' => '/0-members/handbook'])->save();
@@ -319,8 +361,7 @@ it('pages agent navigation past a restricted page with a bounded batched scan', 
     }
 
     expect($requests)->toBe(6)
-        ->and($titles)->toHaveCount(260)
-        ->and(array_unique($titles))->toHaveCount(260);
+        ->and($titles)->toBe(array_map(fn (int $index): string => sprintf('Public page %03d', $index), range(1, 260)));
 });
 
 it('resolves a relative candidate only against the domain it is published on', function (): void {
@@ -486,10 +527,9 @@ it('pages unrestricted agent navigation and page reads with no gap or repeat at 
     $domain = SiteDomain::factory()->default()->create();
     [, $public, $set] = agentPropertyPages($domain);
     $colour = PropertyDefinition::query()->where('property_set_id', $set->id)->where('key', 'colour')->firstOrFail();
-    foreach (range(1, 118) as $index) {
-        $page = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create(['blueprint_id' => $public->blueprint_id]);
+    foreach (seedAgentNavigationPages($domain, $public, 118) as $index => $pageId) {
         PagePropertyValue::factory()->create([
-            'page_id' => $page->id, 'site_id' => $domain->site_id, 'property_definition_id' => $colour->id, 'value_text' => sprintf('Colour %03d', $index),
+            'page_id' => $pageId, 'site_id' => $domain->site_id, 'property_definition_id' => $colour->id, 'value_text' => sprintf('Colour %03d', $index + 1),
         ]);
     }
 
@@ -499,9 +539,7 @@ it('pages unrestricted agent navigation and page reads with no gap or repeat at 
     }
 
     $urls = array_column($navigation, 'url');
-    $expected = PageUrl::query()->where('site_id', $domain->site_id)->count();
-
-    expect($urls)->toHaveCount(min($expected, 150))
+    expect($urls)->toHaveCount(120)
         ->and(array_unique($urls))->toHaveCount(count($urls));
 
     $titles = [];
@@ -518,19 +556,18 @@ it('pages unrestricted agent navigation and page reads with no gap or repeat at 
 
 it('restarts at the first page when a navigation cursor does not open', function (): void {
     $domain = SiteDomain::factory()->default()->create();
-    foreach (range(1, 60) as $index) {
-        Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => sprintf('Public page %03d', $index)])->published()->create();
-    }
+    $page = Page::factory()->site($domain->site)->withTranslations($domain->language, data: ['title' => 'Public page 000'])->published()->createOne();
+    seedAgentNavigationPages($domain, $page, 59);
 
     restrictAgentReadsTo([]);
 
-    $first = $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk();
+    $first = $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk()->assertJsonCount(50, 'data');
     $next = (string) $first->json('links.next');
     parse_str((string) parse_url($next, PHP_URL_QUERY), $query);
     $token = is_string($query['cursor'] ?? null) ? $query['cursor'] : '';
 
     expect($token)->not->toBe('')
-        ->and($this->getJson($next)->assertOk()->json('data'))->not->toBe($first->json('data'));
+        ->and($this->getJson($next)->assertOk()->assertJsonCount(10, 'data')->json('data'))->not->toBe($first->json('data'));
 
     foreach ([substr($token, 0, -3) . 'xyz', base64_encode('{"o":50,"s":0}')] as $forged) {
         $this->getJson($domain->full_url . '/agent/v1/navigation?cursor=' . rawurlencode($forged))->assertOk()

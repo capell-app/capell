@@ -48,6 +48,21 @@ beforeEach(function (): void {
     Storage::fake('public');
     config()->set('capell.media.model', CapellMedia::class);
     config()->set('media-library.media_model', CapellMedia::class);
+
+    // The editor exercises persisted state and conversion requests.
+    // ReplaceMediaFileActionTest exercises actual derivative generation.
+    app()->instance(FileManipulator::class, new class extends FileManipulator
+    {
+        /** @param array<int, string> $onlyConversionNames */
+        #[Override]
+        public function createDerivedFiles(
+            SpatieMedia $media,
+            array $onlyConversionNames = [],
+            bool $onlyMissing = false,
+            bool $withResponsiveImages = false,
+            bool $queueAll = false,
+        ): void {}
+    });
 });
 
 function createGlobalMediaAdminUser(): Authenticatable
@@ -350,21 +365,12 @@ it('saves focal point crop presets and localized metadata', function (): void {
         ->toBeTrue();
 });
 
-it('shows alt text and rights credit fields before adding locale metadata', function (): void {
-    $media = createEditableImageMedia();
-
-    expect($media->translations()->exists())->toBeFalse();
-
-    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
-        ->assertSuccessful()
-        ->assertSee(__('capell-admin::media.alt_text'))
-        ->assertSee(__('capell-admin::media.credit'));
-});
-
 it('saves the visible alt text per language and clears the missing metadata flags', function (): void {
     $media = createEditableImageMedia();
     $english = Language::query()->default()->firstOrFail();
     $french = Language::factory()->french()->createOne();
+
+    expect($media->translations()->exists())->toBeFalse();
 
     Livewire::test(ListMedia::class)
         ->assertTableColumnStateSet('health_state', 'missing_alt', $media)
@@ -372,7 +378,9 @@ it('saves the visible alt text per language and clears the missing metadata flag
         ->assertCanSeeTableRecords([$media]);
 
     $editor = Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
-        ->assertSuccessful();
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::media.alt_text'))
+        ->assertSee(__('capell-admin::media.credit'));
 
     $translations = $editor->get('data.translations');
     expect($translations)->toHaveCount(1);

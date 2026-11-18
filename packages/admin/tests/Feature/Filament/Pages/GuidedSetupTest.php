@@ -54,13 +54,13 @@ beforeEach(function (): void {
     config()->set('capell-admin.dashboard.guided_setup.redirect', true);
 });
 
-/** A freshly installed site, built as the install builds it: nothing set up yet. */
-function guidedSetupSite(): Site
+/** A fresh install with its placeholder home. Include the other installer pages when the scenario needs them. */
+function guidedSetupSite(bool $withSystemPages = false): Site
 {
     $english = Language::query()->where('code', 'en')->firstOrFail();
     $theme = Theme::factory()->createOne(['key' => 'default', 'default' => true]);
     $site = Site::factory()->language($english)->withTranslations($english)->createOne(['theme_id' => $theme->getKey(), 'name' => 'My Laravel App']);
-    CreateDefaultPagesAction::run($site->refresh(), $site->languages);
+    CreateDefaultPagesAction::run($site->refresh(), $site->languages, $withSystemPages ? null : ['home']);
     // The install's completion marks the sites a first install made.
     MarkFreshInstallSitesAction::run();
 
@@ -125,7 +125,7 @@ it('keeps the dashboard once the site has been set up or skipped', function (): 
     Livewire::test(CapellDashboard::class)->assertNoRedirect();
 });
 
-it('offers every installed page set and starts from the one matching the install suite', function (): void {
+it('offers installed page sets, defaults to the install suite and counts the chosen pages', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     $site->forceFill(['meta' => [...($site->meta ?? []), 'install_suite' => 'marketing']])->save();
@@ -136,20 +136,16 @@ it('offers every installed page set and starts from the one matching the install
     $page->assertSet('data.presetKey', 'service-business')
         ->assertSet('data.siteName', 'My Laravel App')
         ->assertSee(__('capell-admin::setup.step_business'))
-        ->assertSee(__('capell-admin::setup.skip'));
-});
+        ->assertSee(__('capell-admin::setup.skip'))
+        ->assertSeeHtml('value="about"')
+        ->assertDontSeeHtml('value="home"')
+        ->assertSee(__('capell-admin::setup.pages_help'))
+        ->assertSet('data.pageSlugs', ['about', 'services', 'reviews', 'contact']);
 
-it('previews the answers as they are typed', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
+    expect($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body', ['count' => 5]));
 
-    Livewire::test(GuidedSetup::class)
-        ->set('data.siteName', 'Hartley Dental')
-        ->set('data.tagline', 'Family dentist in Leeds')
-        ->set('data.primaryColour', '#0f766e')
-        ->assertSee('Hartley Dental')
-        ->assertSee('Family dentist in Leeds')
-        ->assertSee('#0f766e', false);
+    $page->set('data.presetKey', 'studio')->assertSet('data.pageSlugs', ['work', 'services', 'about', 'contact']);
+    expect(array_keys($page->instance()->pageOptions()))->toBe(['home', 'work', 'services', 'about', 'contact']);
 });
 
 it('renders the unsaved site in a sandboxed frame without writing anything', function (): void {
@@ -317,31 +313,9 @@ it('keeps the preview usable while answers are incomplete and escapes typed mark
     $page->set('data.presetKey', 'removed-preset')->call('skip')->assertRedirect(CapellDashboard::getUrl());
 });
 
-it('does not offer Home as a checkbox, since it is always created and could only look unticked', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-
-    Livewire::test(GuidedSetup::class)
-        ->assertSeeHtml('value="about"')
-        ->assertDontSeeHtml('value="home"')
-        ->assertSee(__('capell-admin::setup.pages_help'));
-});
-
-it('lists the pages of the chosen page set, all ticked, and follows a change of set', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-
-    $page = Livewire::test(GuidedSetup::class)
-        ->assertSet('data.pageSlugs', ['about', 'services', 'reviews', 'contact'])
-        ->set('data.presetKey', 'studio')
-        ->assertSet('data.pageSlugs', ['work', 'services', 'about', 'contact']);
-
-    expect(array_keys($page->instance()->pageOptions()))->toBe(['home', 'work', 'services', 'about', 'contact']);
-});
-
 it('creates the chosen pages as private drafts and offers to open the homepage or publish', function (): void {
     $this->actingAsAdmin();
-    $site = guidedSetupSite();
+    $site = guidedSetupSite(withSystemPages: true);
 
     Livewire::test(GuidedSetup::class)
         ->fillForm([
@@ -358,11 +332,14 @@ it('creates the chosen pages as private drafts and offers to open the homepage o
         ->assertSee(__('capell-admin::setup.open_home'));
 
     $site->refresh();
+    $drafts = collect(guidedSetupWrittenPages($site));
 
     expect($site->name)->toBe('Hartley Dental')
         ->and($site->pages()->count())->toBe(3 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES)
         ->and($site->pages()->homePage()->count())->toBe(1)
-        ->and(data_get($site->meta, 'guided_setup.completed_at'))->not->toBeNull();
+        ->and(data_get($site->meta, 'guided_setup.completed_at'))->not->toBeNull()
+        ->and($drafts)->toHaveCount(2)
+        ->and($drafts->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::draft))->toBeTrue();
 });
 
 it('requires a site name before anything is created', function (): void {
@@ -374,7 +351,7 @@ it('requires a site name before anything is created', function (): void {
         ->call('createPages')
         ->assertHasFormErrors(['siteName' => 'required']);
 
-    expect($site->refresh()->pages()->count())->toBe(1 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES);
+    expect($site->refresh()->pages()->count())->toBe(1);
 });
 
 it('reports a failed creation and changes nothing', function (): void {
@@ -388,17 +365,7 @@ it('reports a failed creation and changes nothing', function (): void {
         ->assertSet('created', false);
 
     expect($site->refresh()->name)->toBe('My Laravel App')
-        ->and($site->pages()->count())->toBe(1 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES);
-});
-
-it('says on the review step how many pages will be created and that they stay private', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-
-    $body = Livewire::test(GuidedSetup::class)->instance()->reviewBody();
-
-    expect($body)->toContain('5')
-        ->and($body)->toBe((string) __('capell-admin::setup.review_body', ['count' => 5]));
+        ->and($site->pages()->count())->toBe(1);
 });
 
 /**
@@ -430,29 +397,56 @@ function guidedSetupFormsApplier(): ArrayObject
     return $received;
 }
 
-it("asks where contact form messages go, starting from the person's own address, when a contact form will be created", function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-    guidedSetupFormsApplier();
-
-    $page = Livewire::test(GuidedSetup::class);
-
-    expect($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body_form', ['count' => 5]))
-        ->and($page->get('data.contactEmail'))->toBe($this->authenticatedUser()->email);
-
-    $page->fillForm(['pageSlugs' => ['about']]);
-
-    expect($page->instance()->createsContactForm())->toBeFalse()
-        ->and($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body', ['count' => 2]));
-});
-
-it('sends the contact form address the person chose to the Form Builder extension', function (): void {
+it('shows the contact form preview and address only while Contact is selected', function (): void {
     $this->actingAsAdmin();
     guidedSetupSite();
     $received = guidedSetupFormsApplier();
 
-    Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about', 'contact'], 'contactEmail' => 'reception@hartley.test'])
+    $page = Livewire::test(GuidedSetup::class)->assertFormFieldVisible('contactEmail');
+    $preview = $page->instance()->contactFormPreview();
+
+    expect($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body_form', ['count' => 5]))
+        ->and($page->get('data.contactEmail'))->toBe($this->authenticatedUser()->email)
+        ->and($preview)->toContain('Contact', 'Email address')
+        ->and($page->html())->toContain(e($preview));
+
+    $page->set('data.pageSlugs', ['about'])
+        ->assertFormFieldHidden('contactEmail')
+        ->assertDontSee((string) __('capell-admin::setup.contact_email'));
+
+    expect($page->instance()->createsContactForm())->toBeFalse()
+        ->and($page->instance()->contactFormPreview())->toBe('')
+        ->and($page->instance()->reviewBody())->toBe((string) __('capell-admin::setup.review_body', ['count' => 2]))
+        ->and($page->html())->not->toContain(e($preview));
+
+    $page->set('data.pageSlugs', ['about', 'contact'])
+        ->assertFormFieldVisible('contactEmail')
+        ->assertSee((string) __('capell-admin::setup.contact_email'));
+
+    $page->fillForm(['siteName' => 'Hartley Dental', 'contactEmail' => ''])
+        ->set('data.pageSlugs', ['about'])
+        ->call('createPages')
+        ->assertHasNoFormErrors()
+        ->assertSet('created', true);
+
+    expect(array_filter($received->getArrayCopy()))->toBeEmpty();
+});
+
+it('validates the contact address before creating pages and passes the corrected address to Form Builder', function (): void {
+    $this->actingAsAdmin();
+    $site = guidedSetupSite();
+    $received = guidedSetupFormsApplier();
+
+    $page = Livewire::test(GuidedSetup::class)
+        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about', 'contact'], 'contactEmail' => 'reception'])
+        ->call('createPages')
+        ->assertHasFormErrors(['contactEmail'])
+        ->assertSet('created', false);
+
+    expect($received)->toHaveCount(0)
+        ->and($site->pages()->count())->toBe(1);
+
+    $page->fillForm(['contactEmail' => 'reception@hartley.test'])
         ->call('createPages')
         ->assertHasNoFormErrors()
         ->assertSet('created', true);
@@ -462,86 +456,7 @@ it('sends the contact form address the person chose to the Form Builder extensio
         ->and($received[0][0]['placeOnPage'])->toBe('contact');
 });
 
-it('shows or hides the contact form address as the Contact page is chosen or left out', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-    guidedSetupFormsApplier();
-
-    $page = Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business'])
-        ->assertFormFieldVisible('contactEmail');
-
-    $page->set('data.pageSlugs', ['about'])
-        ->assertFormFieldHidden('contactEmail')
-        ->assertDontSee((string) __('capell-admin::setup.contact_email'));
-
-    $page->set('data.pageSlugs', ['about', 'contact'])
-        ->assertFormFieldVisible('contactEmail')
-        ->assertSee((string) __('capell-admin::setup.contact_email'));
-});
-
-it('creates the pages without asking for an address once the Contact page is left out', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-    $received = guidedSetupFormsApplier();
-
-    Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'contactEmail' => ''])
-        ->set('data.pageSlugs', ['about'])
-        ->call('createPages')
-        ->assertHasNoFormErrors()
-        ->assertSet('created', true);
-
-    expect(array_filter($received->getArrayCopy()))->toBeEmpty();
-});
-
-it('previews what the contact form will ask before anything is created', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-    guidedSetupFormsApplier();
-
-    $page = Livewire::test(GuidedSetup::class)->fillForm(['presetKey' => 'service-business']);
-    $preview = $page->instance()->contactFormPreview();
-
-    expect($preview)->toContain('Contact')
-        ->toContain('Email address')
-        ->and($page->html())->toContain(e($preview));
-
-    $page->set('data.pageSlugs', ['about']);
-
-    expect($page->instance()->contactFormPreview())->toBe('')
-        ->and($page->html())->not->toContain(e($preview));
-});
-
-it('requires a real address for contact form messages before anything is created', function (): void {
-    $this->actingAsAdmin();
-    $site = guidedSetupSite();
-    $received = guidedSetupFormsApplier();
-
-    Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['contact'], 'contactEmail' => 'reception'])
-        ->call('createPages')
-        ->assertHasFormErrors(['contactEmail'])
-        ->assertSet('created', false);
-
-    expect($received)->toHaveCount(0)
-        ->and($site->pages()->count())->toBe(1 + GUIDED_SETUP_INSTALLER_EXTRA_PAGES);
-});
-
-it('publishes every created page when the person confirms', function (): void {
-    $this->actingAsAdmin();
-    $site = guidedSetupSite();
-    $page = Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
-        ->call('createPages')
-        ->assertSet('created', true);
-
-    $page->call('publishSite')->assertSet('sitePublished', true);
-
-    expect($site->refresh()->pages()->get()->every(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue();
-});
-
-it('names the problem and leaves the pages private when publishing is refused', function (): void {
+it('leaves pages private and keeps the dashboard available when publishing is refused', function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
     $page = Livewire::test(GuidedSetup::class)
@@ -556,6 +471,7 @@ it('names the problem and leaves the pages private when publishing is refused', 
         }
     });
 
+    Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotNotified(__('capell-admin::setup.awaiting_publication'));
     $page->call('publishSite')->assertSet('sitePublished', false);
 
     expect(collect(guidedSetupWrittenPages($site))->contains(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeFalse();
@@ -681,26 +597,6 @@ it('tells the person what to do next without showing internal error text when cr
     Exceptions::assertReported(RuntimeException::class);
 });
 
-it('opens again for a site whose pages are waiting to be published, and publishes them from what setup stored', function (): void {
-    $this->actingAsAdmin();
-    $site = guidedSetupSite();
-    Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
-        ->call('createPages')
-        ->assertSet('created', true);
-
-    $this->get(GuidedSetup::getUrl())->assertOk();
-
-    Livewire::test(GuidedSetup::class)
-        ->assertSet('created', true)
-        ->assertSet('createdPageCount', 2)
-        ->assertSet('siteId', $site->getKey())
-        ->call('publishSite')
-        ->assertSet('sitePublished', true);
-
-    expect($site->refresh()->pages()->get()->every(fn (Page $created): bool => $created->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue();
-});
-
 it("does not take the installer's public home page as a sign the site has gone live", function (): void {
     $this->actingAsAdmin();
     $site = guidedSetupSite();
@@ -751,43 +647,36 @@ it('records the launch of a site whose setup was skipped once a person has edite
     expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
 });
 
-it('keeps the placeholder home page working after setup is left before publishing, and offers Publish on the dashboard', function (): void {
+it('keeps the placeholder live until the person reopens setup and publishes their pages', function (): void {
     $this->actingAsAdmin();
-    $site = guidedSetupSite();
+    $site = guidedSetupSite(withSystemPages: true);
     $home = $site->pages()->homePage()->with('translations')->firstOrFail();
     $placeholder = (string) $home->translations->first()?->content;
 
-    Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
-        ->call('createPages')
-        ->assertSet('created', true);
+    createGuidedSetupPages();
 
     $home->refresh()->load('translations');
-
     expect($home->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published)
         ->and((string) $home->translations->first()?->content)->toBe($placeholder);
 
-    // The dashboard opens, with Publish offered rather than forced.
     Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotified(__('capell-admin::setup.awaiting_publication'));
-    Livewire::test(GuidedSetup::class)->assertSet('created', true)->assertSee(__('capell-admin::setup.open_home'));
-});
-
-it("writes the person's home page over the placeholder when they publish", function (): void {
-    $this->actingAsAdmin();
-    $site = guidedSetupSite();
-    $home = $site->pages()->homePage()->with('translations')->firstOrFail();
-    $placeholder = (string) $home->translations->first()?->content;
+    $this->get(GuidedSetup::getUrl())->assertOk();
 
     Livewire::test(GuidedSetup::class)
-        ->fillForm(['presetKey' => 'service-business', 'siteName' => 'Hartley Dental', 'pageSlugs' => ['about']])
-        ->call('createPages')
+        ->assertSet('created', true)
+        ->assertSet('createdPageCount', 2)
+        ->assertSet('siteId', $site->getKey())
+        ->assertSee(__('capell-admin::setup.open_home'))
         ->call('publishSite')
         ->assertSet('sitePublished', true);
 
     $home->refresh()->load('translations');
-
     expect((string) $home->translations->first()?->content)->not->toBe($placeholder)->not->toBe('')
+        ->and($site->refresh()->pages()->get()->every(fn (Page $page): bool => $page->publishVisibilityState() === PublishVisibilityStateEnum::published))->toBeTrue()
         ->and(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
+
+    expect(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), $this->authenticatedUser()))
+        ->toThrow(GuidedSetupRefusedException::class);
 
     Livewire::test(CapellDashboard::class)->assertNoRedirect();
 });
@@ -799,21 +688,6 @@ function createGuidedSetupPages(): void
         ->call('createPages')
         ->assertSet('created', true);
 }
-
-it('lets an editor who may not publish use the dashboard after the pages are created, without offering Publish', function (): void {
-    $this->actingAsAdmin();
-    guidedSetupSite();
-    createGuidedSetupPages();
-    app()->instance(AuthorizesPublicationTransition::class, new readonly class implements AuthorizesPublicationTransition
-    {
-        public function allows(PublicationTransitionRequestData $request): bool
-        {
-            return false;
-        }
-    });
-
-    Livewire::test(CapellDashboard::class)->assertNoRedirect()->assertNotNotified(__('capell-admin::setup.awaiting_publication'));
-});
 
 it('does not trap anyone on setup when the chosen page set is removed after the pages are created', function (): void {
     $this->actingAsAdmin();
@@ -910,14 +784,4 @@ it('says the site is published but the logo was not added, and adds it on a seco
     }
 
     expect($site->refresh()->getMedia(MediaCollectionEnum::Logo->value))->toHaveCount(1);
-});
-
-it('publishes once: a second publish of the same setup changes nothing and moves no logo twice', function (): void {
-    $this->actingAsAdmin();
-    $site = guidedSetupSite();
-    createGuidedSetupPages();
-    PublishGuidedSetupSiteAction::run($site->refresh(), $this->authenticatedUser());
-
-    expect(fn (): int => PublishGuidedSetupSiteAction::run($site->refresh(), $this->authenticatedUser()))
-        ->toThrow(GuidedSetupRefusedException::class);
 });

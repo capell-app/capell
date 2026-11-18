@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+
+use Capell\Tests\Support\ArchitectureDependencies;
 use PHPUnit\Framework\Assert;
 
 /**
@@ -73,25 +75,23 @@ function composerManifestStrings(array|string|int|float|bool|null $value): array
     return array_values($strings);
 }
 
-arch('Capell 4 packages do not reference packages monorepo namespaces')
-    ->expect([
+arch('Capell 4 packages do not reference packages monorepo namespaces', function (): void {
+    ArchitectureDependencies::assertNoForbiddenUses([
         'Capell\Admin',
         'Capell\Core',
         'Capell\Frontend',
         'Capell\Installer',
         'Capell\Marketplace',
-    ])
-    ->not()->toUse(capellPackagesNamespaces());
+    ], capellPackagesNamespaces(), []);
+});
 
-arch('Capell 4 packages do not reference the extracted block library package')
-    ->expect([
+arch('Capell 4 packages do not reference the extracted block library package', function (): void {
+    ArchitectureDependencies::assertNoForbiddenUses([
         'Capell\Admin',
         'Capell\Core',
         'Capell\Frontend',
-    ])
-    ->not()->toUse([
-        'Capell\ContentFilamentWidgets',
-    ]);
+    ], ['Capell\ContentFilamentWidgets'], []);
+});
 
 it('does not autoload sibling package monorepos from composer manifests', function (string $manifest): void {
     $manifestPath = dirname(__DIR__, 4) . '/' . $manifest;

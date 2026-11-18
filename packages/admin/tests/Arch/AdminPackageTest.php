@@ -6,19 +6,19 @@ use Capell\Admin\Contracts\ConfiguratorInterface;
 use Capell\Admin\Data\AdminZoneContextData;
 use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
+use Capell\Tests\Support\ArchitectureDependencies;
 use Illuminate\Console\Command;
 use Spatie\LaravelData\Data;
 
-it('Admin package should be standalone')
-    ->expect('Capell\Admin')
-    ->not()->toUse([
+arch('keeps the Admin package standalone', function (): void {
+    ArchitectureDependencies::assertNoForbiddenUses(['Capell\Admin'], [
         'Capell\Frontend',
         'Capell\Installer',
         'Capell\Marketplace',
-    ])
-    ->ignoring([
+    ], [
         FrontendSettingsSchema::class,
     ]);
+});
 
 arch()
     ->expect('Capell\Admin\Filament\Configurators')

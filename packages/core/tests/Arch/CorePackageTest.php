@@ -8,11 +8,19 @@ use Capell\Core\Console\Commands\MakeExtenderCommand;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
+use Capell\Tests\Support\ArchitectureDependencies;
 
-arch('System package to be standalone')
-    ->expect('Capell\Core')
-    ->not()->toUse(['Capell\Admin', 'Capell\Frontend', 'Capell\Address', 'Capell\AIOrchestrator', 'Capell\Blog', 'Capell\Hero', 'Capell\Installer', 'Capell\Layout'])
-    ->ignoring([
+arch('keeps the Core package standalone', function (): void {
+    ArchitectureDependencies::assertNoForbiddenUses(['Capell\Core'], [
+        'Capell\Admin',
+        'Capell\Frontend',
+        'Capell\Address',
+        'Capell\AIOrchestrator',
+        'Capell\Blog',
+        'Capell\Hero',
+        'Capell\Installer',
+        'Capell\Layout',
+    ], [
         MakeExtenderCommand::class,
         ManifestValidator::class,
         PageUrlRedirectResolver::class,
@@ -20,3 +28,4 @@ arch('System package to be standalone')
         SiteCreatedAction::class,
         SiteReplicatedAction::class,
     ]);
+});

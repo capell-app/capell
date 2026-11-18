@@ -61,7 +61,6 @@ beforeEach(function (): void {
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
-    acquireCapellInstallFilesystemLock();
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
 });
 
@@ -71,12 +70,7 @@ afterEach(function (): void {
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
-    cleanupInstallTestApplicationFiles();
     $this->workspace->restore();
-});
-
-afterEach(function (): void {
-    releaseCapellInstallFilesystemLock();
 });
 
 // Helper to setup the environment and return the fake filesystem
@@ -194,68 +188,6 @@ class AdminPanelProvider extends PanelProvider
     }
 }
 PHP);
-}
-
-function cleanupInstallTestApplicationFiles(): void
-{
-    foreach ([
-        base_path('resources/css/app.css'),
-        base_path('resources/js/app.js'),
-    ] as $assetPath) {
-        if (file_exists($assetPath)) {
-            unlink($assetPath);
-        }
-    }
-
-    foreach ([
-        base_path('resources/css'),
-        base_path('resources/js'),
-        base_path('resources'),
-    ] as $directoryPath) {
-        if (is_dir($directoryPath) && count(scandir($directoryPath) ?? []) === 2) {
-            rmdir($directoryPath);
-        }
-    }
-
-    $path = base_path('app/Models/User.php');
-
-    if (file_exists($path)) {
-        unlink($path);
-    }
-
-    $modelsPath = base_path('app/Models');
-    if (is_dir($modelsPath) && count(scandir($modelsPath) ?? []) === 2) {
-        rmdir($modelsPath);
-    }
-
-    $adminPanelProviderPath = base_path('app/Providers/Filament/AdminPanelProvider.php');
-    if (file_exists($adminPanelProviderPath)) {
-        unlink($adminPanelProviderPath);
-    }
-
-    foreach ([
-        base_path('app/Providers/Filament'),
-        base_path('app/Providers'),
-    ] as $directoryPath) {
-        if (is_dir($directoryPath) && count(scandir($directoryPath) ?? []) === 2) {
-            rmdir($directoryPath);
-        }
-    }
-
-    $appPath = base_path('app');
-    if (is_dir($appPath) && count(scandir($appPath) ?? []) === 2) {
-        rmdir($appPath);
-    }
-
-    $routesPath = base_path('routes/web.php');
-    if (file_exists($routesPath)) {
-        unlink($routesPath);
-    }
-
-    $routesDirectory = base_path('routes');
-    if (is_dir($routesDirectory) && count(scandir($routesDirectory) ?? []) === 2) {
-        rmdir($routesDirectory);
-    }
 }
 
 function writeStockInstallTestFrontendAssets(): void
