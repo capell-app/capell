@@ -66,6 +66,7 @@ it('preserves main layout HTML and slot ownership for each visitor', function (b
     expect($actual)->toBe($render())
         ->and(substr_count($actual, 'Public &amp; private &lt;slot&gt;'))->toBe(1)
         ->and($actual)->toContain('<aside>After content</aside>')
-        ->and($actual)->not->toContain('Private visitor', 'data-capell-authoring');
+        ->and($actual)->not->toContain('Private visitor')
+        ->and($actual)->not->toContain('data-capell-authoring');
 })->with(['anonymous' => false, 'signed in' => true])
     ->with(['fallback' => false, 'hook renders slot' => true]);
