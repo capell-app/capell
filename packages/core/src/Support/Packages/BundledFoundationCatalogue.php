@@ -21,13 +21,15 @@ final class BundledFoundationCatalogue
 {
     private const string PATH = __DIR__ . '/../../../resources/catalogue/foundation-packages.json';
 
-    /** @var list<array<string, mixed>>|null */
-    private static ?array $entries = null;
-
-    /** @return Collection<int, array<string, mixed>> */
+    /**
+     * Read on each call rather than memoised: the file is small and only install planning and
+     * catalogue listing read it, so no static state outlives a request or an Octane worker cycle.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
     public static function entries(): Collection
     {
-        return collect(self::$entries ??= self::read());
+        return collect(self::read());
     }
 
     /** Whether Core ships a catalogue entry for this package. */
