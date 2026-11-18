@@ -65,6 +65,13 @@ function expectFreshOptimizeClearProcess(FakeProcessFactory $processes): void
         ->and($processes->processes[0]->getTimeout())->toEqual(120);
 }
 
+function expectFreshPackageCacheProcess(FakeProcessFactory $processes): void
+{
+    expect($processes->commands())->toBe([
+        [...new RuntimeBinaryResolver()->php(), 'artisan', 'capell:package-cache', '--no-interaction'],
+    ]);
+}
+
 it('skips optimize:clear when the harness opts out through configuration', function (): void {
     config(['capell.install.skip_optimize_clear' => true]);
     $kernel = FakeConsoleKernel::bind();
@@ -72,12 +79,12 @@ it('skips optimize:clear when the harness opts out through configuration', funct
     ClearCachesAction::run(['all'], $this->reporter);
 
     expect($kernel->calls)->toBe([])
-        ->and($kernel->availabilityChecks)->toBe(2)
+        ->and($kernel->availabilityChecks)->toBe(1)
         ->and($this->reporter->reports)
         ->toContain('Skipped optimize:clear; capell.install.skip_optimize_clear is enabled')
         ->toContain('Skipped capell:html-cache:clear; command is not available')
-        ->toContain('Skipped capell:package-cache; command is not available');
-    $this->processes->assertNothingRan();
+        ->toContain('✓ Capell package cache rebuilt');
+    expectFreshPackageCacheProcess($this->processes);
 });
 
 it('runs the command behind each selected cache key', function (array $cacheKeys, array $available, array $expectedCalls): void {
@@ -92,14 +99,13 @@ it('runs the command behind each selected cache key', function (array $cacheKeys
     'views' => [['views'], [], ['view:clear']],
     'page when available' => [['page'], ['capell:html-cache:clear' => true], ['capell:html-cache:clear']],
     'optional capell and filament commands when available' => [
-        ['admin', 'components', 'widgets', 'configurators', 'filament-components', 'packages'],
+        ['admin', 'components', 'widgets', 'configurators', 'filament-components'],
         [
             'capell:admin-clear-cache' => true,
             'capell:clear-components-cache' => true,
             'capell:admin-clear-widgets-cache' => true,
             'capell:admin-clear-configurators-cache' => true,
             'filament:clear-cached-components' => true,
-            'capell:package-cache' => true,
         ],
         [
             'capell:admin-clear-cache',
@@ -107,16 +113,31 @@ it('runs the command behind each selected cache key', function (array $cacheKeys
             'capell:admin-clear-widgets-cache',
             'capell:admin-clear-configurators-cache',
             'filament:clear-cached-components',
-            'capell:package-cache',
         ],
-    ],
-    'all rebuilds generated capell package cache files' => [
-        ['all'],
-        ['capell:html-cache:clear' => true, 'capell:package-cache' => true],
-        ['capell:html-cache:clear', 'capell:package-cache'],
     ],
     'nothing selected' => [[], [], []],
 ]);
+
+it('rebuilds required package manifests through a fresh console when installing from HTTP', function (): void {
+    $kernel = FakeConsoleKernel::bind();
+    $this->processes->push(output: 'Capell package manifest cache created successfully.');
+
+    ClearCachesAction::run(['packages'], $this->reporter);
+
+    expect($kernel->calls)->toBe([])
+        ->and($this->reporter->reports)->toContain('✓ Capell package cache rebuilt');
+    expectFreshPackageCacheProcess($this->processes);
+});
+
+it('stops installation when the required package manifest rebuild fails', function (): void {
+    FakeConsoleKernel::bind();
+    $this->processes->push(exitCode: 1, errorOutput: 'Cannot write role manifests.');
+
+    expect(fn (): mixed => ClearCachesAction::run(['packages'], $this->reporter))
+        ->toThrow(RuntimeException::class, 'Unable to clear capell:package-cache; Cannot write role manifests.')
+        ->and($this->reporter->reports)->not->toContain('✓ Capell package cache rebuilt');
+    expectFreshPackageCacheProcess($this->processes);
+});
 
 it('reports progress and clears extension caches around selected cache commands', function (): void {
     CapellCore::shouldReceive('clearExtensionCache')->twice();
@@ -167,9 +188,9 @@ it('runs optimize:clear outside testbench and reports success', function (): voi
     });
 
     expect($kernel->calls)->toBe(['optimize:clear'])
-        ->and($kernel->availabilityChecks)->toBe(2)
+        ->and($kernel->availabilityChecks)->toBe(1)
         ->and($this->reporter->reports)->toContain('✓ All caches cleared');
-    $this->processes->assertNothingRan();
+    expectFreshPackageCacheProcess($this->processes);
 });
 
 it('retries optimize:clear in a fresh process when a hook command is undefined', function (): void {
@@ -181,9 +202,12 @@ it('retries optimize:clear in a fresh process when a hook command is undefined',
         ClearCachesAction::run(['all'], $this->reporter);
     });
 
-    expectFreshOptimizeClearProcess($this->processes);
+    expect($this->processes->commands())->toBe([
+        [...new RuntimeBinaryResolver()->php(), 'artisan', 'optimize:clear', '--no-interaction'],
+        [...new RuntimeBinaryResolver()->php(), 'artisan', 'capell:package-cache', '--no-interaction'],
+    ]);
     expect($kernel->calls)->toBe(['optimize:clear'])
-        ->and($kernel->availabilityChecks)->toBe(2)
+        ->and($kernel->availabilityChecks)->toBe(1)
         ->and($this->reporter->reports)
         ->toContain('→ optimize:clear ran in a fresh process')
         ->toContain('✓ All caches cleared');

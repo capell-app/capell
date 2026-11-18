@@ -55,7 +55,7 @@ class RunInstallAction
 
             $completedSteps[] = $step['key'];
 
-            if (InstallPlan::isPackageRequireStep($step['key']) || $step['key'] === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {
+            if (InstallPlan::shouldRefreshPackageStepsAfter($step['key'], $inputData)) {
                 $plan = InstallPlan::refreshPackageSteps($inputData, $plan, $completedSteps);
             }
         }

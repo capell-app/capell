@@ -65,11 +65,6 @@ class ClearCachesAction
             'message' => '✓ Filament components cache cleared',
             'optional' => true,
         ],
-        'packages' => [
-            'command' => 'capell:package-cache',
-            'message' => '✓ Capell package cache rebuilt',
-            'optional' => true,
-        ],
     ];
 
     /** @param array<string> $cachesToClear */
@@ -82,7 +77,8 @@ class ClearCachesAction
         $reporter->step('Clearing caches…');
         CapellCore::clearExtensionCache();
 
-        if (in_array('all', $cachesToClear, true)) {
+        $clearingAll = in_array('all', $cachesToClear, true);
+        if ($clearingAll) {
             if ($this->shouldSkipOptimizeClear()) {
                 $reporter->report('Skipped optimize:clear; capell.install.skip_optimize_clear is enabled');
             } else {
@@ -94,7 +90,6 @@ class ClearCachesAction
             }
 
             $this->clearOptionalCache('page', $reporter);
-            $this->clearOptionalCache('packages', $reporter);
         }
 
         foreach (self::CACHE_COMMANDS as $key => $cacheCommand) {
@@ -109,6 +104,12 @@ class ClearCachesAction
             }
 
             $this->callCacheCommand($cacheCommand, $reporter);
+        }
+
+        if ($clearingAll || in_array('packages', $cachesToClear, true)) {
+            // HTTP and pre-Composer workers can have an incomplete console command list.
+            $this->runCacheCommandInFreshProcess('capell:package-cache', $reporter);
+            $reporter->report('✓ Capell package cache rebuilt');
         }
 
         CapellCore::clearExtensionCache();
@@ -147,7 +148,10 @@ class ClearCachesAction
             $exitCode = Artisan::call($cacheCommand['command']);
         } catch (Throwable $throwable) {
             if ($cacheCommand['command'] === 'optimize:clear' && $throwable instanceof CommandNotFoundException) {
-                $this->clearOptimizeCachesInFreshProcess($reporter);
+                // A provider installed in this process can register an optimize hook
+                // after the console application has collected its commands.
+                $this->runCacheCommandInFreshProcess('optimize:clear', $reporter);
+                $reporter->report('→ optimize:clear ran in a fresh process');
                 $reporter->report($cacheCommand['message']);
 
                 return;
@@ -172,15 +176,13 @@ class ClearCachesAction
         $reporter->report($cacheCommand['message']);
     }
 
-    private function clearOptimizeCachesInFreshProcess(ProgressReporter $reporter): void
+    private function runCacheCommandInFreshProcess(string $command, ProgressReporter $reporter): void
     {
-        // Providers installed during this process may register optimize hooks after
-        // the console application has already collected its available commands.
         $lines = [];
 
         try {
             $exitCode = resolve(ArtisanSubprocessRunner::class)->run(
-                ['optimize:clear', '--no-interaction'],
+                [$command, '--no-interaction'],
                 function (string $line) use (&$lines): void {
                     $lines[] = $line;
                 },
@@ -188,7 +190,7 @@ class ClearCachesAction
             );
         } catch (Throwable $throwable) {
             $output = trim(implode("\n", [...$lines, $throwable->getMessage()]));
-            $message = sprintf('Unable to clear optimize:clear; %s', $output);
+            $message = sprintf('Unable to clear %s; %s', $command, $output);
             $reporter->report($message);
 
             throw new RuntimeException($message, $throwable->getCode(), previous: $throwable);
@@ -197,14 +199,12 @@ class ClearCachesAction
         if ($exitCode !== 0) {
             $output = trim(implode("\n", $lines));
             $message = $output === ''
-                ? sprintf('Unable to clear optimize:clear; command exited with status %d', $exitCode)
-                : sprintf('Unable to clear optimize:clear; %s', $output);
+                ? sprintf('Unable to clear %s; command exited with status %d', $command, $exitCode)
+                : sprintf('Unable to clear %s; %s', $command, $output);
             $reporter->report($message);
 
             throw new RuntimeException($message);
         }
-
-        $reporter->report('→ optimize:clear ran in a fresh process');
     }
 
     private function commandExists(string $command): bool

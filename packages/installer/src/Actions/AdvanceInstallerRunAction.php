@@ -159,7 +159,7 @@ final class AdvanceInstallerRunAction
                     $this->sessions->putPackageMetadataRefreshed($installId, true);
                 }
 
-                if (InstallPlan::isPackageRequireStep($stepKey) || $stepKey === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {
+                if (InstallPlan::shouldRefreshPackageStepsAfter($stepKey, $inputData)) {
                     $updatedPlan = InstallPlan::refreshPackageSteps($inputData, $plan, [...$this->sessions->completedSteps($installId), $stepKey]);
                     if ($updatedPlan !== $plan) {
                         $plan = $updatedPlan;

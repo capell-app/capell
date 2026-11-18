@@ -79,6 +79,21 @@ final class InstallPlan
             ->all();
     }
 
+    public static function shouldRefreshPackageStepsAfter(string $stepKey, InstallInputData $inputData): bool
+    {
+        // In the browser, environment preparation is the first normal request after
+        // Composer and boots with the full set of newly installed providers.
+        if (self::isPackageRequireStep($stepKey)) {
+            return true;
+        }
+
+        return match ($stepKey) {
+            self::STEP_INSTALL_DEVELOPER_TOOLING => true,
+            self::STEP_PREPARE_ENVIRONMENT => $inputData->extraPackages !== [],
+            default => false,
+        };
+    }
+
     /**
      * Composer can reveal requirements after a run has saved its initial plan.
      * Keep completed keys and existing descriptors; order only pending package

@@ -3491,3 +3491,46 @@ it('passes the confirmed web table alias to a worker with stale configuration', 
         }
     }
 });
+
+it('schedules dependencies visible only after the Composer request before activating the selected theme', function (): void {
+    $id = 'e1e1e1e1-e1e1-41e1-a1e1-e1e1e1e1e1e1';
+    $theme = 'vendor/recovery-test-theme';
+    $layout = 'vendor/recovery-test-layout';
+    $navigation = 'vendor/recovery-test-navigation';
+    $input = new InstallInputData(
+        siteUrl: 'https://example.com',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: [$theme],
+    );
+    $plan = InstallPlan::build($input);
+    $require = InstallPlan::packageRequireStepKey($theme);
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->run($id)->startBrowserSteps($input, $plan, $require, ['checks' => []]);
+    $sessions->recordCompletedStep($id, InstallPlan::STEP_PREFLIGHT_CHECKS, $require);
+    $sessions->recordCompletedStep($id, $require, InstallPlan::STEP_PREPARE_ENVIRONMENT);
+
+    CapellCore::registerPackage(name: $layout);
+    CapellCore::registerPackage(name: $navigation);
+    CapellCore::registerPackage(name: $theme);
+    CapellCore::getPackage($theme)->requirements = [$layout, $navigation];
+
+    RunInstallStepAction::mock()->shouldReceive('handle')->once()->andReturn(new RunInstallStepResultData(null, false));
+
+    $this->withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), [
+        'install_id' => $id,
+        'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT,
+    ])->assertOk();
+
+    $keys = array_column($sessions->plan($id), 'key');
+    expect($keys)->toContain(InstallPlan::packageInstallStepKey($layout), InstallPlan::packageInstallStepKey($navigation))
+        ->and(array_search(InstallPlan::packageInstallStepKey($layout), $keys, true))
+        ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey($theme), $keys, true))
+        ->and(array_search(InstallPlan::packageInstallStepKey($navigation), $keys, true))
+        ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey($theme), $keys, true))
+        ->and($sessions->completedSteps($id))->toBe([InstallPlan::STEP_PREFLIGHT_CHECKS, $require, InstallPlan::STEP_PREPARE_ENVIRONMENT]);
+});
