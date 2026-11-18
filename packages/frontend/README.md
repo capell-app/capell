@@ -59,7 +59,7 @@ Public routing depends on the host app's web server sending unmatched public pag
 - Controller: `Capell\Frontend\Http\Controllers\PageController`
 - Middleware aliases: `frontend.resolve`, `frontend.etag`, `frontend.asset-optimization`, `frontend.anonymous_cacheable_render`, `frontend.rendering_strategy`, `frontend.maintenance`, `workspace.context`
 - Main commands: `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`, `capell:generate-html`
-- Main extension registries: `RenderHookRegistry`, `FrontendResourceRegistry`, `CacheInvalidationRegistry`, `ReservedFrontendPathRegistry`, `FrontendRouteMiddlewareRegistry`, `FrontendComponentRegistry`, `FrontendRuleConditionRegistry`, `FrontendResponseRendererRegistry`, `TailwindAssetsRegistry`
+- Main extension registries: `RenderHookRegistry`, `FrontendResourceRegistry`, `CacheInvalidationRegistry`, `ReservedFrontendPathRegistry`, `FrontendRouteMiddlewareRegistry`, `FrontendComponentRegistry`, `FrontendResponseRendererRegistry`, `TailwindAssetsRegistry`
 
 The package always registers `index.php` and a fallback page route. `/` is only registered when `CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true`. Reserved paths prevent internal or package-owned routes from falling through to public theme rendering.
 
