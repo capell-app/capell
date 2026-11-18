@@ -62,6 +62,9 @@
                         {{ __('capell-installer::installer.download_report') }}
                     </a>
                 </div>
+                <p id="resume-error" role="alert" hidden>
+                    {{ __('capell-installer::installer.continue_installation_failed') }}
+                </p>
                 <pre
                     aria-atomic="false"
                     aria-live="polite"
@@ -94,6 +97,14 @@
             id="actions-footer"
             hidden
         >
+            <button
+                class="button primary"
+                id="resume-installation"
+                type="button"
+                hidden
+            >
+                {{ __('capell-installer::installer.continue_installation') }}
+            </button>
             <a
                 class="button secondary"
                 href="{{ route('capell-installer.show') }}"
@@ -117,6 +128,10 @@
         (function () {
             {{-- format-ignore-start --}}
             var endpoint = @json(route('capell-installer.progress.data', ['installId' => $installId]));
+            var runStepUrl = @json(route('capell-installer.run-step'));
+            var csrf = document.querySelector('meta[name="csrf-token"]');
+            var resumeButton = document.getElementById('resume-installation');
+            var resumeError = document.getElementById('resume-error');
             var statusEl = document.getElementById('status-indicator');
             var labelEl = statusEl.querySelector('.label');
             var logEl = document.getElementById('log');
@@ -127,11 +142,19 @@
             var restartInstallLabel = @json(__('capell-installer::installer.restart_install'));
             {{-- format-ignore-end --}}
             var stopped = false;
+            var resuming = false;
+
+            resumeButton.addEventListener('click', function () {
+                resuming = true;
+                resumeButton.disabled = true;
+                resumeError.hidden = true;
+            });
             var renderedLineCount = 0;
             var currentStatus = statusEl.classList.contains('{{ $installStatus }}') ? '{{ $installStatus }}' : null;
 
-            function applyStatus(status) {
+            function applyStatus(status, canResume) {
                 var statusChanged = status !== currentStatus;
+                resumeButton.hidden = !canResume;
 
                 statusEl.classList.remove('idle', 'queued', 'running', 'complete', 'cancelled', 'failed');
                 statusEl.classList.add(status);
@@ -154,7 +177,7 @@
                     backLink.textContent = restartInstallLabel;
                     adminLink.hidden = true;
                 } else {
-                    actionsFooter.hidden = true;
+                    actionsFooter.hidden = !canResume;
                     backLink.hidden = true;
                     adminLink.hidden = true;
                 }
@@ -185,6 +208,44 @@
                 logEl.scrollTop = logEl.scrollHeight;
             }
 
+            function resumeStep(payload) {
+                return fetch(runStepUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': csrf.content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        install_id: payload.installId,
+                        step: payload.resumableStep,
+                    }),
+                })
+                    .then(async function (response) {
+                        var result = await response.json();
+
+                        if (result.csrfToken) {
+                            csrf.content = result.csrfToken;
+                        }
+
+                        // Another tab may have advanced this step since the poll.
+                        if (response.status === 409 && result.expectedStep) {
+                            return;
+                        }
+
+                        if (!response.ok || result.status === 'failed') {
+                            throw new Error('Installer step failed');
+                        }
+                    })
+                    .catch(function () {
+                        resuming = false;
+                        resumeButton.disabled = false;
+                        resumeError.hidden = false;
+                    });
+            }
+
             function poll() {
                 if (stopped) {
                     return;
@@ -193,17 +254,21 @@
                     .then(function (response) {
                         return response.json();
                     })
-                    .then(function (payload) {
+                    .then(async function (payload) {
                         if (payload.redirectUrl) {
                             window.location.href = payload.redirectUrl;
                             return;
                         }
 
-                        applyStatus(payload.status);
+                        var canResume = typeof payload.resumableStep === 'string' && payload.resumableStep !== '';
+                        applyStatus(payload.status, canResume);
                         renderLines(payload.lines);
                         if (payload.status === 'complete' || payload.status === 'failed' || payload.status === 'cancelled') {
                             stopped = true;
                             return;
+                        }
+                        if (canResume && resuming) {
+                            await resumeStep(payload);
                         }
                         setTimeout(poll, 1000);
                     })

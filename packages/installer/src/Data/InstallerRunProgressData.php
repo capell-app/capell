@@ -16,5 +16,6 @@ final class InstallerRunProgressData extends Data
         public readonly string $status,
         public readonly array $lines,
         public readonly bool $shouldRedirectToSuccess,
+        public readonly ?string $resumableStep = null,
     ) {}
 }

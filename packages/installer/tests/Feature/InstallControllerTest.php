@@ -3044,6 +3044,45 @@ it('downloads original redacted evidence after cancelling a partial browser inst
     ])->assertStatus(410);
 });
 
+it('offers the next committed browser step only to an authorised progress visitor', function (): void {
+    $id = 'fdfdfdfd-fdfd-4fdf-afdf-fdfdfdfdfdfd';
+    $sessions = resolve(InstallerSessionRepository::class);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $sessions->run($id)->startBrowserSteps($input, [
+        ['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare'],
+        ['key' => InstallPlan::STEP_RESOLVE_USER, 'label' => 'User'],
+    ], InstallPlan::STEP_PREPARE_ENVIRONMENT, ['checks' => []]);
+    $sessions->recordCompletedStep($id, InstallPlan::STEP_PREPARE_ENVIRONMENT, InstallPlan::STEP_RESOLVE_USER);
+    $sessions->run($id)->markRunning();
+
+    $progress = route('capell-installer.progress', ['installId' => $id]);
+    $data = route('capell-installer.progress.data', ['installId' => $id]);
+    $this->get($progress)->assertNotFound();
+    $this->getJson($data)->assertNotFound();
+    $this->postJson(route('capell-installer.run-step'), [
+        'install_id' => $id, 'step' => InstallPlan::STEP_RESOLVE_USER,
+    ])->assertNotFound();
+
+    $this->withSession(installerAccessSessionData($id))->get($progress)->assertOk()
+        ->assertSee(__('capell-installer::installer.continue_installation'));
+    $this->getJson($data)->assertOk()
+        ->assertJsonPath('resumableStep', InstallPlan::STEP_RESOLVE_USER);
+
+    $queued = 'fefefefe-fefe-4fef-afef-fefefefefefe';
+    $sessions->run($queued)->startQueued();
+
+    $this->withSession(installerAccessSessionData($queued))
+        ->getJson(route('capell-installer.progress.data', ['installId' => $queued]))
+        ->assertOk()
+        ->assertJsonPath('status', 'queued')
+        ->assertJsonPath('resumableStep', null);
+    $sessions->run($queued)->markRunning();
+    $this->getJson(route('capell-installer.progress.data', ['installId' => $queued]))
+        ->assertOk()
+        ->assertJsonPath('status', 'running')
+        ->assertJsonPath('resumableStep', null);
+});
+
 it('admits one step executor across overlapping HTTP requests and a replayed response', function (): void {
     $id = 'abababab-abab-4bab-abab-abababababab';
     $sessions = resolve(InstallerSessionRepository::class);
