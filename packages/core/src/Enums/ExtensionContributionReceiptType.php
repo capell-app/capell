@@ -22,7 +22,6 @@ enum ExtensionContributionReceiptType: string
     case AdminEvent = 'admin-event';
     case ReservedFrontendPath = 'reserved-frontend-path';
     case FrontendRouteMiddleware = 'frontend-route-middleware';
-    case FrontendRuleCondition = 'frontend-rule-condition';
 
     public function bucket(): string
     {
@@ -36,8 +35,7 @@ enum ExtensionContributionReceiptType: string
             self::Maker => 'runtime',
             self::AdminEvent => 'admin',
             self::ReservedFrontendPath,
-            self::FrontendRouteMiddleware,
-            self::FrontendRuleCondition => 'frontend',
+            self::FrontendRouteMiddleware => 'frontend',
         };
     }
 }

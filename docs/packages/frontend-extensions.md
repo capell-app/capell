@@ -207,30 +207,7 @@ The default public page middleware order starts with reserved-path rejection, th
 
 Frontend registers `/_capell/widgets/{reference}` for lazy widget targets and reserves `_capell`. Layout Builder registers `/_capell/fragments/{reference}` for lazy public block fragments. Do not add plain-ID fragment routes such as `/fragments/page/12/block/hero`. Widget and fragment references must be encrypted and self-contained, and fragment/widget responses must use their own cache headers rather than the normal page HTML cache.
 
-## Runtime Rules And Renderers
-
-Use `FrontendRuleConditionRegistry` when package settings or runtime manifests need named boolean conditions:
-
-```php
-use Capell\Frontend\Contracts\FrontendRuleCondition;
-use Capell\Frontend\Data\FrontendRuleContextData;
-use Capell\Frontend\Support\Rules\FrontendRuleConditionRegistry;
-
-final class ExampleCampaignCondition implements FrontendRuleCondition
-{
-    public function key(): string
-    {
-        return 'example-campaign';
-    }
-
-    public function evaluate(array $parameters, FrontendRuleContextData $context): bool
-    {
-        return (bool) ($parameters['enabled'] ?? false);
-    }
-}
-
-resolve(FrontendRuleConditionRegistry::class)->register(ExampleCampaignCondition::class);
-```
+## Response Renderers
 
 Use `FrontendResponseRendererRegistry` only when a package owns response rendering for a frontend runtime. The renderer receives the resolved `FrontendRenderContextData` and returns a Symfony response or Laravel `Responsable`.
 

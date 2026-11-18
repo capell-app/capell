@@ -144,7 +144,8 @@ class PageUrlsTable implements TableConfigurator
                     ->authorizeIndividualRecords('delete'),
                 RestoreBulkAction::make()
                     ->authorizeIndividualRecords('restore'),
-                ForceDeleteBulkAction::make(),
+                ForceDeleteBulkAction::make()
+                    ->authorizeIndividualRecords('forceDelete'),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_page_urls'))
             ->emptyStateDescription(__('capell-admin::generic.no_page_urls_description'))

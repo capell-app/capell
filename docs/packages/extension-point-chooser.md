@@ -58,7 +58,6 @@ Adding a website-specific page field? Start with the [Client name walkthrough](.
 | Register runtime frontend assets         | `FrontendResourceRegistry` groups / `FrontendResourceContributor::TAG`   | Frontend      |
 | Reserve package-owned public paths       | `ReservedFrontendPathRegistry::reserveExact()` / `reservePrefix()`       | Frontend      |
 | Add middleware to the public page route  | `FrontendRouteMiddlewareRegistry`                                        | Frontend      |
-| Add frontend rule conditions             | `FrontendRuleConditionRegistry::register(...)`                           | Frontend      |
 | Replace response rendering for a runtime | `FrontendResponseRendererRegistry::register(...)` / `registerClass(...)` | Frontend      |
 | Invalidate pages when a model changes    | `CacheInvalidationRegistry::registerDependency(...)`                     | Frontend      |
 
