@@ -11,11 +11,11 @@ beforeEach(function (): void {
     $this->databasePath = sys_get_temp_dir() . '/capell-create-backup-command-' . bin2hex(random_bytes(6)) . '.sqlite';
     new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');
     config([
-        'backup.enabled' => true,
-        'backup.disk' => 'backups',
-        'backup.prefix' => 'capell-backups',
-        'backup.connection' => 'backup_test',
-        'backup.media_disks' => [],
+        'capell-backup.enabled' => true,
+        'capell-backup.disk' => 'backups',
+        'capell-backup.prefix' => 'capell-backups',
+        'capell-backup.connection' => 'backup_test',
+        'capell-backup.media_disks' => [],
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
 });
@@ -35,7 +35,7 @@ it('creates a database-only snapshot from the command', function (): void {
 });
 
 it('returns failure without sensitive output when backup is unavailable', function (): void {
-    config(['backup.enabled' => false]);
+    config(['capell-backup.enabled' => false]);
 
     artisanCommand('capell:backup:create')
         ->expectsOutputToContain('Backups are disabled.')

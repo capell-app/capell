@@ -56,8 +56,6 @@ final class AssertTableOwnershipAction
             'alias_key' => $configKey ?? 'capell.database.table_aliases.' . $table,
         ];
 
-        throw new ForeignTableException($configKey === null
-            ? (string) __('capell-core::install.tables.foreign_table', $replacements)
-            : (string) __('capell-core::install.tables.foreign_external_table', $replacements));
+        throw ForeignTableException::forTable($replacements, $configKey !== null);
     }
 }

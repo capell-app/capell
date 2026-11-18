@@ -26,8 +26,8 @@ final class SignBackupManifestAction
     {
         throw_unless(function_exists('sodium_crypto_sign_detached'), RuntimeException::class, __('capell-core::backup.signing_unavailable'));
 
-        $keyId = $this->config->get('backup.signing.key_id');
-        $encodedKey = $this->config->get('backup.signing.secret_key');
+        $keyId = $this->config->get('capell-backup.signing.key_id');
+        $encodedKey = $this->config->get('capell-backup.signing.secret_key');
         $secretKey = is_string($encodedKey) ? base64_decode($encodedKey, true) : false;
 
         throw_unless(is_string($keyId) && $keyId !== '' && is_string($secretKey)

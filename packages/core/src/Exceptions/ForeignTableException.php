@@ -6,4 +6,16 @@ namespace Capell\Core\Exceptions;
 
 use RuntimeException;
 
-final class ForeignTableException extends RuntimeException {}
+final class ForeignTableException extends RuntimeException
+{
+    /**
+     * @param  array<string, string>  $replacements
+     */
+    public static function forTable(array $replacements, bool $external): self
+    {
+        return new self((string) __(
+            $external ? 'capell-core::install.tables.foreign_external_table' : 'capell-core::install.tables.foreign_table',
+            $replacements,
+        ));
+    }
+}

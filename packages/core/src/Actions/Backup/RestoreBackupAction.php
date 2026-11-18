@@ -119,7 +119,7 @@ final class RestoreBackupAction
 
     private function assertScratchDatabase(BackupManifestData $manifest, string $scratchDatabase): void
     {
-        $prefix = $this->config->get('backup.scratch.database_prefix', 'capell_restore_');
+        $prefix = $this->config->get('capell-backup.scratch.database_prefix', 'capell_restore_');
 
         throw_if(! is_string($prefix) || $prefix === '' || ! str_starts_with($scratchDatabase, $prefix)
             || preg_match('/\A[A-Za-z]\w{2,62}\z/', $scratchDatabase) !== 1, InvalidArgumentException::class, 'Restore requires a safe scratch database name with the configured prefix.');
@@ -129,7 +129,7 @@ final class RestoreBackupAction
         throw_if(! is_string($liveDatabase) || $liveDatabase === '', RuntimeException::class, 'The live database target is not configured.');
 
         if ($manifest->databaseDriver === 'sqlite') {
-            $scratchDirectory = (string) $this->config->get('backup.scratch.sqlite_directory', '');
+            $scratchDirectory = (string) $this->config->get('capell-backup.scratch.sqlite_directory', '');
             $scratchPath = rtrim($scratchDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $scratchDatabase . '.sqlite';
 
             throw_if($scratchDirectory === '' || $this->samePath($liveDatabase, $scratchPath), InvalidArgumentException::class, 'Scratch restore database must differ from the live database.');
@@ -148,7 +148,7 @@ final class RestoreBackupAction
 
         throw_if($mediaDisk === null || $mediaDisk === '' || $mediaPrefix === null || $mediaPrefix === '', InvalidArgumentException::class, 'Media restore requires a scratch media disk and non-empty prefix.');
 
-        $configuredMediaDisks = $this->config->get('backup.media_disks', []);
+        $configuredMediaDisks = $this->config->get('capell-backup.media_disks', []);
         throw_unless(is_array($configuredMediaDisks), RuntimeException::class, 'Backup media disks must be an array.');
         $liveDisks = array_values(array_unique(array_filter([
             $this->store->diskName(),
@@ -365,7 +365,7 @@ final class RestoreBackupAction
                 base_path(),
                 ArtisanProcessEnvironment::prepare(),
             );
-            $process->setTimeout(max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600)));
+            $process->setTimeout(max(60, (int) $this->config->get('capell-backup.process_timeout_seconds', 3600)));
             $process->run();
         } catch (Throwable $throwable) {
             $reason = $this->redact($throwable->getMessage(), $connection);

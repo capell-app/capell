@@ -31,7 +31,7 @@ class SiteResolver
 
         if ($sites->isEmpty()) {
             $logger->warning('Frontend: no sites configured, cannot resolve domain', ['url' => $fullUrl]);
-            throw new SiteDomainNotFoundException('No sites are configured.');
+            throw SiteDomainNotFoundException::noSitesConfigured();
         }
 
         try {

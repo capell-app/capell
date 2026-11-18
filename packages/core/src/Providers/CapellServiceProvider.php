@@ -165,6 +165,7 @@ use Capell\Core\Support\Cache\ResilientDataStructureCache;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
+use Capell\Core\Support\Config\LegacyConfigFallback;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\MediaContentGraphExtractor;
@@ -298,6 +299,7 @@ use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -367,6 +369,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ResolvePublicPageableMorphTypesAction::class);
         $this->app->scoped(HydratePageLanguagesAction::class);
 
+        // `backup` and `redirects` were Capell's config keys before they were prefixed.
+        LegacyConfigFallback::carryRenamedKeys($this->app->make(Repository::class));
+
         config(['media-library.media_model' => Media::class]);
         if (config('capell.database.external_tables.tags', 'tags') !== 'tags'
             && InstalledVersions::isInstalled('spatie/laravel-tags')
@@ -400,7 +405,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function configurePackage(Package $package): void
     {
         $package->name(self::$name)
-            ->hasConfigFile(['backup', 'capell', 'capell-reporting', 'redirects'])
+            ->hasConfigFile(['capell-backup', 'capell', 'capell-reporting', 'capell-redirects'])
             ->hasTranslations();
 
         if (! $this->app->runningInConsole()) {
@@ -1032,11 +1037,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerBackupPruneSchedule(): self
     {
-        if (! config('backup.prune_schedule_enabled', false)) {
+        if (! config('capell-backup.prune_schedule_enabled', false)) {
             return $this;
         }
 
-        $cron = config('backup.prune_schedule_cron', '0 3 * * 1');
+        $cron = config('capell-backup.prune_schedule_cron', '0 3 * * 1');
 
         if (! is_string($cron) || trim($cron) === '') {
             return $this;

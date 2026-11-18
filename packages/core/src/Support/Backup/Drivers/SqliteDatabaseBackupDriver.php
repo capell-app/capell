@@ -54,7 +54,7 @@ final readonly class SqliteDatabaseBackupDriver implements DatabaseBackupDriver
 
         throw_unless(is_file($sourcePath), RuntimeException::class, 'The SQLite backup artifact does not exist.');
 
-        $scratchDirectory = (string) $this->config->get('backup.scratch.sqlite_directory', '');
+        $scratchDirectory = (string) $this->config->get('capell-backup.scratch.sqlite_directory', '');
 
         throw_if($scratchDirectory === '', RuntimeException::class, 'The SQLite scratch directory is not configured.');
 

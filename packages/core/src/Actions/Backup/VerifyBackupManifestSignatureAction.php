@@ -24,7 +24,7 @@ final class VerifyBackupManifestSignatureAction
         throw_unless(function_exists('sodium_crypto_sign_verify_detached'), RuntimeException::class, __('capell-core::backup.signing_unavailable'));
 
         $keyId = data_get($manifest, 'signature.keyId');
-        $keys = $this->config->get('backup.signing.public_keys', []);
+        $keys = $this->config->get('capell-backup.signing.public_keys', []);
         $encodedKey = is_string($keyId) && is_array($keys) ? ($keys[$keyId] ?? null) : null;
         $publicKey = is_string($encodedKey) ? base64_decode($encodedKey, true) : false;
 

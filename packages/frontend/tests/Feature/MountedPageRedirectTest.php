@@ -26,8 +26,8 @@ it('follows bilingual moved page redirects through the correct domain mount exac
         'capell-frontend.html_cache' => false,
         'capell-frontend.write_html_cache' => false,
         'capell-frontend.use_site_domain_for_urls' => $siteUrls,
-        'redirects.auto_redirects.enabled' => true,
-        'redirects.auto_redirects.status_code' => 301,
+        'capell-redirects.auto_redirects.enabled' => true,
+        'capell-redirects.auto_redirects.status_code' => 301,
     ]);
     app()->instance(RedirectResolver::class, resolve($resolverClass));
     [$site, $english, $french, $englishDomain, $frenchDomain] = mountedRedirectSite();

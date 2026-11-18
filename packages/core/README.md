@@ -52,7 +52,7 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 ## Runtime Surfaces
 
 - Provider: `Capell\Core\Providers\CapellServiceProvider`
-- Config: `config/capell.php`, `config/redirects.php`
+- Config: `config/capell.php`, `config/capell-redirects.php`
 - Main models: `Page`, `PageUrl`, `Site`, `SiteDomain`, `Language`, `Layout`, `Theme`, `Blueprint`, `Media`, `CapellExtension`, `UpgradeLogEntry`
 - Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make:<thing>`
 - Test case support: `Capell\Core\Testing\ExtensionTestHarness`

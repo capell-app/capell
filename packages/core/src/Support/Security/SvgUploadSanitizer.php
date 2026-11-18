@@ -84,12 +84,23 @@ final class SvgUploadSanitizer
      */
     public function sanitize(string $contents): string
     {
-        throw_if(trim($contents) === '', UnsafeSvgUploadException::class, 'The SVG upload is empty.');
-        throw_if(strlen($contents) > self::MAX_BYTES, UnsafeSvgUploadException::class, 'The SVG upload is too large to check safely.');
+        if (trim($contents) === '') {
+            throw UnsafeSvgUploadException::empty();
+        }
+
+        if (strlen($contents) > self::MAX_BYTES) {
+            throw UnsafeSvgUploadException::tooLarge();
+        }
+
         // The byte checks below only read UTF-8: UTF-16 or UTF-32 would hide a DOCTYPE from them.
-        throw_unless($this->isUtf8($contents), UnsafeSvgUploadException::class, 'SVG uploads must be UTF-8 encoded.');
+        if (! $this->isUtf8($contents)) {
+            throw UnsafeSvgUploadException::notUtf8();
+        }
+
         // Checked over the whole document: entity expansion and external entities start in a DOCTYPE wherever it sits.
-        throw_if(stripos($contents, '<!DOCTYPE') !== false || stripos($contents, '<!ENTITY') !== false, UnsafeSvgUploadException::class, 'SVG uploads may not contain a DOCTYPE or ENTITY declaration.');
+        if (stripos($contents, '<!DOCTYPE') !== false || stripos($contents, '<!ENTITY') !== false) {
+            throw UnsafeSvgUploadException::containsDoctype();
+        }
 
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
@@ -97,21 +108,21 @@ final class SvgUploadSanitizer
         try {
             $loaded = $document->loadXML($contents, LIBXML_NONET);
         } catch (Throwable $throwable) {
-            throw new UnsafeSvgUploadException('The SVG upload could not be parsed safely.', 0, $throwable);
+            throw UnsafeSvgUploadException::unparseable($throwable);
         } finally {
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
 
-        throw_if($document->doctype instanceof DOMDocumentType, UnsafeSvgUploadException::class, 'SVG uploads may not contain a DOCTYPE or ENTITY declaration.');
+        if ($document->doctype instanceof DOMDocumentType) {
+            throw UnsafeSvgUploadException::containsDoctype();
+        }
 
         $root = $document->documentElement;
 
-        throw_unless(
-            $loaded && $root instanceof DOMElement && $root->localName === 'svg' && $root->namespaceURI === self::SVG_NAMESPACE,
-            UnsafeSvgUploadException::class,
-            'The SVG upload must be an SVG document.',
-        );
+        if (! ($loaded && $root instanceof DOMElement && $root->localName === 'svg' && $root->namespaceURI === self::SVG_NAMESPACE)) {
+            throw UnsafeSvgUploadException::notSvgDocument();
+        }
 
         $this->sanitizeAttributes($root);
         $this->sanitizeChildren($root);

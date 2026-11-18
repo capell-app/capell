@@ -79,7 +79,7 @@ final class DatabasePlatformRegistry
         $driver = strtolower(trim($driver));
 
         return $this->platforms[$driver]
-            ?? throw new UnsupportedDatabaseDriver(sprintf('Unsupported database driver [%s].', $driver));
+            ?? throw UnsupportedDatabaseDriver::forDriver($driver);
     }
 
     public function forConnection(?string $connectionName = null): DatabasePlatform

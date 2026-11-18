@@ -77,14 +77,14 @@ final class InspectBackupHealthAction
             'message' => $snapshotCount > 0 ? sprintf('%d completed snapshot(s) found.', $snapshotCount) : 'No completed backup snapshots were found.',
         ];
         $newest = $this->newestCreatedAt($manifests);
-        $maxAgeHours = max(1, (int) $this->config->get('backup.max_age_hours', 26));
+        $maxAgeHours = max(1, (int) $this->config->get('capell-backup.max_age_hours', 26));
         $fresh = $newest instanceof CarbonImmutable && ! $newest->isBefore($now->subHours($maxAgeHours));
         $checks[] = [
             'name' => 'freshness',
             'passed' => $fresh,
             'message' => $fresh ? 'The newest backup snapshot is fresh.' : sprintf('No backup snapshot is newer than %d hour(s).', $maxAgeHours),
         ];
-        $minimumRetained = max(1, (int) $this->config->get('backup.minimum_retained', 7));
+        $minimumRetained = max(1, (int) $this->config->get('capell-backup.minimum_retained', 7));
         $checks[] = [
             'name' => 'retention',
             'passed' => $snapshotCount >= $minimumRetained,

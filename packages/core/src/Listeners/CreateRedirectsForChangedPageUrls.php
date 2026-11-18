@@ -16,7 +16,7 @@ class CreateRedirectsForChangedPageUrls
 {
     public function handle(PageSaved $event): void
     {
-        if (! config('redirects.auto_redirects.enabled', true)) {
+        if (! config('capell-redirects.auto_redirects.enabled', true)) {
             return;
         }
 
@@ -58,7 +58,7 @@ class CreateRedirectsForChangedPageUrls
 
     public function handleUrlRewrite(PageUrlsRewritten $event): void
     {
-        if (! $event->automaticRedirectsAllowed || ! config('redirects.auto_redirects.enabled', true)) {
+        if (! $event->automaticRedirectsAllowed || ! config('capell-redirects.auto_redirects.enabled', true)) {
             return;
         }
 

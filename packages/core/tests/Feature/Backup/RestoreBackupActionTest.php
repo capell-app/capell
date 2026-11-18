@@ -36,13 +36,13 @@ beforeEach(function (): void {
     $database->exec('CREATE TABLE examples (value TEXT NOT NULL)');
     $database->exec("INSERT INTO examples (value) VALUES ('original')");
     config([
-        'backup.enabled' => true,
-        'backup.disk' => 'backups',
-        'backup.prefix' => 'capell-backups',
-        'backup.connection' => 'backup_test',
-        'backup.media_disks' => ['media'],
-        'backup.scratch.database_prefix' => 'capell_restore_',
-        'backup.scratch.sqlite_directory' => $this->scratchDirectory,
+        'capell-backup.enabled' => true,
+        'capell-backup.disk' => 'backups',
+        'capell-backup.prefix' => 'capell-backups',
+        'capell-backup.connection' => 'backup_test',
+        'capell-backup.media_disks' => ['media'],
+        'capell-backup.scratch.database_prefix' => 'capell_restore_',
+        'capell-backup.scratch.sqlite_directory' => $this->scratchDirectory,
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
     $this->doctorProcesses = new class implements ProcessFactoryInterface
@@ -128,7 +128,7 @@ it('rejects untrusted signature metadata and altered signed fields before restor
         'connection' => $payload['connection_name'] = 'another_connection',
         'driver' => $payload['database_driver'] = 'mysql',
         'timestamp' => $payload['created_at'] = '2020-01-01T00:00:00+00:00',
-        'public key' => config(['backup.signing.public_keys.test-key' => base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))]),
+        'public key' => config(['capell-backup.signing.public_keys.test-key' => base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))]),
         default => throw new LogicException('Unknown restore alteration case.'),
     };
     Storage::disk('backups')->put($path, json_encode($payload, JSON_THROW_ON_ERROR));
@@ -141,7 +141,7 @@ it('rejects untrusted signature metadata and altered signed fields before restor
 
 it('restores with a retained verification key after rotating and removing the signing secret', function (): void {
     $manifest = CreateBackupAction::run(databaseOnly: true);
-    config(['backup.signing.key_id' => 'next-key', 'backup.signing.secret_key' => null]);
+    config(['capell-backup.signing.key_id' => 'next-key', 'capell-backup.signing.secret_key' => null]);
 
     $result = RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test');
 
@@ -199,7 +199,7 @@ it('rejects a currently configured live media disk absent from an older snapshot
     Storage::disk('media')->put('archived.txt', 'snapshot-media');
     $manifest = CreateBackupAction::run();
     Storage::disk('current-media')->put('live.txt', 'keep');
-    config(['backup.media_disks' => ['current-media']]);
+    config(['capell-backup.media_disks' => ['current-media']]);
 
     expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'current-media', 'restored'))
         ->toThrow(InvalidArgumentException::class, 'different from every live media disk')
@@ -219,7 +219,7 @@ it('rejects checksum failures before creating a scratch database', function (): 
 
 it('preserves the source disk for same-path files in multi-disk snapshots', function (): void {
     Storage::fake('second-media');
-    config(['backup.media_disks' => ['media', 'second-media']]);
+    config(['capell-backup.media_disks' => ['media', 'second-media']]);
     Storage::disk('media')->put('same.txt', 'first-file');
     Storage::disk('second-media')->put('same.txt', 'second-file');
     $manifest = CreateBackupAction::run();

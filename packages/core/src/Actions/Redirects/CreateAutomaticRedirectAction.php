@@ -57,7 +57,7 @@ class CreateAutomaticRedirectAction
 
     private function configuredStatusCode(): RedirectStatusCodeEnum
     {
-        $statusCode = config('redirects.auto_redirects.status_code', RedirectStatusCodeEnum::Permanent->value);
+        $statusCode = config('capell-redirects.auto_redirects.status_code', RedirectStatusCodeEnum::Permanent->value);
 
         return RedirectStatusCodeEnum::tryFrom($statusCode) ?? RedirectStatusCodeEnum::Permanent;
     }

@@ -17,14 +17,14 @@ beforeEach(function (): void {
     $this->databasePath = sys_get_temp_dir() . '/capell-health-backup-' . bin2hex(random_bytes(6)) . '.sqlite';
     new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');
     config([
-        'backup.enabled' => true,
-        'backup.disk' => 'backups',
-        'backup.prefix' => 'capell-backups',
-        'backup.connection' => 'backup_test',
-        'backup.media_disks' => [],
-        'backup.max_age_hours' => 2,
-        'backup.minimum_retained' => 1,
-        'backup.retain' => 2,
+        'capell-backup.enabled' => true,
+        'capell-backup.disk' => 'backups',
+        'capell-backup.prefix' => 'capell-backups',
+        'capell-backup.connection' => 'backup_test',
+        'capell-backup.media_disks' => [],
+        'capell-backup.max_age_hours' => 2,
+        'capell-backup.minimum_retained' => 1,
+        'capell-backup.retain' => 2,
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
     Date::setTestNow('2026-07-10 12:00:00 UTC');
@@ -71,7 +71,7 @@ it('reports stale missing and checksum-mismatched backup artifacts', function ()
 
 it('fails health for disabled storage no manifests and insufficient retention', function (): void {
     $empty = InspectBackupHealthAction::run();
-    config(['backup.enabled' => false]);
+    config(['capell-backup.enabled' => false]);
     $disabled = InspectBackupHealthAction::run();
 
     expect($empty->passed())->toBeFalse()
@@ -135,7 +135,7 @@ it('reports unsigned legacy snapshots as invalid and never prunes them automatic
     unset($payload['signature']);
     Storage::disk('backups')->put($path, json_encode($payload, JSON_THROW_ON_ERROR));
     CreateBackupAction::run(databaseOnly: true);
-    config(['backup.retain' => 1]);
+    config(['capell-backup.retain' => 1]);
 
     $report = InspectBackupHealthAction::run();
 

@@ -29,7 +29,7 @@ it('copies sqlite databases and restores only beneath the scratch directory', fu
     $database->exec("INSERT INTO examples (value) VALUES ('sqlite-backup-content')");
     config([
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $source],
-        'backup.scratch.sqlite_directory' => $this->temporaryDirectory . '/scratch',
+        'capell-backup.scratch.sqlite_directory' => $this->temporaryDirectory . '/scratch',
     ]);
 
     $driver = new SqliteDatabaseBackupDriver(config());
@@ -60,8 +60,8 @@ it('builds mysql backup and restore processes without exposing passwords in argu
             'username' => 'capell',
             'password' => 'super-secret',
         ],
-        'backup.binaries.mysqldump' => '/usr/bin/mysqldump',
-        'backup.binaries.mysql' => '/usr/bin/mysql',
+        'capell-backup.binaries.mysqldump' => '/usr/bin/mysqldump',
+        'capell-backup.binaries.mysql' => '/usr/bin/mysql',
     ]);
 
     $driver = new MySqlDatabaseBackupDriver(config(), $factory);
@@ -91,8 +91,8 @@ it('builds postgres backup and restore processes without exposing passwords in a
             'username' => 'capell',
             'password' => 'super-secret',
         ],
-        'backup.binaries.pg_dump' => '/usr/bin/pg_dump',
-        'backup.binaries.psql' => '/usr/bin/psql',
+        'capell-backup.binaries.pg_dump' => '/usr/bin/pg_dump',
+        'capell-backup.binaries.psql' => '/usr/bin/psql',
     ]);
 
     $driver = new PostgresDatabaseBackupDriver(config(), $factory);
@@ -130,7 +130,7 @@ it('reports failed process operations without leaking connection secrets', funct
             'username' => 'capell',
             'password' => 'never-print-this',
         ],
-        'backup.binaries.mysqldump' => '/definitely-missing-capell-backup-command',
+        'capell-backup.binaries.mysqldump' => '/definitely-missing-capell-backup-command',
     ]);
 
     try {
@@ -139,7 +139,7 @@ it('reports failed process operations without leaking connection secrets', funct
         // The message names the failing operation, connection, missing binary, and
         // the config key that fixes it — but must still never carry the password.
         expect($runtimeException->getMessage())->toStartWith('Database backup create failed for connection [backup_test].')
-            ->and($runtimeException->getMessage())->toContain('backup.binaries.mysqldump')
+            ->and($runtimeException->getMessage())->toContain('capell-backup.binaries.mysqldump')
             ->and($runtimeException->getMessage())->not->toContain('never-print-this')
             ->and($runtimeException->getPrevious())->toBeNull()
             ->and($runtimeException->getTraceAsString())->not->toContain('never-print-this');
