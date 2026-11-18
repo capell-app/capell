@@ -20,6 +20,8 @@
     <testsuite name="Unit">
       <directory suffix="Test.php">./packages/*/tests/Unit</directory>
       <directory suffix="Test.php">./tests/Unit</directory>
+      <directory suffix="Test.php">./packages/installer/tests/Standalone</directory>
+      <directory suffix="Test.php">./tests/Standalone</directory>
       <exclude>./packages/*/tests/Browser</exclude>
     </testsuite>
   </testsuites>
