@@ -54,9 +54,7 @@
             @endif
         @endif
 
-        @includeIsolated('capell::public.layout-main', [
-            'renderData' => $mainLayout($pageSlot ?? $slot),
-        ])
+        {{ $mainLayout($pageSlot ?? $slot) }}
 
         @if ($footer)
             {{ $footer }}

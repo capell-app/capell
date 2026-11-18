@@ -9,12 +9,12 @@ use Capell\Core\Models\Layout as LayoutModel;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Actions\BuildPublicLayoutShellDataAction;
-use Capell\Frontend\Actions\BuildPublicMainLayoutDataAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\PublicLayoutShellData;
-use Capell\Frontend\Data\PublicMainLayoutData;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Component;
 use Override;
 
@@ -52,17 +52,21 @@ final class Layout extends Component
         $this->renderData = BuildPublicLayoutShellDataAction::run($this->theme, $this->page, $this->layout, $frontend->site());
     }
 
-    public function mainLayout(mixed $pageSlot): PublicMainLayoutData
+    /** Renders the overridable main layout component with the frontend records, outside the shell view's data. */
+    public function mainLayout(mixed $pageSlot): HtmlString
     {
-        return BuildPublicMainLayoutDataAction::run(
-            $this->layout,
-            $this->page,
-            $pageSlot,
-            $this->theme,
-            $this->containerClass,
-            $this->mainClass,
-            $this->mainContainerClass,
-        );
+        return new HtmlString(Blade::render(
+            '<x-capell::layout.main :$layout :$page :$theme :page-slot="$pageSlot" :container-class="$containerClass" :main-class="$mainClass" :main-container-class="$mainContainerClass" />',
+            [
+                'layout' => $this->layout,
+                'page' => $this->page,
+                'theme' => $this->theme,
+                'pageSlot' => $pageSlot,
+                'containerClass' => $this->containerClass,
+                'mainClass' => $this->mainClass,
+                'mainContainerClass' => $this->mainContainerClass,
+            ],
+        ));
     }
 
     #[Override]
