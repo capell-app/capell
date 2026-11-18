@@ -215,6 +215,13 @@ it('renders and mounts page-url replication under strict mode only with its perm
 
     $actor->givePermissionTo(Permission::findOrCreate('Replicate:PageUrl', 'web'));
 
+    // A page's own URL is copied onto the same page, so editing that page is also required.
+    Livewire::test(ManagePageUrls::class)
+        ->assertSuccessful()
+        ->assertTableActionHidden('replicate', $record);
+
+    $actor->givePermissionTo(Permission::findOrCreate('Update:Page', 'web'));
+
     Livewire::test(ManagePageUrls::class)
         ->assertSuccessful()
         ->assertTableActionVisible('replicate', $record)
