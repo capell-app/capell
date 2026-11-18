@@ -9,10 +9,12 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\PublicHeaderData;
 use Capell\Frontend\Support\View\PublicModelMeta;
 use Illuminate\Support\Facades\Blade;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublicHeaderDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly FrontendContextReader $frontend, private readonly ThemeChromeRegistry $chrome) {}

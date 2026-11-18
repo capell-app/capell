@@ -8,10 +8,12 @@ use Capell\Frontend\Data\PublicPageResultsData;
 use Capell\Frontend\Support\View\DeferredHtmlable;
 use Illuminate\Support\Facades\Blade;
 use Livewire\Component;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PreparePageResultsSlotAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param Component&object{results: mixed} $listing Livewire listing with a computed results property. */
