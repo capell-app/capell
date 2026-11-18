@@ -8,6 +8,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Translation;
 use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
@@ -33,10 +34,8 @@ function listingFallbackSite(bool $frenchFallsBackToEnglish = true): array
  */
 function listingFallbackPage(Site $site, Blueprint $type, array $translations, int $order, ?Page $parent = null): Page
 {
-    $languages = array_map(static fn (array $translation): Language => $translation[0], $translations);
     $factory = Page::factory()->site($site)->type($type)->published(CarbonImmutable::parse('2026-01-01 09:00:00'))
-        ->state(['order' => $order])
-        ->withTranslations($languages);
+        ->state(['order' => $order]);
 
     if ($parent instanceof Page) {
         $factory = $factory->parent($parent);
@@ -45,9 +44,9 @@ function listingFallbackPage(Site $site, Blueprint $type, array $translations, i
     $page = $factory->createOne();
 
     foreach ($translations as [$language, $slug, $title]) {
-        $translation = $page->translations()->where('language_id', $language->getKey())->sole();
-        $meta = is_array($translation->meta) ? $translation->meta : [];
-        $translation->update(['title' => $title, 'meta' => array_replace($meta, ['slug' => $slug])]);
+        $translation = Translation::factory()->language($language)->slug($slug)->make(['title' => $title]);
+
+        $page->translations()->create($translation->only($translation->getFillable()));
     }
 
     return $page;
