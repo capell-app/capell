@@ -64,6 +64,7 @@ return [
     'site_spec_export_omitted_no_slug' => 'Left out because they have no lowercase, hyphenated slug in the site language: :pages. Give each a slug to include it.',
     'site_spec_export_omitted_no_page_type' => 'Left out because they have no page type: :pages. Choose a page type for each to include it.',
     'site_spec_export_omitted_not_html' => 'Left out because their content is built from blocks, which a SiteSpec cannot carry: :pages. These pages stay as they are wherever the export is applied.',
+    'site_spec_export_omitted_not_public' => 'Left out of this public export because they are not live, or only some visitors can see them: :pages. Applying a public spec would create them live and open to everyone.',
     'site_spec_export_omitted_placeholder' => 'Left out because it is still the placeholder home page: :pages. Write the home page first so the placeholder is not copied to another site.',
     'site_spec_export_written' => '{1} Exported site ":name" (#:id) with :pages page to :path.|[0,*] Exported site ":name" (#:id) with :pages pages to :path.',
     'site_spec_export_not_written' => 'Could not write the SiteSpec to :path. Check that the folder exists and can be written to.',

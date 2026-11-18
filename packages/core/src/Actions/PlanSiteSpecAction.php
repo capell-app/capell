@@ -101,14 +101,13 @@ final class PlanSiteSpecAction
             ));
         }
 
-        // The current values as the spec would write them: a missing title reads as the page
-        // name, and the body is compared after the sanitising an apply would do, so content
-        // that differs only in markup the import would strip is not rewritten. A block body
+        // The body is compared after the sanitising an apply would do, so content that
+        // differs only in markup the import would strip is not rewritten. A block body
         // never matches an HTML spec.
         $content = $translation->content;
         $current = [
             'name' => $page->name,
-            'title' => filled($translation->title) ? (string) $translation->title : $page->name,
+            'title' => $translation->title,
             'content' => is_string($content) || $content === null ? SiteSpecPageContent::sanitisedBody((string) $content) : JsonCodec::encode((array) $content),
         ];
         $differences = [];

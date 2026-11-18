@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\SiteSpecExportData;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -68,6 +69,8 @@ final class ExportSiteSpecAction
                 ! $page->blueprint instanceof Blueprint => SiteSpecExportData::OMITTED_NO_PAGE_TYPE,
                 ! is_string($translation->content) && $translation->content !== null => SiteSpecExportData::OMITTED_NOT_HTML,
                 $this->isPlaceholder($site, $page, $translation, $home) => SiteSpecExportData::OMITTED_PLACEHOLDER,
+                // A public spec creates missing pages live, so only pages that are live and open to everyone may travel in one.
+                $public && ($page->publishVisibilityState() !== PublishVisibilityStateEnum::published || filled($page->meta['visibility'] ?? null)) => SiteSpecExportData::OMITTED_NOT_PUBLIC,
                 default => null,
             };
 
@@ -110,13 +113,8 @@ final class ExportSiteSpecAction
     /** @return array<string, mixed> */
     private function site(Site $site): array
     {
-        $meta = $site->meta ?? [];
-
-        return [
-            'name' => $site->name,
-            'businessName' => is_string($meta['business_name'] ?? null) ? $meta['business_name'] : null,
-            'organisationType' => is_string($meta['organization_type'] ?? null) ? $meta['organization_type'] : null,
-        ];
+        // Applying a spec to an existing site does not change its site fields, so only the required name travels.
+        return ['name' => $site->name];
     }
 
     /** @return array<string, mixed> */

@@ -242,7 +242,7 @@ final class ImportSiteSpecCommand extends Command
     /** Site content escaped for the console, with control characters removed so stored text cannot send terminal codes. */
     private function printable(string $text): string
     {
-        return OutputFormatter::escape((string) preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/u', '', $text));
+        return OutputFormatter::escape((string) preg_replace('/[\x00-\x08\x0B-\x1F\x7F\x{80}-\x{9F}]/u', '', $text));
     }
 
     /** @return array{created: int, updated: int, skipped: int} */

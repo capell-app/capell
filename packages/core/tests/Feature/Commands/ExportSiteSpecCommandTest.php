@@ -12,6 +12,7 @@ use Capell\Core\Enums\SiteSpecPlanAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Queue;
@@ -102,7 +103,7 @@ it('exports the same site to byte-identical JSON, home first and then by slug', 
         ->and(array_column($payload['pages'], 'slug'))->toBe(['home', 'about', 'services'])
         ->and(array_column($payload['pages'], 'order'))->toBe([0, 1, 2])
         ->and(array_keys($payload))->toBe(array_values(Arr::sort(array_keys($payload))))
-        ->and($payload['site']['businessName'])->toBe('Harbour Garage Ltd')
+        ->and($payload['site'])->toBe(['businessName' => null, 'description' => null, 'name' => 'Harbour Garage', 'organisationType' => null])
         ->and($payload['theme']['colors']['primary'])->toBe('#123456')
         ->and($payload['pages'][2]['sections'][0]['content'])->toBe('<p>Repairs.</p><p>Servicing.</p>');
 });
@@ -228,7 +229,7 @@ function applyExportedPage(Site $site, string $slug): Page
         ->first(static fn (Page $page): bool => ($page->translations->first()?->meta['slug'] ?? null) === $slug) ?? throw new RuntimeException('Missing page ' . $slug);
 }
 
-it('exports editor HTML as an import would store it, so applying it back changes nothing', function (): void {
+it('exports editor HTML as an import would store it, and writes a missing title once', function (): void {
     $site = exportedSite();
     $about = applyExportedPage($site, 'about');
     $about->translations->first()?->update(['content' => '<p onclick="alert(1)">Family run.</p><script>alert(2)</script>', 'title' => null]);
@@ -237,7 +238,10 @@ it('exports editor HTML as an import would store it, so applying it back changes
     $plan = PlanSiteSpecAction::run($export->spec, $site);
     $aboutSpec = collect($export->spec->pages)->firstWhere('slug', 'about');
 
-    expect($plan->hasChanges())->toBeFalse()
+    $changed = array_values(array_filter($plan->items, static fn (SiteSpecPlanItemData $item): bool => $item->action !== SiteSpecPlanAction::Skip));
+
+    expect($changed)->toHaveCount(1)
+        ->and([$changed[0]->key, $changed[0]->action, $changed[0]->changes])->toBe(['about', SiteSpecPlanAction::Update, ['title']])
         ->and($aboutSpec?->title)->toBe('About')
         ->and($aboutSpec?->sections[0]->content)->toContain('Family run.')
         ->and($aboutSpec?->sections[0]->content)->not->toContain('onclick')
@@ -265,4 +269,18 @@ it('exports only hex theme colours and leaves out a placeholder home page, namin
     expect(array_column($payload['pages'], 'slug'))->toBe(['work'])
         ->and($payload['theme']['linkColor'])->toBeNull()
         ->and($payload['theme']['colors']['primary'])->toBe('#123456');
+});
+
+it('leaves pages that are not live out of a public export, so promoting it cannot publish them', function (): void {
+    $site = exportedSite();
+    applyExportedPage($site, 'services')->update(['visible_from' => PublishSentinel::draftValue()]);
+    $path = $this->exportDirectory . '/public.json';
+
+    $command = $this->artisan('capell:site-spec-export', ['site' => (string) $site->getKey(), '--output' => $path, '--public' => true]);
+    assert($command instanceof PendingCommand);
+    $command->expectsOutputToContain('not live, or only some visitors can see them: Services')->assertExitCode(Command::SUCCESS)->run();
+    runExport($site, $this->exportDirectory . '/private.json', false);
+
+    expect(array_column(exportedPayload($path)['pages'], 'slug'))->toBe(['home', 'about'])
+        ->and(array_column(exportedPayload($this->exportDirectory . '/private.json')['pages'], 'slug'))->toBe(['home', 'about', 'services']);
 });

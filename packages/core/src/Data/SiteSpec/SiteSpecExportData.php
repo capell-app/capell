@@ -18,6 +18,9 @@ final class SiteSpecExportData extends Data
     /** The body is built from blocks, which a SiteSpec page cannot carry. */
     public const string OMITTED_NOT_HTML = 'not_html';
 
+    /** A public export leaves out pages that are not live, or whose visibility is restricted, because applying it would create them live and open. */
+    public const string OMITTED_NOT_PUBLIC = 'not_public';
+
     /** A placeholder home page that has not been written yet. */
     public const string OMITTED_PLACEHOLDER = 'placeholder';
 
