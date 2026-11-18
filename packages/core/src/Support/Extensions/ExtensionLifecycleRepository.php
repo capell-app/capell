@@ -31,6 +31,9 @@ final class ExtensionLifecycleRepository
 
     private bool $recordsPreloaded = false;
 
+    /** Whether a lifecycle read failed since the caches were last cleared, so an answer rests on a missing record. */
+    private bool $readFailed = false;
+
     /**
      * The resolved lifecycle table name. Every installed-package check probes
      * this table, and a bootstrap performs thousands of those checks, so the
@@ -286,6 +289,16 @@ final class ExtensionLifecycleRepository
         return CapellExtension::query()->where('composer_name', $name)->sharedLock()->first();
     }
 
+    /**
+     * Whether answers now come from the lifecycle table itself. Before the database is bound, while
+     * the table is missing or after a failed read, answers rest on the absence of records and must be
+     * asked again rather than kept.
+     */
+    public function recordsLoaded(): bool
+    {
+        return $this->recordsPreloaded && ! $this->readFailed;
+    }
+
     public function connectionName(): string
     {
         return (string) (new CapellExtension)->getConnection()->getName();
@@ -297,6 +310,7 @@ final class ExtensionLifecycleRepository
         $this->runtimeGateCache = [];
         $this->recordCache = [];
         $this->recordsPreloaded = false;
+        $this->readFailed = false;
 
         // Forget only a name this repository resolved: resolving here would
         // make a clear throw on invalid table configuration.
@@ -328,6 +342,8 @@ final class ExtensionLifecycleRepository
                 ->where('composer_name', $name)
                 ->first();
         } catch (Throwable) {
+            $this->readFailed = true;
+
             return null;
         }
     }
