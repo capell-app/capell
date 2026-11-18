@@ -107,7 +107,7 @@ final class StandardSuiteDiscoveryTest extends TestCase
             }
         }
 
-        $this->assertSame([$proof, 'packages/admin/tests/MariaDB/EditorScratchDraftConcurrencyTest.php'], $declaredFiles);
+        $this->assertSame([$proof, 'packages/admin/tests/MariaDB/EditorScratchDraftConcurrencyTest.php', 'packages/core/tests/MariaDB/PackageAdmissionConcurrencyTest.php'], $declaredFiles);
     }
 
     private function matchesPath(string $path, string $pattern): bool
@@ -128,6 +128,7 @@ final class StandardSuiteDiscoveryTest extends TestCase
             '~^tests/MariaDB/MariaDbMigrationCompatibilityTest\.php$~' => 'Separate MariaDB compatibility harness',
             '~^packages/core/tests/MariaDB/ImplicitTimestampRepairTest\.php$~' => 'Opt-in MariaDB legacy implicit timestamp proof in phpunit.mariadb.xml',
             '~^packages/admin/tests/MariaDB/EditorScratchDraftConcurrencyTest\.php$~' => 'Opt-in MariaDB editor recovery lock proofs in phpunit.mariadb.xml',
+            '~^packages/core/tests/MariaDB/PackageAdmissionConcurrencyTest\.php$~' => 'Opt-in MariaDB package admission lock proofs in phpunit.mariadb.xml',
             '~(?:^|/)[Ff]ixtures/~' => 'Autoloaded fixture classes, not test cases',
         ];
 

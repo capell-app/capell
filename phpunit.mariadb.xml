@@ -8,6 +8,9 @@
     <testsuite name="MariaDBEditorRecoveryConcurrency">
       <file>packages/admin/tests/MariaDB/EditorScratchDraftConcurrencyTest.php</file>
     </testsuite>
+    <testsuite name="MariaDBPackageAdmissionConcurrency">
+      <file>packages/core/tests/MariaDB/PackageAdmissionConcurrencyTest.php</file>
+    </testsuite>
   </testsuites>
   <source restrictNotices="true" restrictWarnings="true" ignoreSuppressionOfDeprecations="true" ignoreIndirectDeprecations="true">
     <include>
