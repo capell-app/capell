@@ -411,11 +411,14 @@ A normal dry run returns success when the report is generated. Add `--strict` to
 ## CI / automated deploys
 
 ```bash
+composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 php artisan capell:upgrade --force --no-interaction
+npm ci --no-audit --no-fund
+php artisan capell:frontend-after-install --apply --no-interaction
 php artisan capell:runtime-refresh --no-interaction
 ```
 
-This is the same order as [Deploy recipes](deploy-recipes.md).
+This is the same order as [Deploy recipes](deploy-recipes.md), which explain each step and give the Deployer, Forge and Ploi versions. Generated frontend CSS is not kept in Git, so a deploy that skips the `npm ci` and `capell:frontend-after-install` lines fails Capell Doctor.
 
 Keep downgrade protection enabled for ordinary deploys. Pass `--force-downgrade` only when deliberately applying an older Composer version. `--force` skips confirmations; `--no-interaction` also enables automatic reconciliation of available first-party requirements.
 

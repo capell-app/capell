@@ -23,7 +23,7 @@ npm install
 php artisan capell:frontend-after-install --apply
 ```
 
-The second command generates the Capell frontend stylesheet inputs and builds the stylesheet with Vite. After that, run `npm run build` again whenever you change theme templates. `composer run dev` runs `php artisan serve`.
+The second command shows the frontend plan and asks whether to apply it. Answer `y`: the default is no, and declining leaves the stylesheet inputs ungenerated, so the next `npm run build` stops. In a script, add `--no-interaction` to apply without the prompt. Applying generates the Capell frontend stylesheet inputs and builds the stylesheet with Vite. After that, run `npm run build` again whenever you change theme templates. `composer run dev` runs `php artisan serve`.
 
 ## 2. Set the name and colours
 
