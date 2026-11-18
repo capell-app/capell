@@ -1,7 +1,3 @@
-@php
-    use Capell\Frontend\Support\View\PublicModelMeta;
-@endphp
-
 @props([
     'bodyClass' => null,
     'language',
@@ -11,13 +7,11 @@
     'theme',
 ])
 
-<body
-    @class([
-    'layout-' . $layout->key,
-    PublicModelMeta::get($layout, 'body_class'),
-    PublicModelMeta::get($theme, 'body_class'),
-    $bodyClass,
+@includeIsolated('capell::public.body', [
+    'renderData' => app(\Capell\Frontend\Data\PublicBodyData::class, [
+        'layout' => $layout,
+        'theme' => $theme,
+        'bodyClass' => $bodyClass,
+    ]),
+    'slot' => $slot,
 ])
->
-    {{ $slot }}
-</body>

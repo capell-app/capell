@@ -1,10 +1,6 @@
 @php
     use Capell\Core\Enums\ContentStructure;
-    use Capell\Frontend\Actions\GetPageVariablesAction;
-    use Capell\Frontend\Actions\RenderContentAction;
-    use Capell\Frontend\Actions\RenderHtmlContentAction;
-    use Capell\Frontend\Facades\Frontend;
-    use Capell\Frontend\Support\View\PublicModelMeta;
+    use Capell\Frontend\Actions\BuildPublicContentDataAction;
 @endphp
 
 @props([
@@ -34,56 +30,21 @@
 ])
 
 @php
-    $page = $pageRecord;
-
-    if ($page === null) {
-        try {
-            $page = Frontend::page();
-        } catch (Throwable) {
-            $page = null;
-        }
-    }
-
-    if ($language === null) {
-        try {
-            $language = Frontend::language();
-        } catch (Throwable) {
-            $language = null;
-        }
-    }
-
-    if ($site === null) {
-        try {
-            $site = Frontend::site();
-        } catch (Throwable) {
-            $site = null;
-        }
-    }
-
-    if ($layout === null) {
-        try {
-            $layout = Frontend::layout();
-        } catch (Throwable) {
-            $layout = null;
-        }
-    }
-
-    if ($theme === null) {
-        try {
-            $theme = Frontend::theme();
-        } catch (Throwable) {
-            $theme = null;
-        }
-    }
-
-    $imageWidth = 360;
-    $imageHeight = null;
-
-    if ($image) {
-        $sourceWidth = max(1, (int) $image->getWidth());
-        $sourceHeight = max(1, (int) $image->getHeight());
-        $imageHeight = (int) round($imageWidth * ($sourceHeight / $sourceWidth));
-    }
+    $renderData = BuildPublicContentDataAction::run(
+        content: $content,
+        contentType: $contentType,
+        title: $title,
+        image: $image ?: null,
+        pageRecord: $pageRecord,
+        site: $site,
+        layout: $layout,
+        theme: $theme,
+        urlParams: $urlParams,
+    );
+    $imageWidth = BuildPublicContentDataAction::IMAGE_WIDTH;
+    $imageHeight = $renderData->imageHeight;
+    $roundedImages = $renderData->roundedImages;
+    $title = $renderData->title;
 
     if (! $headingSize && ! $headingTag) {
         $headingSize = $muted ? $headingTag = 'h4' : $headingTag = 'h3';
@@ -96,23 +57,6 @@
     if (! $muted && $headingStyle === 'secondary') {
         $muted = true;
     }
-
-    $pageVariables = GetPageVariablesAction::run(
-        $page,
-        $site,
-        is_array($urlParams) ? $urlParams : [],
-    );
-    $translationVariables = collect($pageVariables)
-        ->filter(fn (mixed $value): bool => is_scalar($value) || $value instanceof Stringable)
-        ->map(fn (mixed $value): string => (string) $value)
-        ->all();
-    $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
-
-    if (is_string($content)) {
-        $content = __($content, $translationVariables);
-    }
-
-    $title = __($title, $translationVariables);
 @endphp
 
 <div
@@ -181,11 +125,7 @@
         ></div>
     @endif
 
-    @if ($contentType === ContentStructure::Blocks)
-        {!! RenderContentAction::run($content, ContentStructure::Blocks, ['layout' => $layout, 'page' => $page]) !!}
-    @else
-        {{ RenderHtmlContentAction::run($content, $pageVariables) }}
-    @endif
+    {!! $renderData->bodyHtml !!}
 
     {{ $slot ?? '' }}
 
