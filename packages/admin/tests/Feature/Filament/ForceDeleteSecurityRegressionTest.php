@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
+use Spatie\Permission\Contracts\Permission as PermissionContract;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function (): void {
@@ -49,16 +50,15 @@ beforeEach(function (): void {
     }
 });
 
-/** Ordinary authors exercise the real generated permissions, never the admin bypass. */
-function grantForceDeletionTestPermissions(): void
+/** Grant the resource's generated permissions to an ordinary author. */
+function grantForceDeletionTestPermissions(ResourceEnum $resource): void
 {
     $actor = test()->authenticatedUser();
     $actor->assignedSiteIds = Site::withTrashed()->pluck('id');
-    foreach (ResourceEnum::cases() as $resource) {
-        foreach (['view_any', 'view', 'force_delete', 'force_delete_any'] as $affix) {
-            $actor->givePermissionTo(Permission::findOrCreate($resource->permission($affix), 'web'));
-        }
-    }
+    $actor->givePermissionTo(array_map(
+        fn (string $affix): PermissionContract => Permission::findOrCreate($resource->permission($affix), 'web'),
+        ['view_any', 'view', 'force_delete', 'force_delete_any'],
+    ));
 
     expect($actor->isGlobalAdmin())->toBeFalse();
 }
@@ -96,7 +96,7 @@ it('refuses a parent-only selection with a retained dependency of its child', fu
     $dependent->delete();
 
     $parent->delete();
-    grantForceDeletionTestPermissions();
+    grantForceDeletionTestPermissions(ResourceEnum::Page);
 
     Livewire::test(ListPages::class)
         ->filterTable('trashed', true)
@@ -108,16 +108,16 @@ it('refuses a parent-only selection with a retained dependency of its child', fu
 });
 
 it('preserves retained graph and foreign-key dependants through bulk deletion', function (string $dependency, bool $trashed): void {
-    [$record, $dependent, $component, $column] = match ($dependency) {
-        'theme-layout' => [$theme = Theme::factory()->createOne(), Layout::factory()->createOne(['theme_id' => $theme->id, 'site_id' => null]), ManageThemes::class, 'theme_id'],
-        'language-url' => [$language = Language::factory()->createOne(), PageUrl::factory()->redirect()->createOne(['language_id' => $language->id, 'site_id' => Site::factory()->createOne()->id, 'pageable_type' => null, 'pageable_id' => null, 'is_manual' => true]), ManageLanguages::class, 'language_id'],
-        'language-domain' => [$language = Language::factory()->createOne(), SiteDomain::factory()->createOne(['language_id' => $language->id, 'site_id' => Site::factory()->createOne()->id]), ManageLanguages::class, 'language_id'],
-        'language-translation' => [$language = Language::factory()->createOne(), Translation::factory()->translatable(Page::factory()->createOne())->createOne(['language_id' => $language->id]), ManageLanguages::class, 'language_id'],
-        'site-url' => [$site = Site::factory()->createOne(), PageUrl::factory()->redirect()->createOne(['site_id' => $site->id, 'pageable_type' => null, 'pageable_id' => null, 'is_manual' => true]), ListSites::class, 'site_id'],
-        'site-draft' => [$site = Site::factory()->createOne(), EditorScratchDraft::query()->create(['site_id' => $site->id, 'user_id' => test()->authenticatedUser()->id, 'locale' => 'en', 'record_type' => ($draftPage = Page::factory()->createOne())->getMorphClass(), 'record_id' => $draftPage->id, 'context' => 'page-editor', 'payload' => ['content' => 'Retained author draft'], 'content_hash' => hash('sha256', 'Retained author draft'), 'saved_at' => now()]), ListSites::class, 'site_id'],
-        'site-taxonomy' => [$site = Site::factory()->createOne(), Taxonomy::factory()->createOne(['site_id' => $site->id]), ListSites::class, 'site_id'],
-        'page-reference' => [$page = Page::factory()->createOne(), PagePropertyValue::factory()->createOne(['referenced_page_id' => $page->id]), ListPages::class, 'referenced_page_id'],
-        'term-page-reference' => [$page = Page::factory()->createOne(), TermPropertyValue::factory()->createOne(['referenced_page_id' => $page->id]), ListPages::class, 'referenced_page_id'],
+    [$record, $dependent, $component, $resource, $column] = match ($dependency) {
+        'theme-layout' => [$theme = Theme::factory()->createOne(), Layout::factory()->createOne(['theme_id' => $theme->id, 'site_id' => null]), ManageThemes::class, ResourceEnum::Theme, 'theme_id'],
+        'language-url' => [$language = Language::factory()->createOne(), PageUrl::factory()->redirect()->createOne(['language_id' => $language->id, 'site_id' => Site::factory()->createOne()->id, 'pageable_type' => null, 'pageable_id' => null, 'is_manual' => true]), ManageLanguages::class, ResourceEnum::Language, 'language_id'],
+        'language-domain' => [$language = Language::factory()->createOne(), SiteDomain::factory()->createOne(['language_id' => $language->id, 'site_id' => Site::factory()->createOne()->id]), ManageLanguages::class, ResourceEnum::Language, 'language_id'],
+        'language-translation' => [$language = Language::factory()->createOne(), Translation::factory()->translatable(Page::factory()->createOne())->createOne(['language_id' => $language->id]), ManageLanguages::class, ResourceEnum::Language, 'language_id'],
+        'site-url' => [$site = Site::factory()->createOne(), PageUrl::factory()->redirect()->createOne(['site_id' => $site->id, 'pageable_type' => null, 'pageable_id' => null, 'is_manual' => true]), ListSites::class, ResourceEnum::Site, 'site_id'],
+        'site-draft' => [$site = Site::factory()->createOne(), EditorScratchDraft::query()->create(['site_id' => $site->id, 'user_id' => test()->authenticatedUser()->id, 'locale' => 'en', 'record_type' => ($draftPage = Page::factory()->createOne())->getMorphClass(), 'record_id' => $draftPage->id, 'context' => 'page-editor', 'payload' => ['content' => 'Retained author draft'], 'content_hash' => hash('sha256', 'Retained author draft'), 'saved_at' => now()]), ListSites::class, ResourceEnum::Site, 'site_id'],
+        'site-taxonomy' => [$site = Site::factory()->createOne(), Taxonomy::factory()->createOne(['site_id' => $site->id]), ListSites::class, ResourceEnum::Site, 'site_id'],
+        'page-reference' => [$page = Page::factory()->createOne(), PagePropertyValue::factory()->createOne(['referenced_page_id' => $page->id]), ListPages::class, ResourceEnum::Page, 'referenced_page_id'],
+        'term-page-reference' => [$page = Page::factory()->createOne(), TermPropertyValue::factory()->createOne(['referenced_page_id' => $page->id]), ListPages::class, ResourceEnum::Page, 'referenced_page_id'],
         default => throw new InvalidArgumentException('Unknown retained dependency: ' . $dependency),
     };
     if (in_array($dependency, ['theme-layout', 'language-url'], true)) {
@@ -125,23 +125,42 @@ it('preserves retained graph and foreign-key dependants through bulk deletion', 
         expect(ContentGraphEdge::query()->where('source_type', $dependent::class)->where('source_id', $dependent->id)->where('target_type', $record::class)->where('target_id', $record->id)->where('strength', ContentGraphEdgeStrength::Strong)->exists())->toBeTrue();
     }
 
-    if ($trashed && ($dependent instanceof Layout || $dependent instanceof PageUrl || $dependent instanceof SiteDomain || $dependent instanceof Translation)) {
+    if ($trashed) {
         $dependent->delete();
+        expect($dependent->fresh()?->getAttribute('deleted_at'))->not->toBeNull();
     }
 
     $record->delete();
-    grantForceDeletionTestPermissions();
+    grantForceDeletionTestPermissions($resource);
+    expect(Gate::allows('forceDelete', $record))->toBeTrue();
 
     Livewire::test($component)
         ->filterTable('trashed', true)
         ->assertCanSeeTableRecords([$record])
         ->selectTableRecords([$record])
-        ->callAction(TestAction::make(ForceDeleteBulkAction::class)->table()->bulk());
+        ->callAction(TestAction::make(ForceDeleteBulkAction::class)->table()->bulk())
+        ->assertSuccessful();
 
+    $retained = $dependent->fresh();
     expect($record->fresh())->not->toBeNull()
-        ->and($dependent->fresh())->not->toBeNull()
-        ->and($dependent->fresh()?->getAttribute($column))->toBe($record->id);
-})->with(['theme-layout', 'language-url', 'language-domain', 'language-translation', 'site-url', 'site-draft', 'site-taxonomy', 'page-reference', 'term-page-reference'])->with(['active' => false, 'trashed' => true]);
+        ->and($retained)->not->toBeNull()
+        ->and($retained?->getAttribute($column))->toBe($record->id);
+})->with([
+    'active theme layout' => ['theme-layout', false],
+    'trashed theme layout' => ['theme-layout', true],
+    'active language URL' => ['language-url', false],
+    'trashed language URL' => ['language-url', true],
+    'active language domain' => ['language-domain', false],
+    'trashed language domain' => ['language-domain', true],
+    'active language translation' => ['language-translation', false],
+    'trashed language translation' => ['language-translation', true],
+    'active site URL' => ['site-url', false],
+    'trashed site URL' => ['site-url', true],
+    'site draft' => ['site-draft', false],
+    'site taxonomy' => ['site-taxonomy', false],
+    'page reference' => ['page-reference', false],
+    'term page reference' => ['term-page-reference', false],
+]);
 
 it('allows ordinary users with the required resource permission and denies those without it', function (string $model): void {
     [$record, $component, $resource] = match ($model) {
@@ -204,7 +223,7 @@ it('completes Pages bulk permanent deletion and runs every per-record side effec
     }
 
     $pages->each->delete();
-    grantForceDeletionTestPermissions();
+    grantForceDeletionTestPermissions(ResourceEnum::Page);
     Event::fake([PageDeleted::class]);
     PageDeletedAction::partialMock()->shouldReceive('handle')->twice()->passthru();
 
@@ -235,7 +254,7 @@ it('protects retained trashed strong graph dependants of media in the shared val
     ]);
     $page->delete();
     $media->delete();
-    grantForceDeletionTestPermissions();
+    grantForceDeletionTestPermissions(ResourceEnum::Media);
     expect(ValidateForceDeleteAction::run($media, null))->toBeFalse();
 
     expect($media->fresh())->not->toBeNull()

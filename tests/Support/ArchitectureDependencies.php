@@ -35,7 +35,9 @@ final class ArchitectureDependencies
         }
 
         $violations = [];
-        foreach (array_unique($namespaces) as $namespace) {
+        // There is nothing to compare against when no forbidden names resolve.
+        $targets = $forbidden === [] ? [] : array_unique($namespaces);
+        foreach ($targets as $namespace) {
             foreach ($repository->allByNamespace($namespace, false) as $object) {
                 if (! str_starts_with($object->name, $namespace)) {
                     continue;
