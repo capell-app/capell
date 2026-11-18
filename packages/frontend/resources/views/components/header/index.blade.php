@@ -19,7 +19,9 @@
             @elseif ($renderData->renderedMediaLogo !== null)
                 {!! $renderData->renderedMediaLogo !!}
             @else
-                <span class="truncate"> {{ $renderData->title }} </span>
+                <span class="truncate">
+                    {{ $renderData->siteDisplayName }}
+                </span>
             @endif
         </a>
 

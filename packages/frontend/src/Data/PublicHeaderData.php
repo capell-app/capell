@@ -11,7 +11,7 @@ final class PublicHeaderData extends Data implements PublicRenderData
 {
     public function __construct(
         public readonly string $homeUrl,
-        public readonly string $title,
+        public readonly string $siteDisplayName,
         public readonly ?string $logoView,
         public readonly ?string $renderedMediaLogo,
     ) {}

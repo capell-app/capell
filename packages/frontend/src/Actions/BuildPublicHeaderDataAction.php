@@ -30,7 +30,7 @@ final class BuildPublicHeaderDataAction
 
         return new PublicHeaderData(
             homeUrl: $domain?->url ?? '/',
-            title: $translation?->title ?? $site?->name ?? '',
+            siteDisplayName: $translation?->title ?? $site?->name ?? '',
             logoView: $logoView,
             renderedMediaLogo: $logo === null ? null : Blade::render('<x-capell::logo :media="$logo" />', ['logo' => $logo]),
         );
