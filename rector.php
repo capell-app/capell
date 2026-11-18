@@ -51,6 +51,20 @@ foreach (['config', 'database', 'publishes', 'resources', 'routes', 'src', 'test
     }
 }
 
+// The pre-commit hook and pull-request CI run Rector on changed files only, while
+// the merge queue and main runs process this whole list. Type inference must not
+// depend on which files were named: test helpers such as tests/Support/DomQuery.php
+// are loaded by require_once, not Composer, so a changed-file run could not see
+// their return types and added casts the full run removes. Registering the same
+// list as autoload paths gives every run identical reflection.
+$analysedPaths = [
+    __DIR__ . '/rector.php',
+    ...(glob(__DIR__ . '/packages/*/rector.php') ?: []),
+    ...$packagePaths,
+    __DIR__ . '/scripts',
+    __DIR__ . '/tests',
+];
+
 return RectorConfig::configure()
     ->withSetProviders(LaravelSetProvider::class)
     ->withSets([
@@ -73,13 +87,8 @@ return RectorConfig::configure()
         cacheClass: FileCacheStorage::class,
         containerCacheDirectory: $rectorCacheDirectory,
     )
-    ->withPaths([
-        __DIR__ . '/rector.php',
-        ...(glob(__DIR__ . '/packages/*/rector.php') ?: []),
-        ...$packagePaths,
-        __DIR__ . '/scripts',
-        __DIR__ . '/tests',
-    ])
+    ->withPaths($analysedPaths)
+    ->withAutoloadPaths($analysedPaths)
     ->withParallel(
         timeoutSeconds: 600,
         maxNumberOfProcess: 8,
