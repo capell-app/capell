@@ -11,7 +11,7 @@ use Spatie\LaravelData\Data;
 final class PublicContentData extends Data implements PublicRenderData
 {
     public function __construct(
-        public readonly string $title,
+        public readonly ?string $title,
         public readonly string $bodyHtml,
         public readonly bool $roundedImages,
         public readonly ?int $imageHeight,

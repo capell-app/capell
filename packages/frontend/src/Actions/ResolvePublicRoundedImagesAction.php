@@ -8,9 +8,8 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Support\View\PublicModelMeta;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Throwable;
 
-/** Whether the active (or given) theme rounds public images. */
+/** Whether the active theme rounds public images. */
 final class ResolvePublicRoundedImagesAction
 {
     use AsFake;
@@ -18,17 +17,8 @@ final class ResolvePublicRoundedImagesAction
 
     public function __construct(private readonly FrontendContextReader $frontend) {}
 
-    public function handle(?object $theme = null): bool
+    public function handle(): bool
     {
-        return (bool) PublicModelMeta::get($theme ?? $this->activeTheme(), 'rounded_images', false);
-    }
-
-    private function activeTheme(): ?object
-    {
-        try {
-            return $this->frontend->theme();
-        } catch (Throwable) {
-            return null;
-        }
+        return (bool) PublicModelMeta::get($this->frontend->theme(), 'rounded_images', false);
     }
 }

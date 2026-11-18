@@ -31,6 +31,7 @@ it('covers representative query and cache access forms with the public Blade gua
         'cache facade in Blade' => 'Cache::remember("page", 60, static fn (): array => []);',
         'frontend record accessor in Blade' => '$siteMeta = Frontend::site()?->meta;',
         'record metadata helper in Blade' => '$rounded = PublicModelMeta::get($theme, "rounded_images");',
+        'frontend context service in Blade' => '$site = resolve(FrontendContextReader::class)->site();',
     ];
 
     foreach ($representativeForbiddenForms as $label => $source) {
@@ -176,6 +177,7 @@ function publicFrontendBladeForbiddenPatterns(): array
         'direct model lookup in Blade' => '/::(?:find|findOrFail|first|firstOrFail)\s*\(/',
         'frontend record accessor in Blade' => '/\bFrontend::(?:site|page|theme|layout|language)\s*\(/',
         'record metadata helper in Blade' => '/\b(?:PublicModelMeta|PublicPageRelations)::/',
+        'frontend context service in Blade' => '/\b(?:FrontendContextReader|FrontendState)::class/',
         'authoring marker in public Blade' => '/(?:' . implode('|', array_map(
             fn (string $marker): string => preg_quote($marker, '/'),
             $authoringMarkers,

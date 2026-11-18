@@ -71,6 +71,7 @@ it('preserves the frozen document chrome HTML for anonymous and signed-in visito
     'content from frontend context' => ['<x-capell::content content="&lt;p&gt;Public content&lt;/p&gt;" title="Public heading" :image="$media" />'],
     'content with explicit records' => ['<x-capell::content content="&lt;p&gt;Public content&lt;/p&gt;" title="Public heading" heading-style="secondary" :page-record="$page" :layout="$layout" :theme="$theme" divider="below_heading" />'],
     'content without image' => ['<x-capell::content content="&lt;p&gt;Public content&lt;/p&gt;" heading-size="h2" text-align="center" />'],
+    'content image without title keeps media alt text' => ['<x-capell::content content="&lt;p&gt;Public content&lt;/p&gt;" :title="null" :image="$media" />'],
     'rounded media' => ['<x-capell::media :media="$media" alt="Public image" />'],
 ]);
 
@@ -169,4 +170,14 @@ it('falls back to the site name when a media logo is absent', function (): void 
 
     expect(trim((string) domElement($dom, '//a[contains(@class, "capell-default-theme__brand")]/span')->textContent))->toBe('Public site')
         ->and(domCount($dom, '//a[contains(@class, "capell-default-theme__brand")]//img'))->toBe(0);
+});
+
+it('escapes stored body classes instead of letting them add attributes', function (): void {
+    $layout = new Layout(['key' => 'landing', 'meta' => ['body_class' => 'layout-extra" onclick="alert(1)']]);
+
+    $html = Blade::render('<x-capell::app.body :layout="$layout" :language="null" :page-record="null" :site="null" :theme="null">Body slot</x-capell::app.body>', ['layout' => $layout]);
+    $body = domElement(frontendRenderedDom($html), '//body');
+
+    expect($body->hasAttribute('onclick'))->toBeFalse()
+        ->and(domAttribute($body, 'class'))->toBe('layout-landing layout-extra" onclick="alert(1)  ');
 });

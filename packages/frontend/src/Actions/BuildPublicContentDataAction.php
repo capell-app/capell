@@ -11,6 +11,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\PublicContentData;
+use Capell\Frontend\Support\View\PublicModelMeta;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Stringable;
@@ -58,11 +59,27 @@ final class BuildPublicContentDataAction
             : e(RenderHtmlContentAction::run($content, $pageVariables));
 
         return new PublicContentData(
-            title: (string) __((string) $title, $translationVariables),
+            title: $this->translatedTitle($title, $translationVariables),
             bodyHtml: is_string($bodyHtml) ? $bodyHtml : '',
-            roundedImages: ResolvePublicRoundedImagesAction::run($theme),
+            roundedImages: (bool) PublicModelMeta::get($theme, 'rounded_images', false),
             imageHeight: $this->imageHeight($image),
         );
+    }
+
+    /**
+     * A null title stays null so an image falls back to its own alt text.
+     *
+     * @param  array<string, string>  $variables
+     */
+    private function translatedTitle(mixed $title, array $variables): ?string
+    {
+        if ($title === null) {
+            return null;
+        }
+
+        $translated = __(is_scalar($title) || $title instanceof Stringable ? (string) $title : '', $variables);
+
+        return is_string($translated) ? $translated : '';
     }
 
     private function imageHeight(?object $image): ?int
