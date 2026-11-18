@@ -286,6 +286,16 @@ final class ExtensionLifecycleRepository
         return CapellExtension::query()->where('composer_name', $name)->sharedLock()->first();
     }
 
+    /**
+     * Whether answers now come from the lifecycle table itself. Before the database is bound, while
+     * the table is missing or after a failed read, answers rest on the absence of records and must be
+     * asked again rather than kept.
+     */
+    public function recordsLoaded(): bool
+    {
+        return $this->recordsPreloaded;
+    }
+
     public function connectionName(): string
     {
         return (string) (new CapellExtension)->getConnection()->getName();

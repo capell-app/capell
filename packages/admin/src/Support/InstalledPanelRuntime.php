@@ -179,6 +179,17 @@ final class InstalledPanelRuntime
     /** @var array<string, true> */
     private array $freshApplicationRequired = [];
 
+    /**
+     * Middleware lists the router has resolved, keyed by the declared names, valid only for the router's
+     * alias, group and priority configuration recorded beside them.
+     *
+     * @var array<string, array<mixed>>
+     */
+    private array $resolvedMiddleware = [];
+
+    /** @var list<mixed>|null */
+    private ?array $resolvedMiddlewareState = null;
+
     /** @var WeakMap<Panel, list<class-string>> */
     private WeakMap $fullPageOnly;
 
@@ -220,12 +231,12 @@ final class InstalledPanelRuntime
 
         $ownership = PanelOwnership::of($route);
         if ($ownership?->kind === RouteOwnershipEnum::Panel && $route->getAction(self::AUTHENTICATED_ACTION) === null) {
-            $declared = $this->router->resolveMiddleware($route->middleware());
+            $declared = $this->resolveMiddleware($route->middleware());
             // Do not resolve the registry before Filament's providers have registered their panels.
             $registered = app()->resolved(PanelRegistry::class) ? Filament::getPanels() : [];
             $panel = $registered[$ownership->panel] ?? $this->synchronised[$ownership->panel] ?? null;
             $route->action[self::AUTHENTICATED_ACTION] = array_any($declared, $this->isAuthenticator(...))
-                || ($panel instanceof Panel && array_intersect($declared, $this->router->resolveMiddleware($panel->getAuthMiddleware())) !== []);
+                || ($panel instanceof Panel && array_intersect($declared, $this->resolveMiddleware($panel->getAuthMiddleware())) !== []);
         }
 
         // A cached closure is never unserialised to be read, so record now whether it runs Capell code. Classes
@@ -604,8 +615,8 @@ final class InstalledPanelRuntime
 
         // Persist resolved classes (including groups and parameterised middleware).
         // Livewire filters the real route pipeline, preserving its order and arguments.
-        $persistent = $this->router->resolveMiddleware([...$contributed['middleware'], ...$contributed['auth'], ...$contributed['tenant']]);
-        $security = $this->router->resolveMiddleware([...$current['auth'], ...$current['tenant']]);
+        $persistent = $this->resolveMiddleware([...$contributed['middleware'], ...$contributed['auth'], ...$contributed['tenant']]);
+        $security = $this->resolveMiddleware([...$current['auth'], ...$current['tenant']]);
         $replayed = array_diff(array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], [...$persistent, ...$security]), $this->fullPageOnly[$panel] ?? []);
         Livewire::addPersistentMiddleware(array_values($replayed));
 
@@ -724,7 +735,7 @@ final class InstalledPanelRuntime
         $this->contributed[$panel] = $this->merge($this->contributed[$panel] ?? ['middleware' => [], 'auth' => [], 'tenant' => []], $growth);
         $this->routeMiddleware[$panel] = [...$current, 'booted' => true];
         $replayed = array_diff(
-            array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], $this->router->resolveMiddleware([...$growth['middleware'], ...$growth['auth'], ...$growth['tenant']])),
+            array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], $this->resolveMiddleware([...$growth['middleware'], ...$growth['auth'], ...$growth['tenant']])),
             $this->fullPageOnly[$panel] ?? [],
         );
         Livewire::addPersistentMiddleware(array_values($replayed));
@@ -782,11 +793,11 @@ final class InstalledPanelRuntime
         }
 
         // Inspect declarations independently of the effective pipeline and its cached exclusions.
-        $declared = $this->router->resolveMiddleware([...$instance->middleware(), ...$instance->controllerMiddleware()]);
+        $declared = $this->resolveMiddleware([...$instance->middleware(), ...$instance->controllerMiddleware()]);
         // Filament's routes() group keeps non-admin callbacks and custom sign-in controllers public.
         // Admin actions and explicit provenance opt into the panel's full stack.
         $declaredAuthentication = $instance->getAction(self::AUTHENTICATED_ACTION) === true
-            || array_intersect($declared, $this->router->resolveMiddleware($current['auth'])) !== []
+            || array_intersect($declared, $this->resolveMiddleware($current['auth'])) !== []
             || array_any($declared, $this->isAuthenticator(...));
         $provenance = AdminRouteProvenance::declared($instance);
         if ($instance->getAction(self::PAGE_AUTHENTICATION_ACTION) === null) {
@@ -817,7 +828,7 @@ final class InstalledPanelRuntime
         $tenanted = in_array(IdentifyTenant::class, $declared, true);
         // Non-admin callbacks in the unauthenticated group keep serving guests. Admin actions and
         // explicit standalone declarations carry the full stack unless they explicitly allow guests.
-        $isMissing = fn (string $middleware): bool => array_diff($this->router->resolveMiddleware([$middleware]), $declared) !== [];
+        $isMissing = fn (string $middleware): bool => array_diff($this->resolveMiddleware([$middleware]), $declared) !== [];
         $stack = $public ? [] : array_values(array_filter($host['middleware'], $isMissing));
         $required = [
             ...($public ? [] : $host['middleware']),
@@ -830,8 +841,8 @@ final class InstalledPanelRuntime
             ...($public ? [] : [...$host['auth'], ...$contributed['auth']]),
             ...($tenanted ? [...$host['tenant'], ...$contributed['tenant']] : []),
         ], $isMissing));
-        $security = $this->router->resolveMiddleware([...$host['auth'], ...$contributed['auth'], ...$host['tenant'], ...$contributed['tenant']]);
-        $panelStack = [...$this->router->resolveMiddleware([...$host['middleware'], ...$contributed['middleware']]), $availability, SetUpPanel::class, IdentifyTenant::class];
+        $security = $this->resolveMiddleware([...$host['auth'], ...$contributed['auth'], ...$host['tenant'], ...$contributed['tenant']]);
+        $panelStack = [...$this->resolveMiddleware([...$host['middleware'], ...$contributed['middleware']]), $availability, SetUpPanel::class, IdentifyTenant::class];
         $own = $instance->middleware();
         // A group the route declares, such as `web`, can gain middleware after the route was placed.
         $grownGroup = $this->groupsBeforeSecurity(array_values($own), [...$panelStack, ...$security], $security) !== [];
@@ -845,7 +856,7 @@ final class InstalledPanelRuntime
 
         // Verify the pipeline that will actually run, after exclusions and priority sorting.
         $pipeline = $this->router->gatherRouteMiddleware($instance);
-        if (array_diff($this->router->resolveMiddleware($required), $pipeline) !== []) {
+        if (array_diff($this->resolveMiddleware($required), $pipeline) !== []) {
             throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
         }
 
@@ -882,7 +893,7 @@ final class InstalledPanelRuntime
                 continue;
             }
 
-            $resolved = $this->router->resolveMiddleware([$entry]);
+            $resolved = $this->resolveMiddleware([$entry]);
             if (array_intersect($resolved, $security) !== [] || array_filter($resolved, $this->isAuthenticator(...)) !== []) {
                 $firstSecurity ??= $index;
                 $afterSecurity = $index + 1;
@@ -923,7 +934,7 @@ final class InstalledPanelRuntime
                 continue;
             }
 
-            foreach ($this->router->resolveMiddleware([$entry]) as $member) {
+            foreach ($this->resolveMiddleware([$entry]) as $member) {
                 if ($this->isPanelEntry($member, $known) && ! in_array($member, $placed, true) && ! in_array($member, $entries, true)) {
                     $placed[] = $member;
                 }
@@ -963,6 +974,35 @@ final class InstalledPanelRuntime
     }
 
     /**
+     * The router's resolution of declared middleware names into the classes that run, in priority order.
+     * Classifying a route table resolves the same short lists thousands of times, so each list is resolved
+     * once while the router's aliases, groups and priority stay as they were; any change to them, such as
+     * a package pushing middleware into a group in a long-lived worker, resolves every list again.
+     *
+     * @param  array<mixed>  $middleware
+     * @return array<mixed>
+     */
+    private function resolveMiddleware(array $middleware): array
+    {
+        $key = '';
+        foreach ($middleware as $entry) {
+            if (! is_string($entry)) {
+                return $this->router->resolveMiddleware($middleware);
+            }
+
+            $key .= $entry . "\0";
+        }
+
+        $state = [$this->router->getMiddleware(), $this->router->getMiddlewareGroups(), $this->router->middlewarePriority];
+        if ($this->resolvedMiddlewareState !== $state) {
+            $this->resolvedMiddleware = [];
+            $this->resolvedMiddlewareState = $state;
+        }
+
+        return $this->resolvedMiddleware[$key] ??= $this->router->resolveMiddleware($middleware);
+    }
+
+    /**
      * @param  list<mixed>  $entries
      * @param  array<mixed>  $security
      */
@@ -974,7 +1014,7 @@ final class InstalledPanelRuntime
                 continue;
             }
 
-            $resolved = $this->router->resolveMiddleware([$entry]);
+            $resolved = $this->resolveMiddleware([$entry]);
             if (array_intersect($resolved, $security) !== [] || array_filter($resolved, $this->isAuthenticator(...)) !== []) {
                 $lastSecurity = $index;
             }
@@ -1005,14 +1045,14 @@ final class InstalledPanelRuntime
             }
         }
 
-        $packageSecurity = $this->router->resolveMiddleware([...($public ? [] : $contributed['auth']), ...($tenanted ? $contributed['tenant'] : [])]);
-        foreach ([...$this->router->resolveMiddleware($contributed['middleware']), ...$packageSecurity] as $middleware) {
+        $packageSecurity = $this->resolveMiddleware([...($public ? [] : $contributed['auth']), ...($tenanted ? $contributed['tenant'] : [])]);
+        foreach ([...$this->resolveMiddleware($contributed['middleware']), ...$packageSecurity] as $middleware) {
             if (array_search($middleware, $pipeline, true) > $foreign) {
                 throw new RuntimeException(__('capell-admin::message.extension_panel_security_order'));
             }
         }
 
-        $hostAuth = $this->router->resolveMiddleware($host['auth']);
+        $hostAuth = $this->resolveMiddleware($host['auth']);
         // The panel authenticates before any of the route's own middleware could answer the request.
         if (! $public) {
             foreach ($hostAuth as $middleware) {
@@ -1049,7 +1089,7 @@ final class InstalledPanelRuntime
         }
 
         $knownClasses = array_map(static fn (mixed $middleware): string => explode(':', (string) $middleware, 2)[0], array_filter($known, is_string(...)));
-        foreach ($this->router->resolveMiddleware([$entry]) as $middleware) {
+        foreach ($this->resolveMiddleware([$entry]) as $middleware) {
             if (! is_string($middleware)) {
                 return false;
             }
@@ -1232,7 +1272,7 @@ final class InstalledPanelRuntime
 
         // As a route is registered its controller is not resolved, so only the middleware its groups declare counts;
         // as it is matched, all it declares now, uncached, so middleware added since its last request counts too.
-        $declared = $this->router->resolveMiddleware($asMatched ? [...$route->middleware(), ...$route->controllerMiddleware()] : array_values(array_filter((array) $route->getAction('middleware'), is_string(...))));
+        $declared = $this->resolveMiddleware($asMatched ? [...$route->middleware(), ...$route->controllerMiddleware()] : array_values(array_filter((array) $route->getAction('middleware'), is_string(...))));
         foreach ($declared as $middleware) {
             if (is_string($middleware) && preg_match('/^(?:panel|' . preg_quote(SetUpPanel::class, '/') . '):(.+)$/', $middleware, $matches) === 1) {
                 $panels[$matches[1]] = true;

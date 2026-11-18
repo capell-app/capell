@@ -49,6 +49,21 @@ trait ManagesPackages
 
     private bool $persistedExtensionCacheRemovalDeferred = false;
 
+    /**
+     * Installed and enabled decisions already made, by package. A public request asks the same
+     * questions thousands of times, so each is answered once from the lifecycle record, runtime gate
+     * and commercial authorisation, and forgotten with every cache those answers were read from:
+     * any registration, forced state, lifecycle change, extension cache clear or runtime flush.
+     * A decision is kept only once the lifecycle records have been read, so an answer given before
+     * the database is reachable is asked again.
+     *
+     * @var array<string, bool>
+     */
+    private array $installedDecisions = [];
+
+    /** @var array<string, bool> */
+    private array $enabledDecisions = [];
+
     public function flushRuntimeState(): void
     {
         $this->installedExtensionNamesCache = null;
@@ -261,84 +276,39 @@ trait ManagesPackages
 
     public function isPackageInstalled(string $name): bool
     {
-        if (app()->resolved(InstalledRuntimeLifecycle::class)
-            && resolve(InstalledRuntimeLifecycle::class)->packageFailed($name)) {
+        // A runtime failure can be recorded at any moment of a request, so it is never memoised.
+        if ($this->runtimeFailed($name)) {
             return false;
         }
 
-        if (! $this->hasPackage($name)) {
-            return false;
+        if (isset($this->installedDecisions[$name])) {
+            return $this->installedDecisions[$name];
         }
 
-        $package = $this->getPackage($name);
-
-        if (in_array($name, $this->getUninstalledExtensionNames(), true)) {
-            return false;
+        $installed = $this->decideInstalled($name);
+        if ($this->extensionLifecycle()->recordsLoaded()) {
+            $this->installedDecisions[$name] = $installed;
         }
 
-        if ($package->isCore()) {
-            return $this->corePackageIsAvailable($package);
-        }
-
-        if ($this->extensionLifecycle()->status($name, collect($this->packages)) === ExtensionStatusEnum::Uninstalled) {
-            return false;
-        }
-
-        if (array_key_exists($name, $this->forcedPackageInstallStates)) {
-            // Forced state is a test and recovery seam; it never stands in for commercial authorisation.
-            return $this->forcedPackageInstallStates[$name]
-                && $this->extensionLifecycle()->commerciallyAuthorised($name, collect($this->packages));
-        }
-
-        return $this->isPackageEnabled($name);
+        return $installed;
     }
 
     public function isPackageEnabled(string $name): bool
     {
-        if (app()->resolved(InstalledRuntimeLifecycle::class)
-            && resolve(InstalledRuntimeLifecycle::class)->packageFailed($name)) {
+        if ($this->runtimeFailed($name)) {
             return false;
         }
 
-        if (! $this->hasPackage($name)) {
-            return false;
+        if (isset($this->enabledDecisions[$name])) {
+            return $this->enabledDecisions[$name];
         }
 
-        $package = $this->getPackage($name);
-
-        if ($package->isCore()) {
-            return $this->isPackageInstalled($name);
+        $enabled = $this->decideEnabled($name);
+        if ($this->extensionLifecycle()->recordsLoaded()) {
+            $this->enabledDecisions[$name] = $enabled;
         }
 
-        if (in_array($name, $this->getUninstalledExtensionNames(), true)) {
-            return false;
-        }
-
-        $extensionStatus = $this->extensionLifecycle()->status($name, collect($this->packages));
-
-        if (in_array($extensionStatus, [
-            ExtensionStatusEnum::Disabled,
-            ExtensionStatusEnum::Failed,
-            ExtensionStatusEnum::Uninstalled,
-        ], true)) {
-            return false;
-        }
-
-        if ($extensionStatus === ExtensionStatusEnum::Enabled) {
-            return $this->extensionLifecycle()->runtimeGateAllows($name, collect($this->packages)) !== false;
-        }
-
-        if (! $this->extensionLifecycle()->commerciallyAuthorised($name, collect($this->packages))) {
-            return false;
-        }
-
-        if ($package->installed !== null) {
-            return $package->installed === true;
-        }
-
-        $package->installed = false;
-
-        return $package->installed;
+        return $enabled;
     }
 
     public function isPackageAvailable(string $name): bool
@@ -434,6 +404,7 @@ trait ManagesPackages
     public function forcePackageInstalled(string $name, bool $installed = true): void
     {
         $this->forcedPackageInstallStates[$name] = $installed;
+        $this->forgetPackageDecisions();
 
         if (! $this->hasPackage($name)) {
             $this->clearPackageMemoization();
@@ -670,6 +641,84 @@ trait ManagesPackages
         return $names;
     }
 
+    private function runtimeFailed(string $name): bool
+    {
+        return app()->resolved(InstalledRuntimeLifecycle::class)
+            && resolve(InstalledRuntimeLifecycle::class)->packageFailed($name);
+    }
+
+    private function decideInstalled(string $name): bool
+    {
+        if (! $this->hasPackage($name)) {
+            return false;
+        }
+
+        $package = $this->getPackage($name);
+
+        if (in_array($name, $this->getUninstalledExtensionNames(), true)) {
+            return false;
+        }
+
+        if ($package->isCore()) {
+            return $this->corePackageIsAvailable($package);
+        }
+
+        if ($this->extensionLifecycle()->status($name, collect($this->packages)) === ExtensionStatusEnum::Uninstalled) {
+            return false;
+        }
+
+        if (array_key_exists($name, $this->forcedPackageInstallStates)) {
+            // Forced state is a test and recovery seam; it never stands in for commercial authorisation.
+            return $this->forcedPackageInstallStates[$name]
+                && $this->extensionLifecycle()->commerciallyAuthorised($name, collect($this->packages));
+        }
+
+        return $this->isPackageEnabled($name);
+    }
+
+    private function decideEnabled(string $name): bool
+    {
+        if (! $this->hasPackage($name)) {
+            return false;
+        }
+
+        $package = $this->getPackage($name);
+
+        if ($package->isCore()) {
+            return $this->isPackageInstalled($name);
+        }
+
+        if (in_array($name, $this->getUninstalledExtensionNames(), true)) {
+            return false;
+        }
+
+        $extensionStatus = $this->extensionLifecycle()->status($name, collect($this->packages));
+
+        if (in_array($extensionStatus, [
+            ExtensionStatusEnum::Disabled,
+            ExtensionStatusEnum::Failed,
+            ExtensionStatusEnum::Uninstalled,
+        ], true)) {
+            return false;
+        }
+
+        if ($extensionStatus === ExtensionStatusEnum::Enabled) {
+            return $this->extensionLifecycle()->runtimeGateAllows($name, collect($this->packages)) !== false;
+        }
+
+        if (! $this->extensionLifecycle()->commerciallyAuthorised($name, collect($this->packages))) {
+            return false;
+        }
+
+        if ($package->installed !== null) {
+            return $package->installed === true;
+        }
+
+        $package->installed = false;
+
+        return $package->installed;
+    }
+
     private function deferPersistedExtensionCacheRemoval(): void
     {
         if ($this->persistedExtensionCacheRemovalDeferred) {
@@ -814,6 +863,7 @@ trait ManagesPackages
 
         $this->setToCache(CacheEnum::ExtensionUninstalledNames->value, $names, ttl: 0);
         $this->uninstalledExtensionNamesCache = $names;
+        $this->forgetPackageDecisions();
     }
 
     private function packageTypeFromManifestKind(string $kind): PackageTypeEnum
@@ -830,5 +880,12 @@ trait ManagesPackages
     {
         $this->packagesCache = [];
         $this->uninstalledExtensionNamesCache = null;
+        $this->forgetPackageDecisions();
+    }
+
+    private function forgetPackageDecisions(): void
+    {
+        $this->installedDecisions = [];
+        $this->enabledDecisions = [];
     }
 }
