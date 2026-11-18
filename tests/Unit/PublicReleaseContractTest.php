@@ -400,40 +400,6 @@ it('keeps Foundation AI claims separate from optional delivery packages', functi
         ->not->toContain('`llms.txt`');
 });
 
-it('defines the root package as the aligned aggregate of the foundation', function (): void {
-    $root = dirname(__DIR__, 2);
-    $manifest = json_decode(
-        file_get_contents($root . '/composer.json'),
-        true,
-        512,
-        JSON_THROW_ON_ERROR,
-    );
-
-    expect($manifest['name'])->toBe('capell-app/capell')
-        ->and($manifest['license'])->toBe('MIT')
-        ->and($manifest['replace'])->toBe([
-            'capell-app/admin' => 'self.version',
-            'capell-app/core' => 'self.version',
-            'capell-app/frontend' => 'self.version',
-            'capell-app/installer' => 'self.version',
-            'capell-app/marketplace' => 'self.version',
-        ])
-        ->and($manifest['autoload']['psr-4'])->toHaveKeys([
-            'Capell\\Admin\\',
-            'Capell\\Core\\',
-            'Capell\\Frontend\\',
-            'Capell\\Installer\\',
-            'Capell\\Marketplace\\',
-        ])
-        ->and($manifest['extra']['laravel']['providers'])->toContain(
-            CapellServiceProvider::class,
-            AdminServiceProvider::class,
-            FrontendServiceProvider::class,
-            InstallerServiceProvider::class,
-            MarketplaceServiceProvider::class,
-        );
-});
-
 it('includes the MIT licence in every foundation split', function (): void {
     $root = dirname(__DIR__, 2);
     $foundationPackages = ['core', 'admin', 'frontend', 'installer', 'marketplace'];

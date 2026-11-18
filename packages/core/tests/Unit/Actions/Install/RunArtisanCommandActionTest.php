@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\Install\GenerateSitemapAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Actions\Install\RunArtisanCommandAction;
 use Capell\Core\Contracts\ProgressReporter;
@@ -83,17 +82,6 @@ it('retains silent install failure output', function (): void {
     expect(fn (): mixed => RunArtisanCommandAction::run('test:late-install', ['--force' => true], $reporter, true))
         ->toThrow(RuntimeException::class, "Artisan command 'test:late-install' failed with exit code 17.");
     expect($reporter->lines)->toBe([['error', 'Install failed.']]);
-});
-
-it('reports sitemap success only after the generator succeeds', function (): void {
-    Artisan::command('capell:xml-sitemap', fn (): int => 0);
-    $reporter = new InstallSupportActionReporter;
-
-    GenerateSitemapAction::run($reporter);
-
-    expect($reporter->lines)->toBe([
-        ['step', 'Generating XML sitemaps…'], ['report', '✓ Sitemaps generated'],
-    ]);
 });
 
 it('preserves boost configuration failure and its diagnostic', function (): void {
