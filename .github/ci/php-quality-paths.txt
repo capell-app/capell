@@ -34,3 +34,4 @@ scripts/check-phpstan-baseline-growth.sh
 .github/workflows/coverage-release.yml
 scripts/php-modernization-skill.sh
 .github/workflows/code-quality-and-styling.yml
+tests/Shell/rector-changed-scope-parity.sh

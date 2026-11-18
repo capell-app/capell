@@ -15,7 +15,6 @@ use Capell\Tests\Support\ScriptFixture;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/FrontendViewFixture.php';
@@ -91,7 +90,7 @@ it('renders the site schema from typed data in the public document', function ()
     ])->render();
 
     $script = domElement(frontendRenderedDom($html), '//body/script[@type="application/ld+json"]');
-    expect(json_decode(Str::of($script->textContent)->trim()->toString(), true))->toBe(['@type' => 'Organization', 'name' => 'Public site'])
+    expect(json_decode(trim($script->textContent), true))->toBe(['@type' => 'Organization', 'name' => 'Public site'])
         ->and(domAttribute(domElement(frontendRenderedDom($html), '//body'), 'class'))->toContain('layout-landing')
         ->and($html)->toContain('Document slot');
 });
@@ -169,7 +168,7 @@ it('falls back to the site name when a media logo is absent', function (): void 
 
     $dom = frontendRenderedDom(Blade::render('<x-capell::layout>System slot</x-capell::layout>'));
 
-    expect(Str::of(domElement($dom, '//a[contains(@class, "capell-default-theme__brand")]/span')->textContent)->trim()->toString())->toBe('Public site')
+    expect(trim(domElement($dom, '//a[contains(@class, "capell-default-theme__brand")]/span')->textContent))->toBe('Public site')
         ->and(domCount($dom, '//a[contains(@class, "capell-default-theme__brand")]//img'))->toBe(0);
 });
 
