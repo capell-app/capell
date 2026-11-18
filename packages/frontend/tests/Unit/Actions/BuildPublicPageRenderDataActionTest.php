@@ -66,7 +66,7 @@ it('builds public page render data from the resolved frontend render context', f
         'resources/css/app.css' => ['file' => 'assets/app-test.css', 'isEntry' => true],
     ], JSON_THROW_ON_ERROR));
 
-    $language = Language::factory()->createOne(['code' => 'en']);
+    $language = Language::factory()->createOne(['code' => 'id']);
     $site = Site::factory()->createOne(['language_id' => $language->id]);
     $theme = Theme::factory()->createOne(['key' => 'render-data-theme', 'meta' => ['assets' => ['resources/css/app.css']]]);
     $layout = Layout::factory()->site($site)->create([
@@ -115,7 +115,6 @@ it('builds public page render data from the resolved frontend render context', f
         ->and($renderData->context?->layout?->key)->toBe($layout->key)
         ->and($renderData->context?->theme?->key)->toBe($theme->key)
         ->and($renderData->context?->page?->name)->toBe($page->name)
-        ->and(json_encode($renderData->context, JSON_THROW_ON_ERROR))->not->toContain('"id"')
         ->and($renderData->runtimeManifest->usesLivewire)->toBeFalse()
         ->and($renderData->resourcePlan->headResources)->toHaveCount(2)
         ->and(collect($renderData->resourcePlan->headResources)
@@ -124,8 +123,14 @@ it('builds public page render data from the resolved frontend render context', f
         ->and($renderData->surrogateKeys)->toBe([
             'page-' . $page->getKey(),
             'site-' . $site->getKey(),
-            'lang-en',
+            'lang-id',
         ]);
+
+    $publicContext = $renderData->context?->toArray() ?? [];
+    expect($publicContext)->toHaveKeys(['page', 'site', 'language', 'layout', 'theme'])->not->toHaveKey('id');
+    foreach ($publicContext as $projection) {
+        expect($projection)->toBeArray()->not->toHaveKey('id');
+    }
 
     expect($renderData->layoutGraph?->key)->toBe('home')
         ->and($renderData->layoutGraph?->containers)->toHaveCount(1);

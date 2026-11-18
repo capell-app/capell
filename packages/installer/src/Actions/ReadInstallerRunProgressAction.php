@@ -36,6 +36,19 @@ final class ReadInstallerRunProgressAction
             status: $status,
             lines: $this->sessions->lines($installId),
             shouldRedirectToSuccess: $status === InstallerRunStatus::Complete->value,
+            resumableStep: $this->resumableBrowserStep($installId, $status),
         );
+    }
+
+    private function resumableBrowserStep(string $installId, string $status): ?string
+    {
+        if (! in_array($status, [InstallerRunStatus::Pending->value, InstallerRunStatus::Running->value], true)
+            || ! $this->sessions->ownsRun($installId)
+            || $this->sessions->input($installId) === null) {
+            return null;
+        }
+
+        // Only browser-driven runs store step input and a plan for the next request.
+        return $this->sessions->expectedStepKey($installId, $this->sessions->plan($installId));
     }
 }

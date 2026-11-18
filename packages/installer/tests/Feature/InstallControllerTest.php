@@ -2564,6 +2564,11 @@ it('returns failed status when a step throws', function (): void {
         'status' => 'failed',
         'error' => 'Step exploded',
     ]);
+
+    $this->postJson(route('capell-installer.run-step'), [
+        'install_id' => $installId,
+        'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT,
+    ])->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('nextStep', null);
 });
 
 it('persists a resolved user id returned by an install step', function (): void {
@@ -3010,6 +3015,45 @@ it('downloads original redacted evidence after cancelling a partial browser inst
     ])->assertStatus(410);
 });
 
+it('offers the next committed browser step only to an authorised progress visitor', function (): void {
+    $id = 'fdfdfdfd-fdfd-4fdf-afdf-fdfdfdfdfdfd';
+    $sessions = resolve(InstallerSessionRepository::class);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $sessions->run($id)->startBrowserSteps($input, [
+        ['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare'],
+        ['key' => InstallPlan::STEP_RESOLVE_USER, 'label' => 'User'],
+    ], InstallPlan::STEP_PREPARE_ENVIRONMENT, ['checks' => []]);
+    $sessions->recordCompletedStep($id, InstallPlan::STEP_PREPARE_ENVIRONMENT, InstallPlan::STEP_RESOLVE_USER);
+    $sessions->run($id)->markRunning();
+
+    $progress = route('capell-installer.progress', ['installId' => $id]);
+    $data = route('capell-installer.progress.data', ['installId' => $id]);
+    $this->get($progress)->assertNotFound();
+    $this->getJson($data)->assertNotFound();
+    $this->postJson(route('capell-installer.run-step'), [
+        'install_id' => $id, 'step' => InstallPlan::STEP_RESOLVE_USER,
+    ])->assertNotFound();
+
+    $this->withSession(installerAccessSessionData($id))->get($progress)->assertOk()
+        ->assertSee(__('capell-installer::installer.continue_installation'));
+    $this->getJson($data)->assertOk()
+        ->assertJsonPath('resumableStep', InstallPlan::STEP_RESOLVE_USER);
+
+    $queued = 'fefefefe-fefe-4fef-afef-fefefefefefe';
+    $sessions->run($queued)->startQueued();
+
+    $this->withSession(installerAccessSessionData($queued))
+        ->getJson(route('capell-installer.progress.data', ['installId' => $queued]))
+        ->assertOk()
+        ->assertJsonPath('status', 'queued')
+        ->assertJsonPath('resumableStep', null);
+    $sessions->run($queued)->markRunning();
+    $this->getJson(route('capell-installer.progress.data', ['installId' => $queued]))
+        ->assertOk()
+        ->assertJsonPath('status', 'running')
+        ->assertJsonPath('resumableStep', null);
+});
+
 it('admits one step executor across overlapping HTTP requests and a replayed response', function (): void {
     $id = 'abababab-abab-4bab-abab-abababababab';
     $sessions = resolve(InstallerSessionRepository::class);
@@ -3384,4 +3428,47 @@ it('passes the confirmed web table alias to a worker with stale configuration', 
             DB::table('migrations')->insert((array) $record);
         }
     }
+});
+
+it('schedules dependencies visible only after the Composer request before activating the selected theme', function (): void {
+    $id = 'e1e1e1e1-e1e1-41e1-a1e1-e1e1e1e1e1e1';
+    $theme = 'vendor/recovery-test-theme';
+    $layout = 'vendor/recovery-test-layout';
+    $navigation = 'vendor/recovery-test-navigation';
+    $input = new InstallInputData(
+        siteUrl: 'https://example.com',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: [$theme],
+    );
+    $plan = InstallPlan::build($input);
+    $require = InstallPlan::packageRequireStepKey($theme);
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->run($id)->startBrowserSteps($input, $plan, $require, ['checks' => []]);
+    $sessions->recordCompletedStep($id, InstallPlan::STEP_PREFLIGHT_CHECKS, $require);
+    $sessions->recordCompletedStep($id, $require, InstallPlan::STEP_PREPARE_ENVIRONMENT);
+
+    CapellCore::registerPackage(name: $layout);
+    CapellCore::registerPackage(name: $navigation);
+    CapellCore::registerPackage(name: $theme);
+    CapellCore::getPackage($theme)->requirements = [$layout, $navigation];
+
+    RunInstallStepAction::mock()->shouldReceive('handle')->once()->andReturn(new RunInstallStepResultData(null, false));
+
+    $this->withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), [
+        'install_id' => $id,
+        'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT,
+    ])->assertOk();
+
+    $keys = array_column($sessions->plan($id), 'key');
+    expect($keys)->toContain(InstallPlan::packageInstallStepKey($layout), InstallPlan::packageInstallStepKey($navigation))
+        ->and(array_search(InstallPlan::packageInstallStepKey($layout), $keys, true))
+        ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey($theme), $keys, true))
+        ->and(array_search(InstallPlan::packageInstallStepKey($navigation), $keys, true))
+        ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey($theme), $keys, true))
+        ->and($sessions->completedSteps($id))->toBe([InstallPlan::STEP_PREFLIGHT_CHECKS, $require, InstallPlan::STEP_PREPARE_ENVIRONMENT]);
 });

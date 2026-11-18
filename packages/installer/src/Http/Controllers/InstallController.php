@@ -383,6 +383,7 @@ final class InstallController
             'installId' => $progress->installId,
             'status' => $progress->status,
             'lines' => $progress->lines,
+            'resumableStep' => $progress->resumableStep,
             'redirectUrl' => $progress->shouldRedirectToSuccess
                 ? route('capell-installer.success', ['installId' => $installId])
                 : null,

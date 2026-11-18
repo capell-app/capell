@@ -167,7 +167,7 @@ final class InstallStepExecutor
         match ($stepKey) {
             InstallPlan::STEP_PREFLIGHT_CHECKS => RunInstallPreflightChecksAction::run($state->inputData, $state->reporter),
             InstallPlan::STEP_PREPARE_FRESH_INSTALL => PrepareFreshInstallAction::run($state->reporter),
-            InstallPlan::STEP_PREPARE_ENVIRONMENT => PrepareEnvironmentAction::run($state->reporter),
+            InstallPlan::STEP_PREPARE_ENVIRONMENT => $this->prepareEnvironment($state),
             InstallPlan::STEP_PUBLISH_VENDOR_MIGRATIONS, InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS => PublishVendorMigrationsAction::run($state->reporter),
             InstallPlan::STEP_PUBLISH_CAPELL_MIGRATIONS => PublishCapellMigrationsAction::run($state->reporter, publishSettings: false),
             InstallPlan::STEP_PUBLISH_PACKAGE_MIGRATIONS => $this->publishPackageMigrations($state),
@@ -240,6 +240,18 @@ final class InstallStepExecutor
         CapellCore::clearExtensionCache();
         $state->refreshSelectedPackages()->markPackageMetadataRefreshed();
 
+        $this->prepareRequiredApplicationPatches($state);
+    }
+
+    private function prepareEnvironment(InstallRunState $state): void
+    {
+        // Preinstalled packages skip Composer but still need the application bootstrap patches.
+        $this->prepareRequiredApplicationPatches($state);
+        PrepareEnvironmentAction::run($state->reporter);
+    }
+
+    private function prepareRequiredApplicationPatches(InstallRunState $state): void
+    {
         PrepareInstallApplicationAction::run(
             inputData: $state->inputData,
             hasFilamentAdminPanelProvider: false,
