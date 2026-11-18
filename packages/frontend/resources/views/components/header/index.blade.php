@@ -1,19 +1,7 @@
+@inject('renderData', 'Capell\Frontend\Data\PublicHeaderData')
 @php
-    use Capell\Core\Support\Themes\ThemeChromeRegistry;
     use Capell\Frontend\Enums\RenderHookLocation;
-    use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
-
-    $site = Frontend::site();
-    $siteDomain = $site->relationLoaded('siteDomain') ? $site->siteDomain : null;
-    $logoBladeView = $site->getMeta('logo_blade_view', 'brand.capell-logo');
-    $logoBladeView = is_string($logoBladeView)
-        && array_key_exists($logoBladeView, resolve(ThemeChromeRegistry::class)->logoOptions())
-        && view()->exists($logoBladeView)
-        ? $logoBladeView
-        : null;
-    $logo = $site->relationLoaded('logo') ? $site->logo : null;
-    $translation = $site->relationLoaded('translation') ? $site->translation : null;
 @endphp
 
 <header
@@ -24,15 +12,15 @@
     >
         <a
             class="inline-flex min-w-0 items-center gap-3 text-base leading-none font-semibold text-slate-950 transition hover:text-blue-700 focus-visible:text-blue-700"
-            href="{{ $siteDomain?->url ?? '/' }}"
+            href="{{ $renderData->homeUrl }}"
         >
-            @if ($logoBladeView)
-                @include($logoBladeView, ['class' => 'h-10 w-auto'])
-            @elseif ($logo)
-                <x-capell::logo :media="$logo" />
+            @if ($renderData->logoView)
+                @include($renderData->logoView, ['class' => 'h-10 w-auto'])
+            @elseif ($renderData->renderedMediaLogo !== null)
+                {!! $renderData->renderedMediaLogo !!}
             @else
                 <span class="truncate">
-                    {{ $translation?->title ?? $site->name }}
+                    {{ $renderData->siteDisplayName }}
                 </span>
             @endif
         </a>

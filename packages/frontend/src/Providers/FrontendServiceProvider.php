@@ -30,6 +30,7 @@ use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
+use Capell\Frontend\Actions\BuildPublicHeaderDataAction;
 use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContentVersionAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
 use Capell\Frontend\Actions\WarmCriticalFrontendPagesAction;
@@ -65,6 +66,7 @@ use Capell\Frontend\Contracts\SiteAccessExemptionContributor;
 use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Contracts\UrlSignatureVerifierInterface;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
+use Capell\Frontend\Data\PublicHeaderData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Filament\Settings\FrontendSettingsSchema;
 use Capell\Frontend\Http\Middleware\DetectVisitorLanguage;
@@ -74,6 +76,7 @@ use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtm
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
+use Capell\Frontend\Http\View\PublicPageResultsViewComposer;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Listeners\PurgeCdnCacheOnPageRollbackSubscriber;
@@ -330,6 +333,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(PageModelCache::class);
         $this->app->scoped(PublicPageRenderDataCache::class);
         $this->app->scoped(PageHydrator::class);
+        $this->app->bind(PublicHeaderData::class, static fn (): PublicHeaderData => BuildPublicHeaderDataAction::run());
         $this->app->singleton(StaticPageArtifactStore::class);
         $this->app->singleton(StaticPageArtifactPathResolver::class);
         $this->app->singleton(OnFrontendContextResolved::class);
@@ -803,6 +807,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerViewComposers(): self
     {
+        View::composer('capell::livewire.page.results', PublicPageResultsViewComposer::class);
         View::composer('capell::app', RenderingStrategyViewComposer::class);
 
         return $this;
