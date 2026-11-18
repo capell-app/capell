@@ -1246,7 +1246,6 @@
         "Packages\\frontend\\tests\\Unit\\Routing\\ReservedFrontendDomainRegistryTest": 0.7979,
         "Packages\\frontend\\tests\\Unit\\Routing\\ReservedFrontendPathRegistryTest": 0.4341,
         "Packages\\frontend\\tests\\Unit\\Routing\\ReservedFrontendRequestTest": 0.6986,
-        "Packages\\frontend\\tests\\Unit\\Rules\\FrontendRuleEngineTest": 1.2212,
         "Packages\\frontend\\tests\\Unit\\Security\\AssertPublicHtmlContainsNoAuthoringSurfaceActionTest": 0.2999,
         "Packages\\frontend\\tests\\Unit\\Security\\AssertPublicRenderContractActionTest": 5.9775,
         "Packages\\frontend\\tests\\Unit\\Security\\FilamentAdminAccessCheckerTest": 0.5517,

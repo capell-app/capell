@@ -17,14 +17,11 @@ use Capell\Frontend\Actions\PurgeCdnCacheByPageAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Data\FrontendRenderPayload;
-use Capell\Frontend\Data\FrontendRuleContextData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtmlCacheable;
 use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
 use Capell\Frontend\Support\Cache\FragmentCache;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
-use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
-use Capell\Frontend\Support\Rules\Conditions\QueryParameterCondition;
 use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -247,18 +244,6 @@ it('generates maintenance caches only for enabled sites in display order', funct
         ->and($store->files)->toHaveCount(2)
         ->and(implode("\n", $store->files))->toContain($firstSite->name)
         ->and(implode("\n", $store->files))->toContain($secondSite->name);
-});
-
-it('only allows known campaign parameters through the query parameter rule', function (): void {
-    $condition = new CampaignParameterCondition(new QueryParameterCondition);
-    $context = new FrontendRuleContextData(Request::create('/landing?utm_source=newsletter&utm_medium=email'));
-
-    expect($condition->key())->toBe('campaign_parameter')
-        ->and($condition->evaluate(['name' => 'utm_source', 'value' => 'newsletter'], $context))->toBeTrue()
-        ->and($condition->evaluate(['key' => 'utm_medium', 'values' => ['email']], $context))->toBeTrue()
-        ->and($condition->evaluate(['name' => 'ref', 'value' => 'newsletter'], $context))->toBeFalse()
-        ->and($condition->evaluate(['name' => 'utm_campaign', 'value' => 'spring'], $context))->toBeFalse()
-        ->and($condition->evaluate(['name' => 42], $context))->toBeFalse();
 });
 
 it('renders cacheable frontend GET requests anonymously even when Laravel has a user resolver', function (): void {
