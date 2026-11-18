@@ -42,8 +42,9 @@ it('keeps registered stored selectors usable without changing their data', funct
     $frontend->shouldReceive('layout')->andReturn($layout);
     $frontend->shouldReceive('page', 'site')->andReturnNull();
     $component = new LayoutComponent($frontend, resolve(Factory::class));
-    expect($component->layout?->meta)->toBe(['master_file' => 'host::page', 'layout_file' => 'capell::app'])
-        ->and($component->theme?->meta)->toBe(['header_file' => 'host::header']);
+    expect($component->renderData->headerFile)->toBe('host::header')
+        ->and($layout->meta)->toBe(['master_file' => 'host::page', 'layout_file' => 'capell::app'])
+        ->and($theme->meta)->toBe(['header_file' => 'host::header']);
 });
 
 it('keeps selector validation metadata out of anonymous error responses', function (): void {
@@ -71,14 +72,14 @@ it('omits unregistered ordinary private logo views at both render consumers', fu
         $component = new LayoutComponent($frontend, resolve(Factory::class));
         expect(view('selector-logo-test::report')->render())->toContain('Confidential financial report');
         if ($consumer === 'layout') {
-            expect($component->siteLogoBladeView())->toBeNull();
+            expect($component->renderData->logoView)->toBeNull();
         } else {
             expect(view('capell::components.header.index')->render())->not->toContain('Confidential financial report');
         }
 
         resolve(ThemeChromeRegistry::class)->registerLogo('selector-logo-test::logo', 'Trusted brand');
         $site->meta = ['logo_blade_view' => 'selector-logo-test::logo'];
-        expect($component->siteLogoBladeView())->toBe('selector-logo-test::logo');
+        expect(new LayoutComponent($frontend, resolve(Factory::class))->renderData->logoView)->toBe('selector-logo-test::logo');
         expect(view('capell::components.header.index')->render())->toContain('Trusted brand');
     } finally {
         $fixture->close();

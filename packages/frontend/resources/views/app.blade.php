@@ -1,5 +1,6 @@
 @php
     use Capell\Frontend\Actions\BuildPublicDocumentLanguageDataAction;
+    use Capell\Frontend\Actions\BuildPublicSiteSchemaDataAction;
     use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
@@ -9,10 +10,7 @@
 
     $documentLanguage = BuildPublicDocumentLanguageDataAction::run($language ?? null);
 
-    $site = Frontend::site();
-    $siteMeta = $site?->meta ?? [];
-    $metaSchema = data_get($siteMeta, 'meta_schema');
-    $customMetaSchema = data_get($siteMeta, 'custom_meta_schema');
+    $siteSchema = BuildPublicSiteSchemaDataAction::run();
     $runtimeManifest ??= null;
     $usesLivewire = $runtimeManifest?->usesLivewire ?? ($livewireEnabled ?? false);
 @endphp
@@ -35,7 +33,7 @@
         :layout="$layout"
         :language="$language"
         :page-record="$pageRecord"
-        :site="$site"
+        :site="$site ?? null"
         :theme="$theme"
     >
         {{ $slot }}
@@ -64,15 +62,13 @@
             @livewireScripts
         @endif
 
-        @if ($metaSchema)
-            @foreach ($metaSchema as $schema)
-                <x-dynamic-component :component="$schema" />
-            @endforeach
-        @endif
+        @foreach ($siteSchema->schemaComponents as $schema)
+            <x-dynamic-component :component="$schema" />
+        @endforeach
 
-        @if ($customMetaSchema)
+        @if ($siteSchema->customSchema !== null)
             <script type="application/ld+json">
-                {!! JsonLdScriptSanitizer::sanitize((string) $customMetaSchema) !!}
+                {!! JsonLdScriptSanitizer::sanitize($siteSchema->customSchema) !!}
             </script>
         @endif
     </x-capell::app.body>

@@ -5,31 +5,29 @@ declare(strict_types=1);
 namespace Capell\Frontend\View\Components;
 
 use Capell\Core\Contracts\Pageable;
-use Capell\Core\Enums\ContentStructure;
-use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout as LayoutModel;
-use Capell\Core\Models\Media;
-use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\Models\Translation;
-use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
+use Capell\Frontend\Actions\BuildPublicLayoutShellDataAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\PublicLayoutShellData;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Component;
 use Override;
 
+/** The shared public layout shell. Its view receives public render data only; the frontend records stay private. */
 final class Layout extends Component
 {
-    public readonly ?Theme $theme;
+    public readonly PublicLayoutShellData $renderData;
 
-    public readonly ?Pageable $page;
+    private readonly ?Theme $theme;
 
-    public readonly ?LayoutModel $layout;
+    private readonly ?Pageable $page;
 
-    public readonly ?Site $site;
+    private readonly ?LayoutModel $layout;
 
     public function __construct(
         FrontendContextReader $frontend,
@@ -44,101 +42,36 @@ final class Layout extends Component
         $this->theme = $frontend->theme();
         $this->page = $frontend->page();
         $this->layout = $frontend->layout();
-        $this->site = $frontend->site();
 
         foreach ([$this->theme, $this->layout] as $record) {
             if ($record !== null) {
                 AssertStoredPublicViewSelectorsAction::run($record);
             }
         }
+
+        $this->renderData = BuildPublicLayoutShellDataAction::run($this->theme, $this->page, $this->layout, $frontend->site());
     }
 
-    public function isSystemPageLayout(): bool
+    /** Renders the overridable main layout component with the frontend records, outside the shell view's data. */
+    public function mainLayout(mixed $pageSlot): HtmlString
     {
-        return data_get($this->layout?->admin ?? [], 'system_page_layout') === true;
-    }
-
-    public function siteHomeUrl(): string
-    {
-        if (! $this->site instanceof Site) {
-            return '/';
-        }
-
-        foreach (['defaultDomain', 'siteDomain'] as $relation) {
-            if (! $this->site->relationLoaded($relation)) {
-                continue;
-            }
-
-            $url = data_get($this->site->getRelation($relation), 'url');
-
-            if (is_string($url)) {
-                return $url;
-            }
-        }
-
-        return '/';
-    }
-
-    public function siteLogoBladeView(): ?string
-    {
-        if (! $this->site instanceof Site) {
-            return null;
-        }
-
-        $bladeView = $this->site->getMeta('logo_blade_view', 'brand.capell-logo');
-
-        return is_string($bladeView)
-            && array_key_exists($bladeView, resolve(ThemeChromeRegistry::class)->logoOptions())
-            && $this->view->exists($bladeView)
-            ? $bladeView
-            : null;
-    }
-
-    public function siteLogo(): ?Media
-    {
-        return $this->loadedRelation($this->site, 'logo', Media::class);
-    }
-
-    public function siteTranslation(): ?Translation
-    {
-        return $this->loadedRelation($this->site, 'translation', Translation::class);
-    }
-
-    public function pageTranslation(): ?Translation
-    {
-        return $this->loadedRelation($this->page, 'translation', Translation::class);
-    }
-
-    public function pageType(): ?Blueprint
-    {
-        return $this->loadedRelation($this->page, 'blueprint', Blueprint::class);
-    }
-
-    public function htmlContentStructure(): ContentStructure
-    {
-        return ContentStructure::Html;
+        return new HtmlString(Blade::render(
+            '<x-capell::layout.main :$layout :$page :$theme :page-slot="$pageSlot" :container-class="$containerClass" :main-class="$mainClass" :main-container-class="$mainContainerClass" />',
+            [
+                'layout' => $this->layout,
+                'page' => $this->page,
+                'theme' => $this->theme,
+                'pageSlot' => $pageSlot,
+                'containerClass' => $this->containerClass,
+                'mainClass' => $this->mainClass,
+                'mainContainerClass' => $this->mainContainerClass,
+            ],
+        ));
     }
 
     #[Override]
     public function render(): View
     {
         return $this->view->make('capell::components.layout.index');
-    }
-
-    /**
-     * @template TModel of Model
-     *
-     * @param  class-string<TModel>  $expectedType
-     * @return TModel|null
-     */
-    private function loadedRelation(Model|Pageable|null $model, string $relation, string $expectedType): ?Model
-    {
-        if (! $model instanceof Model || ! $model->relationLoaded($relation)) {
-            return null;
-        }
-
-        $value = $model->getRelation($relation);
-
-        return $value instanceof $expectedType ? $value : null;
     }
 }

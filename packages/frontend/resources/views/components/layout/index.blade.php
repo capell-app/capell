@@ -1,5 +1,5 @@
 {{-- @blaze-standard-compiler --}}
-@if ($isSystemPageLayout())
+@if ($renderData->isSystemPageLayout)
     <div
         {{ $attributes->merge(['class' => 'capell-component capell-layout-index capell-default-theme__layout flex min-h-screen flex-col']) }}
     >
@@ -8,24 +8,22 @@
             class="capell-component capell-layout-main mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-6 py-12 text-center"
         >
             <a
-                href="{{ $siteHomeUrl() }}"
+                href="{{ $renderData->homeUrl }}"
                 class="capell-default-theme__brand mb-10 inline-flex items-center justify-center text-lg font-medium"
             >
-                @if ($siteLogoBladeView())
-                    @include($siteLogoBladeView(), ['class' => 'h-10 w-auto'])
-                @elseif ($siteLogo())
-                    <x-capell::logo :media="$siteLogo()" />
+                @if ($renderData->logoView)
+                    @include($renderData->logoView, ['class' => 'h-10 w-auto'])
+                @elseif ($renderData->renderedMediaLogo !== null)
+                    {!! $renderData->renderedMediaLogo !!}
                 @else
-                    <span
-                        >{{ $siteTranslation()?->title ?? $site?->name }}</span
-                    >
+                    <span>{{ $renderData->siteDisplayName }}</span>
                 @endif
             </a>
 
             <x-capell::content
-                :content="$pageTranslation()?->content ?? ''"
-                :content-type="$pageType()?->content_structure ?? $htmlContentStructure()"
-                :title="$pageTranslation()?->title ?? ''"
+                :content="$renderData->pageContent"
+                :content-type="$renderData->pageContentStructure"
+                :title="$renderData->pageTitle"
                 class="capell-default-theme__content mx-auto max-w-2xl"
                 heading-tag="h1"
                 heading-size="h1"
@@ -48,35 +46,23 @@
 
         @if ($header)
             {{ $header }}
-        @elseif ($header === null && (! isset($theme['meta']['header']) || $theme['meta']['header'] !== false) && ! empty($theme['meta']['header_file']))
-            @if (view()->exists($theme['meta']['header_file']))
-                {!! view($theme['meta']['header_file'])->render() !!}
+        @elseif ($header === null && $renderData->headerFile !== null)
+            @if ($renderData->headerFileIsView)
+                {!! view($renderData->headerFile)->render() !!}
             @else
-                <x-dynamic-component
-                    :component="$theme['meta']['header_file']"
-                />
+                <x-dynamic-component :component="$renderData->headerFile" />
             @endif
         @endif
 
-        <x-capell::layout.main
-            :$layout
-            :$page
-            :$theme
-            :page-slot="$pageSlot ?? $slot"
-            :container-class="$containerClass"
-            :main-class="$mainClass"
-            :main-container-class="$mainContainerClass"
-        />
+        {{ $mainLayout($pageSlot ?? $slot) }}
 
         @if ($footer)
             {{ $footer }}
-        @elseif ($footer === null && (! isset($theme['meta']['footer']) || $theme['meta']['footer'] !== false) && ! empty($theme['meta']['footer_file']))
-            @if (view()->exists($theme['meta']['footer_file']))
-                {!! view($theme['meta']['footer_file'])->render() !!}
+        @elseif ($footer === null && $renderData->footerFile !== null)
+            @if ($renderData->footerFileIsView)
+                {!! view($renderData->footerFile)->render() !!}
             @else
-                <x-dynamic-component
-                    :component="$theme['meta']['footer_file']"
-                />
+                <x-dynamic-component :component="$renderData->footerFile" />
             @endif
         @endif
     </div>

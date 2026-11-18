@@ -1,10 +1,6 @@
 <?php
 
-use Capell\Frontend\Facades\Frontend;
-use Capell\Frontend\Support\View\PublicModelMeta;
-
-$theme = Frontend::theme();
-$roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
+$roundedImages = \Capell\Frontend\Actions\ResolvePublicRoundedImagesAction::run();
 
 ?>
 
@@ -114,7 +110,7 @@ $roundedImages = (bool) PublicModelMeta::get($theme, 'rounded_images', false);
         $resolvedSrcset = is_array($srcset) ? implode(',', $srcset) : $srcset;
     }
 
-    $lcpMediaUrl = Frontend::getFrontendData('lcpMediaUrl');
+    $lcpMediaUrl = \Capell\Frontend\Facades\Frontend::getFrontendData('lcpMediaUrl');
     $canonicalMediaUrl = $media->getFullUrl();
 
     if ($fetchpriority === null && is_string($lcpMediaUrl) && in_array($lcpMediaUrl, [$canonicalMediaUrl, $imageSrc], true)) {
