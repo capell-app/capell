@@ -203,7 +203,7 @@ final class CreateBackupAction
 
     private function connectionName(): string
     {
-        $connection = $this->config->get('backup.connection') ?? $this->config->get('database.default');
+        $connection = $this->config->get('capell-backup.connection') ?? $this->config->get('database.default');
 
         throw_if(! is_string($connection) || $connection === '', RuntimeException::class, 'The backup database connection is not configured.');
 
@@ -224,7 +224,7 @@ final class CreateBackupAction
     /** @return list<string> */
     private function mediaDisks(): array
     {
-        $disks = $this->config->get('backup.media_disks', []);
+        $disks = $this->config->get('capell-backup.media_disks', []);
         throw_unless(is_array($disks), RuntimeException::class, 'Backup media disks must be an array.');
 
         return array_values(array_unique(array_filter($disks, static fn (mixed $disk): bool => is_string($disk) && $disk !== '')));

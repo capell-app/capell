@@ -10,9 +10,9 @@ final class BackupSigningTestKeys
     {
         $keypair = sodium_crypto_sign_keypair();
         config([
-            'backup.signing.key_id' => 'test-key',
-            'backup.signing.secret_key' => base64_encode(sodium_crypto_sign_secretkey($keypair)),
-            'backup.signing.public_keys' => [
+            'capell-backup.signing.key_id' => 'test-key',
+            'capell-backup.signing.secret_key' => base64_encode(sodium_crypto_sign_secretkey($keypair)),
+            'capell-backup.signing.public_keys' => [
                 'test-key' => base64_encode(sodium_crypto_sign_publickey($keypair)),
             ],
         ]);

@@ -31,16 +31,16 @@ final class DatabaseBackupBinariesCheck extends AbstractDoctorCheck
     {
         $label = 'Database backup binaries are available';
 
-        if (config('backup.enabled', false) !== true) {
+        if (config('capell-backup.enabled', false) !== true) {
             return new DoctorCheckResultData($label, true, 'Backups are disabled, so no backup binaries are required.', severity: $this->severity());
         }
 
-        $connectionName = (string) config('backup.database_connection') ?: (string) config('database.default');
+        $connectionName = (string) config('capell-backup.connection') ?: (string) config('database.default');
         $driver = (string) config(sprintf('database.connections.%s.driver', $connectionName));
 
         $required = match ($driver) {
-            'mysql', 'mariadb' => ['backup.binaries.mysqldump' => 'mysqldump', 'backup.binaries.mysql' => 'mysql'],
-            'pgsql' => ['backup.binaries.pg_dump' => 'pg_dump', 'backup.binaries.psql' => 'psql'],
+            'mysql', 'mariadb' => ['capell-backup.binaries.mysqldump' => 'mysqldump', 'capell-backup.binaries.mysql' => 'mysql'],
+            'pgsql' => ['capell-backup.binaries.pg_dump' => 'pg_dump', 'capell-backup.binaries.psql' => 'psql'],
             default => [],
         };
 

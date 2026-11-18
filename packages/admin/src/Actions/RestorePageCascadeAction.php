@@ -35,12 +35,16 @@ final class RestorePageCascadeAction
                 }
 
                 Gate::authorize('restore', $locked);
-                throw_unless(CanRestorePageCascadeAction::run($locked, lockForUpdate: true), PageRestoreCancelledException::class);
+                if (! CanRestorePageCascadeAction::run($locked, lockForUpdate: true)) {
+                    throw PageRestoreCancelledException::membersNotRestorable();
+                }
 
                 $ids = CollectPageRestoreCascadeIdsAction::run($locked, lockForUpdate: true);
                 $notice = BuildPageRestoreNoticeAction::run($locked, $ids);
 
-                throw_unless($locked->restore(), PageRestoreCancelledException::class);
+                if (! $locked->restore()) {
+                    throw PageRestoreCancelledException::membersNotRestorable();
+                }
 
                 return new PageRestoreResultData(true, $notice);
             }, attempts: 3);

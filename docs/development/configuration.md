@@ -171,7 +171,7 @@ Visitor-day markers are separate rows with their own schedule, `capell:activity:
 CAPELL_DISABLE_CACHE_SAVE_KEYS=page-*,/^user-\d+$/,my-key
 ```
 
-Source: `packages/core/config/redirects.php`
+Source: `packages/core/config/capell-redirects.php`
 
 | Variable                        | Default | Used for                             |
 | ------------------------------- | ------- | ------------------------------------ |
@@ -380,7 +380,7 @@ The agent tool throttle uses Laravel’s rate limiter cache store (`cache.limite
 | `capell-frontend.cache_skip_authenticated`                    | `true`                                                                                                                                                                               | Bypasses the frontend HTML cache for signed-in requests. Leave enabled unless you are certain no per-user content is rendered.                                               |
 | `capell.runtime.auth_paths`                                   | `login`, `register`, `forgot-password`, `reset-password/*`, `email/verify*`, `confirm-password`, `two-factor-challenge`                                                              | Path patterns the runtime resolver classifies as auth context                                                                                                                |
 | `capell-admin.user_resource.role_schema_types`                | `['super_admin' => 'administrator']`                                                                                                                                                 | Maps a role to the user form schema it sees, controlling which fields that role can edit                                                                                     |
-| `redirects.auto_redirects.status_code`                        | `301`                                                                                                                                                                                | HTTP status for redirects created automatically when a page URL changes. Only `enabled` has an env var.                                                                      |
+| `capell-redirects.auto_redirects.status_code`                 | `301`                                                                                                                                                                                | HTTP status for redirects created automatically when a page URL changes. Only `enabled` has an env var.                                                                      |
 
 ## Other Keys Without Env Vars
 

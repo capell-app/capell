@@ -67,7 +67,7 @@ your infrastructure recovery material. Creation refuses missing, malformed, or
 mismatched signing keys and removes the incomplete snapshot. Never log the secret
 key or commit it. A restore-only host needs only trusted public keys.
 
-`backup.signing.public_keys` maps key IDs to trusted base64 public keys. When
+`capell-backup.signing.public_keys` maps key IDs to trusted base64 public keys. When
 rotating, add the new public key to that map, select its ID and matching secret
 for creation, and retain old public keys for as long as their snapshots must
 restore. Restore selects a key from this configured map, never from backup

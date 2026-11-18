@@ -16,8 +16,8 @@ trait ConfiguresBackupSchedule
     #[Override]
     protected function getPackageProviders(mixed $app): array
     {
-        $app['config']->set('backup.prune_schedule_enabled', BackupScheduleOptions::$enabled);
-        $app['config']->set('backup.prune_schedule_cron', BackupScheduleOptions::$cron);
+        $app['config']->set('capell-backup.prune_schedule_enabled', BackupScheduleOptions::$enabled);
+        $app['config']->set('capell-backup.prune_schedule_cron', BackupScheduleOptions::$cron);
 
         return parent::getPackageProviders($app);
     }

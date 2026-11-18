@@ -40,19 +40,21 @@ class GetComponentViewPathAction
                 } elseif (app()->bound('Livewire\\Mechanisms\\ComponentRegistry')) {
                     $componentClass = resolve('Livewire\\Mechanisms\\ComponentRegistry')->getClass($component);
                 } else {
-                    throw new ComponentNotFoundException($component . ' livewire component registry not found.');
+                    throw ComponentNotFoundException::livewireRegistryMissing($component);
                 }
 
-                throw_if($componentClass === null || ! class_exists($componentClass), ComponentNotFoundException::class, $component . ' component class not found.');
+                if ($componentClass === null || ! class_exists($componentClass)) {
+                    throw ComponentNotFoundException::classMissing($component);
+                }
 
                 $view = $componentClass::getViewName();
             }
         } catch (InvalidArgumentException) {
-            throw new ComponentNotFoundException($component . ' component not found.');
+            throw ComponentNotFoundException::forComponent($component);
         } catch (Exception $exception) {
             throw_if($exception instanceof ComponentNotFoundException, $exception);
 
-            throw new ComponentNotFoundException($component . ' component not found.', $exception->getCode(), $exception);
+            throw ComponentNotFoundException::forComponent($component, $exception);
         }
 
         return View::getFinder()->find($view);

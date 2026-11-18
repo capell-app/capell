@@ -29,7 +29,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
     {
         $connection = $this->connection($connectionName);
         $command = [
-            (string) $this->config->get('backup.binaries.mysqldump', 'mysqldump'),
+            (string) $this->config->get('capell-backup.binaries.mysqldump', 'mysqldump'),
             ...$this->connectionArguments($connection),
             '--single-transaction',
             '--quick',
@@ -37,7 +37,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
             $connection['database'],
         ];
 
-        $this->run($command, $this->environment($connection), 'create', $connectionName, $command[0], 'backup.binaries.mysqldump');
+        $this->run($command, $this->environment($connection), 'create', $connectionName, $command[0], 'capell-backup.binaries.mysqldump');
     }
 
     public function restore(string $connectionName, string $sourcePath, string $scratchDatabase): string
@@ -47,7 +47,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
         throw_unless(is_file($sourcePath), RuntimeException::class, 'The MySQL backup artifact does not exist.');
 
         $connection = $this->connection($connectionName);
-        $binary = (string) $this->config->get('backup.binaries.mysql', 'mysql');
+        $binary = (string) $this->config->get('capell-backup.binaries.mysql', 'mysql');
         $arguments = $this->connectionArguments($connection);
         $environment = $this->environment($connection);
 
@@ -55,7 +55,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
             $binary,
             ...$arguments,
             '--execute=CREATE DATABASE `' . $scratchDatabase . '`',
-        ], $environment, 'create scratch database', $connectionName, $binary, 'backup.binaries.mysql');
+        ], $environment, 'create scratch database', $connectionName, $binary, 'capell-backup.binaries.mysql');
 
         $input = fopen($sourcePath, 'rb');
 
@@ -68,7 +68,7 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
             $process->mustRun();
         } catch (Throwable $throwable) {
             throw new RuntimeException(
-                DatabaseBackupProcessError::message('restore', $connectionName, $binary, 'backup.binaries.mysql', $throwable),
+                DatabaseBackupProcessError::message('restore', $connectionName, $binary, 'capell-backup.binaries.mysql', $throwable),
             );
         } finally {
             fclose($input);
@@ -152,6 +152,6 @@ final readonly class MySqlDatabaseBackupDriver implements DatabaseBackupDriver
 
     private function processTimeout(): int
     {
-        return max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600));
+        return max(60, (int) $this->config->get('capell-backup.process_timeout_seconds', 3600));
     }
 }

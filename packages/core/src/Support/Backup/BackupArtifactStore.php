@@ -21,7 +21,7 @@ final readonly class BackupArtifactStore
 
     public function assertAvailable(): void
     {
-        throw_if($this->config->get('backup.enabled') !== true, RuntimeException::class, 'Backups are disabled.');
+        throw_if($this->config->get('capell-backup.enabled') !== true, RuntimeException::class, 'Backups are disabled.');
 
         $this->diskName();
         $this->prefix();
@@ -29,7 +29,7 @@ final readonly class BackupArtifactStore
 
     public function diskName(): string
     {
-        $disk = $this->config->get('backup.disk');
+        $disk = $this->config->get('capell-backup.disk');
 
         throw_if(! is_string($disk) || trim($disk) === '', RuntimeException::class, 'The backup storage disk is not configured.');
 
@@ -38,7 +38,7 @@ final readonly class BackupArtifactStore
 
     public function prefix(): string
     {
-        $prefix = $this->config->get('backup.prefix');
+        $prefix = $this->config->get('capell-backup.prefix');
 
         throw_unless(is_string($prefix), RuntimeException::class, 'The backup storage prefix is invalid.');
 

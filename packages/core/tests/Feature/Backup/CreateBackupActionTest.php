@@ -26,12 +26,12 @@ beforeEach(function (): void {
     $database->exec("INSERT INTO examples (value) VALUES ('backed-up')");
 
     config([
-        'backup.enabled' => true,
-        'backup.disk' => 'backups',
-        'backup.prefix' => 'capell-backups',
-        'backup.connection' => 'backup_test',
-        'backup.media_disks' => ['media'],
-        'backup.scratch.sqlite_directory' => sys_get_temp_dir() . '/capell-backup-scratch',
+        'capell-backup.enabled' => true,
+        'capell-backup.disk' => 'backups',
+        'capell-backup.prefix' => 'capell-backups',
+        'capell-backup.connection' => 'backup_test',
+        'capell-backup.media_disks' => ['media'],
+        'capell-backup.scratch.sqlite_directory' => sys_get_temp_dir() . '/capell-backup-scratch',
         'database.connections.backup_test' => [
             'driver' => 'sqlite',
             'database' => $this->databasePath,
@@ -78,7 +78,7 @@ it('signs every manifest field and its database and media digests', function ():
     $metadata = $payload['signature'] ?? null;
     assert(is_array($metadata));
     $signature = base64_decode($metadata['value'], true);
-    $publicKey = base64_decode((string) config('backup.signing.public_keys.test-key'), true);
+    $publicKey = base64_decode((string) config('capell-backup.signing.public_keys.test-key'), true);
 
     expect($metadata['algorithm'])->toBe('ed25519')
         ->and($metadata['keyId'])->toBe('test-key')
@@ -98,10 +98,10 @@ it('signs every manifest field and its database and media digests', function ():
 
 it('publishes no snapshot when signing configuration is missing invalid or mismatched', function (string $failure): void {
     match ($failure) {
-        'missing secret' => config(['backup.signing.secret_key' => null]),
-        'invalid secret' => config(['backup.signing.secret_key' => 'invalid']),
-        'missing public key' => config(['backup.signing.public_keys' => []]),
-        'mismatched keypair' => config(['backup.signing.public_keys.test-key' => base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))]),
+        'missing secret' => config(['capell-backup.signing.secret_key' => null]),
+        'invalid secret' => config(['capell-backup.signing.secret_key' => 'invalid']),
+        'missing public key' => config(['capell-backup.signing.public_keys' => []]),
+        'mismatched keypair' => config(['capell-backup.signing.public_keys.test-key' => base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))]),
         default => throw new LogicException('Unknown signing failure case.'),
     };
 
@@ -122,7 +122,7 @@ it('supports database-only snapshots', function (): void {
 it('preserves distinct disk names when constructing backup artifact paths', function (): void {
     Storage::fake('media one');
     Storage::fake('media?one');
-    config(['backup.media_disks' => ['media one', 'media?one']]);
+    config(['capell-backup.media_disks' => ['media one', 'media?one']]);
     Storage::disk('media one')->put('same.txt', 'first content');
     Storage::disk('media?one')->put('same.txt', 'second content');
 
@@ -134,12 +134,12 @@ it('preserves distinct disk names when constructing backup artifact paths', func
 });
 
 it('fails closed when backup is disabled or recursively targets its backup disk', function (): void {
-    config(['backup.enabled' => false]);
+    config(['capell-backup.enabled' => false]);
 
     expect(fn () => CreateBackupAction::run())
         ->toThrow(RuntimeException::class, 'Backups are disabled.')
         ->and(function (): void {
-            config(['backup.enabled' => true, 'backup.media_disks' => ['backups']]);
+            config(['capell-backup.enabled' => true, 'capell-backup.media_disks' => ['backups']]);
             CreateBackupAction::run();
         })->toThrow(RuntimeException::class, 'Backup storage cannot also be a media source.');
 });
@@ -217,7 +217,7 @@ function backupCreatedValue(string $databasePath): string
 }
 
 it('refuses an unusable signing configuration before taking a dump or uploading anything', function (): void {
-    config(['backup.signing.secret_key' => null]);
+    config(['capell-backup.signing.secret_key' => null]);
     $disk = Mockery::mock(FilesystemAdapter::class)->shouldIgnoreMissing();
     $disk->shouldNotReceive('put', 'putFile', 'putFileAs', 'writeStream', 'deleteDirectory', 'delete');
     Storage::set('backups', $disk);

@@ -235,13 +235,10 @@ class PageUrl extends Model implements Statusable, Userstampable
         if (! $siteDomain instanceof SiteDomain) {
             $this->logMissingSiteDomainDiagnostic();
 
-            throw new UrlMissingSiteDomainException(
-                sprintf(
-                    'Site domain not found for page ID %d, site ID %d, and language ID %d',
-                    $this->pageable_id,
-                    $this->site_id,
-                    $this->language_id,
-                ),
+            throw UrlMissingSiteDomainException::forPageUrl(
+                $this->pageable_id,
+                $this->site_id,
+                $this->language_id,
             );
         }
 

@@ -29,14 +29,14 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
     {
         $connection = $this->connection($connectionName);
         $this->run([
-            (string) $this->config->get('backup.binaries.pg_dump', 'pg_dump'),
+            (string) $this->config->get('capell-backup.binaries.pg_dump', 'pg_dump'),
             ...$this->connectionArguments($connection),
             '--format=plain',
             '--no-owner',
             '--no-privileges',
             '--file=' . $destinationPath,
             $connection['database'],
-        ], $this->environment($connection), 'create', $connectionName, 'backup.binaries.pg_dump');
+        ], $this->environment($connection), 'create', $connectionName, 'capell-backup.binaries.pg_dump');
     }
 
     public function restore(string $connectionName, string $sourcePath, string $scratchDatabase): string
@@ -46,7 +46,7 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
         throw_unless(is_file($sourcePath), RuntimeException::class, 'The PostgreSQL backup artifact does not exist.');
 
         $connection = $this->connection($connectionName);
-        $binary = (string) $this->config->get('backup.binaries.psql', 'psql');
+        $binary = (string) $this->config->get('capell-backup.binaries.psql', 'psql');
         $arguments = $this->connectionArguments($connection);
         $environment = $this->environment($connection);
 
@@ -55,14 +55,14 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
             ...$arguments,
             '--dbname=postgres',
             '--command=CREATE DATABASE "' . $scratchDatabase . '"',
-        ], $environment, 'create scratch database', $connectionName, 'backup.binaries.psql');
+        ], $environment, 'create scratch database', $connectionName, 'capell-backup.binaries.psql');
         $this->run([
             $binary,
             ...$arguments,
             '--set=ON_ERROR_STOP=1',
             '--dbname=' . $scratchDatabase,
             '--file=' . $sourcePath,
-        ], $environment, 'restore', $connectionName, 'backup.binaries.psql');
+        ], $environment, 'restore', $connectionName, 'capell-backup.binaries.psql');
 
         return $scratchDatabase;
     }
@@ -123,7 +123,7 @@ final readonly class PostgresDatabaseBackupDriver implements DatabaseBackupDrive
     {
         try {
             $process = $this->processes->make($command, environment: $environment);
-            $process->setTimeout(max(60, (int) $this->config->get('backup.process_timeout_seconds', 3600)));
+            $process->setTimeout(max(60, (int) $this->config->get('capell-backup.process_timeout_seconds', 3600)));
 
             return $process->mustRun();
         } catch (Throwable $throwable) {

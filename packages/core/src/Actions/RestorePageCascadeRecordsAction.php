@@ -29,9 +29,15 @@ final class RestorePageCascadeRecordsAction
                 $page->setRawAttributes($current->getAttributes(), sync: true);
                 $ids = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: true);
                 $members = $page->newQuery()->onlyTrashed()->whereKey($ids)->orderBy($page->getLftName())->lockForUpdate()->get();
-                throw_unless(CanRestorePageMembersAction::run($members), PageRestoreCancelledException::class);
+                if (! CanRestorePageMembersAction::run($members)) {
+                    throw PageRestoreCancelledException::membersNotRestorable();
+                }
+
                 $recomputedIds = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: true);
-                throw_if(array_diff($recomputedIds, $ids) !== [] || array_diff($ids, $recomputedIds) !== [], PageRestoreCancelledException::class);
+                if (array_diff($recomputedIds, $ids) !== [] || array_diff($ids, $recomputedIds) !== []) {
+                    throw PageRestoreCancelledException::membersChanged();
+                }
+
                 AssertPageRestoreUrlsAvailableAction::run($members);
                 $members->each(static fn (Page $member) => AssertRestoredPagePropertyValuesAreUniqueAction::run($member));
                 RestorePageCascadeRelationsAction::run($page, $ids);
@@ -39,14 +45,19 @@ final class RestorePageCascadeRecordsAction
                 // Keep model events, auditing and extension observers; standard relation work is batched above.
                 foreach ($members as $member) {
                     RestorePageCascadeRelationsAction::make()->restoreAdditionalRelations($member);
-                    throw_unless($restoreMember($member->is($page) ? $page : $member), PageRestoreCancelledException::class);
+                    if (! $restoreMember($member->is($page) ? $page : $member)) {
+                        throw PageRestoreCancelledException::membersNotRestorable();
+                    }
                 }
 
                 // Policies and listeners are normal application callbacks; re-read their persisted outcome.
                 $currentMembers = $page->newQuery()->withTrashed()->whereKey($ids)->lockForUpdate()->get();
-                throw_unless($currentMembers->count() === count($ids)
-                    && ! $currentMembers->contains(fn (Page $member): bool => $member->trashed())
-                    && CanRestorePageMembersAction::run($currentMembers), PageRestoreCancelledException::class);
+                if ($currentMembers->count() !== count($ids)
+                    || $currentMembers->contains(fn (Page $member): bool => $member->trashed())
+                    || ! CanRestorePageMembersAction::run($currentMembers)) {
+                    throw PageRestoreCancelledException::membersNotRestorable();
+                }
+
                 PrunePageDeletionMembershipAction::run($page, $ids, pageBatchesOnly: $pageBatchesOnly);
 
                 return true;

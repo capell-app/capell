@@ -23,15 +23,11 @@ final class AssertQueueConnectionReadyAction
         $driver = config(sprintf('queue.connections.%s.driver', $connection));
 
         if (! is_string($driver) || $driver === '') {
-            throw new QueueConnectionNotReadyException((string) __('capell-core::queue.connection_missing', [
-                'connection' => $connection,
-            ]));
+            throw QueueConnectionNotReadyException::connectionMissing($connection);
         }
 
         if ($driver === 'sync') {
-            throw new QueueConnectionNotReadyException((string) __('capell-core::queue.sync_not_supported', [
-                'connection' => $connection,
-            ]));
+            throw QueueConnectionNotReadyException::syncNotSupported($connection);
         }
 
         if ($driver !== 'database') {
@@ -51,17 +47,11 @@ final class AssertQueueConnectionReadyAction
                 ? Schema::hasTable($table)
                 : Schema::connection($databaseConnection)->hasTable($table);
         } catch (Throwable $throwable) {
-            throw new QueueConnectionNotReadyException((string) __('capell-core::queue.database_storage_unavailable', [
-                'connection' => $connection,
-                'table' => $table,
-            ]), $throwable->getCode(), previous: $throwable);
+            throw QueueConnectionNotReadyException::databaseStorageUnavailable($connection, $table, $throwable);
         }
 
         if (! $tableExists) {
-            throw new QueueConnectionNotReadyException((string) __('capell-core::queue.database_table_missing', [
-                'connection' => $connection,
-                'table' => $table,
-            ]));
+            throw QueueConnectionNotReadyException::databaseTableMissing($connection, $table);
         }
     }
 }

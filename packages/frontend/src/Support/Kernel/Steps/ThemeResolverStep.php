@@ -31,7 +31,9 @@ final class ThemeResolverStep
             resolve(RenderedModelTracker::class)->track($theme);
         }
 
-        throw_unless($theme instanceof Theme, ThemeNotFoundException::class, 'No theme could be resolved for the frontend request.');
+        if (! $theme instanceof Theme) {
+            throw ThemeNotFoundException::unresolvedForRequest();
+        }
 
         $work->state->withTheme($theme);
 

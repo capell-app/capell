@@ -15,13 +15,13 @@ beforeEach(function (): void {
     $this->scratchDirectory = sys_get_temp_dir() . '/capell-restore-command-scratch-' . bin2hex(random_bytes(6));
     new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');
     config([
-        'backup.enabled' => true,
-        'backup.disk' => 'backups',
-        'backup.prefix' => 'capell-backups',
-        'backup.connection' => 'backup_test',
-        'backup.media_disks' => [],
-        'backup.scratch.database_prefix' => 'capell_restore_',
-        'backup.scratch.sqlite_directory' => $this->scratchDirectory,
+        'capell-backup.enabled' => true,
+        'capell-backup.disk' => 'backups',
+        'capell-backup.prefix' => 'capell-backups',
+        'capell-backup.connection' => 'backup_test',
+        'capell-backup.media_disks' => [],
+        'capell-backup.scratch.database_prefix' => 'capell_restore_',
+        'capell-backup.scratch.sqlite_directory' => $this->scratchDirectory,
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
     app()->instance(ProcessFactoryInterface::class, new class implements ProcessFactoryInterface

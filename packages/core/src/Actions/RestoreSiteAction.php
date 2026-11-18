@@ -68,10 +68,15 @@ final class RestoreSiteAction
                 $pages = Page::on($site->getConnectionName())->onlyTrashed()->whereKey($ids)->orderBy('_lft')->lockForUpdate()->get();
                 foreach ($pages as $page) {
                     $cascade = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: true);
-                    throw_if(array_diff($cascade, $ids) !== [], PageRestoreCancelledException::class);
+                    if (array_diff($cascade, $ids) !== []) {
+                        throw PageRestoreCancelledException::membersChanged();
+                    }
                 }
 
-                throw_unless(CanRestorePageMembersAction::run($pages), PageRestoreCancelledException::class);
+                if (! CanRestorePageMembersAction::run($pages)) {
+                    throw PageRestoreCancelledException::membersNotRestorable();
+                }
+
                 AssertPageRestoreUrlsAvailableAction::run($pages);
                 $urlIds = $batch->records->where('model_type', PageUrl::class)->pluck('model_id')->all();
                 $urls = PageUrl::on($site->getConnectionName())->onlyTrashed()->whereKey($urlIds)->lockForUpdate()->get();
@@ -83,16 +88,26 @@ final class RestoreSiteAction
                 $this->restoreModels(Site::class, collect([$site->getKey()]));
                 $this->restoreBatchRecords($batch, Layout::class);
                 foreach ($pages as $page) {
-                    if ($page->fresh()?->trashed() === true) {
-                        throw_unless($page->restoreForSite(), PageRestoreCancelledException::class);
+                    if ($page->fresh()?->trashed() !== true) {
+                        continue;
                     }
+
+                    if ($page->restoreForSite()) {
+                        continue;
+                    }
+
+                    throw PageRestoreCancelledException::membersNotRestorable();
                 }
 
                 $currentPages = Page::on($site->getConnectionName())->withTrashed()->whereKey($ids)->lockForUpdate()->get();
-                throw_unless($currentPages->count() === count($ids) && CanRestorePageMembersAction::run($currentPages), PageRestoreCancelledException::class);
+                if ($currentPages->count() !== count($ids) || ! CanRestorePageMembersAction::run($currentPages)) {
+                    throw PageRestoreCancelledException::membersNotRestorable();
+                }
 
                 foreach ($domains as $domain) {
-                    throw_unless($domain->restore(), PageRestoreCancelledException::class);
+                    if (! $domain->restore()) {
+                        throw PageRestoreCancelledException::membersNotRestorable();
+                    }
                 }
 
                 $this->restoreBatchRecords($batch, PageUrl::class);

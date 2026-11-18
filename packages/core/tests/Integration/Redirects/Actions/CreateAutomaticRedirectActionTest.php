@@ -24,7 +24,7 @@ it('creates a permanent automatic redirect from an old url to a page', function 
 });
 
 it('uses the configured automatic redirect status code', function (): void {
-    config()->set('redirects.auto_redirects.status_code', RedirectStatusCodeEnum::Temporary->value);
+    config()->set('capell-redirects.auto_redirects.status_code', RedirectStatusCodeEnum::Temporary->value);
     $language = Language::factory()->createOne();
     $page = Page::factory()->createOne();
 

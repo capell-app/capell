@@ -25,7 +25,9 @@ trait HasPageVariation
     {
         $invalid = ! class_exists($pageData->model) || ! is_subclass_of($pageData->model, Model::class);
 
-        throw_if($invalid, InvalidPageModelException::class, sprintf('Invalid page class: %s', $pageData->model));
+        if ($invalid) {
+            throw InvalidPageModelException::forModel($pageData->model);
+        }
 
         $this->pageVariations[$pageData->name] = $pageData;
 

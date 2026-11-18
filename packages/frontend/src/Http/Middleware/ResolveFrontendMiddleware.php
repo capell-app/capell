@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Http\Middleware;
 
+use Capell\Core\Exceptions\ThemeNotFoundException;
 use Capell\Frontend\Actions\RenderFallbackPublicViewAction;
+use Capell\Frontend\Actions\RenderFrontendUnavailableResponseAction;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\State\FrontendState;
@@ -56,6 +58,8 @@ final class ResolveFrontendMiddleware
             }
 
             throw $notFoundHttpException;
+        } catch (ThemeNotFoundException) {
+            return RenderFrontendUnavailableResponseAction::run((string) __('capell-frontend::errors.theme_unavailable'));
         }
 
         if ($result->isRedirect() && $result->redirect instanceof RedirectResponse) {

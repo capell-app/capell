@@ -31,7 +31,9 @@ final class LayoutResolverStep
             resolve(RenderedModelTracker::class)->track($layout);
         }
 
-        throw_unless($layout instanceof Layout, LayoutNotFoundException::class, 'No theme could be resolved for the frontend request.');
+        if (! $layout instanceof Layout) {
+            throw LayoutNotFoundException::unresolvedForRequest();
+        }
 
         $work->state->withLayout($layout);
 

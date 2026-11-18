@@ -213,7 +213,7 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
         $siteDomain = $this->siteDomains->firstWhere('language_id', $language->id);
 
         if ($siteDomain === null) {
-            throw new SiteDomainNotFoundException('Site domain not found for language: ' . $language->id);
+            throw SiteDomainNotFoundException::forLanguage($language->id);
         }
 
         return $siteDomain->full_url;
