@@ -40,11 +40,34 @@ if (! $vendorCheck->isSuccessful()) {
     throw new RuntimeException($vendorCheck->getErrorOutput() . $vendorCheck->getOutput());
 }
 
-pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
+/**
+ * @return list<string>
+ */
+function capellTestPathsWithApplication(string $root, string ...$standaloneUnitTests): array
+{
+    $unit = $root . '/Unit';
+
+    return [
+        ...array_values(array_diff(glob($root . '/*') ?: [], [$unit])),
+        ...array_values(array_diff(glob($unit . '/*') ?: [], $standaloneUnitTests)),
+    ];
+}
+
+$standaloneCoreTests = [
+    __DIR__ . '/Unit/DocumentationLinksScriptTest.php',
+    __DIR__ . '/Unit/PackageDependencyScriptTest.php',
+];
+
+pest()->group('core')->in(...$standaloneCoreTests);
+pest()->extend(PackagesTestCase::class)->group('core')->in(...capellTestPathsWithApplication(__DIR__, ...$standaloneCoreTests));
 pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests');
 pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests');
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests');
-pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests');
+$installerTests = dirname(__DIR__) . '/packages/installer/tests';
+$installerStylesheetTest = $installerTests . '/Unit/InstallerStylesheetTest.php';
+
+pest()->group('installer')->in($installerStylesheetTest);
+pest()->extend(InstallerTestCase::class)->group('installer')->in(...capellTestPathsWithApplication($installerTests, $installerStylesheetTest));
 pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests');
 pest()->group('database-portability')->in(
     '../packages/core/tests/Feature/Database/DatabasePortabilityEnvironmentTest.php',
