@@ -56,7 +56,7 @@ describe('DatabaseBackupBinariesCheck', function (): void {
 
     it('passes for sqlite because it needs no external binary', function (): void {
         Config::set('capell-backup.enabled', true);
-        Config::set('capell-backup.database_connection', 'sqlite');
+        Config::set('capell-backup.connection', 'sqlite');
         Config::set('database.connections.sqlite.driver', 'sqlite');
 
         $result = new DatabaseBackupBinariesCheck()->check();
@@ -67,7 +67,7 @@ describe('DatabaseBackupBinariesCheck', function (): void {
 
     it('fails and names the config key when a mysql binary is missing', function (): void {
         Config::set('capell-backup.enabled', true);
-        Config::set('capell-backup.database_connection', 'mysql');
+        Config::set('capell-backup.connection', 'mysql');
         Config::set('database.connections.mysql.driver', 'mysql');
         Config::set('capell-backup.binaries.mysqldump', '/nonexistent/capell-doctor-mysqldump');
         Config::set('capell-backup.binaries.mysql', '/nonexistent/capell-doctor-mysql');

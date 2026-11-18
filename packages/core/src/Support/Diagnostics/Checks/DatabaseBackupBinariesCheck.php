@@ -35,7 +35,7 @@ final class DatabaseBackupBinariesCheck extends AbstractDoctorCheck
             return new DoctorCheckResultData($label, true, 'Backups are disabled, so no backup binaries are required.', severity: $this->severity());
         }
 
-        $connectionName = (string) config('capell-backup.database_connection') ?: (string) config('database.default');
+        $connectionName = (string) config('capell-backup.connection') ?: (string) config('database.default');
         $driver = (string) config(sprintf('database.connections.%s.driver', $connectionName));
 
         $required = match ($driver) {

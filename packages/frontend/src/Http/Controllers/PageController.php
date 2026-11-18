@@ -7,11 +7,10 @@ namespace Capell\Frontend\Http\Controllers;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Enums\PageTypeEnum;
-use Capell\Core\Models\Language;
-use Capell\Core\Support\Locale\HtmlLanguageAttribute;
 use Capell\Core\ThemeStudio\Exceptions\ThemeNotFoundException;
 use Capell\Frontend\Actions\PrepareFrontendRenderAction;
 use Capell\Frontend\Actions\RenderFallbackPublicViewAction;
+use Capell\Frontend\Actions\RenderFrontendUnavailableResponseAction;
 use Capell\Frontend\Actions\ResolveSystemPageAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
@@ -118,14 +117,14 @@ class PageController extends BaseController
         try {
             $preparedRender = PrepareFrontendRenderAction::run($context, $renderContext);
         } catch (ThemeNotFoundException) {
-            return $this->diagnosticServiceUnavailableResponse(
+            return RenderFrontendUnavailableResponseAction::run(
                 (string) __('capell-frontend::errors.theme_unavailable'),
                 $renderContext->language,
             );
         }
 
         if ($preparedRender->renderer === null) {
-            return $this->diagnosticServiceUnavailableResponse(
+            return RenderFrontendUnavailableResponseAction::run(
                 (string) __('capell-frontend::errors.renderer_unavailable', [
                     'runtime' => $preparedRender->runtime === FrontendRuntime::Livewire ? 'Livewire' : 'Inertia',
                 ]),
@@ -134,26 +133,5 @@ class PageController extends BaseController
         }
 
         return $preparedRender->renderer->render($preparedRender->renderContext);
-    }
-
-    private function diagnosticServiceUnavailableResponse(string $message, ?Language $language = null): SymfonyResponse
-    {
-        $title = (string) __('capell-frontend::errors.frontend_unavailable');
-        $htmlLang = HtmlLanguageAttribute::forLanguage($language);
-
-        return response(
-            '<!doctype html><html lang="' . e($htmlLang) . '"><head><meta charset="utf-8"><title>'
-                . e($title)
-                . '</title></head><body><h1>'
-                . e($title)
-                . '</h1><p>'
-                . e($message)
-                . '</p></body></html>',
-            SymfonyResponse::HTTP_SERVICE_UNAVAILABLE,
-            [
-                'Cache-Control' => 'private, no-store',
-                'Content-Type' => 'text/html; charset=UTF-8',
-            ],
-        );
     }
 }
