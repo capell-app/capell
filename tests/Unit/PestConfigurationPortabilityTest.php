@@ -11,7 +11,10 @@ it('discovers package tests with their package group on this filesystem', functi
     $test = null;
 
     foreach ($files as $file) {
-        if ($file->isFile() && str_ends_with((string) $file->getFilename(), 'Test.php')) {
+        // Fixture classes can also end in Test.php; only a file that declares tests lists a group.
+        if ($file->isFile()
+            && str_ends_with((string) $file->getFilename(), 'Test.php')
+            && preg_match('/^\s*(?:it|test|describe)\(/m', (string) file_get_contents($file->getPathname())) === 1) {
             $test = $file->getPathname();
             break;
         }

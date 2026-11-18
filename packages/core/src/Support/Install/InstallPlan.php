@@ -79,6 +79,21 @@ final class InstallPlan
             ->all();
     }
 
+    public static function shouldRefreshPackageStepsAfter(string $stepKey, InstallInputData $inputData): bool
+    {
+        // In the browser, environment preparation is the first normal request after
+        // Composer and boots with the full set of newly installed providers.
+        if (self::isPackageRequireStep($stepKey)) {
+            return true;
+        }
+
+        return match ($stepKey) {
+            self::STEP_INSTALL_DEVELOPER_TOOLING => true,
+            self::STEP_PREPARE_ENVIRONMENT => $inputData->extraPackages !== [],
+            default => false,
+        };
+    }
+
     /**
      * Composer can reveal requirements after a run has saved its initial plan.
      * Keep completed keys and existing descriptors; order only pending package
@@ -108,10 +123,17 @@ final class InstallPlan
             ...array_map(fn (array $step): string => self::packageNameFromStep($step['key']), array_values($packageSteps)),
         ]));
         $pendingSteps = [];
+        $panelStepBeforeUser = null;
         if (! in_array(self::STEP_INSTALL_FILAMENT_PANEL, [...array_column($plan, 'key'), ...$completedSteps], true)) {
             foreach ($rebuiltPlan as $step) {
                 if ($step['key'] === self::STEP_INSTALL_FILAMENT_PANEL) {
-                    $pendingSteps[] = $step;
+                    if (in_array(self::STEP_RESOLVE_USER, array_column($plan, 'key'), true)
+                        && ! in_array(self::STEP_RESOLVE_USER, $completedSteps, true)) {
+                        $panelStepBeforeUser = $step;
+                    } else {
+                        $pendingSteps[] = $step;
+                    }
+
                     break;
                 }
             }
@@ -134,6 +156,11 @@ final class InstallPlan
         $refreshedPlan = [];
         $inserted = false;
         foreach ($plan as $step) {
+            if ($panelStepBeforeUser !== null && $step['key'] === self::STEP_RESOLVE_USER) {
+                $refreshedPlan[] = $panelStepBeforeUser;
+                $panelStepBeforeUser = null;
+            }
+
             if (! $inserted && in_array($step['key'], [self::STEP_INTEGRATE_ADMIN_PANEL, self::STEP_RUN_MIGRATIONS_POST], true)) {
                 array_push($refreshedPlan, ...$pendingSteps);
                 $inserted = true;
@@ -162,10 +189,7 @@ final class InstallPlan
     public static function steps(InstallInputData $inputData): Collection
     {
         $selectedPackageNames = self::selectedPackages($inputData)->keys()->all();
-        $shouldInstallFilamentPanel = $inputData->extraPackages === []
-            && self::shouldInstallFilamentPanel($selectedPackageNames);
-        $shouldInstallFilamentPanelAfterRequiringPackages = ! $shouldInstallFilamentPanel
-            && self::shouldInstallFilamentPanel([...$selectedPackageNames, ...$inputData->extraPackages]);
+        $shouldInstallFilamentPanel = self::shouldInstallFilamentPanel([...$selectedPackageNames, ...$inputData->extraPackages]);
         $hasSelectedPackages = self::hasSelectedPackages($inputData);
 
         $steps = collect();
@@ -192,15 +216,13 @@ final class InstallPlan
         $steps->push(new InstallStepData(self::STEP_RUN_MIGRATIONS_PRE, 'Run database migrations'));
         $steps->push(new InstallStepData(self::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS, 'Publish Capell settings migrations'));
         $steps->push(new InstallStepData(self::STEP_RUN_MIGRATIONS_MID, 'Run Capell settings migrations'));
-        $steps->push(new InstallStepData(self::STEP_RESOLVE_USER, __('capell-core::install.review.account_step')));
 
+        // The browser user model may resolve the default Filament panel during boot.
         if ($shouldInstallFilamentPanel) {
             $steps->push(new InstallStepData(self::STEP_INSTALL_FILAMENT_PANEL, 'Install Filament panel'));
         }
 
-        if ($shouldInstallFilamentPanelAfterRequiringPackages) {
-            $steps->push(new InstallStepData(self::STEP_INSTALL_FILAMENT_PANEL, 'Install Filament panel'));
-        }
+        $steps->push(new InstallStepData(self::STEP_RESOLVE_USER, __('capell-core::install.review.account_step')));
 
         if ($inputData->installDeveloperTooling) {
             $steps->push(new InstallStepData(self::STEP_INSTALL_DEVELOPER_TOOLING, 'Install AI / Agent Bridge developer tooling'));

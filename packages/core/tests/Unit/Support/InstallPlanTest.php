@@ -298,6 +298,8 @@ it('requires admin before installing filament and integrating the admin panel wh
     expect(array_search(InstallPlan::packageRequireStepKey('capell-app/admin'), $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $stepKeys, true))
         ->and(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $stepKeys, true))
+        ->toBeLessThan(array_search(InstallPlan::STEP_RESOLVE_USER, $stepKeys, true))
+        ->and(array_search(InstallPlan::STEP_RESOLVE_USER, $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey('capell-app/admin'), $stepKeys, true))
         ->and(array_search(InstallPlan::packageInstallStepKey('capell-app/admin'), $stepKeys, true))
         ->toBeLessThan(array_search(InstallPlan::STEP_INTEGRATE_ADMIN_PANEL, $stepKeys, true));
@@ -328,7 +330,31 @@ it('includes the filament panel check when admin integration is requested', func
         'packages' => ['capell-app/admin'],
     ]));
 
-    expect(array_column($plan, 'key'))->toContain(InstallPlan::STEP_INSTALL_FILAMENT_PANEL);
+    $stepKeys = array_column($plan, 'key');
+
+    expect($stepKeys)->toContain(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, InstallPlan::STEP_RESOLVE_USER)
+        ->and(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $stepKeys, true))
+        ->toBeLessThan(array_search(InstallPlan::STEP_RESOLVE_USER, $stepKeys, true));
+});
+
+it('inserts a newly discovered default panel before the pending account step', function (): void {
+    $input = makePlanInput(['extraPackages' => ['vendor/extra-with-admin']]);
+    $plan = InstallPlan::build($input);
+    $requiredStep = InstallPlan::packageRequireStepKey('vendor/extra-with-admin');
+    $completed = [InstallPlan::STEP_PREFLIGHT_CHECKS, $requiredStep];
+
+    expect(array_column($plan, 'key'))->not->toContain(InstallPlan::STEP_INSTALL_FILAMENT_PANEL);
+
+    CapellCore::registerPackage(name: 'capell-app/admin');
+    CapellCore::registerPackage(name: 'vendor/extra-with-admin');
+    CapellCore::getPackage('vendor/extra-with-admin')->requirements = ['capell-app/admin'];
+
+    $refreshedKeys = array_column(InstallPlan::refreshPackageSteps($input, $plan, $completed), 'key');
+
+    expect($refreshedKeys)->toContain(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, InstallPlan::STEP_RESOLVE_USER)
+        ->and(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $refreshedKeys, true))
+        ->toBeLessThan(array_search(InstallPlan::STEP_RESOLVE_USER, $refreshedKeys, true))
+        ->and(array_slice($refreshedKeys, 0, count($completed)))->toBe($completed);
 });
 
 it('publishes vendor migrations again after requiring extra packages', function (): void {

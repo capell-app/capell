@@ -29,6 +29,7 @@ it('renders frontend results as grid result cards with read more links', functio
     $pageUrl = $page->pageUrls()
         ->where('language_id', $language->id)
         ->where('url', '/result-card-title')
+        ->with('siteDomain')
         ->firstOrFail();
 
     $page->load('translation');

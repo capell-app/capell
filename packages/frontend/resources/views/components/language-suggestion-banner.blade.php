@@ -1,60 +1,20 @@
 @php
-    use Capell\Core\Models\Language;
-    use Capell\Core\Models\Site;
-    use Capell\Core\Models\SiteDomain;
-    use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
+    use Capell\Frontend\Actions\BuildPublicLanguageSuggestionDataAction;
     use Capell\Frontend\Enums\VisitorLanguageDetection;
-    use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Locale\VisitorLanguageCookie;
 
-    /**
-     * Visitor language banner.
-     *
-     * CACHE CONTRACT: everything below is a pure function of host + path. Every
-     * site language is rendered into the page, every time; the client picks one.
-     * Nothing here may read a request header, or the shared host+path HTML cache
-     * entry would start serving one visitor's language to everyone.
-     *
-     * That is also why the copy is rendered as a full cross product of
-     * (UI language x suggested language) rather than interpolated in JavaScript:
-     * the placeholder is a language NAME, which has to be translated too, and
-     * the set of pairs is small (site languages, typically two to five).
-     */
-    $mode = app(FrontendSettingsReaderInterface::class)->visitorLanguageDetection();
-
-    $site = Frontend::site();
-    $pageLanguage = Frontend::language();
-
-    $languages = collect();
-
-    if ($mode !== VisitorLanguageDetection::Off && $site instanceof Site && $pageLanguage instanceof Language) {
-        $languages = collect($site->siteDomains ?? [])
-            ->filter(fn (SiteDomain $domain): bool => $domain->status && $domain->language instanceof Language)
-            ->map(fn (SiteDomain $domain): Language => $domain->language)
-            ->unique('id')
-            ->values();
-    }
-
-    $tagOf = static fn (Language $language): string => strtolower(str_replace(
-        '_',
-        '-',
-        filled($language->locale) ? (string) $language->locale : (string) $language->code,
-    ));
-
-    // A single language means there is nothing to suggest and nothing to revert.
-    $render = $languages->count() > 1;
-    $pageTag = $pageLanguage instanceof Language ? $tagOf($pageLanguage) : '';
+    $banner = BuildPublicLanguageSuggestionDataAction::run();
 @endphp
 
-@if ($render)
+@if (count($banner->languages) > 1)
     <div
         id="capell-language-banner"
         class="capell-language-banner"
         role="region"
-        aria-label="{{ $mode === VisitorLanguageDetection::Redirect ? __('capell-frontend::languages.redirected_banner_label') : __('capell-frontend::languages.suggestion_banner_label') }}"
+        aria-label="{{ $banner->mode === VisitorLanguageDetection::Redirect ? __('capell-frontend::languages.redirected_banner_label') : __('capell-frontend::languages.suggestion_banner_label') }}"
         aria-live="polite"
-        data-capell-language-banner="{{ $mode->value }}"
-        data-capell-page-language="{{ $pageTag }}"
+        data-capell-language-banner="{{ $banner->mode->value }}"
+        data-capell-page-language="{{ $banner->pageTag }}"
         data-capell-cookie="{{ VisitorLanguageCookie::NAME }}"
         data-capell-origin-cookie="{{ VisitorLanguageCookie::ORIGIN_NAME }}"
         hidden
@@ -70,17 +30,17 @@
         </button>
 
         <div class="capell-language-banner__body">
-            @foreach ($languages as $uiLanguage)
-                @php $uiTag = $tagOf($uiLanguage); @endphp
+            @foreach ($banner->languages as $uiLanguage)
+                @php $uiTag = $uiLanguage['tag']; @endphp
                 <div
                     class="capell-language-banner__variant"
                     data-capell-language-variant="{{ $uiTag }}"
                     lang="{{ $uiTag }}"
-                    dir="{{ Language::directionForCode($uiTag) }}"
+                    dir="{{ $uiLanguage['direction'] }}"
                     hidden
                 >
-                    @foreach ($languages as $targetLanguage)
-                        @php $targetTag = $tagOf($targetLanguage); @endphp
+                    @foreach ($banner->languages as $targetLanguage)
+                        @php $targetTag = $targetLanguage['tag']; @endphp
 
                         <p
                             class="capell-language-banner__message"
@@ -88,7 +48,7 @@
                             hidden
                         >
                             <span>
-                                {{ trans('capell-frontend::languages.suggestion_message', ['language' => $targetLanguage->name], $uiTag) }}
+                                {{ trans('capell-frontend::languages.suggestion_message', ['language' => $targetLanguage['name']], $uiTag) }}
                             </span>
                             <a
                                 class="capell-language-banner__action"
@@ -97,7 +57,7 @@
                                 href="#"
                                 rel="alternate nofollow"
                                 hreflang="{{ $targetTag }}"
-                                >{{ trans('capell-frontend::languages.suggestion_switch', ['language' => $targetLanguage->name], $uiTag) }}</a
+                                >{{ trans('capell-frontend::languages.suggestion_switch', ['language' => $targetLanguage['name']], $uiTag) }}</a
                             >
                         </p>
 
@@ -110,7 +70,7 @@
                                  visitor was sent), while the link offers the language they
                                  came FROM. --}}
                             <span>
-                                {{ trans('capell-frontend::languages.redirected_message', ['language' => $pageLanguage->name], $uiTag) }}
+                                {{ trans('capell-frontend::languages.redirected_message', ['language' => $banner->pageLanguageName], $uiTag) }}
                             </span>
                             <a
                                 class="capell-language-banner__action"
@@ -119,7 +79,7 @@
                                 href="#"
                                 rel="alternate nofollow"
                                 hreflang="{{ $targetTag }}"
-                                >{{ trans('capell-frontend::languages.redirected_revert', ['language' => $targetLanguage->name], $uiTag) }}</a
+                                >{{ trans('capell-frontend::languages.redirected_revert', ['language' => $targetLanguage['name']], $uiTag) }}</a
                             >
                         </p>
                     @endforeach

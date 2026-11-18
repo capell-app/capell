@@ -10,6 +10,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
+use Capell\Core\Actions\Install\PrepareEnvironmentAction;
 use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
@@ -23,12 +24,15 @@ use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Install\InstalledPackageManifestDiscovery;
+use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
 use Capell\Tests\Fixtures\Filament\RuntimePermissionPage;
 use Capell\Tests\Fixtures\Models\User;
@@ -1301,4 +1305,23 @@ it('forgets a stopped step once the core lifecycle is marked installed', functio
     resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_MARK_CORE_INSTALLED, $state);
 
     expect(InstallRunState::stoppedStep())->toBeNull();
+});
+
+it('applies required application patches before preparing an install with preinstalled packages', function (): void {
+    $input = installStepExecutorInputData();
+    $lines = [];
+    $reporter = installStepExecutorReporter($lines);
+
+    $environment = bindFakeAction(PrepareEnvironmentAction::class);
+    $patch = Mockery::mock(Patch::class);
+    $patch->shouldReceive('probe')->andReturn(PatchStatus::Applicable);
+    $patch->shouldReceive('label')->andReturn('Required application patch');
+    $patch->shouldReceive('apply')->once()->andReturnUsing(function () use ($environment): void {
+        expect($environment->called)->toBeFalse();
+    });
+    resolve(InstallPatchRegistry::class)->register(static fn (): Patch => $patch, key: 'test.required-install-patch');
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_PREPARE_ENVIRONMENT, new InstallRunState($input, $reporter));
+
+    expect($environment->called)->toBeTrue();
 });

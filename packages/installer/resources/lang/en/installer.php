@@ -184,6 +184,8 @@ return [
     'technical_logs' => 'Install log',
     'unknown_error' => 'Something went wrong while starting the install. Please try again.',
     'view_progress' => 'View progress →',
+    'continue_installation' => 'Continue installation',
+    'continue_installation_failed' => 'Setup could not continue. Refresh this page and try again, or review the installation report.',
     'waiting_for_output' => 'Waiting for output…',
     'workspace_execution' => 'Execution',
     'workspace_execution_direct' => 'Incremental requests',

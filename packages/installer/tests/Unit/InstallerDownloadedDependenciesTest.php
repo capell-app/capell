@@ -11,7 +11,7 @@ use Capell\Installer\Actions\AdvanceInstallerRunAction;
 use Capell\Installer\Enums\InstallerRunStepResultCode;
 use Capell\Installer\Support\InstallerSessionRepository;
 
-it('persists discovered dependency steps and resumes a failed hook without repeating completed lifecycles', function (): void {
+it('persists discovered dependencies and only replays completed steps while the run is active', function (bool $failHook): void {
     config(['cache.default' => 'array']);
     CapellCore::clearPackages();
     $input = new InstallInputData(
@@ -29,9 +29,10 @@ it('persists discovered dependency steps and resumes a failed hook without repea
     $initialPlan = array_values(array_filter(InstallPlan::build($input), fn (array $step): bool => str_contains($step['key'], 'package:') || $step['key'] === InstallPlan::STEP_CLEAR_CACHES));
     $sessions = resolve(InstallerSessionRepository::class);
     $sessions->run($installId)->startBrowserSteps(inputData: $input, plan: $initialPlan, firstStepKey: $initialPlan[0]['key'], preflight: []);
+    $layoutInstall = InstallPlan::packageInstallStepKey('vendor/layout-builder');
+    $layoutAfterInstall = InstallPlan::packageAfterInstallStepKey('vendor/layout-builder');
     $calls = [];
-    $failHook = true;
-    RunInstallStepAction::mock()->shouldReceive('handle')->andReturnUsing(function (string $key) use (&$calls, &$failHook): RunInstallStepResultData {
+    RunInstallStepAction::mock()->shouldReceive('handle')->andReturnUsing(function (string $key) use (&$calls, $failHook, $layoutAfterInstall): RunInstallStepResultData {
         $calls[] = $key;
         if (InstallPlan::isPackageRequireStep($key)) {
             foreach ([
@@ -58,50 +59,67 @@ it('persists discovered dependency steps and resumes a failed hook without repea
             CapellCore::forcePackageInstalled($name);
         }
 
-        if ($key === InstallPlan::packageAfterInstallStepKey('vendor/layout-builder') && $failHook) {
-            $failHook = false;
-            throw new RuntimeException('Controlled after-install failure');
-        }
+        throw_if($key === $layoutAfterInstall && $failHook, RuntimeException::class, 'Controlled after-install failure');
 
         return new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: true);
     });
 
     $next = $initialPlan[0]['key'];
     do {
-        $result = AdvanceInstallerRunAction::run($installId, $next);
-        if ($result->code === InstallerRunStepResultCode::ExecutionFailed) {
-            break;
-        }
-
+        $step = $next;
+        $result = AdvanceInstallerRunAction::run($installId, $step);
         $next = $result->nextStep;
+
+        if ($step === $layoutInstall) {
+            $replay = AdvanceInstallerRunAction::run($installId, $layoutInstall);
+            expect($replay->code)->toBe(InstallerRunStepResultCode::Running)
+                ->and($replay->nextStep)->toBe($next)
+                ->and($replay->plan)->toBe($sessions->plan($installId));
+        }
     } while ($next !== InstallPlan::STEP_CLEAR_CACHES && $next !== null);
 
-    expect($result->exceptionMessage)->toBe('Controlled after-install failure')
-        ->and($sessions->completedSteps($installId))->toContain(InstallPlan::packageInstallStepKey('vendor/layout-builder'))
-        ->and($sessions->completedSteps($installId))->not->toContain(InstallPlan::packageAfterInstallStepKey('vendor/layout-builder'));
     $savedPlan = $sessions->plan($installId);
     $savedKeys = array_column($savedPlan, 'key');
+    $completed = $sessions->completedSteps($installId);
+    $executions = array_count_values($calls);
     expect($savedKeys)->toContain(...array_column($initialPlan, 'key'))
         ->and($savedKeys)->toHaveCount(count(array_unique($savedKeys)))
-        ->and($sessions->packageMetadataRefreshed($installId))->toBeTrue();
+        ->and($sessions->packageMetadataRefreshed($installId))->toBeTrue()
+        ->and($completed)->toContain($layoutInstall)
+        ->and($executions[$layoutInstall] ?? 0)->toBe(1)
+        ->and($executions[$layoutAfterInstall] ?? 0)->toBe(1)
+        ->and($executions[InstallPlan::packageInstallStepKey('vendor/theme')] ?? 0)->toBe(1)
+        ->and(array_search(InstallPlan::packageInstallStepKey('vendor/navigation'), $calls, true))->toBeLessThan(array_search(InstallPlan::packageInstallStepKey('vendor/theme'), $calls, true));
 
-    $replay = AdvanceInstallerRunAction::run($installId, InstallPlan::packageInstallStepKey('vendor/layout-builder'));
-    expect($replay->nextStep)->toBe(InstallPlan::packageAfterInstallStepKey('vendor/layout-builder'))
-        ->and($replay->plan)->toBe($savedPlan);
-    $next = $replay->nextStep;
-    do {
-        $result = AdvanceInstallerRunAction::run($installId, $next);
-        $next = $result->nextStep;
-    } while ($next !== InstallPlan::STEP_CLEAR_CACHES && $next !== null && $result->code !== InstallerRunStepResultCode::ExecutionFailed);
+    if ($failHook) {
+        expect($result->code)->toBe(InstallerRunStepResultCode::ExecutionFailed)
+            ->and($result->exceptionMessage)->toBe('Controlled after-install failure')
+            ->and($completed)->not->toContain($layoutAfterInstall);
+        $originalCalls = $calls;
+        foreach ([$layoutInstall, $layoutAfterInstall] as $step) {
+            $replay = AdvanceInstallerRunAction::run($installId, $step);
+            expect($replay->code)->toBe(InstallerRunStepResultCode::ExecutionFailed)
+                ->and($replay->nextStep)->toBeNull();
+        }
+
+        expect($calls)->toBe($originalCalls)
+            ->and($sessions->plan($installId))->toBe($savedPlan)
+            ->and($sessions->completedSteps($installId))->toBe($completed);
+
+        return;
+    }
 
     expect($next)->toBe(InstallPlan::STEP_CLEAR_CACHES)
-        ->and($sessions->plan($installId))->toBe($savedPlan)
-        ->and(array_count_values($calls)[InstallPlan::packageInstallStepKey('vendor/layout-builder')])->toBe(1)
-        ->and(array_count_values($calls)[InstallPlan::packageAfterInstallStepKey('vendor/layout-builder')])->toBe(2)
-        ->and(array_count_values($calls)[InstallPlan::packageInstallStepKey('vendor/theme')])->toBe(1)
-        ->and(array_search(InstallPlan::packageInstallStepKey('vendor/navigation'), $calls, true))->toBeLessThan(array_search(InstallPlan::packageInstallStepKey('vendor/theme'), $calls, true))
-        ->and(array_search(InstallPlan::packageAfterInstallStepKey('vendor/navigation'), $calls, true))->toBeLessThan(array_search(InstallPlan::packageAfterInstallStepKey('vendor/theme'), $calls, true));
-});
+        ->and($completed)->toContain($layoutAfterInstall)
+        ->and($calls)->toContain(
+            InstallPlan::packageAfterInstallStepKey('vendor/navigation'),
+            InstallPlan::packageAfterInstallStepKey('vendor/theme'),
+        )->and(array_search(InstallPlan::packageAfterInstallStepKey('vendor/navigation'), $calls, true))
+        ->toBeLessThan(array_search(InstallPlan::packageAfterInstallStepKey('vendor/theme'), $calls, true));
+})->with([
+    'successful continuation' => false,
+    'terminal failure' => true,
+]);
 
 it('persists foundation dependency lifecycles and panel setup after an installer-only theme download', function (): void {
     config(['cache.default' => 'array']);
