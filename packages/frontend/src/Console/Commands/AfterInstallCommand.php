@@ -22,7 +22,7 @@ final class AfterInstallCommand extends Command
     use DescribesCommandOptions;
 
     protected $signature = 'capell:frontend-after-install
-        {--apply : Apply the printed plan in non-interactive mode}
+        {--apply : Apply the printed plan without asking for confirmation}
         {--dev : Run the Vite development build instead of the production build}';
 
     protected $description = 'Plan or apply Capell frontend dependencies, Vite inputs, generated assets, and build';
@@ -49,7 +49,7 @@ final class AfterInstallCommand extends Command
             return self::SUCCESS;
         }
 
-        if ($this->input->isInteractive() && ! confirm('Apply this frontend installation plan?', default: false)) {
+        if (! $this->option('apply') && $this->input->isInteractive() && ! confirm('Apply this frontend installation plan?', default: false)) {
             $this->comment('Frontend installation plan was not applied.');
 
             return self::SUCCESS;

@@ -183,6 +183,18 @@ it('requires interactive confirmation before applying the printed plan', functio
     Process::assertNothingRan();
 });
 
+it('applies the plan without asking for confirmation when apply is given in an interactive terminal', function (): void {
+    File::put($this->viteConfigPath, viteConfigWithCapellInputs());
+    Process::fake(fn () => Process::result(output: 'process output'));
+
+    artisanCommand('capell:frontend-after-install', ['--apply' => true])
+        ->expectsOutputToContain('Capell frontend installation plan applied successfully.')
+        ->assertExitCode(0);
+
+    expect(File::exists($this->generatedAsset))->toBeTrue();
+    Process::assertRan(fn ($process): bool => $process->command === ['npm', 'run', 'build']);
+});
+
 it('returns package-manager failure output unchanged and adds separate remediation', function (): void {
     File::put($this->viteConfigPath, viteConfigWithCapellInputs());
     resolve(FrontendPackageDependencyRegistry::class)->register(new FrontendPackageDependencyData('swiper', '^12.0.0', FrontendPackageDependencyType::Runtime, 'capell-app/gallery'));
