@@ -2598,6 +2598,11 @@ it('returns failed status when a step throws', function (): void {
         'status' => 'failed',
         'error' => 'Step exploded',
     ]);
+
+    $this->postJson(route('capell-installer.run-step'), [
+        'install_id' => $installId,
+        'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT,
+    ])->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('nextStep', null);
 });
 
 it('persists a resolved user id returned by an install step', function (): void {

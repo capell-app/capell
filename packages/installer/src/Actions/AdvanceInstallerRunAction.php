@@ -86,8 +86,14 @@ final class AdvanceInstallerRunAction
         $plan = $this->sessions->plan($installId);
         $reporter = $this->reporter($installId);
 
-        if ($this->sessions->status($installId, InstallerRunStatus::Pending->value) === InstallerRunStatus::Complete->value) {
+        $status = $this->sessions->status($installId, InstallerRunStatus::Pending->value);
+        if ($status === InstallerRunStatus::Complete->value) {
             return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
+        }
+
+        // Recheck under the execution lease because another tab may have just failed this step.
+        if ($status === InstallerRunStatus::Failed->value) {
+            return $this->result($installId, $stepKey, InstallerRunStepResultCode::ExecutionFailed, $reporter);
         }
 
         $expectedStepKey = $this->sessions->expectedStepKey($installId, $plan);
