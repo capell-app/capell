@@ -13,9 +13,8 @@ final class ForeignTableException extends RuntimeException
      */
     public static function forTable(array $replacements, bool $external): self
     {
-        return new self((string) __(
-            $external ? 'capell-core::install.tables.foreign_external_table' : 'capell-core::install.tables.foreign_table',
-            $replacements,
-        ));
+        return new self($external
+            ? (string) __('capell-core::install.tables.foreign_external_table', $replacements)
+            : (string) __('capell-core::install.tables.foreign_table', $replacements));
     }
 }
