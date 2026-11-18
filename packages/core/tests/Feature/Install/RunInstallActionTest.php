@@ -105,7 +105,7 @@ function bindRunInstallTestConsoleKernel(array $commands = ['capell:doctor' => t
 
     $factory = Mockery::mock(ProcessFactoryInterface::class);
     $factory->shouldReceive('make')
-        ->withArgs(fn (array $command): bool => in_array($command[2] ?? null, ['capell:admin-install', 'capell:doctor', 'capell:package-cache', 'list'], true))
+        ->withArgs(fn (array $command): bool => in_array($command[2] ?? null, ['capell:admin-install', 'capell:doctor', 'list'], true))
         ->andReturn($process);
     app()->instance(ProcessFactoryInterface::class, $factory);
 

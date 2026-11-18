@@ -79,7 +79,7 @@ it('skips optimize:clear when the harness opts out through configuration', funct
     ClearCachesAction::run(['all'], $this->reporter);
 
     expect($kernel->calls)->toBe([])
-        ->and($kernel->availabilityChecks)->toBe(1)
+        ->and($kernel->availabilityChecks)->toBe(2)
         ->and($this->reporter->reports)
         ->toContain('Skipped optimize:clear; capell.install.skip_optimize_clear is enabled')
         ->toContain('Skipped capell:html-cache:clear; command is not available')
@@ -98,6 +98,7 @@ it('runs the command behind each selected cache key', function (array $cacheKeys
     'config' => [['config'], [], ['config:clear']],
     'views' => [['views'], [], ['view:clear']],
     'page when available' => [['page'], ['capell:html-cache:clear' => true], ['capell:html-cache:clear']],
+    'package cache when registered' => [['packages'], ['capell:package-cache' => true], ['capell:package-cache']],
     'optional capell and filament commands when available' => [
         ['admin', 'components', 'widgets', 'configurators', 'filament-components'],
         [
@@ -188,7 +189,7 @@ it('runs optimize:clear outside testbench and reports success', function (): voi
     });
 
     expect($kernel->calls)->toBe(['optimize:clear'])
-        ->and($kernel->availabilityChecks)->toBe(1)
+        ->and($kernel->availabilityChecks)->toBe(2)
         ->and($this->reporter->reports)->toContain('✓ All caches cleared');
     expectFreshPackageCacheProcess($this->processes);
 });
@@ -207,7 +208,7 @@ it('retries optimize:clear in a fresh process when a hook command is undefined',
         [...new RuntimeBinaryResolver()->php(), 'artisan', 'capell:package-cache', '--no-interaction'],
     ]);
     expect($kernel->calls)->toBe(['optimize:clear'])
-        ->and($kernel->availabilityChecks)->toBe(1)
+        ->and($kernel->availabilityChecks)->toBe(2)
         ->and($this->reporter->reports)
         ->toContain('→ optimize:clear ran in a fresh process')
         ->toContain('✓ All caches cleared');

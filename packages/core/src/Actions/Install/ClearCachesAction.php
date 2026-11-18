@@ -107,12 +107,29 @@ class ClearCachesAction
         }
 
         if ($clearingAll || in_array('packages', $cachesToClear, true)) {
-            // HTTP and pre-Composer workers can have an incomplete console command list.
-            $this->runCacheCommandInFreshProcess('capell:package-cache', $reporter);
-            $reporter->report('✓ Capell package cache rebuilt');
+            $this->rebuildPackageCache($reporter);
         }
 
         CapellCore::clearExtensionCache();
+    }
+
+    private function rebuildPackageCache(ProgressReporter $reporter): void
+    {
+        $cacheCommand = [
+            'command' => 'capell:package-cache',
+            'message' => '✓ Capell package cache rebuilt',
+            'optional' => false,
+        ];
+
+        if ($this->commandExists($cacheCommand['command'])) {
+            $this->callCacheCommand($cacheCommand, $reporter);
+
+            return;
+        }
+
+        // An HTTP installer request may not have the console command registered.
+        $this->runCacheCommandInFreshProcess($cacheCommand['command'], $reporter);
+        $reporter->report($cacheCommand['message']);
     }
 
     /**
