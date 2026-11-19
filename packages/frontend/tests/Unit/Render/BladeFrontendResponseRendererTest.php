@@ -188,11 +188,6 @@ function publicRenderScopeFixture(string $namespace): FrontendRenderContextData
         $theme,
         runtimeManifest: $runtime,
         publicRenderData: new PublicPageRenderData(
-            $page,
-            $site,
-            $language,
-            $layout,
-            $theme,
             null,
             $runtime,
             new FrontendResourcePlanData([], [], [], [], [], [], [], 'scope-test'),
@@ -460,11 +455,6 @@ it('honours authored masters for prepared graphs while retaining graph and conta
         ],
     ];
     $publicRenderData = new PublicPageRenderData(
-        page: $page,
-        site: $site,
-        language: $language,
-        layout: $layout,
-        theme: $theme,
         layoutGraph: $layoutGraph,
         runtimeManifest: $runtimeManifest,
         resourcePlan: new FrontendResourcePlanData(
@@ -616,11 +606,6 @@ it('renders every widget and container presentation unless the entire graph can 
         theme: $theme,
         runtimeManifest: $runtimeManifest,
         publicRenderData: new PublicPageRenderData(
-            page: $page,
-            site: $site,
-            language: $language,
-            layout: $layout,
-            theme: $theme,
             layoutGraph: (object) ['containers' => $graphContainers],
             runtimeManifest: $runtimeManifest,
             resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], 'hydration-test'),
@@ -1055,11 +1040,6 @@ it('prepares provider fragment contexts before guarding a partial layout', funct
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $placeholder = '<div data-deferred-fragment data-deferred-fragment-url="/_fragments/opaque-fragment-42"></div>';
     $publicRenderData = new PublicPageRenderData(
-        page: $page,
-        site: $site,
-        language: $language,
-        layout: $layout,
-        theme: $theme,
         layoutGraph: (object) ['containers' => ['main' => ['widgets' => [
             ['key' => 'lazy', 'data' => ['sections' => $preparedPlaceholder ? [['html' => $placeholder]] : []]],
             ['key' => 'unprepared', 'data' => []],

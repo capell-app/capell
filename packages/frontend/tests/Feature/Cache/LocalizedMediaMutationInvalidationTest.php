@@ -115,11 +115,6 @@ function warmLocalizedMediaRenderCache(
     expect($key)->toBeString();
 
     $cache->remember($context, fn (): PublicPageRenderData => new PublicPageRenderData(
-        page: $page,
-        site: $site,
-        language: $language,
-        layout: $context->layout,
-        theme: $context->theme,
         layoutGraph: null,
         runtimeManifest: $runtime,
         resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], 'test'),

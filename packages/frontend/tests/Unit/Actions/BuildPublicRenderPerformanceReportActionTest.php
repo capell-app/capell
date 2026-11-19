@@ -26,7 +26,7 @@ it('summarises the resolved resource plan without fetching remote resources', fu
         new FrontendResourceContributionData(FrontendResourceData::style('capell-app/theme:style', 'capell-app/theme', new PublicResourceSourceData('theme.css'))),
         new FrontendResourceContributionData(FrontendResourceData::inlineStyle('capell-app/theme:critical', 'capell-app/theme', '.hero{display:block}', criticalCssEligible: true)),
     ]);
-    $renderData = new PublicPageRenderData(null, null, null, null, null, null, $runtime, $plan, ['page-1']);
+    $renderData = new PublicPageRenderData(null, $runtime, $plan, ['page-1']);
 
     $report = BuildPublicRenderPerformanceReportAction::run($renderData);
 
@@ -81,7 +81,7 @@ function renderDataWithLocalScript(string $path): PublicPageRenderData
     );
     $plan = new FrontendResourcePlanData([], [$resource], [], [], [], [], [], 'fp');
 
-    return new PublicPageRenderData(null, null, null, null, null, null, $runtime, $plan, []);
+    return new PublicPageRenderData(null, $runtime, $plan, []);
 }
 
 it('does not gzip local assets on the default public render path', function (): void {

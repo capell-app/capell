@@ -48,11 +48,6 @@ class BuildPublicPageRenderDataAction
         $resourcePlan = ResolveFrontendResourcePlanAction::run($selection->contributions, $selection->hints);
 
         return new PublicPageRenderData(
-            page: $context->page,
-            site: $context->site,
-            language: $context->language,
-            layout: $context->layout,
-            theme: $context->theme,
             layoutGraph: $this->layoutGraph($context),
             runtimeManifest: $runtimeManifest,
             resourcePlan: $resourcePlan,

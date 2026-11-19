@@ -18,10 +18,12 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Term;
+use Capell\Core\Models\Theme;
 use Capell\Core\Support\PublicRead\PublicArtefactPermit;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
+use Capell\Frontend\Actions\BuildStaticPageArtifactMetadataAction;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
@@ -32,8 +34,10 @@ use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
+use Capell\Frontend\Data\StaticPageArtifactSourceData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Tests\Support\PublishesStaticArtefacts;
 use Carbon\CarbonImmutable;
@@ -216,9 +220,8 @@ it('generates static html artifacts and writes a metadata manifest for published
         public function handle($request): Response
         {
             resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
-            $page = expectPresent($this->renderData->page);
 
-            return new Response('<html>Static</html>', Response::HTTP_OK, ['surrogate-key' => 'page-' . $page->getKey()]);
+            return new Response('<html>Static</html>', Response::HTTP_OK, ['surrogate-key' => $this->renderData->surrogateKeys[0]]);
         }
 
         public function terminate($request, $response): void {}
@@ -243,11 +246,62 @@ it('generates static html artifacts and writes a metadata manifest for published
         ->and(json_encode($store->readManifest(), JSON_THROW_ON_ERROR))->not->toContain('"id":' . $page->id);
 });
 
+it('fingerprints the page, site, language, layout and theme the request rendered into the artifact manifest', function (): void {
+    config()->set('cache.default', 'array');
+
+    [$page, $site, $renderData, $language] = staticPageArtifactsRenderData('/rendered-models-static-test');
+    $layout = Layout::factory()->createOne();
+    $theme = expectPresent($site->theme);
+
+    app()->instance(Kernel::class, new readonly class($renderData, $page, $site, $language, $layout, $theme) implements Kernel
+    {
+        public function __construct(
+            private PublicPageRenderData $renderData,
+            private Page $page,
+            private Site $site,
+            private Language $language,
+            private Layout $layout,
+            private Theme $theme,
+        ) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($request): Response
+        {
+            $state = resolve(FrontendContextReader::class);
+            expect($state)->toBeInstanceOf(FrontendState::class);
+            $state->withPage($this->page)->withSite($this->site)->withLanguage($this->language)->withLayout($this->layout)->withTheme($this->theme);
+            $state->setFrontendData('publicPageRenderData', $this->renderData);
+
+            return new Response('<html>Rendered models</html>', Response::HTTP_OK);
+        }
+
+        public function terminate($request, $response): void {}
+
+        public function getApplication(): Application
+        {
+            return app();
+        }
+    });
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/rendered-models-static-test']);
+    $pageUrl = PageUrl::query()->where('url', '/rendered-models-static-test')->firstOrFail();
+    $fingerprintFrom = fn (StaticPageArtifactSourceData $source): string => BuildStaticPageArtifactMetadataAction::run(
+        $pageUrl,
+        $renderData,
+        $source,
+        new Response(''),
+    )->dependencies['fingerprint'];
+
+    expect($manifest['artifacts'][0]['dependencies']['fingerprint'])
+        ->toBe($fingerprintFrom(StaticPageArtifactSourceData::fromModels($page, $site, $language, $layout, $theme)))
+        ->not->toBe($fingerprintFrom(StaticPageArtifactSourceData::fromModels($page, $site, $language, null, $theme)));
+});
+
 it('generates static html artifacts for the default enabled site domain', function (): void {
     config()->set('cache.default', 'array');
 
-    [, $site, $renderData] = staticPageArtifactsRenderData('/default-domain-static-test');
-    $language = expectPresent($renderData->language);
+    [, $site, $renderData, $language] = staticPageArtifactsRenderData('/default-domain-static-test');
 
     SiteDomain::factory()
         ->state([
@@ -269,9 +323,8 @@ it('generates static html artifacts for the default enabled site domain', functi
         public function handle($request): Response
         {
             resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
-            $page = expectPresent($this->renderData->page);
 
-            return new Response('<html>Default domain</html>', Response::HTTP_OK, ['surrogate-key' => 'page-' . $page->getKey()]);
+            return new Response('<html>Default domain</html>', Response::HTTP_OK, ['surrogate-key' => $this->renderData->surrogateKeys[0]]);
         }
 
         public function terminate($request, $response): void {}
@@ -543,7 +596,7 @@ it('skips urls without an enabled site domain or writable html response', functi
 
 it('generates static HTML from hydrated contributor data without public-view queries or internals', function (): void {
     config()->set('cache.default', 'array');
-    [, $site, $seedRenderData] = staticPageArtifactsRenderData('/catalogue-static-test');
+    [$seedPage, $site, $seedRenderData, $seedLanguage] = staticPageArtifactsRenderData('/catalogue-static-test');
 
     resolve(PublicRenderDataContributorRegistry::class)->register(new class implements PublicRenderDataContributor
     {
@@ -576,11 +629,11 @@ it('generates static HTML from hydrated contributor data without public-view que
     });
 
     $renderData = BuildPublicPageRenderDataAction::run(new FrontendRenderContextData(
-        page: $seedRenderData->page,
-        site: $seedRenderData->site,
-        language: $seedRenderData->language,
-        layout: $seedRenderData->layout,
-        theme: $seedRenderData->theme,
+        page: $seedPage,
+        site: $site,
+        language: $seedLanguage,
+        layout: Layout::query()->find($seedPage->layout_id),
+        theme: $site->theme,
         runtimeManifest: $seedRenderData->runtimeManifest,
     ));
     $counter = new stdClass;
@@ -828,18 +881,13 @@ function staticPageArtifactsRenderData(string $url, string $domain = 'example.te
         ->createOne();
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $renderData = new PublicPageRenderData(
-        page: $page,
-        site: $site,
-        language: $language,
-        layout: Layout::query()->find($page->layout_id),
-        theme: $site->theme,
         layoutGraph: null,
         runtimeManifest: $runtime,
         resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
         surrogateKeys: ['page-' . $page->id],
     );
 
-    return [$page, $site, $renderData];
+    return [$page, $site, $renderData, $language];
 }
 
 it('invalidates a static artifact when its agent term dependency changes without a render cache entry', function (): void {

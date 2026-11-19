@@ -118,15 +118,10 @@ it('remembers public page render data when the render data cache is enabled', fu
     );
     $calls = 0;
 
-    $builder = function () use (&$calls, $context, $runtime): PublicPageRenderData {
+    $builder = function () use (&$calls, $runtime): PublicPageRenderData {
         $calls++;
 
         return new PublicPageRenderData(
-            page: $context->page,
-            site: $context->site,
-            language: $context->language,
-            layout: $context->layout,
-            theme: $context->theme,
             layoutGraph: null,
             runtimeManifest: $runtime,
             resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
@@ -334,15 +329,10 @@ it('changes cache keys and entries when the optional payload schema fingerprint 
     $cache = resolve(PublicPageRenderDataCache::class);
     $firstKey = $cache->keyForContext($context);
     $calls = 0;
-    $factory = function () use (&$calls, $context, $runtime): PublicPageRenderData {
+    $factory = function () use (&$calls, $runtime): PublicPageRenderData {
         $calls++;
 
         return new PublicPageRenderData(
-            $context->page,
-            $context->site,
-            $context->language,
-            $context->layout,
-            $context->theme,
             null,
             $runtime,
             new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
@@ -412,11 +402,6 @@ it('never reads or populates public render data entries from the preview audienc
         $calls++;
 
         return new PublicPageRenderData(
-            page: $context->page,
-            site: $context->site,
-            language: $context->language,
-            layout: $context->layout,
-            theme: $context->theme,
             layoutGraph: null,
             runtimeManifest: $context->runtimeManifest,
             resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', (string) $calls)),
@@ -480,17 +465,12 @@ function publicRenderDataListingThatShowsAnotherPage(): array
     /** @var ArrayObject<int, int> $calls */
     $calls = new ArrayObject;
 
-    $builder = function () use ($calls, $context, $runtime, $embedded): PublicPageRenderData {
+    $builder = function () use ($calls, $runtime, $embedded): PublicPageRenderData {
         $calls->append(1);
         // Rendering the listing loads the page it shows, translations included.
         resolve(RenderedModelTracker::class)->track(Page::query()->with('translations')->findOrFail($embedded->getKey()));
 
         return new PublicPageRenderData(
-            page: $context->page,
-            site: $context->site,
-            language: $context->language,
-            layout: $context->layout,
-            theme: $context->theme,
             layoutGraph: null,
             runtimeManifest: $runtime,
             resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),

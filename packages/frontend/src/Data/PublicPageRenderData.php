@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data;
 
-use Capell\Core\Contracts\Pageable;
-use Capell\Core\Models\Language;
-use Capell\Core\Models\Layout;
-use Capell\Core\Models\Site;
-use Capell\Core\Models\Theme;
+use Capell\Core\Contracts\PublicRenderData;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Support\Render\PreparedLayoutGraph;
 use Spatie\LaravelData\Data;
 
-class PublicPageRenderData extends Data
+/**
+ * Everything public Blade, fragments and exports read for one page render.
+ * It holds hydrated Data only: the page, site, language, layout and theme
+ * reach views through the model-free {@see PublicRenderContextData}.
+ */
+class PublicPageRenderData extends Data implements PublicRenderData
 {
     /**
      * @param  array<int, string>  $surrogateKeys
@@ -25,11 +26,6 @@ class PublicPageRenderData extends Data
      * @param  list<PublicRenderDataCacheDependencyData>  $extensionCacheDependencies
      */
     public function __construct(
-        public ?Pageable $page,
-        public ?Site $site,
-        public ?Language $language,
-        public ?Layout $layout,
-        public ?Theme $theme,
         public ?object $layoutGraph,
         public FrontendRuntimeManifestData $runtimeManifest,
         public FrontendResourcePlanData $resourcePlan,

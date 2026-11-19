@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
-use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
@@ -12,7 +11,7 @@ use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\StaticPageArtifactData;
-use Illuminate\Database\Eloquent\Model;
+use Capell\Frontend\Data\StaticPageArtifactSourceData;
 use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -23,13 +22,13 @@ class BuildStaticPageArtifactMetadataAction
     use AsFake;
     use AsObject;
 
-    public function handle(PageUrl $pageUrl, PublicPageRenderData $renderData, Response $response, ?string $file = null): StaticPageArtifactData
+    public function handle(PageUrl $pageUrl, PublicPageRenderData $renderData, StaticPageArtifactSourceData $source, Response $response, ?string $file = null): StaticPageArtifactData
     {
         return new StaticPageArtifactData(
             url: $pageUrl->url,
             file: $file,
             headers: $this->headers($response),
-            dependencies: $this->dependencies($renderData),
+            dependencies: $this->dependencies($renderData, $source),
             runtime: $this->fingerprint($renderData->runtimeManifest->toArray()),
             assets: $this->assets($renderData),
             surrogateKeys: array_map(
@@ -62,19 +61,17 @@ class BuildStaticPageArtifactMetadataAction
     /**
      * @return array<string, mixed>
      */
-    private function dependencies(PublicPageRenderData $renderData): array
+    private function dependencies(PublicPageRenderData $renderData, StaticPageArtifactSourceData $source): array
     {
-        $page = $renderData->page;
-
         $dependencies = array_filter([
-            'page' => $page instanceof Model && $page instanceof Pageable ? [
-                'type' => $page::class,
-                'id' => (int) $page->getKey(),
+            'page' => $source->pageType !== null && $source->pageId !== null ? [
+                'type' => $source->pageType,
+                'id' => $source->pageId,
             ] : null,
-            'site_id' => $renderData->site?->getKey(),
-            'language_id' => $renderData->language?->getKey(),
-            'layout_id' => $renderData->layout?->getKey(),
-            'theme_id' => $renderData->theme?->getKey(),
+            'site_id' => $source->siteId,
+            'language_id' => $source->languageId,
+            'layout_id' => $source->layoutId,
+            'theme_id' => $source->themeId,
             'layout_graph_key' => $renderData->layoutGraphKey(),
         ], fn (mixed $value): bool => $value !== null);
 

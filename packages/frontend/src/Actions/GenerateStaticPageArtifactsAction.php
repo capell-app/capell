@@ -22,6 +22,7 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\StaticPageArtifactSourceData;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
@@ -85,18 +86,29 @@ class GenerateStaticPageArtifactsAction
                 return;
             }
 
-            $renderData = resolve(FrontendContextReader::class)->renderPayload()->publicPageRenderData;
+            $reader = resolve(FrontendContextReader::class);
+            $renderData = $reader->renderPayload()->publicPageRenderData;
+            $source = StaticPageArtifactSourceData::fromModels($reader->page(), $reader->site(), $reader->language(), $reader->layout(), $reader->theme());
 
             if (! $this->isWritableHtmlResponse($response)) {
                 return;
             }
 
             if (! $renderData instanceof PublicPageRenderData) {
-                $renderData = $this->buildRenderData($pageUrl);
-            }
+                $renderContext = $this->renderContextFor($pageUrl);
 
-            if (! $renderData instanceof PublicPageRenderData) {
-                return;
+                if (! $renderContext instanceof FrontendRenderContextData) {
+                    return;
+                }
+
+                $renderData = BuildPublicPageRenderDataAction::run($renderContext);
+                $source = StaticPageArtifactSourceData::fromModels(
+                    $renderContext->page,
+                    $renderContext->site,
+                    $renderContext->language,
+                    $renderContext->layout,
+                    $renderContext->theme,
+                );
             }
 
             $file = $this->pathResolver->pathForPageUrl($pageUrl, $siteDomain);
@@ -128,7 +140,7 @@ class GenerateStaticPageArtifactsAction
                 return;
             }
 
-            $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $response, $file)->toArray();
+            $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $source, $response, $file)->toArray();
         });
 
         foreach (array_diff(array_values(array_unique($urls)), $matchedUrls) as $url) {
@@ -268,7 +280,7 @@ class GenerateStaticPageArtifactsAction
         }
     }
 
-    private function buildRenderData(PageUrl $pageUrl): ?PublicPageRenderData
+    private function renderContextFor(PageUrl $pageUrl): ?FrontendRenderContextData
     {
         $page = $pageUrl->pageable;
 
@@ -291,7 +303,7 @@ class GenerateStaticPageArtifactsAction
         $contextReader = $this->contextReaderFor($page, $site, $language, $layout, $theme);
         $context->runtimeManifest = ResolveFrontendRuntimeAction::run($contextReader)->runtimeManifest;
 
-        return BuildPublicPageRenderDataAction::run($context);
+        return $context;
     }
 
     private function contextReaderFor(
