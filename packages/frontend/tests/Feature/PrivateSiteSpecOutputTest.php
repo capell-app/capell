@@ -100,18 +100,18 @@ it('excludes authored placeholder metadata from rendered cached and static publi
         throw new RuntimeException('Expected a public render data cache hit.');
     });
     Frontend::swap(new FrontendContext(
-        site: $data->site,
-        language: $data->language,
-        page: $data->page,
-        layout: $data->layout,
-        theme: $data->theme,
+        site: $context->site,
+        language: $context->language,
+        page: $context->page,
+        layout: $context->layout,
+        theme: $context->theme,
         params: ['resourcePlan' => $data->resourcePlan, 'runtimeManifest' => $data->runtimeManifest],
         slug: null,
     ));
     $html = Blade::render('<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />', ['resourcePlan' => $data->resourcePlan]);
-    expect($data->page?->getKey())->toBe($home->id);
+    expect($data->context?->page?->name)->toBe('Home');
     expect($html)->toContain('Coming soon', 'noindex', 'nofollow')->not->toContain('CONFIDENTIAL')->not->toContain('index,follow')
-        ->and(json_encode($data->page, JSON_THROW_ON_ERROR))->not->toContain('CONFIDENTIAL')
+        ->and(serialize($data))->not->toContain('CONFIDENTIAL')
         ->and($about->translation->meta['robots'])->toBe('noindex,nofollow')
         ->and($about->meta['robots'])->toBe('noindex,nofollow');
 
@@ -214,7 +214,11 @@ it('requires acknowledged Core cache invalidation before certifying repair and a
         runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
     );
     $renderData = resolve(PublicPageRenderDataCache::class);
-    expect(serialize($renderData->remember($context, fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context))))->toContain('CONFIDENTIAL');
+    // The legacy page row still carries the private metadata, but render data
+    // is model-free, so even an entry cached before repair holds none of it.
+    $legacyRenderData = $renderData->remember($context, fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context));
+    expect($legacyRenderData->context?->page?->name)->toBe('Home')
+        ->and(serialize($legacyRenderData))->not->toContain('CONFIDENTIAL');
     $legacyEntries = array_filter($store->entries(), static fn (mixed $value): bool => $value instanceof Page
         || $value instanceof CachedPublicPageRenderData || $value === $legacyIds);
     expect($legacyEntries)->toHaveCount(3);
