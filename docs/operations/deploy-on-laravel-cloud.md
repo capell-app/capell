@@ -10,7 +10,8 @@ Each section says how its statements were checked:
 
 - **Verified in Capell** means the behaviour was checked by running Capell's own tests or commands, or by reading Capell's source where the section says so.
 - **From the Laravel Cloud documentation** means the statement comes from the linked Laravel Cloud page.
-- **Not yet verified on a live Cloud project** means nobody has yet run this step end to end on a real Laravel Cloud application. Treat those steps as the expected path. Capell will remove this label once a timed deployment has been run against this recipe.
+- **Verified on a live Cloud project** means the step was run on a real Laravel Cloud application on 19 November 2026 (public `capell-app/capell-skeleton`, PHP 8.5, MySQL 8.4, Valkey, `CAPELL_RELEASE_ROOT_MODE=immutable`). Create-to-working took about 14 minutes; each deploy took about 1 minute 15 seconds and the installer about 80 seconds.
+- **Not yet verified on a live Cloud project** means nobody has yet run this step end to end on a real Laravel Cloud application. Treat those steps as the expected path.
 
 ## What you need
 
@@ -60,11 +61,13 @@ Create an application from the repository in Laravel Cloud, then add these resou
 3. A **Laravel Object Storage** bucket, set as the default disk. Install `league/flysystem-aws-s3-v3` in the repository first.
 4. A **managed queue**.
 
+Install `aws/aws-sdk-php` in the repository as well if you use the managed queue. Without it the deploy fails with "Your application has a managed queue but is missing the [aws/aws-sdk-php] package".
+
 Laravel Cloud adds the connection details for each resource to the environment, including the `DB_*` values, `CACHE_STORE`, `FILESYSTEM_DISK` for the default bucket and `QUEUE_CONNECTION=cloud`. Redeploy after you attach a resource.
 
 **From the Laravel Cloud documentation:** [Environments](https://laravel.com/cloud/docs/environments), [Laravel MySQL](https://laravel.com/cloud/docs/resources/databases/laravel-mysql), [Valkey](https://laravel.com/cloud/docs/resources/caches/valkey), [Object Storage](https://laravel.com/cloud/docs/resources/object-storage), [Queues](https://laravel.com/cloud/docs/queues).
 
-**Not yet verified on a live Cloud project:** Capell running on each of these resources.
+**Verified on a live Cloud project:** Capell running on Laravel MySQL and Valkey. **Not yet verified:** the managed queue and the Object Storage bucket, because the public skeleton does not include `aws/aws-sdk-php` or `league/flysystem-aws-s3-v3`. The proof run used `QUEUE_CONNECTION=database` instead.
 
 ## Set the environment variables
 
@@ -101,16 +104,19 @@ Put one command on each line:
 
 ```bash
 composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+php artisan capell:package-cache
 npm ci --no-audit --no-fund
 npm run build
 php artisan optimize
 ```
 
+`capell:package-cache` writes Capell's package manifest. Without it on an immutable release every page returns HTTP 500 with "The Capell package manifest cache is missing", because the deploy phase's filesystem changes are discarded.
+
 Laravel Cloud keeps filesystem changes made during the build, and recommends running `php artisan optimize` there. It discards filesystem changes made by deploy commands.
 
 **From the Laravel Cloud documentation:** [Environments: build and deploy commands](https://laravel.com/cloud/docs/environments).
 
-**Not yet verified on a live Cloud project:** whether `php artisan optimize` completes during the build for a Capell application. The capell.app connect flow currently runs it as a deploy command instead, because a cache it writes needs the database. If the build fails at this line, move it to the end of the deploy commands and report it, so this recipe can be corrected.
+**Not yet verified on a live Cloud project:** whether `php artisan optimize` completes during the build for a Capell application (the proof run did not include it). The capell.app connect flow currently runs it as a deploy command instead, because a cache it writes needs the database. If the build fails at this line, move it to the end of the deploy commands and report it, so this recipe can be corrected.
 
 ## Deploy commands
 
@@ -134,7 +140,7 @@ Use the same `--package-mode` and `--theme` you chose when you installed locally
 
 Sign in, then change the password straight away. The command, including the password, stays in the command runner's history, so a changed password is the only safe one.
 
-**Not yet verified on a live Cloud project:** this step. The live proof run must confirm that the installer finishes on an immutable release whose code and migrations are already committed.
+**Verified on a live Cloud project:** the installer finished in about 80 seconds from the command runner on an immutable release, created the administrator, and the site still worked after a redeploy. The proof used the public skeleton, which does not commit Capell's migrations, so the installer published them at runtime into the release; the database changes persisted but those files do not survive a deploy. Commit the migrations as described above.
 
 ## Queue worker
 
@@ -152,7 +158,7 @@ Turn on **Scheduler** for the App cluster and redeploy. Laravel Cloud then runs 
 
 Capell schedules work every minute, including the public-read reconciliation, and records a scheduler heartbeat every five minutes. Laravel Cloud documents that scheduled tasks wake a sleeping environment, so a Flex cluster with scale to zero is expected not to sleep while the scheduler is on.
 
-**Not yet verified on a live Cloud project:** whether the environment sleeps with the scheduler on.
+**Verified on a live Cloud project:** with Scheduler on, `core.hosting.platform` recorded a heartbeat within about three minutes of the first deploy. **Not yet verified:** whether the environment sleeps with the scheduler on.
 
 **From the Laravel Cloud documentation:** [Scheduled tasks](https://laravel.com/cloud/docs/scheduled-tasks), [Compute: scale to zero](https://laravel.com/cloud/docs/compute#scale-to-zero).
 
