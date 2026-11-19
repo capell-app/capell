@@ -14,6 +14,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
@@ -24,8 +25,10 @@ use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
+use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
+use Capell\Core\Tests\Support\ManifestBootstrapSiteSpecProvider;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceExtensionEntitlements;
 use Composer\InstalledVersions;
@@ -33,6 +36,7 @@ use Illuminate\Container\Container;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\PackageManifest;
 use Illuminate\Foundation\ProviderRepository;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Facade;
@@ -67,7 +71,8 @@ beforeEach(function (): void {
     });
 });
 
-function installCommercialFixture(string $root, string $name, string $provider = ManifestBootstrapFrontendProvider::class): void
+/** @param list<class-string> $additionalLaravelProviders */
+function installCommercialFixture(string $root, string $name, string $provider = ManifestBootstrapFrontendProvider::class, array $additionalLaravelProviders = []): void
 {
     $path = $root . '/vendor/' . $name;
     File::ensureDirectoryExists($path . '/src');
@@ -77,7 +82,7 @@ function installCommercialFixture(string $root, string $name, string $provider =
     $composer = [
         'name' => $name, 'version' => '1.0.0', 'license' => ['proprietary'],
         'type' => 'library', 'install-path' => '../' . $name, 'autoload' => ['psr-4' => ['Vendor\\Commercial\\' => 'src/']],
-        'extra' => ['laravel' => ['providers' => [$provider]]],
+        'extra' => ['laravel' => ['providers' => [$provider, ...$additionalLaravelProviders]]],
     ];
     File::put($root . '/vendor/composer/installed.json', json_encode(['packages' => [$composer]], JSON_THROW_ON_ERROR));
     File::put($path . '/composer.json', json_encode($composer, JSON_THROW_ON_ERROR));
@@ -459,14 +464,20 @@ it('installs and enables issuer-signed free packages offline without a catalogue
 })->with([
     'Capell provider under a third-party name' => ['vendor/commercial', true],
     'Capell-vendor package' => ['capell-app/licence-fixture', true],
+    'foundation prefix lookalike with signed free proof' => ['capell-app/core-extra', true],
     'Composer version without an install path' => ['vendor/commercial', false],
 ]);
 
-it('defers Capell extensions to the lifecycle-aware loader during an offline bootstrap', function (bool $reserved, bool $persistedPaid): void {
+it('defers Capell extensions to the lifecycle-aware loader during an offline bootstrap', function (bool $reserved, bool $persistedPaid, bool $local = false): void {
     $name = $reserved ? 'capell-app/licence-fixture' : 'vendor/independent';
     $provider = $reserved ? ManifestBootstrapFrontendProvider::class : FilesystemServiceProvider::class;
     $root = $this->commercialRoot;
     installCommercialFixture($root, $name, $provider);
+
+    if ($local) {
+        app()->instance('env', 'local');
+        config()->set('capell.extensions.local_development', [$name]);
+    }
 
     if ($reserved) {
         writeCommercialLicenceManifest($root, commercialLicenceManifest(['composer_name' => $name]), $name);
@@ -486,11 +497,12 @@ it('defers Capell extensions to the lifecycle-aware loader during an offline boo
     }
 
     Http::preventStrayRequests();
-    withFreshCommercialApplication($root, function (Application $fresh, Application $original) use ($provider, $persistedPaid): void {
-        expect(discoverCommercialLaravelProvider($fresh, $provider))->toBeFalse();
-        bootstrapCommercialPackageRegistry($fresh, $original, withDatabase: $persistedPaid);
+    withFreshCommercialApplication($root, function (Application $fresh, Application $original) use ($provider, $persistedPaid, $local): void {
+        $discovered = discoverCommercialLaravelProvider($fresh, $provider);
+        bootstrapCommercialPackageRegistry($fresh, $original, withDatabase: $persistedPaid || $local);
 
-        expect($fresh->providerIsLoaded($provider))->toBe(! $persistedPaid);
+        expect($fresh->providerIsLoaded($provider))->toBe(! $persistedPaid)
+            ->and($discovered)->toBeFalse();
     });
     Http::assertNothingSent();
 })->with([
@@ -498,15 +510,17 @@ it('defers Capell extensions to the lifecycle-aware loader during an offline boo
     'independent extension without a database' => [false, false],
     'persisted paid flag overrides verified free proof' => [true, true],
     'persisted paid flag protects an independent extension' => [false, true],
+    'allowlisted independent extension without a paid row' => [false, false, true],
+    'persisted paid flag protects an allowlisted independent extension' => [false, true, true],
 ]);
 
-it('keeps Laravel discovery available for plain packages and the explicit local exemption', function (string $scenario, bool $discovered): void {
+it('keeps Laravel discovery available for plain packages but defers attested or invalid packages', function (string $scenario, bool $discovered): void {
     $root = $this->commercialRoot;
     $name = 'vendor/commercial';
     $provider = FilesystemServiceProvider::class;
     installCommercialFixture($root, $name, $provider);
 
-    if ($scenario === 'plain' || $scenario === 'paid-attestation') {
+    if (in_array($scenario, ['plain', 'plain-local', 'paid-attestation'], true)) {
         File::delete($root . '/vendor/' . $name . '/capell.json');
     }
 
@@ -514,7 +528,7 @@ it('keeps Laravel discovery available for plain packages and the explicit local 
         writeCommercialLicenceManifest($root, commercialLicenceManifest(['is_paid' => true]));
     }
 
-    if ($scenario === 'local' || $scenario === 'invalid-local') {
+    if ($scenario === 'plain-local' || $scenario === 'invalid-local') {
         app()->instance('env', 'local');
         config()->set('capell.extensions.local_development', [$name]);
     }
@@ -529,9 +543,76 @@ it('keeps Laravel discovery available for plain packages and the explicit local 
 })->with([
     'plain Laravel package' => ['plain', true],
     'paid attestation without a Capell manifest' => ['paid-attestation', false],
-    'independent extension on the local allowlist' => ['local', true],
+    'plain Laravel package on the local allowlist' => ['plain-local', true],
     'invalid attestation on an allowlisted local extension' => ['invalid-local', false],
 ]);
+
+it('preserves the offline Foundation Theme SiteSpec defaults only when the release can run', function (bool $persistedPaid, ExtensionStatusEnum $status, bool $allowed): void {
+    $name = 'capell-app/theme-foundation';
+    $root = $this->commercialRoot;
+    $provider = ManifestBootstrapSiteSpecProvider::class;
+    $main = ManifestBootstrapFrontendProvider::class;
+    installCommercialFixture($root, $name, $main, additionalLaravelProviders: [$provider]);
+    // Foundation lists its main provider in Composer and in the metadata and runtime buckets.
+    // Its SiteSpec provider appears only in Composer's Laravel discovery list.
+    $path = $root . '/vendor/' . $name . '/capell.json';
+    $manifest = json_decode(File::get($path), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['providers'] = ['metadata' => [$main], 'runtime' => [$main]];
+    File::put($path, json_encode($manifest, JSON_THROW_ON_ERROR));
+    File::put($root . '/bootstrap/cache/capell-package-manifests.php', '<?php return ' . var_export([$name => $manifest], true) . ';');
+    writeCommercialLicenceManifest($root, commercialLicenceManifest(['composer_name' => $name]), $name);
+
+    CapellExtension::query()->create([
+        'composer_name' => $name, 'status' => $status,
+        'is_paid_marketplace_extension' => $persistedPaid, 'marketplace_runtime_allowed' => true,
+    ]);
+
+    Http::preventStrayRequests();
+    withFreshCommercialApplication($root, function (Application $fresh, Application $original) use ($name, $provider, $allowed): void {
+        $fresh->singleton(ThemeInstallDefaultsRegistry::class);
+        $fresh->singleton(ExtensionContributionReceiptRegistry::class);
+
+        expect(discoverCommercialLaravelProvider($fresh, $provider))->toBeFalse();
+        bootstrapCommercialPackageRegistry($fresh, $original, withDatabase: true);
+
+        $context = $fresh->make(ExtensionContributionReceiptRegistry::class)->providerContext($provider);
+        expect($fresh->providerIsLoaded($provider))->toBe($allowed)
+            ->and($fresh->make(ThemeInstallDefaultsRegistry::class)->has('default'))->toBe($allowed)
+            ->and($context?->ownerPackage)->toBe($allowed ? $name : null)
+            ->and($context?->providerBucket)->toBe($allowed ? 'runtime' : null);
+    });
+    Http::assertNothingSent();
+})->with([
+    'enabled exact signed-free release' => [false, ExtensionStatusEnum::Enabled, true],
+    'persisted paid flag without a receipt' => [true, ExtensionStatusEnum::Enabled, false],
+    'disabled free release' => [false, ExtensionStatusEnum::Disabled, false],
+]);
+
+it('exempts the exact foundation name from signed free proof without a catalogue', function (): void {
+    $name = 'capell-app/core';
+    $provider = FilesystemServiceProvider::class;
+    installCommercialFixture($this->commercialRoot, $name, $provider);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation($name))->toBeFalse();
+    withFreshCommercialApplication($this->commercialRoot, function (Application $fresh) use ($provider): void {
+        expect(discoverCommercialLaravelProvider($fresh, $provider))->toBeTrue();
+    });
+});
+
+it('requires signed free proof for a foundation prefix lookalike without a catalogue', function (): void {
+    $name = 'capell-app/core-extra';
+    $provider = FilesystemServiceProvider::class;
+    installCommercialFixture($this->commercialRoot, $name, $provider);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation($name))->toBeTrue();
+    withFreshCommercialApplication($this->commercialRoot, function (Application $fresh) use ($provider): void {
+        expect(discoverCommercialLaravelProvider($fresh, $provider))->toBeFalse();
+    });
+    expect(fn () => Artisan::call('capell:extension-install', ['extension' => $name, '--no-interaction' => true]))
+        ->toThrow(RuntimeException::class, 'authorisation');
+    expect($this->commercialCalls)->toBe(0)
+        ->and(CapellExtension::query()->where('composer_name', $name)->exists())->toBeFalse();
+});
 
 it('restores early discovery of an unsigned reserved package with an empty issuer key set', function (): void {
     $root = $this->commercialRoot;
@@ -590,6 +671,7 @@ function discoverCommercialLaravelProvider(Application $fresh, string $provider)
         RuntimeRole::Combined,
         new RuntimeRoleProviderPolicy,
     );
+    $fresh->instance(PackageManifest::class, $manifest);
     expect($fresh->bound('db'))->toBeFalse();
     new ProviderRepository($fresh, $files, $fresh->bootstrapPath('cache/discovery-services.php'))->load($manifest->providers());
 
@@ -679,6 +761,23 @@ it('refuses an older free attestation for newer code still using a reserved iden
     'missing installed reference' => ['1.0.0.0', null],
     'blank installed reference' => ['1.0.0.0', ''],
 ]);
+
+it('refuses replayed installed version metadata when the package declares a newer release', function (string $file): void {
+    $name = 'capell-app/licence-fixture';
+    $root = $this->commercialRoot;
+    installCommercialFixture($root, $name);
+    writeCommercialLicenceManifest($root, commercialLicenceManifest(['composer_name' => $name]), $name);
+    // Composer's installed record still says 1.0.0 and retains the signed reference.
+    $path = $root . '/vendor/' . $name . '/' . $file;
+    $metadata = json_decode(File::get($path), true, flags: JSON_THROW_ON_ERROR);
+    $metadata['version'] = '1.1.0';
+    File::put($path, json_encode($metadata, JSON_THROW_ON_ERROR));
+
+    expect(fn () => Artisan::call('capell:extension-install', ['extension' => $name, '--no-interaction' => true]))
+        ->toThrow(RuntimeException::class, 'authorisation');
+    expect($this->commercialCalls)->toBe(0)
+        ->and(CapellExtension::query()->where('composer_name', $name)->exists())->toBeFalse();
+})->with(['capell.json', 'composer.json']);
 
 it('rejects signed payloads from other purposes at the licence manifest boundary', function (string $source): void {
     $manifestFields = ['manifest_version' => 1, 'version' => '1.0.0', 'source_reference' => COMMERCIAL_SOURCE_REFERENCE, 'is_paid' => false];

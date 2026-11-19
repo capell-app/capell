@@ -80,25 +80,35 @@ release flow signs and ships a manifest beside `capell.json` for each exact
 release and a free distribution has been proven to install offline. With no
 issuer key pinned, the existing discovery and authorisation rules apply.
 
+The gate enforces licensing in ordinary installations. The site owner controls
+the server, `composer.json`, `composer.lock`, `installed.json` and every vendor
+file, including Core itself. Authenticated distribution protects access to paid
+code. The runtime gate trusts the installed metadata and code.
+
 With enforcement on, a package using the `capell-app` Composer vendor or a
 case-insensitive `Capell\` autoload namespace, provider class or prefix needs
-signed free proof. Core-trusted packages are exempt unless a paid marker applies.
+signed free proof. The exact foundation Composer names are exempt by name alone
+unless a paid marker applies. This is an accepted limit.
 Independent packages may omit the licence file. A present but invalid file
 requires authorisation under either identity.
 
 The signature binds the paid status to the Composer package name, exact
 normalised version and non-empty source or dist reference. Core compares these
-with Composer's installed metadata offline. Branch versions and releases
-without a reference cannot verify. A paid catalogue entry or namespace, a paid
-flag on the registered package or lifecycle record, or a verified paid manifest
-takes priority over free proof.
+with Composer's installed metadata offline and checks any version declared in the
+package's own `capell.json` and `composer.json`. Branch versions and releases
+without a reference cannot verify. Owners can edit all of this metadata, which
+limits exact-release binding. If tamper resistance is ever required, the
+follow-up is a signed SHA-256 digest of the release excluding
+`capell-licence.json`. A paid catalogue entry or namespace, a paid flag on the
+registered package or lifecycle record, or a verified paid manifest takes
+priority over free proof.
 
 Laravel defers extension providers to the manifest-v3 loader so it can check
-the lifecycle record. Plain Laravel packages keep normal discovery. In the
-`local` environment, names in `capell.extensions.local_development` may still
-use early discovery. That exemption checks the paid markers available at
-discovery and, when enforcement is on, excludes reserved identities and invalid
-licence files. Lifecycle checks also consult the persisted paid flag.
+the lifecycle record, including for names in
+`capell.extensions.local_development`. The local development exemption still
+applies at that gate. Plain Laravel packages keep normal discovery. The loader
+uses the runtime bucket for deferred Laravel providers with no declared bucket,
+subject to lifecycle authorisation, runtime selection and role filtering.
 
 ## Migration and compatibility
 

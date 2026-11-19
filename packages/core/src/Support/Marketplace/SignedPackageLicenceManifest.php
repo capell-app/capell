@@ -14,9 +14,10 @@ use Throwable;
 /**
  * Verifies the issuer's licence classification during discovery, before database
  * bindings exist. Manifests have no expiry and bind to one Composer release.
- * Verification trusts Composer's installed version and reference. It does not
- * hash package contents at discovery, so it cannot detect modified files that
- * retain the same Composer identity.
+ * Verification checks Composer's installed version and reference and any version
+ * declared in the installed package's capell.json and composer.json. The owner
+ * can edit all of these. If tamper resistance is ever required, a signed SHA-256
+ * digest of the release excluding capell-licence.json would bind its contents.
  */
 final class SignedPackageLicenceManifest
 {
@@ -67,7 +68,7 @@ final class SignedPackageLicenceManifest
                 || trim($manifest['issued_at']) === ''
                 || CarbonImmutable::hasRelativeKeywords($manifest['issued_at'])
                 || CarbonImmutable::parse($manifest['issued_at'])->greaterThan(CarbonImmutable::now()->addSeconds(self::CLOCK_SKEW_SECONDS))
-                || ! $this->matchesInstalledRelease($name, $manifest['version'], $manifest['source_reference'])
+                || ! $this->matchesInstalledRelease($name, $manifest['version'], $manifest['source_reference'], $directory)
                 || ! VerifyMarketplaceIssuerSignatureAction::run($manifest)) {
                 return PackageLicenceManifestState::Invalid;
             }
@@ -78,7 +79,7 @@ final class SignedPackageLicenceManifest
         }
     }
 
-    private function matchesInstalledRelease(string $name, string $version, string $reference): bool
+    private function matchesInstalledRelease(string $name, string $version, string $reference, string $directory): bool
     {
         $installedVersion = InstalledVersions::getVersion($name);
         $installedReference = InstalledVersions::getReference($name);
@@ -91,7 +92,36 @@ final class SignedPackageLicenceManifest
         $parser = new VersionParser;
         $installedVersion = $parser->normalize($installedVersion);
 
-        return VersionParser::parseStability($installedVersion) !== 'dev'
-            && $installedVersion === $parser->normalize($version);
+        if (VersionParser::parseStability($installedVersion) === 'dev' || $installedVersion !== $parser->normalize($version)) {
+            return false;
+        }
+
+        foreach (['capell.json', 'composer.json'] as $file) {
+            $path = $directory . '/' . $file;
+            if (! file_exists($path) && ! is_link($path)) {
+                continue;
+            }
+
+            $contents = is_file($path) ? @file_get_contents($path) : false;
+            if ($contents === false) {
+                return false;
+            }
+
+            $metadata = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+            if (! is_array($metadata)) {
+                return false;
+            }
+
+            if (! array_key_exists('version', $metadata)) {
+                continue;
+            }
+
+            $declared = $metadata['version'];
+            if (! is_string($declared) || $parser->normalize($declared) !== $installedVersion) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

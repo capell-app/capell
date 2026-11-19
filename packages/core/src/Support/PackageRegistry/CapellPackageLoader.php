@@ -17,10 +17,12 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\TableName;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Foundation\PackageManifest;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
 
@@ -154,9 +156,19 @@ final class CapellPackageLoader
         $manifest = $package->manifest;
         if ($manifest instanceof CapellManifestData) {
             $selected = $this->resolveProviders($manifest, true);
+            $discovered = array_diff($selected, $manifest->providers->all());
             foreach (['auth', 'runtime', 'admin', 'frontend'] as $bucket) {
-                foreach ($package->getProviderClasses($bucket) as $provider) {
+                $providers = $package->getProviderClasses($bucket);
+                if ($bucket === 'runtime') {
+                    $providers = [...$providers, ...$discovered];
+                }
+
+                foreach ($providers as $provider) {
                     if (! in_array($provider, $selected, true)) {
+                        continue;
+                    }
+
+                    if (! class_exists($provider)) {
                         continue;
                     }
 
@@ -193,18 +205,24 @@ final class CapellPackageLoader
     /** @return list<string> */
     private function resolveProviders(CapellManifestData $manifest, ?bool $runtimeProvidersSelected = null): array
     {
+        $commercial = resolve(ExtensionCommercialPolicy::class);
+        $enforcing = $commercial->enforcing();
+
         // Once issuer enforcement is on, an unauthorised commercial package loads no provider in
         // any bucket, metadata included: its code does not run at all.
-        if (resolve(ExtensionCommercialPolicy::class)->enforcing()
+        if ($enforcing
             && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
             return [];
         }
 
+        $runtimeProvidersSelected ??= $this->shouldLoadRuntimeProviders($manifest);
+        $discovered = $enforcing && $runtimeProvidersSelected ? $this->unbucketedDiscoveryProviders($manifest) : [];
+
         // The boot cache can name provider classes the vendor metadata does not. A paid provider
         // there loads only when the package is itself classified commercial and passed the gate
         // above; under any other name it is refused.
-        if (resolve(ExtensionCommercialPolicy::class)->classesArePaid($manifest->providers->all())
-            && ! resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation($manifest->name)) {
+        if ($commercial->classesArePaid([...$manifest->providers->all(), ...$discovered])
+            && ! $commercial->requiresAuthorisation($manifest->name)) {
             return [];
         }
 
@@ -213,14 +231,41 @@ final class CapellPackageLoader
             ? [...$manifest->providers->metadata, ...$manifest->providers->install]
             : $manifest->providers->metadata;
 
-        if (! ($runtimeProvidersSelected ?? $this->shouldLoadRuntimeProviders($manifest))) {
+        if (! $runtimeProvidersSelected) {
             return array_values(array_unique($providers));
         }
 
         return array_values(array_unique(array_merge(
             $providers,
             $this->runtimeRoleProviderPolicy->extensionProviders($manifest->providers, $runtimeRole),
+            $discovered,
         )));
+    }
+
+    /**
+     * Recover Laravel-only providers from the discovery manifest that deferred them. This
+     * preserves Laravel's discovery opt-outs and role filtering. Without a declared bucket
+     * we treat them as runtime wiring, so they require runtime selection and authorisation.
+     *
+     * @return list<string>
+     */
+    private function unbucketedDiscoveryProviders(CapellManifestData $manifest): array
+    {
+        if (! $this->app->bound(PackageManifest::class)) {
+            return [];
+        }
+
+        $discovery = $this->app->make(PackageManifest::class);
+        if (! $discovery instanceof RuntimeRolePackageManifest) {
+            return [];
+        }
+
+        $declared = array_map(static fn (string $provider): string => strtolower(ltrim($provider, '\\')), $manifest->providers->all());
+
+        return array_values(array_filter(
+            $discovery->deferredProvidersFor($manifest->name),
+            static fn (string $provider): bool => ! in_array(strtolower(ltrim($provider, '\\')), $declared, true),
+        ));
     }
 
     private function shouldLoadRuntimeProviders(CapellManifestData $manifest): bool
@@ -259,10 +304,13 @@ final class CapellPackageLoader
             $selected[] = 'frontend';
         }
 
-        return array_values(array_filter(
+        $buckets = array_values(array_filter(
             $selected,
             fn (string $bucket): bool => in_array($provider, $manifest->providers[$bucket], true),
         ));
+
+        // Every selected provider outside the manifest buckets comes from deferred discovery.
+        return $buckets === [] && $runtimeProvidersSelected ? ['runtime'] : $buckets;
     }
 
     /**

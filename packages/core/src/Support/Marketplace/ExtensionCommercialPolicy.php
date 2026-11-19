@@ -24,9 +24,8 @@ use Capell\Core\Support\Packages\TrustedCorePackages;
  * fails verification. Editing is_paid breaks the signature. An invalid file
  * requires authorisation even under an independent identity.
  *
- * Local development. Setting the environment and allowlist can exempt independent
- * packages at discovery. The exemption checks paid markers available at that
- * stage, and later lifecycle checks also have the persisted record.
+ * Local development. The allowlist can exempt independent packages in lifecycle
+ * checks. A paid marker, including a persisted paid flag, takes precedence.
  */
 final class ExtensionCommercialPolicy
 {

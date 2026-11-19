@@ -22,6 +22,9 @@ final class RuntimeRolePackageManifest extends PackageManifest
 
     private readonly ComposerInstallIdentity $identity;
 
+    /** @var array<string, list<string>> */
+    private array $deferredProviders = [];
+
     public function __construct(
         Filesystem $files,
         string $basePath,
@@ -50,6 +53,14 @@ final class RuntimeRolePackageManifest extends PackageManifest
 
         $this->manifest = $this->filteredSourceManifest();
         $this->persistRuntimeManifest($this->manifest, $snapshot);
+    }
+
+    /** @return list<string> */
+    public function deferredProvidersFor(string $package): array
+    {
+        $this->getManifest();
+
+        return $this->deferredProviders[$package] ?? [];
     }
 
     /** @return array<string, mixed> */
@@ -169,6 +180,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
     private function filterManifest(array $source): array
     {
         $manifest = [];
+        $this->deferredProviders = [];
         $commercial = $this->commercialPolicy();
         $enforcing = $commercial->enforcing();
 
@@ -181,16 +193,22 @@ final class RuntimeRolePackageManifest extends PackageManifest
                 continue;
             }
 
-            // The manifest-v3 loader checks lifecycle records that early discovery cannot read.
-            if ($enforcing && $this->deferCommercialExtension($package, $commercial)) {
+            $filtered = $this->policy->filterLaravelPackage($package, $configuration, $this->role);
+            if (! is_array($filtered)) {
                 continue;
             }
 
-            $filtered = $this->policy->filterLaravelPackage($package, $configuration, $this->role);
+            // The manifest-v3 loader checks lifecycle records that early discovery cannot read.
+            if ($enforcing && $this->deferCommercialExtension($package, $commercial)) {
+                $providers = $filtered['providers'] ?? [];
+                if (is_array($providers)) {
+                    $this->deferredProviders[$package] = array_values(array_filter($providers, is_string(...)));
+                }
 
-            if (is_array($filtered)) {
-                $manifest[$package] = $filtered;
+                continue;
             }
+
+            $manifest[$package] = $filtered;
         }
 
         return $manifest;
@@ -209,10 +227,6 @@ final class RuntimeRolePackageManifest extends PackageManifest
 
     private function deferCommercialExtension(string $package, ExtensionCommercialPolicy $commercial): bool
     {
-        if ($commercial->isLocalDevelopment($package)) {
-            return false;
-        }
-
         if ($commercial->requiresAuthorisation($package)) {
             return true;
         }

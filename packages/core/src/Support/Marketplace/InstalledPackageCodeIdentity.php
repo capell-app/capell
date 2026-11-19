@@ -9,10 +9,10 @@ use Throwable;
 
 /**
  * Reads which PHP code an installed package claims: its autoload namespaces and the provider
- * classes it registers. A site owner can rename a package in Composer and Capell metadata, but
- * cannot rename the PHP classes inside it, so these identify the code whatever the package is
- * called. Every source the owner can edit is read and combined, because any one of them is
- * enough to load the code.
+ * classes it registers. These declarations can identify a package whose Composer name has
+ * changed while its code identity is still declared. The sources are combined because any of
+ * them can declare classes that the installation loads. The owner can edit the declarations
+ * and the code itself.
  */
 final class InstalledPackageCodeIdentity
 {
