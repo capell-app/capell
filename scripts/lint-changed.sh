@@ -99,6 +99,9 @@ if [[ ${#PHP_FILES[@]} -gt 0 ]]; then
   fi
 
   "$PINT_BINARY" --parallel "${PHP_FILES[@]}"
+
+  echo "Checking changed PHP files still parse..."
+  ./scripts/check-php-syntax.sh "${PHP_FILES[@]}"
 else
   echo "No changed PHP files for Pint."
 fi
