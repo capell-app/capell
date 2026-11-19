@@ -44,8 +44,22 @@ def known_hook_config(snapshot):
             and hook_implementation_hash(snapshot) == KNOWN_HOOK_IMPLEMENTATION_SHA256)
 
 
-def run(command, *, cwd, env=None, input_bytes=None):
-    result = subprocess.run(command, cwd=cwd, env=env, input=input_bytes, capture_output=True, check=False)
+RUN_TIMEOUT_SECONDS = 600
+
+
+def run(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
+    # Input goes through an unlinked file, never a pipe. `git check-attr --stdin` answers while it is
+    # still reading, so a piped stdin plus piped stdout deadlocks on macOS (the parent blocks writing
+    # input, git blocks writing output) with 0% CPU for ever. A timeout turns any other hang into a
+    # loud failure instead of a silent one.
+    with tempfile.TemporaryFile() as source:
+        if input_bytes is not None:
+            source.write(input_bytes)
+            source.seek(0)
+        try:
+            result = subprocess.run(command, cwd=cwd, env=env, stdin=source if input_bytes is not None else subprocess.DEVNULL, capture_output=True, check=False, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise HookFailure(f"{' '.join(command[:3])} did not finish within {timeout} seconds.")
     if result.returncode:
         raise HookFailure(f"{' '.join(command[:3])} failed: {result.stderr.decode(errors='replace').strip()}")
     return result.stdout

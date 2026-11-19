@@ -7,6 +7,7 @@ import importlib.util
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -958,6 +959,34 @@ link.symlink_to(target, target_is_directory=True)
         self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'selected\n')
         self.assertEqual(self.git('show', 'HEAD:other.txt').stdout, 'other base\n')
         self.assertEqual(self.git('show', ':other.txt').stdout, 'other staged\n')
+
+
+class SafeRunPipeDeadlockTest(unittest.TestCase):
+    """`git check-attr --stdin` answers while it reads; a piped stdin and stdout deadlocked the push hook."""
+
+    def test_run_finishes_with_many_names_piped_to_check_attr(self):
+        script = (
+            "import importlib.util, subprocess, sys, tempfile\n"
+            f"spec = importlib.util.spec_from_file_location('safe', {str(SOURCE / 'scripts/hooks/pre-commit.py')!r})\n"
+            "safe = importlib.util.module_from_spec(spec); spec.loader.exec_module(safe)\n"
+            "names = [b'packages/foo/src/File%d.php' % i for i in range(20000)]\n"
+            "with tempfile.TemporaryDirectory() as d:\n"
+            "    subprocess.run(['git', 'init', '-q', d], check=True)\n"
+            "    out = safe.run(['git', 'check-attr', '--cached', '-z', '--stdin', 'filter', 'text'], cwd=d, input_bytes=b'\\0'.join(names) + b'\\0')\n"
+            "    print(len(out.split(b'\\0')))\n"
+        )
+        # The timeout is a hang ceiling, not a speed assertion.
+        result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, env=BASE_ENV, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), str(20000 * 2 * 3 + 1))
+
+    def test_run_fails_loudly_when_the_command_hangs(self):
+        spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
+        safe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(safe)
+        with self.assertRaises(safe.HookFailure) as raised:
+            safe.run(['sleep', '30'], cwd=SOURCE, timeout=1)
+        self.assertIn('did not finish', str(raised.exception))
 
 
 if __name__ == '__main__':
