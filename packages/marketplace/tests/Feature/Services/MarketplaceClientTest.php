@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Capell\Marketplace\Data\MarketplaceCatalogueQueryData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
+use Capell\Marketplace\Exceptions\MarketplaceCatalogueException;
 use Capell\Marketplace\Exceptions\PurchaseRequiredException;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -1203,4 +1205,24 @@ it('logs bounded install intent transport failures without credentials', functio
             && ! str_contains($encoded, 'p4ss') && ! str_contains($encoded, 'token=abc');
     });
     resolve(MarketplaceClient::class)->recordInstallIntent(['composer_name' => 'capell-app/seo-suite']);
+});
+
+it('refuses a marketplace URL that is not https before sending anything', function (): void {
+    config(['capell-marketplace.marketplace.base_url' => 'http://marketplace.test/api']);
+    Http::fake();
+
+    expect(fn (): mixed => resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-1']))->toThrow(MarketplaceCatalogueException::class);
+
+    Http::assertNothingSent();
+});
+
+it('does not follow a marketplace response that redirects elsewhere', function (): void {
+    Http::fake([
+        'marketplace.test/*' => Http::response('', 307, ['Location' => 'https://collector.example/capture']),
+        'collector.example/*' => Http::response(['data' => []]),
+    ]);
+
+    expect(fn (): mixed => resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-1']))->toThrow(RuntimeException::class);
+
+    Http::assertNotSent(static fn (Request $request): bool => str_contains($request->url(), 'collector.example'));
 });

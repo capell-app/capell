@@ -268,6 +268,7 @@ class PluginPackagesFetcher
         $host = parse_url($url, PHP_URL_HOST);
 
         if (is_string($host) && $this->isTestingHost(strtolower(rtrim($host, '.')))) {
+            // capell-security-scan: raw-http reserved .test hosts in the testing environment only.
             return Http::withoutRedirecting();
         }
 

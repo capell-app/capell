@@ -6,9 +6,10 @@ namespace Capell\Core\Actions\Marketplace;
 
 use Capell\Core\Data\Marketplace\ExtensionHealthAlertData;
 use Capell\Core\Models\MarketplaceInstall;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -46,9 +47,11 @@ final class SendExtensionHealthReportAction
             $payload = $this->signer->signedPayload($payload, $signingSecret);
         }
 
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+        $heartbeatUrl = $this->heartbeatUrl();
+        $timeout = config('capell-marketplace.marketplace.timeout_seconds', 10);
+        $response = OutboundHttp::guarded(OutboundHttpPolicy::configuredEndpoint($heartbeatUrl, is_numeric($timeout) ? (int) $timeout : 10))
             ->acceptJson()
-            ->post($this->heartbeatUrl(), $payload);
+            ->post($heartbeatUrl, $payload);
 
         if (! $response->successful()) {
             throw new RuntimeException('The marketplace rejected the heartbeat with HTTP status ' . $response->status() . '.');

@@ -651,7 +651,7 @@ final class MarketplaceClient
 
         throw_if(! is_string($baseUrl)
             || filter_var($baseUrl, FILTER_VALIDATE_URL) === false
-            || ! in_array(parse_url($baseUrl, PHP_URL_SCHEME), ['https', 'http'], true)
+            || parse_url($baseUrl, PHP_URL_SCHEME) !== 'https'
             || parse_url($baseUrl, PHP_URL_USER) !== null
             || parse_url($baseUrl, PHP_URL_PASS) !== null, MarketplaceCatalogueException::class, MarketplaceCatalogueFailure::Configuration);
 
@@ -668,11 +668,12 @@ final class MarketplaceClient
      */
     private function pendingRequest(mixed $timeoutSeconds = null): PendingRequest
     {
+        // capell-security-scan: raw-http must honour the operator's marketplace proxy and CA bundle, which the guard disables; the base URL must be https and redirects are not followed.
         $request = Http::timeout(
             is_numeric($timeoutSeconds)
                 ? (int) $timeoutSeconds
                 : (int) config('capell-marketplace.marketplace.timeout_seconds', 10),
-        );
+        )->withoutRedirecting();
 
         $proxy = config('capell-marketplace.marketplace.http.proxy');
 

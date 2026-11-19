@@ -8,7 +8,12 @@ use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
+use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Illuminate\Support\Facades\Http;
+
+beforeEach(function (): void {
+    FakeHostAddressResolver::bind();
+});
 
 it('resolves extension licence decisions through the bound extension entitlements', function (): void {
     app()->bind(ExtensionEntitlements::class, fn (): ExtensionEntitlements => new class implements ExtensionEntitlements
