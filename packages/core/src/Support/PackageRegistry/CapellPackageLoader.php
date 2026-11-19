@@ -195,9 +195,17 @@ final class CapellPackageLoader
     {
         // Once issuer enforcement is on, an unauthorised commercial package loads no provider in
         // any bucket, metadata included: its code does not run at all.
-        if (! TrustedCorePackages::contains($manifest->name)
+        if ((! TrustedCorePackages::contains($manifest->name) || resolve(ExtensionCommercialPolicy::class)->claimsPaidCode($manifest->name))
             && resolve(ExtensionCommercialPolicy::class)->enforcing()
             && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
+            return [];
+        }
+
+        // The boot cache can name provider classes the vendor metadata does not. A paid provider
+        // there loads only when the package is itself classified commercial and passed the gate
+        // above; under any other name it is refused.
+        if (resolve(ExtensionCommercialPolicy::class)->classesArePaid($manifest->providers->all())
+            && ! resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation($manifest->name)) {
             return [];
         }
 

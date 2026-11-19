@@ -114,6 +114,43 @@ final class CommercialCatalogueStore
         return null;
     }
 
+    /**
+     * Namespaces the issuer lists under paid entries, normalised by InstalledPackageCodeIdentity.
+     * A catalogue issued before namespaces were published lists none, which keeps the
+     * composer-name classification alone. Free entries never contribute.
+     *
+     * @return list<string>
+     */
+    public function paidNamespaces(): array
+    {
+        $catalogue = $this->current();
+        if ($catalogue === null) {
+            return [];
+        }
+
+        $namespaces = [];
+        foreach ($catalogue['packages'] as $entry) {
+            if ($entry['is_paid'] !== true) {
+                continue;
+            }
+
+            if (! is_array($entry['namespaces'] ?? null)) {
+                continue;
+            }
+
+            foreach ($entry['namespaces'] as $namespace) {
+                $normalised = is_string($namespace) ? InstalledPackageCodeIdentity::namespace($namespace) : '';
+                // A single-segment prefix ('Acme\\') is shared by unrelated vendors, and an empty one
+                // claims every class, so neither can mark code as paid.
+                if (substr_count($normalised, '\\') >= 2) {
+                    $namespaces[$normalised] = true;
+                }
+            }
+        }
+
+        return array_keys($namespaces);
+    }
+
     public function isListed(string $composerName): bool
     {
         return $this->classification($composerName) !== null;
