@@ -192,13 +192,23 @@ Keep two versions distinct:
 - `version` is your package release version and should match the published
   Composer release.
 
-Neither field sets Marketplace maturity. Third-party authors submit through the
-Marketplace submission flow with their repository, package metadata, support,
-privacy, security, data, and third-party disclosures. Reviewers assign the
-Marketplace state. An approved community submission starts in **Labs**;
+Neither field sets Marketplace maturity. Third-party authors first apply for an
+author profile at `https://capell.app/marketplace/author-application` (sign-in
+required), accepting the [Author Terms](https://capell.app/legal/author-terms).
+An approved author then submits each package at
+`https://capell.app/marketplace/submit` with its repository, package metadata,
+support, privacy, security, data, and third-party disclosures. Reviewers assign
+the Marketplace state. An approved community submission starts in **Labs**;
 Marketplace **Beta** acknowledgement is a purchaser-install-flow requirement,
 not an author-controlled manifest field. The public label for stable is
 **Released**.
+
+The public catalogue currently lists first-party packages only. Capell has not
+yet published a review timeline, commission rate or payout terms for
+third-party packages, and an approved author profile does not promise
+publication or earnings; see
+[Extensibility](https://capell.app/platform/extensibility) for the current
+position.
 
 Do not create or copy Capell's first-party release ledgers
 (`docs/release-catalogue.json` or `config/release-packages.json`) into a

@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Testing\Data\CompanionPackageContractData;
+use Capell\Core\Testing\ExtensionTestHarness;
+
+it('meets the companion package contract', function (): void {
+    // The contract suite throws on the first failed check; record the passing contract as an assertion.
+    expect(fn () => ExtensionTestHarness::assertCompanionPackageContract(
+        CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
+    ))->not->toThrow(Throwable::class);
+});
