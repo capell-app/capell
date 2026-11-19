@@ -10,7 +10,7 @@ Each section says how its statements were checked:
 
 - **Verified in Capell** means the behaviour was checked by running Capell's own tests or commands, or by reading Capell's source where the section says so.
 - **From the Laravel Cloud documentation** means the statement comes from the linked Laravel Cloud page.
-- **Verified on a live Cloud project** means the step was run on a real Laravel Cloud application on 19 November 2026 (public `capell-app/capell-skeleton`, PHP 8.5, MySQL 8.4, Valkey, `CAPELL_RELEASE_ROOT_MODE=immutable`). Create-to-working took about 14 minutes; each deploy took about 1 minute 15 seconds and the installer about 80 seconds.
+- **Verified on a live Cloud project** means the step was run on a real Laravel Cloud application on 19 November 2026 (public `capell-app/capell-skeleton`, MySQL 8.4, Valkey, `CAPELL_RELEASE_ROOT_MODE=immutable`). Create-to-working took about 14 minutes; each deploy took about 1 minute 15 seconds and the installer about 80 seconds.
 - **Not yet verified on a live Cloud project** means nobody has yet run this step end to end on a real Laravel Cloud application. Treat those steps as the expected path.
 
 ## What you need
@@ -140,7 +140,7 @@ Use the same `--package-mode` and `--theme` you chose when you installed locally
 
 Sign in, then change the password straight away. The command, including the password, stays in the command runner's history, so a changed password is the only safe one.
 
-**Verified on a live Cloud project:** the installer finished in about 80 seconds from the command runner on an immutable release, created the administrator, and the site still worked after a redeploy. The proof used the public skeleton, which does not commit Capell's migrations, so the installer published them at runtime into the release; the database changes persisted but those files do not survive a deploy. Commit the migrations as described above.
+**Verified on a live Cloud project:** the installer finished in about 80 seconds from the command runner on an immutable release, created the administrator, and the site still worked after a redeploy. The proof used the public skeleton, which does not commit Capell's migrations, so the installer ran its migration-publishing steps at runtime and the database changes persisted. `believed:` the published files do not survive a deploy, because Cloud discards deploy-phase filesystem changes; a redeploy would confirm it. Commit the migrations as described above.
 
 ## Queue worker
 
@@ -158,7 +158,7 @@ Turn on **Scheduler** for the App cluster and redeploy. Laravel Cloud then runs 
 
 Capell schedules work every minute, including the public-read reconciliation, and records a scheduler heartbeat every five minutes. Laravel Cloud documents that scheduled tasks wake a sleeping environment, so a Flex cluster with scale to zero is expected not to sleep while the scheduler is on.
 
-**Verified on a live Cloud project:** with Scheduler on, `core.hosting.platform` recorded a heartbeat within about three minutes of the first deploy. **Not yet verified:** whether the environment sleeps with the scheduler on.
+**Verified on a live Cloud project:** with Scheduler on, `core.hosting.platform` had recorded no heartbeat about five minutes after Scheduler was turned on and had recorded one about seven minutes after, following the second deploy. **Not yet verified:** whether the environment sleeps with the scheduler on.
 
 **From the Laravel Cloud documentation:** [Scheduled tasks](https://laravel.com/cloud/docs/scheduled-tasks), [Compute: scale to zero](https://laravel.com/cloud/docs/compute#scale-to-zero).
 
