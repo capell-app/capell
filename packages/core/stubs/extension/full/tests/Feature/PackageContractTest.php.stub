@@ -6,8 +6,10 @@ use Capell\Core\Testing\Data\CompanionPackageContractData;
 use Capell\Core\Testing\ExtensionTestHarness;
 
 it('meets the companion package contract', function (): void {
-    // The contract suite throws on the first failed check; record the passing contract as an assertion.
-    expect(fn () => ExtensionTestHarness::assertCompanionPackageContract(
+    ExtensionTestHarness::assertCompanionPackageContract(
         CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
-    ))->not->toThrow(Throwable::class);
+    );
+
+    // The contract suite throws on the first failed check, so reaching this line means every check passed.
+    $this->addToAssertionCount(1);
 });
