@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\BladeComponentResolverInterface;
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -18,6 +19,7 @@ use Capell\Frontend\Contracts\PublicWidgetInteractionLocatorBuilder;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -107,9 +109,9 @@ it('builds public page render data from the resolved frontend render context', f
         runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
     ));
 
-    expect($renderData->page)->toBe($page)
-        ->and($renderData->site)->toBe($site)
-        ->and($renderData->language)->toBe($language)
+    // Public Blade, fragments and exports read this object, so no model may
+    // reach them through it, however deeply nested.
+    expect(eloquentModelsWithin($renderData))->toBe([])
         ->and($renderData->context?->site?->name)->toBe($site->name)
         ->and($renderData->context?->language?->code)->toBe($language->code)
         ->and($renderData->context?->layout?->key)->toBe($layout->key)
@@ -208,3 +210,36 @@ it('builds optional widget interaction locators before public Blade rendering', 
     expect($renderData->widgetInteractionLocator('target-instance'))->toEndWith('/opaque')
         ->and($renderData->widgetInteractionLocator('missing'))->toBeNull();
 });
+
+/**
+ * Class names of every Eloquent model or Pageable reachable from the value
+ * through public properties and arrays.
+ *
+ * @return list<class-string>
+ */
+function eloquentModelsWithin(mixed $value, ?WeakMap $seen = null): array
+{
+    $seen ??= new WeakMap;
+
+    if (is_array($value)) {
+        $found = [];
+
+        foreach ($value as $item) {
+            array_push($found, ...eloquentModelsWithin($item, $seen));
+        }
+
+        return $found;
+    }
+
+    if (! is_object($value) || isset($seen[$value])) {
+        return [];
+    }
+
+    if ($value instanceof Model || $value instanceof Pageable) {
+        return [$value::class];
+    }
+
+    $seen[$value] = true;
+
+    return eloquentModelsWithin(get_object_vars($value), $seen);
+}

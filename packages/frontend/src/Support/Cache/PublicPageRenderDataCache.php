@@ -35,6 +35,12 @@ final class PublicPageRenderDataCache
     use HasCache;
 
     /**
+     * The stored shape of PublicPageRenderData. Raise it whenever its
+     * properties change, so entries written by an older shape are never read.
+     */
+    private const string RENDER_DATA_SHAPE = 'model-free-1';
+
+    /**
      * @var array<string, array<int, string>>
      */
     private array $cacheKeysByIdentity = [];
@@ -176,6 +182,7 @@ final class PublicPageRenderDataCache
     private function contentVersion(FrontendRenderContextData $context, ?PublicRenderDataContributionMetadataData $metadata = null): string
     {
         $values = [
+            self::RENDER_DATA_SHAPE,
             $context->page instanceof Model ? $context->page->updated_at?->getTimestamp() : null,
             $this->translationTimestamp($context->page instanceof Model ? $context->page : null),
             $context->layout?->updated_at?->getTimestamp(),

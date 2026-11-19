@@ -75,6 +75,11 @@ standalone component renders. Use its `preparedWidgetHtml()` accessor for prepar
 widget content. The main-content hook also receives this DTO in
 `MainContentRenderHookData::$publicRenderData`.
 
+`PublicPageRenderData` holds hydrated Data only and implements the
+`PublicRenderData` marker, so the `capell.publicRenderDataModel` PHPStan rule
+rejects any Eloquent model added to it. Read the page, site, language, layout
+and theme from its `context` (`PublicRenderContextData`), never from models.
+
 The response renderer enters this scope after `PublicLayoutRenderPreparer` runs
 and restores the previous value in `finally`, including nested renders and
 exceptions. Do not retain the DTO beyond that render or pass it as a component

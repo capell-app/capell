@@ -15,6 +15,7 @@ use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
+use Capell\Frontend\Data\StaticPageArtifactSourceData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -46,16 +47,12 @@ it('builds deterministic static page artifact metadata from render data and resp
     $metadata = BuildStaticPageArtifactMetadataAction::run(
         pageUrl: $pageUrl,
         renderData: new PublicPageRenderData(
-            page: $page,
-            site: $page->site()->firstOrFail(),
-            language: Language::query()->findOrFail($pageUrl->language_id),
-            layout: Layout::query()->find($page->layout_id),
-            theme: Theme::query()->find($page->site()->value('theme_id')),
             layoutGraph: null,
             runtimeManifest: $runtime,
             resourcePlan: $resourcePlan,
             surrogateKeys: ['page-' . $page->id],
         ),
+        source: staticArtifactSourceFor($page, $pageUrl),
         response: $response,
         file: 'https.example.test/index.html',
     );
@@ -91,11 +88,6 @@ it('carries validated contributor metadata into static artifacts', function (): 
         'url' => '/catalogue',
     ]);
     $renderData = new PublicPageRenderData(
-        page: $page,
-        site: $page->site()->firstOrFail(),
-        language: Language::query()->findOrFail($pageUrl->language_id),
-        layout: Layout::query()->find($page->layout_id),
-        theme: Theme::query()->find($page->site()->value('theme_id')),
         layoutGraph: null,
         runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
         resourcePlan: ResolveFrontendResourcePlanAction::run([]),
@@ -105,7 +97,7 @@ it('carries validated contributor metadata into static artifacts', function (): 
         extensionCacheDependencies: [PublicRenderDataCacheDependencyData::forModel($page)],
     );
 
-    $metadata = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, new Response('<html></html>'));
+    $metadata = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, staticArtifactSourceFor($page, $pageUrl), new Response('<html></html>'));
 
     expect($metadata->surrogateKeys)->toBe([hash('sha256', 'catalogue-' . $page->id)])
         ->and($metadata->dependencies['public_render_data'])->toBe([
@@ -116,3 +108,60 @@ it('carries validated contributor metadata into static artifacts', function (): 
         ->not->toContain(Page::class)
         ->not->toContain('catalogue-' . $page->id);
 });
+
+it('marks a static artifact stale when the layout or theme it was rendered from changes', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $pageUrl = PageUrl::factory()->createOne([
+        'site_id' => $page->site_id,
+        'language_id' => $page->translations->first()->language_id,
+        'pageable_type' => Page::class,
+        'pageable_id' => $page->id,
+        'url' => '/rendered-from',
+    ]);
+    $renderData = new PublicPageRenderData(
+        layoutGraph: null,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+        resourcePlan: ResolveFrontendResourcePlanAction::run([]),
+        surrogateKeys: [],
+    );
+    $fingerprint = fn (StaticPageArtifactSourceData $source): string => BuildStaticPageArtifactMetadataAction::run(
+        $pageUrl,
+        $renderData,
+        $source,
+        new Response('<html></html>'),
+    )->dependencies['fingerprint'];
+    $source = staticArtifactSourceFor($page, $pageUrl);
+    $otherLayout = Layout::factory()->createOne();
+    $otherTheme = Theme::factory()->createOne();
+
+    $rendered = $fingerprint($source);
+
+    expect($fingerprint(staticArtifactSourceFor($page, $pageUrl)))->toBe($rendered)
+        ->and($fingerprint(new StaticPageArtifactSourceData(
+            pageType: $source->pageType,
+            pageId: $source->pageId,
+            siteId: $source->siteId,
+            languageId: $source->languageId,
+            layoutId: $otherLayout->id,
+            themeId: $source->themeId,
+        )))->not->toBe($rendered)
+        ->and($fingerprint(new StaticPageArtifactSourceData(
+            pageType: $source->pageType,
+            pageId: $source->pageId,
+            siteId: $source->siteId,
+            languageId: $source->languageId,
+            layoutId: $source->layoutId,
+            themeId: $otherTheme->id,
+        )))->not->toBe($rendered);
+});
+
+function staticArtifactSourceFor(Page $page, PageUrl $pageUrl): StaticPageArtifactSourceData
+{
+    return StaticPageArtifactSourceData::fromModels(
+        $page,
+        $page->site()->firstOrFail(),
+        Language::query()->findOrFail($pageUrl->language_id),
+        Layout::query()->find($page->layout_id),
+        Theme::query()->find($page->site()->value('theme_id')),
+    );
+}
