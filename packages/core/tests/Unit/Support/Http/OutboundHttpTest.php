@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Security\ResolvesHostAddresses;
+use Capell\Core\Contracts\Security\ResolvesHostAddressesWithin;
 use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Capell\Core\Support\Http\OutboundHttp;
 use Capell\Core\Support\Http\OutboundHttpPolicy;
@@ -296,4 +297,29 @@ it('leaves other transport failures as connection errors', function (): void {
 
     expect(fn () => OutboundHttp::guarded()->withMiddleware($refused)->get('https://public.example.test/'))
         ->toThrow(ConnectionException::class);
+});
+
+it('gives a deadline-aware resolver the policy connect timeout as its deadline', function (): void {
+    Http::fake(['*' => Http::response('ok')]);
+    $resolver = new class implements ResolvesHostAddressesWithin
+    {
+        public ?float $deadline = null;
+
+        public function resolve(string $host): array
+        {
+            throw new LogicException('The guard resolved without a deadline.');
+        }
+
+        public function resolveWithin(string $host, float $seconds): array
+        {
+            $this->deadline = $seconds;
+
+            return ['93.184.216.34'];
+        }
+    };
+    app()->instance(ResolvesHostAddresses::class, $resolver);
+
+    OutboundHttp::guarded(new OutboundHttpPolicy(connectTimeoutSeconds: 3))->get('https://public.example.test/');
+
+    expect($resolver->deadline)->toBe(3.0);
 });

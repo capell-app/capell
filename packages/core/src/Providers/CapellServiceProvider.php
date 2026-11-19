@@ -191,7 +191,7 @@ use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\HostMonitor\LocalHostMetricsSource;
 use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
-use Capell\Core\Support\Http\DnsHostAddressResolver;
+use Capell\Core\Support\Http\ProcessHostAddressResolver;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
@@ -677,7 +677,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(ExtensionEntitlements::class, NullExtensionEntitlements::class);
         $this->app->singletonIf(CommercialCatalogueStore::class);
         $this->app->singletonIf(ExtensionCommercialPolicy::class);
-        $this->app->bindIf(ResolvesHostAddresses::class, DnsHostAddressResolver::class);
+        $this->app->bindIf(ResolvesHostAddresses::class, ProcessHostAddressResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
         // Keep these legacy class names as strings so the compatibility binding

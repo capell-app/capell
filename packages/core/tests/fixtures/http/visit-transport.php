@@ -34,8 +34,10 @@ namespace Capell\Core\Support\Http {
 
 namespace {
     use Capell\Core\Actions\VisitUrlAction;
+    use Capell\Core\Contracts\Security\ResolvesHostAddresses;
     use Capell\Core\Exceptions\UrlVisitFailedException;
     use Capell\Core\Models\SiteDomain;
+    use Capell\Core\Support\Http\DnsHostAddressResolver;
     use Capell\Core\Tests\CoreTestCase;
     use GuzzleHttp\Promise\PromiseInterface;
     use Illuminate\Http\Client\Request;
@@ -53,6 +55,8 @@ namespace {
         public function probe(): array
         {
             parent::setUp();
+            // The native-function substitutes above apply to the in-process resolver only.
+            app()->instance(ResolvesHostAddresses::class, new DnsHostAddressResolver);
 
             try {
                 SiteDomain::factory()->createOne(['domain' => 'ipv6-only.example.test', 'status' => true]);

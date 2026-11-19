@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Http;
 
 use Capell\Core\Contracts\Security\ResolvesHostAddresses;
+use Capell\Core\Contracts\Security\ResolvesHostAddressesWithin;
 use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Closure;
 use GuzzleHttp\ClientInterface;
@@ -28,8 +29,9 @@ use Throwable;
  * - refuses schemes and ports the policy does not allow, and URLs that carry
  *   credentials (a user name or password before the host), which would be sent
  *   to the target and written wherever the URL is logged;
- * - resolves the host once and refuses it unless every address it resolves to is
- *   public under PublicAddressPolicy (IP literals are checked directly);
+ * - resolves the host once, within the connect timeout when the resolver can
+ *   give up at a deadline, and refuses it unless every address it resolves to
+ *   is public under PublicAddressPolicy (IP literals are checked directly);
  * - pins the connection to the checked address, so a second DNS answer (DNS
  *   rebinding) cannot send it somewhere else;
  * - ignores proxy environment variables, which would otherwise resolve the host
@@ -52,6 +54,7 @@ final class OutboundHttp
     {
         $policy ??= new OutboundHttpPolicy;
 
+        // capell-security-scan: raw-http this is the guard; the middleware below checks every address.
         $request = Http::setHandler(new CurlHandler)
             ->connectTimeout($policy->connectTimeoutSeconds)
             ->timeout($policy->timeoutSeconds)
@@ -152,7 +155,7 @@ final class OutboundHttp
         }
 
         $isLiteral = filter_var($host, FILTER_VALIDATE_IP) !== false;
-        $addresses = $isLiteral ? [$host] : resolve(ResolvesHostAddresses::class)->resolve($host);
+        $addresses = $isLiteral ? [$host] : self::resolveHost($host, $policy);
 
         if ($addresses === []) {
             throw OutboundRequestRefusedException::forHost($host, OutboundRequestRefusedException::REASON_UNRESOLVED, 'the host could not be resolved');
@@ -199,6 +202,23 @@ final class OutboundHttp
         };
 
         return $options;
+    }
+
+    /**
+     * DNS happens before cURL starts, so cURL's connect timeout cannot bound it;
+     * a deadline-aware resolver is given the connect timeout instead.
+     *
+     * @return list<string>
+     */
+    private static function resolveHost(string $host, OutboundHttpPolicy $policy): array
+    {
+        $resolver = resolve(ResolvesHostAddresses::class);
+
+        if ($resolver instanceof ResolvesHostAddressesWithin) {
+            return $resolver->resolveWithin($host, (float) $policy->connectTimeoutSeconds);
+        }
+
+        return $resolver->resolve($host);
     }
 
     private static function tooLarge(RequestInterface $request, ?Throwable $previous = null): OutboundRequestRefusedException
