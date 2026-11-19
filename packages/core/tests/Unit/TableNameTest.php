@@ -17,6 +17,8 @@ use Capell\Core\Models\Term;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\Migration\TableShape;
 use Capell\Core\Support\TableName;
+use Illuminate\Config\Repository;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\Migrations\DatabaseMigrationRepository;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +36,51 @@ it('prefixes table names', function (): void {
 
     expect(TableName::resolve('pages'))->toBe('cms_pages')
         ->and(TableName::resolve('translations'))->toBe('cms_translations');
+});
+
+it('reads the configuration repository once however many tables a request resolves', function (): void {
+    config()->set('capell.database', ['table_prefix' => 'cms_']);
+    $resolves = 0;
+    app()->beforeResolving('config', function () use (&$resolves): void {
+        $resolves++;
+    });
+
+    for ($lookup = 0; $lookup < 200; $lookup++) {
+        TableName::resolve('pages');
+        TableName::resolve('translations');
+    }
+
+    expect($resolves)->toBeLessThanOrEqual(1);
+});
+
+it('reads a changed prefix and a replaced configuration repository on the next call', function (): void {
+    config()->set('capell.database', ['table_prefix' => 'one_']);
+    expect(TableName::resolve('pages'))->toBe('one_pages');
+
+    config()->set('capell.database.table_prefix', 'two_');
+    expect(TableName::resolve('pages'))->toBe('two_pages');
+
+    $original = resolve(ConfigRepository::class);
+    app()->instance('config', new Repository(['capell' => ['database' => ['table_prefix' => 'three_']]]));
+
+    try {
+        expect(TableName::resolve('pages'))->toBe('three_pages');
+    } finally {
+        app()->instance('config', $original);
+    }
+
+    expect(TableName::resolve('pages'))->toBe('two_pages');
+});
+
+it('ignores a config rebind made by a cloned container', function (): void {
+    config()->set('capell.database', ['table_prefix' => 'base_']);
+    expect(TableName::resolve('pages'))->toBe('base_pages');
+
+    // Octane clones the application per request and replaces its config; the clone inherits the rebind callbacks.
+    $sandbox = clone app();
+    $sandbox->instance('config', new Repository(['capell' => ['database' => ['table_prefix' => 'sandbox_']]]));
+
+    expect(TableName::resolve('pages'))->toBe('base_pages');
 });
 
 it('uses an alias instead of the prefix for that table', function (): void {
