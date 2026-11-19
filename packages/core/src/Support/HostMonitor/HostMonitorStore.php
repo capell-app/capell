@@ -186,44 +186,57 @@ final readonly class HostMonitorStore
         }
     }
 
-    /** Unix time a listed task first skipped a run in the current busy spell and has not yet run since, or null. */
-    public function catchUpPendingSince(string $task): ?int
+    /**
+     * Unix time a listed task first skipped a run in the current busy spell and has not yet run since, or null.
+     * A task that runs on one server only keeps one shared record, so every node sees the same state.
+     */
+    public function catchUpPendingSince(string $task, bool $shared = false): ?int
     {
-        $since = $this->get('catchup-pending:' . $this->taskKey($task));
+        $since = $this->get('catchup-pending:' . $this->taskKey($task, $shared));
 
         return is_int($since) || (is_string($since) && ctype_digit($since)) ? (int) $since : null;
     }
 
-    public function markCatchUpPending(string $task, int $at): void
+    public function markCatchUpPending(string $task, int $at, bool $shared = false): void
     {
-        $this->put('catchup-pending:' . $this->taskKey($task), $at, self::DEFERRAL_SECONDS);
+        $this->put('catchup-pending:' . $this->taskKey($task, $shared), $at, self::DEFERRAL_SECONDS);
     }
 
-    public function clearCatchUpPending(string $task): void
+    public function clearCatchUpPending(string $task, bool $shared = false): void
     {
         try {
-            $this->cache->forget(self::PREFIX . 'catchup-pending:' . $this->taskKey($task));
+            $this->cache->forget(self::PREFIX . 'catchup-pending:' . $this->taskKey($task, $shared));
         } catch (Throwable) {
             // Monitoring must never break the work it observes.
         }
     }
 
-    /** The date (Y-m-d) the task last ran as a catch-up, or null. */
-    public function caughtUpOn(string $task): ?string
+    /**
+     * Claims the one catch-up a task may have on a date. Atomic on stores that support add(), so two nodes
+     * sharing a cache cannot both win. False when it was already claimed or the store failed.
+     */
+    public function claimCatchUp(string $task, string $date, bool $shared = false): bool
     {
-        $date = $this->get('catchup-done:' . $this->taskKey($task));
-
-        return is_string($date) && $date !== '' ? $date : null;
+        try {
+            return $this->cache->add(self::PREFIX . 'catchup-done:' . $this->taskKey($task, $shared) . ':' . $date, 1, 2 * 86400);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
-    public function markCaughtUp(string $task, string $date): void
+    /** Gives the claim back when the catch-up did not actually run, so it can be tried again. */
+    public function releaseCatchUp(string $task, string $date, bool $shared = false): void
     {
-        $this->put('catchup-done:' . $this->taskKey($task), $date, 2 * 86400);
+        try {
+            $this->cache->forget(self::PREFIX . 'catchup-done:' . $this->taskKey($task, $shared) . ':' . $date);
+        } catch (Throwable) {
+            // Monitoring must never break the work it observes.
+        }
     }
 
-    private function taskKey(string $task): string
+    private function taskKey(string $task, bool $shared = false): string
     {
-        return hash('xxh128', $this->node() . '|' . $task);
+        return hash('xxh128', ($shared ? '' : $this->node()) . '|' . $task);
     }
 
     /** @return list<array<string, mixed>> */

@@ -13,6 +13,7 @@ use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Carbon;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -41,7 +42,6 @@ final class CatchUpDeferredTasksAction
     public function handle(Schedule $schedule): array
     {
         $ran = [];
-        $today = now()->format('Y-m-d');
         $busy = null;
 
         foreach ($schedule->events() as $event) {
@@ -54,17 +54,17 @@ final class CatchUpDeferredTasksAction
                 continue;
             }
 
-            if ($this->store->catchUpPendingSince($name) === null) {
+            $shared = $this->policy->isShared($event);
+
+            if ($this->store->catchUpPendingSince($name, $shared) === null) {
                 continue;
             }
 
-            if ($this->store->caughtUpOn($name) === $today) {
-                continue;
-            }
-
+            // The event's own time zone decides when the catch-up time has passed and what "today" is.
+            $now = now($event->timezone);
             $busy ??= $this->policy->isBusy();
 
-            if ($busy && ! $this->pastCatchUpTime()) {
+            if ($busy && ! $this->pastCatchUpTime($now)) {
                 continue;
             }
 
@@ -76,16 +76,38 @@ final class CatchUpDeferredTasksAction
                 continue;
             }
 
-            $this->store->markCaughtUp($name, $today);
-            $this->store->clearCatchUpPending($name);
+            if (! $this->policy->filtersPassForCatchUp($event)) {
+                continue;
+            }
+
+            // Another server already holds this minute's turn for a task that runs on one server only.
+            if ($shared && ! $schedule->serverShouldRun($event, $now)) {
+                continue;
+            }
+
+            $date = $now->format('Y-m-d');
+
+            if (! $this->store->claimCatchUp($name, $date, $shared)) {
+                continue;
+            }
+
             $this->start($event);
+
+            // withoutOverlapping() held it back: it did not run, so it still owes its run and today's claim goes back.
+            if ($event->skippedBecauseOverlapping) {
+                $this->store->releaseCatchUp($name, $date, $shared);
+
+                continue;
+            }
+
+            $this->store->clearCatchUpPending($name, $shared);
             $ran[] = $name;
         }
 
         return $ran;
     }
 
-    private function pastCatchUpTime(): bool
+    private function pastCatchUpTime(Carbon $now): bool
     {
         $at = config('capell.health.host.deferrable_catch_up_at');
 
@@ -93,7 +115,7 @@ final class CatchUpDeferredTasksAction
             return false;
         }
 
-        return now()->greaterThanOrEqualTo(now()->setTime((int) $match[1], (int) $match[2]));
+        return $now->greaterThanOrEqualTo($now->copy()->setTime((int) $match[1], (int) $match[2]));
     }
 
     private function start(Event $event): void

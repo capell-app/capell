@@ -34,7 +34,7 @@ final class ApplyDeferrableTasksAction
                 continue;
             }
 
-            $event->skip(fn (): bool => $this->policy->shouldSkip($name));
+            $event->skip(fn (): bool => $this->policy->shouldSkip($name, $this->policy->isShared($event)));
             $applied++;
         }
 

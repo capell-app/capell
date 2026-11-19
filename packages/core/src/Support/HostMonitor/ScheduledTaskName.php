@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\HostMonitor;
 
+use Illuminate\Console\Scheduling\CallbackEvent;
 use Illuminate\Console\Scheduling\Event;
 
 /**
@@ -14,6 +15,22 @@ use Illuminate\Console\Scheduling\Event;
  */
 final class ScheduledTaskName
 {
+    /** The artisan command a command task runs, or null for closures and jobs. */
+    public static function artisanCommand(Event $task): ?string
+    {
+        if ($task instanceof CallbackEvent || ! is_string($task->command)) {
+            return null;
+        }
+
+        if (preg_match("/artisan'?\s+(.+)\z/", $task->command, $match) !== 1) {
+            return null;
+        }
+
+        $name = explode(' ', trim($match[1], "' "))[0];
+
+        return $name !== '' ? $name : null;
+    }
+
     public static function of(Event $task): string
     {
         $summary = $task->description;

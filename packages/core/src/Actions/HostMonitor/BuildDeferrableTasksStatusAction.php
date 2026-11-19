@@ -32,7 +32,7 @@ final class BuildDeferrableTasksStatusAction
 
         return new DeferrableTasksStatusData(
             $tasks,
-            array_values(array_filter($tasks, fn (string $task): bool => $this->store->catchUpPendingSince($task) !== null)),
+            array_values(array_filter($tasks, fn (string $task): bool => $this->store->catchUpPendingSince($task) !== null || $this->store->catchUpPendingSince($task, true) !== null)),
         );
     }
 }

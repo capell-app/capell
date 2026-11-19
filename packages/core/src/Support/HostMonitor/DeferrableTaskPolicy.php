@@ -7,6 +7,7 @@ namespace Capell\Core\Support\HostMonitor;
 use Capell\Core\Actions\HostMonitor\AssessHostLoadAction;
 use Capell\Core\Enums\Diagnostics\HostMonitorStatus;
 use Illuminate\Console\Scheduling\Event;
+use Illuminate\Contracts\Foundation\Application;
 use Throwable;
 
 /**
@@ -15,13 +16,17 @@ use Throwable;
  * empty list means no task is ever touched.
  *
  * Octane-safe: it holds no state of its own. Everything it remembers lives in
- * the cache store, through HostMonitorStore.
+ * the cache store, through HostMonitorStore, and the catch-up marker is bound
+ * in the container only for the length of one call.
  */
 final readonly class DeferrableTaskPolicy
 {
+    private const string CATCHING_UP = 'capell.host-monitor.catching-up';
+
     public function __construct(
         private AssessHostLoadAction $assess,
         private HostMonitorStore $store,
+        private Application $app,
     ) {}
 
     /** @return list<string> */
@@ -39,7 +44,10 @@ final readonly class DeferrableTaskPolicy
         )));
     }
 
-    /** The listed name this event answers to, or null when it is not deferrable. */
+    /**
+     * The listed name this event answers to, or null when it is not deferrable. A task matches by its
+     * exact description; a command task also matches by its artisan command name.
+     */
     public function listedNameFor(Event $event): ?string
     {
         $listed = $this->listed();
@@ -49,14 +57,21 @@ final readonly class DeferrableTaskPolicy
         }
 
         $description = is_string($event->description) ? trim($event->description) : '';
+        $command = ScheduledTaskName::artisanCommand($event);
 
         foreach ($listed as $name) {
-            if ($name === $description || $name === ScheduledTaskName::of($event)) {
+            if (($description !== '' && $name === $description) || ($command !== null && $name === $command)) {
                 return $name;
             }
         }
 
         return null;
+    }
+
+    /** A task that runs on one server only has one record for the whole installation. */
+    public function isShared(Event $event): bool
+    {
+        return $event->onOneServer;
     }
 
     /** True while the monitor reports this server as critically busy. No reading, or a failing one, is not busy. */
@@ -69,19 +84,38 @@ final readonly class DeferrableTaskPolicy
         }
     }
 
-    /** Called as the scheduler is about to run a listed task: skip it while busy, remember that it owes a run. */
-    public function shouldSkip(string $name): bool
+    /**
+     * Called as the scheduler is about to run a listed task: skip it while busy, remember that it owes a run.
+     * A skip that cannot be remembered is not a skip: the task runs rather than being lost.
+     */
+    public function shouldSkip(string $name, bool $shared = false): bool
     {
+        if ($this->app->bound(self::CATCHING_UP)) {
+            return false;
+        }
+
         if (! $this->isBusy()) {
-            $this->store->clearCatchUpPending($name);
+            $this->store->clearCatchUpPending($name, $shared);
 
             return false;
         }
 
-        if ($this->store->catchUpPendingSince($name) === null) {
-            $this->store->markCatchUpPending($name, now()->getTimestamp());
+        if ($this->store->catchUpPendingSince($name, $shared) === null) {
+            $this->store->markCatchUpPending($name, now()->getTimestamp(), $shared);
         }
 
-        return true;
+        return $this->store->catchUpPendingSince($name, $shared) !== null;
+    }
+
+    /** The event's own conditions (when, skip, between) without this host's deferral filter. */
+    public function filtersPassForCatchUp(Event $event): bool
+    {
+        $this->app->instance(self::CATCHING_UP, true);
+
+        try {
+            return $event->filtersPass($this->app);
+        } finally {
+            $this->app->forgetInstance(self::CATCHING_UP);
+        }
     }
 }
