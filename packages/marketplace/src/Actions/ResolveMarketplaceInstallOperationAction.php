@@ -16,11 +16,7 @@ final class ResolveMarketplaceInstallOperationAction
 
     public function handle(MarketplaceInstallAttempt $attempt): bool
     {
-        if (in_array($attempt->status, [
-            MarketplaceInstallIntentStatus::Queued,
-            MarketplaceInstallIntentStatus::Running,
-            MarketplaceInstallIntentStatus::CancelRequested,
-        ], true)) {
+        if (in_array($attempt->status, MarketplaceInstallIntentStatus::activeOperations(), true)) {
             return false;
         }
 

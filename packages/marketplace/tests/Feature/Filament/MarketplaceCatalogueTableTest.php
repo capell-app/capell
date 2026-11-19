@@ -1869,7 +1869,7 @@ it('records deployment published attempts when deployment publisher returns a pu
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
-    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::AwaitingDeployment)
         ->and($attempt->composer_command)->toBe("composer require 'capell-app/seo-suite:^1.0.0'")
         ->and($attempt->queued_at)->not->toBeNull()
         ->and($attempt->deployment)->toMatchArray([
@@ -1965,7 +1965,7 @@ it('records deployment published attempts when deployment publisher returns a co
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
-    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::AwaitingDeployment)
         ->and($attempt->composer_command)->toBe("composer require 'capell-app/seo-suite:^1.0.0'")
         ->and($attempt->deployment)->toMatchArray([
             'status' => 'published',

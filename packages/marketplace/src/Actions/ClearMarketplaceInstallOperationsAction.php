@@ -40,11 +40,7 @@ final class ClearMarketplaceInstallOperationsAction
     {
         return MarketplaceInstallAttempt::query()
             ->whereNull('resolved_at')
-            ->whereNotIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
+            ->whereNotIn('status', MarketplaceInstallIntentStatus::activeOperationValues())
             ->where(function (Builder $query): void {
                 $query
                     ->whereIn('status', [

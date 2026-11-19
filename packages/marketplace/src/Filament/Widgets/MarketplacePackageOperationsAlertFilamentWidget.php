@@ -11,7 +11,6 @@ use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\ListMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\ResolveMarketplaceInstallOperationAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
-use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -98,15 +97,7 @@ final class MarketplacePackageOperationsAlertFilamentWidget extends Widget imple
             return false;
         }
 
-        if (in_array($attempt->status, [
-            MarketplaceInstallIntentStatus::Failed,
-            MarketplaceInstallIntentStatus::TimedOut,
-        ], true)) {
-            return true;
-        }
-
-        return $attempt->status === MarketplaceInstallIntentStatus::Cancelled
-            && $attempt->failure_type === MarketplaceInstallFailureType::CancelledAfterComposer->value;
+        return resolve(RetryMarketplaceInstallAttemptAction::class)->canRetry($attempt);
     }
 
     public function canManagePackageOperations(): bool

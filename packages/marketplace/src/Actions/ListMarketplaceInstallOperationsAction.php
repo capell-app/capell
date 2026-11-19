@@ -58,11 +58,7 @@ final class ListMarketplaceInstallOperationsAction
     public function legacyActiveCount(): int
     {
         return MarketplaceInstallAttempt::query()
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
+            ->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())
             ->count();
     }
 
@@ -78,6 +74,7 @@ final class ListMarketplaceInstallOperationsAction
             ]
             : [
                 MarketplaceInstallIntentStatus::Queued,
+                MarketplaceInstallIntentStatus::AwaitingDeployment,
                 MarketplaceInstallIntentStatus::Running,
                 MarketplaceInstallIntentStatus::CancelRequested,
                 MarketplaceInstallIntentStatus::Failed,

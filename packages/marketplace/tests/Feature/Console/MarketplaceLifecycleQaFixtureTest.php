@@ -154,6 +154,7 @@ it('runs a fixture package through the queued install update and uninstall lifec
             actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa-fixture'),
             source: MarketplaceInstallSource::Cli,
             afterResponse: false,
+            awaitPublishedDeployment: false,
         );
         new RunMarketplaceInstallAttemptJob((int) $installAttempt->getKey())->handle($fixture);
 
@@ -161,6 +162,7 @@ it('runs a fixture package through the queued install update and uninstall lifec
             composerName: MarketplaceLifecycleQaFixture::PACKAGE_NAME,
             actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa-fixture'),
             source: MarketplaceInstallSource::Cli,
+            awaitPublishedDeployment: false,
         );
         new RunMarketplaceUpdateAttemptJob((int) $updateAttempt->getKey())->handle($fixture);
 

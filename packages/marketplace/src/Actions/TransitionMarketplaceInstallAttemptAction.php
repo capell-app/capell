@@ -26,6 +26,7 @@ final class TransitionMarketplaceInstallAttemptAction
     /** @var array<string, list<string>> */
     private const array ALLOWED_TRANSITIONS = [
         'queued' => ['running', 'failed', 'cancelled'],
+        'awaiting_deployment' => ['failed', 'cancelled'],
         'running' => ['succeeded', 'failed', 'timed_out', 'cancel_requested'],
         'cancel_requested' => ['cancelled', 'failed'],
     ];

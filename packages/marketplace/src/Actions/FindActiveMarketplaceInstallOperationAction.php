@@ -18,11 +18,7 @@ final class FindActiveMarketplaceInstallOperationAction
     {
         return MarketplaceInstallAttempt::query()
             ->where('composer_name', $composerName)
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
+            ->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())
             ->latest()
             ->first();
     }

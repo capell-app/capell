@@ -139,6 +139,9 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                     'source' => 'marketplace_lifecycle_qa',
                 ],
                 dispatch: false,
+                // The QA run exercises the lifecycle on this site, inline;
+                // it never hands over to the deploy pipeline and waits.
+                awaitPublishedDeployment: false,
             );
 
             if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {
@@ -206,6 +209,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa'),
                 source: MarketplaceInstallSource::Cli,
                 dispatch: false,
+                awaitPublishedDeployment: false,
             );
 
             if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {

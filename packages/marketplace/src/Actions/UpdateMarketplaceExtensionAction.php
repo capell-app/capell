@@ -39,6 +39,7 @@ final class UpdateMarketplaceExtensionAction
         MarketplaceInstallSource $source = MarketplaceInstallSource::TableHelper,
         ?string $idempotencyKey = null,
         bool $dispatch = true,
+        bool $awaitPublishedDeployment = true,
     ): MarketplaceInstallAttempt {
         $currentVersion = $this->installedVersions->prettyVersion($composerName);
 
@@ -85,6 +86,7 @@ final class UpdateMarketplaceExtensionAction
             user: auth()->user(),
             idempotencyKey: $idempotencyKey,
             dispatch: $dispatch,
+            awaitPublishedDeployment: $awaitPublishedDeployment,
         );
     }
 

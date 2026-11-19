@@ -124,11 +124,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     {
         return [
             self::TAB_ACTIVE => Tab::make(__('capell-marketplace::marketplace.operations.tab_active'))
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
-                    MarketplaceInstallIntentStatus::Queued->value,
-                    MarketplaceInstallIntentStatus::Running->value,
-                    MarketplaceInstallIntentStatus::CancelRequested->value,
-                ])->whereNull('resolved_at')),
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())->whereNull('resolved_at')),
             self::TAB_FAILED => Tab::make(__('capell-marketplace::marketplace.operations.tab_failed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     MarketplaceInstallIntentStatus::Failed->value,
@@ -435,15 +431,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
 
     public function canRetry(MarketplaceInstallAttempt $attempt): bool
     {
-        if (in_array($attempt->status, [
-            MarketplaceInstallIntentStatus::Failed,
-            MarketplaceInstallIntentStatus::TimedOut,
-        ], true)) {
-            return true;
-        }
-
-        return $attempt->status === MarketplaceInstallIntentStatus::Cancelled
-            && $attempt->failure_type === MarketplaceInstallFailureType::CancelledAfterComposer->value;
+        return resolve(RetryMarketplaceInstallAttemptAction::class)->canRetry($attempt);
     }
 
     public function canManagePackageOperations(): bool
@@ -455,6 +443,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     {
         return in_array($attempt->status, [
             MarketplaceInstallIntentStatus::Queued,
+            MarketplaceInstallIntentStatus::AwaitingDeployment,
             MarketplaceInstallIntentStatus::Running,
         ], true);
     }

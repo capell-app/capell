@@ -35,6 +35,7 @@ use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
 use Capell\Marketplace\Actions\RecoverMarketplaceRuntimePropagationAction;
 use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
+use Capell\Marketplace\Actions\ResumeMarketplaceAttemptsAwaitingDeploymentAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Actions\SnapshotComposerStateAction;
 use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
@@ -511,8 +512,22 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
      */
     protected function shouldSkipComposerStage(MarketplaceInstallAttempt $attempt): bool
     {
+        if ($this->deliveredByDeployment($attempt)) {
+            return true;
+        }
+
         return $this->mayReuseDownloadedPackage()
             && PackageIsAvailableForLifecycleAction::run($attempt->composer_name);
+    }
+
+    /**
+     * Whether the site's deploy pipeline has already put this operation's
+     * Composer change on disk, so running Composer here would only repeat it,
+     * or fail on a release root it may not write to.
+     */
+    protected function deliveredByDeployment(MarketplaceInstallAttempt $attempt): bool
+    {
+        return ($attempt->context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::DELIVERED_CONTEXT_KEY] ?? false) === true;
     }
 
     protected function composerSkippedTranslationKey(): string
@@ -768,7 +783,14 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
 
         // Persisted attempts and retries must be checked against today's installed
         // release, not their acquisition-time update_from_version context.
-        if ($attempt->operation === MarketplaceOperationType::Update) {
+        // An update the site's deploy pipeline already delivered is past the
+        // point the constraint guard protects: the new version is the one on
+        // disk, and the version it replaced is the one recorded when the
+        // update was handed over.
+        if ($attempt->operation === MarketplaceOperationType::Update && $this->deliveredByDeployment($attempt)) {
+            $fromVersion = $attempt->context['update_from_version'] ?? null;
+            $previousVersion = is_string($fromVersion) && $fromVersion !== '' ? $fromVersion : null;
+        } elseif ($attempt->operation === MarketplaceOperationType::Update) {
             try {
                 AssertMarketplaceUpdateConstraintAction::run($attempt->composer_name, $attempt->version_constraint ?? '');
                 $previousVersion = resolve(MarketplaceInstalledPackageVersionResolver::class)->prettyVersion($attempt->composer_name);

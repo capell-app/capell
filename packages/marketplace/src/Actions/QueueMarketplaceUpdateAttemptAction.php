@@ -52,6 +52,7 @@ final class QueueMarketplaceUpdateAttemptAction
         ?Authenticatable $user = null,
         ?string $idempotencyKey = null,
         bool $dispatch = true,
+        bool $awaitPublishedDeployment = true,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -79,6 +80,7 @@ final class QueueMarketplaceUpdateAttemptAction
                 user: $user,
                 idempotencyKey: $idempotencyKey,
                 dispatch: $dispatch,
+                awaitPublishedDeployment: $awaitPublishedDeployment,
             );
         } finally {
             $lock->release();
@@ -98,6 +100,7 @@ final class QueueMarketplaceUpdateAttemptAction
         ?Authenticatable $user,
         ?string $idempotencyKey,
         bool $dispatch,
+        bool $awaitPublishedDeployment,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -181,6 +184,7 @@ final class QueueMarketplaceUpdateAttemptAction
                 new MarketplaceInstallDeploymentData(
                     $publication,
                 ),
+                $awaitPublishedDeployment,
             );
         }
 

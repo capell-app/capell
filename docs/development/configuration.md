@@ -331,6 +331,7 @@ Source: `packages/marketplace/config/capell-marketplace.php`
 | `CAPELL_MARKETPLACE_SHARE_SETUP_MILESTONES`                | `false`                                                          | Opt in to reporting the first fully passing `capell:doctor` run, once, as a timestamp in the next heartbeat |
 | `CAPELL_MARKETPLACE_AUTO_UPDATE_SCHEDULED`                 | `false`                                                          | Whether unattended Marketplace updates are scheduled                                                        |
 | `CAPELL_MARKETPLACE_AUTO_UPDATE_AT`                        | `03:20`                                                          | Local scheduler time for unattended Marketplace updates                                                     |
+| `CAPELL_MARKETPLACE_DEPLOYMENT_WAIT_HOURS`                 | `72`                                                             | Hours an operation waits for its deploy before it fails so the operator can act                             |
 
 Marketplace installs do not use `QUEUE_CONNECTION`. They are pinned to
 `CAPELL_MARKETPLACE_QUEUE_CONNECTION` (default `database`) and the named queue

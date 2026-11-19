@@ -16,6 +16,7 @@ use Capell\Marketplace\Console\Commands\MarketplaceAutoUpdateCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceHeartbeatCommand;
+use Capell\Marketplace\Console\Commands\MarketplaceResumeDeployedOperationsCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
@@ -52,6 +53,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             ->hasCommand(MarketplaceAutoUpdateCommand::class)
             ->hasCommand(MarketplaceDoctorCommand::class)
             ->hasCommand(MarketplaceHeartbeatCommand::class)
+            ->hasCommand(MarketplaceResumeDeployedOperationsCommand::class)
             ->hasCommand(MarketplaceExtensionsLifecycleQaCommand::class)
             ->hasRoutes(['marketplace', 'domain-proof'])
             ->hasViews(self::$name)
@@ -127,6 +129,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         $this->scheduleWorkerHeartbeatProbe();
         $this->scheduleMarketplaceHeartbeat();
         $this->scheduleAutomaticUpdates();
+        $this->scheduleDeployedOperationResume();
 
         return $this->registerLivewireComponentDefinitions([
             'capell-marketplace.marketplace-extensions-browser' => MarketplaceExtensionsBrowser::class,
@@ -179,6 +182,23 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         $this->callAfterResolving(Schedule::class, static function (Schedule $schedule) use ($at): void {
             $schedule->command('capell:marketplace:auto-update')
                 ->dailyAt($at)
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
+    }
+
+    /**
+     * Continue operations handed to the site's deploy pipeline once the deploy
+     * is live. Every minute, because the operator is waiting on it; the action
+     * reads only attempts already marked as waiting, so a quiet site pays one
+     * indexed query. Not optional: without it a waiting operation would hold
+     * its package until someone cancelled it.
+     */
+    private function scheduleDeployedOperationResume(): void
+    {
+        $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
+            $schedule->command('capell:marketplace:resume-deployed')
+                ->everyMinute()
                 ->withoutOverlapping()
                 ->onOneServer();
         });

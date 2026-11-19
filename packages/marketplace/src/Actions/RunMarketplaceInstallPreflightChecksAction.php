@@ -156,11 +156,7 @@ final class RunMarketplaceInstallPreflightChecksAction
         return MarketplaceInstallAttempt::query()
             ->whereKeyNot($attempt->getKey())
             ->where('composer_name', $attempt->composer_name)
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
+            ->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())
             ->exists();
     }
 

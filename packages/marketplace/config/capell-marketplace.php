@@ -95,4 +95,12 @@ return [
         'scheduled' => env('CAPELL_MARKETPLACE_AUTO_UPDATE_SCHEDULED', false),
         'at' => env('CAPELL_MARKETPLACE_AUTO_UPDATE_AT', '03:20'),
     ],
+    /*
+     * Operations whose Composer change was handed to the site's deploy pipeline
+     * wait here until the deploy is live, then continue. One that has not
+     * arrived after this many hours fails so the operator can act.
+     */
+    'deployment_wait' => [
+        'hours' => env('CAPELL_MARKETPLACE_DEPLOYMENT_WAIT_HOURS', 72),
+    ],
 ];
