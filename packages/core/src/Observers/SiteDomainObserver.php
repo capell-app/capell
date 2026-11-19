@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\SiteDomains\AssertSiteDomainClaimAllowedAction;
+use Capell\Core\Actions\SiteDomains\LoadSiteRoutingCandidatesAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\SiteDomain;
@@ -94,6 +95,7 @@ class SiteDomainObserver
             CacheEnum::LanguageByIdOrSite,
             CacheEnum::RelationExists,
         ]);
+        LoadSiteRoutingCandidatesAction::forgetAfterCommit($siteDomain->getConnection());
 
         $event = new FrontendSurrogateKeysInvalidated(['site-' . $siteDomain->site_id]);
 
