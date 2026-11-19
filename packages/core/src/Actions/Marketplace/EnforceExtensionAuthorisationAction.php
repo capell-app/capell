@@ -60,7 +60,7 @@ final class EnforceExtensionAuthorisationAction
 
     private function enforce(string $name): void
     {
-        if (TrustedCorePackages::contains($name)) {
+        if (TrustedCorePackages::contains($name) && ! $this->policy->claimsPaidCode($name)) {
             return;
         }
 

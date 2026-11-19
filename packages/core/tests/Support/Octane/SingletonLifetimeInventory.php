@@ -184,7 +184,7 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => self::tagged('Boot registrations persist while the manager selectively flushes only operation-derived default-page state.'),
             ComponentRegistry::class => self::tagged('Boot component registrations and namespaces persist while discovered components and the cache-presence memo are selectively flushed.'),
             CommercialCatalogueStore::class => self::delegated('The package registry runtime flush clears the memoised catalogue so a catalogue stored by another worker is re-read and re-verified.'),
-            ExtensionCommercialPolicy::class => self::delegated('Holds only the catalogue store, which the package registry runtime flush clears.'),
+            ExtensionCommercialPolicy::class => self::delegated('Holds only the catalogue store and installed code identity, which the package registry runtime flush clears.'),
             CapellCacheManager::class => self::delegated('The core manager flushes this per-operation in-memory cache and the namespace generation read with it, after each Octane operation and before each queued job.'),
             LockdownStore::class => self::tagged('Lockdown decisions are operation-derived and explicitly flushed.'),
             ExtensionQuarantineGate::class => self::tagged('The quarantined set is read once per boot cycle, forgotten on every quarantine write and flushed between operations.'),

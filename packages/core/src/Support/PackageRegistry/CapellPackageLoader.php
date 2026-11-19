@@ -195,7 +195,7 @@ final class CapellPackageLoader
     {
         // Once issuer enforcement is on, an unauthorised commercial package loads no provider in
         // any bucket, metadata included: its code does not run at all.
-        if (! TrustedCorePackages::contains($manifest->name)
+        if ((! TrustedCorePackages::contains($manifest->name) || resolve(ExtensionCommercialPolicy::class)->claimsPaidCode($manifest->name))
             && resolve(ExtensionCommercialPolicy::class)->enforcing()
             && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
             return [];
