@@ -15,6 +15,8 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Notifications\Livewire\Notifications;
+use Filament\Notifications\Notification;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -410,6 +412,34 @@ it('can not delete language if it is used', function (): void {
 
     assertDatabaseHas($language, ['id' => $language->id]);
 });
+
+it('tells the editor how many sites still use a language they cannot delete', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->language($language)->create();
+    SiteDomain::factory()->count(2)->recycle($site)->state(['language_id' => $language->id])->create();
+
+    Livewire::test(ManageLanguages::class)
+        ->callAction(TestAction::make(DeleteAction::class)->table($language));
+
+    $notifications = new Notifications;
+    $notifications->mount();
+
+    expect($notifications->notifications->map(fn (Notification $notification): array => [
+        'title' => $notification->getTitle(),
+        'body' => $notification->getBody(),
+    ])->values()->all())->toBe([[
+        'title' => __('capell-admin::message.language_not_deletable', ['name' => e($language->name)]),
+        'body' => 'It is still used by 1 site.',
+    ]]);
+});
+
+it('words the language in use notice for none, one and several sites', function (int $count, string $expected): void {
+    expect(trans_choice('capell-admin::message.language_not_deletable_info', $count, ['count' => $count]))->toBe($expected);
+})->with([
+    [0, 'It is still used by sites or pages you cannot see.'],
+    [1, 'It is still used by 1 site.'],
+    [3, 'It is still used by 3 sites.'],
+]);
 
 it('can group delete languages', function (): void {
     $languages = Language::factory()
