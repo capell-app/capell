@@ -1,8 +1,8 @@
 # Permissions & Approval
 
-Capell Admin ships with **site-scoped RBAC** on top of Spatie's `laravel-permission` package, plus **page-type role restrictions**. The workspace approval workflow is supplied by the optional `capell-app/publishing-studio` package and documented in [PublishingStudio & Versions](https://docs.capell.app/publishing-studio/#approval-lifecycle).
+Capell Admin ships with **site-scoped RBAC** on top of Spatie's `laravel-permission` package, plus **page-type role restrictions**. The workspace approval workflow is supplied by the optional `capell-app/publishing-studio` package and documented in [PublishingStudio & Versions](https://docs.capell.app/packages/publishing-studio/page-creation-and-approval-flow/).
 
-For an end-to-end walkthrough with a flow diagram and the email notifications sent at each transition, see [Page creation and approval flow](https://docs.capell.app/page-creation-and-approval-flow/) in the Publishing Studio docs.
+For an end-to-end walkthrough with a flow diagram and the email notifications sent at each transition, see [Page creation and approval flow](https://docs.capell.app/packages/publishing-studio/page-creation-and-approval-flow/) in the Publishing Studio docs.
 
 ---
 
@@ -24,7 +24,7 @@ Model: `Capell\Core\Models\PageRoleRestriction`.
 
 When `capell-app/publishing-studio` is installed, approvals are tracked at the **workspace** level, not per page. A workspace collects all edits that should ship together and moves through the state machine `open -> in_review -> approved -> publishing -> published`. `Capell\PublishingStudio\Models\WorkspaceApproval` is the immutable audit row for every submit, approve, reject, or request-changes event.
 
-See [PublishingStudio & Versions — Approval lifecycle](https://docs.capell.app/publishing-studio/#approval-lifecycle) for the full machine and the Filament actions that drive it.
+See [PublishingStudio & Versions — Approval lifecycle](https://docs.capell.app/packages/publishing-studio/page-creation-and-approval-flow/) for the full machine and the Filament actions that drive it.
 
 ## Policies
 

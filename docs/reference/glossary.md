@@ -28,7 +28,7 @@ Plain-English definitions for everyday content work.
 | Theme | The look of a site: templates, styles and assets. Managed in **Theme Library**. |
 | Theme Library | The admin screen for installed themes: **Customise → Preview → Apply**. See [Theme Library](../admin/theme-library.md). |
 | Page history | The recorded versions of a page. Compare any two, preview a rollback, then roll backward or forward without erasing history. Not a backup. See [Page history and rollback](../development/page-event-history.md). |
-| Clear cache | The admin header action (shown to global administrators) that refreshes cached pages and settings after a change that did not appear on the public site. |
+| Clear all site caches | The action in the admin top bar's **Tools** menu (shown to global administrators) that refreshes cached pages and settings after a change that did not appear on the public site. |
 | Peek | An optional package that previews an unsaved snapshot of the editor through the real theme. |
 | Scratch recovery | Restoring an editor form from the last unsaved draft the admin kept for you. |
 | Foundation | The five MIT-licensed host packages: Core, Admin, Frontend, Installer and Marketplace. Everything else is an optional package. |
@@ -43,16 +43,16 @@ Implementation-level definitions for package and theme authors.
 | --- | --- |
 | Draft | A page whose publishing state is `draft` (`PublishVisibilityStateEnum::draft`): its `visible_from` date holds the far-future draft placeholder, so visitors cannot see it. This needs only Foundation. A page row staged inside a Publishing Studio workspace (non-zero `workspace_id`) is also treated as a draft by the admin, but that is a separate, optional storage model; see Workspace. |
 | Live | A page whose publishing state is `published`: its visibility window has started and not ended. When Publishing Studio is installed, the live row also carries `workspace_id = 0`. |
-| Draftable model | Any Eloquent model that participates in the workspace system. Draftable models use the `BelongsToWorkspace` trait. See the [Draftable contract](https://docs.capell.app/publishing-studio-draftable-contract/). |
-| Workspace | An isolated sandbox where edits are staged. Provided by the optional Publishing Studio package (`Capell\PublishingStudio\BelongsToWorkspace`), not by Foundation. See [PublishingStudio & Versions](https://docs.capell.app/publishing-studio/). |
+| Draftable model | Any Eloquent model that participates in the workspace system. Draftable models use the `BelongsToWorkspace` trait. See the [Draftable contract](https://docs.capell.app/packages/publishing-studio/publishing-studio-draftable-contract/). |
+| Workspace | An isolated sandbox where edits are staged. Provided by the optional Publishing Studio package (`Capell\PublishingStudio\BelongsToWorkspace`), not by Foundation. See [PublishingStudio & Versions](https://docs.capell.app/packages/publishing-studio/). |
 | Version | An immutable snapshot of the live manifest at a point in time. Publishing a workspace creates a new version and flips it live. |
 | Publish | The atomic flip that promotes a workspace's draft rows to live. Runs publish-checks (freshness, URL collisions, release windows) inside a single transaction. |
-| Rebase | Bringing a stale workspace up to date after another workspace has published. See [Rebase flow](https://docs.capell.app/publishing-studio/#rebase-flow). |
+| Rebase | Bringing a stale workspace up to date after another workspace has published. See [Rebase flow](https://docs.capell.app/packages/publishing-studio/publishing-workflow/). |
 | Rollback | Restoring the previous live version after a publish. Also available per-row via `EntityRollbackAction`. |
 | Approval level | An integer count of approvers required before a workspace can publish. Defaults to `2`; override via `settings.required_approval_levels`. |
 | Schema | A Filament field schema class that defines the form for a blueprint, setting, or resource. |
 | Schema hook extender | A class that injects extra form fields at named positions in an existing schema, without overriding the full schema. See [Extending Capell §4](https://docs.capell.app/extending-capell/#schema-hook-extenders). |
-| Render hook | A registered extension that injects HTML into a named location inside a frontend Blade component. See [Render Hooks](https://docs.capell.app/extending-render-hooks/). |
+| Render hook | A registered extension that injects HTML into a named location inside a frontend Blade component. See [Render Hooks](https://docs.capell.app/packages/frontend/extending-render-hooks/). |
 | Event registry | The Admin package's event bus for subscribing to admin lifecycle events (e.g. `afterSave`). See [Extending Capell §5](https://docs.capell.app/extending-capell/#event-registry-callbacks--subscribers). |
 | Settings Schema Registry | Runtime registry of the settings form schemas shown on the admin **Settings** page. See [Settings Schema Registry](https://docs.capell.app/packages/admin/settings-schema-registry/). |
 | `Layout` (core model) | The theme-scoped template structure a page renders into (`Capell\Core\Models\Layout`). An ordered, theme/site-scoped template record with a status flag, a default flag, and an attached image, selected per page. Part of core. |
