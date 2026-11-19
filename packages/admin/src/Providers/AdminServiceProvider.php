@@ -204,6 +204,7 @@ use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\Diagnostics\HostLoadSiteHealthReportExtender;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
+use Capell\Admin\Support\Diagnostics\ServerSettingsSiteHealthReportExtender;
 use Capell\Admin\Support\Enums\CoreEnumPresentationContributor;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\Extensions\AdminContributionReceiptPreparer;
@@ -596,7 +597,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->tag([AdminDashboardSettingsContributor::class], DashboardSettingsContributor::TAG);
         $this->app->tag([ExtensionHealthSiteHealthWidget::class], SiteHealthWidget::TAG);
-        $this->app->tag([HostLoadSiteHealthReportExtender::class], SiteHealthReportExtender::TAG);
+        $this->app->tag([HostLoadSiteHealthReportExtender::class, ServerSettingsSiteHealthReportExtender::class], SiteHealthReportExtender::TAG);
 
         $this->app->singletonIf(ContentHealthDataProvider::class, NullContentHealthDataProvider::class);
         $this->app->singletonIf(DashboardAnalyticsDataProvider::class, DefaultDashboardAnalyticsDataProvider::class);
