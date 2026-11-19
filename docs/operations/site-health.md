@@ -21,6 +21,7 @@ The page aggregates operational checks that affect whether public traffic can be
 - Public-output safety checks for cached HTML that contains authoring markers or signed admin URLs.
 - Static generation checks, including the current generation lock, the latest generated cache timestamp, and failed static generation jobs.
 - Optimiser readiness for Node, Playwright, generated optimiser artefacts, and failed critical CSS jobs.
+- Recommended settings: measured opcache, PHP-FPM, swap and queue worker values against the host's cores and RAM, with the exact change to make. See [Recommended settings in Site Health](php-fpm-sizing.md#recommended-settings-in-site-health).
 - Server checks for Laravel runtime basics: `APP_URL`, `APP_KEY`, `APP_ENV`, `APP_DEBUG`, cache/session/queue drivers, database-backed cache and queue tables, scheduler visibility, failed-jobs table, trusted proxy config, and writable paths.
 
 Treat red checks as release blockers. Treat amber checks as deployment risks that need either remediation or an explicit operational decision.
@@ -143,33 +144,35 @@ Code that schedules work that can wait calls `DeferWhenHostBusy::apply($event, '
 
 Notifications are off by default. Switch them on and choose where messages go. A message is sent when a problem is first confirmed or gets worse, as a reminder while it lasts, and once when it clears. Messages name the readings that crossed a limit and the busiest processes, without command arguments.
 
-| Variable                                     | Default   | Used for                                                                                                     |
-| -------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
-| `CAPELL_HEALTH_HOST_ENABLED`                 | `true`    | Turn the monitor, dashboard warning and doctor check on or off                                               |
-| `CAPELL_HEALTH_HOST_SUSTAINED_SAMPLES`       | `5`       | Consecutive one-minute readings that must agree before the status changes                                    |
-| `CAPELL_HEALTH_HOST_HISTORY_SAMPLES`         | `60`      | How many recent readings to keep for each server                                                             |
-| `CAPELL_HEALTH_HOST_LOAD_WARNING`            | `0.75`    | Five-minute load per core that raises a warning                                                              |
-| `CAPELL_HEALTH_HOST_LOAD_CRITICAL`           | `1.5`     | Five-minute load per core that raises a critical alert                                                       |
-| `CAPELL_HEALTH_HOST_MEMORY_WARNING`          | `15`      | Percentage of memory still available at or below which a warning is raised                                   |
-| `CAPELL_HEALTH_HOST_MEMORY_CRITICAL`         | `7`       | Percentage of memory still available at or below which a critical alert is raised                            |
-| `CAPELL_HEALTH_HOST_SWAP_WARNING`            | `60`      | Percentage of swap in use that raises a warning                                                              |
-| `CAPELL_HEALTH_HOST_SWAP_CRITICAL`           | `90`      | Percentage of swap in use that raises a critical alert                                                       |
-| `CAPELL_HEALTH_HOST_SCHEDULER_CPU_WARNING`   | `0.3`     | Share of one minute's CPU supply that one scheduler run may use before a warning                             |
-| `CAPELL_HEALTH_HOST_SCHEDULER_CPU_CRITICAL`  | `0.6`     | Share of one minute's CPU supply that one scheduler run may use before a critical alert                      |
-| `CAPELL_HEALTH_HOST_SCHEDULER_WALL_WARNING`  | `50`      | Seconds one scheduler run may take before a warning                                                          |
-| `CAPELL_HEALTH_HOST_SCHEDULER_WALL_CRITICAL` | `90`      | Seconds one scheduler run may take before a critical alert                                                   |
-| `CAPELL_HEALTH_HOST_HISTORY_ENABLED`         | `true`    | Keep hourly rollups of the readings in the database for the day and week trends                              |
-| `CAPELL_HEALTH_HOST_HISTORY_RETENTION_DAYS`  | `90`      | Days of hourly rollups kept, from 1 to 365; older rows are pruned daily                                      |
-| `CAPELL_HEALTH_HOST_QUEUE_BACKLOG_WARNING`   | `500`     | Waiting jobs at which Site Health suggests another queue worker                                              |
-| `CAPELL_HEALTH_HOST_DEFER_ENABLED`           | `false`   | Let scheduled tasks marked as deferrable skip a run while the server is critically busy                      |
-| `CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES`       | `120`     | Longest a deferrable task waits before it runs once anyway                                                   |
-| `CAPELL_HEALTH_HOST_NOTIFY`                  | `false`   | Send messages when the status changes                                                                        |
-| `CAPELL_HEALTH_HOST_NOTIFY_CHANNELS`         | `mail`    | Comma-separated channels: `mail`, `webhook`                                                                  |
-| `CAPELL_HEALTH_HOST_NOTIFY_MAIL_TO`          | empty     | Comma-separated email addresses that receive the messages                                                    |
-| `CAPELL_HEALTH_HOST_NOTIFY_WEBHOOK_URL`      | empty     | HTTP or HTTPS address that receives a JSON body with a `text` field, as Slack and Mattermost webhooks accept |
-| `CAPELL_HEALTH_HOST_NOTIFY_MINIMUM`          | `warning` | Lowest status that sends a message: `warning` or `critical`                                                  |
-| `CAPELL_HEALTH_HOST_NOTIFY_REMINDER_MINUTES` | `360`     | Minutes between reminders while a problem lasts; `0` turns reminders off                                     |
-| `CAPELL_HEALTH_HOST_NOTIFY_RECOVERY`         | `true`    | Send one message when the server returns to normal                                                           |
+| Variable                                       | Default   | Used for                                                                                                     |
+| ---------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| `CAPELL_HEALTH_HOST_ENABLED`                   | `true`    | Turn the monitor, dashboard warning and doctor check on or off                                               |
+| `CAPELL_HEALTH_HOST_SUSTAINED_SAMPLES`         | `5`       | Consecutive one-minute readings that must agree before the status changes                                    |
+| `CAPELL_HEALTH_HOST_HISTORY_SAMPLES`           | `60`      | How many recent readings to keep for each server                                                             |
+| `CAPELL_HEALTH_HOST_LOAD_WARNING`              | `0.75`    | Five-minute load per core that raises a warning                                                              |
+| `CAPELL_HEALTH_HOST_LOAD_CRITICAL`             | `1.5`     | Five-minute load per core that raises a critical alert                                                       |
+| `CAPELL_HEALTH_HOST_MEMORY_WARNING`            | `15`      | Percentage of memory still available at or below which a warning is raised                                   |
+| `CAPELL_HEALTH_HOST_MEMORY_CRITICAL`           | `7`       | Percentage of memory still available at or below which a critical alert is raised                            |
+| `CAPELL_HEALTH_HOST_SWAP_WARNING`              | `60`      | Percentage of swap in use that raises a warning                                                              |
+| `CAPELL_HEALTH_HOST_SWAP_CRITICAL`             | `90`      | Percentage of swap in use that raises a critical alert                                                       |
+| `CAPELL_HEALTH_HOST_FPM_MEMORY_SHARE`          | `0.6`     | Share of RAM PHP-FPM workers may use in the Recommended settings panel                                       |
+| `CAPELL_HEALTH_HOST_FPM_MAX_CHILDREN_PER_CORE` | `10`      | Most `pm.max_children` worth running for each core                                                           |
+| `CAPELL_HEALTH_HOST_SCHEDULER_CPU_WARNING`     | `0.3`     | Share of one minute's CPU supply that one scheduler run may use before a warning                             |
+| `CAPELL_HEALTH_HOST_SCHEDULER_CPU_CRITICAL`    | `0.6`     | Share of one minute's CPU supply that one scheduler run may use before a critical alert                      |
+| `CAPELL_HEALTH_HOST_SCHEDULER_WALL_WARNING`    | `50`      | Seconds one scheduler run may take before a warning                                                          |
+| `CAPELL_HEALTH_HOST_SCHEDULER_WALL_CRITICAL`   | `90`      | Seconds one scheduler run may take before a critical alert                                                   |
+| `CAPELL_HEALTH_HOST_HISTORY_ENABLED`           | `true`    | Keep hourly rollups of the readings in the database for the day and week trends                              |
+| `CAPELL_HEALTH_HOST_HISTORY_RETENTION_DAYS`    | `90`      | Days of hourly rollups kept, from 1 to 365; older rows are pruned daily                                      |
+| `CAPELL_HEALTH_HOST_QUEUE_BACKLOG_WARNING`     | `500`     | Waiting jobs at which Site Health suggests another queue worker                                              |
+| `CAPELL_HEALTH_HOST_DEFER_ENABLED`             | `false`   | Let scheduled tasks marked as deferrable skip a run while the server is critically busy                      |
+| `CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES`         | `120`     | Longest a deferrable task waits before it runs once anyway                                                   |
+| `CAPELL_HEALTH_HOST_NOTIFY`                    | `false`   | Send messages when the status changes                                                                        |
+| `CAPELL_HEALTH_HOST_NOTIFY_CHANNELS`           | `mail`    | Comma-separated channels: `mail`, `webhook`                                                                  |
+| `CAPELL_HEALTH_HOST_NOTIFY_MAIL_TO`            | empty     | Comma-separated email addresses that receive the messages                                                    |
+| `CAPELL_HEALTH_HOST_NOTIFY_WEBHOOK_URL`        | empty     | HTTP or HTTPS address that receives a JSON body with a `text` field, as Slack and Mattermost webhooks accept |
+| `CAPELL_HEALTH_HOST_NOTIFY_MINIMUM`            | `warning` | Lowest status that sends a message: `warning` or `critical`                                                  |
+| `CAPELL_HEALTH_HOST_NOTIFY_REMINDER_MINUTES`   | `360`     | Minutes between reminders while a problem lasts; `0` turns reminders off                                     |
+| `CAPELL_HEALTH_HOST_NOTIFY_RECOVERY`           | `true`    | Send one message when the server returns to normal                                                           |
 
 On a multi-node installation each server records its own readings under its node name (`CAPELL_NODE_ID`, or the host name) in the shared cache, so one dashboard shows every server. Readings live in the cache store only; clearing the cache loses the recent history and nothing else.
 

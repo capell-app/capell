@@ -63,6 +63,24 @@ Do not raise the number until you know why the pool filled:
 
 A warning that appears briefly after a deploy is expected. A warning that appears during ordinary traffic means the budget or the request path needs work.
 
+## Recommended settings in Site Health
+
+**Site Health → Recommended settings** compares what the server measured with its cores and RAM and names the exact change to make. Each row shows the setting, the measured value and the change. It reads setting names and numbers only: no pool file contents beyond `pm.max_children`, no environment values and no command line arguments.
+
+| Setting                           | Flagged when                                                                                               | Change                                                                           |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `opcache.validate_timestamps`     | On in production                                                                                           | Set it to `0` and reload PHP-FPM after every release                             |
+| `opcache.memory_consumption`      | 90% or more of the cache is used                                                                           | Double it                                                                        |
+| `opcache.interned_strings_buffer` | 90% or more of the buffer is used                                                                          | Double it                                                                        |
+| `opcache.max_accelerated_files`   | Cached scripts reach 90% of the limit                                                                      | Raise it to the next size PHP supports that is at least twice the cached scripts |
+| `pm.max_children`                 | Above the lower of the memory limit and the core limit                                                     | Lower it to the figure shown                                                     |
+| Swap                              | Peak swap use over the week is at or above `capell.health.host.swap.warning_used_percent` (60% by default) | Add memory or lower `pm.max_children`                                            |
+| `queue:work` processes            | Two or more workers and no job waited on the queue in 7 days                                               | Run one worker                                                                   |
+
+The memory limit for `pm.max_children` is the PHP share of RAM (`capell.health.host.fpm.memory_share`, 0.6 by default) divided by the 90th percentile resident memory of the running PHP-FPM workers, less the number of queue workers, which come out of the same budget. The core limit is `capell.health.host.fpm.max_children_per_core` (10 by default) multiplied by the cores. The panel reads pool files under `/etc/php/*/fpm/pool.d`, `/etc/php-fpm.d` and `/usr/local/etc/php-fpm.d`, and worker memory from `/proc`.
+
+When the web process cannot read the pool files or the workers (a container, a non-Linux host, a restricted `open_basedir`), the panel says `pm.max_children: not measured` and makes no recommendation. Use [Measure a worker](#measure-a-worker) and the `pm.max_children` formula above by hand instead. Opcache figures come from the PHP process serving the admin request, so they match PHP-FPM, not the command line.
+
 ## Reload after a release
 
 Reload PHP-FPM after switching releases so every worker boots the new code, particularly when OPcache timestamp validation is off. Under [Octane](octane.md), reload Octane instead.

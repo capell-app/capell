@@ -80,6 +80,7 @@ use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Health\HostBusyGate;
 use Capell\Core\Contracts\Health\HostMetricsSource;
+use Capell\Core\Contracts\Health\ServerSettingsReader;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
@@ -195,6 +196,7 @@ use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\HostMonitor\HostLoadGate;
 use Capell\Core\Support\HostMonitor\LocalHostMetricsSource;
+use Capell\Core\Support\HostMonitor\LocalServerSettingsReader;
 use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Http\ProcessHostAddressResolver;
 use Capell\Core\Support\Install\InstallPatchRegistry;
@@ -1129,6 +1131,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(SchedulerRunRecorder::class);
         $this->app->tag([SchedulerRunRecorder::class], Resettable::TAG);
         $this->app->bind(HostMetricsSource::class, LocalHostMetricsSource::class);
+        $this->app->bind(ServerSettingsReader::class, LocalServerSettingsReader::class);
         $this->app->bind(HostBusyGate::class, HostLoadGate::class);
 
         Event::listen(ScheduledTaskStarting::class, static function (): void {

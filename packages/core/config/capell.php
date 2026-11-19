@@ -96,6 +96,12 @@ return [
                 'warning_used_percent' => (float) env('CAPELL_HEALTH_HOST_SWAP_WARNING', 60),
                 'critical_used_percent' => (float) env('CAPELL_HEALTH_HOST_SWAP_CRITICAL', 90),
             ],
+            // Limits behind the Recommended settings panel on Site Health: the share of RAM PHP-FPM
+            // workers may use, and the most workers worth running for each core.
+            'fpm' => [
+                'memory_share' => (float) env('CAPELL_HEALTH_HOST_FPM_MEMORY_SHARE', 0.6),
+                'max_children_per_core' => (int) env('CAPELL_HEALTH_HOST_FPM_MAX_CHILDREN_PER_CORE', 10),
+            ],
             // CPU seconds one scheduler run uses, as a share of what the cores can supply in a minute,
             // and how long a run takes. A run that lasts a minute overlaps the next one.
             'scheduler' => [
