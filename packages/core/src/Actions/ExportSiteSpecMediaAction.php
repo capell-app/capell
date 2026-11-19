@@ -70,7 +70,7 @@ final class ExportSiteSpecMediaAction
             if ($reason !== null) {
                 $omitted[] = (string) __('capell-core::message.site_spec_export_media_item', [
                     'item' => $candidate['slug'] === null ? (string) __('capell-core::message.site_spec_export_media_logo') : (string) __('capell-core::message.site_spec_export_media_page', ['page' => $candidate['slug']]),
-                    'reason' => (string) __('capell-core::message.site_spec_export_media_reason_' . $reason, ['max' => CapellSiteSpecConstraints::MAX_MEDIA_IMAGES]),
+                    'reason' => $reason,
                 ]);
 
                 continue;
@@ -106,15 +106,15 @@ final class ExportSiteSpecMediaAction
         $parts = $url === null ? false : parse_url($url);
 
         return match (true) {
-            $url === null || ! is_array($parts) => 'no_address',
-            config('filesystems.disks.' . $media->disk . '.visibility') !== 'public' => 'private_disk',
-            strlen($url) > CapellSiteSpecConstraints::MAX_REMOTE_URL_LENGTH => 'long_address',
-            strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment']) => 'not_https',
-            $origin !== null && $this->origin($url) !== $origin => 'other_origin',
-            ! in_array(strtolower((string) $media->mime_type), self::IMAGE_MIME_TYPES, true) => 'not_image',
-            (int) $media->size > CapellSiteSpecConstraints::MAX_MEDIA_FILE_BYTES => 'too_large',
-            $totalBytes + (int) $media->size > CapellSiteSpecConstraints::MAX_MEDIA_TOTAL_BYTES => 'total_too_large',
-            $count >= CapellSiteSpecConstraints::MAX_MEDIA_IMAGES => 'too_many',
+            $url === null || ! is_array($parts) => (string) __('capell-core::message.site_spec_export_media_reason_no_address'),
+            config('filesystems.disks.' . $media->disk . '.visibility') !== 'public' => (string) __('capell-core::message.site_spec_export_media_reason_private_disk'),
+            strlen($url) > CapellSiteSpecConstraints::MAX_REMOTE_URL_LENGTH => (string) __('capell-core::message.site_spec_export_media_reason_long_address'),
+            strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment']) => (string) __('capell-core::message.site_spec_export_media_reason_not_https'),
+            $origin !== null && $this->origin($url) !== $origin => (string) __('capell-core::message.site_spec_export_media_reason_other_origin'),
+            ! in_array(strtolower((string) $media->mime_type), self::IMAGE_MIME_TYPES, true) => (string) __('capell-core::message.site_spec_export_media_reason_not_image'),
+            (int) $media->size > CapellSiteSpecConstraints::MAX_MEDIA_FILE_BYTES => (string) __('capell-core::message.site_spec_export_media_reason_too_large'),
+            $totalBytes + (int) $media->size > CapellSiteSpecConstraints::MAX_MEDIA_TOTAL_BYTES => (string) __('capell-core::message.site_spec_export_media_reason_total_too_large'),
+            $count >= CapellSiteSpecConstraints::MAX_MEDIA_IMAGES => (string) __('capell-core::message.site_spec_export_media_reason_too_many', ['max' => CapellSiteSpecConstraints::MAX_MEDIA_IMAGES]),
             default => null,
         };
     }
