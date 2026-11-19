@@ -1140,6 +1140,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         // Tasks listed in capell.health.host.deferrable_tasks are filtered as the scheduler starts, when every
         // task is registered, and caught up once it has finished, so hosts need no code change.
+        Event::listen(ScheduledTaskFinished::class, static function (ScheduledTaskFinished $event): void {
+            resolve(DeferrableTaskPolicy::class)->recordRun($event->task);
+        });
         Event::listen(CommandStarting::class, static function (CommandStarting $event): void {
             if ($event->command === 'schedule:run' && resolve(DeferrableTaskPolicy::class)->listed() !== []) {
                 ApplyDeferrableTasksAction::run(resolve(Schedule::class));

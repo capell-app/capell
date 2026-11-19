@@ -100,11 +100,36 @@ final readonly class DeferrableTaskPolicy
             return false;
         }
 
+        // A run recorded this minute (another server won a task that runs on one server only) leaves nothing owed.
+        $lastRun = $this->store->lastRunAt($name, $shared);
+
+        if ($lastRun !== null && $lastRun >= now()->startOfMinute()->getTimestamp()) {
+            return true;
+        }
+
         if ($this->store->catchUpPendingSince($name, $shared) === null) {
             $this->store->markCatchUpPending($name, now()->getTimestamp(), $shared);
         }
 
         return $this->store->catchUpPendingSince($name, $shared) !== null;
+    }
+
+    /** Remembers that a listed task ran, so a skip recorded around the same time is not caught up again. */
+    public function recordRun(Event $event): void
+    {
+        $name = $this->listedNameFor($event);
+
+        if ($name !== null) {
+            $this->store->markRan($name, now()->getTimestamp(), $this->isShared($event));
+        }
+    }
+
+    /** True when the task ran at or after the minute its owed run was recorded. */
+    public function ranSince(string $name, bool $shared, int $pendingSince): bool
+    {
+        $lastRun = $this->store->lastRunAt($name, $shared);
+
+        return $lastRun !== null && $lastRun >= $pendingSince - $pendingSince % 60;
     }
 
     /** The event's own conditions (when, skip, between) without this host's deferral filter. */

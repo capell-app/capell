@@ -56,7 +56,16 @@ final class CatchUpDeferredTasksAction
 
             $shared = $this->policy->isShared($event);
 
-            if ($this->store->catchUpPendingSince($name, $shared) === null) {
+            $pendingSince = $this->store->catchUpPendingSince($name, $shared);
+
+            if ($pendingSince === null) {
+                continue;
+            }
+
+            // It ran on its own since it was marked owed, here or, for a one-server task, on another node.
+            if ($this->policy->ranSince($name, $shared, $pendingSince)) {
+                $this->store->clearCatchUpPending($name, $shared);
+
                 continue;
             }
 
@@ -80,14 +89,16 @@ final class CatchUpDeferredTasksAction
                 continue;
             }
 
-            // Another server already holds this minute's turn for a task that runs on one server only.
-            if ($shared && ! $schedule->serverShouldRun($event, $now)) {
-                continue;
-            }
-
             $date = $now->format('Y-m-d');
 
             if (! $this->store->claimCatchUp($name, $date, $shared)) {
+                continue;
+            }
+
+            // Another server already holds this minute's turn for a task that runs on one server only.
+            if ($shared && ! $schedule->serverShouldRun($event, $now)) {
+                $this->store->releaseCatchUp($name, $date, $shared);
+
                 continue;
             }
 

@@ -292,3 +292,25 @@ it('does not run a withoutOverlapping task over a run that is still going and ke
 
     expect(array_count_values(runScheduler())['nightly'] ?? 0)->toBe(1);
 });
+
+it('does not catch a one-server task up again when a busy node records a skip after another node ran it', function (): void {
+    Config::set('capell.health.host.deferrable_tasks', ['app:nightly']);
+    scheduledTask('app:nightly')->onOneServer();
+    $this->travelTo(today()->addHours(3));
+
+    // Node A is calm and wins the one-server mutex; node B is critical in the same minute and records a skip.
+    Config::set('capell.node_id', 'node-a');
+    setHostLoad(0.2, 'node-a');
+    $ran = runScheduler();
+
+    Config::set('capell.node_id', 'node-b');
+    setHostLoad(9.0, 'node-b');
+    $ran = [...$ran, ...runScheduler()];
+
+    $this->travelTo(today()->addHours(10));
+    Config::set('capell.node_id', 'node-b');
+    setHostLoad(0.2, 'node-b');
+    $ran = [...$ran, ...runScheduler()];
+
+    expect(array_count_values($ran)['nightly'] ?? 0)->toBe(1);
+});

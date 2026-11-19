@@ -211,6 +211,19 @@ final readonly class HostMonitorStore
         }
     }
 
+    /** Unix time a listed task last finished, recorded like the pending marker: shared for onOneServer tasks. */
+    public function lastRunAt(string $task, bool $shared = false): ?int
+    {
+        $at = $this->get('last-run:' . $this->taskKey($task, $shared));
+
+        return is_int($at) || (is_string($at) && ctype_digit($at)) ? (int) $at : null;
+    }
+
+    public function markRan(string $task, int $at, bool $shared = false): void
+    {
+        $this->put('last-run:' . $this->taskKey($task, $shared), $at, self::DEFERRAL_SECONDS);
+    }
+
     /**
      * Claims the one catch-up a task may have on a date. Atomic on stores that support add(), so two nodes
      * sharing a cache cannot both win. False when it was already claimed or the store failed.
