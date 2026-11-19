@@ -48,3 +48,14 @@ it('keeps parenthesised and PHP 8.4 new-expression method calls parseable throug
     'parenthesised with braces' => ['(new ArrayObject())->count()'],
     'PHP 8.4 unparenthesised' => ['new ArrayObject()->count()'],
 ]);
+
+it('runs the syntax check on changed PHP files straight after Pint in lint:changed', function (): void {
+    $script = (string) file_get_contents(dirname(__DIR__, 2) . '/scripts/lint-changed.sh');
+
+    $pint = strpos($script, '"$PINT_BINARY" --parallel "${PHP_FILES[@]}"');
+    $syntax = strpos($script, './scripts/check-php-syntax.sh "${PHP_FILES[@]}"');
+
+    expect($pint)->not->toBeFalse()
+        ->and($syntax)->not->toBeFalse()
+        ->and($syntax)->toBeGreaterThan($pint);
+});
