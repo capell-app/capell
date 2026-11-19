@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\SiteDomains\LoadSiteRoutingCandidatesAction;
 use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
 use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Models\Site;
@@ -35,7 +36,7 @@ final class LoadSiteDomainFromUrlAction
             return null;
         }
 
-        $sites ??= Site::query()->excludingPreview()->with('siteDomains')->get();
+        $sites ??= LoadSiteRoutingCandidatesAction::run();
         $resolution = ResolveSiteDomainAction::run($target, $sites);
 
         if ($resolution === null) {

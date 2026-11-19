@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\SiteDomains\LoadSiteRoutingCandidatesAction;
 use Capell\Core\Actions\ValidateStoredViewSelectorsAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
@@ -104,6 +105,7 @@ class SiteObserver
             CacheEnum::LanguageByIdOrSite,
             CacheEnum::RelationExists,
         ]);
+        LoadSiteRoutingCandidatesAction::forgetAfterCommit($site->getConnection());
 
         if ($site->wasChanged('theme_id')) {
             event(new FrontendSurrogateKeysInvalidated(['site-' . $site->getKey()]));

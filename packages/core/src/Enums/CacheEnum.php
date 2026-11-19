@@ -55,6 +55,8 @@ enum CacheEnum: string
 
     case ModelDefault = 'model-default';
 
+    case SiteRoutingCandidates = 'routing-candidate-sites';
+
     /**
      * Sitemap pages key for site/language.
      */
