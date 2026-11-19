@@ -410,7 +410,7 @@ it('fails the generated suite when the package breaks the companion package cont
     $directory = makeStandaloneExtensionConsumer();
     // A public view that carries an editor marker passes the manifest test, so only the generated contract test catches it.
     File::ensureDirectoryExists($directory . '/resources/views');
-    File::put($directory . '/resources/views/card.blade.php', '<div data-capell-edit="title">{{ $title }}</div>');
+    File::put($directory . '/resources/views/card.blade.php', '<div data-capell-authoring="title">{{ $title }}</div>');
 
     $process = runStandaloneExtensionSuite($directory);
 
