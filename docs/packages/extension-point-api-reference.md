@@ -261,6 +261,14 @@ downstream aliases are removed in the next major release.
 | `Capell\Admin\Contracts\SettingsSchemaContract`               | `Capell\Core\Contracts\SettingsSchemaContract`               | Settings discovery accepts the Core contract.                                                                         |
 | `Capell\Admin\Contracts\Themes\ThemePreviewRendererInterface` | `Capell\Core\Contracts\Themes\ThemePreviewRendererInterface` | The frontend renderer is bound to the Core contract.                                                                  |
 
+## Retained Frontend Rule Condition Contract
+
+The frontend rule engine has been removed and nothing evaluates rule conditions.
+`Capell\Frontend\Contracts\FrontendRuleCondition` and `Capell\Frontend\Data\FrontendRuleContextData`
+remain, deprecated, only so classes in already-published Access Gate releases that implement
+them still load. Their registry is not restored, so those releases skip registering their
+conditions. Do not implement the contract in new code. Both are removed in 2.0.
+
 ## Rules
 
 - Register in the package that owns the behaviour.

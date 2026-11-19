@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Frontend\Tests\Unit\Legacy\Fixtures;
+
+use Capell\Frontend\Contracts\FrontendRuleCondition;
+use Capell\Frontend\Data\FrontendRuleContextData;
+use Illuminate\Http\Request;
+
+// Same shape as the conditions published Access Gate releases ship. Kept out of
+// PHPStan's .php scan because it implements the deprecated contract on purpose.
+final class PublishedRuleCondition implements FrontendRuleCondition
+{
+    public static function contextFor(Request $request): FrontendRuleContextData
+    {
+        return new FrontendRuleContextData($request);
+    }
+
+    public function key(): string
+    {
+        return 'published_rule_condition';
+    }
+
+    public function evaluate(array $parameters, FrontendRuleContextData $context): bool
+    {
+        return $context->request->getHost() === ($parameters['host'] ?? null);
+    }
+}
