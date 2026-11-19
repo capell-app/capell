@@ -12,7 +12,9 @@ use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Support\Properties\PropertyValueEquality;
+use Capell\Core\Support\Properties\PropertyValueValidator;
 use DateTimeInterface;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -77,8 +79,26 @@ final class ApplySiteSpecPagePropertiesAction
             return [];
         }
 
-        [$values] = $this->values($page, $slug, $properties, $languageId);
+        [$values, $errorKeys] = $this->values($page, $slug, $properties, $languageId);
         $changed = [];
+        $definitions = ResolveEffectiveDefinitionsAction::run($page);
+
+        // Planning refuses what applying refuses, so a plan that succeeds can be applied.
+        foreach ($values as $key => $value) {
+            $errorKey = $errorKeys[$value['definition']->key] ?? sprintf('pages.%s.properties.%s', $slug, $key);
+
+            try {
+                resolve(PropertyValueValidator::class)->validate($page, $value['data'], $definitions);
+            } catch (ValidationException $exception) {
+                throw ValidationException::withMessages([$errorKey => Arr::flatten($exception->errors())]);
+            } catch (PropertyValueValidationException $exception) {
+                throw ValidationException::withMessages([$errorKey => $exception->getMessage()]);
+            }
+
+            if ($value['definition']->promotedField !== null) {
+                throw ValidationException::withMessages([$errorKey => PropertyValueValidationException::promotedPropertyDirectWrite($value['data']->propertyKey, $value['definition']->promotedField)->getMessage()]);
+            }
+        }
 
         foreach ($values as $key => $value) {
             $stored = PagePropertyValue::query()

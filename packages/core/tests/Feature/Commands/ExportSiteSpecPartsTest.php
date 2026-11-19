@@ -26,6 +26,7 @@ use Capell\Core\Support\SiteSpec\SiteSpecExporterRegistry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function (): void {
     CreateDefaultLanguagesAction::run(['en']);
@@ -244,4 +245,17 @@ it('leaves out images beyond the origin, size and count an import accepts', func
     expect($export->spec->media->logo)->toBeNull()
         ->and($export->spec->media->images)->toHaveKey('about')
         ->and($export->omittedParts[SiteSpecExportData::OMITTED_MEDIA][0])->toContain('logo', 'too large');
+});
+
+it('refuses in the plan a property value that applying would refuse', function (): void {
+    $site = partsSite();
+    partsProperty($site, 'headline', PropertyType::Text, 'Hello', promotedField: 'title');
+    partsProperty($site, 'sku', PropertyType::Number, 1);
+    $payload = ExportSiteSpecAction::run($site, true)->spec->toArray();
+
+    $payload['pages'][1]['properties'] = ['garage.details.headline' => 'Changed'];
+    expect(fn (): mixed => PlanSiteSpecAction::run(CapellSiteSpecData::validateAndCreate($payload), $site))->toThrow(ValidationException::class);
+
+    $payload['pages'][1]['properties'] = ['garage.details.sku' => 'not a number'];
+    expect(fn (): mixed => PlanSiteSpecAction::run(CapellSiteSpecData::validateAndCreate($payload), $site))->toThrow(ValidationException::class);
 });
