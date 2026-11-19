@@ -15,6 +15,8 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Notifications\Livewire\Notifications;
+use Filament\Notifications\Notification;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -409,6 +411,21 @@ it('can not delete language if it is used', function (): void {
         ->assertCountTableRecords(1);
 
     assertDatabaseHas($language, ['id' => $language->id]);
+});
+
+it('counts a site once in the blocked language delete notice however many domains it has in that language', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->language($language)->create();
+    SiteDomain::factory()->count(2)->recycle($site)->state(['language_id' => $language->id])->create();
+
+    Livewire::test(ManageLanguages::class)
+        ->callAction(TestAction::make(DeleteAction::class)->table($language));
+
+    $notifications = new Notifications;
+    $notifications->mount();
+
+    expect($notifications->notifications->map(fn (Notification $notification): ?string => $notification->getBody())->all())
+        ->toContain(trans_choice('capell-admin::message.language_not_deletable_info', 1, ['count' => 1]));
 });
 
 it('can group delete languages', function (): void {
