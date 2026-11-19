@@ -297,6 +297,9 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     private bool $pageRestoreCascadePrepared = false;
 
+    /** @var array<string, mixed> */
+    private array $deletionFormData = [];
+
     public static function hasPageHierarchy(): bool
     {
         return true;
@@ -457,6 +460,28 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     public function restoreForSite(): bool
     {
         return RestorePageCascadeRecordsAction::run($this, $this->restoreCascadeMember(...), true);
+    }
+
+    /**
+     * Hold the editor's deletion form data until the observer announces the deletion, so the
+     * page-deleted event is dispatched once with that data rather than once without it and once with.
+     *
+     * @param  array<string, mixed>  $formData
+     */
+    public function rememberDeletionFormData(array $formData): static
+    {
+        $this->deletionFormData = $formData;
+
+        return $this;
+    }
+
+    /** @return array<string, mixed> */
+    public function pullDeletionFormData(): array
+    {
+        $formData = $this->deletionFormData;
+        $this->deletionFormData = [];
+
+        return $formData;
     }
 
     public function isPageRestoreCascadePrepared(): bool

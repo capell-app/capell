@@ -37,3 +37,18 @@ it('dispatches PageDeleted with form data', function (): void {
         fn (PageDeleted $event): bool => $event->page->is($page) && $event->formData === ['custom_key' => 'value'],
     );
 });
+
+it('announces an admin deletion once, carrying the form data, so a chosen redirect is not overwritten', function (): void {
+    $site = Site::factory()->createOne();
+    $page = Page::factory()->createOne(['site_id' => $site->id]);
+    $events = [];
+
+    Event::listen(PageDeleted::class, function (PageDeleted $event) use (&$events): void {
+        $events[] = $event->formData;
+    });
+
+    PageDeletedAction::run($page, ['redirect_to' => '/docs']);
+
+    expect($events)->toBe([['redirect_to' => '/docs']])
+        ->and(Page::onlyTrashed()->whereKey($page->id)->exists())->toBeTrue();
+});
