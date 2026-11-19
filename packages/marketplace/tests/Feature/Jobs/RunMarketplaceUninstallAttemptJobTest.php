@@ -11,11 +11,7 @@ use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
-use Capell\Marketplace\Contracts\MarketplaceComposerRequirementRemover;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
-use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
-use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
-use Capell\Marketplace\Data\MarketplaceComposerRemovalRequestData;
 use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
 use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
 use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
@@ -28,6 +24,8 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
 use Capell\Marketplace\Tests\Support\JobUninstallDataDeleter;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
+use Capell\Marketplace\Tests\Support\UninstallRecordingPublisher;
+use Capell\Marketplace\Tests\Support\UninstallRecordingRemover;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Notification;
 
@@ -442,42 +440,6 @@ it('does not verify a package during uninstall', function (): void {
     runUninstallJob($attempt);
     expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
 });
-
-final class UninstallRecordingPublisher implements MarketplaceComposerChangePublisher
-{
-    /** @var list<string> */
-    public array $published = [];
-
-    public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
-    {
-        $this->published[] = $request->composerName;
-
-        return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://example.test/pull/1');
-    }
-}
-
-final class UninstallRecordingRemover implements MarketplaceComposerChangePublisher, MarketplaceComposerRequirementRemover
-{
-    /** @var list<string> */
-    public array $published = [];
-
-    /** @var list<list<string>> */
-    public array $removed = [];
-
-    public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
-    {
-        $this->published[] = $request->composerName;
-
-        return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://example.test/pull/1');
-    }
-
-    public function remove(MarketplaceComposerRemovalRequestData $request): MarketplaceComposerPublicationResultData
-    {
-        $this->removed[] = $request->composerNames;
-
-        return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://example.test/pull/2');
-    }
-}
 
 function tagUninstallPublisher(MarketplaceComposerChangePublisher $publisher): void
 {
