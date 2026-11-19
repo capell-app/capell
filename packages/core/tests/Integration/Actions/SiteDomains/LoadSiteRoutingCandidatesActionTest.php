@@ -10,6 +10,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
@@ -94,4 +95,42 @@ it('forgets candidates a concurrent request cached while the domain change was u
     });
 
     expect(resolveRoutedSiteId('https://after-commit.test/'))->toBe($site->id);
+});
+
+it('stops a long-lived worker routing a host another process removed', function (): void {
+    $site = Site::factory()->createOne();
+    SiteDomain::factory()->createOne(['site_id' => $site->id, 'domain' => 'worker.test', 'scheme' => 'https', 'path' => null, 'status' => true]);
+
+    $resolveInThisWorker = static fn (): ?int => ResolveSiteDomainAction::run(
+        SiteRequestTargetData::fromUrl('https://worker.test/'),
+        LoadSiteRoutingCandidatesAction::run(),
+    )?->siteDomainForRequest()->site_id;
+
+    expect($resolveInThisWorker())->toBe($site->id);
+
+    // Another process deletes the domain: its observer forgets the shared entry, which
+    // cannot reach this worker's memory.
+    DB::table('site_domains')->where('domain', 'worker.test')->delete();
+    Cache::store()->flush();
+
+    expect($resolveInThisWorker())->toBeNull();
+});
+
+it('forgets candidates cached inside a transaction that rolls back', function (): void {
+    $site = Site::factory()->createOne();
+    $domain = SiteDomain::factory()->createOne(['site_id' => $site->id, 'domain' => 'kept.test', 'scheme' => 'https', 'path' => null, 'status' => true]);
+
+    try {
+        DB::transaction(function () use ($domain): void {
+            $domain->update(['domain' => 'discarded.test']);
+            // A resolution inside the transaction caches the uncommitted host.
+            resolveRoutedSiteId('https://discarded.test/');
+
+            throw new RuntimeException('rolled back');
+        });
+    } catch (RuntimeException) {
+    }
+
+    expect(resolveRoutedSiteId('https://kept.test/'))->toBe($site->id)
+        ->and(resolveRoutedSiteId('https://discarded.test/'))->toBeNull();
 });

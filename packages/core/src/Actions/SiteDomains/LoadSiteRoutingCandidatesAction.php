@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\SiteDomains;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -31,15 +32,20 @@ final class LoadSiteRoutingCandidatesAction
     public const int TTL_SECONDS = 3600;
 
     /**
-     * Forget the candidates now, so this request reads the change, and again after the
-     * surrounding transaction commits, so a concurrent request cannot keep the
-     * pre-commit rows it cached while the transaction was open.
+     * Forget the candidates now, so this request reads the change, and again when the
+     * surrounding transaction commits or rolls back, so no process keeps rows cached
+     * while the transaction was open.
      */
     public static function forgetAfterCommit(Connection $connection): void
     {
         self::forget();
 
         $connection->afterCommit(static function (): void {
+            self::forget();
+        });
+
+        // A resolution inside the transaction may have cached rows that a rollback discards.
+        $connection->afterRollBack(static function (): void {
             self::forget();
         });
     }
@@ -52,20 +58,31 @@ final class LoadSiteRoutingCandidatesAction
     /** @return Collection<int, Site> */
     public function handle(): Collection
     {
-        $sites = CapellCore::rememberCache(
-            CacheEnum::SiteRoutingCandidates,
-            static fn (): Collection => Site::query()->excludingPreview()->with('siteDomains')->get(),
-            self::TTL_SECONDS,
-        );
+        if (config('capell.disable_cache') === true) {
+            return $this->query();
+        }
+
+        $cache = resolve(CapellCacheManager::class);
+        $key = CacheEnum::SiteRoutingCandidates->value;
+
+        // Read the shared store every time: a long-lived queue worker's per-process copy is
+        // never reached by another process's forget, so it could keep routing a removed host.
+        $sites = $cache->getFreshFromCache($key);
 
         if ($sites instanceof Collection) {
             /** @var Collection<int, Site> $sites */
             return $sites;
         }
 
-        // An unreadable cached value must never decide routing.
-        self::forget();
+        $sites = $this->query();
+        $cache->setToCache($key, $sites, self::TTL_SECONDS);
 
+        return $sites;
+    }
+
+    /** @return Collection<int, Site> */
+    private function query(): Collection
+    {
         return Site::query()->excludingPreview()->with('siteDomains')->get();
     }
 }
