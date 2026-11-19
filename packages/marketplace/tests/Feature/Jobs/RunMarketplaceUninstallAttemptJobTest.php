@@ -10,7 +10,12 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
+use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
+use Capell\Marketplace\Contracts\MarketplaceComposerRequirementRemover;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
+use Capell\Marketplace\Data\MarketplaceComposerRemovalRequestData;
 use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
 use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
 use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
@@ -437,3 +442,116 @@ it('does not verify a package during uninstall', function (): void {
     runUninstallJob($attempt);
     expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded);
 });
+
+final class UninstallRecordingPublisher implements MarketplaceComposerChangePublisher
+{
+    /** @var list<string> */
+    public array $published = [];
+
+    public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
+    {
+        $this->published[] = $request->composerName;
+
+        return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://example.test/pull/1');
+    }
+}
+
+final class UninstallRecordingRemover implements MarketplaceComposerChangePublisher, MarketplaceComposerRequirementRemover
+{
+    /** @var list<string> */
+    public array $published = [];
+
+    /** @var list<list<string>> */
+    public array $removed = [];
+
+    public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
+    {
+        $this->published[] = $request->composerName;
+
+        return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://example.test/pull/1');
+    }
+
+    public function remove(MarketplaceComposerRemovalRequestData $request): MarketplaceComposerPublicationResultData
+    {
+        $this->removed[] = $request->composerNames;
+
+        return new MarketplaceComposerPublicationResultData(pullRequestUrl: 'https://example.test/pull/2');
+    }
+}
+
+function tagUninstallPublisher(MarketplaceComposerChangePublisher $publisher): void
+{
+    app()->instance('test.marketplace.uninstall-publisher', $publisher);
+    app()->tag(['test.marketplace.uninstall-publisher'], MarketplaceComposerChangePublisher::TAG);
+}
+
+it('asks the deployment publisher to drop the requirement once the package is removed', function (): void {
+    Notification::fake();
+    registerRemovablePackage();
+    idleComposerRunner();
+    $removals = [];
+    fakeSuccessfulPackageRemoval($removals);
+    $publisher = new UninstallRecordingRemover;
+    tagUninstallPublisher($publisher);
+
+    $attempt = uninstallAttempt(deletePackage: true);
+    runUninstallJob($attempt);
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($publisher->removed)->toBe([[UNINSTALL_PACKAGE_NAME]])
+        // publish() adds a requirement: an uninstall must never call it.
+        ->and($publisher->published)->toBe([])
+        ->and(data_get($attempt->deployment, 'status'))->toBe('published')
+        ->and(data_get($attempt->deployment, 'reference'))->toBe('https://example.test/pull/2')
+        ->and(uninstallTimelineHas($attempt, 'timeline_requirement_removal_published'))->toBeTrue();
+});
+
+it('tells the person to remove the requirement by hand when the publisher can only add one', function (): void {
+    Notification::fake();
+    registerRemovablePackage();
+    idleComposerRunner();
+    $removals = [];
+    fakeSuccessfulPackageRemoval($removals);
+    $publisher = new UninstallRecordingPublisher;
+    tagUninstallPublisher($publisher);
+
+    $attempt = uninstallAttempt(deletePackage: true);
+    runUninstallJob($attempt);
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($publisher->published)->toBe([])
+        // An unavailable handoff is what lists the attempt as needing attention.
+        ->and(data_get($attempt->deployment, 'status'))->toBe('unavailable')
+        ->and(data_get($attempt->deployment, 'failure_reason'))->toContain(UNINSTALL_PACKAGE_NAME)
+        ->and(data_get($attempt->deployment, 'failure_reason'))->toContain('composer.json in the deployment repository')
+        ->and(uninstallTimelineHas($attempt, 'timeline_requirement_removal_manual'))->toBeTrue();
+});
+
+it('leaves the deployment source alone when the uninstall kept the package or rolled back', function (bool $deletePackage, bool $failHealth): void {
+    Notification::fake();
+    registerRemovablePackage();
+    idleComposerRunner();
+    fakeUninstallComposerRestore();
+    $removals = [];
+    fakeSuccessfulPackageRemoval($removals);
+
+    if ($failHealth) {
+        failUninstallHealthCheck('The site did not boot after the uninstall.');
+    }
+
+    $publisher = new UninstallRecordingRemover;
+    tagUninstallPublisher($publisher);
+
+    $attempt = uninstallAttempt(deletePackage: $deletePackage);
+    runUninstallJob($attempt);
+    $attempt->refresh();
+
+    expect($publisher->removed)->toBe([])
+        ->and($publisher->published)->toBe([])
+        ->and($attempt->deployment)->toBeNull();
+})->with([
+    'package files kept' => [false, false],
+    'health check rolled back' => [true, true],
+]);

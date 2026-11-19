@@ -1957,6 +1957,16 @@
             "contractTestId": null
         },
         {
+            "id": "marketplace.contract.composer-requirement-remover",
+            "kind": "contract",
+            "identifier": "Capell\\Marketplace\\Contracts\\MarketplaceComposerRequirementRemover",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Optional publisher companion that drops an uninstalled extension's requirement from the deployment source.",
+            "contractTestId": null
+        },
+        {
             "id": "marketplace.dto.composer-publication-request",
             "kind": "dto",
             "identifier": "Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData",
@@ -1974,6 +1984,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed Composer publication result data.",
+            "contractTestId": null
+        },
+        {
+            "id": "marketplace.dto.composer-removal-request",
+            "kind": "dto",
+            "identifier": "Capell\\Marketplace\\Data\\MarketplaceComposerRemovalRequestData",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed Composer requirement removal request data.",
             "contractTestId": null
         },
         {

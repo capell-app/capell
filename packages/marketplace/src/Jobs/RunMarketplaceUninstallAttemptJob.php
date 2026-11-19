@@ -9,6 +9,7 @@ use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\NotifyMarketplaceUninstallCompletedAction;
+use Capell\Marketplace\Actions\RemoveMarketplaceComposerRequirementAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
@@ -309,9 +310,11 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
     protected function announceSucceededAttempt(MarketplaceInstallAttempt $attempt): void
     {
         $runtimeNotice = $this->propagateRuntimeState($attempt);
+        $requirementNotice = $this->removeDeploymentRequirement($attempt);
+        $notice = implode(' ', array_filter([$runtimeNotice, $requirementNotice], static fn (?string $part): bool => is_string($part) && $part !== ''));
 
         try {
-            NotifyMarketplaceUninstallCompletedAction::run($attempt->refresh(), $runtimeNotice);
+            NotifyMarketplaceUninstallCompletedAction::run($attempt->refresh(), $notice !== '' ? $notice : null);
             $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Success, 'timeline_notification_sent', MarketplaceInstallFailureStage::Notification);
         } catch (Throwable $throwable) {
             report($throwable);
@@ -319,6 +322,61 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
                 'reason' => $throwable->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Have the deployment source drop the requirement this uninstall removed,
+     * so the next deploy does not install the extension again.
+     *
+     * Runs only after the removal succeeded: asking earlier would take the
+     * requirement out of the deployment source for an uninstall that might yet
+     * roll back. Like everything in announceSucceededAttempt it must not throw,
+     * so a publisher failure becomes a warning and a notice telling the person
+     * what is left to do by hand.
+     *
+     * @return string|null What the person still has to do, for the notification.
+     */
+    private function removeDeploymentRequirement(MarketplaceInstallAttempt $attempt): ?string
+    {
+        if (! $this->options($attempt)->deletePackage) {
+            return null;
+        }
+
+        $packageNames = $this->packageNames($attempt);
+
+        try {
+            $removal = RemoveMarketplaceComposerRequirementAction::run($attempt, $packageNames);
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $removal = ['status' => 'failed'];
+        }
+
+        if ($removal['status'] === 'not_needed') {
+            return null;
+        }
+
+        $packages = implode(', ', $packageNames);
+        [$level, $translationKey, $notice] = match ($removal['status']) {
+            'published' => [MarketplaceInstallAttemptEventLevel::Success, 'timeline_requirement_removal_published', null],
+            'unavailable' => [MarketplaceInstallAttemptEventLevel::Warning, 'timeline_requirement_removal_manual', (string) __('capell-marketplace::marketplace.uninstalls.requirement_removal_manual', ['packages' => $packages])],
+            default => [MarketplaceInstallAttemptEventLevel::Warning, 'timeline_requirement_removal_failed', (string) __('capell-marketplace::marketplace.uninstalls.requirement_removal_failed', ['packages' => $packages])],
+        };
+
+        // Kept on the attempt the way an install keeps its handoff, so the
+        // operations page shows the reference and, until someone resolves it,
+        // lists an unavailable or failed removal as needing attention.
+        $deployment = $notice === null
+            ? $removal
+            : [...$removal, 'failure_reason' => $notice, 'fallback' => 'manual_requirement_removal'];
+
+        try {
+            $attempt->refresh()->forceFill(['deployment' => $deployment])->save();
+            $this->recordEvent($attempt, $level, $translationKey, MarketplaceInstallFailureStage::DeploymentHandoff, $removal);
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+
+        return $notice;
     }
 
     private function options(MarketplaceInstallAttempt $attempt): MarketplaceUninstallOptionsData
