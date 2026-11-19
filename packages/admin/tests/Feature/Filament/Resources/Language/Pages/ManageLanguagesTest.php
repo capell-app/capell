@@ -6,16 +6,17 @@ use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\Components\Tables\Actions\ReplicateAction;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Languages\Pages\ManageLanguages;
+use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Models\Contracts\FilamentUser;
-use Filament\Notifications\Livewire\Notifications;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -419,18 +420,19 @@ it('tells the editor how many sites still use a language they cannot delete', fu
     SiteDomain::factory()->count(2)->recycle($site)->state(['language_id' => $language->id])->create();
 
     Livewire::test(ManageLanguages::class)
-        ->callAction(TestAction::make(DeleteAction::class)->table($language));
-
-    $notifications = new Notifications;
-    $notifications->mount();
-
-    expect($notifications->notifications->map(fn (Notification $notification): array => [
-        'title' => $notification->getTitle(),
-        'body' => $notification->getBody(),
-    ])->values()->all())->toBe([[
-        'title' => __('capell-admin::message.language_not_deletable', ['name' => e($language->name)]),
-        'body' => 'It is still used by 1 site.',
-    ]]);
+        ->callAction(TestAction::make(DeleteAction::class)->table($language))
+        ->assertNotified(
+            Notification::make('language_not_deletable')
+                ->warning()
+                ->title(__('capell-admin::message.language_not_deletable', ['name' => e($language->name)]))
+                ->body('It is still used by 1 site.')
+                ->actions([
+                    Action::make('sites')
+                        ->label(__('capell-admin::button.view_sites'))
+                        ->button()
+                        ->url(SiteResource::getUrl('index', ['filters[filter][language_id]' => $language->id])),
+                ]),
+        );
 });
 
 it('words the language in use notice for none, one and several sites', function (int $count, string $expected): void {
