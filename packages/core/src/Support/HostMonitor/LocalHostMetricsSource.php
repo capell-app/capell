@@ -6,6 +6,7 @@ namespace Capell\Core\Support\HostMonitor;
 
 use Capell\Core\Contracts\Health\HostMetricsSource;
 use Capell\Core\Data\Diagnostics\HostSampleData;
+use Illuminate\Support\Facades\Queue;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -51,7 +52,28 @@ final readonly class LocalHostMetricsSource implements HostMetricsSource
             schedulerTasks: $scheduler['tasks'] ?? 0,
             schedulerProcesses: $scheduler['processes'] ?? 0,
             slowestSchedulerTasks: $scheduler['slowest'] ?? [],
+            queueDepth: $this->queueDepth(),
         );
+    }
+
+    /** Waiting jobs on the default queue: one cheap size read, and null where the driver cannot answer it. */
+    private function queueDepth(): ?int
+    {
+        if (config('capell.health.host.history.enabled', true) !== true) {
+            return null;
+        }
+
+        $default = config('queue.default');
+
+        if (! is_string($default) || in_array($default, ['sync', 'null', 'deferred', 'background'], true)) {
+            return null;
+        }
+
+        try {
+            return max(0, Queue::size());
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function cores(): int

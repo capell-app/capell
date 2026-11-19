@@ -33,6 +33,7 @@ final class HostSampleData extends Data
         public readonly int $schedulerTasks = 0,
         public readonly int $schedulerProcesses = 0,
         public readonly array $slowestSchedulerTasks = [],
+        public readonly ?int $queueDepth = null,
     ) {}
 
     public function loadRatio(): float

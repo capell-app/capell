@@ -8,7 +8,9 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Actions\HostMonitor\PruneHostLoadRollupsAction;
 use Capell\Core\Actions\HostMonitor\RecordHostSampleAction;
+use Capell\Core\Actions\HostMonitor\RollUpHostLoadAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
@@ -76,6 +78,7 @@ use Capell\Core\Contracts\Capabilities\LayoutWidgetHost;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Contracts\Health\HostBusyGate;
 use Capell\Core\Contracts\Health\HostMetricsSource;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
@@ -190,6 +193,7 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\HostMonitor\HostLoadGate;
 use Capell\Core\Support\HostMonitor\LocalHostMetricsSource;
 use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Http\ProcessHostAddressResolver;
@@ -1123,6 +1127,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(SchedulerRunRecorder::class);
         $this->app->tag([SchedulerRunRecorder::class], Resettable::TAG);
         $this->app->bind(HostMetricsSource::class, LocalHostMetricsSource::class);
+        $this->app->bind(HostBusyGate::class, HostLoadGate::class);
 
         Event::listen(ScheduledTaskStarting::class, static function (): void {
             resolve(SchedulerRunRecorder::class)->starting();
@@ -1138,6 +1143,18 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             })
                 ->name('capell:host-monitor-sample')
                 ->everyMinute();
+
+            $schedule->call(static function (): void {
+                resolve(RollUpHostLoadAction::class)->handle();
+            })
+                ->name('capell:host-monitor-rollup')
+                ->everyFiveMinutes();
+
+            $schedule->call(static function (): void {
+                resolve(PruneHostLoadRollupsAction::class)->handle();
+            })
+                ->name('capell:host-monitor-prune')
+                ->dailyAt('03:25');
         });
 
         return $this;

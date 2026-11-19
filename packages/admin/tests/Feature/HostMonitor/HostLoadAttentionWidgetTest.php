@@ -6,6 +6,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\HostLoadAttentionFilamentWidget;
 use Capell\Admin\Support\Diagnostics\HostLoadSiteHealthReportExtender;
 use Capell\Core\Data\Diagnostics\HostAssessmentData;
 use Capell\Core\Data\Diagnostics\HostSampleData;
+use Capell\Core\Models\HostLoadRollup;
 use Capell\Core\Support\HostMonitor\HostMonitorStore;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Cache;
@@ -126,4 +127,37 @@ it('adds no Site Health section while monitoring is turned off', function (): vo
     Config::set('capell.health.host.enabled', false);
 
     expect(resolve(HostLoadSiteHealthReportExtender::class)->sections())->toBe([]);
+});
+
+it('shows week trends, the busiest hours and plain-English advice from the stored history, for that server only', function (): void {
+    recordHostReadings('web1', 2);
+    recordHostReadings('web2', 2);
+    $hour = now()->startOfHour()->subHours(3)->getTimestamp();
+
+    foreach ([['web1', 4.0, 6.0, 900], ['web2', 0.1, 60.0, 1]] as [$node, $load, $memory, $queue]) {
+        HostLoadRollup::query()->create([
+            'node' => $node, 'hour_start' => $hour, 'cores' => 2, 'samples' => 60, 'load5_sum' => $load * 60, 'load5_peak' => $load,
+            'memory_available_min_percent' => $memory, 'queue_depth_peak' => $queue,
+            'busiest_tasks' => [['command' => 'capell:search-doctor', 'seconds' => 8.5]],
+        ]);
+    }
+
+    $rows = collect(resolve(HostLoadSiteHealthReportExtender::class)->sections()[0]->checks)->keyBy('label');
+
+    expect($rows['web1']?->detail)
+        ->toContain('Last 7 days')
+        ->toContain('peaked at 200% of capacity')
+        ->toContain('capell:search-doctor (8.5s)')
+        ->toContain('Load went past what the cores can supply')
+        ->toContain('Available memory fell to 6%')
+        ->toContain('900 jobs were waiting')
+        ->and($rows['web2']?->detail)->not->toContain('Load went past')->not->toContain('900 jobs');
+});
+
+it('says trends are not available yet when a server has no stored history', function (): void {
+    recordHostReadings('web1', 2);
+
+    $row = resolve(HostLoadSiteHealthReportExtender::class)->sections()[0]->checks[0];
+
+    expect($row->detail)->toContain(__('capell-admin::host-monitor.trend_none'));
 });
