@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\QueueMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallDeploymentAction;
 use Capell\Marketplace\Actions\ResumeMarketplaceAttemptsAwaitingDeploymentAction;
+use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
@@ -20,9 +22,11 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function (): void {
     Queue::fake();
@@ -100,6 +104,24 @@ it('fails a waiting operation when its deploy is reported failed or never arrive
     expect($abandoned->status)->toBe(MarketplaceInstallIntentStatus::Failed)
         ->and($abandoned->failure_stage)->toBe(MarketplaceInstallFailureStage::DeploymentHandoff->value)
         ->and($abandoned->failure_reason)->toBe((string) __('capell-marketplace::marketplace.operations.deployment_wait_expired', ['hours' => 72]));
+
+    // Retrying either in place would run Composer on this site instead of the pipeline.
+    expect(resolve(RetryMarketplaceInstallAttemptAction::class)->canRetry($reported))->toBeFalse()
+        ->and(fn (): MarketplaceInstallAttempt => RetryMarketplaceInstallAttemptAction::run($abandoned))->toThrow(ValidationException::class);
+    Queue::assertNothingPushed();
+});
+
+it('warns that the published change is still open when a waiting operation is cancelled', function (): void {
+    $attempt = QueueMarketplaceInstallAttemptAction::run(...deploymentWaitArguments('handoff-cancelled'));
+
+    $cancelled = CancelMarketplaceInstallAttemptAction::run($attempt);
+
+    expect($cancelled->status)->toBe(MarketplaceInstallIntentStatus::Cancelled)
+        ->and($cancelled->status->isActiveInstallOperation())->toBeFalse()
+        ->and($cancelled->events->last()?->message)
+        ->toBe((string) __('capell-marketplace::marketplace.operations.timeline_cancelled_awaiting_deployment'));
+
+    expect(Artisan::call('capell:marketplace:resume-deployed'))->toBe(0);
     Queue::assertNothingPushed();
 });
 

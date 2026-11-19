@@ -101,7 +101,6 @@ return [
      * arrived after this many hours fails so the operator can act.
      */
     'deployment_wait' => [
-        'scheduled' => env('CAPELL_MARKETPLACE_DEPLOYMENT_WAIT_SCHEDULED', true),
         'hours' => env('CAPELL_MARKETPLACE_DEPLOYMENT_WAIT_HOURS', 72),
     ],
 ];

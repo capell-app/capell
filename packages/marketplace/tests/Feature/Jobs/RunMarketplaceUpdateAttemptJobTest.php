@@ -15,6 +15,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
+use Capell\Marketplace\Actions\ResumeMarketplaceAttemptsAwaitingDeploymentAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
@@ -446,4 +447,55 @@ it('verifies an update against the version observed under the lock before runnin
     } finally {
         File::deleteDirectory($packagePath);
     }
+});
+
+it('finishes an update the site deploy already delivered without running Composer on the site', function (): void {
+    Queue::fake();
+    Notification::fake();
+    $packagePath = registerUpdatablePackage();
+    CapellCore::forcePackageInstalled(UPDATE_PACKAGE_NAME);
+    fakeMigrationPipeline();
+    fakeComposerRestore();
+    $composer = succeedingComposerRunner();
+    $installed = new class implements MarketplaceInstalledPackageVersionResolver
+    {
+        public string $version = '2.1.0';
+
+        #[Override]
+        public function prettyVersion(string $composerName): string
+        {
+            return $this->version;
+        }
+    };
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, $installed);
+    $attempt = updateAttempt([
+        'status' => MarketplaceInstallIntentStatus::AwaitingDeployment,
+        'context' => ['update_from_version' => '2.1.0'],
+        'deployment' => ['status' => 'published', 'type' => 'pull_request', 'reference' => 'https://github.test/capell/pulls/7'],
+    ]);
+    VerifyInstalledExtensionAction::shouldRun()->once()->with(UPDATE_PACKAGE_NAME, '^3.0.0', '2.1.0', 'marketplace-update-package', null, null)
+        ->andReturn(new ExtensionVerificationReportData(UPDATE_PACKAGE_NAME, '3.0.1', '^3.0.0', '2.1.0', true, [], [], CarbonImmutable::now()));
+
+    try {
+        // The pull request is not merged yet: this release still runs 2.1.0.
+        ResumeMarketplaceAttemptsAwaitingDeploymentAction::run();
+        expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::AwaitingDeployment);
+        Queue::assertNothingPushed();
+
+        // The deploy is live with 3.0.1.
+        $installed->version = '3.0.1';
+        ResumeMarketplaceAttemptsAwaitingDeploymentAction::run();
+        expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+        Queue::assertPushed(RunMarketplaceUpdateAttemptJob::class, fn (RunMarketplaceUpdateAttemptJob $job): bool => $job->uniqueId() === (string) $attempt->getKey());
+
+        new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handle($composer);
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    $attempt->refresh();
+    expect($composer->ran())->toBeFalse()
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($attempt->failure_reason)->toBeNull()
+        ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_migrations_completed'))->exists())->toBeTrue();
 });

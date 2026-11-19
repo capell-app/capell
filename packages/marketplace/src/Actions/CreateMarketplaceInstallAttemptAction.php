@@ -31,7 +31,10 @@ final class CreateMarketplaceInstallAttemptAction
             $context = $data->context;
             // Only the deployment resume marks an attempt as already delivered;
             // a new attempt, a retry included, never arrives carrying it.
-            unset($context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::DELIVERED_CONTEXT_KEY]);
+            unset(
+                $context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::DELIVERED_CONTEXT_KEY],
+                $context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::AWAITED_CONTEXT_KEY],
+            );
 
             if ($data->actor instanceof MarketplaceInstallActorData) {
                 $context['install_actor'] = $data->actor->toArray();

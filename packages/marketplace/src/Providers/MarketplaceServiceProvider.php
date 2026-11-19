@@ -191,14 +191,11 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
      * Continue operations handed to the site's deploy pipeline once the deploy
      * is live. Every minute, because the operator is waiting on it; the action
      * reads only attempts already marked as waiting, so a quiet site pays one
-     * indexed query.
+     * indexed query. Not optional: without it a waiting operation would hold
+     * its package until someone cancelled it.
      */
     private function scheduleDeployedOperationResume(): void
     {
-        if (! (bool) config('capell-marketplace.deployment_wait.scheduled', true)) {
-            return;
-        }
-
         $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
             $schedule->command('capell:marketplace:resume-deployed')
                 ->everyMinute()

@@ -70,6 +70,13 @@ final class RetryMarketplaceInstallAttemptAction
 
     public function canRetry(MarketplaceInstallAttempt $attempt): bool
     {
+        // Its Composer change went through the site's deploy pipeline. Retrying
+        // it here would run Composer on this site instead, so the operator
+        // starts the operation again and it is handed to the pipeline again.
+        if (($attempt->context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::AWAITED_CONTEXT_KEY] ?? false) === true) {
+            return false;
+        }
+
         if (in_array($attempt->status, [
             MarketplaceInstallIntentStatus::Failed,
             MarketplaceInstallIntentStatus::TimedOut,

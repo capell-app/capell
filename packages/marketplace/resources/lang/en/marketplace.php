@@ -451,6 +451,7 @@ return [
         'timeline_deployment_failed' => 'Deployment handoff failed and needs manual attention.',
         'timeline_deployment_publication_claimed' => 'Deployment publication was claimed.',
         'timeline_deployment_published' => 'Deployment handoff was published.',
+        'timeline_cancelled_awaiting_deployment' => 'Cancelled while waiting for the deploy. The published pull request or commit is still open: close or revert it, or the next deploy will still add the package.',
         'timeline_deployment_awaiting' => 'Waiting for the site to deploy the Composer change. The extension is set up here once that deploy is live.',
         'timeline_deployment_arrived' => 'The deploy is live with the Composer change, so setup continues on this site.',
         'deployment_did_not_arrive' => 'The deploy carrying this Composer change did not go live: :reason Check the pull request or pipeline, then try the operation again.',

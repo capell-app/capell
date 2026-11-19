@@ -101,6 +101,10 @@ final class RecordMarketplaceInstallDeploymentAction
                 $attributes = [
                     ...$attributes,
                     'status' => MarketplaceInstallIntentStatus::AwaitingDeployment,
+                    'context' => [
+                        ...($lockedAttempt->context ?? []),
+                        ResumeMarketplaceAttemptsAwaitingDeploymentAction::AWAITED_CONTEXT_KEY => true,
+                    ],
                     'current_stage' => MarketplaceInstallFailureStage::DeploymentHandoff->value,
                     'heartbeat_at' => now(),
                 ];

@@ -37,6 +37,13 @@ final class ResumeMarketplaceAttemptsAwaitingDeploymentAction
 
     public const string DELIVERED_CONTEXT_KEY = 'deployment_delivered';
 
+    /**
+     * Set on an attempt the moment it starts waiting for a deploy, and never
+     * removed. Such an attempt is not retried in place: a retry would run
+     * Composer on this site and skip the review the handoff exists for.
+     */
+    public const string AWAITED_CONTEXT_KEY = 'deployment_awaited';
+
     public function __construct(
         private readonly MarketplaceInstalledPackageVersionResolver $installedVersions,
     ) {}
@@ -49,7 +56,7 @@ final class ResumeMarketplaceAttemptsAwaitingDeploymentAction
 
         MarketplaceInstallAttempt::query()
             ->where('status', MarketplaceInstallIntentStatus::AwaitingDeployment->value)
-            ->orderBy('id')
+            ->lazyById()
             ->each(function (MarketplaceInstallAttempt $attempt) use (&$resumed, &$expired): void {
                 if ($this->deploymentArrived($attempt)) {
                     $resumed += $this->resume($attempt) ? 1 : 0;
@@ -132,26 +139,36 @@ final class ResumeMarketplaceAttemptsAwaitingDeploymentAction
             && $waitingSince->lessThan(now()->subHours($this->waitHours()));
     }
 
+    /**
+     * Checked under the row lock, because a cancel or a reported deploy failure
+     * can land between the query and here; either one already ended the wait.
+     */
     private function expire(MarketplaceInstallAttempt $attempt): bool
     {
-        $attempt->refresh();
+        return DB::transaction(function () use ($attempt): bool {
+            $lockedAttempt = MarketplaceInstallAttempt::query()
+                ->whereKey((int) $attempt->getKey())
+                ->lockForUpdate()
+                ->first();
 
-        if ($attempt->status !== MarketplaceInstallIntentStatus::AwaitingDeployment) {
-            return false;
-        }
+            if (! $lockedAttempt instanceof MarketplaceInstallAttempt
+                || $lockedAttempt->status !== MarketplaceInstallIntentStatus::AwaitingDeployment) {
+                return false;
+            }
 
-        TransitionMarketplaceInstallAttemptAction::run(
-            $attempt,
-            new MarketplaceInstallAttemptTransitionData(
-                toStatus: MarketplaceInstallIntentStatus::Failed,
-                failureReason: (string) __('capell-marketplace::marketplace.operations.deployment_wait_expired', [
-                    'hours' => $this->waitHours(),
-                ]),
-                failureStage: MarketplaceInstallFailureStage::DeploymentHandoff,
-            ),
-        );
+            TransitionMarketplaceInstallAttemptAction::run(
+                $lockedAttempt,
+                new MarketplaceInstallAttemptTransitionData(
+                    toStatus: MarketplaceInstallIntentStatus::Failed,
+                    failureReason: (string) __('capell-marketplace::marketplace.operations.deployment_wait_expired', [
+                        'hours' => $this->waitHours(),
+                    ]),
+                    failureStage: MarketplaceInstallFailureStage::DeploymentHandoff,
+                ),
+            );
 
-        return true;
+            return true;
+        });
     }
 
     private function waitHours(): int
