@@ -27,6 +27,11 @@ final class BuildServerSettingsRecommendationsAction
     /** Values PHP rounds opcache.max_accelerated_files up to. */
     private const array FILE_TABLE_SIZES = [3907, 7963, 16229, 32531, 65407, 130987, 262143, 1000000];
 
+    /** Idle workers need this much history: a quiet weekend must not look like an idle week. */
+    private const int IDLE_HISTORY_HOURS = 72;
+
+    private const array GROUPS = ['opcache', 'pm.max_children', 'swap', 'queue:work processes'];
+
     public function handle(ServerSettingsData $settings): ServerSettingsRecommendationsData
     {
         $recommendations = [];
@@ -37,12 +42,14 @@ final class BuildServerSettingsRecommendationsAction
             $this->opcacheMemory($settings),
             $this->internedStrings($settings),
             $this->maxAcceleratedFiles($settings),
-            $this->swap($settings),
-            $this->idleQueueWorkers($settings),
         ] as $recommendation) {
             if ($recommendation instanceof ServerSettingRecommendationData) {
                 $recommendations[] = $recommendation;
             }
+        }
+
+        if (! $settings->opcacheEnabled) {
+            $unmeasured[] = 'opcache';
         }
 
         $fpm = $this->maxChildren($settings);
@@ -53,7 +60,21 @@ final class BuildServerSettingsRecommendationsAction
             $recommendations[] = $fpm;
         }
 
-        return new ServerSettingsRecommendationsData($recommendations, $unmeasured);
+        if ($settings->swapPeakUsedPercent === null) {
+            $unmeasured[] = 'swap';
+        } elseif (($swap = $this->swap($settings)) instanceof ServerSettingRecommendationData) {
+            $recommendations[] = $swap;
+        }
+
+        $queue = $this->idleQueueWorkers($settings);
+
+        if ($queue === null) {
+            $unmeasured[] = 'queue:work processes';
+        } elseif ($queue !== false) {
+            $recommendations[] = $queue;
+        }
+
+        return new ServerSettingsRecommendationsData($recommendations, $unmeasured, count($unmeasured) < count(self::GROUPS));
     }
 
     private function validateTimestamps(ServerSettingsData $settings): ?ServerSettingRecommendationData
@@ -125,9 +146,14 @@ final class BuildServerSettingsRecommendationsAction
         }
 
         $budget = $settings->memoryTotalBytes * (float) config('capell.health.host.fpm.memory_share', 0.6);
-        $memoryBound = (int) floor($budget / $settings->fpmWorkerRssBytes) - (int) $settings->queueWorkers;
+        $memoryBound = (int) floor(($budget - (int) $settings->queueWorkerRssBytes) / $settings->fpmWorkerRssBytes);
         $coreBound = $settings->cores * (int) config('capell.health.host.fpm.max_children_per_core', 10);
-        $supported = max(1, min($memoryBound, $coreBound));
+        $supported = min($memoryBound, $coreBound);
+
+        // A budget the queue workers already use up, or a bound smaller than the core count, says the inputs are off rather than that the pool should shrink to a handful.
+        if ($memoryBound <= 0 || $supported < max($settings->cores, 2)) {
+            return null;
+        }
 
         if ($settings->fpmMaxChildren <= $supported) {
             return false;
@@ -145,10 +171,23 @@ final class BuildServerSettingsRecommendationsAction
         return new ServerSettingRecommendationData(ServerSettingFlag::SwapPressure, 'swap', number_format($settings->swapPeakUsedPercent, 0) . '%', '');
     }
 
-    private function idleQueueWorkers(ServerSettingsData $settings): ?ServerSettingRecommendationData
+    /** Null when the queue could not be measured well enough, false when the workers are busy or few. */
+    private function idleQueueWorkers(ServerSettingsData $settings): ServerSettingRecommendationData|false|null
     {
-        if ($settings->queueWorkers === null || $settings->queueWorkers < 2 || $settings->queuePeakDepth !== 0) {
+        if ($settings->queueWorkers === null) {
             return null;
+        }
+
+        if ($settings->queueWorkers < 2) {
+            return false;
+        }
+
+        if ($settings->queuePeakDepth === null || ($settings->queueHistoryHours ?? 0) < self::IDLE_HISTORY_HOURS) {
+            return null;
+        }
+
+        if ($settings->queuePeakDepth !== 0) {
+            return false;
         }
 
         return new ServerSettingRecommendationData(ServerSettingFlag::IdleQueueWorkers, 'queue:work processes', $settings->queueWorkers . ' workers', '1');

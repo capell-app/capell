@@ -9,6 +9,7 @@ use Capell\Core\Contracts\Health\HostMetricsSource;
 use Capell\Core\Contracts\Health\ServerSettingsReader;
 use Capell\Core\Data\Diagnostics\HostLoadTrendData;
 use Capell\Core\Data\Diagnostics\ServerSettingsData;
+use Illuminate\Support\Facades\Cache;
 use Override;
 
 /**
@@ -19,13 +20,32 @@ use Override;
  */
 final readonly class LocalServerSettingsReader implements ServerSettingsReader
 {
+    private const int CACHE_SECONDS = 300;
+
     public function __construct(
         private HostMetricsSource $host,
         private HostLoadTrendAction $trends,
+        private HostMonitorStore $store,
+        private string $procRoot = '/proc',
+        /** @var list<string> */
+        private array $poolPatterns = ['/etc/php/*/fpm/pool.d/*.conf', '/etc/php-fpm.d/*.conf', '/usr/local/etc/php-fpm.d/*.conf'],
     ) {}
 
+    /** Cached for a few minutes: the scan walks the process table, and an admin page can be opened repeatedly. */
     #[Override]
     public function read(): ServerSettingsData
+    {
+        /** @var array<string, mixed> $cached */
+        $cached = Cache::remember(
+            'capell:server-settings:' . $this->store->node(),
+            self::CACHE_SECONDS,
+            fn (): array => $this->measure()->toArray(),
+        );
+
+        return ServerSettingsData::from($cached);
+    }
+
+    private function measure(): ServerSettingsData
     {
         $sample = $this->host->read();
         $week = $this->trends->handle($sample->node, 7);
@@ -50,7 +70,9 @@ final readonly class LocalServerSettingsReader implements ServerSettingsReader
             fpmMaxChildren: $this->maxChildren(),
             fpmWorkerRssBytes: $processes['fpm_rss'],
             queueWorkers: $processes['queue_workers'],
+            queueWorkerRssBytes: $processes['queue_rss'],
             queuePeakDepth: $week instanceof HostLoadTrendData ? $week->peakQueueDepth : null,
+            queueHistoryHours: $week instanceof HostLoadTrendData ? $week->hours : null,
         );
     }
 
@@ -88,11 +110,11 @@ final readonly class LocalServerSettingsReader implements ServerSettingsReader
     /** The largest pm.max_children set in a readable pool file, or null when none can be read. */
     private function maxChildren(): ?int
     {
-        $files = [
-            ...(@glob('/etc/php/*/fpm/pool.d/*.conf') ?: []),
-            ...(@glob('/etc/php-fpm.d/*.conf') ?: []),
-            ...(@glob('/usr/local/etc/php-fpm.d/*.conf') ?: []),
-        ];
+        $files = [];
+
+        foreach ($this->poolPatterns as $pattern) {
+            array_push($files, ...(@glob($pattern) ?: []));
+        }
 
         $largest = null;
 
@@ -107,20 +129,22 @@ final readonly class LocalServerSettingsReader implements ServerSettingsReader
         return $largest;
     }
 
-    /** @return array{fpm_rss: int|null, queue_workers: int|null} */
+    /** @return array{fpm_rss: int|null, queue_workers: int|null, queue_rss: int|null} */
     private function processes(): array
     {
-        $directories = @glob('/proc/[0-9]*', GLOB_ONLYDIR);
+        $directories = @glob($this->procRoot . '/[0-9]*', GLOB_ONLYDIR);
 
         if ($directories === false || $directories === []) {
-            return ['fpm_rss' => null, 'queue_workers' => null];
+            return ['fpm_rss' => null, 'queue_workers' => null, 'queue_rss' => null];
         }
 
-        $rss = [];
+        $fpm = [];
         $workers = 0;
+        $queueMemory = 0;
 
         foreach ($directories as $directory) {
             $cmdline = @file_get_contents($directory . '/cmdline');
+
             if (! is_string($cmdline)) {
                 continue;
             }
@@ -129,24 +153,40 @@ final readonly class LocalServerSettingsReader implements ServerSettingsReader
                 continue;
             }
 
-            if (str_contains($cmdline, 'queue:work')) {
+            $argv = explode("\0", rtrim($cmdline, "\0"));
+
+            if (in_array('queue:work', $argv, true)) {
                 $workers++;
-            }
+                $queueMemory += $this->memory($directory) ?? 0;
+            } elseif (str_starts_with(basename($argv[0]), 'php-fpm') && str_contains($cmdline, 'pool')) {
+                $memory = $this->memory($directory);
 
-            if (str_starts_with(basename(explode("\0", $cmdline)[0]), 'php-fpm') && str_contains($cmdline, 'pool')) {
-                $status = @file_get_contents($directory . '/status');
-
-                if (is_string($status) && preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $match) === 1) {
-                    $rss[] = (int) $match[1] * 1024;
+                if ($memory !== null) {
+                    $fpm[] = $memory;
                 }
             }
         }
 
-        sort($rss);
+        sort($fpm);
 
         return [
-            'fpm_rss' => $rss === [] ? null : $rss[(int) floor((count($rss) - 1) * 0.9)],
+            'fpm_rss' => $fpm === [] ? null : $fpm[(int) floor((count($fpm) - 1) * 0.9)],
             'queue_workers' => $workers,
+            'queue_rss' => $workers === 0 ? null : $queueMemory,
         ];
+    }
+
+    /** Proportional set size where the kernel reports it, which does not count shared opcache memory once per worker; resident size otherwise. */
+    private function memory(string $directory): ?int
+    {
+        $rollup = @file_get_contents($directory . '/smaps_rollup');
+
+        if (is_string($rollup) && preg_match('/^Pss:\s+(\d+)\s+kB/m', $rollup, $match) === 1) {
+            return (int) $match[1] * 1024;
+        }
+
+        $status = @file_get_contents($directory . '/status');
+
+        return is_string($status) && preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $match) === 1 ? (int) $match[1] * 1024 : null;
     }
 }

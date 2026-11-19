@@ -28,6 +28,8 @@ final class ServerSettingsData extends Data
         public readonly ?int $fpmMaxChildren = null,
         public readonly ?int $fpmWorkerRssBytes = null,
         public readonly ?int $queueWorkers = null,
+        public readonly ?int $queueWorkerRssBytes = null,
         public readonly ?int $queuePeakDepth = null,
+        public readonly ?int $queueHistoryHours = null,
     ) {}
 }

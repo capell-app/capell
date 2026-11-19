@@ -33,7 +33,9 @@ function fixtureSettingsHost(array $overrides): void
         'fpmMaxChildren' => 12,
         'fpmWorkerRssBytes' => 135 * $mib,
         'queueWorkers' => 1,
+        'queueWorkerRssBytes' => 135 * $mib,
         'queuePeakDepth' => 10,
+        'queueHistoryHours' => 168,
         ...$overrides,
     ]);
 
@@ -58,7 +60,7 @@ function openSiteHealthAsAdmin(): void
 
 it('shows each recommendation with the setting, the measured value and the change', function (): void {
     openSiteHealthAsAdmin();
-    fixtureSettingsHost(['validateTimestamps' => true, 'fpmMaxChildren' => 60, 'queueWorkers' => 3, 'queuePeakDepth' => 0]);
+    fixtureSettingsHost(['validateTimestamps' => true, 'fpmMaxChildren' => 60, 'queueWorkers' => 3, 'queueWorkerRssBytes' => 3 * 135 * 1024 ** 2, 'queuePeakDepth' => 0]);
 
     Livewire::test(SiteHealthPage::class)
         ->assertSuccessful()
@@ -86,4 +88,37 @@ it('says not measured when PHP-FPM cannot be read', function (): void {
 
     Livewire::test(SiteHealthPage::class)
         ->assertSee(__('capell-admin::server-settings.not_measured', ['setting' => 'pm.max_children']));
+});
+
+it('does not claim the settings fit when nothing could be measured', function (): void {
+    openSiteHealthAsAdmin();
+    fixtureSettingsHost([
+        'opcacheEnabled' => false,
+        'fpmMaxChildren' => null,
+        'fpmWorkerRssBytes' => null,
+        'swapPeakUsedPercent' => null,
+        'queueWorkers' => null,
+        'queuePeakDepth' => null,
+        'queueHistoryHours' => null,
+    ]);
+
+    Livewire::test(SiteHealthPage::class)
+        ->assertSee(__('capell-admin::server-settings.not_measured', ['setting' => 'opcache']))
+        ->assertSee(__('capell-admin::server-settings.not_measured', ['setting' => 'swap']))
+        ->assertDontSee(__('capell-admin::server-settings.healthy'));
+});
+
+it('still renders Site Health when the settings reader fails', function (): void {
+    openSiteHealthAsAdmin();
+    app()->instance(ServerSettingsReader::class, new class implements ServerSettingsReader
+    {
+        public function read(): ServerSettingsData
+        {
+            throw new RuntimeException('cannot read');
+        }
+    });
+
+    Livewire::test(SiteHealthPage::class)
+        ->assertSuccessful()
+        ->assertDontSee(__('capell-admin::server-settings.section'));
 });

@@ -35,13 +35,13 @@ final readonly class ServerSettingsSiteHealthReportExtender implements SiteHealt
 
         foreach ($result->unmeasured as $setting) {
             $checks[] = new DiagnosticCheckData(
-                status: 'green',
+                status: 'amber',
                 label: $setting,
                 detail: (string) __('capell-admin::server-settings.not_measured', ['setting' => $setting]),
             );
         }
 
-        if ($result->recommendations === []) {
+        if ($result->recommendations === [] && $result->anyMeasured) {
             array_unshift($checks, new DiagnosticCheckData(
                 status: 'green',
                 label: (string) __('capell-admin::server-settings.healthy_label'),

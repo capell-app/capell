@@ -34,7 +34,9 @@ function serverSettingsReader(array $overrides = []): ServerSettingsReader
         'fpmMaxChildren' => 12,
         'fpmWorkerRssBytes' => 135 * $mib,
         'queueWorkers' => 1,
+        'queueWorkerRssBytes' => 135 * $mib,
         'queuePeakDepth' => 40,
+        'queueHistoryHours' => 168,
         ...$overrides,
     ]);
 
@@ -140,7 +142,7 @@ it('flags swap pressure', function (): void {
 });
 
 it('flags idle queue workers when no job has waited in a week', function (): void {
-    $result = recommendationsFor(['queueWorkers' => 4, 'queuePeakDepth' => 0]);
+    $result = recommendationsFor(['queueWorkers' => 4, 'queueWorkerRssBytes' => 540 * 1024 ** 2, 'queuePeakDepth' => 0]);
 
     expect($result->recommendations)->toHaveCount(1)
         ->and($result->recommendations[0]->flag)->toBe(ServerSettingFlag::IdleQueueWorkers)
@@ -165,4 +167,49 @@ it('does not flag opcache when it is disabled or unreadable', function (): void 
     ]);
 
     expect($result->recommendations)->toBe([]);
+});
+
+it('subtracts the memory the queue workers use, not their count, from the pm.max_children budget', function (): void {
+    // 4915 MB budget less 600 MB of queue workers leaves 4315 MB: 31 workers of 135 MB. Counting two workers would give 34.
+    $result = recommendationsFor(['cores' => 8, 'fpmMaxChildren' => 60, 'queueWorkers' => 2, 'queueWorkerRssBytes' => 600 * 1024 ** 2]);
+
+    expect($result->recommendations[0]->recommended)->toBe('31');
+});
+
+it('does not advise a tiny pm.max_children when queue workers use all the memory budget', function (): void {
+    $result = recommendationsFor(['fpmMaxChildren' => 60, 'queueWorkers' => 40, 'queueWorkerRssBytes' => 40 * 135 * 1024 ** 2]);
+
+    expect($result->recommendations)->toBe([])->and($result->unmeasured)->toBe(['pm.max_children']);
+});
+
+it('treats a pm.max_children bound below the core count as not measured', function (): void {
+    $result = recommendationsFor(['cores' => 8, 'memoryTotalBytes' => 1024 ** 3, 'fpmMaxChildren' => 60]);
+
+    expect($result->recommendations)->toBe([])->and($result->unmeasured)->toBe(['pm.max_children']);
+});
+
+it('needs three days of queue history before calling workers idle', function (): void {
+    $result = recommendationsFor(['queueWorkers' => 4, 'queuePeakDepth' => 0, 'queueHistoryHours' => 48]);
+
+    expect($result->recommendations)->toBe([])->and($result->unmeasured)->toBe(['queue:work processes']);
+});
+
+it('lists every value it could not read and reports that nothing was measured', function (): void {
+    $result = recommendationsFor([
+        'opcacheEnabled' => false,
+        'fpmMaxChildren' => null,
+        'fpmWorkerRssBytes' => null,
+        'swapPeakUsedPercent' => null,
+        'queueWorkers' => null,
+        'queuePeakDepth' => null,
+        'queueHistoryHours' => null,
+    ]);
+
+    expect($result->recommendations)->toBe([])
+        ->and($result->unmeasured)->toBe(['opcache', 'pm.max_children', 'swap', 'queue:work processes'])
+        ->and($result->anyMeasured)->toBeFalse();
+});
+
+it('reports a measured value when only some readings are missing', function (): void {
+    expect(recommendationsFor(['swapPeakUsedPercent' => null])->anyMeasured)->toBeTrue();
 });
