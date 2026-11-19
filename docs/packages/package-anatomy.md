@@ -64,7 +64,7 @@ Keep `extra.laravel.providers` to the package bootstrap provider only, and never
 
 ## Capell Manifest
 
-`capell.json` uses manifest v3 metadata plus lifecycle and provider routing. Older manifest fields such as `capell-version` are rejected by the manifest validator; manifest v3 uses `capellApiVersion`.
+`capell.json` uses manifest v3 metadata plus lifecycle and provider routing. The [Manifest reference](manifest-reference.md) lists every top-level key. Older manifest fields such as `capell-version` are rejected by the manifest validator; manifest v3 uses `capellApiVersion`.
 
 ```json
 {

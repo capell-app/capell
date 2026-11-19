@@ -22,6 +22,11 @@
         "commercial",
         "marketplace"
     ],
+    "if": {
+        "properties": { "agent_tools": { "const": "none" } },
+        "required": ["agent_tools"]
+    },
+    "then": { "required": ["agent_tools_reason"] },
     "not": {
         "required": ["capell-version"]
     },
@@ -94,7 +99,18 @@
             "type": "array",
             "items": {
                 "type": "string",
-                "enum": ["admin", "frontend", "console", "shared"]
+                "enum": [
+                    "content",
+                    "admin",
+                    "frontend",
+                    "workflow",
+                    "delivery",
+                    "operations",
+                    "integrations",
+                    "marketplace",
+                    "console",
+                    "shared"
+                ]
             }
         },
         "dependencies": {
@@ -828,6 +844,31 @@
         },
         "installPath": {
             "type": ["string", "null"]
+        },
+        "agent_tools": {
+            "description": "Tools an AI agent may run, or the string \"none\" with agent_tools_reason. The validator checks each declaration's fields.",
+            "oneOf": [
+                { "const": "none" },
+                { "type": "array", "items": { "type": "object" } },
+                {
+                    "type": "object",
+                    "if": {
+                        "properties": { "none": { "const": true } },
+                        "required": ["none"]
+                    },
+                    "then": {
+                        "required": ["reason"],
+                        "properties": {
+                            "reason": { "type": "string", "minLength": 1 }
+                        }
+                    }
+                }
+            ]
+        },
+        "agent_tools_reason": {
+            "description": "Why the package offers no agent tools. Required when agent_tools is \"none\".",
+            "type": "string",
+            "minLength": 1
         }
     },
     "$defs": {

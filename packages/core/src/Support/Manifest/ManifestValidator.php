@@ -46,28 +46,7 @@ use InvalidArgumentException;
 final class ManifestValidator
 {
     /** @var list<string> */
-    private const array VALID_KINDS = ['package', 'plugin', 'theme', 'integration', 'bundle'];
-
-    /** @var list<string> */
-    private const array VALID_VISIBILITIES = ['catalogue', 'support'];
-
-    /** @var list<string> */
-    private const array REQUIRED_PROVIDER_BUCKETS = ['metadata', 'install', 'runtime', 'admin', 'frontend'];
-
-    /** @var list<string> */
-    private const array VALID_PROVIDER_BUCKETS = ['metadata', 'install', 'runtime', 'auth', 'admin', 'frontend'];
-
-    /** @var list<string> */
-    private const array TRUSTED_PLATFORM_NAMESPACE_PREFIXES = [
-        'Capell\\Admin\\',
-        'Capell\\Core\\',
-        'Capell\\Frontend\\',
-        'Capell\\Installer\\',
-        'Capell\\Marketplace\\',
-    ];
-
-    /** @var list<string> */
-    private const array VALID_ROOT_FIELDS = [
+    public const array VALID_ROOT_FIELDS = [
         ManifestVocabulary::SCHEMA_KEY,
         'manifest-version',
         'name',
@@ -112,6 +91,27 @@ final class ManifestValidator
         'documentationUrl',
         'agent_tools',
         'agent_tools_reason',
+    ];
+
+    /** @var list<string> */
+    private const array VALID_KINDS = ['package', 'plugin', 'theme', 'integration', 'bundle'];
+
+    /** @var list<string> */
+    private const array VALID_VISIBILITIES = ['catalogue', 'support'];
+
+    /** @var list<string> */
+    private const array REQUIRED_PROVIDER_BUCKETS = ['metadata', 'install', 'runtime', 'admin', 'frontend'];
+
+    /** @var list<string> */
+    private const array VALID_PROVIDER_BUCKETS = ['metadata', 'install', 'runtime', 'auth', 'admin', 'frontend'];
+
+    /** @var list<string> */
+    private const array TRUSTED_PLATFORM_NAMESPACE_PREFIXES = [
+        'Capell\\Admin\\',
+        'Capell\\Core\\',
+        'Capell\\Frontend\\',
+        'Capell\\Installer\\',
+        'Capell\\Marketplace\\',
     ];
 
     private bool $loadClasses = true;

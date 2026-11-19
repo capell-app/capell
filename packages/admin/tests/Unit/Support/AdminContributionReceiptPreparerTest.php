@@ -35,6 +35,8 @@ it('prepares the bound admin runtime so lazily registered bridge receipts exist'
 it('does nothing when the admin runtime is not bound', function (): void {
     $container = new Container;
 
-    expect(fn () => new AdminContributionReceiptPreparer($container)->prepareContributionReceipts())->not->toThrow(Throwable::class)
-        ->and($container->bound(AdminRuntimeActivator::class))->toBeFalse();
+    // Resolving an unbound activator would throw here and fail the test.
+    new AdminContributionReceiptPreparer($container)->prepareContributionReceipts();
+
+    expect($container->bound(AdminRuntimeActivator::class))->toBeFalse();
 });
