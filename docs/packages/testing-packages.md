@@ -254,6 +254,8 @@ it('declares a theme manifest the theme loader accepts', function (): void {
 });
 ```
 
+The harness throws an `AssertionError` on the first failure instead of recording PHPUnit assertions, so a test that only calls it is reported as risky and fails under `--fail-on-risky`. End such a test with `$this->addToAssertionCount(1);`, as the generated tests do. Do not wrap the call in `expect(fn () => ...)->not->toThrow(Throwable::class)`: Pest treats an interface name as expected message text, so that expectation passes even when the harness throws.
+
 - `assertManifestValid()` runs the same validator as `capell:extension-audit` and Marketplace submission, and fails with the first problem.
 - `assertContributionRegistered($type, $class)` fails when `capell.json` does not declare that contribution.
 - `assertRoutesOwnedByPackage()` fails when a route contribution has no `namePrefix`, and `assertScheduledJobsRegistered()` fails when a scheduled job has no schedule.
@@ -275,6 +277,9 @@ it('meets the companion package contract', function (): void {
     ExtensionTestHarness::assertCompanionPackageContract(
         CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
     );
+
+    // The contract suite throws on the first failed check, so reaching this line means every check passed.
+    $this->addToAssertionCount(1);
 });
 ```
 
