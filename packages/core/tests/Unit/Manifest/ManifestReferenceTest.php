@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\ExtensionSurface;
 use Capell\Core\Support\Manifest\ManifestValidator;
 
 /**
@@ -54,4 +55,14 @@ it('publishes exactly the top-level keys the manifest validator accepts in the J
 
     expect(array_values(array_diff($validatorKeys, $schemaKeys)))->toBe([])
         ->and(array_values(array_diff($schemaKeys, $validatorKeys)))->toBe([]);
+});
+
+it('publishes every surface the manifest validator accepts in the JSON schema', function (): void {
+    $schema = json_decode(
+        (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect(data_get($schema, 'properties.surfaces.items.enum'))->toEqualCanonicalizing(ExtensionSurface::values());
 });
