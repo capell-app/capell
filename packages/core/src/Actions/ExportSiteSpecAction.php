@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecNavigationData;
 use Capell\Core\Data\SiteSpec\SiteSpecExportData;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Blueprint;
@@ -15,6 +16,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellSiteSpecConstraints;
+use Capell\Core\Support\SiteSpec\SiteSpecExporterRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
 use Capell\Core\Support\SiteSpec\SiteSpecPageDataFactory;
 use Illuminate\Validation\ValidationException;
@@ -32,9 +34,10 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * nothing. Name, title and body are what an apply compares and updates; the
  * page type is used for pages the spec creates.
  *
- * Package-owned parts (such as navigation), page properties and media are not
- * exported: the spec only carries remote media URLs, and Capell keeps a hash of
- * them, not the URL itself.
+ * Page properties are written as plain values, the site logo and page images as
+ * the HTTPS addresses an import downloads them from, and package-owned parts (such
+ * as navigation) by the exporters packages register. Anything the spec cannot carry
+ * without changing it is left out and reported, never approximated.
  */
 final class ExportSiteSpecAction
 {
@@ -51,6 +54,7 @@ final class ExportSiteSpecAction
         $language = $site->language;
         $pages = [];
         $omitted = [];
+        $omittedParts = [];
 
         $homePageIds = Page::query()->homePage()->where('site_id', $site->getKey())->pluck('id')->all();
 
@@ -80,16 +84,53 @@ final class ExportSiteSpecAction
                 continue;
             }
 
-            $pages[] = ['home' => $home, 'spec' => $this->page($page, $page->blueprint, $translation, $slug)];
+            $properties = ExportSiteSpecPagePropertiesAction::run($page, (int) $language->getKey());
+
+            if ($properties['omitted'] !== []) {
+                $omittedParts[SiteSpecExportData::OMITTED_PROPERTIES][] = $page->name . ': ' . implode(', ', $properties['omitted']);
+            }
+
+            $pages[] = ['home' => $home, 'id' => (int) $page->getKey(), 'spec' => [...$this->page($page, $page->blueprint, $translation, $slug), ...($properties['properties'] === [] ? [] : ['properties' => $properties['properties']])]];
         }
 
         usort($pages, static fn (array $a, array $b): int => [$b['home'], $a['spec']['slug']] <=> [$a['home'], $b['spec']['slug']]);
+
+        $pageSlugsById = [];
+
+        foreach ($pages as $page) {
+            $pageSlugsById[$page['id']] = $page['spec']['slug'];
+        }
+
+        $navigations = [];
+        $packageData = [];
+
+        foreach (resolve(SiteSpecExporterRegistry::class)->all() as $exporter) {
+            $part = $exporter->export($site, $pageSlugsById);
+            array_push($navigations, ...array_map(static fn (CapellSiteSpecNavigationData $navigation): array => $navigation->toArray(), $part->navigations));
+
+            if ($part->packageData !== []) {
+                $packageData[$exporter->key()] = $part->packageData;
+            }
+
+            if ($part->omitted !== []) {
+                $omittedParts[$exporter->key()] = $part->omitted;
+            }
+        }
+
+        $media = ExportSiteSpecMediaAction::run($site, $pageSlugsById);
+
+        if ($media['omitted'] !== []) {
+            $omittedParts[SiteSpecExportData::OMITTED_MEDIA] = $media['omitted'];
+        }
 
         $payload = [
             'site' => $this->site($site),
             'theme' => $this->theme($site->theme),
             'language' => $this->language($language),
             'pages' => array_map(static fn (array $page, int $index): array => [...$page['spec'], 'order' => $index], $pages, array_keys($pages)),
+            ...($navigations === [] ? [] : ['navigations' => $navigations]),
+            ...($media['media']->hasRemoteAssets() ? ['media' => $media['media']->toArray()] : []),
+            ...($packageData === [] ? [] : ['packageData' => $packageData]),
             'initialVisibility' => $public ? 'public' : 'private',
             'acknowledgePublic' => $public,
         ];
@@ -107,7 +148,9 @@ final class ExportSiteSpecAction
             return $names;
         }, $omitted);
 
-        return new SiteSpecExportData(CapellSiteSpecData::from($validation['normalized']), $omitted);
+        ksort($omittedParts);
+
+        return new SiteSpecExportData(CapellSiteSpecData::from($validation['normalized']), $omitted, $omittedParts);
     }
 
     /** @return array<string, mixed> */

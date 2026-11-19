@@ -276,6 +276,7 @@ use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\Support\SiteSpec\SiteSpecExporterRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
@@ -365,6 +366,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->scoped(SiteSpecApplierRegistry::class);
+        $this->app->scoped(SiteSpecExporterRegistry::class);
         $this->app->scoped(GuidedSetupStateMemo::class);
         $this->app->scoped(SiteSpecPresetRegistry::class);
         $this->app->scoped(PageUrlRewriteContext::class);

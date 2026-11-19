@@ -54,7 +54,7 @@ final class ExportSiteSpecCommand extends Command
             // Standard output carries only the JSON, so it can be redirected to a file; notes go to standard error.
             $this->output->write($json, false, OutputInterface::OUTPUT_RAW);
 
-            foreach ($this->omissions($export->omittedPages) as $warning) {
+            foreach ($this->omissions($export) as $warning) {
                 $this->output->getErrorStyle()->warning($warning);
             }
 
@@ -67,7 +67,7 @@ final class ExportSiteSpecCommand extends Command
             return CommandAlias::FAILURE;
         }
 
-        foreach ($this->omissions($export->omittedPages) as $warning) {
+        foreach ($this->omissions($export) as $warning) {
             $this->components->warn($warning);
         }
 
@@ -82,14 +82,22 @@ final class ExportSiteSpecCommand extends Command
     }
 
     /**
-     * @param  array<string, list<string>>  $omitted
      * @return list<string>
      */
-    private function omissions(array $omitted): array
+    private function omissions(SiteSpecExportData $export): array
     {
         $warnings = [];
 
-        foreach ($omitted as $reason => $pages) {
+        foreach ($export->omittedParts as $part => $items) {
+            $replace = ['items' => implode('; ', $items), 'part' => $part];
+            $warnings[] = (string) match ($part) {
+                SiteSpecExportData::OMITTED_PROPERTIES => __('capell-core::message.site_spec_export_omitted_properties', $replace),
+                SiteSpecExportData::OMITTED_MEDIA => __('capell-core::message.site_spec_export_omitted_media', $replace),
+                default => __('capell-core::message.site_spec_export_omitted_part', $replace),
+            };
+        }
+
+        foreach ($export->omittedPages as $reason => $pages) {
             $replace = ['pages' => implode(', ', $pages)];
             $warnings[] = (string) match ($reason) {
                 SiteSpecExportData::OMITTED_NO_PAGE_TYPE => __('capell-core::message.site_spec_export_omitted_no_page_type', $replace),
