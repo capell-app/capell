@@ -365,6 +365,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             if (app()->resolved(RuntimeSchemaState::class)) {
                 resolve(RuntimeSchemaState::class)->flush();
             }
+
+            // The cache manager probes a cache table on its own connection itself.
+            if (app()->resolved(CapellCacheManager::class)) {
+                resolve(CapellCacheManager::class)->flushLocalCache();
+            }
         });
         $this->app->scoped(ProjectBuildArtifactHandlerRegistry::class);
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);

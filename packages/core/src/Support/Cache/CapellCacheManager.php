@@ -16,6 +16,7 @@ use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use LogicException;
 use RuntimeException;
 use Throwable;
@@ -52,6 +53,14 @@ final class CapellCacheManager
      * @var array<string, int>
      */
     private array $cacheNamespaceGenerations = [];
+
+    /**
+     * Whether a database cache table on its own connection exists, probed once per
+     * operation. The runtime schema state only knows the default connection.
+     *
+     * @var array<string, bool>
+     */
+    private array $separateConnectionCacheTables = [];
 
     private int $cacheHitCount = 0;
 
@@ -343,6 +352,7 @@ final class CapellCacheManager
         $this->localCache = [];
         $this->cacheInvalidationPatternGenerations = [];
         $this->cacheNamespaceGenerations = [];
+        $this->separateConnectionCacheTables = [];
     }
 
     public function flushRuntimeState(): void
@@ -531,7 +541,23 @@ final class CapellCacheManager
             return true;
         }
 
+        $connection = config(sprintf('cache.stores.%s.connection', $storeName));
+
+        if (is_string($connection) && $connection !== '' && $connection !== config('database.default')) {
+            return $this->separateConnectionCacheTables[$connection . '.' . $table] ??= $this->cacheTableExists($connection, $table);
+        }
+
         return resolve(RuntimeSchemaState::class)->hasTable($table);
+    }
+
+    private function cacheTableExists(string $connection, string $table): bool
+    {
+        try {
+            return Schema::connection($connection)->hasTable($table);
+        } catch (Throwable) {
+            // Unknown is treated as absent: the in-memory store holds no retained entries.
+            return false;
+        }
     }
 
     private function getCacheSentinel(): string
