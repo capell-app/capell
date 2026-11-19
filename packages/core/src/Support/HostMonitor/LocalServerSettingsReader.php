@@ -31,13 +31,13 @@ final readonly class LocalServerSettingsReader implements ServerSettingsReader
         private array $poolPatterns = ['/etc/php/*/fpm/pool.d/*.conf', '/etc/php-fpm.d/*.conf', '/usr/local/etc/php-fpm.d/*.conf'],
     ) {}
 
-    /** Cached for a few minutes: the scan walks the process table, and an admin page can be opened repeatedly. */
+    /** Cached for a few minutes per node and SAPI: the scan walks the process table, and opcache differs between CLI and FPM. */
     #[Override]
     public function read(): ServerSettingsData
     {
         /** @var array<string, mixed> $cached */
         $cached = Cache::remember(
-            'capell:server-settings:' . $this->store->node(),
+            'capell:server-settings:' . $this->store->node() . ':' . PHP_SAPI,
             self::CACHE_SECONDS,
             fn (): array => $this->measure()->toArray(),
         );

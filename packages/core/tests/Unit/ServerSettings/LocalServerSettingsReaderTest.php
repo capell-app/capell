@@ -127,3 +127,11 @@ it('caches the measured settings so a page load does not rescan the server', fun
 
     expect($host->reads)->toBe(1)->and($second->toArray())->toBe($first->toArray());
 });
+
+it('keeps separate cached readings per PHP SAPI because opcache differs between CLI and FPM', function (): void {
+    settingsReader($this->root)->read();
+    $node = resolve(HostMonitorStore::class)->node();
+
+    expect(Cache::has('capell:server-settings:' . $node . ':' . PHP_SAPI))->toBeTrue()
+        ->and(Cache::has('capell:server-settings:' . $node))->toBeFalse();
+});
