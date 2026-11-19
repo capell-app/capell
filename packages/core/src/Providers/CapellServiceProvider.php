@@ -8,6 +8,8 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Actions\HostMonitor\ApplyDeferrableTasksAction;
+use Capell\Core\Actions\HostMonitor\CatchUpDeferredTasksAction;
 use Capell\Core\Actions\HostMonitor\PruneHostLoadRollupsAction;
 use Capell\Core\Actions\HostMonitor\RecordHostSampleAction;
 use Capell\Core\Actions\HostMonitor\RollUpHostLoadAction;
@@ -194,6 +196,7 @@ use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\FirstRun\GuidedSetupStateMemo;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
+use Capell\Core\Support\HostMonitor\DeferrableTaskPolicy;
 use Capell\Core\Support\HostMonitor\HostLoadGate;
 use Capell\Core\Support\HostMonitor\LocalHostMetricsSource;
 use Capell\Core\Support\HostMonitor\LocalServerSettingsReader;
@@ -307,6 +310,7 @@ use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Composer\InstalledVersions;
 use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
@@ -1133,6 +1137,22 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(HostMetricsSource::class, LocalHostMetricsSource::class);
         $this->app->bind(ServerSettingsReader::class, LocalServerSettingsReader::class);
         $this->app->bind(HostBusyGate::class, HostLoadGate::class);
+
+        // Tasks listed in capell.health.host.deferrable_tasks are filtered as the scheduler starts, when every
+        // task is registered, and caught up once it has finished, so hosts need no code change.
+        Event::listen(ScheduledTaskFinished::class, static function (ScheduledTaskFinished $event): void {
+            resolve(DeferrableTaskPolicy::class)->recordRun($event->task);
+        });
+        Event::listen(CommandStarting::class, static function (CommandStarting $event): void {
+            if ($event->command === 'schedule:run' && resolve(DeferrableTaskPolicy::class)->listed() !== []) {
+                ApplyDeferrableTasksAction::run(resolve(Schedule::class));
+            }
+        });
+        Event::listen(CommandFinished::class, static function (CommandFinished $event): void {
+            if ($event->command === 'schedule:run' && resolve(DeferrableTaskPolicy::class)->listed() !== []) {
+                CatchUpDeferredTasksAction::run(resolve(Schedule::class));
+            }
+        });
 
         Event::listen(ScheduledTaskStarting::class, static function (): void {
             resolve(SchedulerRunRecorder::class)->starting();

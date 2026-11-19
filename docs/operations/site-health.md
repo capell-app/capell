@@ -140,6 +140,28 @@ Every five minutes the scheduler folds this server's recent readings into one da
 
 Code that schedules work that can wait calls `DeferWhenHostBusy::apply($event, 'name')`, or asks the `HostBusyGate` contract directly. With `CAPELL_HEALTH_HOST_DEFER_ENABLED` off, or with no readings yet, the answer is always to run. When it is on and the server is critical, the task skips runs until `CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES` has passed, then runs once, so a server that stays busy cannot starve it.
 
+### Letting scheduled tasks wait while the server is busy
+
+If a task such as a nightly export or a cache warm-up can wait, list it and the host skips it while the server is critically busy, with no code change. Name each task as the scheduler names it: the artisan command (`capell:backup:prune`), or the name given to a closure or job.
+
+```dotenv
+CAPELL_HEALTH_HOST_DEFERRABLE_TASKS=capell:backup:prune,app:nightly-export
+CAPELL_HEALTH_HOST_DEFERRABLE_CATCH_UP_AT=04:00
+```
+
+The list is empty by default, which changes nothing: every task runs whatever the load. For a listed task:
+
+- While the monitor reports the server as critical, a run that falls due is skipped and the task is marked as waiting.
+- A waiting task is caught up once. As soon as the server is no longer critical, the scheduler runs it at the end of its next `schedule:run`, even if it is not due until tomorrow. If it comes due and runs on its own first, nothing is left to catch up.
+- If the server stays critical, the task is caught up anyway at `CAPELL_HEALTH_HOST_DEFERRABLE_CATCH_UP_AT` (server time, `04:00` by default), so a long busy spell cannot starve it.
+- A catch-up runs at most once a day for each task. A task that waits again later the same day is caught up tomorrow.
+
+A task that runs every minute needs no catch-up: it simply runs again the minute the server recovers. The setting does not need `CAPELL_HEALTH_HOST_DEFER_ENABLED`, which only governs code that calls `DeferWhenHostBusy`. It also needs readings, so it does nothing without the scheduler running, and it does nothing when `CAPELL_HEALTH_HOST_ENABLED` is off.
+
+**Site Health → Recommended settings** shows a **Deferrable scheduled tasks** line that says the feature is off, or lists the listed tasks and which of them are waiting for a catch-up.
+
+To check it, put a task name in the list, then run `php artisan schedule:list` to confirm the scheduler knows it by that name. Tasks that run with `runInBackground()` are filtered the same way, but a catch-up runs them in the foreground.
+
 ### Notifications
 
 Notifications are off by default. Switch them on and choose where messages go. A message is sent when a problem is first confirmed or gets worse, as a reminder while it lasts, and once when it clears. Messages name the readings that crossed a limit and the busiest processes, without command arguments.
@@ -166,6 +188,8 @@ Notifications are off by default. Switch them on and choose where messages go. A
 | `CAPELL_HEALTH_HOST_QUEUE_BACKLOG_WARNING`     | `500`     | Waiting jobs at which Site Health suggests another queue worker                                              |
 | `CAPELL_HEALTH_HOST_DEFER_ENABLED`             | `false`   | Let scheduled tasks marked as deferrable skip a run while the server is critically busy                      |
 | `CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES`         | `120`     | Longest a deferrable task waits before it runs once anyway                                                   |
+| `CAPELL_HEALTH_HOST_DEFERRABLE_TASKS`          | empty     | Comma-separated scheduled task names that may skip runs while the server is critically busy; empty changes nothing |
+| `CAPELL_HEALTH_HOST_DEFERRABLE_CATCH_UP_AT`    | `04:00`   | Time of day (server time) after which a task that skipped runs is caught up even if the server is still busy |
 | `CAPELL_HEALTH_HOST_NOTIFY`                    | `false`   | Send messages when the status changes                                                                        |
 | `CAPELL_HEALTH_HOST_NOTIFY_CHANNELS`           | `mail`    | Comma-separated channels: `mail`, `webhook`                                                                  |
 | `CAPELL_HEALTH_HOST_NOTIFY_MAIL_TO`            | empty     | Comma-separated email addresses that receive the messages                                                    |

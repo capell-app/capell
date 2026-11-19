@@ -6,6 +6,7 @@ use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Core\Contracts\Health\ServerSettingsReader;
 use Capell\Core\Data\Diagnostics\ServerSettingsData;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\HostMonitor\HostMonitorStore;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -121,4 +122,24 @@ it('still renders Site Health when the settings reader fails', function (): void
     Livewire::test(SiteHealthPage::class)
         ->assertSuccessful()
         ->assertDontSee(__('capell-admin::server-settings.section'));
+});
+
+it('says the deferring of scheduled tasks is off by default', function (): void {
+    openSiteHealthAsAdmin();
+    fixtureSettingsHost([]);
+
+    Livewire::test(SiteHealthPage::class)
+        ->assertSee(__('capell-admin::server-settings.deferrable_label'))
+        ->assertSee('Every scheduled task runs on its normal schedule');
+});
+
+it('lists the deferrable tasks and the ones currently deferred', function (): void {
+    openSiteHealthAsAdmin();
+    fixtureSettingsHost([]);
+    config()->set('capell.health.host.deferrable_tasks', ['app:reports', 'app:cleanup']);
+    resolve(HostMonitorStore::class)->markCatchUpPending('app:reports', now()->getTimestamp());
+
+    Livewire::test(SiteHealthPage::class)
+        ->assertSee(__('capell-admin::server-settings.deferrable_listed', ['tasks' => 'app:reports, app:cleanup']))
+        ->assertSee(__('capell-admin::server-settings.deferrable_deferred', ['tasks' => 'app:reports']));
 });

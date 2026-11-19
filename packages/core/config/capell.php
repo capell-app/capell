@@ -125,6 +125,14 @@ return [
                 // A deferred task runs once after this long even when the server stays busy, so it cannot be starved.
                 'max_minutes' => (int) env('CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES', 120),
             ],
+            // Scheduled tasks, named as the scheduler names them (a command such as capell:backup:prune,
+            // or the name given to a closure or job), that may skip runs while this server is critically
+            // busy. Empty leaves every task alone. A task that skipped runs is caught up once, as soon as
+            // the server is no longer busy or at the catch-up time, whichever comes first, and at most
+            // once a day.
+            'deferrable_tasks' => array_values(array_filter(array_map(trim(...), explode(',', (string) env('CAPELL_HEALTH_HOST_DEFERRABLE_TASKS', ''))))),
+            // Time of day (HH:MM, server time) after which a task that skipped runs is caught up even if the server is still busy.
+            'deferrable_catch_up_at' => (string) env('CAPELL_HEALTH_HOST_DEFERRABLE_CATCH_UP_AT', '04:00'),
             'notifications' => [
                 'enabled' => (bool) env('CAPELL_HEALTH_HOST_NOTIFY', false),
                 // Any of: mail, webhook.

@@ -15,4 +15,9 @@ return [
     'change_fpm_max_children' => 'Lower pm.max_children from :measured to :recommended in the PHP-FPM pool file and reload PHP-FPM. More workers than the memory and cores support push the server into swap.',
     'change_swap_pressure' => 'Add memory or lower pm.max_children in the PHP-FPM pool file. The server used :measured of its swap this week, which makes every request slower.',
     'change_idle_queue_workers' => 'Run :recommended queue worker instead of :measured: no job waited on the queue in the last 7 days. Lower numprocs in the supervisor or systemd unit that starts queue:work.',
+    'deferrable_label' => 'Deferrable scheduled tasks',
+    'deferrable_off' => 'Off. Every scheduled task runs on its normal schedule, whatever the server load. List task names in capell.health.host.deferrable_tasks to let them wait while the server is critically busy.',
+    'deferrable_listed' => 'May wait while the server is critically busy: :tasks.',
+    'deferrable_none_deferred' => 'None is waiting now.',
+    'deferrable_deferred' => 'Waiting for a catch-up run once the server is no longer busy, or at the daily catch-up time: :tasks.',
 ];
