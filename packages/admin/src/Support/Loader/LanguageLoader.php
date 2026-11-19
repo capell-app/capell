@@ -47,11 +47,14 @@ class LanguageLoader
 
     public static function getTotalLanguages(): int
     {
-        return Cache::remember(
+        // The Redis store returns a cached number as a numeric string.
+        $total = Cache::remember(
             CacheEnum::LanguageTotal->value,
             30,
             fn (): int => Language::query()->count(),
         );
+
+        return is_numeric($total) ? (int) $total : 0;
     }
 
     public static function total(): int
