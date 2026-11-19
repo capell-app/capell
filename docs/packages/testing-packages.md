@@ -254,6 +254,8 @@ it('declares a theme manifest the theme loader accepts', function (): void {
 });
 ```
 
+The harness throws an `AssertionError` on the first failure instead of recording PHPUnit assertions, so a test that only calls it is reported as risky and fails under `--fail-on-risky`. End such a test with `$this->addToAssertionCount(1);`, as the generated tests do. Do not wrap the call in `expect(fn () => ...)->not->toThrow(Throwable::class)`: Pest treats an interface name as expected message text, so that expectation passes even when the harness throws.
+
 - `assertManifestValid()` runs the same validator as `capell:extension-audit` and Marketplace submission, and fails with the first problem.
 - `assertContributionRegistered($type, $class)` fails when `capell.json` does not declare that contribution.
 - `assertRoutesOwnedByPackage()` fails when a route contribution has no `namePrefix`, and `assertScheduledJobsRegistered()` fails when a scheduled job has no schedule.
@@ -275,8 +277,13 @@ it('meets the companion package contract', function (): void {
     ExtensionTestHarness::assertCompanionPackageContract(
         CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
     );
+
+    // The contract suite throws on the first failed check, so reaching this line means every check passed.
+    $this->addToAssertionCount(1);
 });
 ```
+
+`capell:make:extension` generates this test as `tests/Feature/PackageContractTest.php` in both profiles, so a new package runs the contract from its first `composer test`.
 
 `forPackage()` reads `capell.json`, the first runtime provider (or the first metadata provider) and every migration under `database/migrations`. Pass `authorizationAssertion`, `cacheInvalidationAssertion`, `lifecycleAssertion` or `publicRender` closures to exercise the package's own behaviour as well.
 
@@ -307,6 +314,51 @@ CAPELL_PACKAGES_CHECKOUT=/path/to/capell-packages bash scripts/verify-generated-
 ```
 
 The script generates both profiles and runs each generated suite with `composer install` and `composer test -- --fail-on-risky`. It then creates a fresh Laravel application, installs Capell unattended and follows the full profile's generated README. It also requires clean `capell:package:lint` and `capell:extension-audit` results, and saves and reloads `public_label` through Extensions management. Finally, it checks the widget's editor block, assets and escaped public output while the package is enabled, disabled and enabled again. Set `CAPELL_GENERATED_CONSUMER_ROOT` to keep the consumer for inspection. Composer needs network access.
+
+<a id="continuous-integration"></a>
+
+### Continuous integration for an extension repository
+
+Save this as `.github/workflows/tests.yml` in the package repository. It installs dependencies from Packagist and runs the generated Pest suite on PHP 8.4 against the newest Capell Core release your constraint allows.
+
+```yaml
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4']
+        capell-core: ['^1.0']
+        dependencies: [highest]
+    name: PHP ${{ matrix.php }}, capell-app/core ${{ matrix.capell-core }} (${{ matrix.dependencies }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, intl, gd
+          coverage: none
+
+      - name: Pin the Capell Core range
+        run: composer require "capell-app/core:${{ matrix.capell-core }}" --no-update --no-interaction
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.dependencies == 'lowest' && '--prefer-lowest' || '' }}
+
+      - name: Run tests
+        run: composer test -- --fail-on-risky
+```
+
+To prove the package still works on the oldest Core release it claims to support, raise the `capell-app/core` floor in `composer.json` to that release and add `lowest` to `dependencies`. The scaffold writes `^1.0`, whose floor predates parts of the test harness, so a `lowest` run fails until you raise it. To test specific Core lines as well, add them to `capell-core` with Composer constraint syntax, for example `['~1.0.78', '^1.0']`. Keep each entry inside the range your `composer.json` declares, or Composer refuses to resolve it. The generated `phpunit.xml.dist` already uses SQLite in memory, so the job needs no database service. A full-profile package resolves `capell-app/admin`, `capell-app/frontend` and `capell-app/layout-builder` from Packagist in the same way.
 
 ## Test Case
 

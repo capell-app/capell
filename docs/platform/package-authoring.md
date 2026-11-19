@@ -19,7 +19,16 @@ php artisan capell:make:extension vendor/example --profile=minimal --path=packag
 php artisan capell:make:extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
-Interactive mode asks for the package name, scaffold profile, target directory, and display name when they are missing. Non-interactive scripts must pass `package`, `--profile`, and `--path`.
+Interactive mode asks for the package name, scaffold profile, target directory, and display name when they are missing. Non-interactive scripts must pass `package`, `--profile`, and `--path`. `capell:make-extension` still works as a deprecated alias and prints the new name.
+
+## Reference packages to copy
+
+Two published Capell packages are small enough to read end to end. Copy their structure, not their code wholesale:
+
+- [`capell-app/extension-cookbook`](https://github.com/capell-app/extension-cookbook) is a learning package. It declares all four lifecycle Actions, a Layout Builder widget, a public route, a health check, a doctor command and admin pages, and its admin coverage list shows which extension points it demonstrates.
+- [`capell-app/referer`](https://github.com/capell-app/referer) is a small production package: metadata, install, runtime and admin provider buckets, a migration, an admin report, a dashboard widget, a health check and a scheduled prune command, with no lifecycle Actions.
+
+Both repositories are published from Capell's package monorepo. A pull request opened against either one is forwarded there.
 
 ## Profiles
 
@@ -28,7 +37,7 @@ Interactive mode asks for the package name, scaffold profile, target directory, 
 - Composer metadata and PSR-4 autoloading.
 - Manifest v3 with all provider buckets present.
 - A Composer-discovered package provider extending `AbstractPackageServiceProvider`, with an empty `runtime` bucket.
-- Translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test.
+- Translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, a manifest test, and a [companion package contract](../packages/testing-packages.md#companion-package-contract) test.
 
 `full` creates live, harmless examples:
 
@@ -37,7 +46,7 @@ Interactive mode asks for the package name, scaffold profile, target directory, 
 - A persistent settings class, its settings migration, and an Extensions management form.
 - A working Layout Builder content widget with typed input and render Data objects, registered only while the package is installed and enabled.
 - Package-owned widget CSS and JavaScript assets.
-- Tests for manifest validity, settings save and reload, and the widget's disabled and enabled behaviour, including escaped public output.
+- Tests for manifest validity, the companion package contract, settings save and reload, and the widget's disabled and enabled behaviour, including escaped public output.
 
 Neither profile generates render hooks or Actions. See [Standalone package harness](../packages/testing-packages.md#standalone-package-harness) for the generated `TestCase`.
 
@@ -49,17 +58,20 @@ Use the generated tests as the baseline, then add package-specific tests for set
 
 ## Lifecycle Actions
 
-Install, setup, and after-install work that can run from the web UI or Marketplace must be implemented as Actions, not nested Artisan commands. Add lifecycle classes that implement `Capell\Core\Contracts\PackageLifecycleAction` and declare them in `capell.json`:
+Install, setup, after-install and uninstall work that can run from the web UI or Marketplace must be implemented as Actions, not nested Artisan commands. Add lifecycle classes that implement `Capell\Core\Contracts\PackageLifecycleAction` and declare them in `capell.json`. The scaffold writes all four keys as `null`; set the ones your package needs:
 
 ```json
 {
     "actions": {
         "install": "Vendor\\Example\\Actions\\InstallExamplePackageAction",
         "setup": "Vendor\\Example\\Actions\\SetupExamplePackageAction",
-        "afterInstall": "Vendor\\Example\\Actions\\AfterInstallExamplePackageAction"
+        "afterInstall": "Vendor\\Example\\Actions\\AfterInstallExamplePackageAction",
+        "uninstall": "Vendor\\Example\\Actions\\UninstallExamplePackageAction"
     }
 }
 ```
+
+`uninstall` runs during `capell:extension-uninstall` and the admin uninstall, after Capell has checked that no installed package depends on yours and before it removes the package's published migrations and marks it uninstalled. Use it to remove what your install or setup Action created outside your own tables, such as pages, settings or scheduled work. If it throws, the uninstall stops and the package stays installed. Table data is deleted only when the operator passes `--delete-data` or `--delete-package`, so the Action must not drop tables itself.
 
 Console commands may remain as thin CLI adapters for developers, but they should delegate to the same Action. Web-triggered lifecycle work will prefer these Actions and will not fall back to legacy commands.
 

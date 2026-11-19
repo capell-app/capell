@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Testing\Data\CompanionPackageContractData;
+use Capell\Core\Testing\ExtensionTestHarness;
+
+it('meets the companion package contract', function (): void {
+    ExtensionTestHarness::assertCompanionPackageContract(
+        CompanionPackageContractData::forPackage(dirname(__DIR__, 2)),
+    );
+
+    // The contract suite throws on the first failed check, so reaching this line means every check passed.
+    $this->addToAssertionCount(1);
+});

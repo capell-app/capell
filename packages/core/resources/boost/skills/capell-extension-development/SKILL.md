@@ -9,15 +9,15 @@ Use this to author a reusable Capell package. For architecture, extension points
 
 ## First checks
 
-- Read two installed packages under `vendor/capell-app/` that are close to what you are building. Match their provider style, manifest shape, test base and translations.
-- Run `php artisan capell:make --list` to see the makers available, then scaffold instead of copying a package directory:
+- Read two packages close to what you are building and match their provider style, manifest shape, test base and translations. [`capell-app/extension-cookbook`](https://github.com/capell-app/extension-cookbook) demonstrates all four lifecycle Actions, a widget, a route, a health check and admin pages; [`capell-app/referer`](https://github.com/capell-app/referer) is a small production package with a migration, an admin report, a dashboard widget and a scheduled prune command. Installed packages under `vendor/capell-app/` are also fair references.
+- Run `php artisan capell:make --list` to see the makers available, then scaffold with `capell:make:extension` (the deprecated alias `capell:make-extension` still works) instead of copying a package directory:
 
 ```bash
 php artisan capell:make:extension vendor/example --profile=minimal --path=packages --name="Example"
 php artisan capell:make:extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
-`minimal` is a provider, manifest, translations, README, Testbench `TestCase` and manifest test. `full` adds install and admin providers, a settings class and migration, a Layout Builder widget with typed Data objects, widget assets and tests.
+`minimal` is a provider, manifest, translations, README, Testbench `TestCase`, a manifest test and a companion package contract test. `full` adds install and admin providers, a settings class and migration, a Layout Builder widget with typed Data objects, widget assets and tests.
 
 ## Package shape
 
@@ -35,7 +35,7 @@ Manifest v3 requires `manifest-version`, `name`, `slug`, `displayName`, `kind` (
 - `dependencies.requires` lists hard requirements. A package that registers admin pages, resources or admin translations must require `capell-app/admin`.
 - `providers` buckets: `metadata`, `install`, `runtime`, `admin`, `frontend`. They do not filter by request context; guard admin-only work in the provider.
 - `contributes` declares each shipped surface (for example `model`, `content-widget`, `setting`, `route`, `permission`, `health-check`, `scheduled-job`, `asset`, `migration`). Do not leave it empty when the package ships those surfaces.
-- Declare install, setup and after-install work as `actions` classes implementing `Capell\Core\Contracts\PackageLifecycleAction`, not nested Artisan commands. A package with only `commands` cannot be installed from the admin Marketplace.
+- Declare install, setup, after-install and uninstall work as `actions` classes (`install`, `setup`, `afterInstall`, `uninstall`) implementing `Capell\Core\Contracts\PackageLifecycleAction`, not nested Artisan commands. The uninstall Action runs before Capell removes the package's migrations and must not drop tables; data is deleted only with `--delete-data` or `--delete-package`. A package with only `commands` cannot be installed from the admin Marketplace.
 
 Run `php artisan capell:package-cache:clear` and `php artisan config:clear` whenever `capell.json` changes. The manifest is cached.
 
@@ -54,7 +54,7 @@ Use a Composer path repository while developing. Installation does not publish a
 
 ## Tests
 
-Use `Capell\Core\Testing\ExtensionTestHarness::forPath(...)` for manifest checks (`assertManifestValid()`, `assertContributionRegistered()`, `assertRoutesOwnedByPackage()`, `assertNoUnsafePublicCache()`). Add tests for provider registration, each Action, settings save and reload, the disabled and enabled states, and escaped public output.
+Use `Capell\Core\Testing\ExtensionTestHarness::forPath(...)` for manifest checks (`assertManifestValid()`, `assertContributionRegistered()`, `assertRoutesOwnedByPackage()`, `assertNoUnsafePublicCache()`). Keep the generated `tests/Feature/PackageContractTest.php`, which runs `ExtensionTestHarness::assertCompanionPackageContract()` over the package's own files. Add tests for provider registration, each Action, settings save and reload, the disabled and enabled states, and escaped public output.
 
 ```bash
 vendor/bin/pest packages/example/tests
