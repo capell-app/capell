@@ -47,7 +47,7 @@ Implementation-level definitions for package and theme authors.
 | Workspace | An isolated sandbox where edits are staged. Provided by the optional Publishing Studio package (`Capell\PublishingStudio\BelongsToWorkspace`), not by Foundation. See [PublishingStudio & Versions](https://docs.capell.app/packages/publishing-studio/). |
 | Version | An immutable snapshot of the live manifest at a point in time. Publishing a workspace creates a new version and flips it live. |
 | Publish | The atomic flip that promotes a workspace's draft rows to live. Runs publish-checks (freshness, URL collisions, release windows) inside a single transaction. |
-| Rebase | Bringing a stale workspace up to date after another workspace has published. See [Rebase flow](https://docs.capell.app/packages/publishing-studio/publishing-workflow/). |
+| Rebase | Bringing a stale workspace up to date after another workspace has published. |
 | Rollback | Restoring the previous live version after a publish. Also available per-row via `EntityRollbackAction`. |
 | Approval level | An integer count of approvers required before a workspace can publish. Defaults to `2`; override via `settings.required_approval_levels`. |
 | Schema | A Filament field schema class that defines the form for a blueprint, setting, or resource. |

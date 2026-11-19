@@ -81,5 +81,4 @@ original exception from a failed replacement.
 
 Media AI actions come from the optional Media AI package. Admin only supplies the extension surface, so the default media surface works without the package. Package documentation should show an action only after its capture contract opens or waits for that action explicitly.
 
-
 Localized media metadata (alt text, captions, credits, decorative flag) is stored on the shared polymorphic `translations` table in the translation `meta` JSON column. The active backend is resolved from `capell.media.backend` (`CAPELL_MEDIA_BACKEND`, default `spatie`). Render media in Blade with `<x-capell::media>` so output stays on the public-safety contract.

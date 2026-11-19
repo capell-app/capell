@@ -130,7 +130,7 @@ From here, the path depends on what you're building.
 
 **Need reusable layout widgets or ready-made sections?** Install the [Layout Builder](../packages/layout-builder.md) and [Content Sections](../packages/content-sections.md) approved packages from the [catalogue](../packages/catalog.md#capell-foundation). Layout Builder adds the container-and-widget layer to the page editor; Content Sections adds the section library on top.
 
-**Setting up for a team?** Configure roles under **Users > Roles**, then add people under **Users > Users** with **New user**. Capell has no invitation email: you set a password for each person when you create their account and pass it on securely. The [Permissions & approval guide](../../packages/admin/docs/permissions-and-approval.md) covers how site-scoped roles work.
+**Setting up for a team?** Configure roles under **Users > Roles**, then add people under **Users > Users**. Choose **Invite someone** to email them a link to choose their own password, or **New user** to set a password yourself and pass it on securely. **Invite someone** appears only when you can grant at least one role. The [Permissions & approval guide](../../packages/admin/docs/permissions-and-approval.md) covers how site-scoped roles work.
 
 **Running multiple sites or languages?** See [Multi-site & multi-lingual](../../packages/core/docs/multi-site-multi-lingual.md) before creating more content.
 

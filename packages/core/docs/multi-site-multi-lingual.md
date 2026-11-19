@@ -220,7 +220,7 @@ The canonical URL for each page is generated based on the active site domain and
 - [Adding a language to a live site](../../admin/docs/adding-a-language-to-a-live-site.md) — the editor-facing walkthrough
 - [Admin Multi-Language](../../admin/docs/admin-multi-language.md) — Languages CRUD, translations repeater, admin interface language
 - [Page Management](page-management.md) — URL history, redirects, slug management
-- [Content Management](content-management.md) — translating content, per-language publishing
+- [Content Management](content-management.md) — translating content and keeping a language off the public site
 - [Page & Site Loading](../../frontend/docs/page-site-loading.md) — how site/language resolution works internally
 - [Sitemaps](https://docs.capell.app/packages/site-discovery/) — XML sitemap generation and serving (in the `capell-app/site-discovery` add-on)
 - [Packages and extensions](../../../docs/packages/catalog.md) — host package boundaries and extension documentation entry points

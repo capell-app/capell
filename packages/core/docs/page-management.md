@@ -133,7 +133,7 @@ The frontend package owns maintenance rendering, static maintenance middleware, 
 
 ### Broken links
 
-If the URL Manager package is installed, **Website > Broken links** lists addresses visitors tried that do not exist, most-visited first. Choose one to send it to the right page.
+If the URL Manager package is installed, **Website > Broken links** lists addresses visitors tried that do not exist, most-visited first. Choose **Convert to redirect** on a row to send that address to the right page.
 
 ---
 
