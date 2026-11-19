@@ -11,9 +11,10 @@ use Illuminate\Filesystem\Filesystem;
 use Throwable;
 
 /**
- * Holds the issuer-signed paid/free classification delivered by the heartbeat or an offline
- * import. Every read re-verifies the signature, and the highest accepted sequence is kept so a
- * replayed older catalogue (from before a package became paid) is refused.
+ * Holds the issuer-signed catalogue delivered by heartbeat or offline import. A paid
+ * entry can raise the authorisation requirement. Free status comes from the signed
+ * package licence manifest. The store verifies the signature on load and retains the
+ * highest accepted sequence to refuse replayed deliveries.
  */
 final class CommercialCatalogueStore
 {
@@ -24,7 +25,7 @@ final class CommercialCatalogueStore
     /**
      * The stored sequence floor lives in storage the site owner controls, so it only stops
      * replayed deliveries. The signed validity window is what bounds an owner restoring an
-     * older catalogue: once it ends the catalogue stops counting and Core fails closed.
+     * older catalogue. After that window Core relies on the other classification sources.
      */
     public const int MAX_VALIDITY_DAYS = 30;
 
@@ -34,6 +35,8 @@ final class CommercialCatalogueStore
 
     /** @var array<string, mixed>|null */
     private ?array $catalogue = null;
+
+    private ?CarbonImmutable $validUntil = null;
 
     private int $highestSequence = 0;
 
@@ -85,6 +88,7 @@ final class CommercialCatalogueStore
     {
         $this->loaded = false;
         $this->catalogue = null;
+        $this->validUntil = null;
         $this->highestSequence = 0;
     }
 
@@ -93,10 +97,10 @@ final class CommercialCatalogueStore
     {
         $this->load();
 
-        return $this->catalogue;
+        return $this->validUntil instanceof CarbonImmutable && CarbonImmutable::now()->lessThan($this->validUntil) ? $this->catalogue : null;
     }
 
-    /** Null means the package is not listed; it never means the catalogue is missing. */
+    /** Returns the classification listed in the current catalogue, if any. */
     public function classification(string $composerName): ?bool
     {
         $catalogue = $this->current();
@@ -181,6 +185,7 @@ final class CommercialCatalogueStore
         $this->files->move($temporary, $this->path());
 
         $this->catalogue = $catalogue;
+        $this->validUntil = CarbonImmutable::parse($catalogue['valid_until']);
         $this->highestSequence = $sequence;
         $this->loaded = true;
 
@@ -211,9 +216,6 @@ final class CommercialCatalogueStore
         }
 
         $this->loaded = true;
-        $this->catalogue = null;
-        $this->highestSequence = 0;
-
         try {
             $contents = $this->files->exists($this->path()) ? $this->files->get($this->path()) : null;
             $stored = is_string($contents) ? json_decode($contents, true) : null;
@@ -230,6 +232,7 @@ final class CommercialCatalogueStore
         $catalogue = $stored['catalogue'];
         if (self::isValid($catalogue) && $catalogue['sequence'] === $this->highestSequence) {
             $this->catalogue = $catalogue;
+            $this->validUntil = CarbonImmutable::parse($catalogue['valid_until']);
         }
     }
 

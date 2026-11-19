@@ -6,7 +6,9 @@ namespace Capell\Core\Support\Runtime;
 
 use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
+use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
+use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
 use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
@@ -57,8 +59,13 @@ final class RuntimeRolePackageManifest extends PackageManifest
             return $this->manifest;
         }
 
-        if (is_file($this->runtimeManifestPath) && $this->identity->matches($this->runtimeIdentityPath())) {
-            $manifest = $this->files->getRequire($this->runtimeManifestPath);
+        // A provider omitted from the role cache may become eligible when a catalogue
+        // expires. Evaluate commercial decisions from the full Composer discovery list.
+        $enforcing = $this->commercialPolicy()->enforcing();
+        $cachePath = $enforcing ? $this->sourceManifestPath : $this->runtimeManifestPath;
+        $identityPath = $enforcing ? $this->sourceIdentityPath() : $this->runtimeIdentityPath();
+        if (is_file($cachePath) && $this->identity->matches($identityPath)) {
+            $manifest = $this->files->getRequire($cachePath);
 
             if (is_array($manifest)) {
                 return $this->manifest = $this->filterManifest($manifest);
@@ -161,6 +168,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
     private function filterManifest(array $source): array
     {
         $manifest = [];
+        $commercial = $this->commercialPolicy();
 
         foreach ($source as $package => $configuration) {
             if (! is_string($package)) {
@@ -174,7 +182,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
             // Commercial Capell providers must enter through the manifest-v3
             // loader, after Core can evaluate lifecycle/issuer authorisation.
             // Laravel discovery runs too early to consult the lifecycle ledger.
-            if ($this->deferCommercialExtension($package)) {
+            if ($this->deferCommercialExtension($package, $commercial)) {
                 continue;
             }
 
@@ -188,18 +196,29 @@ final class RuntimeRolePackageManifest extends PackageManifest
         return $manifest;
     }
 
-    private function deferCommercialExtension(string $package): bool
+    private function commercialPolicy(): ExtensionCommercialPolicy
     {
-        $commercial = resolve(ExtensionCommercialPolicy::class);
+        // Discovery precedes the registration of Core's service provider.
+        $app = app();
+        $app->singletonIf(CommercialCatalogueStore::class);
+        $app->singletonIf(SignedPackageLicenceManifest::class);
+        $app->singletonIf(ExtensionCommercialPolicy::class);
+
+        return $app->make(ExtensionCommercialPolicy::class);
+    }
+
+    private function deferCommercialExtension(string $package, ExtensionCommercialPolicy $commercial): bool
+    {
         if (! $commercial->requiresAuthorisation($package) || $commercial->isLocalDevelopment($package)) {
             return false;
         }
 
-        $installedPath = InstalledVersions::isInstalled($package) ? InstalledVersions::getInstallPath($package) : null;
-        $installedPath ??= resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $package;
         if ($commercial->isRecognised($package)) {
             return true;
         }
+
+        $installedPath = InstalledVersions::isInstalled($package) ? InstalledVersions::getInstallPath($package) : null;
+        $installedPath ??= resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $package;
 
         return is_file($installedPath . '/capell.json');
     }

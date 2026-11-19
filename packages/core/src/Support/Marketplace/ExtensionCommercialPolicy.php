@@ -9,19 +9,27 @@ use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 
 /**
- * Decides whether a package needs Marketplace authorisation. Local state may raise the
- * requirement but never lower it: only the issuer-signed catalogue can classify a package free.
+ * Decides whether an extension needs Marketplace authorisation. A verified package
+ * licence manifest can establish free status offline. Local state and the verified
+ * catalogue can raise the requirement.
+ *
+ * Paid code is distributed only through the authenticated Capell source. Without a
+ * verified free manifest Core requires authorisation, including when the manifest
+ * is omitted. The issuer signs third-party manifests in the Marketplace release flow.
+ * Developers can explicitly exempt unsigned packages in the local environment.
  */
 final class ExtensionCommercialPolicy
 {
     public function __construct(
         private readonly CommercialCatalogueStore $catalogue,
+        private readonly SignedPackageLicenceManifest $licences,
         private readonly InstalledPackageCodeIdentity $code = new InstalledPackageCodeIdentity,
     ) {}
 
     public function clear(): void
     {
         $this->catalogue->clear();
+        $this->licences->clear();
         $this->code->clear();
     }
 
@@ -38,7 +46,7 @@ final class ExtensionCommercialPolicy
 
     public function requiresAuthorisation(string $name, ?CapellExtension $extension = null): bool
     {
-        // Checked before every name-based answer, the trusted Core list and a free listing
+        // Checked before every name-based answer, the trusted Core list and a free manifest
         // included: renaming a paid package in metadata does not rename its PHP classes.
         if ($this->claimsPaidCode($name)) {
             return true;
@@ -57,25 +65,17 @@ final class ExtensionCommercialPolicy
             return false;
         }
 
-        // Without a verified catalogue nothing can prove a package free: fail closed rather
-        // than trust Composer metadata or database flags the site owner can edit.
-        if ($this->catalogue->current() === null) {
+        if ($this->catalogue->classification($name) === true) {
             return true;
         }
 
-        $classification = $this->catalogue->classification($name);
-        if ($classification !== null) {
-            return $classification;
-        }
-
-        // An unlisted Capell-vendor package is never assumed free.
-        return str_starts_with(strtolower($name), 'capell-app/');
+        return $this->licences->classification($name) !== false;
     }
 
-    /** Whether the issuer recognises the package as a commercial identity at all. */
+    /** Whether Core recognises the package as an extension for commercial discovery. */
     public function isRecognised(string $name): bool
     {
-        if ($this->catalogue->isListed($name) || $this->claimsPaidCode($name)) {
+        if ($this->catalogue->isListed($name) || $this->claimsPaidCode($name) || $this->licences->classification($name) !== null) {
             return true;
         }
 
@@ -97,7 +97,9 @@ final class ExtensionCommercialPolicy
             return true;
         }
 
-        return $this->catalogue->classification($name) !== true && ! $this->claimsPaidCode($name);
+        return $this->catalogue->classification($name) !== true
+            && $this->licences->classification($name) !== true
+            && ! $this->claimsPaidCode($name);
     }
 
     /**

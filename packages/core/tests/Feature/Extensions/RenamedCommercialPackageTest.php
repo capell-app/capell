@@ -22,6 +22,7 @@ use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
+use Composer\InstalledVersions;
 use Illuminate\Container\Container;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\File;
 /*
  * Threat: a site owner edits only Composer and Capell metadata (installed.json, the package
  * composer.json, capell.json), never PHP. Renaming a paid package to an unlisted vendor must not
- * make its code free at any gate, while a genuinely third-party package stays free.
+ * make its code free at any gate, even under a name with a valid free licence manifest.
  */
 
 const RENAMED_PAID_PROVIDER = 'Vendor\\Commercial\\CommercialServiceProvider';
@@ -40,6 +41,7 @@ const RENAMED_PAID_PROVIDER = 'Vendor\\Commercial\\CommercialServiceProvider';
 beforeEach(function (): void {
     FakeHostAddressResolver::bind();
     $this->renamedBase = app()->basePath();
+    $this->renamedInstalledVersions = InstalledVersions::getAllRawData()[0];
     $this->renamedRoot = sys_get_temp_dir() . '/capell-renamed-' . bin2hex(random_bytes(8));
     File::ensureDirectoryExists($this->renamedRoot . '/vendor/composer');
     File::ensureDirectoryExists($this->renamedRoot . '/bootstrap/cache');
@@ -64,6 +66,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    InstalledVersions::reload($this->renamedInstalledVersions);
     File::delete(resolve(CommercialCatalogueStore::class)->path());
     resolve(ExtensionCommercialPolicy::class)->clear();
     app()->setBasePath($this->renamedBase);
@@ -115,6 +118,22 @@ function installRenamedFixture(object $test, string $name, array $psr4, array $l
     File::put($root . '/vendor/composer/installed.json', json_encode(['packages' => [$composer]], JSON_THROW_ON_ERROR));
     File::put($root . '/vendor/' . $name . '/composer.json', json_encode($composer, JSON_THROW_ON_ERROR));
     File::put($root . '/vendor/' . $name . '/capell.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+    $installed = $test->renamedInstalledVersions;
+    $installed['versions'][$name] = [
+        'version' => '1.0.0.0', 'pretty_version' => '1.0.0',
+        'install_path' => $root . '/vendor/' . $name, 'type' => 'library', 'aliases' => [],
+        'dev_requirement' => false,
+    ];
+    InstalledVersions::reload($installed);
+
+    $licence = [
+        'manifest_version' => 1, 'purpose' => 'capell-extension-licence-manifest',
+        'composer_name' => $name, 'version_constraint' => '^1.0', 'is_paid' => false, 'issued_at' => now()->toIso8601String(),
+        'signature' => ['algorithm' => 'ed25519', 'keyId' => 'renamed-issuer', 'value' => ''],
+    ];
+    $licence['signature']['value'] = base64_encode(sodium_crypto_sign_detached(CanonicalizeProjectBuildManifestSigningInputAction::run($licence), sodium_crypto_sign_secretkey($test->renamedKeys)));
+    File::put($root . '/vendor/' . $name . '/capell-licence.json', json_encode($licence, JSON_THROW_ON_ERROR));
+
     CapellCore::clearPackages();
     CapellCore::registerManifestPackage(resolve(ManifestLoader::class)->load($root . '/vendor/' . $name . '/capell.json'));
     // The boot cache carries a Capell provider so the fresh bootstrap has one to gate.

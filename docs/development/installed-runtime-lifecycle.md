@@ -72,6 +72,25 @@ Registration is **not transactional**. Arbitrary listeners, scheduled callbacks,
 
 Keep configuration, install commands, metadata and pre-install listeners in their existing early phase. Never capture a request, user, tenant, model instance or job in runtime registration. Resolve those at execution time.
 
+## Marketplace licence manifests
+
+Ship `capell-licence.json` beside `capell.json`. The Marketplace release flow signs
+the manifest with the Capell issuer key. The signature covers the Composer package
+name, version range and paid status. When Core carries an issuer key, a verified
+free manifest lets Laravel discover the package before the database is available
+and lets Core install and enable it offline. The manifest has no expiry. If a
+package becomes paid at 2.0, the paid manifest must cover 2.0 and all earlier free
+manifests must exclude it.
+
+Core requires authorisation for paid packages and packages without a valid
+manifest. Paid code is distributed through the authenticated Capell source, so
+Core requires the issuer to confirm free status for both Capell and third-party
+packages. Local paid flags and a current signed catalogue can still require
+authorisation for a package with a free manifest. A free catalogue entry leaves
+the manifest requirement in place. To develop an unsigned package, add its
+Composer name to `capell.extensions.local_development` in the local environment.
+The exemption excludes packages the issuer classifies as paid.
+
 ## Migration and compatibility
 
 Nothing is deprecated by this change. Existing `bootInstalledPackage(): self`, `bootPackage(): self`, Spatie `packageRegistered()` / `packageBooted()`, and provider booted callbacks retain their existing behaviour for providers that do not adopt the new hook. Legacy callbacks may run repeatedly during installation; existing private guards remain necessary until migration. Enable does not introduce legacy callback replays or load previously unloaded non-adopting providers. It loads missing adopters and refreshes their guarded hooks. Installation retains its existing legacy loading behaviour.
