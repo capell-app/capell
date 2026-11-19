@@ -14,9 +14,9 @@ use Error;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use LogicException;
 use RuntimeException;
 use Throwable;
@@ -43,6 +43,24 @@ final class CapellCacheManager
 
     /** @var array<string, int> */
     private array $cacheInvalidationPatternGenerations = [];
+
+    /**
+     * The namespace generation read for the current operation. It lives and dies with
+     * the local cache: the Octane reset and the queue worker's per-job reset both
+     * flush it, so a long-lived process re-reads the generation another process moved.
+     * Keyed by the generation key, so a changed cache tag never reuses another's number.
+     *
+     * @var array<string, int>
+     */
+    private array $cacheNamespaceGenerations = [];
+
+    /**
+     * Whether a database cache table on its own connection exists, probed once per
+     * operation. The runtime schema state only knows the default connection.
+     *
+     * @var array<string, bool>
+     */
+    private array $separateConnectionCacheTables = [];
 
     private int $cacheHitCount = 0;
 
@@ -325,10 +343,7 @@ final class CapellCacheManager
             : Cache::lock('capell.cache.increment.' . hash('sha256', 'raw:' . $key), 10)->block(5, $rotate);
 
         $this->flushLocalCache();
-        $request = app()->bound('request') ? resolve('request') : null;
-        if ($request instanceof Request) {
-            $request->attributes->set($key, $generation);
-        }
+        $this->cacheNamespaceGenerations[$key] = $generation;
     }
 
     /** @internal */
@@ -336,6 +351,8 @@ final class CapellCacheManager
     {
         $this->localCache = [];
         $this->cacheInvalidationPatternGenerations = [];
+        $this->cacheNamespaceGenerations = [];
+        $this->separateConnectionCacheTables = [];
     }
 
     public function flushRuntimeState(): void
@@ -524,7 +541,23 @@ final class CapellCacheManager
             return true;
         }
 
+        $connection = config(sprintf('cache.stores.%s.connection', $storeName));
+
+        if (is_string($connection) && $connection !== '' && $connection !== config('database.default')) {
+            return $this->separateConnectionCacheTables[$connection . '.' . $table] ??= $this->cacheTableExists($connection, $table);
+        }
+
         return resolve(RuntimeSchemaState::class)->hasTable($table);
+    }
+
+    private function cacheTableExists(string $connection, string $table): bool
+    {
+        try {
+            return Schema::connection($connection)->hasTable($table);
+        } catch (Throwable) {
+            // Unknown is treated as absent: the in-memory store holds no retained entries.
+            return false;
+        }
     }
 
     private function getCacheSentinel(): string
@@ -652,15 +685,14 @@ final class CapellCacheManager
             return 0;
         }
 
-        $request = app()->bound('request') ? resolve('request') : null;
-        $requestCacheKey = 'capell.cache.generation.' . config('capell.cache_tag', 'capell-app');
+        $key = $this->cacheNamespaceGenerationKey();
 
-        if ($request instanceof Request && $request->attributes->has($requestCacheKey)) {
-            return (int) $request->attributes->get($requestCacheKey);
+        if (array_key_exists($key, $this->cacheNamespaceGenerations)) {
+            return $this->cacheNamespaceGenerations[$key];
         }
 
         try {
-            $generation = (int) Cache::store()->get($this->cacheNamespaceGenerationKey(), 0);
+            $generation = (int) Cache::store()->get($key, 0);
         } catch (Throwable $throwable) {
             $this->rethrowProgrammingFailure($throwable);
             $this->cacheBackendFailureCount++;
@@ -668,9 +700,7 @@ final class CapellCacheManager
             throw $throwable;
         }
 
-        if ($request instanceof Request) {
-            $request->attributes->set($requestCacheKey, $generation);
-        }
+        $this->cacheNamespaceGenerations[$key] = $generation;
 
         return $generation;
     }
@@ -682,15 +712,8 @@ final class CapellCacheManager
             return;
         }
 
-        $generation = $this->incrementRawCacheKey($this->cacheNamespaceGenerationKey());
-        $request = app()->bound('request') ? resolve('request') : null;
-
-        if ($request instanceof Request) {
-            $request->attributes->set(
-                'capell.cache.generation.' . config('capell.cache_tag', 'capell-app'),
-                $generation,
-            );
-        }
+        $key = $this->cacheNamespaceGenerationKey();
+        $this->cacheNamespaceGenerations[$key] = $this->incrementRawCacheKey($key);
     }
 
     private function cacheNamespaceGenerationKey(): string

@@ -214,6 +214,10 @@ it('returns resolved values when the configured cache backend is unavailable', f
         }
     };
 
+    // The operation read the namespace generation before the backend failed; an unknown
+    // generation fails closed instead, which the generation read failure tests cover.
+    resolve(CapellCacheManager::class)->getFromCache('backend-up');
+
     Cache::extend('failing', fn (): Repository => new Repository($failingStore));
     config([
         'cache.default' => 'failing',
@@ -238,13 +242,12 @@ it('returns resolved values when the configured cache backend is unavailable', f
         $diagnostics = $manager->runtimeDiagnostics();
 
         $manager->setToCache('backend-write-failure', 'not persisted');
-        $manager->flushLocalCache();
 
         expect($first)->toBe('resolved')
             ->and($second)->toBe('resolved')
             ->and($callbackRuns)->toBe(1)
             ->and($manager->getFromCache('missing-backend-key'))->toBeNull()
-            ->and($manager->cacheExists('backend-write-failure'))->toBeFalse()
+            ->and($manager->getFreshFromCache('backend-write-failure'))->toBeNull()
             ->and($diagnostics->backendReachable)->toBeFalse()
             ->and($diagnostics->backendFailureCount)->toBeGreaterThan(0);
     } finally {
@@ -438,8 +441,7 @@ it('respects ttl callbacks and namespace bumps on cache stores without tag suppo
         $manager->flushLocalCache();
 
         expect($value)->toBe('stored')
-            ->and($manager->rememberCache('file-backed-key', fn (): string => 'fresh'))->toBe('stored')
-            ->and(request()->attributes->has('capell.cache.generation.capell-app'))->toBeTrue();
+            ->and($manager->rememberCache('file-backed-key', fn (): string => 'fresh'))->toBe('stored');
 
         $manager->flushCache();
 

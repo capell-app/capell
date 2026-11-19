@@ -185,7 +185,7 @@ final class SingletonLifetimeInventory
             ComponentRegistry::class => self::tagged('Boot component registrations and namespaces persist while discovered components and the cache-presence memo are selectively flushed.'),
             CommercialCatalogueStore::class => self::delegated('The package registry runtime flush clears the memoised catalogue so a catalogue stored by another worker is re-read and re-verified.'),
             ExtensionCommercialPolicy::class => self::delegated('Holds only the catalogue store, which the package registry runtime flush clears.'),
-            CapellCacheManager::class => self::delegated('The core manager flushes this per-operation in-memory cache.'),
+            CapellCacheManager::class => self::delegated('The core manager flushes this per-operation in-memory cache and the namespace generation read with it, after each Octane operation and before each queued job.'),
             LockdownStore::class => self::tagged('Lockdown decisions are operation-derived and explicitly flushed.'),
             ExtensionQuarantineGate::class => self::tagged('The quarantined set is read once per boot cycle, forgotten on every quarantine write and flushed between operations.'),
             RollbackValidatorRegistry::class => self::boot('Rollback validators are package boot registrations.'),
@@ -273,7 +273,7 @@ final class SingletonLifetimeInventory
     public static function mutableStaticState(): array
     {
         return [
-            SiteOwnedHosts::class => 'Site-domain answers live in a WeakMap keyed by the request object, so they are dropped with each request and never answer for the next one.',
+            SiteOwnedHosts::class => 'Site-domain answers live in a WeakMap keyed by the request object and are dropped by the tagged per-operation reset, which also runs before every queued job because a worker keeps one request object for all of them.',
             SignalDispatchGuard::class => 'Weak application and fibre keys isolate in-flight reporting; finally releases completed dispatches without retaining request containers.',
             HasModelRelations::class => 'This trait provides a deliberate boot registry shared by every operation.',
             PublicRenderDataScope::class => 'Render-local data set only inside during(), which restores the previous value in finally, so nothing outlives a public render or crosses requests.',
