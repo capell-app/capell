@@ -74,22 +74,31 @@ Keep configuration, install commands, metadata and pre-install listeners in thei
 
 ## Marketplace licence manifests
 
-Ship `capell-licence.json` beside `capell.json`. The Marketplace release flow signs
-the manifest with the Capell issuer key. The signature covers the Composer package
-name, version range and paid status. When Core carries an issuer key, a verified
-free manifest lets Laravel discover the package before the database is available
-and lets Core install and enable it offline. The manifest has no expiry. If a
-package becomes paid at 2.0, the paid manifest must cover 2.0 and all earlier free
-manifests must exclude it.
+Signing and shipping `capell-licence.json` per release is not implemented in this
+repository. **Do not pin the production key in `issuer-keys.json`** until the
+release flow signs and ships a manifest beside `capell.json` for each exact
+release and a free distribution has been proven to install offline. With no
+issuer key pinned, the existing discovery and authorisation rules apply.
 
-Core requires authorisation for paid packages and packages without a valid
-manifest. Paid code is distributed through the authenticated Capell source, so
-Core requires the issuer to confirm free status for both Capell and third-party
-packages. Local paid flags and a current signed catalogue can still require
-authorisation for a package with a free manifest. A free catalogue entry leaves
-the manifest requirement in place. To develop an unsigned package, add its
-Composer name to `capell.extensions.local_development` in the local environment.
-The exemption excludes packages the issuer classifies as paid.
+With enforcement on, a package using the `capell-app` Composer vendor or a
+case-insensitive `Capell\` autoload namespace, provider class or prefix needs
+signed free proof. Core-trusted packages are exempt unless a paid marker applies.
+Independent packages may omit the licence file. A present but invalid file
+requires authorisation under either identity.
+
+The signature binds the paid status to the Composer package name, exact
+normalised version and non-empty source or dist reference. Core compares these
+with Composer's installed metadata offline. Branch versions and releases
+without a reference cannot verify. A paid catalogue entry or namespace, a paid
+flag on the registered package or lifecycle record, or a verified paid manifest
+takes priority over free proof.
+
+Laravel defers extension providers to the manifest-v3 loader so it can check
+the lifecycle record. Plain Laravel packages keep normal discovery. In the
+`local` environment, names in `capell.extensions.local_development` may still
+use early discovery. That exemption checks the paid markers available at
+discovery and, when enforcement is on, excludes reserved identities and invalid
+licence files. Lifecycle checks also consult the persisted paid flag.
 
 ## Migration and compatibility
 

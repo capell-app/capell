@@ -6,17 +6,27 @@ namespace Capell\Core\Support\Marketplace;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 
 /**
- * Decides whether an extension needs Marketplace authorisation. A verified package
- * licence manifest can establish free status offline. Local state and the verified
- * catalogue can raise the requirement.
+ * Paid markers. A lifecycle or registered package paid flag, verified paid
+ * manifest or signed catalogue entry takes precedence over free proof. Paid
+ * catalogue namespaces survive a Composer rename while the package still
+ * claims the original code identity.
  *
- * Paid code is distributed only through the authenticated Capell source. Without a
- * verified free manifest Core requires authorisation, including when the manifest
- * is omitted. The issuer signs third-party manifests in the Marketplace release flow.
- * Developers can explicitly exempt unsigned packages in the local environment.
+ * Reserved identities. Stripping a manifest from code under capell-app or Capell\
+ * leaves it protected. Renaming out of both admits unsigned code if it has no
+ * other paid marker. Only the catalogue's paid namespaces catch that rename
+ * when the package still claims a listed identity.
+ *
+ * Release binding. Copying free proof to another package, version or reference
+ * fails verification. Editing is_paid breaks the signature. An invalid file
+ * requires authorisation even under an independent identity.
+ *
+ * Local development. Setting the environment and allowlist can exempt independent
+ * packages at discovery. The exemption checks paid markers available at that
+ * stage, and later lifecycle checks also have the persisted record.
  */
 final class ExtensionCommercialPolicy
 {
@@ -46,60 +56,53 @@ final class ExtensionCommercialPolicy
 
     public function requiresAuthorisation(string $name, ?CapellExtension $extension = null): bool
     {
-        // Checked before every name-based answer, the trusted Core list and a free manifest
-        // included: renaming a paid package in metadata does not rename its PHP classes.
-        if ($this->claimsPaidCode($name)) {
+        if ($this->hasPaidMarker($name, $extension)) {
             return true;
         }
 
-        if (TrustedCorePackages::contains($name)) {
+        if (TrustedCorePackages::contains($name) || ! $this->enforcing()) {
             return false;
         }
 
-        if ($extension?->is_paid_marketplace_extension === true
-            || (CapellCore::hasPackage($name) && CapellCore::getPackage($name)->isPaid === true)) {
-            return true;
-        }
-
-        if (! $this->enforcing()) {
-            return false;
-        }
-
-        if ($this->catalogue->classification($name) === true) {
-            return true;
-        }
-
-        return $this->licences->classification($name) !== false;
+        return match ($this->licences->state($name)) {
+            PackageLicenceManifestState::Paid, PackageLicenceManifestState::Invalid => true,
+            PackageLicenceManifestState::Free => false,
+            PackageLicenceManifestState::Absent => $this->isReserved($name),
+        };
     }
 
     /** Whether Core recognises the package as an extension for commercial discovery. */
     public function isRecognised(string $name): bool
     {
-        if ($this->catalogue->isListed($name) || $this->claimsPaidCode($name) || $this->licences->classification($name) !== null) {
+        if ($this->isReserved($name)) {
             return true;
         }
 
-        return str_starts_with(strtolower($name), 'capell-app/');
+        return $this->enforcing() && ($this->catalogue->isListed($name)
+            || $this->claimsPaidCode($name)
+            || $this->licences->state($name) !== PackageLicenceManifestState::Absent);
     }
 
     /**
-     * A named exemption for developing a package locally. APP_ENV is owner controlled, so an
-     * exemption never covers a package the issuer classifies as paid while enforcement is on.
+     * A named exemption for developing a package locally. Paid markers always take precedence.
      */
-    public function isLocalDevelopment(string $name): bool
+    public function isLocalDevelopment(string $name, ?CapellExtension $extension = null): bool
     {
         $packages = config('capell.extensions.local_development', []);
         if (! app()->environment('local') || ! is_array($packages) || ! in_array($name, $packages, true)) {
             return false;
         }
 
+        if ($this->hasPaidMarker($name, $extension)) {
+            return false;
+        }
+
         if (! $this->enforcing()) {
             return true;
         }
 
-        return $this->catalogue->classification($name) !== true
-            && $this->licences->classification($name) !== true
-            && ! $this->claimsPaidCode($name);
+        return ! $this->isReserved($name)
+            && $this->licences->state($name) !== PackageLicenceManifestState::Invalid;
     }
 
     /**
@@ -167,6 +170,42 @@ final class ExtensionCommercialPolicy
 
             foreach ($code['prefixes'] as $prefix) {
                 if ($prefix !== '' && (str_starts_with($prefix, $namespace) || ($coversBroader && str_starts_with($namespace, $prefix)))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function hasPaidMarker(string $name, ?CapellExtension $extension): bool
+    {
+        // Renamed paid code takes precedence even under a trusted Core name.
+        if ($this->claimsPaidCode($name)) {
+            return true;
+        }
+
+        if ($extension?->is_paid_marketplace_extension === true) {
+            return true;
+        }
+
+        if (app()->bound(CapellCoreManager::class) && CapellCore::hasPackage($name) && CapellCore::getPackage($name)->isPaid === true) {
+            return true;
+        }
+
+        return $this->enforcing() && ($this->catalogue->classification($name) === true
+            || $this->licences->state($name) === PackageLicenceManifestState::Paid);
+    }
+
+    private function isReserved(string $name): bool
+    {
+        if (str_starts_with(strtolower($name), 'capell-app/')) {
+            return true;
+        }
+
+        foreach ($this->code->for($name) as $identities) {
+            foreach ($identities as $identity) {
+                if (str_starts_with($identity, 'capell\\')) {
                     return true;
                 }
             }

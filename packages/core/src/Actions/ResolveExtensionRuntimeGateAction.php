@@ -45,7 +45,7 @@ final class ResolveExtensionRuntimeGateAction
             return $this->legacyGate($extension, $status);
         }
 
-        if ($protected && $this->policy->isLocalDevelopment($extension->composer_name)) {
+        if ($protected && $this->policy->isLocalDevelopment($extension->composer_name, $extension)) {
             return ExtensionRuntimeGateData::allowed('explicit_local_development');
         }
 

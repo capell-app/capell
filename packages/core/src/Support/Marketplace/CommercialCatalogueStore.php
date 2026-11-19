@@ -11,10 +11,10 @@ use Illuminate\Filesystem\Filesystem;
 use Throwable;
 
 /**
- * Holds the issuer-signed catalogue delivered by heartbeat or offline import. A paid
- * entry can raise the authorisation requirement. Free status comes from the signed
- * package licence manifest. The store verifies the signature on load and retains the
- * highest accepted sequence to refuse replayed deliveries.
+ * Holds the issuer-signed catalogue delivered by heartbeat or offline import.
+ * Paid entries raise the authorisation requirement. Free entries leave the package
+ * licence policy in effect. The store verifies the signature on load and retains
+ * the highest accepted sequence to refuse replayed deliveries.
  */
 final class CommercialCatalogueStore
 {

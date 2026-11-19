@@ -12,7 +12,6 @@ use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
-use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\TableName;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -60,10 +59,6 @@ final class EnforceExtensionAuthorisationAction
 
     private function enforce(string $name): void
     {
-        if (TrustedCorePackages::contains($name) && ! $this->policy->claimsPaidCode($name)) {
-            return;
-        }
-
         $requiresAuthorisation = $this->policy->requiresAuthorisation($name);
         $extension = null;
         try {
@@ -86,7 +81,7 @@ final class EnforceExtensionAuthorisationAction
             throw new RuntimeException(__('capell-core::extensions.authorisation.required', ['package' => $name]));
         }
 
-        if ($this->policy->isLocalDevelopment($name)) {
+        if ($this->policy->isLocalDevelopment($name, $extension)) {
             return;
         }
 

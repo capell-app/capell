@@ -8,14 +8,15 @@ use Capell\Core\Actions\Marketplace\VerifyMarketplaceIssuerSignatureAction;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Carbon\CarbonImmutable;
 use Composer\InstalledVersions;
-use Composer\Semver\Semver;
 use Composer\Semver\VersionParser;
 use Throwable;
 
 /**
  * Verifies the issuer's licence classification during discovery, before database
- * bindings exist. Manifests have no expiry. When a package becomes paid at 2.0,
- * the paid manifest must cover 2.0 and every free manifest must exclude it.
+ * bindings exist. Manifests have no expiry and bind to one Composer release.
+ * Verification trusts Composer's installed version and reference. It does not
+ * hash package contents at discovery, so it cannot detect modified files that
+ * retain the same Composer identity.
  */
 final class SignedPackageLicenceManifest
 {
@@ -23,38 +24,34 @@ final class SignedPackageLicenceManifest
 
     private const int CLOCK_SKEW_SECONDS = 300;
 
-    /** @var array<string, bool|null> */
-    private array $classifications = [];
+    /** @var array<string, PackageLicenceManifestState> */
+    private array $states = [];
 
-    public function classification(string $composerName): ?bool
+    public function state(string $composerName): PackageLicenceManifestState
     {
         $name = strtolower($composerName);
-        if (! array_key_exists($name, $this->classifications)) {
-            $this->classifications[$name] = $this->readClassification($name);
-        }
 
-        return $this->classifications[$name];
+        return $this->states[$name] ??= $this->readState($name);
     }
 
     public function clear(): void
     {
-        $this->classifications = [];
+        $this->states = [];
     }
 
-    private function readClassification(string $name): ?bool
+    private function readState(string $name): PackageLicenceManifestState
     {
         try {
-            $version = InstalledVersions::getVersion($name);
-            if ($version === null || VersionParser::parseStability($version) === 'dev') {
-                return null;
+            $directory = InstalledVersions::isInstalled($name) ? InstalledVersions::getInstallPath($name) : null;
+            $directory ??= resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $name;
+            $path = $directory . '/capell-licence.json';
+            if (! file_exists($path) && ! is_link($path)) {
+                return PackageLicenceManifestState::Absent;
             }
 
-            $directory = InstalledVersions::getInstallPath($name)
-                ?? resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $name;
-            $path = $directory . '/capell-licence.json';
             $contents = is_file($path) ? @file_get_contents($path, false, null, 0, self::MAX_BYTES + 1) : false;
             if ($contents === false || strlen($contents) > self::MAX_BYTES) {
-                return null;
+                return PackageLicenceManifestState::Invalid;
             }
 
             $manifest = json_decode($contents, true, 16, JSON_THROW_ON_ERROR);
@@ -64,20 +61,37 @@ final class SignedPackageLicenceManifest
                 || ! is_string($manifest['composer_name'] ?? null)
                 || strtolower($manifest['composer_name']) !== $name
                 || ! is_bool($manifest['is_paid'] ?? null)
-                || ! is_string($manifest['version_constraint'] ?? null)
-                || trim($manifest['version_constraint']) === ''
+                || ! is_string($manifest['version'] ?? null)
+                || ! is_string($manifest['source_reference'] ?? null)
                 || ! is_string($manifest['issued_at'] ?? null)
                 || trim($manifest['issued_at']) === ''
                 || CarbonImmutable::hasRelativeKeywords($manifest['issued_at'])
                 || CarbonImmutable::parse($manifest['issued_at'])->greaterThan(CarbonImmutable::now()->addSeconds(self::CLOCK_SKEW_SECONDS))
-                || ! Semver::satisfies($version, $manifest['version_constraint'])
+                || ! $this->matchesInstalledRelease($name, $manifest['version'], $manifest['source_reference'])
                 || ! VerifyMarketplaceIssuerSignatureAction::run($manifest)) {
-                return null;
+                return PackageLicenceManifestState::Invalid;
             }
 
-            return $manifest['is_paid'];
+            return $manifest['is_paid'] ? PackageLicenceManifestState::Paid : PackageLicenceManifestState::Free;
         } catch (Throwable) {
-            return null;
+            return PackageLicenceManifestState::Invalid;
         }
+    }
+
+    private function matchesInstalledRelease(string $name, string $version, string $reference): bool
+    {
+        $installedVersion = InstalledVersions::getVersion($name);
+        $installedReference = InstalledVersions::getReference($name);
+        if (! is_string($installedVersion) || ! is_string($installedReference)
+            || trim($installedReference) === '' || ! hash_equals($installedReference, $reference)
+            || strpbrk($version, " \t\r\n@") !== false) {
+            return false;
+        }
+
+        $parser = new VersionParser;
+        $installedVersion = $parser->normalize($installedVersion);
+
+        return VersionParser::parseStability($installedVersion) !== 'dev'
+            && $installedVersion === $parser->normalize($version);
     }
 }

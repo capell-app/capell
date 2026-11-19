@@ -36,6 +36,8 @@ use Illuminate\Support\Facades\File;
  * make its code free at any gate, even under a name with a valid free licence manifest.
  */
 
+const RENAMED_SOURCE_REFERENCE = 'renamed-release-reference';
+
 const RENAMED_PAID_PROVIDER = 'Vendor\\Commercial\\CommercialServiceProvider';
 
 beforeEach(function (): void {
@@ -102,7 +104,7 @@ function acceptRenamedCatalogue(object $test, bool $withNamespaces, array $names
  * @param  list<string>  $laravelProviders
  * @param  array<string, string>  $psr0
  */
-function installRenamedFixture(object $test, string $name, array $psr4, array $laravelProviders, string $bucket = 'frontend', array $psr0 = []): void
+function installRenamedFixture(object $test, string $name, array $psr4, array $laravelProviders, string $bucket = 'frontend', array $psr0 = [], bool $signed = true): void
 {
     $root = $test->renamedRoot;
     File::ensureDirectoryExists($root . '/vendor/' . $name . '/src');
@@ -122,17 +124,19 @@ function installRenamedFixture(object $test, string $name, array $psr4, array $l
     $installed['versions'][$name] = [
         'version' => '1.0.0.0', 'pretty_version' => '1.0.0',
         'install_path' => $root . '/vendor/' . $name, 'type' => 'library', 'aliases' => [],
-        'dev_requirement' => false,
+        'dev_requirement' => false, 'reference' => RENAMED_SOURCE_REFERENCE,
     ];
     InstalledVersions::reload($installed);
 
-    $licence = [
-        'manifest_version' => 1, 'purpose' => 'capell-extension-licence-manifest',
-        'composer_name' => $name, 'version_constraint' => '^1.0', 'is_paid' => false, 'issued_at' => now()->toIso8601String(),
-        'signature' => ['algorithm' => 'ed25519', 'keyId' => 'renamed-issuer', 'value' => ''],
-    ];
-    $licence['signature']['value'] = base64_encode(sodium_crypto_sign_detached(CanonicalizeProjectBuildManifestSigningInputAction::run($licence), sodium_crypto_sign_secretkey($test->renamedKeys)));
-    File::put($root . '/vendor/' . $name . '/capell-licence.json', json_encode($licence, JSON_THROW_ON_ERROR));
+    if ($signed) {
+        $licence = [
+            'manifest_version' => 1, 'purpose' => 'capell-extension-licence-manifest',
+            'composer_name' => $name, 'version' => '1.0.0', 'source_reference' => RENAMED_SOURCE_REFERENCE, 'is_paid' => false, 'issued_at' => now()->toIso8601String(),
+            'signature' => ['algorithm' => 'ed25519', 'keyId' => 'renamed-issuer', 'value' => ''],
+        ];
+        $licence['signature']['value'] = base64_encode(sodium_crypto_sign_detached(CanonicalizeProjectBuildManifestSigningInputAction::run($licence), sodium_crypto_sign_secretkey($test->renamedKeys)));
+        File::put($root . '/vendor/' . $name . '/capell-licence.json', json_encode($licence, JSON_THROW_ON_ERROR));
+    }
 
     CapellCore::clearPackages();
     CapellCore::registerManifestPackage(resolve(ManifestLoader::class)->load($root . '/vendor/' . $name . '/capell.json'));
@@ -210,18 +214,32 @@ it('keeps a paid package paid at install, enable, provider loading and discovery
     'renamed to a trusted Core name' => ['capell-app/installer', ['Vendor\\Commercial\\' => 'src/'], true],
 ]);
 
-it('keeps a genuinely third-party package free at every gate', function (): void {
-    acceptRenamedCatalogue($this, withNamespaces: true);
-    installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider']);
+it('admits an unsigned independent package through the CLI and the gated loader without a catalogue', function (): void {
+    installRenamedFixture($this, 'vendor/renamed-x', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider'], signed: false);
 
-    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
-        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
-    expect(Artisan::call('capell:extension-install', ['extension' => 'acme/thirdparty', '--no-interaction' => true]))->toBe(0)
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/renamed-x'))->toBeFalse()
+        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeFalse();
+    expect(Artisan::call('capell:extension-install', ['extension' => 'vendor/renamed-x', '--no-interaction' => true]))->toBe(0)
         ->and($this->renamedCalls)->toBe(1)
-        ->and(CapellCore::isPackageEnabled('acme/thirdparty'))->toBeTrue();
-    CapellExtension::query()->where('composer_name', 'acme/thirdparty')->delete();
-    expect(renamedProviderLoaded($this, 'acme/thirdparty'))->toBeTrue();
+        ->and(CapellCore::isPackageEnabled('vendor/renamed-x'))->toBeTrue();
+    CapellExtension::query()->where('composer_name', 'vendor/renamed-x')->delete();
+    expect(renamedProviderLoaded($this, 'vendor/renamed-x'))->toBeTrue();
 });
+
+it('still requires free proof for paid Capell code renamed to an independent vendor without a catalogue', function (array $psr4, string $provider, array $psr0): void {
+    installRenamedFixture($this, 'vendor/renamed-x', $psr4, [$provider], psr0: $psr0, signed: false);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/renamed-x'))->toBeTrue();
+    expect(fn () => Artisan::call('capell:extension-install', ['extension' => 'vendor/renamed-x', '--no-interaction' => true]))
+        ->toThrow(RuntimeException::class, 'authorisation');
+    expect($this->renamedCalls)->toBe(0)
+        ->and(renamedDiscovered($this, $provider))->toBeFalse()
+        ->and(renamedProviderLoaded($this, 'vendor/renamed-x'))->toBeFalse();
+})->with([
+    'case-insensitive PSR-4 namespace' => [['cApElL\\Commercial\\' => 'src/'], RENAMED_PAID_PROVIDER, []],
+    'provider class' => [['Vendor\\Commercial\\' => 'src/'], 'Capell\\Commercial\\CommercialServiceProvider', []],
+    'PSR-0 prefix' => [[], RENAMED_PAID_PROVIDER, ['CAPELL\\Comm' => 'src/']],
+]);
 
 it('falls back to name classification for a catalogue issued before namespaces were published', function (): void {
     acceptRenamedCatalogue($this, withNamespaces: false);
@@ -237,7 +255,7 @@ it('ignores single-segment catalogue namespaces that unrelated vendors share', f
 
     expect(resolve(CommercialCatalogueStore::class)->paidNamespaces())->toBe(['vendor\\commercial\\'])
         ->and(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
-        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+        ->and(renamedProviderLoaded($this, 'acme/thirdparty'))->toBeTrue();
 });
 
 it('keeps a third-party package with a root PSR-0 mapping free', function (): void {
@@ -245,7 +263,7 @@ it('keeps a third-party package with a root PSR-0 mapping free', function (): vo
     installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider'], psr0: ['' => 'src/']);
 
     expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
-        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+        ->and(renamedProviderLoaded($this, 'acme/thirdparty'))->toBeTrue();
 });
 
 it('treats a PSR-0 prefix as a raw string prefix that can load the paid namespace', function (): void {

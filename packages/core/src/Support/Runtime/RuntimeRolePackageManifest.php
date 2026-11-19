@@ -9,6 +9,7 @@ use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
@@ -59,8 +60,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
             return $this->manifest;
         }
 
-        // A provider omitted from the role cache may become eligible when a catalogue
-        // expires. Evaluate commercial decisions from the full Composer discovery list.
+        // Only the source cache contains the full Composer discovery list.
         $enforcing = $this->commercialPolicy()->enforcing();
         $cachePath = $enforcing ? $this->sourceManifestPath : $this->runtimeManifestPath;
         $identityPath = $enforcing ? $this->sourceIdentityPath() : $this->runtimeIdentityPath();
@@ -129,8 +129,9 @@ final class RuntimeRolePackageManifest extends PackageManifest
      */
     private function persistRuntimeManifest(array $manifest, ?array $snapshot): void
     {
-        // An empty manifest may come from a half-written installed.json; never trust it for later boots.
-        if ($manifest === []) {
+        // Keep commercial omissions out of the role cache used when enforcement is off.
+        // An empty manifest may come from a half-written installed.json.
+        if ($manifest === [] || $this->commercialPolicy()->enforcing()) {
             return;
         }
 
@@ -169,6 +170,7 @@ final class RuntimeRolePackageManifest extends PackageManifest
     {
         $manifest = [];
         $commercial = $this->commercialPolicy();
+        $enforcing = $commercial->enforcing();
 
         foreach ($source as $package => $configuration) {
             if (! is_string($package)) {
@@ -179,10 +181,8 @@ final class RuntimeRolePackageManifest extends PackageManifest
                 continue;
             }
 
-            // Commercial Capell providers must enter through the manifest-v3
-            // loader, after Core can evaluate lifecycle/issuer authorisation.
-            // Laravel discovery runs too early to consult the lifecycle ledger.
-            if ($this->deferCommercialExtension($package, $commercial)) {
+            // The manifest-v3 loader checks lifecycle records that early discovery cannot read.
+            if ($enforcing && $this->deferCommercialExtension($package, $commercial)) {
                 continue;
             }
 
@@ -209,7 +209,15 @@ final class RuntimeRolePackageManifest extends PackageManifest
 
     private function deferCommercialExtension(string $package, ExtensionCommercialPolicy $commercial): bool
     {
-        if (! $commercial->requiresAuthorisation($package) || $commercial->isLocalDevelopment($package)) {
+        if ($commercial->isLocalDevelopment($package)) {
+            return false;
+        }
+
+        if ($commercial->requiresAuthorisation($package)) {
+            return true;
+        }
+
+        if (TrustedCorePackages::contains($package)) {
             return false;
         }
 
