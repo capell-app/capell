@@ -19,7 +19,7 @@ final class InstalledPackageCodeIdentity
     /** @var array<string, array<string, mixed>>|null */
     private ?array $installed = null;
 
-    /** @var array<string, array{namespaces: list<string>, classes: list<string>}> */
+    /** @var array<string, array{namespaces: list<string>, prefixes: list<string>, classes: list<string>}> */
     private array $resolved = [];
 
     public static function namespace(string $prefix): string
@@ -36,10 +36,11 @@ final class InstalledPackageCodeIdentity
     }
 
     /**
-     * Namespaces are lower case with one trailing separator ('' is a root mapping); classes are
-     * lower case without a leading separator. PHP resolves both case-insensitively.
+     * PSR-4 namespaces are lower case with one trailing separator ('' is a root mapping); PSR-0
+     * prefixes are lower case raw string prefixes; classes are lower case without a leading
+     * separator. PHP resolves all of them case-insensitively.
      *
-     * @return array{namespaces: list<string>, classes: list<string>}
+     * @return array{namespaces: list<string>, prefixes: list<string>, classes: list<string>}
      */
     public function for(string $composerName): array
     {
@@ -49,6 +50,7 @@ final class InstalledPackageCodeIdentity
         }
 
         $namespaces = [];
+        $prefixes = [];
         $classes = [];
         $vendor = $this->vendorDirectory();
         $entry = $this->installedPackages($vendor)[$name] ?? null;
@@ -66,12 +68,19 @@ final class InstalledPackageCodeIdentity
         }
 
         foreach ($documents as $document) {
-            foreach (['psr-4', 'psr-0'] as $standard) {
-                $map = data_get($document, 'autoload.' . $standard);
-                if (is_array($map)) {
-                    foreach (array_keys($map) as $prefix) {
-                        $namespaces[] = self::namespace((string) $prefix);
-                    }
+            $map = data_get($document, 'autoload.psr-4');
+            if (is_array($map)) {
+                foreach (array_keys($map) as $prefix) {
+                    $namespaces[] = self::namespace((string) $prefix);
+                }
+            }
+
+            // PSR-0 prefixes are plain string prefixes: "Vendor\\Comm" loads Vendor\Commercial\*,
+            // so they keep no added separator.
+            $map = data_get($document, 'autoload.psr-0');
+            if (is_array($map)) {
+                foreach (array_keys($map) as $prefix) {
+                    $prefixes[] = strtolower(ltrim((string) $prefix, '\\'));
                 }
             }
 
@@ -87,6 +96,7 @@ final class InstalledPackageCodeIdentity
 
         return $this->resolved[$name] = [
             'namespaces' => array_values(array_unique($namespaces)),
+            'prefixes' => array_values(array_unique($prefixes)),
             'classes' => array_values(array_unique($classes)),
         ];
     }

@@ -72,11 +72,12 @@ afterEach(function (): void {
 });
 
 /** Signs a catalogue listing the original paid package, optionally with its namespaces. */
-function acceptRenamedCatalogue(object $test, bool $withNamespaces): void
+/** @param list<string> $namespaces */
+function acceptRenamedCatalogue(object $test, bool $withNamespaces, array $namespaces = ['Vendor\\Commercial\\']): void
 {
     $entry = ['composer_name' => 'vendor/commercial', 'is_paid' => true];
     if ($withNamespaces) {
-        $entry['namespaces'] = ['Vendor\\Commercial\\'];
+        $entry['namespaces'] = $namespaces;
     }
 
     $catalogue = [
@@ -96,8 +97,9 @@ function acceptRenamedCatalogue(object $test, bool $withNamespaces): void
  *
  * @param  array<string, string>  $psr4
  * @param  list<string>  $laravelProviders
+ * @param  array<string, string>  $psr0
  */
-function installRenamedFixture(object $test, string $name, array $psr4, array $laravelProviders, string $bucket = 'frontend'): void
+function installRenamedFixture(object $test, string $name, array $psr4, array $laravelProviders, string $bucket = 'frontend', array $psr0 = []): void
 {
     $root = $test->renamedRoot;
     File::ensureDirectoryExists($root . '/vendor/' . $name . '/src');
@@ -107,7 +109,7 @@ function installRenamedFixture(object $test, string $name, array $psr4, array $l
     $manifest['commands']['install'] = 'test:renamed-install';
     $composer = [
         'name' => $name, 'version' => '1.0.0', 'license' => ['MIT'], 'type' => 'library',
-        'install-path' => '../' . $name, 'autoload' => ['psr-4' => $psr4],
+        'install-path' => '../' . $name, 'autoload' => ['psr-4' => $psr4, ...($psr0 === [] ? [] : ['psr-0' => $psr0])],
         'extra' => ['laravel' => ['providers' => $laravelProviders]],
     ];
     File::put($root . '/vendor/composer/installed.json', json_encode(['packages' => [$composer]], JSON_THROW_ON_ERROR));
@@ -208,4 +210,38 @@ it('falls back to name classification for a catalogue issued before namespaces w
 
     expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/renamed'))->toBeFalse()
         ->and(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/commercial'))->toBeTrue();
+});
+
+it('ignores single-segment catalogue namespaces that unrelated vendors share', function (): void {
+    acceptRenamedCatalogue($this, withNamespaces: true, namespaces: ['Acme\\', 'Vendor\\Commercial\\']);
+    installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider']);
+
+    expect(resolve(CommercialCatalogueStore::class)->paidNamespaces())->toBe(['vendor\\commercial\\'])
+        ->and(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
+        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+});
+
+it('keeps a third-party package with a root PSR-0 mapping free', function (): void {
+    acceptRenamedCatalogue($this, withNamespaces: true);
+    installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider'], psr0: ['' => 'src/']);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
+        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+});
+
+it('treats a PSR-0 prefix as a raw string prefix that can load the paid namespace', function (): void {
+    acceptRenamedCatalogue($this, withNamespaces: true);
+    installRenamedFixture($this, 'acme/renamed', ['Acme\\Renamed\\' => 'src/'], ['Acme\\Renamed\\RenamedServiceProvider'], psr0: ['Vendor\\Comm' => 'src/']);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/renamed'))->toBeTrue()
+        ->and(renamedDiscovered($this, 'Acme\\Renamed\\RenamedServiceProvider'))->toBeFalse();
+});
+
+it('gates a paid provider named only in the boot cache manifest', function (): void {
+    acceptRenamedCatalogue($this, withNamespaces: true, namespaces: ['Vendor\\Commercial\\', 'Capell\\Core\\Tests\\Support\\']);
+    // Vendor metadata claims nothing paid; only the cached manifest names the paid provider.
+    installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider']);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
+        ->and(renamedProviderLoaded($this, 'acme/thirdparty'))->toBeFalse();
 });

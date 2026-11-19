@@ -101,6 +101,34 @@ final class ExtensionCommercialPolicy
     }
 
     /**
+     * Whether any of these classes sits under a namespace the signed catalogue lists as paid.
+     *
+     * @param  iterable<string>  $classes
+     * @param  list<string>|null  $paid
+     */
+    public function classesArePaid(iterable $classes, ?array $paid = null): bool
+    {
+        if ($paid === null) {
+            if (! $this->enforcing()) {
+                return false;
+            }
+
+            $paid = $this->catalogue->paidNamespaces();
+        }
+
+        foreach ($classes as $class) {
+            $normalised = strtolower(ltrim($class, '\\'));
+            foreach ($paid as $namespace) {
+                if (str_starts_with($normalised, $namespace)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether the installed package's autoload namespaces or provider classes fall under a
      * namespace the signed catalogue lists as paid, whatever the package is called. Only the
      * issuer's list can make this true, so declaring extra namespaces can never make a package
@@ -118,19 +146,25 @@ final class ExtensionCommercialPolicy
         }
 
         $code = $this->code->for($name);
+        if ($this->classesArePaid($code['classes'], $paid)) {
+            return true;
+        }
+
         // Core's own broad prefixes must never read as covering a paid namespace beneath them.
         $coversBroader = ! TrustedCorePackages::contains($name);
         foreach ($paid as $namespace) {
-            foreach ($code['classes'] as $class) {
-                if (str_starts_with($class, $namespace)) {
+            foreach ($code['namespaces'] as $declared) {
+                // A narrower prefix inside the paid namespace loads paid classes, and so does a
+                // broader one covering it. A root mapping ('') is not counted as broader: every
+                // package would match, so such packages are judged by their provider classes.
+                if (str_starts_with($declared, $namespace)
+                    || ($coversBroader && $declared !== '' && str_starts_with($namespace, $declared))) {
                     return true;
                 }
             }
 
-            foreach ($code['namespaces'] as $declared) {
-                // Either direction loads paid classes: a narrower prefix inside the paid
-                // namespace, or a broader one (down to a root mapping) that covers it.
-                if (str_starts_with($declared, $namespace) || ($coversBroader && str_starts_with($namespace, $declared))) {
+            foreach ($code['prefixes'] as $prefix) {
+                if ($prefix !== '' && (str_starts_with($prefix, $namespace) || ($coversBroader && str_starts_with($namespace, $prefix)))) {
                     return true;
                 }
             }

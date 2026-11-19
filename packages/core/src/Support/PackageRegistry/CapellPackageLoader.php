@@ -201,6 +201,14 @@ final class CapellPackageLoader
             return [];
         }
 
+        // The boot cache can name provider classes the vendor metadata does not. A paid provider
+        // there loads only when the package is itself classified commercial and passed the gate
+        // above; under any other name it is refused.
+        if (resolve(ExtensionCommercialPolicy::class)->classesArePaid($manifest->providers->all())
+            && ! resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation($manifest->name)) {
+            return [];
+        }
+
         $runtimeRole = $this->runtimeRoleResolver->role();
         $providers = $runtimeRole->loadsAuthoringProviders()
             ? [...$manifest->providers->metadata, ...$manifest->providers->install]

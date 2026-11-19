@@ -140,8 +140,9 @@ final class CommercialCatalogueStore
 
             foreach ($entry['namespaces'] as $namespace) {
                 $normalised = is_string($namespace) ? InstalledPackageCodeIdentity::namespace($namespace) : '';
-                // An empty prefix would claim every class; the issuer never publishes one.
-                if ($normalised !== '') {
+                // A single-segment prefix ('Acme\\') is shared by unrelated vendors, and an empty one
+                // claims every class, so neither can mark code as paid.
+                if (substr_count($normalised, '\\') >= 2) {
                     $namespaces[$normalised] = true;
                 }
             }
