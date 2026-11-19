@@ -1,0 +1,90 @@
+# Manifest reference
+
+Every Capell package ships a `capell.json` file at its root. This page lists every top-level key the manifest validator accepts. The validator rejects any other key with "is not part of manifest v3", so a manifest that uses a key from an older guide or a typo fails to load, fails `capell:extension-audit` and fails Marketplace submission.
+
+The same keys are published as a JSON Schema at `packages/core/resources/schema/capell-manifest-v3.schema.json`. Add `"$schema": "https://capell.app/schema/capell-manifest-v3.schema.json"` to the top of `capell.json` so your editor can offer completion. For a complete working manifest, see [Package anatomy](package-anatomy.md#capell-manifest).
+
+"Required" below means the schema lists the key as required. Optional keys fall back to the default shown.
+
+## Identity
+
+| Key                | Required | Type             | What Capell does with it                                                                                                                                       |
+| ------------------ | -------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$schema`          | No       | string           | Points editors at the JSON Schema. Capell ignores the value.                                                                                                   |
+| `manifest-version` | Yes      | integer          | Must be `3`. The older `capell-version` key is rejected.                                                                                                       |
+| `name`             | Yes      | string           | The Composer package name, such as `acme/capell-gallery`. It must match `name` in the package's `composer.json`.                                               |
+| `slug`             | Yes      | string           | Short identifier made of lowercase letters, numbers and hyphens, starting and ending with a letter or number.                                                  |
+| `displayName`      | Yes      | string           | The name shown in the installer, the admin Extensions page and Marketplace.                                                                                    |
+| `kind`             | Yes      | string           | One of `package`, `plugin`, `theme`, `integration` or `bundle`.                                                                                                |
+| `capellApiVersion` | Yes      | string           | The Composer version constraint for the Capell extension API the package supports. See [Extension API versioning](extension-api-versioning.md).                |
+| `version`          | Yes      | string           | The package version.                                                                                                                                           |
+| `description`      | No       | string           | One-line description shown with the package.                                                                                                                   |
+| `documentationUrl` | No       | string           | Link to the package's documentation, stored on the package registry entry.                                                                                     |
+| `visibility`       | No       | string           | `catalogue` (default) lists the package as a product choice. `support` hides it as a standalone choice; the installer can still add it through `dependencies.supports`. |
+| `namespace`        | No       | string or null   | The package's root PHP namespace, ending in a backslash, such as `Acme\\Gallery\\`.                                                                            |
+| `product`          | Yes      | object           | `group`, `tier` (`free`, `premium` or `core`) and an optional `bundle`. See [Package product groups](product-groups.md).                                        |
+
+## Runtime and loading
+
+| Key            | Required | Type           | What Capell does with it                                                                                                                                                                         |
+| -------------- | -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `surfaces`     | Yes      | list of strings | The runtimes the package takes part in, such as `admin`, `frontend` and `console`.                                                                                                            |
+| `dependencies` | Yes      | object         | `requires`, `supports` and `conflicts`, each a list of Composer package names. See [Package anatomy](package-anatomy.md#capell-manifest).                                                        |
+| `providers`    | Yes      | object         | Service provider classes in the buckets `metadata`, `install`, `runtime`, `auth`, `admin` and `frontend`. Every bucket except `auth` must be present. See [Lifecycle provider buckets](service-providers.md#lifecycle-provider-buckets). |
+| `runtime`      | No       | string         | Defaults to `blade`. `livewire` marks the package as Livewire-backed in the package capability graph.                                                                                            |
+| `scopes`       | No       | list of strings | `backend`, `frontend` or both. Capell copies them to the package registry entry. Use `surfaces` to declare runtimes; most packages leave `scopes` out.                                          |
+| `order`        | No       | integer        | Sort position of the package in the package registry. Defaults to `0`.                                                                                                                           |
+| `installPath`  | No       | string or null | Leave it out. Capell takes the install path from Composer when it loads the package, and uses this value only when Composer reports none.                                                       |
+
+## Lifecycle
+
+| Key        | Required | Type    | What Capell does with it                                                                                                                                                                                                           |
+| ---------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `actions`  | No       | object  | Class-strings implementing `PackageLifecycleAction` for `install`, `uninstall`, `setup` and `afterInstall`. A web-triggered install needs these. See [Lifecycle: actions and commands](build-extension-end-to-end.md#lifecycle-actions-and-commands). |
+| `commands` | No       | object  | Legacy artisan command names for lifecycle phases, plus `doctor`, which `capell:doctor` runs. Web-triggered installs refuse a package that declares only `commands`.                                                              |
+| `database` | No       | object  | `migrations` and `settings` (booleans) say whether installing runs migrations or settings migrations; `requiredTables` lists tables the readiness report checks for.                                                                |
+| `install`  | No       | object  | `tips` shown in the hand-off at the end of an install, and `legacyTables` the installer's table-collision check treats as belonging to this package.                                                                                                    |
+| `demo`     | No       | boolean | `true` marks a demo-content package, which the installer adds when demo content is requested. Defaults to `false`.                                                                                                                |
+| `defaultSelected` | No | boolean | `true` pre-ticks the package in the installer. Defaults to `false`.                                                                                                                                                         |
+| `roles`    | No       | list of strings | Jobs the package performs for Core, so Core finds it by role instead of by name: `default-theme`, `workflow-final`, `developer-tooling`, `site-social-fields` or `scaffold-full-profile`.                                  |
+| `rolePriority` | No   | integer | Orders packages that share a role; the lower value runs first.                                                                                                                                                                     |
+
+## Contributions and contracts
+
+| Key                        | Required | Type            | What Capell does with it                                                                                                                                                       |
+| -------------------------- | -------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `contributes`              | Yes      | list of objects | Each extension contribution the package registers, such as a page type, content widget or route. See [Extension point API reference](extension-point-api-reference.md).        |
+| `contributionTraceability` | No       | object          | `contributions`, `deferredContributions` and `runtimeIntegrations`: where each contribution is wired, for `capell:extension-audit`. An empty object declares nothing.          |
+| `settings`                 | No       | list of strings | Settings classes the package owns.                                                                                                                                             |
+| `permissions`              | No       | list of strings | Permission names the package defines. Admin permission sync creates them.                                                                                                      |
+| `capabilities`             | No       | list of strings | Capability names the package offers; `capell:extension-audit` reports names Core does not know.                                                                                |
+| `capabilityContracts`      | No       | object          | `provides` and `consumes`, each mapping a Core capability contract to the major version used. See [Capability contracts](package-anatomy.md#capability-contracts-between-optional-packages). |
+| `healthChecks`             | Yes      | list of objects | Each has `key`, `label` and `class`; the class implements `ChecksExtensionHealth`. Use `[]` when the package has none.                                                         |
+| `agent_tools`              | No       | list of objects, or `"none"` | Tools an AI agent may run, declared with `name`, `description` or `descriptionKey`, `inputSchema`, `outputSchema`, `effect` and `binding`. `"none"` declares that the package has no such tools. |
+| `agent_tools_reason`       | No       | string          | Required when `agent_tools` is `"none"`: why the package offers no agent tools.                                                                                                |
+
+## Themes
+
+| Key        | Required | Type           | What Capell does with it                                                                                                    |
+| ---------- | -------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `themeKey` | No       | string or null | The theme's key. A theme manifest must declare it. See [Creating custom themes](creating-custom-themes.md).                 |
+| `extends`  | No       | string or null | The Composer name of a parent theme. Capell adds the parent's views after the child's, and fails if the parent is missing. |
+
+## Safety, performance and privacy
+
+| Key           | Required | Type   | What Capell does with it                                                                                                                                                                 |
+| ------------- | -------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `security`    | No       | object | `riskTier`, `publicSurface`, `sensitiveData`, `publicOutput`, `externalHttpClients`, `throttles`, `manual` and `adminSurface`: what the package exposes, for `capell:extension-audit` and Marketplace review. |
+| `performance` | Yes      | object | `frontendRenderBudgetMs`, `adminQueryBudget`, `cacheTags` and `cacheSafety`. See [Manifest values and cache safety](package-anatomy.md#manifest-values-and-cache-safety).                 |
+| `privacy`     | No       | object | `purposes`: the consent purposes the package asks about. See [Consent purposes](package-anatomy.md#consent-purposes).                                                                    |
+
+## Marketplace
+
+| Key           | Required | Type   | What Capell does with it                                                                                                                                                  |
+| ------------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commercial`  | Yes      | object | `proposedLicense`, `requestedCertification`, `supportPolicy` and `privateDocsRequested`. These are proposals; Marketplace review decides the licence and certification. |
+| `marketplace` | Yes      | object | Listing copy and media: `summary`, `categories`, `screenshots`, and optionally `problem`, `outcome` and `faq`.                                                            |
+
+## Keeping this page complete
+
+`ManifestReferenceTest` in Core fails when the validator accepts a top-level key this page does not list, or when the JSON Schema and the validator disagree about which keys exist. Add the key here, and to the schema, in the same change that teaches the validator about it.

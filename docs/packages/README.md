@@ -11,6 +11,7 @@ Use this section if you build or maintain a Capell package.
 | Build a package from start to finish          | [Build an extension end to end](build-extension-end-to-end.md)                       |
 | Find the shortest path for a package task     | [Package authoring jobs](package-authoring-jobs.md)                                  |
 | Understand package files and structure        | [Package anatomy](package-anatomy.md)                                                |
+| Look up every `capell.json` key               | [Manifest reference](manifest-reference.md)                                          |
 | Choose an extension point                     | [Extension point chooser](extension-point-chooser.md)                                |
 | Add admin surfaces                            | [Admin extensions](admin-extensions.md)                                              |
 | Add anonymous-safe frontend output            | [Frontend extensions](frontend-extensions.md)                                        |
