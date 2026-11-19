@@ -259,3 +259,32 @@ it('refuses in the plan a property value that applying would refuse', function (
     $payload['pages'][1]['properties'] = ['garage.details.sku' => 'not a number'];
     expect(fn (): mixed => PlanSiteSpecAction::run(CapellSiteSpecData::validateAndCreate($payload), $site))->toThrow(ValidationException::class);
 });
+
+it('leaves out an image stored on a private disk instead of writing an address an import cannot download', function (): void {
+    $site = partsSite();
+    partsPage($site, 'about')->addMediaFromString(partsPng())->usingFileName('shop.png')->toMediaCollection('image');
+    config()->set('filesystems.disks.public.visibility', 'private');
+
+    $export = ExportSiteSpecAction::run($site, true);
+
+    expect($export->spec->media->hasRemoteAssets())->toBeFalse()
+        ->and($export->omittedParts[SiteSpecExportData::OMITTED_MEDIA][0])->toContain('about', 'private disk');
+});
+
+it('hashes an unhashed image once, so a later apply does not read the file again', function (): void {
+    $site = partsSite();
+    $image = partsPage($site, 'about')->addMediaFromString(partsPng())->usingFileName('shop.png')->toMediaCollection('image');
+    Http::fake(['https://93.184.216.34/*' => Http::response(partsPng(), 200, ['Content-Type' => 'image/png'])]);
+    $payload = ExportSiteSpecAction::run($site, true)->spec->toArray();
+
+    $payload['pages'][1]['sections'][0]['content'] = '<p>First.</p>';
+    ApplySiteSpecToSiteAction::run(CapellSiteSpecData::validateAndCreate($payload), $site->refresh());
+    expect($image->refresh()->getCustomProperty('capell.site_spec.content_hash'))->toBe(hash('sha256', partsPng()));
+    Storage::disk('public')->delete($image->getPathRelativeToRoot());
+
+    $payload['pages'][1]['sections'][0]['content'] = '<p>Second.</p>';
+    ApplySiteSpecToSiteAction::run(CapellSiteSpecData::validateAndCreate($payload), $site->refresh());
+
+    expect(partsPage($site, 'about')->getMedia('image'))->toHaveCount(1)
+        ->and(partsPage($site, 'about')->getFirstMedia('image')?->getKey())->toBe($image->getKey());
+});

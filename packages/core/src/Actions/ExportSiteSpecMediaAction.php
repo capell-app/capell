@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecMediaData;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\CapellSiteSpecConstraints;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -49,8 +50,10 @@ final class ExportSiteSpecMediaAction
         $slugs = $pageSlugsById;
         asort($slugs);
 
+        $pages = $site->pages()->whereKey(array_keys($slugs))->with('media')->get()->keyBy(static fn (Page $page): int => (int) $page->getKey());
+
         foreach ($slugs as $pageId => $slug) {
-            $page = $site->pages()->whereKey($pageId)->first();
+            $page = $pages->get($pageId);
             $candidates[] = ['slug' => $slug, 'media' => $page?->getFirstMedia(MediaCollectionEnum::Image->value)];
         }
 
@@ -104,6 +107,7 @@ final class ExportSiteSpecMediaAction
 
         return match (true) {
             $url === null || ! is_array($parts) => 'no_address',
+            config('filesystems.disks.' . $media->disk . '.visibility') !== 'public' => 'private_disk',
             strlen($url) > CapellSiteSpecConstraints::MAX_REMOTE_URL_LENGTH => 'long_address',
             strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment']) => 'not_https',
             $origin !== null && $this->origin($url) !== $origin => 'other_origin',

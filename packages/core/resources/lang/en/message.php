@@ -73,6 +73,7 @@ return [
     'site_spec_export_media_logo' => 'the site logo',
     'site_spec_export_media_page' => 'the image on :page',
     'site_spec_export_media_reason_no_address' => 'it has no public address',
+    'site_spec_export_media_reason_private_disk' => 'it is stored on a private disk, so an import could not download it',
     'site_spec_export_media_reason_long_address' => 'its address is too long',
     'site_spec_export_media_reason_not_https' => 'it is not served over HTTPS',
     'site_spec_export_media_reason_other_origin' => 'it is served from a different address than the other images',
