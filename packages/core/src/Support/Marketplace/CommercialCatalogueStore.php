@@ -11,9 +11,8 @@ use Illuminate\Filesystem\Filesystem;
 use Throwable;
 
 /**
- * Holds the issuer-signed paid/free classification delivered by the heartbeat or an offline
- * import. Every read re-verifies the signature, and the highest accepted sequence is kept so a
- * replayed older catalogue (from before a package became paid) is refused.
+ * Holds issuer-signed paid/free classifications from live deliveries and the bundled snapshot.
+ * The highest accepted live sequence is kept so a replayed older delivery is refused.
  */
 final class CommercialCatalogueStore
 {
@@ -28,6 +27,8 @@ final class CommercialCatalogueStore
      */
     public const int MAX_VALIDITY_DAYS = 30;
 
+    public const int SNAPSHOT_MAX_VALIDITY_DAYS = 120;
+
     private const int CLOCK_SKEW_SECONDS = 300;
 
     private bool $loaded = false;
@@ -35,26 +36,36 @@ final class CommercialCatalogueStore
     /** @var array<string, mixed>|null */
     private ?array $catalogue = null;
 
+    private bool $snapshotLoaded = false;
+
+    /** @var array{catalogue: array<string, mixed>, expiresAt: CarbonImmutable}|null */
+    private ?array $snapshot = null;
+
     private int $highestSequence = 0;
 
     private readonly Filesystem $files;
 
     // Built without the container: Laravel package discovery consults the store before
     // the filesystem binding exists.
-    public function __construct()
+    public function __construct(private readonly ?string $snapshotPath = null)
     {
         $this->files = new Filesystem;
     }
 
+    public static function defaultSnapshotPath(): string
+    {
+        return dirname(__DIR__, 3) . '/resources/marketplace/catalogue-snapshot.json';
+    }
+
     /** @param array<string, mixed> $catalogue */
-    public static function isValid(array $catalogue): bool
+    public static function isValid(array $catalogue, int $maxValidityDays = self::MAX_VALIDITY_DAYS): bool
     {
         if (($catalogue['catalogue_version'] ?? null) !== self::CATALOGUE_VERSION
             || ($catalogue['purpose'] ?? null) !== self::PURPOSE
             || ! is_int($catalogue['sequence'] ?? null) || $catalogue['sequence'] < 1
             || ! is_array($catalogue['packages'] ?? null)
             || ! is_string($catalogue['issued_at'] ?? null) || ! is_string($catalogue['valid_until'] ?? null)
-            || ! self::withinValidityWindow($catalogue['issued_at'], $catalogue['valid_until'])) {
+            || ! self::withinValidityWindow($catalogue['issued_at'], $catalogue['valid_until'], $maxValidityDays)) {
             return false;
         }
 
@@ -86,32 +97,26 @@ final class CommercialCatalogueStore
         $this->loaded = false;
         $this->catalogue = null;
         $this->highestSequence = 0;
+        $this->snapshotLoaded = false;
+        $this->snapshot = null;
     }
 
     /** @return array<string, mixed>|null a verified catalogue, or null when none is held */
     public function current(): ?array
     {
-        $this->load();
-
-        return $this->catalogue;
+        return $this->preferredSnapshot() ?? $this->catalogue;
     }
 
-    /** Null means the package is not listed; it never means the catalogue is missing. */
+    /** The bundled snapshot requires authorisation for omissions. */
     public function classification(string $composerName): ?bool
     {
-        $catalogue = $this->current();
+        $snapshot = $this->preferredSnapshot();
+        $catalogue = $snapshot ?? $this->catalogue;
         if ($catalogue === null) {
             return null;
         }
 
-        $name = strtolower($composerName);
-        foreach ($catalogue['packages'] as $entry) {
-            if (strtolower($entry['composer_name']) === $name) {
-                return $entry['is_paid'];
-            }
-        }
-
-        return null;
+        return $this->listedClassification($catalogue, $composerName) ?? ($snapshot !== null ? true : null);
     }
 
     /**
@@ -153,7 +158,9 @@ final class CommercialCatalogueStore
 
     public function isListed(string $composerName): bool
     {
-        return $this->classification($composerName) !== null;
+        $catalogue = $this->current();
+
+        return $catalogue !== null && $this->listedClassification($catalogue, $composerName) !== null;
     }
 
     /** @param array<string, mixed> $catalogue */
@@ -187,7 +194,7 @@ final class CommercialCatalogueStore
         return true;
     }
 
-    private static function withinValidityWindow(string $issuedAt, string $validUntil): bool
+    private static function withinValidityWindow(string $issuedAt, string $validUntil, int $maxValidityDays): bool
     {
         try {
             $issued = CarbonImmutable::parse($issuedAt);
@@ -200,8 +207,21 @@ final class CommercialCatalogueStore
 
         return $issued->lessThanOrEqualTo($now->addSeconds(self::CLOCK_SKEW_SECONDS))
             && $until->greaterThan($issued)
-            && $until->lessThanOrEqualTo($issued->addDays(self::MAX_VALIDITY_DAYS))
+            && $until->lessThanOrEqualTo($issued->addDays($maxValidityDays))
             && $now->lessThan($until);
+    }
+
+    /** @param array<string, mixed> $catalogue */
+    private function listedClassification(array $catalogue, string $composerName): ?bool
+    {
+        $name = strtolower($composerName);
+        foreach ($catalogue['packages'] as $entry) {
+            if (strtolower($entry['composer_name']) === $name) {
+                return $entry['is_paid'];
+            }
+        }
+
+        return null;
     }
 
     private function load(): void
@@ -230,6 +250,42 @@ final class CommercialCatalogueStore
         $catalogue = $stored['catalogue'];
         if (self::isValid($catalogue) && $catalogue['sequence'] === $this->highestSequence) {
             $this->catalogue = $catalogue;
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    private function preferredSnapshot(): ?array
+    {
+        $this->load();
+        $this->loadSnapshot();
+
+        // The snapshot only affects reads. A lower-sequence live delivery can still be accepted.
+        if ($this->snapshot !== null
+            && ($this->catalogue === null || $this->snapshot['catalogue']['sequence'] >= $this->highestSequence)
+            && CarbonImmutable::now()->lessThan($this->snapshot['expiresAt'])) {
+            return $this->snapshot['catalogue'];
+        }
+
+        return null;
+    }
+
+    private function loadSnapshot(): void
+    {
+        if ($this->snapshotLoaded) {
+            return;
+        }
+
+        $this->snapshotLoaded = true;
+        $path = $this->snapshotPath ?? self::defaultSnapshotPath();
+
+        try {
+            $contents = is_file($path) ? @file_get_contents($path) : false;
+            $catalogue = is_string($contents) ? json_decode($contents, true) : null;
+            if (is_array($catalogue) && self::isValid($catalogue, self::SNAPSHOT_MAX_VALIDITY_DAYS)) {
+                $this->snapshot = ['catalogue' => $catalogue, 'expiresAt' => CarbonImmutable::parse($catalogue['valid_until'])];
+            }
+        } catch (Throwable) {
+            return;
         }
     }
 
