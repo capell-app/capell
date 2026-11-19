@@ -431,15 +431,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
 
     public function canRetry(MarketplaceInstallAttempt $attempt): bool
     {
-        if (in_array($attempt->status, [
-            MarketplaceInstallIntentStatus::Failed,
-            MarketplaceInstallIntentStatus::TimedOut,
-        ], true)) {
-            return true;
-        }
-
-        return $attempt->status === MarketplaceInstallIntentStatus::Cancelled
-            && $attempt->failure_type === MarketplaceInstallFailureType::CancelledAfterComposer->value;
+        return resolve(RetryMarketplaceInstallAttemptAction::class)->canRetry($attempt);
     }
 
     public function canManagePackageOperations(): bool

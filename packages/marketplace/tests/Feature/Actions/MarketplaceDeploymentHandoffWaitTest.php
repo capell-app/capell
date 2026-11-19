@@ -8,12 +8,14 @@ use Capell\Marketplace\Actions\QueueMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallDeploymentAction;
 use Capell\Marketplace\Actions\ResumeMarketplaceAttemptsAwaitingDeploymentAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Data\MarketplaceInstallDeploymentData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
@@ -109,6 +111,32 @@ it('fails a waiting operation when its deploy is reported failed or never arrive
     expect(resolve(RetryMarketplaceInstallAttemptAction::class)->canRetry($reported))->toBeFalse()
         ->and(fn (): MarketplaceInstallAttempt => RetryMarketplaceInstallAttemptAction::run($abandoned))->toThrow(ValidationException::class);
     Queue::assertNothingPushed();
+});
+
+it('lets an operator retry a delivered operation that failed later, still without running Composer here', function (): void {
+    $attempt = QueueMarketplaceInstallAttemptAction::run(...deploymentWaitArguments('handoff-delivered-retry'));
+    CapellCore::partialMock()->shouldReceive('hasPackage')->with('capell-app/handoff-delivered-retry')->andReturnTrue();
+    CapellCore::partialMock()->shouldReceive('isPackageAvailable')->with('capell-app/handoff-delivered-retry')->andReturnTrue();
+    CapellCore::partialMock()->shouldReceive('isPackageInstalled')->with('capell-app/handoff-delivered-retry')->andReturnFalse();
+    expect(Artisan::call('capell:marketplace:resume-deployed'))->toBe(0);
+
+    // The deploy arrived, then setup failed on this site (a migration, say).
+    $running = TransitionMarketplaceInstallAttemptAction::run($attempt->refresh(), new MarketplaceInstallAttemptTransitionData(toStatus: MarketplaceInstallIntentStatus::Running));
+    $failed = TransitionMarketplaceInstallAttemptAction::run($running, new MarketplaceInstallAttemptTransitionData(
+        toStatus: MarketplaceInstallIntentStatus::Failed,
+        failureReason: 'Migration failed.',
+        failureStage: MarketplaceInstallFailureStage::Migration,
+    ));
+
+    $retry = RetryMarketplaceInstallAttemptAction::run($failed);
+
+    expect($retry->status)->toBe(MarketplaceInstallIntentStatus::Queued)
+        ->and($retry->retry_of_id)->toBe($failed->getKey())
+        ->and($retry->context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::DELIVERED_CONTEXT_KEY] ?? null)->toBeTrue();
+    Queue::assertPushed(
+        RunMarketplaceInstallAttemptJob::class,
+        fn (RunMarketplaceInstallAttemptJob $job): bool => $job->uniqueId() === (string) $retry->getKey(),
+    );
 });
 
 it('warns that the published change is still open when a waiting operation is cancelled', function (): void {

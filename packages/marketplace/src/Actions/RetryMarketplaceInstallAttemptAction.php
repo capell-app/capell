@@ -70,10 +70,12 @@ final class RetryMarketplaceInstallAttemptAction
 
     public function canRetry(MarketplaceInstallAttempt $attempt): bool
     {
-        // Its Composer change went through the site's deploy pipeline. Retrying
-        // it here would run Composer on this site instead, so the operator
-        // starts the operation again and it is handed to the pipeline again.
-        if (($attempt->context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::AWAITED_CONTEXT_KEY] ?? false) === true) {
+        // Its Composer change went to the site's deploy pipeline but never
+        // arrived. Retrying it here would run Composer on this site instead, so
+        // the operator starts the operation again and it is handed over again.
+        // Once the deploy did arrive, a retry is safe: it carries the delivered
+        // marker on, so the job finishes setup without running Composer.
+        if ($this->awaitedDeployment($attempt) && ! $this->deliveredByDeployment($attempt)) {
             return false;
         }
 
@@ -86,6 +88,16 @@ final class RetryMarketplaceInstallAttemptAction
 
         return $attempt->status === MarketplaceInstallIntentStatus::Cancelled
             && $attempt->failure_type === MarketplaceInstallFailureType::CancelledAfterComposer->value;
+    }
+
+    private function awaitedDeployment(MarketplaceInstallAttempt $attempt): bool
+    {
+        return ($attempt->context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::AWAITED_CONTEXT_KEY] ?? false) === true;
+    }
+
+    private function deliveredByDeployment(MarketplaceInstallAttempt $attempt): bool
+    {
+        return ($attempt->context[ResumeMarketplaceAttemptsAwaitingDeploymentAction::DELIVERED_CONTEXT_KEY] ?? false) === true;
     }
 
     private function userId(?Authenticatable $user): ?string
@@ -131,7 +143,7 @@ final class RetryMarketplaceInstallAttemptAction
                 $this->throwDuplicateActiveInstall($source->composer_name);
             }
 
-            return CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
+            $retry = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
                 extensionSlug: $source->extension_slug,
                 extensionName: $source->extension_name,
                 composerName: $source->composer_name,
@@ -162,6 +174,19 @@ final class RetryMarketplaceInstallAttemptAction
                 timelineStage: MarketplaceInstallFailureStage::Preflight,
                 timelineContext: ['retry_of_id' => $source->getKey()],
             ));
+
+            // Create strips the deployment markers from every new attempt, so
+            // a retry of a delivered attempt sets them again here, from the
+            // locked source row rather than from anything a caller supplied.
+            if ($this->awaitedDeployment($source) && $this->deliveredByDeployment($source)) {
+                $retry->forceFill(['context' => [
+                    ...($retry->context ?? []),
+                    ResumeMarketplaceAttemptsAwaitingDeploymentAction::AWAITED_CONTEXT_KEY => true,
+                    ResumeMarketplaceAttemptsAwaitingDeploymentAction::DELIVERED_CONTEXT_KEY => true,
+                ]])->save();
+            }
+
+            return $retry;
         });
     }
 
