@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Publishing;
 
 use Capell\Core\Contracts\Publishing\SchedulesPublication;
 use Capell\Core\Exceptions\ScheduledPublicationRegistrationException;
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -16,12 +17,11 @@ use Illuminate\Database\Eloquent\Model;
  * reopens it through {@see self::duringPackageInstallation()}.
  *
  * @experimental
+ *
+ * @extends AbstractKeyedRegistry<class-string<Model&SchedulesPublication>, class-string<Model&SchedulesPublication>>
  */
-final class ScheduledPublicationRegistry
+final class ScheduledPublicationRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<class-string<Model&SchedulesPublication>, true> */
-    private array $models = [];
-
     private bool $frozen = false;
 
     private int $installationDepth = 0;
@@ -41,7 +41,7 @@ final class ScheduledPublicationRegistry
             throw ScheduledPublicationRegistrationException::invalidModel($modelClass);
         }
 
-        $this->models[$modelClass] = true;
+        $this->setItem($modelClass, $modelClass);
     }
 
     /**
@@ -49,7 +49,7 @@ final class ScheduledPublicationRegistry
      */
     public function models(): array
     {
-        return array_keys($this->models);
+        return array_values($this->allItems());
     }
 
     public function freeze(): void
