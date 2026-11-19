@@ -113,10 +113,10 @@ final readonly class HostLoadSiteHealthReportExtender implements SiteHealthRepor
         $details = [];
 
         if ($day instanceof HostLoadTrendData) {
-            $details[] = $this->trendLine('capell-admin::host-monitor.trend_day', $day);
+            $details[] = $this->trendLine($day, false);
         }
 
-        $details[] = $this->trendLine('capell-admin::host-monitor.trend_week', $week);
+        $details[] = $this->trendLine($week, true);
 
         if ($week->busiestTasks !== []) {
             $details[] = (string) __('capell-admin::host-monitor.trend_busiest_tasks', [
@@ -129,21 +129,22 @@ final readonly class HostLoadSiteHealthReportExtender implements SiteHealthRepor
         return [...$details, ...$this->guidance($week)];
     }
 
-    private function trendLine(string $key, HostLoadTrendData $trend): string
+    private function trendLine(HostLoadTrendData $trend, bool $week): string
     {
         $window = $trend->busiestWindow;
-
-        if ($key === 'capell-admin::host-monitor.trend_week' && $window === null) {
-            $key = 'capell-admin::host-monitor.trend_week_short';
-        }
-
-        return (string) __($key, [
+        $values = [
             'average' => $this->percent($trend->averageRatio),
             'peak' => $this->percent($trend->peakRatio),
             'peak_at' => Date::createFromTimestamp($trend->peakAt, (string) config('app.timezone', 'UTC'))->format('D j M, H:i'),
             'from' => sprintf('%02d:00', $window['from'] ?? 0),
             'to' => sprintf('%02d:00', $window['to'] ?? 0),
-        ]);
+        ];
+
+        return match (true) {
+            ! $week => (string) __('capell-admin::host-monitor.trend_day', $values),
+            $window === null => (string) __('capell-admin::host-monitor.trend_week_short', $values),
+            default => (string) __('capell-admin::host-monitor.trend_week', $values),
+        };
     }
 
     /**
