@@ -8,11 +8,16 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Cache\CacheDependencyRegistry;
 
+/**
+ * Frontend's built-in cache dependencies for Core models, combined with the
+ * dependencies packages declare through Core's {@see CacheDependencyRegistry}.
+ */
 final class CacheInvalidationDependencyRegistry
 {
     /** @var array<class-string|string, list<string>> */
-    private array $modelDependencies = [
+    private const array BUILT_IN_DEPENDENCIES = [
         // Site-level data is rendered into every page — the site name reaches the
         // page title through the meta separator, and the site's theme and settings
         // shape the whole document. Without page-* a site rename leaves every
@@ -32,25 +37,31 @@ final class CacheInvalidationDependencyRegistry
         SiteDomain::class => ['sites', 'site-*', 'page-*'],
     ];
 
+    public function __construct(
+        private readonly CacheDependencyRegistry $declarations,
+    ) {}
+
     /** @param string|array<string> $cachePatterns */
     public function register(string $modelClass, string|array $cachePatterns): void
     {
-        $patterns = is_array($cachePatterns) ? array_values($cachePatterns) : [$cachePatterns];
-        $this->modelDependencies[$modelClass] = array_merge(
-            $this->modelDependencies[$modelClass] ?? [],
-            $patterns,
-        );
+        $this->declarations->declare($modelClass, $cachePatterns);
     }
 
     /** @return list<string> */
     public function patternsFor(string $modelClass): array
     {
-        return $this->modelDependencies[$modelClass] ?? [];
+        return array_values(array_unique([
+            ...self::BUILT_IN_DEPENDENCIES[$modelClass] ?? [],
+            ...$this->declarations->patternsFor($modelClass),
+        ]));
     }
 
     /** @return list<string> */
     public function allPatterns(): array
     {
-        return array_values(array_unique(array_merge(...array_values($this->modelDependencies))));
+        return array_values(array_unique(array_merge(
+            ...array_values(self::BUILT_IN_DEPENDENCIES),
+            ...array_values($this->declarations->all()),
+        )));
     }
 }

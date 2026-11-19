@@ -124,6 +124,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Http\Middleware\CapPublicReadResponseCaching;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\Cache\CacheDependencyRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderResolver;
 use Capell\Core\Support\Extensions\ExtensionPosition;
@@ -238,6 +239,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.event.public-read-eligibility-changed', 'event', PublicReadEligibilityChanged::class, ExtensionSurfaceStability::Experimental, 'Signals that stored public projections must be withdrawn or regenerated.'),
             $this->entry('core.contract.schedules-public-read-transitions', 'contract', SchedulesPublicReadTransitions::class, ExtensionSurfaceStability::Experimental, "Earliest scheduled change to a contributor's public-read decisions, bounding stored projections."),
             $this->entry('core.contract.schedules-publication', 'contract', SchedulesPublication::class, ExtensionSurfaceStability::Experimental, 'A package model with its own visible_from and visible_until, naming the surrogate keys the scheduled-publication sweep purges.'),
+            $this->entry('core.registry.cache-dependency', 'registry', CacheDependencyRegistry::class, ExtensionSurfaceStability::Experimental, 'Boot-time model cache dependencies a package declares without depending on Frontend.'),
             $this->entry('core.registry.scheduled-publication', 'registry', ScheduledPublicationRegistry::class, ExtensionSurfaceStability::Experimental, 'Boot-time registry of package models the scheduled-publication sweep watches.'),
             $this->entry('core.dto.public-read-stamp', 'dto', PublicReadStampData::class, ExtensionSurfaceStability::Experimental, 'Public-read rules a stored projection was built under: revision and validity.'),
             $this->entry('core.support.public-read-eligibility-state', 'support', PublicReadEligibilityState::class, ExtensionSurfaceStability::Experimental, 'Stamps stored public projections and decides whether a stored copy is still current.'),

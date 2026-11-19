@@ -4,7 +4,7 @@
 > Developers adding custom models that should invalidate frontend caches when changed (e.g., custom news articles, product data, or settings).
 
 > **TL;DR:**
-> Register your custom model with `CacheInvalidationRegistry::registerDependency()` to declare "when this model changes, flush these cache keys." Resolve the registry from the container; it is not a static utility.
+> Declare your custom model with Core's `CacheDependencyRegistry::declare()` to say "when this model changes, flush these cache keys." It works from any provider bucket without a Frontend dependency; `CacheInvalidationRegistry::registerDependency()` still works and declares through the same Core registry. Resolve either from the container; neither is a static utility.
 
 ---
 
@@ -33,7 +33,8 @@ The registry is a container-managed service. Register dependencies during servic
 **File locations:**
 
 - Registry: `packages/frontend/src/Support/Cache/CacheInvalidationRegistry.php`
-- Built-in registrations: `packages/frontend/src/Support/Cache/CacheInvalidationDependencyRegistry.php` (`$modelDependencies`)
+- Package declarations: `packages/core/src/Support/Cache/CacheDependencyRegistry.php`
+- Built-in registrations: `packages/frontend/src/Support/Cache/CacheInvalidationDependencyRegistry.php` (`BUILT_IN_DEPENDENCIES`)
 
 ## Public API
 
@@ -92,14 +93,14 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\BlogPost;
-use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
+use Capell\Core\Support\Cache\CacheDependencyRegistry;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
 {
-    public function boot(CacheInvalidationRegistry $cacheInvalidation): void
+    public function boot(CacheDependencyRegistry $cacheDependencies): void
     {
-        $cacheInvalidation->registerDependency(
+        $cacheDependencies->declare(
             modelClass: BlogPost::class,
             cachePatterns: ['blog-posts', 'blog-posts:*', 'homepage-featured'],
         );
