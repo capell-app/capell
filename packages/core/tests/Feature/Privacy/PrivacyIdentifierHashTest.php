@@ -6,6 +6,9 @@ use Capell\Core\Actions\Privacy\RehashPrivacyIdentifiersAction;
 use Capell\Core\Data\Privacy\PrivacySubject;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Privacy\PrivacyIdentifierHasher;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -113,8 +116,8 @@ it('rehashes rows under the current key so an earlier key can be retired', funct
 
     $result = RehashPrivacyIdentifiersAction::run(DB::table('privacy_rehash_entries'), 'email_hash', static fn (object $row): ?string => $row->email);
 
-    expect($result)->toBe(['rehashed' => 1, 'unavailable' => 1])
-        ->and(RehashPrivacyIdentifiersAction::run(DB::table('privacy_rehash_entries'), 'email_hash', static fn (object $row): ?string => $row->email))->toBe(['rehashed' => 0, 'unavailable' => 1]);
+    expect($result)->toBe(['rehashed' => 1, 'unavailable' => 1, 'skipped' => 0])
+        ->and(RehashPrivacyIdentifiersAction::run(DB::table('privacy_rehash_entries'), 'email_hash', static fn (object $row): ?string => $row->email))->toBe(['rehashed' => 0, 'unavailable' => 1, 'skipped' => 0]);
 
     // With the earlier key retired, the rehashed row is still found.
     config(['capell.privacy.identifier_previous_keys' => [], 'app.key' => 'application-key', 'app.previous_keys' => []]);
@@ -122,4 +125,63 @@ it('rehashes rows under the current key so an earlier key can be retired', funct
     PrivacySubject::forEmail('jane@example.test')->whereEmailHash($query, 'email_hash');
 
     expect($query->count())->toBe(1);
+});
+
+it('leaves a row whose hash changed while it was being rehashed and counts it as skipped', function (): void {
+    Schema::create('privacy_rehash_races', function (Blueprint $table): void {
+        $table->id();
+        $table->string('email');
+        $table->string('email_hash')->nullable();
+    });
+    config(['capell.privacy.identifier_key' => 'earlier-identifier-key', 'capell.privacy.identifier_previous_keys' => []]);
+    DB::table('privacy_rehash_races')->insert(['email' => 'jane@example.test', 'email_hash' => PrivacyIdentifierHasher::hash('jane@example.test')]);
+    config(['capell.privacy.identifier_key' => 'current-identifier-key', 'capell.privacy.identifier_previous_keys' => ['earlier-identifier-key']]);
+
+    $changedElsewhere = PrivacyIdentifierHasher::hash('new-address@example.test');
+
+    $result = RehashPrivacyIdentifiersAction::run(
+        DB::table('privacy_rehash_races'),
+        'email_hash',
+        static function (object $row) use ($changedElsewhere): string {
+            // Another request changes the email address after this row was read.
+            DB::table('privacy_rehash_races')->where('id', $row->id)->update(['email' => 'new-address@example.test', 'email_hash' => $changedElsewhere]);
+
+            return $row->email;
+        },
+    );
+
+    expect($result)->toBe(['rehashed' => 0, 'unavailable' => 0, 'skipped' => 1])
+        ->and(DB::table('privacy_rehash_races')->value('email_hash'))->toBe($changedElsewhere);
+});
+
+it('rehashes soft-deleted rows of an Eloquent query so the earlier key can be retired', function (): void {
+    Schema::create('privacy_rehash_trashed', function (Blueprint $table): void {
+        $table->id();
+        $table->string('email');
+        $table->string('email_hash')->nullable();
+        $table->softDeletes();
+    });
+    $model = new class extends Model
+    {
+        use HasFactory;
+        use SoftDeletes;
+
+        public $timestamps = false;
+
+        protected $table = 'privacy_rehash_trashed';
+    };
+    config(['capell.privacy.identifier_key' => 'earlier-identifier-key', 'capell.privacy.identifier_previous_keys' => []]);
+    DB::table('privacy_rehash_trashed')->insert([
+        ['email' => 'live@example.test', 'email_hash' => PrivacyIdentifierHasher::hash('live@example.test'), 'deleted_at' => null],
+        ['email' => 'gone@example.test', 'email_hash' => PrivacyIdentifierHasher::hash('gone@example.test'), 'deleted_at' => now()],
+    ]);
+    config(['capell.privacy.identifier_key' => 'current-identifier-key', 'capell.privacy.identifier_previous_keys' => ['earlier-identifier-key']]);
+
+    $result = RehashPrivacyIdentifiersAction::run($model->newQuery(), 'email_hash', static fn (object $row): string => $row->email);
+
+    expect($result)->toBe(['rehashed' => 2, 'unavailable' => 0, 'skipped' => 0])
+        ->and(DB::table('privacy_rehash_trashed')->pluck('email_hash')->all())->toBe([
+            PrivacyIdentifierHasher::hash('live@example.test'),
+            PrivacyIdentifierHasher::hash('gone@example.test'),
+        ]);
 });
