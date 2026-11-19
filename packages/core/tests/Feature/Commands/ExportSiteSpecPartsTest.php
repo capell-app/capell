@@ -60,15 +60,20 @@ function partsPng(): string
     return (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3h8AAAAASUVORK5CYII=', true);
 }
 
-function partsProperty(Site $site, string $key, PropertyType $type, mixed $value, bool $multiple = false): void
+function partsProperty(Site $site, string $key, PropertyType $type, mixed $value, bool $multiple = false, bool $agentVisible = true, ?string $promotedField = null, ?string $unit = null): void
 {
     $set = PropertySet::query()->firstOrCreate(['key' => 'garage.details'], ['name' => 'Garage']);
-    $definition = PropertyDefinition::factory()->create(['property_set_id' => $set->id, 'key' => $key, 'type' => $type, 'multiple' => $multiple]);
-    BlueprintPropertySet::query()->firstOrCreate([
+    $definition = PropertyDefinition::factory()->create(['property_set_id' => $set->id, 'key' => $key, 'type' => $type, 'multiple' => $multiple, 'agent_visible' => $agentVisible]);
+    $attachment = BlueprintPropertySet::query()->firstOrCreate([
         'blueprint_id' => Blueprint::query()->pageType()->where('key', 'default')->firstOrFail()->id,
         'property_set_id' => $set->id,
     ]);
-    SetPagePropertyValuesAction::run(partsPage($site, 'about'), [new PropertyValueData($definition->key, $type, $value)]);
+
+    if ($promotedField !== null) {
+        $attachment->update(['overrides' => [$key => ['promoted_field' => $promotedField]]]);
+    }
+
+    SetPagePropertyValuesAction::run(partsPage($site, 'about'), [new PropertyValueData($definition->key, $type, $value, unit: $unit)], $promotedField !== null);
 }
 
 it('exports page properties and applying them back plans nothing, then plans and writes a changed value', function (): void {
@@ -153,11 +158,11 @@ it('writes the parts that registered exporters contribute, in key order, and rep
             return $this->key;
         }
 
-        public function export(Site $site, array $pageSlugsById): SiteSpecExportPartData
+        public function export(Site $site, array $pageSlugsById, bool $public): SiteSpecExportPartData
         {
             return new SiteSpecExportPartData(
                 navigations: [new CapellSiteSpecNavigationData($this->label, array_values($pageSlugsById))],
-                omitted: ['custom link in ' . $this->label],
+                omitted: ['custom link in ' . $this->label . ($public ? ' (public)' : '')],
             );
         }
     };
@@ -169,6 +174,74 @@ it('writes the parts that registered exporters contribute, in key order, and rep
 
     expect(array_column($export->spec->navigations, 'key'))->toBe(['main', 'footer'])
         ->and($export->spec->navigations[0]->pageSlugs)->toBe(['home', 'about'])
-        ->and($export->omittedParts)->toBe(['alpha' => ['custom link in main'], 'zeta' => ['custom link in footer']])
+        ->and($export->omittedParts)->toBe(['alpha' => ['custom link in main (public)'], 'zeta' => ['custom link in footer (public)']])
         ->and(fn () => $registry->register($exporter('alpha', 'again')))->toThrow(LogicException::class, 'already registered');
+});
+
+it('leaves properties hidden from agents out of a public export but keeps them in a private one', function (): void {
+    $site = partsSite();
+    partsProperty($site, 'internal_cost', PropertyType::Text, 'secret', agentVisible: false);
+
+    $public = collect(ExportSiteSpecAction::run($site, true)->spec->pages)->firstWhere('slug', 'about');
+    $private = collect(ExportSiteSpecAction::run($site, false)->spec->pages)->firstWhere('slug', 'about');
+
+    expect($public?->properties)->toBe([])
+        ->and($private?->properties)->toBe(['garage.details.internal_cost' => 'secret']);
+});
+
+it('names a field-promoted property instead of exporting a value that applying cannot write', function (): void {
+    $site = partsSite();
+    partsProperty($site, 'headline', PropertyType::Text, 'Hello', promotedField: 'title');
+
+    $export = ExportSiteSpecAction::run($site, true);
+    $payload = $export->spec->toArray();
+    $payload['pages'][1]['title'] = 'About the garage';
+    ApplySiteSpecToSiteAction::run(CapellSiteSpecData::validateAndCreate($payload), $site->refresh());
+
+    expect(collect($export->spec->pages)->firstWhere('slug', 'about')?->properties)->toBe([])
+        ->and($export->omittedParts[SiteSpecExportData::OMITTED_PROPERTIES])->toBe(['About: garage.details.headline'])
+        ->and(partsPage($site->refresh(), 'about')->translations->first()?->title)->toBe('About the garage');
+});
+
+it('shows a changed unit in the plan, not only the value', function (): void {
+    $site = partsSite();
+    partsProperty($site, 'weight', PropertyType::Dimension, 5, unit: 'kg');
+    $payload = ExportSiteSpecAction::run($site, true)->spec->toArray();
+    $payload['pages'][1]['properties'] = ['garage.details.weight' => ['value' => 5, 'unit' => 'lb']];
+
+    $item = collect(PlanSiteSpecAction::run(CapellSiteSpecData::validateAndCreate($payload), $site)->items)->firstWhere('key', 'about');
+
+    expect($item?->differences[0]->before)->toBe('5 kg')
+        ->and($item?->differences[0]->after)->toBe('5 lb');
+});
+
+it('does not touch an image of another collection or one that differs, and hashes an unhashed image only once', function (): void {
+    $site = partsSite();
+    $about = partsPage($site, 'about');
+    $image = $about->addMediaFromString(partsPng())->usingFileName('shop.png')->toMediaCollection('image');
+    $social = $about->addMediaFromString(partsPng() . 'x')->usingFileName('social.png')->toMediaCollection('social_image');
+    Http::fake(['https://93.184.216.34/*' => Http::response(partsPng(), 200, ['Content-Type' => 'image/png'])]);
+    $payload = ExportSiteSpecAction::run($site, true)->spec->toArray();
+    $payload['pages'][1]['sections'][0]['content'] = '<p>Reworded.</p>';
+
+    ApplySiteSpecToSiteAction::run(CapellSiteSpecData::validateAndCreate($payload), $site->refresh());
+
+    expect($image->refresh()->getCustomProperty('capell.site_spec.content_hash'))->toBe(hash('sha256', partsPng()))
+        ->and($social->refresh()->getCustomProperty('capell.site_spec.content_hash'))->toBeNull()
+        ->and(partsPage($site, 'about')->getMedia('image'))->toHaveCount(1);
+});
+
+it('leaves out images beyond the origin, size and count an import accepts', function (): void {
+    $site = partsSite();
+    $about = partsPage($site, 'about');
+    $about->addMediaFromString(partsPng())->usingFileName('a.png')->toMediaCollection('image');
+    $site->addMediaFromString(partsPng())->usingFileName('logo.png')->toMediaCollection('logo');
+    $logo = $site->getFirstMedia('logo');
+    $logo?->forceFill(['size' => 6_000_000])->save();
+
+    $export = ExportSiteSpecAction::run($site, true);
+
+    expect($export->spec->media->logo)->toBeNull()
+        ->and($export->spec->media->images)->toHaveKey('about')
+        ->and($export->omittedParts[SiteSpecExportData::OMITTED_MEDIA][0])->toContain('logo', 'too large');
 });

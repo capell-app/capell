@@ -84,7 +84,7 @@ final class ExportSiteSpecAction
                 continue;
             }
 
-            $properties = ExportSiteSpecPagePropertiesAction::run($page, (int) $language->getKey());
+            $properties = ExportSiteSpecPagePropertiesAction::run($page, (int) $language->getKey(), $public);
 
             if ($properties['omitted'] !== []) {
                 $omittedParts[SiteSpecExportData::OMITTED_PROPERTIES][] = $page->name . ': ' . implode(', ', $properties['omitted']);
@@ -105,7 +105,7 @@ final class ExportSiteSpecAction
         $packageData = [];
 
         foreach (resolve(SiteSpecExporterRegistry::class)->all() as $exporter) {
-            $part = $exporter->export($site, $pageSlugsById);
+            $part = $exporter->export($site, $pageSlugsById, $public);
             array_push($navigations, ...array_map(static fn (CapellSiteSpecNavigationData $navigation): array => $navigation->toArray(), $part->navigations));
 
             if ($part->packageData !== []) {

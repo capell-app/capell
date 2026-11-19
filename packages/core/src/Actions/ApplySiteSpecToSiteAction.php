@@ -151,9 +151,13 @@ final class ApplySiteSpecToSiteAction
 
             $owner = $download->pageSlug === null ? $site : ($pagesBySlug[$download->pageSlug] ?? null);
 
-            return $owner !== null && $owner->media()->where('collection_name', $download->collection->value)->get()->doesntContain(
-                static fn (Media $media): bool => SiteSpecAttachedMedia::matches($media, $download),
-            );
+            if ($owner === null) {
+                return false;
+            }
+
+            $first = $owner->getFirstMedia($download->collection->value);
+
+            return ! $first instanceof Media || ! SiteSpecAttachedMedia::matches($first, $download);
         }));
     }
 

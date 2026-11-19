@@ -19,9 +19,12 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * inverse of {@see ApplySiteSpecPagePropertiesAction}. A SiteSpec holds one value
  * per property in one language, so a property that points at a term, page or media
  * item (an ID that means nothing on another copy of the site) or holds several
- * values is left out and named, never written as something applying would change.
+ * values, or is filled from a page field (a promoted property: it cannot be written
+ * directly, so applying it would fail the whole import), is left out and named, never
+ * written as something applying would change. A public export also leaves out
+ * properties that are not visible to agents, as the public property bag does.
  *
- * @method static array{properties: array<string, mixed>, omitted: list<string>} run(Page $page, int $languageId)
+ * @method static array{properties: array<string, mixed>, omitted: list<string>} run(Page $page, int $languageId, bool $public = false)
  */
 final class ExportSiteSpecPagePropertiesAction
 {
@@ -29,13 +32,13 @@ final class ExportSiteSpecPagePropertiesAction
     use AsObject;
 
     /** @return array{properties: array<string, mixed>, omitted: list<string>} */
-    public function handle(Page $page, int $languageId): array
+    public function handle(Page $page, int $languageId, bool $public = false): array
     {
         $translationId = $page->translations()->where('language_id', $languageId)->value('id');
         $properties = [];
         $omitted = [];
 
-        foreach (ResolveEffectiveDefinitionsAction::run($page)->sortBy(static fn (EffectivePropertyDefinitionData $definition): string => $definition->qualifiedKey()) as $definition) {
+        foreach (ResolveEffectiveDefinitionsAction::run($page)->filter(static fn (EffectivePropertyDefinitionData $definition): bool => ! $public || $definition->agentVisible)->sortBy(static fn (EffectivePropertyDefinitionData $definition): string => $definition->qualifiedKey()) as $definition) {
             $rows = PagePropertyValue::query()
                 ->where('site_id', $page->site_id)
                 ->where('page_id', $page->getKey())
@@ -48,7 +51,7 @@ final class ExportSiteSpecPagePropertiesAction
                 continue;
             }
 
-            if ($definition->multiple || $rows->count() > 1 || in_array($definition->type, [PropertyType::TermReference, PropertyType::EntryReference, PropertyType::Media], true)) {
+            if ($definition->promotedField !== null || $definition->multiple || $rows->count() > 1 || in_array($definition->type, [PropertyType::TermReference, PropertyType::EntryReference, PropertyType::Media], true)) {
                 $omitted[] = $definition->qualifiedKey();
 
                 continue;

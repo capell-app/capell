@@ -24,13 +24,35 @@ final class SiteSpecAttachedMedia
 
         $stored = $media->getCustomProperty('capell.site_spec.content_hash');
 
-        return ($stored ?? self::hashOf($media)) === $download->contentHash;
+        if (is_string($stored)) {
+            return $stored === $download->contentHash;
+        }
+
+        // An image nobody has hashed yet: a different size cannot match, so only same-sized files are read,
+        // and the hash is kept so the file is read at most once.
+        if ((int) $media->size !== (int) filesize($download->path)) {
+            return false;
+        }
+
+        $hash = self::hashOf($media);
+
+        if ($hash !== null) {
+            $media->setCustomProperty('capell.site_spec.content_hash', $hash);
+            $media->saveQuietly();
+        }
+
+        return $hash === $download->contentHash;
     }
 
     private static function hashOf(Media $media): ?string
     {
         try {
             $stream = $media->stream();
+        } catch (Throwable) {
+            return null;
+        }
+
+        try {
             $context = hash_init('sha256');
 
             while (! feof($stream)) {
@@ -43,11 +65,11 @@ final class SiteSpecAttachedMedia
                 hash_update($context, $chunk);
             }
 
-            fclose($stream);
-
             return hash_final($context);
         } catch (Throwable) {
             return null;
+        } finally {
+            fclose($stream);
         }
     }
 }

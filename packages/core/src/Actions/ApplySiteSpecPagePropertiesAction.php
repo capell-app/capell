@@ -94,22 +94,24 @@ final class ApplySiteSpecPagePropertiesAction
                 : null;
 
             if (! $current instanceof PropertyValueData || ! PropertyValueEquality::sameColumns($current->toColumns(), $value['data']->toColumns())) {
-                $changed[(string) $key] = ['before' => $this->display($current?->value), 'after' => $this->display($value['data']->value)];
+                $changed[(string) $key] = ['before' => $current instanceof PropertyValueData ? $this->display($current->value, $current->currency, $current->unit) : null, 'after' => $this->display($value['data']->value, $value['data']->currency, $value['data']->unit)];
             }
         }
 
         return $changed;
     }
 
-    private function display(mixed $value): ?string
+    private function display(mixed $value, ?string $currency = null, ?string $unit = null): ?string
     {
-        return match (true) {
+        $text = match (true) {
             $value === null => null,
             $value instanceof DateTimeInterface => $value->format(DateTimeInterface::ATOM),
             is_bool($value) => $value ? 'true' : 'false',
             is_scalar($value) => (string) $value,
             default => null,
         };
+
+        return $text === null ? null : trim($text . ' ' . ($currency ?? $unit ?? ''));
     }
 
     /**

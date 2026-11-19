@@ -25,6 +25,7 @@ interface SiteSpecExporter
 
     /**
      * @param  array<int, string>  $pageSlugsById  Slugs of the pages the export carries, keyed by page ID. A page that is not listed is not in the spec.
+     * @param  bool  $public  Whether the spec is public, so applying it updates live pages: leave out anything only members, or only some visitors, may see.
      */
-    public function export(Site $site, array $pageSlugsById): SiteSpecExportPartData;
+    public function export(Site $site, array $pageSlugsById, bool $public): SiteSpecExportPartData;
 }
