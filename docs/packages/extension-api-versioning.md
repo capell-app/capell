@@ -103,7 +103,7 @@ includes:
     - vendor/capell-app/core/extension-phpstan.neon
 ```
 
-When using the foundation aggregate instead of the split Core package, use `vendor/capell-app/capell/packages/core/extension-phpstan.neon`. Install PHPStan separately in the consuming project. The rules report references to Capell classes marked `@experimental` or `@internal` as `capell.internalClass`, and use of `@internal` methods, properties and constants as `capell.internalMember`; non-class surfaces are not inspected. Existing packages are not blocked at runtime, and this rule is opt-in so adoption can be managed by each package. PHPStan's own internal-API checks may still report `@internal` uses independently.
+When using the foundation aggregate instead of the split Core package, use `vendor/capell-app/capell/packages/core/extension-phpstan.neon`. Install PHPStan separately in the consuming project. The rules report references to Capell classes marked `@experimental` or `@internal` as `capell.internalClass`, and use of `@internal` methods, properties and constants as `capell.internalMember`; non-class surfaces are not inspected. They also report `capell.cacheNumericRead` where code expects a number read from the cache to be an `int` or `float`, through `is_int()`, `is_float()` or an `int` or `float` return type: the Redis store, which Valkey uses, returns stored numbers as numeric strings. Normalise the value first, for example `is_numeric($value) ? (int) $value : $default`. Existing packages are not blocked at runtime, and this rule is opt-in so adoption can be managed by each package. PHPStan's own internal-API checks may still report `@internal` uses independently.
 
 ## Support matrix
 

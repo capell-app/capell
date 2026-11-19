@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Enums\CacheEnum;
 use Capell\Admin\Support\Loader\LanguageLoader;
 use Capell\Core\Models\Language;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 
 it('loads a language by ID', function (): void {
     $lang = Language::factory()->createOne();
@@ -20,4 +22,10 @@ it('throws when language is not found', function (): void {
     $loader = resolve(LanguageLoader::class);
 
     expect(fn () => $loader->loadById(999999))->toThrow(ModelNotFoundException::class);
+});
+
+it('counts languages from a total cached as a numeric string, as the Redis and Valkey cache stores return it', function (): void {
+    Cache::forever(CacheEnum::LanguageTotal->value, '3');
+
+    expect(LanguageLoader::getTotalLanguages())->toBe(3);
 });
