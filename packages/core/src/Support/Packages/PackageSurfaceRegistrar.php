@@ -18,6 +18,7 @@ use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
+use Capell\Core\Support\Publishing\ScheduledPublicationRegistry;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -78,17 +79,20 @@ final class PackageSurfaceRegistrar
         $this->installationDepth++;
 
         $capabilities = $this->capabilities ?? $this->app->make(CapabilityRegistry::class);
+        $scheduledPublications = $this->app->make(ScheduledPublicationRegistry::class);
 
         try {
             return $this->outboundEvents->duringPackageInstallation(
                 fn (): mixed => $this->blueprintSubjects->duringPackageInstallation(
                     fn (): mixed => $capabilities->duringPackageInstallation(
-                        fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
-                            $result = $callback();
-                            $this->securityWeaknesses->adoptTagged($this->app);
+                        fn (): mixed => $scheduledPublications->duringPackageInstallation(
+                            fn (): mixed => $this->securityWeaknesses->duringPackageInstallation(function () use ($callback): mixed {
+                                $result = $callback();
+                                $this->securityWeaknesses->adoptTagged($this->app);
 
-                            return $result;
-                        }),
+                                return $result;
+                            }),
+                        ),
                     ),
                 ),
             );

@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 use Capell\Core\Data\PublicModelWithdrawalData;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
+use Capell\Core\Exceptions\ScheduledPublicationRegistrationException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Support\Publishing\ScheduledPublicationRegistry;
 use Capell\Frontend\Actions\InvalidateDueScheduledPublicationCachesAction;
 use Capell\Frontend\Actions\PersistScheduledPublicationInvalidationCheckpointAction;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Support\Cache\FragmentCache;
+use Capell\Frontend\Tests\Fixtures\ScheduledPublicationEntry;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Schema\Blueprint as TableBlueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
@@ -368,3 +374,78 @@ it('leaves a recent checkpoint alone on an idle tick and advances an old one', f
     expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(0)
         ->and(scheduledPublicationCheckpointPayload())->toBe(CarbonImmutable::now()->toIso8601String());
 });
+
+it('clears a registered package model when its scheduled publication or expiry passes', function (): void {
+    [$publishing, $expiring] = registerScheduledPublicationEntries();
+
+    Event::fake([FrontendSurrogateKeysInvalidated::class]);
+
+    expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(2);
+
+    $withdrawals = collect(Event::dispatched(FrontendSurrogateKeysInvalidated::class))
+        ->mapWithKeys(static fn (array $call): array => [implode(',', $call[0]->surrogateKeys) => $call[0]->withdrawal]);
+
+    expect($withdrawals->keys()->all())->toEqualCanonicalizing([
+        'scheduled-entry-' . $publishing->id . ',site-7',
+        'scheduled-entry-' . $expiring->id . ',site-7',
+    ])
+        ->and($withdrawals['scheduled-entry-' . $publishing->id . ',site-7'])->toBeNull()
+        ->and($withdrawals['scheduled-entry-' . $expiring->id . ',site-7'])->toEqual(PublicModelWithdrawalData::forModel($expiring));
+});
+
+it('purges the cached fragments of a registered package model once it goes live or expires', function (): void {
+    [$publishing, $expiring, $future] = registerScheduledPublicationEntries();
+
+    InvalidateDueScheduledPublicationCachesAction::run();
+
+    $fragments = resolve(FragmentCache::class);
+    $read = static fn (ScheduledPublicationEntry $entry): mixed => $fragments->remember('scheduled-entry-' . $entry->id, static fn (): string => 'regenerated');
+
+    expect($read($publishing))->toBe('regenerated')
+        ->and($read($expiring))->toBe('regenerated')
+        ->and($read($future))->toBe('cached');
+});
+
+it('refuses a scheduled-publication registration after boot or for a class that is not a scheduled model', function (): void {
+    $registry = resolve(ScheduledPublicationRegistry::class);
+
+    expect(fn () => $registry->register(ScheduledPublicationEntry::class))
+        ->toThrow(ScheduledPublicationRegistrationException::class, 'after boot')
+        ->and(fn () => resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
+            static fn () => $registry->register(Page::class),
+        ))->toThrow(ScheduledPublicationRegistrationException::class, 'must be an Eloquent model implementing')
+        ->and($registry->models())->toBe([]);
+});
+
+/**
+ * A registered package table holding one entry going live, one expiring and one still
+ * scheduled, each with a cached fragment tagged by its own surrogate key.
+ *
+ * @return array{ScheduledPublicationEntry, ScheduledPublicationEntry, ScheduledPublicationEntry}
+ */
+function registerScheduledPublicationEntries(): array
+{
+    Schema::create(ScheduledPublicationEntry::TABLE, function (TableBlueprint $table): void {
+        $table->id();
+        $table->unsignedBigInteger('site_id');
+        $table->timestamp('visible_from')->nullable();
+        $table->timestamp('visible_until')->nullable();
+        $table->timestamps();
+    });
+    Relation::morphMap(['scheduled-publication-entry' => ScheduledPublicationEntry::class]);
+    resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
+        static fn () => resolve(ScheduledPublicationRegistry::class)->register(ScheduledPublicationEntry::class),
+    );
+
+    $entries = [
+        ScheduledPublicationEntry::query()->create(['site_id' => 7, 'visible_from' => CarbonImmutable::now()->subMinute()]),
+        ScheduledPublicationEntry::query()->create(['site_id' => 7, 'visible_from' => CarbonImmutable::now()->subDay(), 'visible_until' => CarbonImmutable::now()->subSeconds(30)]),
+        ScheduledPublicationEntry::query()->create(['site_id' => 7, 'visible_from' => CarbonImmutable::now()->addMinute()]),
+    ];
+
+    foreach ($entries as $entry) {
+        resolve(FragmentCache::class)->remember('scheduled-entry-' . $entry->id, static fn (): string => 'cached', surrogateKeys: ['scheduled-entry-' . $entry->id]);
+    }
+
+    return $entries;
+}

@@ -227,6 +227,10 @@ A package that loads an embed or third-party script declares each consent purpos
 
 For the full install/audit flow, see [Extension lifecycle](extension-lifecycle.md).
 
+### Scheduled publication
+
+A package model with its own `visible_from` and `visible_until` columns, such as an article or an event, implements `Capell\Core\Contracts\Publishing\SchedulesPublication` and registers its class while the package boots: `resolve(ScheduledPublicationRegistry::class)->register(Article::class)`. Core's scheduled-publication sweep then clears the record's model cache dependencies and purges the surrogate keys it returns from `scheduledPublicationSurrogateKeys()` when it goes live or expires, so the package needs no scheduler of its own. The model needs a morph map alias, because an expiry withdraws the record by its morph type.
+
 ## Naming
 
 - Actions end in `Action`.

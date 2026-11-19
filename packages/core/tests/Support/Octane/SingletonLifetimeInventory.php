@@ -73,6 +73,7 @@ use Capell\Core\Support\Privacy\PrivacySubjectRegistry;
 use Capell\Core\Support\PublicRead\PublicPageReadEligibilityRegistry;
 use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
+use Capell\Core\Support\Publishing\ScheduledPublicationRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
@@ -195,6 +196,7 @@ final class SingletonLifetimeInventory
             OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
             HtmlSanitizerProfileRegistry::class => self::boot('Packages extend HTML sanitiser profiles at boot; resolved policies are derived from those registrations only.'),
             CapabilityRegistry::class => self::boot('Optional packages provide capability contracts at boot; consumers resolve a fresh provider per call.'),
+            ScheduledPublicationRegistry::class => self::boot('Packages register scheduled-publication model classes at boot, frozen on booted and re-opened only during package installation.'),
             SecurityWeaknessRegistry::class => self::boot('Security weakness checks and remediations are package boot registrations, frozen on booted and re-opened only during package installation.'),
             BlueprintSubjectRegistry::class => self::boot('Blueprint subjects are package boot registrations, frozen on booted.'),
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),

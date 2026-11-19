@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Contracts\Publishing\SchedulesPublication;
 use Capell\Core\Data\PublicModelWithdrawalData;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Publishing\ScheduledPublicationRegistry;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Deprecated;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -68,6 +71,10 @@ final class InvalidateDueScheduledPublicationCachesAction
                 }
             });
 
+        foreach (resolve(ScheduledPublicationRegistry::class)->models() as $modelClass) {
+            $invalidated += $this->invalidateDueRecords($modelClass, $from, $until);
+        }
+
         if ($invalidated === 0 && $this->storedCheckpointIsRecent($settings->scheduled_publication_invalidation_checkpoint, $until)) {
             // Nothing was due and the stored checkpoint still bounds the next scan, so skip the write and cache flush.
             return 0;
@@ -76,6 +83,52 @@ final class InvalidateDueScheduledPublicationCachesAction
         PersistScheduledPublicationInvalidationCheckpointAction::run(
             $until->toIso8601String(),
         );
+
+        return $invalidated;
+    }
+
+    /**
+     * Clears public caches for a registered package model whose visible_from or
+     * visible_until fell inside this window, the same way as for a page.
+     *
+     * @param  class-string<Model&SchedulesPublication>  $modelClass
+     */
+    private function invalidateDueRecords(string $modelClass, CarbonImmutable $from, CarbonImmutable $until): int
+    {
+        $invalidated = 0;
+
+        $modelClass::query()
+            ->where(function (Builder $query) use ($from, $until): void {
+                $query
+                    ->where(function (Builder $publishQuery) use ($from, $until): void {
+                        $publishQuery
+                            ->where('visible_from', '>=', $from)
+                            ->where('visible_from', '<=', $until);
+                    })
+                    ->orWhere(function (Builder $unpublishQuery) use ($from, $until): void {
+                        $unpublishQuery
+                            ->where('visible_until', '>=', $from)
+                            ->where('visible_until', '<=', $until);
+                    });
+            })
+            ->chunkById(100, function ($records) use (&$invalidated, $until): void {
+                foreach ($records as $record) {
+                    if (! $record instanceof SchedulesPublication) {
+                        continue;
+                    }
+
+                    if (! $record instanceof Model) {
+                        continue;
+                    }
+
+                    resolve(CacheInvalidationRegistry::class)->invalidateChangedModel($record);
+                    event(new FrontendSurrogateKeysInvalidated(
+                        $record->scheduledPublicationSurrogateKeys(),
+                        $this->isPublicAt($record, $until) ? null : PublicModelWithdrawalData::forModel($record),
+                    ));
+                    $invalidated++;
+                }
+            });
 
         return $invalidated;
     }
@@ -119,14 +172,20 @@ final class InvalidateDueScheduledPublicationCachesAction
         return $from->subSeconds(self::CHECKPOINT_OVERLAP_SECONDS);
     }
 
-    /** A page due in this window that is not public now has expired rather than been published. */
-    private function isPublicAt(Page $page, CarbonImmutable $until): bool
+    /** A record due in this window that is not public now has expired rather than been published. */
+    private function isPublicAt(Model $record, CarbonImmutable $until): bool
     {
-        $visibleFrom = $page->visible_from;
-        $visibleUntil = $page->visible_until;
+        $visibleFrom = $this->moment($record->getAttribute('visible_from'));
+        $visibleUntil = $this->moment($record->getAttribute('visible_until'));
 
-        return ($visibleFrom === null || $visibleFrom->lessThanOrEqualTo($until))
-            && ($visibleUntil === null || $visibleUntil->greaterThan($until));
+        return (! $visibleFrom instanceof CarbonImmutable || $visibleFrom->lessThanOrEqualTo($until))
+            && (! $visibleUntil instanceof CarbonImmutable || $visibleUntil->greaterThan($until));
+    }
+
+    /** A package model may leave its dates uncast, so a stored string is read as a moment too. */
+    private function moment(mixed $value): ?CarbonImmutable
+    {
+        return $value instanceof DateTimeInterface || is_string($value) ? CarbonImmutable::make($value) : null;
     }
 
     /**
