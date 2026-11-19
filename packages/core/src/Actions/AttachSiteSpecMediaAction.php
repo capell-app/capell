@@ -47,6 +47,7 @@ final class AttachSiteSpecMediaAction
                             'site_spec' => [
                                 'source_origin' => $download->sourceOrigin,
                                 'source_hash' => $download->sourceHash,
+                                'content_hash' => $download->contentHash,
                             ],
                         ],
                     ])

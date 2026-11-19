@@ -13,6 +13,7 @@ final readonly class SiteSpecMediaDownload
         public string $fileName,
         public string $sourceOrigin,
         public string $sourceHash,
+        public string $contentHash,
         public MediaCollectionEnum $collection,
         public ?string $pageSlug = null,
     ) {}

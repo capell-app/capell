@@ -44,7 +44,7 @@ final class PlanSiteSpecAction
 
         foreach ($spec->pages as $pageSpec) {
             $match = $existing[SiteSpecPageSlug::for($pageSpec)] ?? null;
-            $items[] = $this->pageItem($pageSpec, $match['page'] ?? null, $match['translation'] ?? null, $spec->initialVisibility === 'private', $site);
+            $items[] = $this->pageItem($pageSpec, $match['page'] ?? null, $match['translation'] ?? null, $spec->initialVisibility === 'private', $site, $spec);
         }
 
         $themeItem = $site instanceof Site ? $this->themeItem($spec, $site) : null;
@@ -89,7 +89,7 @@ final class PlanSiteSpecAction
         return $pages;
     }
 
-    private function pageItem(CapellSiteSpecPageData $pageSpec, ?Page $page, ?Translation $translation, bool $privateSpec, ?Site $site): SiteSpecPlanItemData
+    private function pageItem(CapellSiteSpecPageData $pageSpec, ?Page $page, ?Translation $translation, bool $privateSpec, ?Site $site, CapellSiteSpecData $spec): SiteSpecPlanItemData
     {
         $proposed = ['name' => $pageSpec->name, 'title' => $pageSpec->title, 'content' => SiteSpecPageContent::html($pageSpec)];
 
@@ -116,6 +116,12 @@ final class PlanSiteSpecAction
             if ($current[$field] !== $after) {
                 $differences[] = new SiteSpecPlanChangeData($field, $current[$field], $after);
             }
+        }
+
+        $language = Language::query()->where('code', $spec->language->code)->first();
+
+        foreach (ApplySiteSpecPagePropertiesAction::make()->differences($page, $pageSpec->slug, $pageSpec->properties, $language?->getKey()) as $key => $difference) {
+            $differences[] = new SiteSpecPlanChangeData('properties.' . $key, $difference['before'], $difference['after']);
         }
 
         $changes = array_map(static fn (SiteSpecPlanChangeData $difference): string => $difference->field, $differences);

@@ -24,11 +24,19 @@ final class SiteSpecExportData extends Data
     /** A placeholder home page that has not been written yet. */
     public const string OMITTED_PLACEHOLDER = 'placeholder';
 
+    /** Page properties that point at an ID, or hold several values, which a SiteSpec cannot carry. */
+    public const string OMITTED_PROPERTIES = 'properties';
+
+    /** Images an import could not download from the address the spec would give. */
+    public const string OMITTED_MEDIA = 'media';
+
     /**
      * @param  array<string, list<string>>  $omittedPages  Names of pages left out, keyed by why (one of the `OMITTED_*` constants), sorted.
+     * @param  array<string, list<string>>  $omittedParts  Notes on what a part of the site could not carry, keyed by the part: `properties`, `media` or a package exporter's key.
      */
     public function __construct(
         public readonly CapellSiteSpecData $spec,
         public readonly array $omittedPages = [],
+        public readonly array $omittedParts = [],
     ) {}
 }

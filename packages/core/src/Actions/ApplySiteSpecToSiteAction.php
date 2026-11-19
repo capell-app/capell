@@ -17,6 +17,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\Support\SiteSpec\SiteSpecAttachedMedia;
 use Capell\Core\Support\SiteSpec\SiteSpecHasher;
 use Capell\Core\Support\SiteSpec\SiteSpecMediaDownload;
 use Capell\Core\Support\SiteSpec\SiteSpecPageContent;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Applies a SiteSpec to a site that already exists: pages are matched by slug and
@@ -129,7 +131,7 @@ final class ApplySiteSpecToSiteAction
     }
 
     /**
-     * Only media that is not already attached, and, for a private spec, only media for
+     * Only media that is not already attached (the same image, whether it came from this spec's URL or was uploaded on the site), and, for a private spec, only media for
      * pages the spec just created or updated as drafts: its images must not reach a
      * live page, and its site logo must not reach a live site.
      *
@@ -149,9 +151,13 @@ final class ApplySiteSpecToSiteAction
 
             $owner = $download->pageSlug === null ? $site : ($pagesBySlug[$download->pageSlug] ?? null);
 
-            return $owner !== null && $owner->media()->get()->doesntContain(
-                static fn ($media): bool => $media->getCustomProperty('capell.site_spec.source_hash') === $download->sourceHash,
-            );
+            if ($owner === null) {
+                return false;
+            }
+
+            $first = $owner->getFirstMedia($download->collection->value);
+
+            return ! $first instanceof Media || ! SiteSpecAttachedMedia::matches($first, $download);
         }));
     }
 
@@ -174,6 +180,10 @@ final class ApplySiteSpecToSiteAction
     {
         if (in_array('name', $item->changes, true)) {
             $page->update(['name' => $pageSpec->name]);
+        }
+
+        if (array_filter($item->changes, static fn (string $field): bool => str_starts_with($field, 'properties.')) !== []) {
+            ApplySiteSpecPagePropertiesAction::run($page, $pageSpec->slug, $pageSpec->properties, $translation->language_id);
         }
 
         $translationChanges = array_filter([

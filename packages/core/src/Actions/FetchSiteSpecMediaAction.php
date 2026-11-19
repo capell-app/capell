@@ -140,6 +140,7 @@ final class FetchSiteSpecMediaAction
                 fileName: sprintf('site-spec-%s.%s', substr($sourceHash, 0, 20), self::ALLOWED_IMAGE_MIME_TYPES[$detectedMimeType]),
                 sourceOrigin: $sourceOrigin,
                 sourceHash: $sourceHash,
+                contentHash: $this->contentHash($path),
                 collection: $collection,
                 pageSlug: $pageSlug,
             );
@@ -150,6 +151,15 @@ final class FetchSiteSpecMediaAction
 
             throw $throwable;
         }
+    }
+
+    private function contentHash(string $path): string
+    {
+        $hash = hash_file('sha256', $path);
+
+        throw_if($hash === false, RuntimeException::class, 'Unable to read a downloaded site spec media file.');
+
+        return $hash;
     }
 
     private function request(string $url, int $port, int $maxBytes): Response
