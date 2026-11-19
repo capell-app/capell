@@ -101,6 +101,54 @@ it('reports cache reads expected to be numbers but not reads normalised first', 
             {
                 return fn (): bool => is_int($this->cache->pull('count')); // reported
             }
+
+            public function selfNormalisedWithIsInt(): int
+            {
+                $count = Cache::get('count');
+                $count = is_int($count) ? $count : 0; // reported
+
+                return $count;
+            }
+
+            public function arrowReturn(): callable
+            {
+                return fn (): int => cache('count'); // reported
+            }
+
+            public function capturedByUse(): callable
+            {
+                $count = Cache::get('count');
+
+                return function () use ($count): bool {
+                    return is_int($count); // reported
+                };
+            }
+
+            /** @param  list<mixed>  $values */
+            public function shadowedByParameterAndLoop(array $values): bool
+            {
+                $value = Cache::get('value');
+                $ints = array_filter($values, fn (mixed $value): bool => is_int($value));
+
+                foreach ($values as $value) {
+                    if (is_int($value)) {
+                        return true;
+                    }
+                }
+
+                return $ints !== [];
+            }
+
+            public function notCapturedByClosure(): callable
+            {
+                $count = Cache::get('count');
+
+                return function (): bool {
+                    $count = 3;
+
+                    return is_int($count);
+                };
+            }
         }
         PHP);
     $config = $directory . '/phpstan.neon';

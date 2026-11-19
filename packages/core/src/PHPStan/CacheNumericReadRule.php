@@ -10,13 +10,17 @@ use Illuminate\Contracts\Cache\Store;
 use Illuminate\Support\Facades\Cache;
 use Override;
 use PhpParser\Node;
+use PhpParser\Node\ClosureUse;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\AssignOp;
+use PhpParser\Node\Expr\AssignRef;
 use PhpParser\Node\Expr\BinaryOp\Coalesce;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\List_;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\NullsafeMethodCall;
 use PhpParser\Node\Expr\PropertyFetch;
@@ -28,7 +32,9 @@ use PhpParser\Node\Name;
 use PhpParser\Node\NullableType;
 use PhpParser\Node\Param;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\ClassLike;
+use PhpParser\Node\Stmt\Foreach_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\UnionType;
@@ -51,9 +57,10 @@ use PHPStan\Type\Type;
  * only production sees it. Normalise the value first, for example with
  * `is_numeric($value) ? (int) $value : $default`.
  *
- * A variable counts as a cache read when its latest assignment before the
- * check, in source order, is a cache read; re-assigning it from a cast first
- * satisfies the rule.
+ * A variable counts as a cache read when its latest assignment that completes
+ * before the check, in source order and in the same function, is a cache read.
+ * Re-assigning it from a cast first satisfies the rule; a closure sees the
+ * enclosing function's variables only through `use` or as an arrow function.
  *
  * @implements Rule<FunctionLike>
  */
@@ -84,46 +91,18 @@ final class CacheNumericReadRule implements Rule
             return [];
         }
 
-        /** @var list<array{0: Node, 1: FunctionLike}> $found */
-        $found = [];
-        $this->collect($node, $found);
-
-        $assignments = [];
-        $parameters = [];
-
-        foreach ($found as [$candidate, $owner]) {
-            if ($candidate instanceof Assign && $candidate->var instanceof Variable && is_string($candidate->var->name)) {
-                $assignments[] = $candidate;
-            }
-
-            foreach ($owner->getParams() as $parameter) {
-                if ($parameter->var instanceof Variable && is_string($parameter->var->name)) {
-                    $parameters[$parameter->var->name] = $parameter;
-                }
-            }
-        }
-
-        foreach ($node->getParams() as $parameter) {
-            if ($parameter->var instanceof Variable && is_string($parameter->var->name)) {
-                $parameters[$parameter->var->name] = $parameter;
-            }
-        }
-
-        $context = ['assignments' => $assignments, 'parameters' => $parameters];
+        $context = ['found' => [], 'writes' => [], 'parents' => [spl_object_id($node) => null]];
+        $this->collect($node, $context);
         $errors = [];
+        $seen = [];
 
-        foreach ($found as [$candidate, $owner]) {
-            if ($candidate instanceof FuncCall && $candidate->name instanceof Name && ! $candidate->isFirstClassCallable()) {
-                $check = $candidate->name->toLowerString();
-                $argument = $candidate->getArgs()[0]->value ?? null;
-
-                if (isset(self::TYPE_CHECKS[$check]) && $argument instanceof Expr && $this->holdsCacheRead($argument, $scope, $context)) {
-                    $errors[] = $this->error(sprintf('%s() on a value read from the cache is false on the Redis store, which returns stored numbers as numeric strings.', $check), $candidate);
-                }
-
+        foreach ($context['found'] as [$candidate, $owner]) {
+            // An arrow function body that is itself a call is collected twice.
+            if (isset($seen[spl_object_id($candidate)])) {
                 continue;
             }
 
+            $seen[spl_object_id($candidate)] = true;
             $returned = match (true) {
                 $candidate instanceof Return_ => $candidate->expr,
                 $candidate instanceof Expr && $owner instanceof ArrowFunction && $owner->expr === $candidate => $candidate,
@@ -131,8 +110,27 @@ final class CacheNumericReadRule implements Rule
             };
             $number = $returned instanceof Expr ? $this->returnsNumber($owner->getReturnType()) : null;
 
-            if ($number !== null && $returned instanceof Expr && $this->holdsCacheRead($returned, $scope, $context)) {
+            if ($number !== null && $returned instanceof Expr && $this->holdsCacheRead($returned, $owner, $scope, $context)) {
                 $errors[] = $this->error(sprintf('Returning a value read from the cache as %s throws a TypeError on the Redis store, which returns stored numbers as numeric strings.', $number), $candidate);
+            }
+
+            if (! $candidate instanceof FuncCall) {
+                continue;
+            }
+
+            if (! $candidate->name instanceof Name) {
+                continue;
+            }
+
+            if ($candidate->isFirstClassCallable()) {
+                continue;
+            }
+
+            $check = $candidate->name->toLowerString();
+            $argument = $candidate->getArgs()[0]->value ?? null;
+
+            if (isset(self::TYPE_CHECKS[$check]) && $argument instanceof Expr && $this->holdsCacheRead($argument, $owner, $scope, $context)) {
+                $errors[] = $this->error(sprintf('%s() on a value read from the cache is false on the Redis store, which returns stored numbers as numeric strings.', $check), $candidate);
             }
         }
 
@@ -149,34 +147,35 @@ final class CacheNumericReadRule implements Rule
     }
 
     /**
-     * Collects, in source order, the calls, returns and assignments of a
-     * function and the closures inside it, each with the function it returns
-     * from. Named functions and classes declared inside are reported on their own.
+     * Collects, in source order, the calls and returns of a function and the
+     * closures inside it, each with the function it belongs to, and every write
+     * to a variable. Named functions and classes declared inside are reported on
+     * their own.
      *
-     * @param  list<array{0: Node, 1: FunctionLike}>  $found
+     * @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context
      */
-    private function collect(FunctionLike $function, array &$found): void
+    private function collect(FunctionLike $function, array &$context): void
     {
         if ($function instanceof ArrowFunction) {
             // The body of an arrow function is its return value.
-            $found[] = [$function->expr, $function];
-            $this->walk(array_map(static fn (string $name): mixed => $function->expr->{$name}, $function->expr->getSubNodeNames()), $function, $found);
+            $context['found'][] = [$function->expr, $function];
+            $this->walk([$function->expr], $function, $context);
 
             return;
         }
 
-        $this->walk($function->getStmts() ?? [], $function, $found);
+        $this->walk($function->getStmts() ?? [], $function, $context);
     }
 
     /**
      * @param  array<array-key, mixed>  $nodes
-     * @param  list<array{0: Node, 1: FunctionLike}>  $found
+     * @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context
      */
-    private function walk(array $nodes, FunctionLike $owner, array &$found): void
+    private function walk(array $nodes, FunctionLike $owner, array &$context): void
     {
         foreach ($nodes as $node) {
             if (is_array($node)) {
-                $this->walk($node, $owner, $found);
+                $this->walk($node, $owner, $context);
 
                 continue;
             }
@@ -194,20 +193,68 @@ final class CacheNumericReadRule implements Rule
             }
 
             if ($node instanceof Closure || $node instanceof ArrowFunction) {
-                $this->collect($node, $found);
+                $context['parents'][spl_object_id($node)] = $owner;
+                $this->collect($node, $context);
 
                 continue;
             }
 
-            if ($node instanceof FuncCall || $node instanceof Return_ || $node instanceof Assign) {
-                $found[] = [$node, $owner];
+            if ($node instanceof FuncCall || $node instanceof Return_) {
+                $context['found'][] = [$node, $owner];
             }
+
+            $this->recordWrites($node, $owner, $context);
 
             foreach ($node->getSubNodeNames() as $name) {
                 $child = $node->{$name};
-                $this->walk(is_array($child) ? $child : [$child], $owner, $found);
+                $this->walk(is_array($child) ? $child : [$child], $owner, $context);
             }
         }
+    }
+
+    /**
+     * Records the variables a node writes. Only a plain assignment keeps the
+     * value it assigns; every other write replaces whatever was read before.
+     *
+     * @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context
+     */
+    private function recordWrites(Node $node, FunctionLike $owner, array &$context): void
+    {
+        $targets = match (true) {
+            $node instanceof Assign => [[$node->var, $node->expr, $node->getEndFilePos()]],
+            $node instanceof AssignRef, $node instanceof AssignOp => [[$node->var, null, $node->getEndFilePos()]],
+            $node instanceof Foreach_ => [[$node->keyVar, null, $node->expr->getEndFilePos()], [$node->valueVar, null, $node->expr->getEndFilePos()]],
+            $node instanceof Catch_ => [[$node->var, null, $node->getStartFilePos()]],
+            default => [],
+        };
+
+        foreach ($targets as [$target, $expr, $end]) {
+            foreach ($this->writtenVariables($target) as $variable) {
+                $context['writes'][] = ['name' => $variable, 'end' => $end, 'expr' => $target instanceof Variable ? $expr : null, 'owner' => $owner];
+            }
+        }
+    }
+
+    /** @return list<string> */
+    private function writtenVariables(mixed $target): array
+    {
+        if ($target instanceof Variable) {
+            return is_string($target->name) ? [$target->name] : [];
+        }
+
+        if (! $target instanceof List_ && ! $target instanceof Array_) {
+            return [];
+        }
+
+        $names = [];
+
+        foreach ($target->items as $item) {
+            if ($item !== null) {
+                $names = [...$names, ...$this->writtenVariables($item->value)];
+            }
+        }
+
+        return $names;
     }
 
     /** The numeric type a native return type declares, when it cannot also hold a string. */
@@ -234,23 +281,23 @@ final class CacheNumericReadRule implements Rule
         return null;
     }
 
-    /** @param  array{assignments: list<Assign>, parameters: array<string, Param>}  $context */
-    private function holdsCacheRead(Expr $expr, Scope $scope, array $context): bool
+    /** @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context */
+    private function holdsCacheRead(Expr $expr, FunctionLike $owner, Scope $scope, array $context): bool
     {
         if ($expr instanceof Variable) {
-            $assignment = $this->latestAssignment($expr, $context['assignments']);
+            $origin = $this->origin($expr, $owner, $context);
 
-            return $assignment instanceof Assign && $this->isCacheRead($assignment->expr, $scope, $context);
+            return $origin !== null && $origin['expr'] instanceof Expr && $this->isCacheRead($origin['expr'], $origin['owner'], $scope, $context);
         }
 
-        return $this->isCacheRead($expr, $scope, $context);
+        return $this->isCacheRead($expr, $owner, $scope, $context);
     }
 
-    /** @param  array{assignments: list<Assign>, parameters: array<string, Param>}  $context */
-    private function isCacheRead(Expr $expr, Scope $scope, array $context): bool
+    /** @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context */
+    private function isCacheRead(Expr $expr, FunctionLike $owner, Scope $scope, array $context): bool
     {
         if ($expr instanceof Coalesce) {
-            return $this->isCacheRead($expr->left, $scope, $context);
+            return $this->isCacheRead($expr->left, $owner, $scope, $context);
         }
 
         if ($expr instanceof FuncCall) {
@@ -269,22 +316,24 @@ final class CacheNumericReadRule implements Rule
         }
 
         /** @var MethodCall|NullsafeMethodCall $expr */
-        return $this->isCacheRepository($expr->var, $scope, $context, $expr);
+        return $this->isCacheRepository($expr->var, $owner, $scope, $context);
     }
 
-    /** @param  array{assignments: list<Assign>, parameters: array<string, Param>}  $context */
-    private function isCacheRepository(Expr $expr, Scope $scope, array $context, Node $at): bool
+    /** @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context */
+    private function isCacheRepository(Expr $expr, FunctionLike $owner, Scope $scope, array $context): bool
     {
         if ($expr instanceof Variable && is_string($expr->name) && $expr->name !== 'this') {
-            $assignment = $this->latestAssignment($expr, $context['assignments'], $at);
+            $origin = $this->origin($expr, $owner, $context);
 
-            if ($assignment instanceof Assign) {
-                return $this->isCacheRepository($assignment->expr, $scope, $context, $assignment);
+            if ($origin === null) {
+                return false;
             }
 
-            $parameter = $context['parameters'][$expr->name] ?? null;
+            if ($origin['expr'] instanceof Param) {
+                return $origin['expr']->type instanceof Node && $this->isCacheType($scope->getFunctionType($origin['expr']->type, false, false));
+            }
 
-            return $parameter instanceof Param && $parameter->type instanceof Node && $this->isCacheType($scope->getFunctionType($parameter->type, false, false));
+            return $origin['expr'] instanceof Expr && $this->isCacheRepository($origin['expr'], $origin['owner'], $scope, $context);
         }
 
         if ($this->isCacheHelper($expr) && $expr instanceof FuncCall && $expr->getArgs() === []) {
@@ -304,7 +353,7 @@ final class CacheNumericReadRule implements Rule
                 return $this->isCacheFacade($expr, $scope);
             }
 
-            if ($this->isCacheRepository($expr->var, $scope, $context, $expr)) {
+            if ($this->isCacheRepository($expr->var, $owner, $scope, $context)) {
                 return true;
             }
         }
@@ -344,29 +393,42 @@ final class CacheNumericReadRule implements Rule
     }
 
     /**
-     * The last assignment to the variable that starts before `$before`.
+     * Where a variable's value at `$variable` comes from: the latest write in the
+     * same function that completes before it, the function's parameter, or the
+     * enclosing function's value for an arrow function or a closure's `use`.
      *
-     * @param  list<Assign>  $assignments
+     * @param  array{found: list<array{0: Node, 1: FunctionLike}>, writes: list<array{name: string, end: int, expr: ?Expr, owner: FunctionLike}>, parents: array<int, ?FunctionLike>}  $context
+     * @return array{expr: Expr|Param|null, owner: FunctionLike}|null
      */
-    private function latestAssignment(Variable $variable, array $assignments, ?Node $before = null): ?Assign
+    private function origin(Variable $variable, FunctionLike $owner, array $context, ?int $position = null): ?array
     {
-        $position = ($before ?? $variable)->getStartFilePos();
+        if (! is_string($variable->name)) {
+            return null;
+        }
+
+        $position ??= $variable->getStartFilePos();
         $latest = null;
 
-        foreach ($assignments as $assignment) {
-            if (! $assignment->var instanceof Variable) {
-                continue;
-            }
-
-            if ($assignment->var->name !== $variable->name) {
-                continue;
-            }
-
-            if ($assignment->getStartFilePos() < $position) {
-                $latest = $assignment;
+        foreach ($context['writes'] as $write) {
+            if ($write['owner'] === $owner && $write['name'] === $variable->name && $write['end'] < $position) {
+                $latest = $write;
             }
         }
 
-        return $latest;
+        if ($latest !== null) {
+            return ['expr' => $latest['expr'], 'owner' => $owner];
+        }
+
+        foreach ($owner->getParams() as $parameter) {
+            if ($parameter->var instanceof Variable && $parameter->var->name === $variable->name) {
+                return ['expr' => $parameter, 'owner' => $owner];
+            }
+        }
+
+        $parent = $context['parents'][spl_object_id($owner)] ?? null;
+        $inherits = $owner instanceof ArrowFunction
+            || ($owner instanceof Closure && array_any($owner->uses, static fn (ClosureUse $use): bool => $use->var->name === $variable->name));
+
+        return $parent !== null && $inherits ? $this->origin($variable, $parent, $context, $owner->getStartFilePos()) : null;
     }
 }
