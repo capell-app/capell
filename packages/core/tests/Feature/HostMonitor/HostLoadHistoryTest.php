@@ -117,17 +117,19 @@ it('prunes rollups older than the retention setting and keeps newer ones', funct
         ->and(HostLoadRollup::query()->count())->toBe(1);
 });
 
-it('deletes more than one batch in a run but never more than its bound', function (): void {
+it('deletes several batches in a run but stops at its bound', function (): void {
     $old = now()->getTimestamp() - 200 * 86400;
-    $rows = [];
+    $total = PruneHostLoadRollupsAction::BATCH * PruneHostLoadRollupsAction::MAXIMUM_BATCHES + 5;
 
-    for ($i = 0; $i < PruneHostLoadRollupsAction::BATCH + 5; $i++) {
-        $rows[] = ['node' => 'node-a', 'hour_start' => $old - $i * 3600, 'samples' => 1, 'created_at' => now(), 'updated_at' => now()];
+    foreach (array_chunk(range(0, $total - 1), 1000) as $chunk) {
+        DB::table((new HostLoadRollup)->getTable())->insert(array_map(
+            static fn (int $i): array => ['node' => 'node-a', 'hour_start' => $old - $i * 3600, 'samples' => 1, 'created_at' => now(), 'updated_at' => now()],
+            $chunk,
+        ));
     }
 
-    DB::table((new HostLoadRollup)->getTable())->insert($rows);
-
-    expect(resolve(PruneHostLoadRollupsAction::class)->handle())->toBe(PruneHostLoadRollupsAction::BATCH + 5);
+    expect(resolve(PruneHostLoadRollupsAction::class)->handle())->toBe(PruneHostLoadRollupsAction::BATCH * PruneHostLoadRollupsAction::MAXIMUM_BATCHES)
+        ->and(HostLoadRollup::query()->count())->toBe(5);
 });
 
 it('clamps a mistyped retention instead of deleting everything or keeping everything', function (int $configured, int $expected): void {
@@ -193,8 +195,34 @@ it('defers while critical, releases once after the limit and runs again on recov
     expect($gate->shouldDefer('reports'))->toBeFalse();
 });
 
+it('releases a task that only runs daily even though the server is busy at every run', function (): void {
+    Config::set('capell.health.host.defer.enabled', true);
+    criticalHost();
+    $gate = resolve(HostBusyGate::class);
+
+    expect($gate->shouldDefer('daily'))->toBeTrue();
+
+    $this->travel(1)->days();
+    criticalHost();
+
+    expect($gate->shouldDefer('daily'))->toBeFalse();
+});
+
+it("does not let a calm server clear another server's deferral", function (): void {
+    Config::set('capell.health.host.defer.enabled', true);
+    criticalHost();
+    expect(resolve(HostBusyGate::class)->shouldDefer('reports'))->toBeTrue();
+    $since = resolve(HostMonitorStore::class)->deferredSince('reports');
+
+    Config::set('capell.node_id', 'node-b');
+    expect(resolve(HostBusyGate::class)->shouldDefer('reports'))->toBeFalse();
+
+    Config::set('capell.node_id', 'node-a');
+    expect(resolve(HostMonitorStore::class)->deferredSince('reports'))->toBe($since);
+});
+
 it('reads a deferral time that a shared cache returns as a string', function (): void {
-    Cache::put('capell:host-monitor:deferred:' . hash('xxh128', 'reports'), '1700000000', 600);
+    Cache::put('capell:host-monitor:deferred:' . hash('xxh128', 'node-a|reports'), '1700000000', 600);
 
     expect(resolve(HostMonitorStore::class)->deferredSince('reports'))->toBe(1_700_000_000);
 });

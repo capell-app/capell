@@ -20,6 +20,9 @@ final readonly class HostMonitorStore
 
     private const int RETENTION_SECONDS = 86400;
 
+    /** Long enough to outlast any task that runs less often than monthly, so a rarely run task is still released. */
+    private const int DEFERRAL_SECONDS = 35 * 86400;
+
     public function __construct(private Repository $cache) {}
 
     public function node(): string
@@ -171,7 +174,7 @@ final readonly class HostMonitorStore
 
     public function markDeferred(string $task, int $at): void
     {
-        $this->put('deferred:' . $this->taskKey($task), $at, max(1, (int) config('capell.health.host.defer.max_minutes', 120)) * 60 + 3600);
+        $this->put('deferred:' . $this->taskKey($task), $at, self::DEFERRAL_SECONDS);
     }
 
     public function clearDeferred(string $task): void
@@ -185,7 +188,7 @@ final readonly class HostMonitorStore
 
     private function taskKey(string $task): string
     {
-        return hash('xxh128', $task);
+        return hash('xxh128', $this->node() . '|' . $task);
     }
 
     /** @return list<array<string, mixed>> */
