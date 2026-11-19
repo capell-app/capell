@@ -26,6 +26,9 @@ use RuntimeException;
  * roots are immutable it cannot run at all. A deployment provider that later
  * learns the deploy failed reports it through this action too, and the waiting
  * attempt fails with that reason.
+ *
+ * The lifecycle QA command is the one caller that opts out: it exists to run
+ * the whole lifecycle on this site, inline, and an operator runs it on purpose.
  */
 final class RecordMarketplaceInstallDeploymentAction
 {
@@ -35,8 +38,9 @@ final class RecordMarketplaceInstallDeploymentAction
     public function handle(
         MarketplaceInstallAttempt $attempt,
         MarketplaceInstallDeploymentData $data,
+        bool $awaitPublishedDeployment = true,
     ): MarketplaceInstallAttempt {
-        return DB::transaction(function () use ($attempt, $data): MarketplaceInstallAttempt {
+        return DB::transaction(function () use ($attempt, $data, $awaitPublishedDeployment): MarketplaceInstallAttempt {
             $lockedAttempt = MarketplaceInstallAttempt::query()
                 ->whereKey((int) $attempt->getKey())
                 ->lockForUpdate()
@@ -94,7 +98,8 @@ final class RecordMarketplaceInstallDeploymentAction
                 ];
             }
 
-            $awaitsDeployment = $status === 'published'
+            $awaitsDeployment = $awaitPublishedDeployment
+                && $status === 'published'
                 && $lockedAttempt->status === MarketplaceInstallIntentStatus::Queued;
 
             if ($awaitsDeployment) {

@@ -53,6 +53,7 @@ final class QueueMarketplaceInstallAttemptAction
         bool $afterResponse = true,
         ?string $idempotencyKey = null,
         bool $dispatch = true,
+        bool $awaitPublishedDeployment = true,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -83,6 +84,7 @@ final class QueueMarketplaceInstallAttemptAction
                 afterResponse: $afterResponse,
                 idempotencyKey: $idempotencyKey,
                 dispatch: $dispatch,
+                awaitPublishedDeployment: $awaitPublishedDeployment,
             );
         } finally {
             $lock->release();
@@ -110,6 +112,7 @@ final class QueueMarketplaceInstallAttemptAction
         bool $afterResponse = true,
         ?string $idempotencyKey = null,
         bool $dispatch = true,
+        bool $awaitPublishedDeployment = true,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -210,6 +213,7 @@ final class QueueMarketplaceInstallAttemptAction
         $attempt = RecordMarketplaceInstallDeploymentAction::run(
             $attempt,
             new MarketplaceInstallDeploymentData($deployment),
+            $awaitPublishedDeployment,
         );
 
         if (! $dispatch) {
