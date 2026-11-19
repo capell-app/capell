@@ -85,6 +85,7 @@ use Capell\Core\Support\Security\SiteOwnedHosts;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Capell\Core\Support\TableName;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
@@ -278,6 +279,7 @@ final class SingletonLifetimeInventory
             PublicRenderDataScope::class => 'Render-local data set only inside during(), which restores the previous value in finally, so nothing outlives a public render or crosses requests.',
             StaticPageArtifactStore::class => 'Ownership lock files this process holds, set only while their flock is held and removed in finally, so a nested write re-enters its own lock and nothing outlives the write.',
             LivewireRouteComponentClass::class => 'Caches the class name of a compiled Livewire route component by its source path, so a process stops redeclaring the same anonymous class. An entry is reused only while the class is still declared and the source and compiled file modification times are unchanged; the name depends on that file alone, never on a request, tenant or user, so it carries no operation data and a changed file is recompiled.',
+            TableName::class => 'Holds the config repository of the current container only, behind a weak reference; a different container, or a rebind of config on that container, replaces it before the next read, and every value is still read live from it, so nothing from one request answers for another.',
             ExtensionQuarantine::class => 'The missing-table flag only suppresses repeated warnings for the process lifetime and carries no operation data.',
             ExtensibleModel::class => 'Extension fillable and cast declarations are deliberate model boot registries.',
             ManifestLoader::class => 'Registered manifest autoload paths are process boot metadata and prevent duplicate Composer loaders.',
