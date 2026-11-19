@@ -257,6 +257,7 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
+use Capell\Core\Support\Scheduling\RunScheduledCommandInProcess;
 use Capell\Core\Support\Security\Checks\AutoUpdatesOffForAdvisoryCheck;
 use Capell\Core\Support\Security\Checks\DebugEnabledCheck;
 use Capell\Core\Support\Security\Checks\InsecureCookieCheck;
@@ -1035,7 +1036,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         $this->registerSchedule(function (Schedule $schedule): void {
             // A run killed mid-way must not hold the backstop's lock for the default day.
-            $schedule->command('capell:public-read:reconcile')
+            RunScheduledCommandInProcess::schedule($schedule, 'capell:public-read:reconcile')
                 ->everyMinute()
                 ->withoutOverlapping(5)
                 ->onOneServer();
@@ -1113,7 +1114,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         if (config('capell.multi_node', false) === true) {
             // Every node must run this, so no onOneServer() and no shared overlap mutex.
             $this->registerSchedule(function (Schedule $schedule): void {
-                $schedule->command('capell:security:refresh-node')->everyFiveMinutes();
+                RunScheduledCommandInProcess::schedule($schedule, 'capell:security:refresh-node')->everyFiveMinutes();
             });
         }
 

@@ -25,6 +25,7 @@ use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Core\Support\Registries\TaggedProviderRegistry;
+use Capell\Core\Support\Scheduling\RunScheduledCommandInProcess;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
@@ -779,7 +780,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerScheduledPublicationInvalidation(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
-            $schedule->command('capell:invalidate-due-scheduled-publications')
+            RunScheduledCommandInProcess::schedule($schedule, 'capell:invalidate-due-scheduled-publications')
                 ->everyMinute()
                 ->withoutOverlapping()
                 ->onOneServer();

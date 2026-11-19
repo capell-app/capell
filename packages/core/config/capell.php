@@ -39,6 +39,12 @@ return [
         ],
     ],
 
+    'schedule' => [
+        // Run the per-minute and five-minute Capell commands inside the schedule:run process
+        // instead of starting a PHP process for each, which boots the application every time.
+        'run_frequent_commands_in_process' => (bool) env('CAPELL_SCHEDULE_IN_PROCESS', false),
+    ],
+
     'cache_path' => env('CAPELL_CACHE_PATH', base_path('bootstrap/cache/capell')),
     'cache_ttl' => (int) env('CAPELL_CACHE_TTL', 60),
     'cache_lock_seconds' => (int) env('CAPELL_CACHE_LOCK_SECONDS', 30),

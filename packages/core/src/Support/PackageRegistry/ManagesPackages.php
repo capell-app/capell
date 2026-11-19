@@ -64,9 +64,12 @@ trait ManagesPackages
     /** @var array<string, bool> */
     private array $enabledDecisions = [];
 
+    private ?InstalledRuntimeLifecycle $installedRuntimeLifecycle = null;
+
     public function flushRuntimeState(): void
     {
         $this->installedExtensionNamesCache = null;
+        $this->installedRuntimeLifecycle = null;
         $this->clearPackageMemoization();
         $this->extensionLifecycle()->clear();
         // A heartbeat in another worker may have stored a newer catalogue.
@@ -643,8 +646,13 @@ trait ManagesPackages
 
     private function runtimeFailed(string $name): bool
     {
-        return app()->resolved(InstalledRuntimeLifecycle::class)
-            && resolve(InstalledRuntimeLifecycle::class)->packageFailed($name);
+        // The lifecycle is asked on every package check, so it is resolved once and then read directly.
+        // Its failures are still read on each call, because one can be recorded at any moment.
+        if (! $this->installedRuntimeLifecycle instanceof InstalledRuntimeLifecycle && app()->resolved(InstalledRuntimeLifecycle::class)) {
+            $this->installedRuntimeLifecycle = resolve(InstalledRuntimeLifecycle::class);
+        }
+
+        return $this->installedRuntimeLifecycle?->packageFailed($name) ?? false;
     }
 
     private function decideInstalled(string $name): bool

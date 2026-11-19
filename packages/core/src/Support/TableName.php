@@ -9,12 +9,15 @@ use Capell\Core\Actions\Install\PrepareVendorTableMigrationAction;
 use Capell\Core\Exceptions\ForeignTableException;
 use Capell\Core\Support\Migration\TableShape;
 use Composer\InstalledVersions;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Migrations\DatabaseMigrationRepository;
 use Illuminate\Database\Migrations\MigrationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
+use WeakReference;
 
 final class TableName
 {
@@ -27,6 +30,11 @@ final class TableName
     private const string LEDGER_BINDING = 'capell.table-name.ledger';
 
     private const string LEDGER_FILES_BINDING = 'capell.table-name.ledger-files';
+
+    private static ?Repository $config = null;
+
+    /** @var WeakReference<Container>|null */
+    private static ?WeakReference $configContainer = null;
 
     /**
      * Runs a callback reading the migration ledger from another repository (the table-shape probe's scratch database).
@@ -108,7 +116,7 @@ final class TableName
     /** The configured physical name of a table Capell uses but a vendor package creates, such as `media`. */
     public static function external(string $table): string
     {
-        $configured = config('capell.database.external_tables.' . $table, $table);
+        $configured = self::config('capell.database.external_tables.' . $table, $table);
         throw_if(! is_string($configured) || preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,' . (self::MAX_IDENTIFIER_LENGTH - 1) . '}$/D', $configured) !== 1, RuntimeException::class, 'Invalid external database table name for ' . $table);
 
         return $configured;
@@ -116,7 +124,7 @@ final class TableName
 
     public static function base(string $table): string
     {
-        $aliases = config('capell.database.table_aliases', []);
+        $aliases = self::config('capell.database.table_aliases', []);
         if (is_array($aliases)) {
             foreach ($aliases as $base => $alias) {
                 if (is_string($base) && $alias === $table) {
@@ -125,7 +133,7 @@ final class TableName
             }
         }
 
-        $prefix = (string) config('capell.database.table_prefix', '');
+        $prefix = (string) self::config('capell.database.table_prefix', '');
 
         return $prefix !== '' && str_starts_with($table, $prefix) ? substr($table, strlen($prefix)) : $table;
     }
@@ -162,11 +170,11 @@ final class TableName
     {
         throw_if(preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $name) !== 1, InvalidArgumentException::class, 'Invalid base table name: ' . $name);
 
-        $aliases = config('capell.database.table_aliases', []);
+        $aliases = self::config('capell.database.table_aliases', []);
         $alias = is_array($aliases) ? ($aliases[$name] ?? null) : null;
         throw_if($alias !== null && ! is_string($alias), RuntimeException::class, 'Invalid database table alias for ' . $name);
 
-        $prefix = config('capell.database.table_prefix', '');
+        $prefix = self::config('capell.database.table_prefix', '');
         throw_unless(is_string($prefix), RuntimeException::class, 'Invalid database table prefix: capell.database.table_prefix must be a string.');
 
         $resolved = $alias ?? $prefix . $name;
@@ -220,6 +228,30 @@ final class TableName
         }
 
         return false;
+    }
+
+    /**
+     * Table names resolve hundreds of times in a request, and `config()` resolves the
+     * repository from the container on every call. The repository is held for as long
+     * as the same container (and the same `config` binding) is current, so a changed
+     * value is still read live and a new application never sees a stale repository.
+     */
+    private static function config(string $key, mixed $default = null): mixed
+    {
+        $container = Container::getInstance();
+
+        if (self::$configContainer?->get() !== $container || ! self::$config instanceof Repository) {
+            $repository = $container->make(Repository::class);
+            throw_unless($repository instanceof Repository, RuntimeException::class, 'The config binding is not a configuration repository.');
+
+            self::$config = $repository;
+            self::$configContainer = WeakReference::create($container);
+            $container->rebinding('config', static function (mixed $app, mixed $rebound): void {
+                self::$config = $rebound instanceof Repository ? $rebound : null;
+            });
+        }
+
+        return self::$config->get($key, $default);
     }
 
     /** @param  list<string>  $hashes */

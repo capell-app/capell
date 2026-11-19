@@ -30,6 +30,24 @@ it('authorises a package once however many times a request asks whether it is en
     expect($authorisations)->toBe(1);
 });
 
+it('resolves the runtime lifecycle once however many times a request asks about a package', function (): void {
+    $name = memoPackageName();
+    CapellCore::registerPackage($name);
+    CapellCore::markPackageInstalled($name);
+    CapellCore::isPackageEnabled($name);
+    $resolves = 0;
+    app()->beforeResolving(InstalledRuntimeLifecycle::class, function () use (&$resolves): void {
+        $resolves++;
+    });
+
+    for ($lookup = 0; $lookup < 50; $lookup++) {
+        CapellCore::isPackageEnabled($name);
+        CapellCore::isPackageInstalled($name);
+    }
+
+    expect($resolves)->toBeLessThanOrEqual(1);
+});
+
 it('denies a package as soon as its runtime fails after an enabled answer', function (): void {
     $name = memoPackageName();
     CapellCore::registerPackage($name);
