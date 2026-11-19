@@ -10,6 +10,7 @@ use Capell\Core\Actions\Properties\AssertRestoredPagePropertyValuesAreUniqueActi
 use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Actions\PrunePageDeletionMembershipAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Actions\SoftDeletePageUrlsAction;
 use Capell\Core\Concerns\RestoresSoftDeletedRelations;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\PageDeleted;
@@ -68,7 +69,7 @@ class PageObserver
             // Translations are MorphMany — force-delete any soft-deleted rows too.
             $page->translations()->withTrashed()->forceDelete();
         } else {
-            $page->pageUrls()->delete();
+            SoftDeletePageUrlsAction::run($page);
             // Cascade soft-delete to translations so PageObserver::restored()
             // can bring them back through the shared soft-delete relation
             // restore guard.
@@ -76,10 +77,11 @@ class PageObserver
         }
 
         $page->loadMissing('site');
+        $formData = $page->pullDeletionFormData();
 
-        $page->getConnection()->afterCommit(function () use ($page): void {
+        $page->getConnection()->afterCommit(function () use ($page, $formData): void {
             $this->clearCache();
-            event(new PageDeleted($page));
+            event(new PageDeleted($page, $formData));
         });
     }
 
