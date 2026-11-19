@@ -186,6 +186,41 @@ final readonly class HostMonitorStore
         }
     }
 
+    /** Unix time a listed task first skipped a run in the current busy spell and has not yet run since, or null. */
+    public function catchUpPendingSince(string $task): ?int
+    {
+        $since = $this->get('catchup-pending:' . $this->taskKey($task));
+
+        return is_int($since) || (is_string($since) && ctype_digit($since)) ? (int) $since : null;
+    }
+
+    public function markCatchUpPending(string $task, int $at): void
+    {
+        $this->put('catchup-pending:' . $this->taskKey($task), $at, self::DEFERRAL_SECONDS);
+    }
+
+    public function clearCatchUpPending(string $task): void
+    {
+        try {
+            $this->cache->forget(self::PREFIX . 'catchup-pending:' . $this->taskKey($task));
+        } catch (Throwable) {
+            // Monitoring must never break the work it observes.
+        }
+    }
+
+    /** The date (Y-m-d) the task last ran as a catch-up, or null. */
+    public function caughtUpOn(string $task): ?string
+    {
+        $date = $this->get('catchup-done:' . $this->taskKey($task));
+
+        return is_string($date) && $date !== '' ? $date : null;
+    }
+
+    public function markCaughtUp(string $task, string $date): void
+    {
+        $this->put('catchup-done:' . $this->taskKey($task), $date, 2 * 86400);
+    }
+
     private function taskKey(string $task): string
     {
         return hash('xxh128', $this->node() . '|' . $task);

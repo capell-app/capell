@@ -7,6 +7,7 @@ namespace Capell\Admin\Support\Diagnostics;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
 use Capell\Admin\Data\Diagnostics\DiagnosticSectionData;
+use Capell\Core\Actions\HostMonitor\BuildDeferrableTasksStatusAction;
 use Capell\Core\Actions\HostMonitor\BuildServerSettingsRecommendationsAction;
 use Capell\Core\Contracts\Health\ServerSettingsReader;
 use Capell\Core\Data\Diagnostics\ServerSettingRecommendationData;
@@ -49,7 +50,26 @@ final readonly class ServerSettingsSiteHealthReportExtender implements SiteHealt
             ));
         }
 
+        $checks[] = $this->deferrableTasks();
+
         return [new DiagnosticSectionData((string) __('capell-admin::server-settings.section'), $checks)];
+    }
+
+    private function deferrableTasks(): DiagnosticCheckData
+    {
+        $status = BuildDeferrableTasksStatusAction::run();
+        $label = (string) __('capell-admin::server-settings.deferrable_label');
+
+        if (! $status->enabled()) {
+            return new DiagnosticCheckData(status: 'green', label: $label, detail: (string) __('capell-admin::server-settings.deferrable_off'));
+        }
+
+        $detail = (string) __('capell-admin::server-settings.deferrable_listed', ['tasks' => implode(', ', $status->tasks)]);
+        $detail .= ' ' . ($status->deferred === []
+            ? (string) __('capell-admin::server-settings.deferrable_none_deferred')
+            : (string) __('capell-admin::server-settings.deferrable_deferred', ['tasks' => implode(', ', $status->deferred)]));
+
+        return new DiagnosticCheckData(status: $status->deferred === [] ? 'green' : 'amber', label: $label, detail: $detail);
     }
 
     private function check(ServerSettingRecommendationData $recommendation): DiagnosticCheckData

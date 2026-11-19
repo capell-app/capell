@@ -108,17 +108,7 @@ final class SchedulerRunRecorder implements Resettable
 
     private function describe(Event $task): string
     {
-        $summary = $task->description;
-
-        if (! is_string($summary) || $summary === '') {
-            $command = is_string($task->command) ? $task->command : '';
-            $summary = preg_match("/artisan'?\s+(.+)\z/", $command, $match) === 1 ? $match[1] : $command;
-        }
-
-        // Only the command name: arguments can hold values that should not leave the server.
-        $name = explode(' ', trim($summary, "' "))[0];
-
-        return $name !== '' ? $name : 'task';
+        return ScheduledTaskName::of($task);
     }
 
     /** User plus system CPU seconds. $who is 0 for this process, 1 for the children it has waited for. */
