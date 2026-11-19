@@ -20,8 +20,8 @@ final readonly class HostMonitorStore
 
     private const int RETENTION_SECONDS = 86400;
 
-    /** Long enough to outlast any task that runs less often than monthly, so a rarely run task is still released. */
-    private const int DEFERRAL_SECONDS = 35 * 86400;
+    /** Long enough to outlast a task that runs once a year, so even a rarely run task is released. */
+    private const int DEFERRAL_SECONDS = 400 * 86400;
 
     public function __construct(private Repository $cache) {}
 
