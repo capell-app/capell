@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\SiteDomains;
 
 use Capell\Core\Enums\CacheEnum;
-use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Illuminate\Database\Connection;
@@ -61,8 +60,9 @@ final class LoadSiteRoutingCandidatesAction
     {
         // Move the revision first: a request that cached between the two steps then
         // either sees the move and drops its entry, or has its entry removed here.
-        CapellCore::setToCache(self::REVISION_KEY, self::newRevision(), 0);
-        CapellCore::removeCacheKey(CacheEnum::SiteRoutingCandidates->value);
+        $cache = resolve(CapellCacheManager::class);
+        $cache->setToCache(self::REVISION_KEY, self::newRevision(), 0);
+        $cache->removeCacheKey(CacheEnum::SiteRoutingCandidates->value);
     }
 
     /** @return Collection<int, Site> */
