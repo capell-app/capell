@@ -26,15 +26,15 @@ All content in Capell is translatable. Every translatable field (title, body, sl
 
 ### Editing translations
 
-When editing a page or content item in the admin, a **language switcher** lets you toggle between languages. Each language has its own set of field values; they do not share data unless you choose to copy a value.
+When editing a page or content item in the admin, each language has its own tab at the top of the content. Choose **Add translation** to add a language that has no tab yet. Each language has its own set of field values; they do not share data unless you choose to copy a value.
 
 ### Translation status
 
 The admin shows which languages have been translated for each page or content item, and which are still using the default language values.
 
-### Publishing per language
+### Publishing and languages
 
-You can publish each language version of a page independently. A page can be published in English but still in draft for French, allowing incremental rollout of translations.
+Publishing applies to the whole page: there is no separate publish action for each language. To keep one language off the public site while it is unfinished, edit that language's address in the page's **URLs** tab and set its **Status** to **Inactive**. Visitors cannot reach an inactive address, and the other languages stay live.
 
 ---
 

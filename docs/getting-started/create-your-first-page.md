@@ -96,7 +96,7 @@ See [Upload a file](../admin/media-management.md#upload-a-file), [language-speci
 
 ## Write the content
 
-Use the content fields provided by the selected page type. A plain text page normally has a **Content** editor for headings, paragraphs, links, tables, lists, and simple formatting. When the page needs typed blocks or approved section composition, choose the supported path in [Build a page](building-pages.md): page-type blocks with a page-specific `content_structure_override`, or the optional Layout Builder package for containers, widgets, and widget assets.
+Use the content fields provided by the selected page type. A plain text page normally has a **Content** editor for headings, paragraphs, links, tables, lists, and simple formatting. When the page needs typed blocks or approved section composition, choose the supported path in [Build a page](building-pages.md): a page type that uses blocks, or the optional Layout Builder package for containers, widgets, and widget assets.
 
 For your first page, keep it simple:
 
@@ -109,7 +109,7 @@ For your first page, keep it simple:
 
 Open **Extra Content** when the page needs supporting fields.
 
-The exact fields can vary by blueprint and installed packages, but the common ideas are:
+The exact fields can vary by page type and installed packages, but the common ideas are:
 
 | Field                | What it is for                                                  |
 | -------------------- | --------------------------------------------------------------- |
@@ -123,17 +123,17 @@ You do not need to fill every field on the first pass. Add the content that help
 
 **Layout** — which frontend template renders the page. A normal content page can use the default layout; a landing page, article, product page, or campaign page may use a different one if your project has registered it.
 
-**Visible from** — scheduled availability. Leave it empty when the page should be available as soon as it is published.
+**Publish on** — scheduled availability. Leave it empty when the page should be available as soon as it is published.
 
-The page type you chose (its blueprint) is related to the layout, but it is not the same thing. Blueprints define reusable editing, rendering, and behaviour rules:
+The page type you chose is related to the layout, but it is not the same thing. A page type defines reusable editing, rendering, and behaviour rules:
 
 | Concept   | Practical meaning                                       |
 | --------- | ------------------------------------------------------- |
-| Blueprint | Reusable editing, rendering, and behaviour rules.       |
+| Page type | Reusable editing, rendering, and behaviour rules.       |
 | Layout    | Controls how the frontend renders the page.             |
 | Content   | The text, media, and structured fields the editor adds. |
 
-Developers can register custom blueprints through Capell extension points. Read [Blueprints](types.md) for examples and screenshots, or [How Capell works](how-capell-works.md#extension-points) when you are ready for the deeper model.
+Developers can register custom page types (called blueprints in code) through Capell extension points. Read [Page types](types.md) for examples and screenshots, or [How Capell works](how-capell-works.md#extension-points) when you are ready for the deeper model.
 
 ## Save as draft first
 

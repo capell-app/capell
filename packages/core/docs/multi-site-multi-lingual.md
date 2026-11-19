@@ -96,9 +96,9 @@ Direction is derived per language, not per site. A site with both English and Ar
 Every page, navigation item, and media file has a translation for each enabled language. To translate a page:
 
 1. Open the page in the admin editor.
-2. Use the language switcher to change to the target language.
+2. Choose the language tab for the target language. If the language has no tab yet, choose **Add translation** and pick it.
 3. Fill in the translated title, slug, and body.
-4. Publish the translation independently (a page can be live in English but still in draft for French).
+4. Save and publish the page. Publishing applies to the whole page, not to one language. To keep a language off the public site until it is ready, leave its translation unfinished and set that language's address to **Inactive** in the page's **URLs** tab (edit the address and switch **Status** off).
 
 ---
 
@@ -220,7 +220,7 @@ The canonical URL for each page is generated based on the active site domain and
 - [Adding a language to a live site](../../admin/docs/adding-a-language-to-a-live-site.md) — the editor-facing walkthrough
 - [Admin Multi-Language](../../admin/docs/admin-multi-language.md) — Languages CRUD, translations repeater, admin interface language
 - [Page Management](page-management.md) — URL history, redirects, slug management
-- [Content Management](content-management.md) — translating content, per-language publishing
+- [Content Management](content-management.md) — translating content and keeping a language off the public site
 - [Page & Site Loading](../../frontend/docs/page-site-loading.md) — how site/language resolution works internally
-- [Sitemaps](https://docs.capell.app/sitemaps/) — XML sitemap generation and serving (in the `capell-app/site-discovery` add-on)
+- [Sitemaps](https://docs.capell.app/packages/site-discovery/) — XML sitemap generation and serving (in the `capell-app/site-discovery` add-on)
 - [Packages and extensions](../../../docs/packages/catalog.md) — host package boundaries and extension documentation entry points

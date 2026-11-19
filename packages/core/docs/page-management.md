@@ -131,9 +131,9 @@ Packages can replace or extend system page resolution by tagging an implementati
 
 The frontend package owns maintenance rendering, static maintenance middleware, and the manifest. Optional packages can register a `StaticMaintenancePageStore`; the HTML Cache package contributes one backed by its `page_cache` disk. If no static store is registered, maintenance falls back to Laravel's plain 503.
 
-### Missing URL reports
+### Broken links
 
-The admin panel includes a **Missing URLs** report that logs 404 responses with their referring pages. Use this to identify and fix broken links.
+If the URL Manager package is installed, **Website > Broken links** lists addresses visitors tried that do not exist, most-visited first. Choose **Convert to redirect** on a row to send that address to the right page.
 
 ---
 
