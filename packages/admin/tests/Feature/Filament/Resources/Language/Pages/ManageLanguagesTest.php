@@ -6,15 +6,18 @@ use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\Components\Tables\Actions\ReplicateAction;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Languages\Pages\ManageLanguages;
+use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Notifications\Notification;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -410,6 +413,35 @@ it('can not delete language if it is used', function (): void {
 
     assertDatabaseHas($language, ['id' => $language->id]);
 });
+
+it('tells the editor how many sites still use a language they cannot delete', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->language($language)->create();
+    SiteDomain::factory()->count(2)->recycle($site)->state(['language_id' => $language->id])->create();
+
+    Livewire::test(ManageLanguages::class)
+        ->callAction(TestAction::make(DeleteAction::class)->table($language))
+        ->assertNotified(
+            Notification::make('language_not_deletable')
+                ->warning()
+                ->title(__('capell-admin::message.language_not_deletable', ['name' => e($language->name)]))
+                ->body('It is still used by 1 site.')
+                ->actions([
+                    Action::make('sites')
+                        ->label(__('capell-admin::button.view_sites'))
+                        ->button()
+                        ->url(SiteResource::getUrl('index', ['filters[filter][language_id]' => $language->id])),
+                ]),
+        );
+});
+
+it('words the language in use notice for none, one and several sites', function (int $count, string $expected): void {
+    expect(trans_choice('capell-admin::message.language_not_deletable_info', $count, ['count' => $count]))->toBe($expected);
+})->with([
+    [0, 'It is still used by sites or pages you cannot see.'],
+    [1, 'It is still used by 1 site.'],
+    [3, 'It is still used by 3 sites.'],
+]);
 
 it('can group delete languages', function (): void {
     $languages = Language::factory()

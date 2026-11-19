@@ -269,3 +269,20 @@ it('cascades page URL soft deletes, restores, force deletes, and domain events',
 
     expect(PageUrl::query()->withTrashed()->whereKey($pageUrl->getKey())->exists())->toBeFalse();
 });
+
+it('soft-deletes a page url whose address was already trashed in the same second', function (): void {
+    $this->freezeTime();
+
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    $first = Page::factory()->createOne(['site_id' => $site->id]);
+    $second = Page::factory()->createOne(['site_id' => $site->id]);
+
+    foreach ([$first, $second] as $page) {
+        $page->pageUrls()->forceDelete();
+        PageUrl::factory()->page($page)->site($site)->language($language)->createOne(['url' => '/imported']);
+        $page->delete();
+    }
+
+    expect(PageUrl::onlyTrashed()->where('url', '/imported')->count())->toBe(2);
+});

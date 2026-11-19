@@ -120,7 +120,7 @@ return [
     'language_no_default_heading' => 'No default language',
     'language_no_default_warning' => 'Set a default language for this site.',
     'language_not_deletable' => 'This language cannot be deleted.',
-    'language_not_deletable_info' => 'It is still used by one or more sites or pages.',
+    'language_not_deletable_info' => '{0} It is still used by sites or pages you cannot see.|{1} It is still used by :count site.|[2,*] It is still used by :count sites.',
     'layout_container_key_not_unique' => 'Container key ":key" must be unique.',
     'layout_count_on_pages' => '{0} This layout is not used by other pages. View: <a href=":url">Pages using this layout</a>.|{1} This layout is shared with 1 other page. View <a href=":url">pages using this layout</a>.|[2,*] This layout is shared with :count other pages. View <a href=":url">pages using this layout</a>.',
     'layout_empty' => 'This layout is empty.',

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Concerns\Validate;
 
+use Capell\Admin\Actions\Languages\CountSitesUsingLanguageAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Models\Language;
-use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -24,15 +24,18 @@ trait LanguageValidation
     {
         // Default
         if ($record->sites()->exists() || $record->sitesLanguage()->exists()) {
+            $siteCount = CountSitesUsingLanguageAction::run($record);
+
             Notification::make('language_not_deletable')
                 ->warning()
                 ->title(__(
                     'capell-admin::message.language_not_deletable',
                     ['name' => e($record->name)],
                 ))
-                ->body(__(
+                ->body(trans_choice(
                     'capell-admin::message.language_not_deletable_info',
-                    ['count' => SiteAccess::current()->scope($record->sites()->getQuery())->count()],
+                    $siteCount,
+                    ['count' => $siteCount],
                 ))
                 ->actions([
                     Action::make('sites')
