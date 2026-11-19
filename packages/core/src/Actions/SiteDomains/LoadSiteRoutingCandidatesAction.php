@@ -61,7 +61,7 @@ final class LoadSiteRoutingCandidatesAction
     {
         // Move the revision first: a request that cached between the two steps then
         // either sees the move and drops its entry, or has its entry removed here.
-        CapellCore::setToCache(self::REVISION_KEY, bin2hex(random_bytes(8)), 0);
+        CapellCore::setToCache(self::REVISION_KEY, self::newRevision(), 0);
         CapellCore::removeCacheKey(CacheEnum::SiteRoutingCandidates->value);
     }
 
@@ -85,16 +85,29 @@ final class LoadSiteRoutingCandidatesAction
         }
 
         $revision = $cache->getFreshFromCache(self::REVISION_KEY);
+
+        if (! is_string($revision)) {
+            // Seed an absent revision (flushed or evicted), so a change that then moves it
+            // and is flushed again cannot read back as the same empty value.
+            $revision = self::newRevision();
+            $cache->setToCache(self::REVISION_KEY, $revision, 0);
+        }
+
         $sites = $this->query();
         $cache->setToCache($key, $sites, self::TTL_SECONDS);
 
         if ($cache->getFreshFromCache(self::REVISION_KEY) !== $revision) {
-            // A change committed while the query ran: this request still uses the rows it
-            // read, but no other request may reuse them.
+            // A change committed while the query ran, or the revision was lost: this request
+            // still uses the rows it read, but no other request may reuse them.
             $cache->removeCacheKey($key);
         }
 
         return $sites;
+    }
+
+    private static function newRevision(): string
+    {
+        return bin2hex(random_bytes(8));
     }
 
     /** @return Collection<int, Site> */

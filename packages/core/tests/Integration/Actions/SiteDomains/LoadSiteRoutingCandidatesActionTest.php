@@ -207,3 +207,28 @@ it('does not cache candidates read before a domain change committed', function (
         ->and($committed)->toBeTrue()
         ->and(resolveRoutedSiteId('https://racing.test/'))->toBeNull();
 });
+
+it('does not cache candidates read before a domain change when the change revision is then flushed away', function (): void {
+    $site = Site::factory()->createOne();
+    SiteDomain::factory()->createOne(['site_id' => $site->id, 'domain' => 'flushed-race.test', 'scheme' => 'https', 'path' => null, 'status' => true]);
+    // No revision is stored yet, as after any earlier flush or eviction.
+    Cache::store()->flush();
+
+    $committed = false;
+    DB::listen(static function (QueryExecuted $query) use (&$committed): void {
+        if ($committed || ! str_contains($query->sql, 'site_domains')) {
+            return;
+        }
+
+        // Another process commits the removal and forgets the list, then the revision it
+        // moved is lost (a tag flush or an eviction) before this request writes.
+        $committed = true;
+        DB::table('site_domains')->where('domain', 'flushed-race.test')->delete();
+        LoadSiteRoutingCandidatesAction::forget();
+        Cache::store()->flush();
+    });
+
+    expect(resolveRoutedSiteId('https://flushed-race.test/'))->toBe($site->id)
+        ->and($committed)->toBeTrue()
+        ->and(resolveRoutedSiteId('https://flushed-race.test/'))->toBeNull();
+});

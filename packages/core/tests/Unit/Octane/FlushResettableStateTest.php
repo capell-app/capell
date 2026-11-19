@@ -43,6 +43,7 @@ use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Support\Facades\File;
 use Laravel\Octane\Contracts\OperationTerminated;
+use Laravel\Octane\Events\WorkerStarting;
 use Livewire\Mechanisms\DataStore;
 
 require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetime.php';
@@ -299,4 +300,22 @@ it('starts each queued job with fresh operation state, but leaves a sync job ins
 
     expect($operationState->flushes)->toBe(1)
         ->and(SiteOwnedHosts::contains('added-later.test'))->toBeTrue();
+});
+
+it('starts an Octane worker without state read while it booted', function (): void {
+    $operationState = new class implements Resettable
+    {
+        public int $flushes = 0;
+
+        public function flushOctaneState(): void
+        {
+            $this->flushes++;
+        }
+    };
+    app()->instance('capell.test-boot-state', $operationState);
+    app()->tag(['capell.test-boot-state'], Resettable::TAG);
+
+    event(new WorkerStarting(app()));
+
+    expect($operationState->flushes)->toBe(1);
 });

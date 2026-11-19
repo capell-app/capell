@@ -323,6 +323,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
+use Laravel\Octane\Events\WorkerStarting;
 use Override;
 use Spatie\LaravelData\Support\Caching\DataStructureCache;
 use Spatie\LaravelPackageTools\Package;
@@ -631,6 +632,15 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 $application = $sandbox instanceof Application ? $sandbox : $this->app;
 
                 $application->make(FlushResettableState::class)->handle($application);
+            },
+        );
+
+        // State read while the worker booted would otherwise answer the first request,
+        // however long the worker then sat idle.
+        $this->app->make(Dispatcher::class)->listen(
+            WorkerStarting::class,
+            static function (WorkerStarting $event): void {
+                $event->app->make(FlushResettableState::class)->handle($event->app);
             },
         );
 
