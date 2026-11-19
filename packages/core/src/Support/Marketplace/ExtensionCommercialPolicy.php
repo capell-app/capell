@@ -38,9 +38,12 @@ final class ExtensionCommercialPolicy
 
     public function requiresAuthorisation(string $name, ?CapellExtension $extension = null): bool
     {
+        $enforcing = $this->enforcing();
+        $catalogue = $enforcing ? $this->catalogue->read() : null;
+
         // Checked before every name-based answer, the trusted Core list and a free listing
         // included: renaming a paid package in metadata does not rename its PHP classes.
-        if ($this->claimsPaidCode($name)) {
+        if ($catalogue instanceof CommercialCatalogue && $this->claimsPaidNamespaces($name, $catalogue->paidNamespaces())) {
             return true;
         }
 
@@ -53,17 +56,17 @@ final class ExtensionCommercialPolicy
             return true;
         }
 
-        if (! $this->enforcing()) {
+        if (! $enforcing) {
             return false;
         }
 
         // Without a verified catalogue nothing can prove a package free: fail closed rather
         // than trust Composer metadata or database flags the site owner can edit.
-        if ($this->catalogue->current() === null) {
+        if (! $catalogue instanceof CommercialCatalogue) {
             return true;
         }
 
-        $classification = $this->catalogue->classification($name);
+        $classification = $catalogue->classification($name);
         if ($classification !== null) {
             return $classification;
         }
@@ -140,7 +143,12 @@ final class ExtensionCommercialPolicy
             return false;
         }
 
-        $paid = $this->catalogue->paidNamespaces();
+        return $this->claimsPaidNamespaces($name, $this->catalogue->paidNamespaces());
+    }
+
+    /** @param list<string> $paid */
+    private function claimsPaidNamespaces(string $name, array $paid): bool
+    {
         if ($paid === []) {
             return false;
         }

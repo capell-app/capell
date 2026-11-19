@@ -6,6 +6,8 @@ use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInpu
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
+use Carbon\CarbonImmutable;
+use Composer\Autoload\ClassLoader;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -20,21 +22,43 @@ beforeEach(function (): void {
     app()->instance(CommercialCatalogueStore::class, new CommercialCatalogueStore(snapshotPath: $this->snapshotPath));
     app()->forgetInstance(ExtensionCommercialPolicy::class);
 
+    $this->catalogueLoader = useBundledCatalogueCoreVersion($this->catalogueRoot, 'v1.2.0', 'capell-app/capell');
+
     resolve(ExtensionCommercialPolicy::class)->clear();
     $this->freezeTime();
 });
 
 afterEach(function (): void {
+    $this->catalogueLoader->unregister();
     resolve(ExtensionCommercialPolicy::class)->clear();
     File::deleteDirectory($this->catalogueRoot);
 });
+
+function useBundledCatalogueCoreVersion(string $root, string $version, string $package): ClassLoader
+{
+    $vendor = $root . '/releases/' . $version . '/vendor';
+    File::ensureDirectoryExists($vendor . '/composer');
+    $versions = ['capell-app/core' => ['replaced' => [$version]]];
+    $versions[$package] = ['pretty_version' => $version];
+    File::put($vendor . '/composer/installed.php', '<?php return ' . var_export(['versions' => $versions], true) . ';');
+    $loader = new ClassLoader($vendor);
+    $loader->register(prepend: true);
+
+    return $loader;
+}
 
 /**
  * @param  array<string, bool>  $packages
  * @return array<string, mixed>
  */
-function signedBundledCatalogue(array $packages, int $sequence = 10, int $validDays = 120, int $issuedDaysAgo = 1, string $seedByte = "\x01"): array
-{
+function signedBundledCatalogue(
+    array $packages,
+    int $sequence = 10,
+    int $validDays = 30,
+    int $issuedDaysAgo = 1,
+    string $seedByte = "\x01",
+    ?string $coreVersion = 'v1.2.0',
+): array {
     $issued = now()->subDays($issuedDaysAgo);
     $catalogue = [
         'catalogue_version' => 1,
@@ -45,6 +69,10 @@ function signedBundledCatalogue(array $packages, int $sequence = 10, int $validD
         'packages' => [],
         'signature' => ['algorithm' => 'ed25519', 'keyId' => 'test-issuer', 'value' => ''],
     ];
+    if ($coreVersion !== null) {
+        $catalogue['core_version'] = $coreVersion;
+    }
+
     foreach ($packages as $name => $paid) {
         $catalogue['packages'][] = ['composer_name' => $name, 'is_paid' => $paid];
     }
@@ -72,8 +100,7 @@ it('honours bundled free listings from both vendors without a stored catalogue',
 
     expect($policy->requiresAuthorisation('capell-app/x'))->toBeFalse()
         ->and($policy->requiresAuthorisation('vendor/free'))->toBeFalse()
-        ->and(File::exists($store->path()))->toBeFalse()
-        ->and($store->accept($catalogue))->toBeFalse();
+        ->and(File::exists($store->path()))->toBeFalse();
 });
 
 it('requires authorisation for packages omitted from the bundled snapshot', function (): void {
@@ -102,8 +129,8 @@ it('fails closed when a bundled free listing is replaced by an invalid snapshot'
     $catalogue = match ($defect) {
         'tampered' => signedBundledCatalogue(['vendor/free' => true]),
         'wrong key' => signedBundledCatalogue(['vendor/free' => false], seedByte: "\x02"),
-        'expired' => signedBundledCatalogue(['vendor/free' => false], issuedDaysAgo: 121),
-        default => signedBundledCatalogue(['vendor/free' => false], validDays: 121),
+        'expired' => signedBundledCatalogue(['vendor/free' => false], issuedDaysAgo: 31),
+        default => signedBundledCatalogue(['vendor/free' => false], validDays: 31),
     };
     $catalogue['packages'][0]['is_paid'] = false;
     writeBundledCatalogue($this->snapshotPath, $catalogue);
@@ -117,41 +144,114 @@ it('stops honouring the bundled listing when its signed validity ends', function
     $policy = resolve(ExtensionCommercialPolicy::class);
     expect($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
 
-    $this->travel(119)->days();
+    $this->travel(29)->days();
 
     expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
 });
 
-it('accepts live deliveries and only displaces the snapshot with a higher sequence', function (): void {
+it('uses the stored live catalogue even when the bundle has an equal or higher sequence', function (int $liveSequence): void {
     writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
     $store = resolve(CommercialCatalogueStore::class);
     $policy = resolve(ExtensionCommercialPolicy::class);
-    $policy->requiresAuthorisation('vendor/free');
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
+    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: $liveSequence, coreVersion: null)))->toBeTrue();
 
-    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 9, validDays: 30)))->toBeTrue();
     $policy->clear();
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue()
+        ->and($store->current()['sequence'] ?? null)->toBe($liveSequence);
+})->with(['higher bundle' => 9, 'equal bundle' => 10, 'lower bundle' => 11]);
+
+it('stops using the bundle when another store writes the first live catalogue', function (): void {
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
+    $policy = resolve(ExtensionCommercialPolicy::class);
     expect($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
 
-    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 10, validDays: 30)))->toBeTrue()
-        ->and($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
-
-    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 11, validDays: 30)))->toBeTrue()
+    $live = signedBundledCatalogue(['vendor/free' => true], sequence: 9, coreVersion: null);
+    expect(new CommercialCatalogueStore()->accept($live))->toBeTrue()
         ->and($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
-    $policy->clear();
-    expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
 });
 
-it('falls back to the snapshot when the higher stored sequence expires', function (): void {
+it('fails closed after a live catalogue expires even while the bundled snapshot is valid', function (): void {
     writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
     $store = resolve(CommercialCatalogueStore::class);
     $policy = resolve(ExtensionCommercialPolicy::class);
-    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 11, validDays: 30)))->toBeTrue()
+    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 11, validDays: 2, coreVersion: null)))->toBeTrue()
         ->and($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
 
-    $this->travel(30)->days();
+    $this->travel(2)->days();
+    expect($store->current())->toBeNull();
+
     $policy->clear();
 
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue()
+        ->and($store->current())->toBeNull()
+        ->and($store->accept(signedBundledCatalogue(['vendor/free' => false], sequence: 10, coreVersion: null)))->toBeFalse();
+});
+
+it('fails closed when the live sequence floor survives an unreadable catalogue payload', function (bool $hasCatalogue): void {
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false], sequence: 12));
+    $store = resolve(CommercialCatalogueStore::class);
+    $policy = resolve(ExtensionCommercialPolicy::class);
+    $live = signedBundledCatalogue(['vendor/free' => true], sequence: 11, coreVersion: null);
+    expect($store->accept($live))->toBeTrue();
+
+    $live['packages'][0]['is_paid'] = false;
+    $stored = ['highest_sequence' => 11];
+    if ($hasCatalogue) {
+        $stored['catalogue'] = $live;
+    }
+
+    writeBundledCatalogue($store->path(), $stored);
+    $policy->clear();
+
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue()
+        ->and($store->accept(signedBundledCatalogue(['vendor/free' => false], sequence: 10, coreVersion: null)))->toBeFalse();
+})->with(['invalid signature' => true, 'missing catalogue' => false]);
+
+it('rejects a still-valid signed free listing from an older Core release', function (string $package): void {
+    $this->catalogueLoader->unregister();
+    $this->catalogueLoader = useBundledCatalogueCoreVersion($this->catalogueRoot, 'v1.3.0', $package);
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false], coreVersion: 'v1.3.0'));
+    $policy = resolve(ExtensionCommercialPolicy::class);
     expect($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
+
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false], coreVersion: 'v1.2.0'));
+    $policy->clear();
+
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
+})->with(['capell-app/core', 'capell-app/capell']);
+
+it('rejects a signed bundled listing that has no release binding', function (): void {
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false], coreVersion: null));
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/free'))->toBeTrue();
+});
+
+it('keeps the snapshot release restriction when a bundle is submitted as a live delivery', function (): void {
+    $store = resolve(CommercialCatalogueStore::class);
+    $catalogue = signedBundledCatalogue(['vendor/free' => false]);
+
+    expect($store->accept($catalogue))->toBeFalse()
+        ->and(File::exists($store->path()))->toBeFalse()
+        ->and(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/free'))->toBeTrue();
+});
+
+it('requires authorisation for an omission when the snapshot expires during the policy decision', function (): void {
+    $catalogue = signedBundledCatalogue(['vendor/listed-free' => false]);
+    writeBundledCatalogue($this->snapshotPath, $catalogue);
+    $policy = resolve(ExtensionCommercialPolicy::class);
+    expect($policy->requiresAuthorisation('vendor/listed-free'))->toBeFalse();
+
+    $expiry = CarbonImmutable::parse($catalogue['valid_until']);
+    $reads = 0;
+    CarbonImmutable::withTestNow(
+        static function () use ($expiry, &$reads): CarbonImmutable {
+            return ++$reads < 3 ? $expiry->subSecond() : $expiry;
+        },
+        static function () use ($policy): void {
+            expect($policy->requiresAuthorisation('vendor/unlisted'))->toBeTrue();
+        },
+    );
 });
 
 it('fails closed when the bundled file is missing or cannot be decoded', function (): void {
@@ -178,6 +278,7 @@ it('ships a verified in-date snapshot whenever Core pins an issuer key', functio
     }
 
     expect($keys->all())->not->toBeEmpty();
+    $this->catalogueLoader->unregister();
     app()->instance(TrustedMarketplaceIssuerKeys::class, $keys);
     $store = new CommercialCatalogueStore;
     expect(File::isFile(CommercialCatalogueStore::defaultSnapshotPath()))->toBeTrue()

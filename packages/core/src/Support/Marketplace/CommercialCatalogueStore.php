@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Marketplace;
 use Capell\Core\Actions\Marketplace\VerifyMarketplaceIssuerSignatureAction;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Carbon\CarbonImmutable;
+use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
 use Throwable;
 
@@ -27,19 +28,19 @@ final class CommercialCatalogueStore
      */
     public const int MAX_VALIDITY_DAYS = 30;
 
-    public const int SNAPSHOT_MAX_VALIDITY_DAYS = 120;
+    public const int SNAPSHOT_MAX_VALIDITY_DAYS = 30;
 
     private const int CLOCK_SKEW_SECONDS = 300;
 
     private bool $loaded = false;
 
-    /** @var array<string, mixed>|null */
-    private ?array $catalogue = null;
+    private bool $hasLiveState = false;
+
+    private ?CommercialCatalogue $catalogue = null;
 
     private bool $snapshotLoaded = false;
 
-    /** @var array{catalogue: array<string, mixed>, expiresAt: CarbonImmutable}|null */
-    private ?array $snapshot = null;
+    private ?CommercialCatalogue $snapshot = null;
 
     private int $highestSequence = 0;
 
@@ -95,6 +96,7 @@ final class CommercialCatalogueStore
     public function clear(): void
     {
         $this->loaded = false;
+        $this->hasLiveState = false;
         $this->catalogue = null;
         $this->highestSequence = 0;
         $this->snapshotLoaded = false;
@@ -104,19 +106,25 @@ final class CommercialCatalogueStore
     /** @return array<string, mixed>|null a verified catalogue, or null when none is held */
     public function current(): ?array
     {
-        return $this->preferredSnapshot() ?? $this->catalogue;
+        return $this->read()?->document;
+    }
+
+    public function read(): ?CommercialCatalogue
+    {
+        $this->load();
+        if (! $this->hasLiveState) {
+            $this->loadSnapshot();
+        }
+
+        $catalogue = $this->hasLiveState ? $this->catalogue : $this->snapshot;
+
+        return $catalogue instanceof CommercialCatalogue && CarbonImmutable::now()->lessThan($catalogue->expiresAt) ? $catalogue : null;
     }
 
     /** The bundled snapshot requires authorisation for omissions. */
     public function classification(string $composerName): ?bool
     {
-        $snapshot = $this->preferredSnapshot();
-        $catalogue = $snapshot ?? $this->catalogue;
-        if ($catalogue === null) {
-            return null;
-        }
-
-        return $this->listedClassification($catalogue, $composerName) ?? ($snapshot !== null ? true : null);
+        return $this->read()?->classification($composerName);
     }
 
     /**
@@ -128,45 +136,18 @@ final class CommercialCatalogueStore
      */
     public function paidNamespaces(): array
     {
-        $catalogue = $this->current();
-        if ($catalogue === null) {
-            return [];
-        }
-
-        $namespaces = [];
-        foreach ($catalogue['packages'] as $entry) {
-            if ($entry['is_paid'] !== true) {
-                continue;
-            }
-
-            if (! is_array($entry['namespaces'] ?? null)) {
-                continue;
-            }
-
-            foreach ($entry['namespaces'] as $namespace) {
-                $normalised = is_string($namespace) ? InstalledPackageCodeIdentity::namespace($namespace) : '';
-                // A single-segment prefix ('Acme\\') is shared by unrelated vendors, and an empty one
-                // claims every class, so neither can mark code as paid.
-                if (substr_count($normalised, '\\') >= 2) {
-                    $namespaces[$normalised] = true;
-                }
-            }
-        }
-
-        return array_keys($namespaces);
+        return $this->read()?->paidNamespaces() ?? [];
     }
 
     public function isListed(string $composerName): bool
     {
-        $catalogue = $this->current();
-
-        return $catalogue !== null && $this->listedClassification($catalogue, $composerName) !== null;
+        return $this->read()?->isListed($composerName) ?? false;
     }
 
     /** @param array<string, mixed> $catalogue */
     public function accept(array $catalogue): bool
     {
-        if (! self::isValid($catalogue)) {
+        if (! $this->isValidLiveCatalogue($catalogue)) {
             return false;
         }
 
@@ -176,9 +157,9 @@ final class CommercialCatalogueStore
             return false;
         }
 
-        if ($sequence === $this->highestSequence && $this->catalogue !== null) {
+        if ($sequence === $this->highestSequence && $this->catalogue instanceof CommercialCatalogue) {
             // The same sequence must be the same signed document, never a second variant.
-            return $this->signingInput($catalogue) === $this->signingInput($this->catalogue);
+            return $this->signingInput($catalogue) === $this->signingInput($this->catalogue->document);
         }
 
         $directory = dirname($this->path());
@@ -187,9 +168,9 @@ final class CommercialCatalogueStore
         $this->files->put($temporary, json_encode(['highest_sequence' => $sequence, 'catalogue' => $catalogue], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $this->files->move($temporary, $this->path());
 
-        $this->catalogue = $catalogue;
+        $this->catalogue = new CommercialCatalogue($catalogue);
         $this->highestSequence = $sequence;
-        $this->loaded = true;
+        $this->hasLiveState = true;
 
         return true;
     }
@@ -212,61 +193,43 @@ final class CommercialCatalogueStore
     }
 
     /** @param array<string, mixed> $catalogue */
-    private function listedClassification(array $catalogue, string $composerName): ?bool
+    private function isValidLiveCatalogue(array $catalogue): bool
     {
-        $name = strtolower($composerName);
-        foreach ($catalogue['packages'] as $entry) {
-            if (strtolower($entry['composer_name']) === $name) {
-                return $entry['is_paid'];
-            }
-        }
-
-        return null;
+        // A release-bound document must always pass the bundled snapshot checks.
+        return ! array_key_exists('core_version', $catalogue) && self::isValid($catalogue);
     }
 
     private function load(): void
     {
-        if ($this->loaded) {
+        // A store serving a bundle must notice the first live delivery from another worker.
+        if ($this->loaded && ($this->hasLiveState || ! $this->snapshot instanceof CommercialCatalogue)) {
             return;
         }
 
         $this->loaded = true;
-        $this->catalogue = null;
-        $this->highestSequence = 0;
-
         try {
-            $contents = $this->files->exists($this->path()) ? $this->files->get($this->path()) : null;
-            $stored = is_string($contents) ? json_decode($contents, true) : null;
+            $path = $this->path();
+            $this->hasLiveState = $this->files->exists($path);
+            if (! $this->hasLiveState) {
+                return;
+            }
+
+            $stored = json_decode($this->files->get($path), true);
         } catch (Throwable) {
+            $this->hasLiveState = true;
+
             return;
         }
 
-        if (! is_array($stored) || ! is_int($stored['highest_sequence'] ?? null) || ! is_array($stored['catalogue'] ?? null)) {
+        if (! is_array($stored) || ! is_int($stored['highest_sequence'] ?? null) || $stored['highest_sequence'] < 1) {
             return;
         }
 
         $this->highestSequence = $stored['highest_sequence'];
-        /** @var array<string, mixed> $catalogue */
-        $catalogue = $stored['catalogue'];
-        if (self::isValid($catalogue) && $catalogue['sequence'] === $this->highestSequence) {
-            $this->catalogue = $catalogue;
+        $catalogue = $stored['catalogue'] ?? null;
+        if (is_array($catalogue) && $this->isValidLiveCatalogue($catalogue) && $catalogue['sequence'] === $this->highestSequence) {
+            $this->catalogue = new CommercialCatalogue($catalogue);
         }
-    }
-
-    /** @return array<string, mixed>|null */
-    private function preferredSnapshot(): ?array
-    {
-        $this->load();
-        $this->loadSnapshot();
-
-        // The snapshot only affects reads. A lower-sequence live delivery can still be accepted.
-        if ($this->snapshot !== null
-            && ($this->catalogue === null || $this->snapshot['catalogue']['sequence'] >= $this->highestSequence)
-            && CarbonImmutable::now()->lessThan($this->snapshot['expiresAt'])) {
-            return $this->snapshot['catalogue'];
-        }
-
-        return null;
     }
 
     private function loadSnapshot(): void
@@ -279,14 +242,41 @@ final class CommercialCatalogueStore
         $path = $this->snapshotPath ?? self::defaultSnapshotPath();
 
         try {
+            $release = $this->installedCoreRelease();
+            if ($release === null) {
+                return;
+            }
+
             $contents = is_file($path) ? @file_get_contents($path) : false;
             $catalogue = is_string($contents) ? json_decode($contents, true) : null;
-            if (is_array($catalogue) && self::isValid($catalogue, self::SNAPSHOT_MAX_VALIDITY_DAYS)) {
-                $this->snapshot = ['catalogue' => $catalogue, 'expiresAt' => CarbonImmutable::parse($catalogue['valid_until'])];
+            // The issuer signs the exact Composer release tag as part of the snapshot.
+            if (is_array($catalogue)
+                && ($catalogue['core_version'] ?? null) === $release
+                && self::isValid($catalogue, self::SNAPSHOT_MAX_VALIDITY_DAYS)) {
+                $this->snapshot = new CommercialCatalogue($catalogue, bundled: true);
             }
         } catch (Throwable) {
             return;
         }
+    }
+
+    private function installedCoreRelease(): ?string
+    {
+        // The aggregate replaces Core at self.version, so Composer reports its version on the aggregate.
+        foreach (['capell-app/core', 'capell-app/capell'] as $package) {
+            if (! InstalledVersions::isInstalled($package)) {
+                continue;
+            }
+
+            $version = InstalledVersions::getPrettyVersion($package);
+            if ($version !== null) {
+                return $version !== '' && ! str_starts_with($version, 'dev-') && ! str_ends_with($version, '-dev')
+                    ? $version
+                    : null;
+            }
+        }
+
+        return null;
     }
 
     /** @param array<string, mixed> $catalogue */
