@@ -161,6 +161,7 @@ use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Bootstrap\EventSourcingBootstrapper;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
+use Capell\Core\Support\Cache\CacheDependencyRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Cache\ResilientDataStructureCache;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
@@ -744,6 +745,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(BlueprintSubjectRegistry::class);
         // Packages register models whose visible_from/visible_until the scheduled-publication sweep watches.
         $this->app->singleton(ScheduledPublicationRegistry::class);
+        // Packages declare the cache keys their public output depends on without depending on Frontend.
+        $this->app->singleton(CacheDependencyRegistry::class);
         $this->app->booted(function (): void {
             // Tags are collected once per class here and again for every package
             // that boots late, inside PackageSurfaceRegistrar::duringPackageInstallation().

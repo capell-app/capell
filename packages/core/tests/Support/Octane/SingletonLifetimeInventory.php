@@ -41,6 +41,7 @@ use Capell\Core\Models\Concerns\ExtensibleModel;
 use Capell\Core\Models\ExtensionQuarantine;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\Cache\CacheDependencyRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
@@ -196,6 +197,7 @@ final class SingletonLifetimeInventory
             OutboundEventRegistry::class => self::boot('Outbound event definitions are package boot registrations, frozen on booted.'),
             HtmlSanitizerProfileRegistry::class => self::boot('Packages extend HTML sanitiser profiles at boot; resolved policies are derived from those registrations only.'),
             CapabilityRegistry::class => self::boot('Optional packages provide capability contracts at boot; consumers resolve a fresh provider per call.'),
+            CacheDependencyRegistry::class => self::boot('Packages declare model cache dependencies at boot; Frontend reads them when a model changes.'),
             ScheduledPublicationRegistry::class => self::boot('Packages register scheduled-publication model classes at boot, frozen on booted and re-opened only during package installation.'),
             SecurityWeaknessRegistry::class => self::boot('Security weakness checks and remediations are package boot registrations, frozen on booted and re-opened only during package installation.'),
             BlueprintSubjectRegistry::class => self::boot('Blueprint subjects are package boot registrations, frozen on booted.'),

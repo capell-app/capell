@@ -1433,6 +1433,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.registry.cache-dependency",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Cache\\CacheDependencyRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Boot-time model cache dependencies a package declares without depending on Frontend.",
+            "contractTestId": null
+        },
+        {
             "id": "core.registry.database-platform",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\Database\\DatabasePlatformRegistry",
