@@ -131,6 +131,14 @@ A reading counts only when the last few agree, so a single busy minute does not 
 | Scheduler CPU     | One run uses 30% of what the cores supply a minute | One run uses 60% of what the cores supply a minute |
 | Scheduler overlap | A run takes 50 seconds or more                     | A run takes 90 seconds or more                     |
 
+### Trends and history
+
+Every five minutes the scheduler folds this server's recent readings into one database row for each hour (`capell_host_load_rollups`). A row holds the node name, load, lowest free memory, peak swap, peak queue depth and the names and run times of the longest scheduled commands. It holds no site content and nothing about a person. Site Health reads the rows to show the last 24 hours and 7 days, the busiest two hours of the day and advice based on what the server measured. Daily figures are worked out from the hourly rows when the page loads, so there is only one table to prune. A daily job deletes rows past `CAPELL_HEALTH_HOST_HISTORY_RETENTION_DAYS`, a bounded batch at a time. Each server records and shows only its own rows.
+
+### Deferring work while the server is busy
+
+Code that schedules work that can wait calls `DeferWhenHostBusy::apply($event, 'name')`, or asks the `HostBusyGate` contract directly. With `CAPELL_HEALTH_HOST_DEFER_ENABLED` off, or with no readings yet, the answer is always to run. When it is on and the server is critical, the task skips runs until `CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES` has passed, then runs once, so a server that stays busy cannot starve it.
+
 ### Notifications
 
 Notifications are off by default. Switch them on and choose where messages go. A message is sent when a problem is first confirmed or gets worse, as a reminder while it lasts, and once when it clears. Messages name the readings that crossed a limit and the busiest processes, without command arguments.
@@ -150,6 +158,11 @@ Notifications are off by default. Switch them on and choose where messages go. A
 | `CAPELL_HEALTH_HOST_SCHEDULER_CPU_CRITICAL`  | `0.6`     | Share of one minute's CPU supply that one scheduler run may use before a critical alert                      |
 | `CAPELL_HEALTH_HOST_SCHEDULER_WALL_WARNING`  | `50`      | Seconds one scheduler run may take before a warning                                                          |
 | `CAPELL_HEALTH_HOST_SCHEDULER_WALL_CRITICAL` | `90`      | Seconds one scheduler run may take before a critical alert                                                   |
+| `CAPELL_HEALTH_HOST_HISTORY_ENABLED`         | `true`    | Keep hourly rollups of the readings in the database for the day and week trends                              |
+| `CAPELL_HEALTH_HOST_HISTORY_RETENTION_DAYS`  | `90`      | Days of hourly rollups kept, from 1 to 365; older rows are pruned daily                                      |
+| `CAPELL_HEALTH_HOST_QUEUE_BACKLOG_WARNING`   | `500`     | Waiting jobs at which Site Health suggests another queue worker                                              |
+| `CAPELL_HEALTH_HOST_DEFER_ENABLED`           | `false`   | Let scheduled tasks marked as deferrable skip a run while the server is critically busy                      |
+| `CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES`       | `120`     | Longest a deferrable task waits before it runs once anyway                                                   |
 | `CAPELL_HEALTH_HOST_NOTIFY`                  | `false`   | Send messages when the status changes                                                                        |
 | `CAPELL_HEALTH_HOST_NOTIFY_CHANNELS`         | `mail`    | Comma-separated channels: `mail`, `webhook`                                                                  |
 | `CAPELL_HEALTH_HOST_NOTIFY_MAIL_TO`          | empty     | Comma-separated email addresses that receive the messages                                                    |

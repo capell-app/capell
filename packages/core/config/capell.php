@@ -104,6 +104,21 @@ return [
                 'warning_wall_seconds' => (int) env('CAPELL_HEALTH_HOST_SCHEDULER_WALL_WARNING', 50),
                 'critical_wall_seconds' => (int) env('CAPELL_HEALTH_HOST_SCHEDULER_WALL_CRITICAL', 90),
             ],
+            // Hourly rollups of the readings, kept in the database so Site Health can show day and
+            // week trends. Only the node name, load, memory, swap, queue depth and command names are stored.
+            'history' => [
+                'enabled' => (bool) env('CAPELL_HEALTH_HOST_HISTORY_ENABLED', true),
+                // Days of hourly rollups kept; values are held between 1 and 365.
+                'retention_days' => (int) env('CAPELL_HEALTH_HOST_HISTORY_RETENTION_DAYS', 90),
+                // Waiting jobs, on the default queue, at which Site Health suggests another worker.
+                'queue_backlog_warning' => (int) env('CAPELL_HEALTH_HOST_QUEUE_BACKLOG_WARNING', 500),
+            ],
+            // Lets scheduled work that can wait step aside while this server is critically busy.
+            'defer' => [
+                'enabled' => (bool) env('CAPELL_HEALTH_HOST_DEFER_ENABLED', false),
+                // A deferred task runs once after this long even when the server stays busy, so it cannot be starved.
+                'max_minutes' => (int) env('CAPELL_HEALTH_HOST_DEFER_MAX_MINUTES', 120),
+            ],
             'notifications' => [
                 'enabled' => (bool) env('CAPELL_HEALTH_HOST_NOTIFY', false),
                 // Any of: mail, webhook.

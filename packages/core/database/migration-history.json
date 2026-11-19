@@ -165,6 +165,14 @@
             "9a7e56d13c8483c0a682b055e0a7b33616180b0236372f39fe0eac16bab977ee"
         ]
     },
+    "create_capell_host_load_rollups_table": {
+        "names": [
+            "2026_11_19_000010_create_capell_host_load_rollups_table"
+        ],
+        "sha256": [
+            "3551bde5eb825926d9b52f7546f5b53e44e1f9172e57bcba7dcf40d82a093c85"
+        ]
+    },
     "create_capell_idempotency_keys_table": {
         "names": [
             "2026_11_15_000010_create_capell_idempotency_keys_table"

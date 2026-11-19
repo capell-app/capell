@@ -160,6 +160,34 @@ final readonly class HostMonitorStore
         $this->put('scheduler:' . $node . ':' . $minute, $run, 3600);
     }
 
+    /** Unix time the named task was first deferred in the current busy spell, or null. */
+    public function deferredSince(string $task): ?int
+    {
+        $since = $this->get('deferred:' . $this->taskKey($task));
+
+        // A shared cache such as Redis returns numbers as strings.
+        return is_int($since) || (is_string($since) && ctype_digit($since)) ? (int) $since : null;
+    }
+
+    public function markDeferred(string $task, int $at): void
+    {
+        $this->put('deferred:' . $this->taskKey($task), $at, max(1, (int) config('capell.health.host.defer.max_minutes', 120)) * 60 + 3600);
+    }
+
+    public function clearDeferred(string $task): void
+    {
+        try {
+            $this->cache->forget(self::PREFIX . 'deferred:' . $this->taskKey($task));
+        } catch (Throwable) {
+            // Monitoring must never break the work it observes.
+        }
+    }
+
+    private function taskKey(string $task): string
+    {
+        return hash('xxh128', $task);
+    }
+
     /** @return list<array<string, mixed>> */
     private function rawSamples(string $node): array
     {
