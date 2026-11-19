@@ -39,6 +39,7 @@ class PageUrlResource extends SiteScopedResource
     {
         $relations = [
             'pageable' => fn (mixed $query): mixed => $query instanceof Builder ? self::applyPageTableExtenders($query) : $query,
+            'site',
             'siteDomain',
         ];
 
