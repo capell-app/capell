@@ -83,12 +83,46 @@ final class ExtensionCommercialPolicy
     }
 
     /**
+     * With no Capell manifest, Laravel discovery is the only registration path. Keep the
+     * previous discovery block for unauthorised catalogue and Capell-vendor identities.
+     * New recognition signals such as a licence manifest alone do not widen that block.
+     */
+    public function blocksLaravelDiscoveryWithoutManifest(string $name): bool
+    {
+        if (! $this->requiresAuthorisation($name)) {
+            return false;
+        }
+
+        if ($this->claimsPaidCode($name)) {
+            return true;
+        }
+
+        if (TrustedCorePackages::contains($name)) {
+            return false;
+        }
+
+        $classification = $this->catalogue->classification($name);
+        if ($classification === true) {
+            return true;
+        }
+
+        if ($this->isNamedLocalDevelopment($name)) {
+            return false;
+        }
+
+        if ($classification === false) {
+            return $this->registeredPackageIsPaid($name);
+        }
+
+        return str_starts_with(strtolower($name), 'capell-app/');
+    }
+
+    /**
      * A named exemption for developing a package locally. Paid markers always take precedence.
      */
     public function isLocalDevelopment(string $name, ?CapellExtension $extension = null): bool
     {
-        $packages = config('capell.extensions.local_development', []);
-        if (! app()->environment('local') || ! is_array($packages) || ! in_array($name, $packages, true)) {
+        if (! $this->isNamedLocalDevelopment($name)) {
             return false;
         }
 
@@ -188,12 +222,24 @@ final class ExtensionCommercialPolicy
             return true;
         }
 
-        if (app()->bound(CapellCoreManager::class) && CapellCore::hasPackage($name) && CapellCore::getPackage($name)->isPaid === true) {
+        if ($this->registeredPackageIsPaid($name)) {
             return true;
         }
 
         return $this->enforcing() && ($this->catalogue->classification($name) === true
             || $this->licences->state($name) === PackageLicenceManifestState::Paid);
+    }
+
+    private function registeredPackageIsPaid(string $name): bool
+    {
+        return app()->bound(CapellCoreManager::class) && CapellCore::hasPackage($name) && CapellCore::getPackage($name)->isPaid === true;
+    }
+
+    private function isNamedLocalDevelopment(string $name): bool
+    {
+        $packages = config('capell.extensions.local_development', []);
+
+        return app()->environment('local') && is_array($packages) && in_array($name, $packages, true);
     }
 
     private function isReserved(string $name): bool

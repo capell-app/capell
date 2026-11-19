@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Runtime;
 
 use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
@@ -22,8 +23,8 @@ final class RuntimeRolePackageManifest extends PackageManifest
 
     private readonly ComposerInstallIdentity $identity;
 
-    /** @var array<string, list<string>> */
-    private array $deferredProviders = [];
+    /** @var array<string, array{providers: list<string>, aliases: array<string, string>}> */
+    private array $deferredDiscovery = [];
 
     public function __construct(
         Filesystem $files,
@@ -55,12 +56,12 @@ final class RuntimeRolePackageManifest extends PackageManifest
         $this->persistRuntimeManifest($this->manifest, $snapshot);
     }
 
-    /** @return list<string> */
-    public function deferredProvidersFor(string $package): array
+    /** @return array{providers: list<string>, aliases: array<string, string>} */
+    public function deferredDiscoveryFor(string $package): array
     {
         $this->getManifest();
 
-        return $this->deferredProviders[$package] ?? [];
+        return $this->deferredDiscovery[$package] ?? ['providers' => [], 'aliases' => []];
     }
 
     /** @return array<string, mixed> */
@@ -180,9 +181,10 @@ final class RuntimeRolePackageManifest extends PackageManifest
     private function filterManifest(array $source): array
     {
         $manifest = [];
-        $this->deferredProviders = [];
+        $this->deferredDiscovery = [];
         $commercial = $this->commercialPolicy();
         $enforcing = $commercial->enforcing();
+        $registered = $enforcing ? $this->cachedCapellManifestNames() : null;
 
         foreach ($source as $package => $configuration) {
             if (! is_string($package)) {
@@ -198,17 +200,27 @@ final class RuntimeRolePackageManifest extends PackageManifest
                 continue;
             }
 
-            // The manifest-v3 loader checks lifecycle records that early discovery cannot read.
-            if ($enforcing && $this->deferCommercialExtension($package, $commercial)) {
-                $providers = $filtered['providers'] ?? [];
-                if (is_array($providers)) {
-                    $this->deferredProviders[$package] = array_values(array_filter($providers, is_string(...)));
-                }
+            $hasManifest = $enforcing && $this->hasCapellManifest($package, $registered);
+            if ($enforcing && ! $hasManifest && $commercial->blocksLaravelDiscoveryWithoutManifest($package)) {
+                continue;
+            }
+
+            if (! $this->deferCommercialExtension($package, $hasManifest, $commercial)) {
+                $manifest[$package] = $filtered;
 
                 continue;
             }
 
-            $manifest[$package] = $filtered;
+            $providers = $filtered['providers'] ?? [];
+            $aliases = $filtered['aliases'] ?? [];
+            $this->deferredDiscovery[$package] = [
+                'providers' => is_array($providers) ? array_values(array_filter($providers, is_string(...))) : [],
+                'aliases' => is_array($aliases) ? array_filter(
+                    $aliases,
+                    static fn (mixed $class, int|string $alias): bool => is_string($alias) && is_string($class),
+                    ARRAY_FILTER_USE_BOTH,
+                ) : [],
+            ];
         }
 
         return $manifest;
@@ -225,24 +237,80 @@ final class RuntimeRolePackageManifest extends PackageManifest
         return $app->make(ExtensionCommercialPolicy::class);
     }
 
-    private function deferCommercialExtension(string $package, ExtensionCommercialPolicy $commercial): bool
+    /**
+     * The manifest-v3 loader can replay discovery for Capell extensions after checking their
+     * lifecycle records. Plain Laravel packages use early discovery, with only the existing
+     * commercial discovery block applying to unauthorised recognised identities.
+     */
+    private function deferCommercialExtension(string $package, bool $hasManifest, ExtensionCommercialPolicy $commercial): bool
     {
-        if ($commercial->requiresAuthorisation($package)) {
-            return true;
-        }
+        return $hasManifest && (! TrustedCorePackages::contains($package) || $commercial->requiresAuthorisation($package));
+    }
 
-        if (TrustedCorePackages::contains($package)) {
+    /** @param array<string, true>|null $registered */
+    private function hasCapellManifest(string $package, ?array $registered): bool
+    {
+        $installedPath = InstalledVersions::isInstalled($package) ? InstalledVersions::getInstallPath($package) : null;
+        $installedPath ??= resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $package;
+        $path = $installedPath . '/capell.json';
+
+        if (! is_file($path)) {
             return false;
         }
 
-        if ($commercial->isRecognised($package)) {
-            return true;
+        if ($registered !== null) {
+            return isset($registered[$package]);
         }
 
-        $installedPath = InstalledVersions::isInstalled($package) ? InstalledVersions::getInstallPath($package) : null;
-        $installedPath ??= resolve(InstalledExtensionRepository::class)->vendorDirectory() . '/' . $package;
+        // On-demand discovery only admits v3 manifests.
+        $contents = @file_get_contents($path);
+        $manifest = is_string($contents) ? json_decode($contents, true) : null;
 
-        return is_file($installedPath . '/capell.json');
+        return is_array($manifest) && ($manifest['manifest-version'] ?? null) === 3;
+    }
+
+    /** @return array<string, true>|null Null when the registry is discovered on demand. */
+    private function cachedCapellManifestNames(): ?array
+    {
+        $cachePath = dirname($this->sourceManifestPath) . '/capell-package-manifests.php';
+        if (! is_file($cachePath)) {
+            return null;
+        }
+
+        // Match PackageRegistryBootstrapper: outside production, a newer Composer install
+        // record makes the Capell registry rediscover packages instead of using its cache.
+        $installedPath = $this->basePath . '/vendor/composer/installed.json';
+        $app = app();
+        if ((! $app->bound('env') || ! $app->environment('production')) && is_file($installedPath)) {
+            clearstatcache(true, $installedPath);
+            clearstatcache(true, $cachePath);
+
+            if (filemtime($installedPath) > filemtime($cachePath)) {
+                return null;
+            }
+        }
+
+        try {
+            $cached = $this->files->getRequire($cachePath);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (! is_array($cached)) {
+            return null;
+        }
+
+        $registered = [];
+        foreach ($cached as $manifest) {
+            $name = $manifest instanceof CapellManifestData ? $manifest->name : (is_array($manifest) ? ($manifest['name'] ?? null) : null);
+            if (! is_string($name)) {
+                return null;
+            }
+
+            $registered[$name] = true;
+        }
+
+        return $registered;
     }
 
     private function invalidateOpcache(string $path): void

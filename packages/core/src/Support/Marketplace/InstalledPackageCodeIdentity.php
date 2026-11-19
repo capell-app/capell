@@ -141,7 +141,7 @@ final class InstalledPackageCodeIdentity
     private function readJson(string $path): ?array
     {
         try {
-            $contents = is_file($path) ? file_get_contents($path) : false;
+            $contents = is_file($path) ? @file_get_contents($path) : false;
             $decoded = is_string($contents) ? json_decode($contents, true) : null;
         } catch (Throwable) {
             return null;

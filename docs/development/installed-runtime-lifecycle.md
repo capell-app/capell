@@ -94,21 +94,21 @@ requires authorisation under either identity.
 
 The signature binds the paid status to the Composer package name, exact
 normalised version and non-empty source or dist reference. Core compares these
-with Composer's installed metadata offline and checks any version declared in the
-package's own `capell.json` and `composer.json`. Branch versions and releases
-without a reference cannot verify. Owners can edit all of this metadata, which
-limits exact-release binding. If tamper resistance is ever required, the
-follow-up is a signed SHA-256 digest of the release excluding
+with Composer's installed release metadata offline. Branch versions and releases
+without a reference cannot verify. Replay by an owner who edits Composer's
+installed metadata is an accepted limit. The follow-up for tamper resistance is
+a signed SHA-256 digest of the release excluding
 `capell-licence.json`. A paid catalogue entry or namespace, a paid flag on the
 registered package or lifecycle record, or a verified paid manifest takes
 priority over free proof.
 
-Laravel defers extension providers to the manifest-v3 loader so it can check
-the lifecycle record, including for names in
-`capell.extensions.local_development`. The local development exemption still
-applies at that gate. Plain Laravel packages keep normal discovery. The loader
-uses the runtime bucket for deferred Laravel providers with no declared bucket,
-subject to lifecycle authorisation, runtime selection and role filtering.
+Laravel defers discovery for Capell extensions to the manifest-v3 loader, where
+the lifecycle record and any local development exemption are checked. Plain
+Laravel packages use normal discovery, subject to the existing block for
+unauthorised recognised packages. The loader replays Laravel-only providers
+and aliases for authorised, runtime-selected extensions. Replay uses the
+role-filtered discovery manifest, which respects Laravel's `dont-discover`
+settings. Providers declared in `capell.json` follow their own buckets.
 
 ## Migration and compatibility
 

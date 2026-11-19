@@ -22,6 +22,7 @@ use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\TableName;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Foundation\AliasLoader;
 use Illuminate\Foundation\PackageManifest;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
@@ -74,7 +75,7 @@ final class CapellPackageLoader
         $providers = [];
 
         foreach ($this->registry->all() as $manifest) {
-            foreach ($this->resolveProviders($manifest) as $provider) {
+            foreach ($this->resolveRegistration($manifest)['providers'] as $provider) {
                 if (class_exists($provider)) {
                     $providers[] = $provider;
                 }
@@ -93,8 +94,14 @@ final class CapellPackageLoader
             $runtimeProvidersSelected = $this->shouldLoadRuntimeProviders($manifest);
             $snapshot = ProviderRegistrationSnapshot::take($this->app);
             $packageProviders = [];
+            ['providers' => $providers, 'aliases' => $aliases] = $this->resolveRegistration($manifest, $runtimeProvidersSelected);
+            $previousAliases = null;
+            if ($aliases !== []) {
+                $previousAliases = AliasLoader::getInstance()->getAliases();
+                AliasLoader::getInstance($aliases)->register();
+            }
 
-            foreach ($this->resolveProviders($manifest, $runtimeProvidersSelected) as $provider) {
+            foreach ($providers as $provider) {
                 try {
                     if (! class_exists($provider)) {
                         continue;
@@ -123,6 +130,10 @@ final class CapellPackageLoader
                         }
                     }
                 } catch (Throwable $throwable) {
+                    if ($previousAliases !== null) {
+                        AliasLoader::getInstance()->setAliases($previousAliases);
+                    }
+
                     throw_if(
                         TrustedCorePackages::contains($manifest->name)
                         || ($this->app->resolved(InstalledRuntimeLifecycle::class)
@@ -155,7 +166,11 @@ final class CapellPackageLoader
 
         $manifest = $package->manifest;
         if ($manifest instanceof CapellManifestData) {
-            $selected = $this->resolveProviders($manifest, true);
+            ['providers' => $selected, 'aliases' => $aliases] = $this->resolveRegistration($manifest, true);
+            if ($aliases !== []) {
+                AliasLoader::getInstance($aliases)->register();
+            }
+
             $discovered = array_diff($selected, $manifest->providers->all());
             foreach (['auth', 'runtime', 'admin', 'frontend'] as $bucket) {
                 $providers = $package->getProviderClasses($bucket);
@@ -202,8 +217,8 @@ final class CapellPackageLoader
         }
     }
 
-    /** @return list<string> */
-    private function resolveProviders(CapellManifestData $manifest, ?bool $runtimeProvidersSelected = null): array
+    /** @return array{providers: list<string>, aliases: array<string, string>} */
+    private function resolveRegistration(CapellManifestData $manifest, ?bool $runtimeProvidersSelected = null): array
     {
         $commercial = resolve(ExtensionCommercialPolicy::class);
         $enforcing = $commercial->enforcing();
@@ -212,18 +227,19 @@ final class CapellPackageLoader
         // any bucket, metadata included: its code does not run at all.
         if ($enforcing
             && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
-            return [];
+            return ['providers' => [], 'aliases' => []];
         }
 
         $runtimeProvidersSelected ??= $this->shouldLoadRuntimeProviders($manifest);
-        $discovered = $enforcing && $runtimeProvidersSelected ? $this->unbucketedDiscoveryProviders($manifest) : [];
+        $discovery = $enforcing && $runtimeProvidersSelected
+            ? $this->deferredDiscovery($manifest)
+            : ['providers' => [], 'aliases' => []];
 
-        // The boot cache can name provider classes the vendor metadata does not. A paid provider
-        // there loads only when the package is itself classified commercial and passed the gate
-        // above; under any other name it is refused.
-        if ($commercial->classesArePaid([...$manifest->providers->all(), ...$discovered])
+        // The boot cache can name classes the vendor metadata does not. Paid classes there
+        // require an authorisation decision for the package itself.
+        if ($commercial->classesArePaid([...$manifest->providers->all(), ...$discovery['providers'], ...array_values($discovery['aliases'])])
             && ! $commercial->requiresAuthorisation($manifest->name)) {
-            return [];
+            return ['providers' => [], 'aliases' => []];
         }
 
         $runtimeRole = $this->runtimeRoleResolver->role();
@@ -232,40 +248,44 @@ final class CapellPackageLoader
             : $manifest->providers->metadata;
 
         if (! $runtimeProvidersSelected) {
-            return array_values(array_unique($providers));
+            return ['providers' => array_values(array_unique($providers)), 'aliases' => []];
         }
 
-        return array_values(array_unique(array_merge(
-            $providers,
-            $this->runtimeRoleProviderPolicy->extensionProviders($manifest->providers, $runtimeRole),
-            $discovered,
-        )));
+        return [
+            'providers' => array_values(array_unique([
+                ...$providers,
+                ...$this->runtimeRoleProviderPolicy->extensionProviders($manifest->providers, $runtimeRole),
+                ...$discovery['providers'],
+            ])),
+            'aliases' => $discovery['aliases'],
+        ];
     }
 
     /**
-     * Recover Laravel-only providers from the discovery manifest that deferred them. This
-     * preserves Laravel's discovery opt-outs and role filtering. Without a declared bucket
-     * we treat them as runtime wiring, so they require runtime selection and authorisation.
+     * Replay Laravel discovery from the filtered manifest, preserving discovery opt-outs
+     * and role filtering. Laravel-only providers and aliases count as runtime wiring.
      *
-     * @return list<string>
+     * @return array{providers: list<string>, aliases: array<string, string>}
      */
-    private function unbucketedDiscoveryProviders(CapellManifestData $manifest): array
+    private function deferredDiscovery(CapellManifestData $manifest): array
     {
         if (! $this->app->bound(PackageManifest::class)) {
-            return [];
+            return ['providers' => [], 'aliases' => []];
         }
 
         $discovery = $this->app->make(PackageManifest::class);
         if (! $discovery instanceof RuntimeRolePackageManifest) {
-            return [];
+            return ['providers' => [], 'aliases' => []];
         }
 
+        $deferred = $discovery->deferredDiscoveryFor($manifest->name);
         $declared = array_map(static fn (string $provider): string => strtolower(ltrim($provider, '\\')), $manifest->providers->all());
-
-        return array_values(array_filter(
-            $discovery->deferredProvidersFor($manifest->name),
+        $deferred['providers'] = array_values(array_filter(
+            $deferred['providers'],
             static fn (string $provider): bool => ! in_array(strtolower(ltrim($provider, '\\')), $declared, true),
         ));
+
+        return $deferred;
     }
 
     private function shouldLoadRuntimeProviders(CapellManifestData $manifest): bool
