@@ -41,6 +41,16 @@ The default API URL is:
 CAPELL_MARKETPLACE_URL=https://capell.app/api/v1
 ```
 
+## Bundled Catalogue Release Check
+
+Set `CAPELL_CATALOGUE_RELEASE_TAG` in the release CI job to the exact target tag
+from the release workflow input, or from the tag ref in a tag-triggered job.
+Include the `v` prefix when it is part of the tag. Run
+`packages/core/tests/Feature/Extensions/BundledCatalogueSnapshotTest.php` in that
+job. With pinned issuer keys, the guard checks the bundled file for that tag,
+its signature and its validity window. Set the input even when CI tests a
+branch checkout before tagging. The guard skips when the input is unset.
+
 ## Account Connection
 
 ![Marketplace extension docs and access state](../images/generated/package-surfaces/marketplace-extension-detail-docs-and-access.png)

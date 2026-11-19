@@ -9,11 +9,14 @@ use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInpu
 use Carbon\CarbonImmutable;
 use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
+use RuntimeException;
 use Throwable;
 
 /**
  * Holds issuer-signed paid/free classifications from live deliveries and the bundled snapshot.
  * The highest accepted live sequence is kept so a replayed older delivery is refused.
+ *
+ * @phpstan-import-type LiveCatalogueWatermark from CommercialCatalogueLiveState
  */
 final class CommercialCatalogueStore
 {
@@ -42,15 +45,16 @@ final class CommercialCatalogueStore
 
     private ?CommercialCatalogue $snapshot = null;
 
-    private int $highestSequence = 0;
-
     private readonly Filesystem $files;
+
+    private readonly CommercialCatalogueLiveState $liveState;
 
     // Built without the container: Laravel package discovery consults the store before
     // the filesystem binding exists.
     public function __construct(private readonly ?string $snapshotPath = null)
     {
         $this->files = new Filesystem;
+        $this->liveState = new CommercialCatalogueLiveState;
     }
 
     public static function defaultSnapshotPath(): string
@@ -98,7 +102,6 @@ final class CommercialCatalogueStore
         $this->loaded = false;
         $this->hasLiveState = false;
         $this->catalogue = null;
-        $this->highestSequence = 0;
         $this->snapshotLoaded = false;
         $this->snapshot = null;
     }
@@ -151,28 +154,38 @@ final class CommercialCatalogueStore
             return false;
         }
 
-        $this->load();
-        $sequence = $catalogue['sequence'];
-        if ($sequence < $this->highestSequence) {
+        $this->clear();
+        $temporary = null;
+        try {
+            $stored = $this->readLiveFile();
+            $held = $this->verifiedLiveDocument($stored);
+            $state = $this->liveWatermark($stored, $held);
+            $incoming = $this->watermark($catalogue);
+            if ($state !== $incoming || $held === null || $this->watermark($held) !== $incoming) {
+                $path = $this->path();
+                $directory = dirname($path);
+                $this->files->ensureDirectoryExists($directory);
+                $temporary = $directory . '/.commercial-catalogue-' . bin2hex(random_bytes(8)) . '.json';
+                $contents = json_encode(['highest_sequence' => $incoming['sequence'], 'catalogue' => $catalogue], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                if ($this->files->put($temporary, $contents) !== strlen($contents)
+                    || ! $this->liveState->record($incoming)
+                    || ! $this->liveState->publish($incoming, fn (): bool => $this->files->move($temporary, $path))) {
+                    return false;
+                }
+            }
+
+            $this->catalogue = new CommercialCatalogue($catalogue);
+            $this->hasLiveState = true;
+            $this->loaded = true;
+
+            return true;
+        } catch (Throwable) {
             return false;
+        } finally {
+            if ($temporary !== null) {
+                $this->files->delete($temporary);
+            }
         }
-
-        if ($sequence === $this->highestSequence && $this->catalogue instanceof CommercialCatalogue) {
-            // The same sequence must be the same signed document, never a second variant.
-            return $this->signingInput($catalogue) === $this->signingInput($this->catalogue->document);
-        }
-
-        $directory = dirname($this->path());
-        $this->files->ensureDirectoryExists($directory);
-        $temporary = $directory . '/.commercial-catalogue-' . bin2hex(random_bytes(8)) . '.json';
-        $this->files->put($temporary, json_encode(['highest_sequence' => $sequence, 'catalogue' => $catalogue], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $this->files->move($temporary, $this->path());
-
-        $this->catalogue = new CommercialCatalogue($catalogue);
-        $this->highestSequence = $sequence;
-        $this->hasLiveState = true;
-
-        return true;
     }
 
     private static function withinValidityWindow(string $issuedAt, string $validUntil, int $maxValidityDays): bool
@@ -206,30 +219,87 @@ final class CommercialCatalogueStore
             return;
         }
 
-        $this->loaded = true;
         try {
-            $path = $this->path();
-            $this->hasLiveState = $this->files->exists($path);
-            if (! $this->hasLiveState) {
-                return;
+            $stored = $this->readLiveFile();
+            $catalogue = $this->verifiedLiveDocument($stored);
+            $state = $this->liveWatermark($stored, $catalogue);
+            $this->hasLiveState = $state !== null;
+            $this->catalogue = $catalogue !== null && $this->watermark($catalogue) === $state
+                ? new CommercialCatalogue($catalogue)
+                : null;
+            $this->loaded = true;
+        } catch (Throwable) {
+            $this->loaded = false;
+            $this->hasLiveState = true;
+            $this->catalogue = null;
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    private function readLiveFile(): ?array
+    {
+        $path = $this->path();
+        clearstatcache(true, $path);
+        if (@lstat($path) === false && $this->confirmedAbsent($path)) {
+            return null;
+        }
+
+        $stored = json_decode($this->files->get($path), true);
+
+        return is_array($stored) ? $stored : [];
+    }
+
+    private function confirmedAbsent(string $path): bool
+    {
+        // Stat also returns false when an ancestor cannot be searched. Confirm that
+        // the first missing component is absent from a readable, searchable parent.
+        while (($parent = dirname($path)) !== $path) {
+            if (@lstat($parent) !== false) {
+                $entries = @is_dir($parent) && @is_executable($parent) ? @scandir($parent, SCANDIR_SORT_NONE) : false;
+                $name = basename($path);
+
+                return is_array($entries) && ! array_any($entries, static fn (string $entry): bool => strcasecmp($entry, $name) === 0);
             }
 
-            $stored = json_decode($this->files->get($path), true);
-        } catch (Throwable) {
-            $this->hasLiveState = true;
-
-            return;
+            $path = $parent;
         }
 
-        if (! is_array($stored) || ! is_int($stored['highest_sequence'] ?? null) || $stored['highest_sequence'] < 1) {
-            return;
-        }
+        return false;
+    }
 
-        $this->highestSequence = $stored['highest_sequence'];
+    /**
+     * @param  array<string, mixed>|null  $stored
+     * @return array<string, mixed>|null
+     */
+    private function verifiedLiveDocument(?array $stored): ?array
+    {
         $catalogue = $stored['catalogue'] ?? null;
-        if (is_array($catalogue) && $this->isValidLiveCatalogue($catalogue) && $catalogue['sequence'] === $this->highestSequence) {
-            $this->catalogue = new CommercialCatalogue($catalogue);
+
+        return is_array($catalogue) && $this->isValidLiveCatalogue($catalogue) && $catalogue['sequence'] === ($stored['highest_sequence'] ?? null)
+            ? $catalogue
+            : null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $stored
+     * @param  array<string, mixed>|null  $catalogue
+     * @return LiveCatalogueWatermark|null
+     */
+    private function liveWatermark(?array $stored, ?array $catalogue): ?array
+    {
+        $state = $this->liveState->current();
+        if ($state !== null || $stored === null) {
+            return $state;
         }
+
+        // Adopt pre-upgrade files, including their floor if the signed document has expired.
+        $sequence = $stored['highest_sequence'] ?? null;
+        $this->liveState->adopt($catalogue !== null ? $this->watermark($catalogue) : [
+            'sequence' => is_int($sequence) ? max(0, $sequence) : 0,
+            'fingerprint' => null,
+        ]);
+
+        return $this->liveState->current() ?? throw new RuntimeException('The live commercial catalogue state could not be retained.');
     }
 
     private function loadSnapshot(): void
@@ -279,9 +349,15 @@ final class CommercialCatalogueStore
         return null;
     }
 
-    /** @param array<string, mixed> $catalogue */
-    private function signingInput(array $catalogue): string
+    /**
+     * @param  array<string, mixed>  $catalogue  Verified live document.
+     * @return LiveCatalogueWatermark
+     */
+    private function watermark(array $catalogue): array
     {
-        return CanonicalizeProjectBuildManifestSigningInputAction::run($catalogue);
+        /** @var int $sequence */
+        $sequence = $catalogue['sequence'];
+
+        return ['sequence' => $sequence, 'fingerprint' => hash('sha256', CanonicalizeProjectBuildManifestSigningInputAction::run($catalogue))];
     }
 }

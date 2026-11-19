@@ -171,6 +171,80 @@ it('stops using the bundle when another store writes the first live catalogue', 
         ->and($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
 });
 
+it('keeps requiring authorisation after a worker loses the accepted live catalogue file', function (): void {
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
+    $store = resolve(CommercialCatalogueStore::class);
+    $policy = resolve(ExtensionCommercialPolicy::class);
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
+    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 11, coreVersion: null)))->toBeTrue();
+    expect(File::delete($store->path()))->toBeTrue();
+
+    $freshPolicy = new ExtensionCommercialPolicy(new CommercialCatalogueStore(snapshotPath: $this->snapshotPath));
+    expect($freshPolicy->requiresAuthorisation('vendor/free'))->toBeTrue();
+});
+
+it('refuses an older live delivery after losing the live catalogue file', function (): void {
+    $store = resolve(CommercialCatalogueStore::class);
+    expect($store->accept(signedBundledCatalogue(['vendor/free' => true], sequence: 11, coreVersion: null)))->toBeTrue();
+    expect(File::delete($store->path()))->toBeTrue();
+
+    $freshStore = new CommercialCatalogueStore;
+    expect($freshStore->accept(signedBundledCatalogue(['vendor/free' => false], sequence: 10, coreVersion: null)))->toBeFalse();
+});
+
+it('restores only the same signed document at the retained sequence', function (): void {
+    $store = resolve(CommercialCatalogueStore::class);
+    $catalogue = signedBundledCatalogue(['vendor/free' => true], sequence: 11, coreVersion: null);
+    expect($store->accept($catalogue))->toBeTrue();
+    expect(File::delete($store->path()))->toBeTrue();
+
+    $freshStore = new CommercialCatalogueStore;
+    expect($freshStore->accept(signedBundledCatalogue(['vendor/free' => false], sequence: 11, coreVersion: null)))->toBeFalse()
+        ->and($freshStore->accept($catalogue))->toBeTrue()
+        ->and($freshStore->classification('vendor/free'))->toBeTrue();
+});
+
+it('retains the classification floor from a live catalogue written before durable state was tracked', function (): void {
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
+    $store = resolve(CommercialCatalogueStore::class);
+    $live = signedBundledCatalogue(['vendor/free' => true], sequence: 11, coreVersion: null);
+    File::ensureDirectoryExists(dirname($store->path()));
+    writeBundledCatalogue($store->path(), ['highest_sequence' => 11, 'catalogue' => $live]);
+    expect($store->classification('vendor/free'))->toBeTrue();
+    expect(File::delete($store->path()))->toBeTrue();
+
+    $freshStore = new CommercialCatalogueStore(snapshotPath: $this->snapshotPath);
+    expect($freshStore->current())->toBeNull()
+        ->and($freshStore->accept(signedBundledCatalogue(['vendor/free' => false], sequence: 10, coreVersion: null)))->toBeFalse();
+});
+
+it('fails closed when the live path cannot be searched', function (): void {
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
+    $policy = resolve(ExtensionCommercialPolicy::class);
+    expect($policy->requiresAuthorisation('vendor/free'))->toBeFalse();
+
+    $directory = dirname(resolve(CommercialCatalogueStore::class)->path());
+    File::ensureDirectoryExists($directory);
+    File::put($directory . '/commercial-catalogue.json', '{}');
+    chmod($directory, 0000);
+    try {
+        $policy->clear();
+        expect($policy->requiresAuthorisation('vendor/free'))->toBeTrue();
+    } finally {
+        chmod($directory, 0700);
+    }
+})->skip(fn (): bool => function_exists('posix_geteuid') && posix_geteuid() === 0, 'Root bypasses directory search permissions.');
+
+it('fails closed when the database cannot confirm whether a live catalogue was accepted', function (): void {
+    config()->set('settings.repositories.database.table', 'unavailable_catalogue_settings');
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
+    $store = resolve(CommercialCatalogueStore::class);
+
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/free'))->toBeTrue()
+        ->and($store->accept(signedBundledCatalogue(['vendor/free' => false], sequence: 11, coreVersion: null)))->toBeFalse()
+        ->and(File::exists($store->path()))->toBeFalse();
+});
+
 it('fails closed after a live catalogue expires even while the bundled snapshot is valid', function (): void {
     writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false]));
     $store = resolve(CommercialCatalogueStore::class);
@@ -268,6 +342,11 @@ it('fails closed when the bundled file is missing or cannot be decoded', functio
 });
 
 it('ships a verified in-date snapshot whenever Core pins an issuer key', function (): void {
+    $targetTag = getenv('CAPELL_CATALOGUE_RELEASE_TAG');
+    if ($targetTag === false || trim($targetTag) === '') {
+        $this->markTestSkipped('Set CAPELL_CATALOGUE_RELEASE_TAG to the target Core release tag to verify the bundled snapshot.');
+    }
+
     $keys = new TrustedMarketplaceIssuerKeys;
     $document = json_decode(File::get(TrustedMarketplaceIssuerKeys::defaultPath()), true, flags: JSON_THROW_ON_ERROR);
     expect($document['keys'] ?? null)->toBeArray();
@@ -278,9 +357,22 @@ it('ships a verified in-date snapshot whenever Core pins an issuer key', functio
     }
 
     expect($keys->all())->not->toBeEmpty();
-    $this->catalogueLoader->unregister();
     app()->instance(TrustedMarketplaceIssuerKeys::class, $keys);
-    $store = new CommercialCatalogueStore;
-    expect(File::isFile(CommercialCatalogueStore::defaultSnapshotPath()))->toBeTrue()
-        ->and($store->current())->not->toBeNull();
+    expectValidBundledReleaseSnapshot(CommercialCatalogueStore::defaultSnapshotPath(), $targetTag);
 });
+
+it('validates the release snapshot against the target tag on a dev checkout', function (): void {
+    $this->catalogueLoader->unregister();
+    $this->catalogueLoader = useBundledCatalogueCoreVersion($this->catalogueRoot, 'dev-main', 'capell-app/capell');
+    writeBundledCatalogue($this->snapshotPath, signedBundledCatalogue(['vendor/free' => false], coreVersion: 'v1.3.0'));
+
+    expectValidBundledReleaseSnapshot($this->snapshotPath, 'v1.3.0');
+});
+
+function expectValidBundledReleaseSnapshot(string $path, string $targetTag): void
+{
+    $document = json_decode(File::get($path), true, flags: JSON_THROW_ON_ERROR);
+    expect($document)->toBeArray()
+        ->and($document['core_version'] ?? null)->toBe($targetTag)
+        ->and(CommercialCatalogueStore::isValid($document, CommercialCatalogueStore::SNAPSHOT_MAX_VALIDITY_DAYS))->toBeTrue();
+}
