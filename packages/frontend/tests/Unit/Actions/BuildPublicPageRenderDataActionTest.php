@@ -213,7 +213,7 @@ it('builds optional widget interaction locators before public Blade rendering', 
 
 /**
  * Class names of every Eloquent model or Pageable reachable from the value
- * through public properties and arrays.
+ * through properties of any visibility and arrays.
  *
  * @return list<class-string>
  */
@@ -240,6 +240,13 @@ function eloquentModelsWithin(mixed $value, ?WeakMap $seen = null): array
     }
 
     $seen[$value] = true;
+    $found = [];
 
-    return eloquentModelsWithin(get_object_vars($value), $seen);
+    foreach (new ReflectionObject($value)->getProperties() as $property) {
+        if (! $property->isStatic() && $property->isInitialized($value)) {
+            array_push($found, ...eloquentModelsWithin($property->getValue($value), $seen));
+        }
+    }
+
+    return $found;
 }

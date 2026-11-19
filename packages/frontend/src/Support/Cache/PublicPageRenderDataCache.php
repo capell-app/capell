@@ -28,17 +28,13 @@ use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use ReflectionMethod;
+use ReflectionParameter;
 use Throwable;
 
 final class PublicPageRenderDataCache
 {
     use HasCache;
-
-    /**
-     * The stored shape of PublicPageRenderData. Raise it whenever its
-     * properties change, so entries written by an older shape are never read.
-     */
-    private const string RENDER_DATA_SHAPE = 'model-free-1';
 
     /**
      * @var array<string, array<int, string>>
@@ -179,10 +175,24 @@ final class PublicPageRenderDataCache
         return new CachedPublicPageRenderData($renderData, $capturing->stopCapturingIdentities());
     }
 
+    /**
+     * The stored shape of PublicPageRenderData: its constructor property names
+     * and types. Entries written before the class changed are never read back.
+     */
+    private function renderDataShape(): string
+    {
+        $parameters = new ReflectionMethod(PublicPageRenderData::class, '__construct')->getParameters();
+
+        return hash('xxh128', implode('|', array_map(
+            static fn (ReflectionParameter $parameter): string => $parameter->getName() . ':' . $parameter->getType(),
+            $parameters,
+        )));
+    }
+
     private function contentVersion(FrontendRenderContextData $context, ?PublicRenderDataContributionMetadataData $metadata = null): string
     {
         $values = [
-            self::RENDER_DATA_SHAPE,
+            $this->renderDataShape(),
             $context->page instanceof Model ? $context->page->updated_at?->getTimestamp() : null,
             $this->translationTimestamp($context->page instanceof Model ? $context->page : null),
             $context->layout?->updated_at?->getTimestamp(),
