@@ -201,6 +201,7 @@ return RectorConfig::configure()
         AddHasFactoryToModelsRector::class => [
             __DIR__ . '/packages/admin/tests/Fixtures/Models',
             __DIR__ . '/packages/admin/tests/Unit/Support/Pages/Fixtures',
+            __DIR__ . '/packages/frontend/tests/Fixtures/ScheduledPublicationEntry.php',
         ],
         // Fixture properties here are read via reflection by SingletonLifetimeGuard,
         // which Rector cannot see, so it treats them as unused and deletes them.

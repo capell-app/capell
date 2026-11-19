@@ -249,6 +249,7 @@ use Capell\Core\Support\PublicRead\PublicReadResponseStamps;
 use Capell\Core\Support\PublicRead\PublicReadWithdrawalSteps;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
+use Capell\Core\Support\Publishing\ScheduledPublicationRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
@@ -741,6 +742,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             AutoUpdatesForAdvisoryRemediation::class], SecurityWeaknessRemediation::TAG);
         $this->app->singleton(OutboundEventRegistry::class);
         $this->app->singleton(BlueprintSubjectRegistry::class);
+        // Packages register models whose visible_from/visible_until the scheduled-publication sweep watches.
+        $this->app->singleton(ScheduledPublicationRegistry::class);
         $this->app->booted(function (): void {
             // Tags are collected once per class here and again for every package
             // that boots late, inside PackageSurfaceRegistrar::duringPackageInstallation().
@@ -751,6 +754,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $this->app->make(OutboundEventRegistry::class)->freeze();
             $this->app->make(BlueprintSubjectRegistry::class)->freeze();
             $this->app->make(CapabilityRegistry::class)->freeze();
+            $this->app->make(ScheduledPublicationRegistry::class)->freeze();
         });
         $this->app->singleton(SubscriberRegistry::class);
         $this->app->alias(SubscriberRegistry::class, SubscriberManager::class);

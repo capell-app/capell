@@ -673,6 +673,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.schedules-publication",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Publishing\\SchedulesPublication",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "A package model with its own visible_from and visible_until, naming the surrogate keys the scheduled-publication sweep purges.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.site-spec-applier",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
@@ -1490,6 +1500,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Ordered runtime publication readiness contributor registry.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.registry.scheduled-publication",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Publishing\\ScheduledPublicationRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Boot-time registry of package models the scheduled-publication sweep watches.",
             "contractTestId": null
         },
         {
