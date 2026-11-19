@@ -72,6 +72,17 @@ it('reads a changed prefix and a replaced configuration repository on the next c
     expect(TableName::resolve('pages'))->toBe('two_pages');
 });
 
+it('ignores a config rebind made by a cloned container', function (): void {
+    config()->set('capell.database', ['table_prefix' => 'base_']);
+    expect(TableName::resolve('pages'))->toBe('base_pages');
+
+    // Octane clones the application per request and replaces its config; the clone inherits the rebind callbacks.
+    $sandbox = clone app();
+    $sandbox->instance('config', new Repository(['capell' => ['database' => ['table_prefix' => 'sandbox_']]]));
+
+    expect(TableName::resolve('pages'))->toBe('base_pages');
+});
+
 it('uses an alias instead of the prefix for that table', function (): void {
     config()->set('capell.database', ['table_prefix' => 'cms_', 'table_aliases' => ['pages' => 'content_pages']]);
 

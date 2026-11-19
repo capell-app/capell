@@ -247,7 +247,10 @@ final class TableName
             self::$config = $repository;
             self::$configContainer = WeakReference::create($container);
             $container->rebinding('config', static function (mixed $app, mixed $rebound): void {
-                self::$config = $rebound instanceof Repository ? $rebound : null;
+                // Only the container this repository was read from may replace it; a cloned container's rebind must not.
+                if ($app === self::$configContainer?->get()) {
+                    self::$config = $rebound instanceof Repository ? $rebound : null;
+                }
             });
         }
 
