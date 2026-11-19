@@ -72,11 +72,7 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
             ),
             self::TAB_ALL => $operations,
             default => $operations->filter(
-                fn (MarketplaceInstallAttempt $attempt): bool => in_array($attempt->status, [
-                    MarketplaceInstallIntentStatus::Queued,
-                    MarketplaceInstallIntentStatus::Running,
-                    MarketplaceInstallIntentStatus::CancelRequested,
-                ], true),
+                fn (MarketplaceInstallAttempt $attempt): bool => in_array($attempt->status, MarketplaceInstallIntentStatus::activeOperations(), true),
             ),
         };
     }
@@ -184,6 +180,7 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
 
         return in_array($attempt->status, [
             MarketplaceInstallIntentStatus::Queued,
+            MarketplaceInstallIntentStatus::AwaitingDeployment,
             MarketplaceInstallIntentStatus::Running,
         ], true);
     }
@@ -291,11 +288,7 @@ final class MarketplaceInstallOperationsFilamentWidget extends Widget implements
     public function activeOperationsCount(): int
     {
         return $this->operations()
-            ->filter(fn (MarketplaceInstallAttempt $attempt): bool => in_array($attempt->status, [
-                MarketplaceInstallIntentStatus::Queued,
-                MarketplaceInstallIntentStatus::Running,
-                MarketplaceInstallIntentStatus::CancelRequested,
-            ], true))
+            ->filter(fn (MarketplaceInstallAttempt $attempt): bool => in_array($attempt->status, MarketplaceInstallIntentStatus::activeOperations(), true))
             ->count();
     }
 

@@ -59,11 +59,7 @@ final class BuildMarketplaceInstallOperationsSummaryAction
     {
         return MarketplaceInstallAttempt::query()
             ->whereNull('resolved_at')
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ]);
+            ->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues());
     }
 
     /** @return Builder<MarketplaceInstallAttempt> */
@@ -88,6 +84,7 @@ final class BuildMarketplaceInstallOperationsSummaryAction
     {
         return [
             MarketplaceInstallIntentStatus::Queued->value,
+            MarketplaceInstallIntentStatus::AwaitingDeployment->value,
             MarketplaceInstallIntentStatus::Running->value,
             MarketplaceInstallIntentStatus::CancelRequested->value,
             MarketplaceInstallIntentStatus::Failed->value,

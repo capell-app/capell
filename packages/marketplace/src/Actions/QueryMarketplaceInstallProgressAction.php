@@ -43,11 +43,7 @@ final class QueryMarketplaceInstallProgressAction
             $attemptsQuery
                 ->whereIn('composer_name', $query->composerNames)
                 ->where(static function (Builder $attempts): void {
-                    $attempts->whereIn('status', [
-                        MarketplaceInstallIntentStatus::Queued->value,
-                        MarketplaceInstallIntentStatus::Running->value,
-                        MarketplaceInstallIntentStatus::CancelRequested->value,
-                    ])->orWhere(static function (Builder $pendingPropagation): void {
+                    $attempts->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())->orWhere(static function (Builder $pendingPropagation): void {
                         $pendingPropagation->where('status', MarketplaceInstallIntentStatus::Succeeded->value)
                             ->where('context->runtime_propagation', MarketplaceRuntimePropagationStatus::Pending->value);
                     });

@@ -32,11 +32,7 @@ final class BuildMarketplaceCatalogueLocalStateSnapshotAction
         }
 
         $activeOperations = MarketplaceInstallAttempt::query()
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
+            ->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())
             ->latest('updated_at')
             ->get()
             ->unique('composer_name')

@@ -116,11 +116,7 @@ final class RetryMarketplaceInstallAttemptAction
 
             $activeAttempt = MarketplaceInstallAttempt::query()
                 ->where('composer_name', $source->composer_name)
-                ->whereIn('status', [
-                    MarketplaceInstallIntentStatus::Queued->value,
-                    MarketplaceInstallIntentStatus::Running->value,
-                    MarketplaceInstallIntentStatus::CancelRequested->value,
-                ])
+                ->whereIn('status', MarketplaceInstallIntentStatus::activeOperationValues())
                 ->lockForUpdate()
                 ->first();
 

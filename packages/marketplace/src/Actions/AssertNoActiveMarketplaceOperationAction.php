@@ -51,11 +51,7 @@ final class AssertNoActiveMarketplaceOperationAction
             })
             ->whereIn('status', array_map(
                 static fn (MarketplaceInstallIntentStatus $status): string => $status->value,
-                [
-                    MarketplaceInstallIntentStatus::Queued,
-                    MarketplaceInstallIntentStatus::Running,
-                    MarketplaceInstallIntentStatus::CancelRequested,
-                ],
+                MarketplaceInstallIntentStatus::activeOperations(),
             ))
             ->exists();
     }

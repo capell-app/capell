@@ -197,6 +197,7 @@ final class ResumeMarketplaceInstallFlowAction
             ->where('context->remote_flow_id', $session->remote_flow_id)
             ->whereIn('status', [
                 MarketplaceInstallIntentStatus::Queued->value,
+                MarketplaceInstallIntentStatus::AwaitingDeployment->value,
                 MarketplaceInstallIntentStatus::Running->value,
                 MarketplaceInstallIntentStatus::Succeeded->value,
             ])

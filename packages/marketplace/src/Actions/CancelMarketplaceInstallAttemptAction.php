@@ -24,7 +24,7 @@ final class CancelMarketplaceInstallAttemptAction
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedAttempt->status === MarketplaceInstallIntentStatus::Queued) {
+            if (in_array($lockedAttempt->status, [MarketplaceInstallIntentStatus::Queued, MarketplaceInstallIntentStatus::AwaitingDeployment], true)) {
                 return TransitionMarketplaceInstallAttemptAction::run(
                     $lockedAttempt,
                     new MarketplaceInstallAttemptTransitionData(

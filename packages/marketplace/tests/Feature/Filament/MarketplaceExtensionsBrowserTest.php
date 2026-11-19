@@ -629,7 +629,9 @@ it('queues a free marketplace extension install from the grouped browser footer'
         ->and($attempt->composer_name)->toBe('capell-app/login-audit')
         ->and($attempt->version_constraint)->toBe('^1.0.0')
         ->and($attempt->requested_options)->toBe(['seed_examples' => true])
-        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+        // The Composer change went to the site's deploy pipeline, so the
+        // install waits for that deploy rather than running Composer here.
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::AwaitingDeployment);
 
     // The redirect is still reachable — it is now something the operator picks.
     $component
@@ -640,7 +642,7 @@ it('queues a free marketplace extension install from the grouped browser footer'
             'operation' => $attempt->getKey(),
         ]));
 
-    Queue::assertPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
 
     Http::assertNotSent(fn ($request): bool => (string) $request->url() === 'https://marketplace.test/api/extensions/authentication-log/install-authorization');
 });
