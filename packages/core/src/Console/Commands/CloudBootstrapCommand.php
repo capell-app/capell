@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\Install\VerifyCloudSiteBuildCompatibilityEnvelopeAction;
+use Capell\Core\Exceptions\OutboundRequestRefusedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
@@ -77,6 +80,10 @@ class CloudBootstrapCommand extends Command
             $this->registerInstance($registrationUrl, $registrationToken, $instanceId, $appUrl);
         } catch (RequestException) {
             $this->components->error('Capell Cloud bootstrap failed while contacting Capell.');
+
+            return CommandAlias::FAILURE;
+        } catch (OutboundRequestRefusedException) {
+            $this->components->error('Capell Cloud bootstrap did not contact Capell: CAPELL_CLOUD_REGISTRATION_URL must be an https address on a public host.');
 
             return CommandAlias::FAILURE;
         }
@@ -170,8 +177,7 @@ class CloudBootstrapCommand extends Command
     /** @return array<array-key, mixed>|null */
     private function fetchBootstrapCredentials(string $registrationUrl, string $registrationToken, string $instanceId, string $appUrl): ?array
     {
-        $response = Http::acceptJson()
-            ->timeout(20)
+        $response = $this->registrationRequest($registrationUrl)
             ->post($registrationUrl, [
                 'registration_token' => $registrationToken,
                 'instance_id' => $instanceId,
@@ -271,8 +277,7 @@ class CloudBootstrapCommand extends Command
 
     private function registerInstance(string $registrationUrl, string $registrationToken, string $instanceId, string $appUrl): void
     {
-        Http::acceptJson()
-            ->timeout(20)
+        $response = $this->registrationRequest($registrationUrl)
             ->post($registrationUrl, [
                 'registration_token' => $registrationToken,
                 'instance_id' => $instanceId,
@@ -282,6 +287,19 @@ class CloudBootstrapCommand extends Command
                 'health' => $this->health($appUrl),
             ])
             ->throw();
+
+        // A redirect is not followed, so it must not count as a registration.
+        throw_unless($response->successful(), RequestException::class, $response);
+    }
+
+    /**
+     * The registration endpoint receives the registration token and answers with
+     * the bootstrap administrator's credentials, so it is reached over https only,
+     * on a public host and without following redirects.
+     */
+    private function registrationRequest(string $registrationUrl): PendingRequest
+    {
+        return OutboundHttp::guarded(OutboundHttpPolicy::configuredEndpoint($registrationUrl, 20))->acceptJson();
     }
 
     private function isInstalled(): bool

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Upgrade\CheckCapellApiForUpdatesAction;
 use Capell\Admin\Tests\Support\MarketplaceUpdateAdvisorySnapshotTable;
+use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
+    FakeHostAddressResolver::bind();
     MarketplaceUpdateAdvisorySnapshotTable::ensure(truncate: true);
     config([
         'capell-admin.upgrades.api_url' => 'https://capell.test/api/updates/check',
@@ -56,6 +58,26 @@ it('posts installed package versions to the configured Capell API and records th
 
 it('does not call non-https endpoints when https enforcement is enabled', function (): void {
     config(['capell-admin.upgrades.api_url' => 'http://capell.test/api/updates/check']);
+    Http::fake();
+
+    expect(CheckCapellApiForUpdatesAction::run())->toBeFalse();
+
+    Http::assertNothingSent();
+});
+
+it('does not follow the update API when it redirects elsewhere', function (): void {
+    Http::fake([
+        'capell.test/*' => Http::response('', 307, ['Location' => 'https://collector.example/capture']),
+        'collector.example/*' => Http::response(['data' => ['updates' => [], 'advisories' => []]]),
+    ]);
+
+    expect(CheckCapellApiForUpdatesAction::run())->toBeFalse();
+
+    Http::assertNotSent(static fn (Request $request): bool => str_contains($request->url(), 'collector.example'));
+});
+
+it('does not call an update API whose host resolves to a private address', function (): void {
+    FakeHostAddressResolver::bind(['capell.test' => ['127.0.0.1']]);
     Http::fake();
 
     expect(CheckCapellApiForUpdatesAction::run())->toBeFalse();

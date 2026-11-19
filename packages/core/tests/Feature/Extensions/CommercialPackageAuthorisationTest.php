@@ -23,6 +23,7 @@ use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
+use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceExtensionEntitlements;
@@ -36,6 +37,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
+    FakeHostAddressResolver::bind();
     $this->commercialBase = app()->basePath();
     $this->commercialRoot = sys_get_temp_dir() . '/capell-commercial-' . bin2hex(random_bytes(8));
     $root = $this->commercialRoot;

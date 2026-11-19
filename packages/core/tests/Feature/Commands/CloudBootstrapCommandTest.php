@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 use Capell\Core\Console\Commands\CloudBootstrapCommand;
 use Capell\Core\Models\Site;
+use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\Console\Command\Command;
+
+beforeEach(function (): void {
+    FakeHostAddressResolver::bind();
+});
 
 afterEach(function (): void {
     foreach ([

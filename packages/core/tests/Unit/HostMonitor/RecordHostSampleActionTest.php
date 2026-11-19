@@ -9,6 +9,7 @@ use Capell\Core\Enums\Diagnostics\HostMonitorStatus;
 use Capell\Core\Notifications\HostMonitorAlertNotification;
 use Capell\Core\Notifications\HostMonitorWebhookChannel;
 use Capell\Core\Support\HostMonitor\HostMonitorStore;
+use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Notification;
 require_once __DIR__ . '/HostMonitorTestSupport.php';
 
 beforeEach(function (): void {
+    FakeHostAddressResolver::bind();
     Cache::flush();
     Notification::fake();
     Config::set('capell.node_id', 'test-node');
@@ -179,6 +181,36 @@ it('ignores a webhook address that is not http or https', function (): void {
 
     Notification::assertNothingSent();
     expect(HostMonitorWebhookChannel::class)->toBeString();
+});
+
+it('sends nothing to an http webhook address', function (): void {
+    Notification::swap(new ChannelManager(app()));
+    Http::fake();
+    Config::set('capell.health.host.notifications.channels', ['webhook']);
+    Config::set('capell.health.host.notifications.webhook_url', 'http://hooks.example.com/ops');
+    fakeHostSource(busySample());
+
+    runMonitor();
+    runMonitor();
+
+    Http::assertNothingSent();
+});
+
+it('does not follow a webhook that redirects elsewhere', function (): void {
+    Notification::swap(new ChannelManager(app()));
+    Http::fake([
+        'hooks.example.com/*' => Http::response('', 307, ['Location' => 'https://collector.example/capture']),
+        'collector.example/*' => Http::response('ok'),
+    ]);
+    Config::set('capell.health.host.notifications.channels', ['webhook']);
+    Config::set('capell.health.host.notifications.webhook_url', 'https://hooks.example.com/ops');
+    fakeHostSource(busySample());
+
+    runMonitor();
+    runMonitor();
+
+    Http::assertSent(static fn (Request $request): bool => $request->url() === 'https://hooks.example.com/ops');
+    Http::assertNotSent(static fn (Request $request): bool => str_contains($request->url(), 'collector.example'));
 });
 
 it('keeps recording when the notification channel fails', function (): void {

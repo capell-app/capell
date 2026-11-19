@@ -124,6 +124,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         throw_if(! is_string($token) || $token === '' || ! is_string($zone) || $zone === '', LogicException::class, 'Cloudflare purge configured but missing credentials');
 
         try {
+            // capell-security-scan: raw-http fixed Cloudflare API host; only the zone id in the path is configured.
             $response = Http::withToken($token)
                 ->timeout(10)
                 ->post(sprintf('https://api.cloudflare.com/client/v4/zones/%s/purge_cache', $zone), [
@@ -154,6 +155,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
 
         try {
             if (is_string($serviceId) && $serviceId !== '') {
+                // capell-security-scan: raw-http fixed Fastly API host.
                 Http::withHeaders(array_merge(['Fastly-Key' => $key], $softPurge ? ['Fastly-Soft-Purge' => '1'] : []))
                     ->timeout(10)
                     ->post('https://api.fastly.com/service/' . rawurlencode($serviceId) . '/purge', [
@@ -167,6 +169,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
             }
 
             foreach ($this->surrogateKeys as $surrogateKey) {
+                // capell-security-scan: raw-http fixed Fastly API host.
                 Http::withHeaders(array_merge(['Fastly-Key' => $key], $softPurge ? ['Soft-Purge' => '1'] : []))
                     ->timeout(10)
                     ->send('PURGE', 'https://api.fastly.com/purge/' . $surrogateKey)
@@ -191,6 +194,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         throw_if(! is_string($url) || $url === '', LogicException::class, 'Varnish purge configured but missing URL');
 
         try {
+            // capell-security-scan: raw-http the operator's own Varnish, which normally listens on a private address the guard would refuse.
             Http::withHeaders(['X-Surrogate-Key' => implode(',', $this->surrogateKeys)])
                 ->timeout(10)
                 ->send('BAN', $url)

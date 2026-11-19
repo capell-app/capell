@@ -128,8 +128,39 @@ final class OutboundHttpSourceScanner
                 $failures[] = sprintf('src/%s:%d', $relativePath, $this->lineAt($contents, (int) ($browser[0][1] ?? 0)));
             }
 
-            foreach ($this->facadeStatementsWithoutTimeout($contents) as $line) {
-                $failures[] = sprintf('src/%s:%d', $relativePath, $line);
+            foreach ($this->facadeRequestStatements($contents) as $request) {
+                if (preg_match('/(?:->|::)timeout\(|[\'"]timeout[\'"]=>/', $request['statement']) !== 1) {
+                    $failures[] = sprintf('src/%s:%d', $relativePath, $request['line']);
+                }
+            }
+        }
+
+        return $failures;
+    }
+
+    /**
+     * Requests built on the raw `Http` facade, as `src/<file>:<line>`, unless the line before declares the target
+     * reviewed with `// capell-security-scan: raw-http <reason>`.
+     *
+     * The raw facade checks nothing about the address it is given, follows redirects and honours proxy settings, so
+     * a request to an address from configuration, content or a user belongs on `OutboundHttp::guarded()`. A raw
+     * request is right only where the guard would be wrong, such as a fixed provider host, a probe of the
+     * application's own (possibly private) address, or a request that must go through an operator's proxy, and the
+     * declaration records why.
+     *
+     * @return list<string>
+     */
+    public function rawFacadeRequests(string $packageRoot): array
+    {
+        $failures = [];
+
+        foreach ($this->sourceFiles($packageRoot) as $relativePath => $contents) {
+            $lines = explode("\n", $contents);
+
+            foreach ($this->facadeRequestStatements($contents) as $request) {
+                if (preg_match('/\/\/\s*capell-security-scan:\s*raw-http\s+\S/', $lines[$request['line'] - 2] ?? '') !== 1) {
+                    $failures[] = sprintf('src/%s:%d', $relativePath, $request['line']);
+                }
             }
         }
 
@@ -325,20 +356,20 @@ final class OutboundHttpSourceScanner
     }
 
     /**
-     * The lines of statements that build a request through the `Http` facade, however the facade is named (imported,
-     * aliased, fully qualified or the global alias), without setting a total timeout in that statement through
-     * `timeout()` or a `'timeout'` request option. A request builder kept in a variable must set its timeout where it
-     * is built. Facade calls that configure the client rather than build a request are not statements of this kind.
+     * The statements that build a request through the `Http` facade, however the facade is named (imported, aliased,
+     * fully qualified or the global alias), with the line each starts on. A statement runs to its semicolon, so a
+     * request builder kept in a variable is judged where it is built. Facade calls that configure the client rather
+     * than build a request are not statements of this kind.
      *
-     * @return list<int>
+     * @return list<array{line: int, statement: string}>
      */
-    private function facadeStatementsWithoutTimeout(string $contents): array
+    private function facadeRequestStatements(string $contents): array
     {
         $tokens = $this->significantTokens($contents);
         $count = count($tokens);
         $namespace = '';
         $imports = [];
-        $lines = [];
+        $requests = [];
 
         for ($index = 0; $index < $count; $index++) {
             $token = $tokens[$index];
@@ -381,6 +412,10 @@ final class OutboundHttpSourceScanner
                 continue;
             }
 
+            if (($tokens[$index + 2] ?? null)?->is(T_CLASS) === true) {
+                continue;
+            }
+
             if (in_array(strtolower($tokens[$index + 2]->text ?? ''), self::FACADE_CONFIGURATION_METHODS, true)) {
                 continue;
             }
@@ -397,12 +432,10 @@ final class OutboundHttpSourceScanner
                 $statement .= $tokens[$cursor]->text;
             }
 
-            if (preg_match('/(?:->|::)timeout\(|[\'"]timeout[\'"]=>/', $statement) !== 1) {
-                $lines[] = $token->line;
-            }
+            $requests[] = ['line' => $token->line, 'statement' => $statement];
         }
 
-        return $lines;
+        return $requests;
     }
 
     /** @param  array<string, string>  $imports  lowercase alias => fully qualified class name */

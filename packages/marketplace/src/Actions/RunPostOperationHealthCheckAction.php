@@ -172,6 +172,7 @@ final class RunPostOperationHealthCheckAction
         }
 
         try {
+            // capell-security-scan: raw-http probes this application's own URL, which may be a private address; redirects are not followed.
             $response = Http::timeout($timeoutSeconds)
                 ->withoutRedirecting()
                 ->get($applicationUrl);

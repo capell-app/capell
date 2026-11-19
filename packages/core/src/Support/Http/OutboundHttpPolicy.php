@@ -35,6 +35,26 @@ final readonly class OutboundHttpPolicy
         throw_if($connectTimeoutSeconds < 1 || $timeoutSeconds < 1, InvalidArgumentException::class, 'An outbound request must have positive timeouts.');
     }
 
+    /**
+     * The policy for a request to an endpoint an operator configured, which
+     * usually carries a token or instance credentials: https only (unless the
+     * operator explicitly allowed http), on the URL's own port, with no
+     * redirects, so the payload cannot travel in clear text or be forwarded to
+     * another host.
+     */
+    public static function configuredEndpoint(string $url, int $timeoutSeconds = 15, bool $allowHttp = false): self
+    {
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        $port = parse_url($url, PHP_URL_PORT);
+
+        return new self(
+            schemes: $allowHttp ? ['https', 'http'] : ['https'],
+            ports: [is_int($port) ? $port : ($scheme === 'http' ? 80 : 443)],
+            maxRedirects: 0,
+            timeoutSeconds: max(1, $timeoutSeconds),
+        );
+    }
+
     public function allowsScheme(string $scheme): bool
     {
         return in_array(strtolower($scheme), $this->schemes, true);

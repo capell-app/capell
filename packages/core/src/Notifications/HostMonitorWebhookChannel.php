@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Notifications;
 
+use Capell\Core\Exceptions\OutboundRequestRefusedException;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /** Posts the alert as JSON with a "text" field, which Slack and Mattermost incoming webhooks accept. */
@@ -25,13 +27,17 @@ final class HostMonitorWebhookChannel
         }
 
         try {
-            $response = Http::timeout(5)->post($url, $notification->toWebhook($notifiable));
+            $response = OutboundHttp::guarded(OutboundHttpPolicy::configuredEndpoint($url, 5))
+                ->post($url, $notification->toWebhook($notifiable));
         } catch (ConnectionException) {
             // The address is a secret for most webhook providers, so keep it out of logs and exception messages.
             throw new RuntimeException('The host monitor webhook could not be reached.');
+        } catch (OutboundRequestRefusedException $exception) {
+            throw new RuntimeException('The host monitor webhook was refused: it must be an https address on a public host (' . $exception->reason . ').', $exception->getCode(), $exception);
         }
 
-        if ($response->failed()) {
+        // Redirects are not followed, so only a 2xx answer counts as delivered.
+        if (! $response->successful()) {
             throw new RuntimeException('The host monitor webhook answered with status ' . $response->status() . '.');
         }
     }

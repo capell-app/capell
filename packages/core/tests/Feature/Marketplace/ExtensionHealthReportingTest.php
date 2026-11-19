@@ -10,8 +10,13 @@ use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Models\MarketplaceInstall;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+
+beforeEach(function (): void {
+    FakeHostAddressResolver::bind();
+});
 
 it('builds extension health reports from installed extension runtime state', function (): void {
     config([

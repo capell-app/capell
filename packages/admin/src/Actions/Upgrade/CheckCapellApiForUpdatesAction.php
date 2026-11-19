@@ -6,7 +6,8 @@ namespace Capell\Admin\Actions\Upgrade;
 
 use Capell\Core\Actions\Upgrade\ResolveInstalledComposerVersionsAction;
 use Capell\Core\Facades\CapellCore;
-use Illuminate\Support\Facades\Http;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -31,7 +32,12 @@ final class CheckCapellApiForUpdatesAction
         }
 
         try {
-            $response = Http::timeout(config('capell-admin.upgrades.api_timeout_seconds', 10))
+            $timeout = config('capell-admin.upgrades.api_timeout_seconds', 10);
+            $response = OutboundHttp::guarded(OutboundHttpPolicy::configuredEndpoint(
+                $apiUrl,
+                is_numeric($timeout) ? (int) $timeout : 10,
+                allowHttp: ! $this->configBoolean('capell-admin.upgrades.enforce_https', true),
+            ))
                 ->acceptJson()
                 ->post($apiUrl, [
                     'app_url' => config('app.url'),

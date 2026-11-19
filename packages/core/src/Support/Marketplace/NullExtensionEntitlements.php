@@ -7,7 +7,8 @@ namespace Capell\Core\Support\Marketplace;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Models\CapellExtension;
-use Illuminate\Support\Facades\Http;
+use Capell\Core\Support\Http\OutboundHttp;
+use Capell\Core\Support\Http\OutboundHttpPolicy;
 use Override;
 use RuntimeException;
 
@@ -21,9 +22,11 @@ final class NullExtensionEntitlements implements ExtensionEntitlements
     #[Override]
     public function licenceDecision(string $slug, string $action, string $domain): ExtensionLicenceDecisionData
     {
-        $response = Http::timeout(config('capell-marketplace.marketplace.timeout_seconds', 10))
+        $url = $this->licenceDecisionUrl($slug);
+        $timeout = config('capell-marketplace.marketplace.timeout_seconds', 10);
+        $response = OutboundHttp::guarded(OutboundHttpPolicy::configuredEndpoint($url, is_numeric($timeout) ? (int) $timeout : 10))
             ->acceptJson()
-            ->post($this->licenceDecisionUrl($slug), [
+            ->post($url, [
                 'action' => $action,
                 'domain' => $domain,
                 'app_url' => config('app.url'),
