@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Security;
 
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Octane\Resettable;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Http\Request;
@@ -16,11 +17,12 @@ use WeakMap;
  * with allow-scripts and allow-same-origin on one of them can remove its own
  * sandbox, so none of them is ever an embed host.
  */
-final class SiteOwnedHosts
+final class SiteOwnedHosts implements Resettable
 {
     /**
-     * Site-domain answers cached for the life of each request object only, so a
-     * long-lived worker never carries one request's answers into the next.
+     * Site-domain answers cached for the life of each request object. A queue worker
+     * keeps one request object for every job, so the per-operation reset also drops
+     * them: a domain added since would otherwise stay embeddable in that worker.
      *
      * @var WeakMap<Request, array<string, bool>>|null
      */
@@ -84,6 +86,11 @@ final class SiteOwnedHosts
         self::$siteDomainsByRequest[$request] = $answers;
 
         return $answers[$host];
+    }
+
+    public function flushOctaneState(): void
+    {
+        self::$siteDomainsByRequest = null;
     }
 
     private static function isSiteDomain(string $host): bool

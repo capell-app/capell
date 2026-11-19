@@ -9,9 +9,15 @@ use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
     config(['cache.default' => 'array', 'capell.disable_cache' => false]);
@@ -133,4 +139,71 @@ it('forgets candidates cached inside a transaction that rolls back', function ()
 
     expect(resolveRoutedSiteId('https://kept.test/'))->toBe($site->id)
         ->and(resolveRoutedSiteId('https://discarded.test/'))->toBeNull();
+});
+
+it('re-reads the cache generation for each queued job, so a worker stops routing a host removed after another process flushed the cache', function (): void {
+    $cachePath = storage_path('framework/testing/routing-worker-cache-' . uniqid());
+    File::ensureDirectoryExists($cachePath);
+    // A store without tags: a full flush moves the namespace generation instead of dropping entries.
+    config(['cache.default' => 'file', 'cache.stores.file.driver' => 'file', 'cache.stores.file.path' => $cachePath]);
+    Cache::purge('file');
+
+    $workerManager = resolve(CapellCacheManager::class);
+    $workerRequest = resolve('request');
+    $inAnotherProcess = static function (Closure $work) use ($workerManager, $workerRequest): void {
+        app()->instance(CapellCacheManager::class, new CapellCacheManager);
+        app()->instance('request', Request::create('https://admin.example.test/'));
+
+        try {
+            $work();
+        } finally {
+            app()->instance(CapellCacheManager::class, $workerManager);
+            app()->instance('request', $workerRequest);
+        }
+    };
+    $resolveInWorker = static fn (): ?int => ResolveSiteDomainAction::run(
+        SiteRequestTargetData::fromUrl('https://worker-generation.test/'),
+        LoadSiteRoutingCandidatesAction::run(),
+    )?->siteDomainForRequest()->site_id;
+
+    try {
+        $site = Site::factory()->createOne();
+        SiteDomain::factory()->createOne(['site_id' => $site->id, 'domain' => 'worker-generation.test', 'scheme' => 'https', 'path' => null, 'status' => true]);
+
+        expect($resolveInWorker())->toBe($site->id);
+
+        // Another process flushes the cache, then deletes the domain: its observer forgets
+        // the entry under the new generation only.
+        $inAnotherProcess(static fn () => CapellCore::flushCache());
+        $inAnotherProcess(static fn () => SiteDomain::query()->where('domain', 'worker-generation.test')->firstOrFail()->delete());
+
+        event(new JobProcessing('redis', new FakeJob));
+
+        expect($resolveInWorker())->toBeNull();
+    } finally {
+        Cache::purge('file');
+        File::deleteDirectory($cachePath);
+    }
+});
+
+it('does not cache candidates read before a domain change committed', function (): void {
+    $site = Site::factory()->createOne();
+    SiteDomain::factory()->createOne(['site_id' => $site->id, 'domain' => 'racing.test', 'scheme' => 'https', 'path' => null, 'status' => true]);
+
+    $committed = false;
+    DB::listen(static function (QueryExecuted $query) use (&$committed): void {
+        if ($committed || ! str_contains($query->sql, 'site_domains')) {
+            return;
+        }
+
+        // Another process commits the removal after this request read the old rows,
+        // and forgets the entry before this request writes it.
+        $committed = true;
+        DB::table('site_domains')->where('domain', 'racing.test')->delete();
+        LoadSiteRoutingCandidatesAction::forget();
+    });
+
+    expect(resolveRoutedSiteId('https://racing.test/'))->toBe($site->id)
+        ->and($committed)->toBeTrue()
+        ->and(resolveRoutedSiteId('https://racing.test/'))->toBeNull();
 });

@@ -7,6 +7,7 @@ use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Cache\CapellCacheManager;
@@ -19,6 +20,7 @@ use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\ExtensionQuarantineGate;
 use Capell\Core\Support\Security\LockdownStore;
+use Capell\Core\Support\Security\SiteOwnedHosts;
 use Capell\Core\Tests\Support\Octane\SingletonLifetime;
 use Capell\Core\Tests\Support\Octane\SingletonLifetimeInventory;
 use Capell\Frontend\Support\Assets\PublicFrontendAssetUrl;
@@ -36,6 +38,9 @@ use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Illuminate\Foundation\Application;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Jobs\FakeJob;
+use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Support\Facades\File;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Livewire\Mechanisms\DataStore;
@@ -264,4 +269,34 @@ it('runs two operations without leaking classified Capell state', function (): v
             FrontendLocaleScope::class,
             SchedulerRunRecorder::class,
         ]);
+});
+
+it('starts each queued job with fresh operation state, but leaves a sync job inside its operation', function (): void {
+    $site = Site::factory()->createOne();
+    expect(SiteOwnedHosts::contains('added-later.test'))->toBeFalse();
+    SiteDomain::factory()->createOne(['site_id' => $site->id, 'domain' => 'added-later.test']);
+
+    $operationState = new class implements Resettable
+    {
+        public int $flushes = 0;
+
+        public function flushOctaneState(): void
+        {
+            $this->flushes++;
+        }
+    };
+    app()->instance('capell.test-operation-state', $operationState);
+    app()->tag(['capell.test-operation-state'], Resettable::TAG);
+
+    // A sync job runs inside the operation that dispatched it, so that operation keeps its state.
+    event(new JobProcessing('sync', new SyncJob(app(), '{}', 'sync', 'default')));
+
+    expect($operationState->flushes)->toBe(0)
+        ->and(SiteOwnedHosts::contains('added-later.test'))->toBeFalse();
+
+    // A worker keeps one request object for every job, so only the reset shows it the new domain.
+    event(new JobProcessing('redis', new FakeJob));
+
+    expect($operationState->flushes)->toBe(1)
+        ->and(SiteOwnedHosts::contains('added-later.test'))->toBeTrue();
 });

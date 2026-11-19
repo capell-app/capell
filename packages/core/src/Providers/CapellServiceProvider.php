@@ -274,6 +274,7 @@ use Capell\Core\Support\Security\Remediations\AutoUpdatesForAdvisoryRemediation;
 use Capell\Core\Support\Security\Remediations\DebugEnabledRemediation;
 use Capell\Core\Support\Security\Remediations\InsecureCookieRemediation;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
+use Capell\Core\Support\Security\SiteOwnedHosts;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
@@ -315,6 +316,8 @@ use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -600,6 +603,22 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     private function registerOctaneStateReset(): self
     {
         $this->app->singleton(FlushResettableState::class);
+        $this->app->tag([SiteOwnedHosts::class], Resettable::TAG);
+
+        // A queued job is an operation too. Workers never see Octane's reset, so without
+        // this, state read from the shared store for one job would answer for every later
+        // job in the process. A sync job runs inside the operation that dispatched it, so
+        // flushing there would undo that operation's own state mid-flight.
+        $this->app->make(Dispatcher::class)->listen(
+            JobProcessing::class,
+            function (JobProcessing $event): void {
+                if ($event->job instanceof SyncJob) {
+                    return;
+                }
+
+                $this->app->make(FlushResettableState::class)->handle($this->app);
+            },
+        );
 
         if (! interface_exists(OperationTerminated::class)) {
             return $this;

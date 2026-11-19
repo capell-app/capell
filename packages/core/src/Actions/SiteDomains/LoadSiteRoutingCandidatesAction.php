@@ -32,6 +32,13 @@ final class LoadSiteRoutingCandidatesAction
     public const int TTL_SECONDS = 3600;
 
     /**
+     * Changes on every forget. A request whose query read rows before a change committed
+     * sees the revision move and drops what it cached, so the old list cannot outlive the
+     * commit-time forget. Only a cache miss reads it; a hit costs nothing extra.
+     */
+    private const string REVISION_KEY = 'site-routing-candidates-revision';
+
+    /**
      * Forget the candidates now, so this request reads the change, and again when the
      * surrounding transaction commits or rolls back, so no process keeps rows cached
      * while the transaction was open.
@@ -52,6 +59,9 @@ final class LoadSiteRoutingCandidatesAction
 
     public static function forget(): void
     {
+        // Move the revision first: a request that cached between the two steps then
+        // either sees the move and drops its entry, or has its entry removed here.
+        CapellCore::setToCache(self::REVISION_KEY, bin2hex(random_bytes(8)), 0);
         CapellCore::removeCacheKey(CacheEnum::SiteRoutingCandidates->value);
     }
 
@@ -74,8 +84,15 @@ final class LoadSiteRoutingCandidatesAction
             return $sites;
         }
 
+        $revision = $cache->getFreshFromCache(self::REVISION_KEY);
         $sites = $this->query();
         $cache->setToCache($key, $sites, self::TTL_SECONDS);
+
+        if ($cache->getFreshFromCache(self::REVISION_KEY) !== $revision) {
+            // A change committed while the query ran: this request still uses the rows it
+            // read, but no other request may reuse them.
+            $cache->removeCacheKey($key);
+        }
 
         return $sites;
     }
