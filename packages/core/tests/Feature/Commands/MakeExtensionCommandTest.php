@@ -372,19 +372,48 @@ it('renders escaped public content from the full scaffold render data', function
     // Manifest validity is covered by "creates a minimal package scaffold without modifying root composer dependencies".
 });
 
+if (! function_exists('makeStandaloneExtensionConsumer')) {
+    function makeStandaloneExtensionConsumer(): string
+    {
+        $packagesDirectory = makeExtensionWorkbenchDirectory();
+        artisanCommand('capell:make-extension', [
+            'package' => 'vendor/standalone-example', '--profile' => 'minimal', '--path' => $packagesDirectory, '--no-interaction' => true,
+        ])->assertExitCode(Command::SUCCESS);
+        $directory = $packagesDirectory . '/standalone-example';
+        // Reuse installed dependencies offline; this does not claim Composer resolution proof.
+        File::ensureDirectoryExists($directory . '/vendor/pestphp/pest/bin');
+        File::copy(dirname(__DIR__, 5) . '/vendor/pestphp/pest/bin/pest', $directory . '/vendor/pestphp/pest/bin/pest');
+        File::put($directory . '/vendor/autoload.php', '<?php $loader = require ' . var_export(dirname(__DIR__, 5) . '/vendor/autoload.php', true) . '; $loader->addPsr4("Vendor\\\\StandaloneExample\\\\", ' . var_export($directory . '/src/', true) . '); $loader->addPsr4("Vendor\\\\StandaloneExample\\\\Tests\\\\", ' . var_export($directory . '/tests/', true) . '); return $loader;');
+
+        return $directory;
+    }
+}
+
+if (! function_exists('runStandaloneExtensionSuite')) {
+    function runStandaloneExtensionSuite(string $directory): Process
+    {
+        // A risky test performs no assertion, so it must fail the generated suite.
+        $process = NestedTestProcess::make([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--configuration=phpunit.xml.dist', '--fail-on-risky'], $directory);
+        $process->run();
+
+        return $process;
+    }
+}
+
 it('runs the generated minimal suite in an independent Testbench consumer', function (): void {
-    $packagesDirectory = makeExtensionWorkbenchDirectory();
-    artisanCommand('capell:make-extension', [
-        'package' => 'vendor/standalone-example', '--profile' => 'minimal', '--path' => $packagesDirectory, '--no-interaction' => true,
-    ])->assertExitCode(Command::SUCCESS);
-    $directory = $packagesDirectory . '/standalone-example';
-    // Reuse installed dependencies offline; this does not claim Composer resolution proof.
-    File::ensureDirectoryExists($directory . '/vendor/pestphp/pest/bin');
-    File::copy(dirname(__DIR__, 5) . '/vendor/pestphp/pest/bin/pest', $directory . '/vendor/pestphp/pest/bin/pest');
-    File::put($directory . '/vendor/autoload.php', '<?php $loader = require ' . var_export(dirname(__DIR__, 5) . '/vendor/autoload.php', true) . '; $loader->addPsr4("Vendor\\\\StandaloneExample\\\\", ' . var_export($directory . '/src/', true) . '); $loader->addPsr4("Vendor\\\\StandaloneExample\\\\Tests\\\\", ' . var_export($directory . '/tests/', true) . '); return $loader;');
-    // A risky manifest test performs no assertion, so it must fail the generated suite.
-    $process = NestedTestProcess::make([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--configuration=phpunit.xml.dist', '--fail-on-risky'], $directory);
-    $process->run();
+    $process = runStandaloneExtensionSuite(makeStandaloneExtensionConsumer());
 
     expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput());
+});
+
+it('fails the generated suite when the package breaks the companion package contract', function (): void {
+    $directory = makeStandaloneExtensionConsumer();
+    // A public view that carries an editor marker passes the manifest test, so only the generated contract test catches it.
+    File::ensureDirectoryExists($directory . '/resources/views');
+    File::put($directory . '/resources/views/card.blade.php', '<div data-capell-authoring="title">{{ $title }}</div>');
+
+    $process = runStandaloneExtensionSuite($directory);
+
+    expect($process->getExitCode())->not->toBe(0)
+        ->and($process->getOutput() . $process->getErrorOutput())->toContain('[public-output.views]');
 });

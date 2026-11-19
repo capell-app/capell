@@ -41,11 +41,9 @@ Manage images and files for your sites from **Media** in the admin sidebar.
 
 [Light](../../packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-media-edit-focal-point-dark.png)
 
-## AI Media Tools
+## AI actions
 
-When media AI tools are installed, media actions can inspect or improve images from the same admin workflow. Keep those tools package-owned; the default media surface should still work without them.
-
-The action is contributed by the optional Media AI package; Admin only supplies the extension surface. Package documentation should show the action only after its capture contract opens or waits for that action explicitly.
+If your site has the Media AI package, the media item also offers AI actions such as suggesting alt text. Review every suggestion before saving.
 
 ## Replace or delete a file
 
@@ -80,5 +78,7 @@ original exception from a failed replacement.
 - Allowed file types and size limits come from your media configuration and host upload limits (`upload_max_filesize`, `post_max_size`). Ask your developer if an upload is rejected.
 
 ## How it works (developers)
+
+Media AI actions come from the optional Media AI package. Admin only supplies the extension surface, so the default media surface works without the package. Package documentation should show an action only after its capture contract opens or waits for that action explicitly.
 
 Localized media metadata (alt text, captions, credits, decorative flag) is stored on the shared polymorphic `translations` table in the translation `meta` JSON column. The active backend is resolved from `capell.media.backend` (`CAPELL_MEDIA_BACKEND`, default `spatie`). Render media in Blade with `<x-capell::media>` so output stays on the public-safety contract.

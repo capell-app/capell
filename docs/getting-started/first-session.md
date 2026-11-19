@@ -24,11 +24,11 @@ After logging in you land on the dashboard. Before clicking anything, take a mom
 
 The **site switcher** sits in the top bar, just before the global search field (on small screens it moves to the top of the sidebar). Capell is multi-site from the start, and everything you edit in the admin is scoped to whichever site is selected here. If you only have one site, it'll show its name. If you installed with `--demo`, there may be two or three demo sites. Pick the right one before you start editing.
 
-The **sidebar** on the left is your main navigation: **Website** (Pages), **Content library** (Media), **Design** (Layouts, Themes, Blueprints), **System** (Sites, Users, Roles, Settings), and anything your approved packages add.
+The **sidebar** on the left is your main navigation. Its groups are **Website** (Pages), **Media**, **Design** (Layouts, Themes, Blueprints), **Users** (Users, Roles) and **Settings** (Sites, Settings), plus anything your approved packages add. Which groups you see depends on your role.
 
-The **top bar** on the right side has a **Clear cache** button (shown to global administrators), a global search field, and your user account menu.
+The **top bar** has a **Tools** button with a wrench icon (shown to global administrators), the site switcher, a global search field and your user account menu. **Tools** opens a menu that includes **Clear all site caches**.
 
-Use **Clear cache** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
+Use **Tools > Clear all site caches** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png">
@@ -88,7 +88,7 @@ Your **site** is a public website with its own domains, languages, settings and 
 
 A **page type** (its blueprint) decides which fields you see when you edit a page. A **layout** is the theme's template the page renders into, and several pages can share one. Changing a blueprint or a layout affects every page that uses it; editing a page's content affects only that page.
 
-The **body** of a page starts as HTML. If the page type, or the page's own `content_structure_override`, selects blocks, the body becomes typed, reorderable **body blocks** (block types come from the optional Block Library package).
+The **body** of a page starts as formatted text. If the page type uses blocks, the body becomes a set of reorderable **body blocks** (block types come from the optional Block Library package).
 
 Two optional packages add more structure when a page needs it:
 
@@ -105,9 +105,9 @@ You don't need any of this immediately. Start with flat pages, get comfortable w
 
 Two screens matter early on:
 
-**System → Sites** holds each site's name, URL and domains, languages and active theme. Open your site and check these first; the site name and default language come from here.
+**Settings > Sites** holds each site's name, URL and domains, languages and active theme. Open your site and check these first; the site name and default language come from here.
 
-**System → Settings** holds installation-wide options: the HTML editor, dashboard widgets, image sources, frontend caching and minification. The "Host integration locale" field there does not choose the admin or public language.
+**Settings > Settings** holds installation-wide options: the HTML editor, dashboard widgets, image sources, frontend caching and minification. The "Host integration locale" field there does not choose the admin or public language.
 
 SEO defaults such as a fallback description or Open Graph image come from the optional SEO Suite package, not from Settings.
 
@@ -130,7 +130,7 @@ From here, the path depends on what you're building.
 
 **Need reusable layout widgets or ready-made sections?** Install the [Layout Builder](../packages/layout-builder.md) and [Content Sections](../packages/content-sections.md) approved packages from the [catalogue](../packages/catalog.md#capell-foundation). Layout Builder adds the container-and-widget layer to the page editor; Content Sections adds the section library on top.
 
-**Setting up for a team?** Configure roles under **System → Roles**, then invite users from **System → Users**. The [Permissions & approval guide](../../packages/admin/docs/permissions-and-approval.md) covers how site-scoped roles work.
+**Setting up for a team?** Configure roles under **Users > Roles**, then add people under **Users > Users**. Choose **Invite someone** to email them a link to choose their own password, or **New user** to set a password yourself and pass it on securely. **Invite someone** appears only when you can grant at least one role. The [Permissions & approval guide](../../packages/admin/docs/permissions-and-approval.md) covers how site-scoped roles work.
 
 **Running multiple sites or languages?** See [Multi-site & multi-lingual](../../packages/core/docs/multi-site-multi-lingual.md) before creating more content.
 

@@ -78,6 +78,6 @@ The seeder marks removed first-party extensions as hidden, so keep the list comp
 
 ## Related guides
 
-- [PublishingStudio](https://docs.capell.app/publishing-studio/)
+- [PublishingStudio](https://docs.capell.app/packages/publishing-studio/)
 - [Multi-site, multi-language](../../packages/core/docs/multi-site-multi-lingual.md)
 - [Page management](../../packages/core/docs/page-management.md)

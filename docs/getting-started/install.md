@@ -511,7 +511,7 @@ Read [Site Health](../operations/site-health.md), [Upgrading](../operations/upgr
 | Installer cannot write a file                   | Correct ownership for the specific path, then rerun the installer                                    |
 | Admin command or page is missing after Composer | `composer dump-autoload && php artisan optimize:clear`                                               |
 | Frontend CSS is missing                         | Follow the [frontend asset recovery steps](#recover-missing-frontend-css) and verify the styled page |
-| Public content is stale                         | Use Admin **Clear Cache**, then inspect the installed cache package                                  |
+| Public content is stale                         | Use **Tools > Clear all site caches** in Admin, then inspect the installed cache package             |
 | A queued task never finishes                    | Follow the [queue worker checks](../operations/troubleshooting.md#queue-worker)                      |
 | Scheduled work never runs                       | Configure the [Laravel scheduler](../operations/troubleshooting.md#scheduler)                        |
 | PHP reports `Allowed memory size ... exhausted` | Reopen the installer, identify the failing step in its report, and report it as a batching defect    |
