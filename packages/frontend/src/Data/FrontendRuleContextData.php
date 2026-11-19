@@ -8,9 +8,9 @@ use Illuminate\Http\Request;
 
 /**
  * Kept only because the deprecated FrontendRuleCondition contract names it, so classes in
- * already-published extension releases still load. Removed in the next major release.
+ * already-published extension releases still load. Removed in 2.0.
  *
- * @deprecated Nothing evaluates frontend rule conditions. Do not use this in new code.
+ * @deprecated 1.x compatibility only; removed in 2.0. Nothing evaluates frontend rule conditions. Do not use this in new code.
  */
 final class FrontendRuleContextData
 {

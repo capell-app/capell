@@ -12,9 +12,9 @@ use Capell\Frontend\Data\FrontendRuleContextData;
  * The frontend rule engine that evaluated these conditions has been removed, and nothing in
  * Capell registers or evaluates a condition any more. Its registry is deliberately not restored:
  * published releases register their conditions only when that registry class exists, so they stay
- * inert. Removed in the next major release.
+ * inert. Removed in 2.0.
  *
- * @deprecated Nothing evaluates frontend rule conditions. Do not implement this in new code.
+ * @deprecated 1.x compatibility only; removed in 2.0. Nothing evaluates frontend rule conditions. Do not implement this in new code.
  */
 interface FrontendRuleCondition
 {
