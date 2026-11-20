@@ -696,6 +696,7 @@
             "additionalProperties": true,
             "required": ["summary", "screenshots", "categories"],
             "properties": {
+                "hidden": { "type": "boolean", "default": false },
                 "summary": {
                     "type": "string",
                     "minLength": 1
@@ -766,10 +767,12 @@
             "type": ["string", "null"]
         },
         "runtime": {
-            "type": "string"
+            "type": "string",
+            "default": "blade"
         },
         "defaultSelected": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": false
         },
         "roles": {
             "type": "array",
@@ -837,10 +840,12 @@
             }
         },
         "demo": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": false
         },
         "order": {
-            "type": "integer"
+            "type": "integer",
+            "default": 0
         },
         "installPath": {
             "type": ["string", "null"]

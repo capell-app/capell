@@ -164,6 +164,8 @@ return [
 
 ## `capell.json`
 
+See the [manifest reference](manifest-reference.md) for every top-level key, its allowed values and its default.
+
 ```json
 {
     "manifest-version": 3,
