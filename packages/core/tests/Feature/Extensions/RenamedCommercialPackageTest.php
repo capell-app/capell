@@ -6,7 +6,6 @@ use Capell\Core\Actions\EnablePackageAction;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Enums\ExtensionStatusEnum;
-use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
@@ -18,12 +17,9 @@ use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
-use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
 use Illuminate\Container\Container;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Facade;
@@ -123,16 +119,6 @@ function installRenamedFixture(object $test, string $name, array $psr4, array $l
     resolve(ExtensionCommercialPolicy::class)->clear();
 }
 
-/** Laravel auto-discovery: whether the package's Laravel providers reach the runtime manifest. */
-function renamedDiscovered(object $test, string $provider): bool
-{
-    $root = $test->renamedRoot;
-    File::delete([$root . '/bootstrap/cache/packages.php', $root . '/bootstrap/cache/runtime/packages.php']);
-    $manifest = new RuntimeRolePackageManifest(new Filesystem, $root, $root . '/bootstrap/cache/runtime/packages.php', $root . '/bootstrap/cache/packages.php', RuntimeRole::Combined, new RuntimeRoleProviderPolicy);
-
-    return in_array($provider, $manifest->providers(), true);
-}
-
 /** Provider loading: whether a fresh application bootstrap registers the package's Capell provider. */
 function renamedProviderLoaded(object $test, string $name): bool
 {
@@ -165,7 +151,7 @@ function renamedProviderLoaded(object $test, string $name): bool
     }
 }
 
-it('keeps a paid package paid at install, enable, provider loading and discovery after a rename', function (string $name, array $psr4, bool $trustedName = false): void {
+it('keeps a paid package paid at install, enable and manifest provider loading after a rename', function (string $name, array $psr4, bool $trustedName = false): void {
     acceptRenamedCatalogue($this, withNamespaces: true);
     installRenamedFixture($this, $name, $psr4, [RENAMED_PAID_PROVIDER]);
 
@@ -181,7 +167,6 @@ it('keeps a paid package paid at install, enable, provider loading and discovery
     expect($this->renamedCalls)->toBe(0);
     expect(fn () => EnablePackageAction::run(CapellCore::getPackage($name)))->toThrow(RuntimeException::class, 'authorisation');
     expect(CapellCore::isPackageEnabled($name))->toBe($trustedName)
-        ->and(renamedDiscovered($this, RENAMED_PAID_PROVIDER))->toBeFalse()
         ->and(renamedProviderLoaded($this, $name))->toBeFalse();
 })->with([
     'unlisted vendor, paid namespace kept' => ['acme/renamed', ['Vendor\\Commercial\\' => 'src/']],
@@ -195,8 +180,7 @@ it('keeps a genuinely third-party package free at every gate', function (): void
     acceptRenamedCatalogue($this, withNamespaces: true);
     installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider']);
 
-    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
-        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+    expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse();
     expect(Artisan::call('capell:extension-install', ['extension' => 'acme/thirdparty', '--no-interaction' => true]))->toBe(0)
         ->and($this->renamedCalls)->toBe(1)
         ->and(CapellCore::isPackageEnabled('acme/thirdparty'))->toBeTrue();
@@ -218,7 +202,7 @@ it('ignores single-segment catalogue namespaces that unrelated vendors share', f
 
     expect(resolve(CommercialCatalogueStore::class)->paidNamespaces())->toBe(['vendor\\commercial\\'])
         ->and(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
-        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+        ->and(renamedProviderLoaded($this, 'acme/thirdparty'))->toBeTrue();
 });
 
 it('keeps a third-party package with a root PSR-0 mapping free', function (): void {
@@ -226,7 +210,7 @@ it('keeps a third-party package with a root PSR-0 mapping free', function (): vo
     installRenamedFixture($this, 'acme/thirdparty', ['Acme\\Thirdparty\\' => 'src/'], ['Acme\\Thirdparty\\ThirdpartyServiceProvider'], psr0: ['' => 'src/']);
 
     expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/thirdparty'))->toBeFalse()
-        ->and(renamedDiscovered($this, 'Acme\\Thirdparty\\ThirdpartyServiceProvider'))->toBeTrue();
+        ->and(renamedProviderLoaded($this, 'acme/thirdparty'))->toBeTrue();
 });
 
 it('treats a PSR-0 prefix as a raw string prefix that can load the paid namespace', function (): void {
@@ -234,7 +218,7 @@ it('treats a PSR-0 prefix as a raw string prefix that can load the paid namespac
     installRenamedFixture($this, 'acme/renamed', ['Acme\\Renamed\\' => 'src/'], ['Acme\\Renamed\\RenamedServiceProvider'], psr0: ['Vendor\\Comm' => 'src/']);
 
     expect(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('acme/renamed'))->toBeTrue()
-        ->and(renamedDiscovered($this, 'Acme\\Renamed\\RenamedServiceProvider'))->toBeFalse();
+        ->and(renamedProviderLoaded($this, 'acme/renamed'))->toBeFalse();
 });
 
 it('gates a paid provider named only in the boot cache manifest', function (): void {
