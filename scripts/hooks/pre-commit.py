@@ -57,17 +57,26 @@ def capture(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SEC
     own process group; a timeout, Ctrl-C or any other exception kills the whole group.
     """
     try:
-        files = [tempfile.TemporaryFile() for _ in range(3)]
+        stdout, stderr = tempfile.TemporaryFile(), tempfile.TemporaryFile()
     except OSError as error:
         raise HookFailure(f'Temporary storage is unavailable for {command[0]}: {error}')
-    stdin, stdout, stderr = files
+    stdin = None
     process = None
+    # Block the interrupt signals while the child is spawned, so a Ctrl-C cannot land between Popen
+    # returning and `process` being assigned; it is delivered once the group is known and cleaned up.
+    blocked = {signal.SIGINT, signal.SIGTERM}
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
     try:
-        if input_bytes is not None:
-            stdin.write(input_bytes)
-            stdin.seek(0)
-        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stdin if input_bytes is not None else subprocess.DEVNULL,
-                                   stdout=stdout, stderr=stderr, start_new_session=True)
+        try:
+            if input_bytes is not None:
+                stdin = tempfile.TemporaryFile()
+                stdin.write(input_bytes)
+                stdin.seek(0)
+            process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stdin if stdin is not None else subprocess.DEVNULL,
+                                       stdout=stdout, stderr=stderr, start_new_session=True,
+                                       preexec_fn=lambda: signal.pthread_sigmask(signal.SIG_SETMASK, previous))
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous)
         try:
             process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -82,8 +91,9 @@ def capture(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SEC
             except (ProcessLookupError, PermissionError):
                 pass
             process.wait()
-        for handle in files:
-            handle.close()
+        for handle in (stdin, stdout, stderr):
+            if handle is not None:
+                handle.close()
 
 
 def run(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
