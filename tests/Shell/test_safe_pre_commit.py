@@ -988,6 +988,38 @@ class SafeRunPipeDeadlockTest(unittest.TestCase):
             safe.run(['sleep', '30'], cwd=SOURCE, timeout=1)
         self.assertIn('did not finish', str(raised.exception))
 
+    def test_timeout_kills_a_grandchild_that_outlives_the_parent(self):
+        spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
+        safe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(safe)
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'grandchild.pid'
+            with self.assertRaises(safe.HookFailure):
+                safe.run(['sh', '-c', f'sleep 60 & echo $! > {pidfile}; wait'], cwd=directory, timeout=2)
+            pid = int(pidfile.read_text())
+            for _ in range(50):
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                os.kill(pid, 9)
+                self.fail('The grandchild survived the timeout.')
+
+    def test_commands_without_input_do_not_need_temp_storage(self):
+        spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
+        safe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(safe)
+        with tempfile.TemporaryDirectory() as directory:
+            broken = str(Path(directory) / 'missing')
+            original = safe.tempfile.tempdir
+            safe.tempfile.tempdir = broken
+            try:
+                self.assertEqual(safe.run(['echo', 'ok'], cwd=directory), b'ok\n')
+            finally:
+                safe.tempfile.tempdir = original
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

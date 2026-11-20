@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -51,18 +52,29 @@ def run(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS
     # Input goes through an unlinked file, never a pipe. `git check-attr --stdin` answers while it is
     # still reading, so a piped stdin plus piped stdout deadlocks on macOS (the parent blocks writing
     # input, git blocks writing output) with 0% CPU for ever. A timeout turns any other hang into a
-    # loud failure instead of a silent one.
-    with tempfile.TemporaryFile() as source:
-        if input_bytes is not None:
+    # loud failure, and the command runs in its own process group so the whole tree is killed.
+    source = tempfile.TemporaryFile() if input_bytes is not None else None
+    try:
+        if source is not None:
             source.write(input_bytes)
             source.seek(0)
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=source if source is not None else subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         try:
-            result = subprocess.run(command, cwd=cwd, env=env, stdin=source if input_bytes is not None else subprocess.DEVNULL, capture_output=True, check=False, timeout=timeout)
+            stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.communicate()
             raise HookFailure(f"{' '.join(command[:3])} did not finish within {timeout} seconds.")
-    if result.returncode:
-        raise HookFailure(f"{' '.join(command[:3])} failed: {result.stderr.decode(errors='replace').strip()}")
-    return result.stdout
+    finally:
+        if source is not None:
+            source.close()
+    if process.returncode:
+        raise HookFailure(f"{' '.join(command[:3])} failed: {stderr.decode(errors='replace').strip()}")
+    return stdout
 
 
 def clean_environment():
