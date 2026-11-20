@@ -169,6 +169,7 @@ use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
 use Capell\Core\Support\Cache\CacheDependencyRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\Cache\PublicReadRequestMemo;
 use Capell\Core\Support\Cache\ResilientDataStructureCache;
 use Capell\Core\Support\Capabilities\CapabilityRegistry;
 use Capell\Core\Support\CapellCoreManager;
@@ -372,6 +373,13 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->registerSettingsSchemaRegistry();
         $this->bindManagers();
         $this->app->scoped(RuntimeSchemaState::class);
+        $this->app->scoped(PublicReadRequestMemo::class);
+        // A write anywhere may change a memoised page lookup; forget them all.
+        Event::listen(['eloquent.saved: *', 'eloquent.deleted: *', 'eloquent.restored: *'], static function (): void {
+            if (app()->resolved(PublicReadRequestMemo::class)) {
+                resolve(PublicReadRequestMemo::class)->flush();
+            }
+        });
         // A schema read before migrations ran in this process describes the old
         // schema; forget it, as the installer forgets its own table state.
         Event::listen([DatabaseSchemaChanged::class, MigrationsEnded::class], static function (): void {

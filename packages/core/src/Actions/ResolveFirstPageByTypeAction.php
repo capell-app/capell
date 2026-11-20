@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Cache\PublicReadRequestMemo;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,6 +34,19 @@ final class ResolveFirstPageByTypeAction
             $language = $site->language;
         }
 
+        if ($modifyQueryUsing === null) {
+            // Several render contributors look up the same page type (contact, results) per request.
+            return resolve(PublicReadRequestMemo::class)->remember(
+                sprintf('first-page-by-type:%s:%d:%d', $key, $site->id, $language->id),
+                fn (): ?Page => $this->query($key, $site, $language, null),
+            );
+        }
+
+        return $this->query($key, $site, $language, $modifyQueryUsing);
+    }
+
+    private function query(string $key, Site $site, Language $language, ?callable $modifyQueryUsing): ?Page
+    {
         $query = Page::query()
             ->withWhereHas(
                 'translation',
