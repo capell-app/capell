@@ -48,33 +48,49 @@ def known_hook_config(snapshot):
 RUN_TIMEOUT_SECONDS = 600
 
 
-def run(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
-    # Input goes through an unlinked file, never a pipe. `git check-attr --stdin` answers while it is
-    # still reading, so a piped stdin plus piped stdout deadlocks on macOS (the parent blocks writing
-    # input, git blocks writing output) with 0% CPU for ever. A timeout turns any other hang into a
-    # loud failure, and the command runs in its own process group so the whole tree is killed.
-    source = tempfile.TemporaryFile() if input_bytes is not None else None
+def capture(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
+    """Run a command to completion and return a CompletedProcess with bytes output.
+
+    Nothing here can block for ever: input, stdout and stderr are unlinked temp files, never pipes
+    (`git check-attr --stdin` answers while it reads, so piped stdin plus piped stdout deadlocks on
+    macOS, and a detached helper that inherits a pipe keeps a reader waiting). The command runs in its
+    own process group; a timeout, Ctrl-C or any other exception kills the whole group.
+    """
     try:
-        if source is not None:
-            source.write(input_bytes)
-            source.seek(0)
-        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=source if source is not None else subprocess.DEVNULL,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        files = [tempfile.TemporaryFile() for _ in range(3)]
+    except OSError as error:
+        raise HookFailure(f'Temporary storage is unavailable for {command[0]}: {error}')
+    stdin, stdout, stderr = files
+    process = None
+    try:
+        if input_bytes is not None:
+            stdin.write(input_bytes)
+            stdin.seek(0)
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stdin if input_bytes is not None else subprocess.DEVNULL,
+                                   stdout=stdout, stderr=stderr, start_new_session=True)
         try:
-            stdout, stderr = process.communicate(timeout=timeout)
+            process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
+            raise HookFailure(f"{' '.join(command[:3])} did not finish within {timeout} seconds.")
+        stdout.seek(0)
+        stderr.seek(0)
+        return subprocess.CompletedProcess(command, process.returncode, stdout.read(), stderr.read())
+    finally:
+        if process is not None:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
                 pass
-            process.communicate()
-            raise HookFailure(f"{' '.join(command[:3])} did not finish within {timeout} seconds.")
-    finally:
-        if source is not None:
-            source.close()
-    if process.returncode:
-        raise HookFailure(f"{' '.join(command[:3])} failed: {stderr.decode(errors='replace').strip()}")
-    return stdout
+            process.wait()
+        for handle in files:
+            handle.close()
+
+
+def run(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
+    result = capture(command, cwd=cwd, env=env, input_bytes=input_bytes, timeout=timeout)
+    if result.returncode:
+        raise HookFailure(f"{' '.join(command[:3])} failed: {result.stderr.decode(errors='replace').strip()}")
+    return result.stdout
 
 
 def clean_environment():
@@ -243,7 +259,7 @@ def validate_dependencies(root, snapshot, env):
                 if not original.is_file() or original.read_bytes() != (resolved / 'composer.json').read_bytes():
                     raise HookFailure(f'Composer path dependency {name} differs from the snapshot.')
         composer = shutil.which('composer', path=env.get('PATH'))
-        if composer is None or subprocess.run([composer, 'validate', '--check-lock', '--no-check-all', '--no-check-publish', '--no-plugins', '--no-scripts', '--no-interaction'], cwd=snapshot, env=env, capture_output=True).returncode:
+        if composer is None or capture([composer, 'validate', '--check-lock', '--no-check-all', '--no-check-publish', '--no-plugins', '--no-scripts', '--no-interaction'], cwd=snapshot, env=env).returncode:
             raise HookFailure('Composer manifest and lock cannot be validated in the snapshot.')
     node_modules = snapshot / 'node_modules'
     if node_modules.is_dir():
@@ -264,7 +280,7 @@ def validate_dependencies(root, snapshot, env):
         npm_env = dict(env, npm_config_cache=str(snapshot / '.npm-cache'), npm_config_update_notifier='false')
         if npm is None:
             raise HookFailure('Installed npm dependency graph does not match the snapshot manifest.')
-        listing = subprocess.run([npm, 'ls', '--all', '--offline', '--json'], cwd=snapshot, env=npm_env, capture_output=True)
+        listing = capture([npm, 'ls', '--all', '--offline', '--json'], cwd=snapshot, env=npm_env)
         if listing.returncode:
             # The sanctioned sibling link dangles inside the snapshot, so npm reports only that package as unresolved.
             try:

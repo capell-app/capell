@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1007,16 +1008,65 @@ class SafeRunPipeDeadlockTest(unittest.TestCase):
                 os.kill(pid, 9)
                 self.fail('The grandchild survived the timeout.')
 
-    def test_commands_without_input_do_not_need_temp_storage(self):
+    def load_safe(self):
         spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
         safe = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(safe)
-        with tempfile.TemporaryDirectory() as directory:
-            broken = str(Path(directory) / 'missing')
-            original = safe.tempfile.tempdir
-            safe.tempfile.tempdir = broken
+        return safe
+
+    def assert_dead(self, pidfile):
+        pid = int(pidfile.read_text())
+        for _ in range(50):
             try:
-                self.assertEqual(safe.run(['echo', 'ok'], cwd=directory), b'ok\n')
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.1)
+        os.kill(pid, 9)
+        self.fail('The grandchild survived.')
+
+    def test_detached_helper_holding_the_output_descriptors_does_not_block(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'helper.pid'
+            helper = ("import os, subprocess, sys; p = subprocess.Popen(['sleep', '60'], start_new_session=True); "
+                      f"open({str(pidfile)!r}, 'w').write(str(p.pid))")
+            started = time.monotonic()
+            try:
+                result = safe.run([sys.executable, '-c', helper], cwd=directory, timeout=30)
+                # The timeout is a hang ceiling; the helper keeps stdout and stderr open for 60 seconds.
+                self.assertLess(time.monotonic() - started, 30)
+                self.assertEqual(result, b'')
+            finally:
+                try:
+                    os.kill(int(pidfile.read_text()), 9)
+                except (FileNotFoundError, ValueError, ProcessLookupError):
+                    pass
+
+    def test_interrupt_kills_the_command_group(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'grandchild.pid'
+            def interrupt(*_):
+                raise KeyboardInterrupt
+            previous = signal.signal(signal.SIGALRM, interrupt)
+            signal.setitimer(signal.ITIMER_REAL, 1.5)
+            try:
+                with self.assertRaises(KeyboardInterrupt):
+                    safe.run(['sh', '-c', f'sleep 60 & echo $! > {pidfile}; wait'], cwd=directory, timeout=60)
+            finally:
+                signal.setitimer(signal.ITIMER_REAL, 0)
+                signal.signal(signal.SIGALRM, previous)
+            self.assert_dead(pidfile)
+
+    def test_unavailable_temp_storage_fails_loudly(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            original = safe.tempfile.tempdir
+            safe.tempfile.tempdir = str(Path(directory) / 'missing')
+            try:
+                with self.assertRaises(safe.HookFailure):
+                    safe.run(['echo', 'ok'], cwd=directory)
             finally:
                 safe.tempfile.tempdir = original
 
