@@ -272,6 +272,26 @@ it('marks a fallback-served page in the head: served language, noindex, canonica
         ->and(translationFallbackHreflangs($response))->not->toContain('fr');
 });
 
+it('omits a translation on a disabled domain from hreflang and links to its host, and still renders', function (): void {
+    [$site, $english, $french, $englishDomain, $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: false);
+    $german = Language::factory()->german()->createOne();
+    SiteDomain::factory()->site($site)->language($german)->createOne([
+        'domain' => 'fallback.example.test', 'scheme' => 'http', 'port' => 8124, 'path' => '/de',
+    ]);
+    translationFallbackSitePage($site, [
+        [$english, 'about', 'English about marker'],
+        [$french, 'a-propos', 'Marqueur français'],
+        [$german, 'ueber', 'Deutsche Seite'],
+    ]);
+    $frenchDomain->update(['status' => false]);
+
+    $response = $this->get($englishDomain->full_url . '/about')->assertOk();
+
+    expect(translationFallbackHreflangs($response))->toContain('en', 'de')
+        ->and(translationFallbackHreflangs($response))->not->toContain('fr')
+        ->and((string) $response->getContent())->not->toContain($frenchDomain->full_url . '/a-propos');
+});
+
 it('names the served language when the fallback page is reached through the requested language URL', function (): void {
     [$site, $english, $french, , $frenchDomain] = translationFallbackSite(frenchFallsBackToEnglish: true);
     $page = translationFallbackSitePage($site, [
