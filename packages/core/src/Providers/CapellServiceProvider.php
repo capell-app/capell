@@ -333,6 +333,7 @@ use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Laravel\Octane\Events\WorkerStarting;
@@ -1410,7 +1411,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function configureMailMarkdownLogo(): self
     {
-        $this->app->booted(function (): void {
+        // Resolving the logo reads the default site, so it waits for the first
+        // markdown mail header render instead of probing the database at boot.
+        View::composer('mail::header', static function (): void {
             ConfigureMailMarkdownLogoAction::run();
         });
 
