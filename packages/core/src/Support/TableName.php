@@ -241,17 +241,17 @@ final class TableName
         $container = Container::getInstance();
 
         if (self::$configContainer?->get() !== $container || ! self::$config instanceof Repository) {
-            $repository = $container->make(Repository::class);
-            throw_unless($repository instanceof Repository, RuntimeException::class, 'The config binding is not a configuration repository.');
-
-            self::$config = $repository;
             self::$configContainer = WeakReference::create($container);
-            $container->rebinding('config', static function (mixed $app, mixed $rebound): void {
+            // rebinding() resolves the bound repository itself, so reuse it rather than resolving config twice.
+            $repository = $container->rebinding('config', static function (mixed $app, mixed $rebound): void {
                 // Only the container this repository was read from may replace it; a cloned container's rebind must not.
                 if ($app === self::$configContainer?->get()) {
                     self::$config = $rebound instanceof Repository ? $rebound : null;
                 }
-            });
+            }) ?? $container->make(Repository::class);
+            throw_unless($repository instanceof Repository, RuntimeException::class, 'The config binding is not a configuration repository.');
+
+            self::$config = $repository;
         }
 
         return self::$config->get($key, $default);
