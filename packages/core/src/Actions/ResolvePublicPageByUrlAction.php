@@ -16,6 +16,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Url\UrlPathNormalizer;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
@@ -194,9 +195,11 @@ class ResolvePublicPageByUrlAction
         }
 
         $site->loadMissing('siteDomains');
-        $siteDomain = $site->siteDomains->firstWhere('language_id', $language->getKey());
+        $siteDomain = $site->siteDomains->first(
+            static fn (SiteDomain $domain): bool => $domain->language_id === $language->getKey() && $domain->status,
+        );
 
-        // Without a domain for the language the URL has no address to move to: answer not found.
+        // Without an enabled domain for the language the URL has no address to move to: answer not found.
         if ($siteDomain === null) {
             return null;
         }
