@@ -27,8 +27,15 @@ it('loads the exact vendor aliases with a generated Composer classmap', function
 
                 return 'src/' . $relativePath;
             },
-            $manifest['autoload']['files'] ?? [],
+            array_values(array_filter(
+                $manifest['autoload']['files'] ?? [],
+                static fn (string $path): bool => in_array($manifestDirectory . '/' . ltrim($path, '/'), [
+                    $coreSource . '/Support/Activity/LogOptions.php',
+                    $coreSource . '/Support/Activity/VendorLogsActivity.php',
+                ], true),
+            )),
         );
+        expect($files)->toBe(['src/Support/Activity/LogOptions.php', 'src/Support/Activity/VendorLogsActivity.php']);
         File::put($temporary . '/composer.json', json_encode([
             'name' => 'capell-test/activity-autoload',
             'autoload' => [

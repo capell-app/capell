@@ -72,7 +72,13 @@ $hook = new class implements \Capell\Frontend\Contracts\RenderHookExtensionInter
 if (!$hook instanceof \Capell\Core\Contracts\Rendering\RenderHookExtensionInterface) {
     throw new RuntimeException('The legacy hook must implement the Core contract.');
 }
-echo $hook->render(new \Capell\Core\Data\Rendering\RenderHookContext('footer', ['name' => 'Grace']));
+$context = new class('footer', ['name' => 'Grace']) extends \Capell\Frontend\Data\RenderHookContext {
+    public string $prepared = 'subclass';
+};
+if (!$context instanceof \Capell\Core\Data\Rendering\RenderHookContext || $context->prepared !== 'subclass') {
+    throw new RuntimeException('The legacy context subclass must retain its Core type and prepared data.');
+}
+echo $hook->render($context);
 PHP,
             dirname(__DIR__, 4),
             $manifest,
