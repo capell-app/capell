@@ -80,14 +80,22 @@ For this disposable local application:
 
 Declining the final review applies no installation changes. Cache clearing also clears application data in the default cache store. For existing applications, return to the [Install guide](install.md#existing-laravel-applications).
 
-The final output is part of the install contract. A healthy run ends in this order:
+The final output is part of the install contract. A healthy run ends with this summary; the package list, URLs and warning count are yours:
 
 ```text
-Capell Install Health Summary
-All checks passed.
-✓ Installation complete!
-Capell Install Handoff
+Installation complete
+
+ Installed capell-app/admin, capell-app/block-library, ...
+ Site http://localhost:8000/
+ Admin http://localhost:8000/admin
+ Checks Migrations completed, setup completed, doctor passed
+ Warnings 16. List them with php artisan capell:doctor --warnings
+
+Next steps
+ 1. Sign in http://localhost:8000/admin as owner@example.test
 ```
+
+`doctor passed` means no health check failed. The `Warnings` line appears only when a check reported one, and a fresh install can still list a few. A warning does not stop the install or make the site unusable. Run `php artisan capell:doctor --warnings` to read each one and its `Fix:` line. A never-scanned security posture shows as a note, not a warning, in a `local` environment.
 
 If a required package lifecycle, asset build, permission sync, or health check fails, the command exits non-zero and withholds the success message. Follow the printed `Fix:` instruction, then rerun the installer; do not treat a partial run as production-ready.
 

@@ -78,7 +78,7 @@ php artisan capell:frontend-after-install --apply --no-interaction
 php artisan serve
 ```
 
-A successful install prints `All checks passed` and `Installation complete`. Skip the frontend command when the install handoff records a successful resource rebuild. The [Quickstart](docs/getting-started/quickstart.md) covers the prompts, first sign-in and recovery.
+A successful install prints `Installation complete` with `doctor passed` under Checks; a fresh install can also list warnings, which `php artisan capell:doctor --warnings` explains. Skip the frontend command when the install handoff records a successful resource rebuild. The [Quickstart](docs/getting-started/quickstart.md) covers the prompts, first sign-in and recovery.
 
 Paid extensions install from Marketplace in Admin, or by hand with a short-lived credential. See [Paid package access](docs/getting-started/install.md#paid-package-access). Need JSON for a separate frontend? See the [API package](https://docs.capell.app/packages/).
 

@@ -35,11 +35,16 @@ final class SecurityPostureCheck implements DoctorCheck
             $warning = trim(($warning ?? '') . ' ' . $failedScan);
         }
 
+        // A local app that has never been scanned is a fresh install: the first scan is a deployment
+        // habit, not a fault, so it stays a note. A failed scan or any other warning still warns.
+        $onlyNeverScanned = $warning !== null && ! $hasScan && $latest === null;
+        $warns = $warning !== null && (! $onlyNeverScanned || ! app()->environment('local'));
+
         $critical = (int) ($counts[SecurityWeaknessSeverity::Critical->value] ?? 0);
         $high = (int) ($counts[SecurityWeaknessSeverity::High->value] ?? 0);
 
         $message = (string) __('capell-core::security.doctor.message', ['critical' => $critical, 'high' => $high]);
-        $evidence = array_filter(['critical' => $critical, 'high' => $high, 'never_scanned' => $hasScan ? null : true, 'warning_count' => $warning !== null ? 1 : null], static fn (int|true|null $value): bool => $value !== null);
+        $evidence = array_filter(['critical' => $critical, 'high' => $high, 'never_scanned' => $hasScan ? null : true, 'warning_count' => $warns ? 1 : null], static fn (int|true|null $value): bool => $value !== null);
         $collisions = [];
         $registryUnknown = false;
         if (resolve(SecurityNodeRegistry::class)->enabled()) {
@@ -79,7 +84,7 @@ final class SecurityPostureCheck implements DoctorCheck
             message: trim($message . ' ' . ($warning ?? '')),
             remediation: __('capell-core::security.doctor.action'),
             id: 'core.security.posture',
-            severity: $passed ? ($warning !== null ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info) : (DoctorCheckSeverity::Critical),
+            severity: $passed ? ($warns ? DoctorCheckSeverity::Warning : DoctorCheckSeverity::Info) : (DoctorCheckSeverity::Critical),
             evidence: $evidence,
         );
     }

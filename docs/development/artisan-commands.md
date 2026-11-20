@@ -74,7 +74,7 @@ Install profiles can live in `config/capell-install-profiles.php`,
 `config('capell.install_profiles')`, or `capell-install-profiles.json`. Explicit
 CLI options always win over profile defaults.
 
-Every successful install prints a `Capell Install Handoff` after the health summary. It records the selected packages, migration/setup/doctor outcomes, safe Admin and public URLs, the first-page state, warnings, a short `What next` list of install-shaped tips (also exported as `tips` in the JSON), and one next action. Pass `--handoff-json=storage/app/capell-install-handoff.json` when CI or a clean-consumer release check needs the same redacted contract as JSON. The artifact never requires an account connection or telemetry identity submission.
+Every successful install ends with an install handoff headed `Installation complete`. It records the selected packages, migration/setup/doctor outcomes, safe Admin and public URLs, the first-page state, warnings, a short `What next` list of install-shaped tips (also exported as `tips` in the JSON), and one next action. Pass `--handoff-json=storage/app/capell-install-handoff.json` when CI or a clean-consumer release check needs the same redacted contract as JSON. The artifact never requires an account connection or telemetry identity submission.
 
 ```php
 return [
@@ -512,7 +512,7 @@ php artisan capell:doctor --warnings
 | Option                      | Use it for                                                                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--json`                    | Machine-readable report for monitoring or CI                                                                                               |
-| `--warnings`                | List only the checks that reported warnings (ignored by `--json`, which always carries every check)                                       |
+| `--warnings`                | List only the checks that reported warnings (ignored by `--json`, which always carries every check)                                        |
 | `--install-summary`         | The installer-focused summary, including package-owned checks                                                                              |
 | `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                                                                       |
 | `--connection=`             | Verify against an existing database connection instead of the default                                                                      |
@@ -529,11 +529,11 @@ Checks cover required tables, the morph map, storage writability, seed data, con
 
 Four of those relate directly to hosting:
 
-| Check                           | Fails when                                                                                                                               |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `core.runtime.tooling`          | `proc_open` is disabled, or `composer`/`npm` are missing — extension installs, package setup, backups, and asset rebuilds depend on them |
-| `core.backup.database-binaries` | Backups are enabled but `mysqldump`/`pg_dump` cannot be found for the active connection                                                  |
-| `core.cache.shared-store`       | The cache store is `file`, `array`, or `null` — fine on one server, unsafe behind a load balancer                                        |
+| Check                           | Fails when                                                                                                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.runtime.tooling`          | `proc_open` is disabled, or `composer`/`npm` are missing — extension installs, package setup, backups, and asset rebuilds depend on them                                                                       |
+| `core.backup.database-binaries` | Backups are enabled but `mysqldump`/`pg_dump` cannot be found for the active connection                                                                                                                        |
+| `core.cache.shared-store`       | The cache store is `file`, `array`, or `null` — fine on one server, unsafe behind a load balancer                                                                                                              |
 | `core.hosting.platform`         | Reports the detected platform and release-root mode; warns on a `mutable` release root on Laravel Cloud, `QUEUE_CONNECTION=sync` in production, or no scheduler heartbeat in the last 15 minutes in production |
 
 `core.cache.shared-store` is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes). `core.hosting.platform` is also a warning, because each hazard stops background work rather than page rendering. See [Deploy on Laravel Cloud](../operations/deploy-on-laravel-cloud.md).

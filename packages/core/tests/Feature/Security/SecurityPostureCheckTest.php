@@ -60,3 +60,23 @@ it('warns when the latest completed scan failed after a successful scan', functi
         ->and($result->evidence['high'])->toBe(1)
         ->and($result->message)->toContain($time);
 });
+
+it('keeps a never-scanned local install as a note, so a fresh install is not warned', function (): void {
+    app()->detectEnvironment(static fn (): string => 'local');
+
+    $result = (new SecurityPostureCheck)->check();
+
+    expect($result->passed)->toBeTrue()
+        ->and($result->severity)->toBe(DoctorCheckSeverity::Info)
+        ->and($result->evidence['never_scanned'])->toBeTrue()
+        ->and($result->evidence)->not->toHaveKey('warning_count')
+        ->and($result->message)->toContain('capell:security:scan');
+});
+
+it('still warns when a local install has a failed scan', function (): void {
+    app()->detectEnvironment(static fn (): string => 'local');
+    $time = now()->subMinute()->format('Y-m-d H:i:s');
+    SecurityScanRun::query()->create(['id' => (string) Str::ulid(), 'started_at' => $time, 'finished_at' => $time, 'findings_count' => null, 'source' => 'test']);
+
+    expect((new SecurityPostureCheck)->check()->severity)->toBe(DoctorCheckSeverity::Warning);
+});
