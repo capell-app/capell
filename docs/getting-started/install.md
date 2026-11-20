@@ -240,20 +240,28 @@ php artisan capell:install \
 
 ### 4. Read the result correctly
 
-A successful install ends in this order:
+A successful install ends with this summary; the package list, URLs and warning count are yours:
 
 ```text
-Capell Install Health Summary
-All checks passed.
-✓ Installation complete!
-Capell Install Handoff
+Installation complete
+
+ Installed capell-app/admin, capell-app/block-library, ...
+ Site http://localhost:8000/
+ Admin http://localhost:8000/admin
+ Checks Migrations completed, setup completed, doctor passed
+ Warnings 16. List them with php artisan capell:doctor --warnings
+
+Next steps
+ 1. Sign in http://localhost:8000/admin as owner@example.test
 ```
+
+`doctor passed` means no health check failed. The `Warnings` line appears only when a check reported one, and a fresh install can still list a few. A warning does not stop the install or make the site unusable. Run `php artisan capell:doctor --warnings` to read each one and its `Fix:` line. A never-scanned security posture shows as a note, not a warning, in a `local` environment.
 
 The extension selector uses the current marketplace catalogue, including package names, licence tiers and advertised versions. Selected packages that are absent from Composer are required before fresh-install data deletion, migrations or account creation. The Composer preflight and download use the same constraints; a published beta is requested explicitly for that package rather than lowering the application’s minimum stability. Custom catalogues remain configurable with `CAPELL_PLUGINS_SOURCE_URL`; changing the source invalidates the old catalogue cache.
 
 Required lifecycle, asset, permission, and health failures stop the command with a non-zero exit code. The installer prints a separate `Fix:` line for actionable failures and does not print the final success message.
 
-Rerunning `capell:install` is supported after correcting a failed step. Keep the Installer package present until the health summary is green.
+Rerunning `capell:install` is supported after correcting a failed step. Keep the Installer package present until the summary shows `doctor passed`.
 
 ### 5. Open Admin and the public page
 
@@ -408,7 +416,7 @@ Use `php artisan capell:install --help` for the authoritative option list in the
 
 The install shows a progress bar across its steps. In CI, pipes and `--no-interaction` runs it prints one plain line per step instead, with no terminal control codes. The run ends with a summary of 60 lines or fewer: what was installed, the site and Admin addresses, any warnings and the next steps. If a step fails, the output names that step and prints the command that resumes the install. Add `-v` for the detailed install log and the full handoff.
 
-A successful run also prints a `Capell Install Handoff` with the selected packages, verified outcomes, safe Admin/public URLs, first-page state, warnings, a short **What next** list and one next action. The list is shaped by the install: where to sign in and with which account (never the password), how to edit or create the first page, which theme is active, and which installed content packages still need their first record. Until frontend assets are built, it shows the build command instead. For release automation, pass `--handoff-json=storage/app/capell-install-handoff.json`; the JSON uses the same versioned, redacted contract and does not connect a Capell account or submit a telemetry identity.
+A successful run also prints an install handoff (**Installation complete**) with the selected packages, verified outcomes, safe Admin/public URLs, first-page state, warnings, a short **What next** list and one next action. The list is shaped by the install: where to sign in and with which account (never the password), how to edit or create the first page, which theme is active, and which installed content packages still need their first record. Until frontend assets are built, it shows the build command instead. For release automation, pass `--handoff-json=storage/app/capell-install-handoff.json`; the JSON uses the same versioned, redacted contract and does not connect a Capell account or submit a telemetry identity.
 
 ## Themes and frontend assets
 
