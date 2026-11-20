@@ -161,6 +161,28 @@ it('rejects an autoload file resolving outside the checkout', function (): void 
     }
 });
 
+it('rejects an installed Composer package whose directory was not copied', function (): void {
+    $root = vendorIntegrityFixture();
+
+    try {
+        $inventoryPath = $root . '/vendor/composer/installed.json';
+        $inventory = json_decode((string) file_get_contents($inventoryPath), true, flags: JSON_THROW_ON_ERROR);
+        $inventory['packages'][] = [
+            'name' => 'symfony/console',
+            'type' => 'library',
+            'install-path' => '../symfony/console',
+        ];
+        file_put_contents($inventoryPath, json_encode($inventory, JSON_THROW_ON_ERROR));
+
+        [$exitCode, $output] = runVendorIntegrityCheck($root);
+
+        expect($exitCode)->toBe(2)
+            ->and($output)->toContain('symfony/console has no installed directory in this checkout');
+    } finally {
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
 it('asks for composer install when vendor is missing', function (): void {
     $root = vendorIntegrityFixture();
 
@@ -221,6 +243,10 @@ function vendorIntegrityFixture(): string
     }
 
     file_put_contents($root . '/vendor/composer/autoload_real.php', '<?php');
+    file_put_contents($root . '/vendor/composer/installed.json', json_encode(['packages' => [
+        ['name' => 'orchestra/testbench-core', 'type' => 'library', 'install-path' => '../orchestra/testbench-core'],
+        ['name' => 'capell/virtual-package', 'type' => 'metapackage', 'install-path' => null],
+    ]], JSON_THROW_ON_ERROR));
     mkdir($root . '/vendor/orchestra/testbench-core/laravel', 0777, true);
     symlink($root . '/vendor', $root . '/vendor/orchestra/testbench-core/laravel/vendor');
 
