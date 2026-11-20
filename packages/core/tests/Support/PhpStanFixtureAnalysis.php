@@ -64,6 +64,12 @@ final readonly class PhpStanFixtureAnalysis
             throw new RuntimeException('PHPStan printed JSON that is not an object: ' . self::excerpt($process->getOutput()));
         }
 
+        // Bootstrap/configuration failures can be wrapped as raw CLI output,
+        // without an analysis report. They must never look like zero findings.
+        if ($process->getExitCode() !== 0 && isset($result['raw'])) {
+            throw new RuntimeException('PHPStan could not analyse the fixture (exit ' . $process->getExitCode() . "):\n" . self::excerpt($process->getOutput() . $process->getErrorOutput()));
+        }
+
         /** @var array<string, mixed> $result */
         return new self((int) $process->getExitCode(), $result, $process->getOutput(), $process->getErrorOutput());
     }

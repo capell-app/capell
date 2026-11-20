@@ -24,7 +24,7 @@ The Render Hook system lets you inject custom content into asset and result comp
 In your package's service provider:
 
 ```php
-use Capell\Frontend\Data\RenderHookContext;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 
@@ -127,7 +127,9 @@ Hooks are available in:
 
 ## Contract
 
-- Implement `RenderHookExtensionInterface` for reusable, testable extensions.
+- Implement `Capell\Core\Contracts\Rendering\RenderHookExtensionInterface` for reusable, testable extensions. It receives `Capell\Core\Data\Rendering\RenderHookContext`, so a runtime package can implement the hook without depending on Frontend.
+- Register the hook from a frontend provider through `FrontendHookRegistrar` or `RenderHookRegistry`. Frontend owns placement, cache safety and rendering.
+- The previous `Capell\Frontend\Contracts\RenderHookExtensionInterface` and `Capell\Frontend\Data\RenderHookContext` names remain aliases for existing integrations.
 
 ---
 
