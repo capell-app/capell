@@ -24,6 +24,7 @@ use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Tests\Support\DiscoveredFreeInstallFixtureProvider;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
 use Capell\Core\Tests\Support\ProtectedReleaseBootstrapFixtureProvider;
+use Composer\Autoload\ClassLoader;
 use Composer\InstalledVersions;
 use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
@@ -217,6 +218,101 @@ it('keeps Composer discovery independent of licence proof and gates Capell provi
     'foundation name with positive paid catalogue evidence' => ['capell-app/core', 'catalogue paid', true],
     'foundation name with invalid proof' => ['capell-app/core', 'forged', true],
 ])->with(['pinned issuer' => true, 'empty key set' => false]);
+
+it('loads an offline free release only when its signed source or distribution content matches', function (string $installation, bool $loads): void {
+    $name = 'capell-app/free-fixture';
+    $path = $this->packageClassRoot . '/vendor/' . $name;
+    $provider = 'CapellLicenceProvider' . bin2hex(random_bytes(8));
+    $manifest = capellManifestV3Array(name: $name, providers: ['metadata' => [$provider]]);
+    $manifest['installPath'] = $path;
+    writePackageClassFixture($this->packageClassRoot, $name, HashServiceProvider::class, $manifest, 'absent');
+    $files = new Filesystem;
+    $files->put($path . '/Provider.php', '<?php class ' . $provider . ' extends \\Illuminate\\Support\\ServiceProvider {}');
+    $files->put($path . '/runtime.php', '<?php return true;');
+
+    $distribution = [
+        'Provider.php' => $files->get($path . '/Provider.php'),
+        'capell.json' => $files->get($path . '/capell.json'),
+        'composer.json' => $files->get($path . '/composer.json'),
+        'runtime.php' => $files->get($path . '/runtime.php'),
+    ];
+    $source = [...$distribution, 'test.php' => '<?php return true;'];
+    $treeDigest = static function (array $contents): string {
+        $input = "capell-release-content-v2\0";
+        foreach ($contents as $filename => $bytes) {
+            $input .= pack('N', strlen($filename)) . $filename . hash('sha256', $bytes, true);
+        }
+
+        return hash('sha256', $input);
+    };
+    $proof = signPackageClassPayload([
+        'manifest_version' => 2,
+        'purpose' => 'capell-extension-licence-manifest',
+        'composer_name' => $name,
+        'is_paid' => false,
+        'version' => $installation === 'wrong version' ? '1.1.0.0' : '1.0.0.0',
+        'source_tree_sha256' => $treeDigest($source),
+        'dist_tree_sha256' => $treeDigest($distribution),
+        'issued_at' => now()->subDay()->toIso8601String(),
+    ]);
+    file_put_contents($path . '/capell-licence.json', json_encode($proof, JSON_THROW_ON_ERROR));
+
+    match ($installation) {
+        'source' => file_put_contents($path . '/test.php', $source['test.php']),
+        'changed' => file_put_contents($path . '/runtime.php', '<?php return false;'),
+        'metadata' => file_put_contents($path . '/composer.json', $distribution['composer.json'] . "\n"),
+        'added' => file_put_contents($path . '/extra.php', '<?php return true;'),
+        'removed' => unlink($path . '/runtime.php'),
+        'symlink' => symlink($path . '/composer.json', $path . '/another.json'),
+        default => null,
+    };
+
+    $providerFile = $path . '/Provider.php';
+    if ($installation === 'redirected provider') {
+        $providerFile = $this->packageClassRoot . '/unsigned-provider.php';
+        $files->put($providerFile, $distribution['Provider.php']);
+    }
+
+    $loader = new ClassLoader($installation === 'vendorless provider' ? null : $this->packageClassRoot . '/vendor');
+    $loader->addClassMap([$provider => $providerFile]);
+    $loader->register(prepend: true);
+
+    $additionalLoader = new ClassLoader;
+    if ($installation === 'prepended provider' || $installation === 'git metadata provider') {
+        $unsignedProvider = $installation === 'prepended provider'
+            ? $this->packageClassRoot . '/unsigned-provider.php'
+            : $path . '/.git/Provider.php';
+        $files->ensureDirectoryExists(dirname($unsignedProvider));
+        $files->put($unsignedProvider, $distribution['Provider.php']);
+        $additionalLoader->addClassMap([$provider => $unsignedProvider]);
+        $additionalLoader->register(prepend: true);
+    }
+
+    try {
+        withFreshPackageClassApplication($this->packageClassRoot, true, function (Application $fresh) use ($provider, $loads): void {
+            loadPackageClassProviders($fresh);
+            expect($fresh->providerIsLoaded($provider))->toBe($loads);
+        });
+    } finally {
+        $additionalLoader->unregister();
+        $loader->unregister();
+    }
+
+    Http::assertNothingSent();
+})->with([
+    'exported distribution' => ['dist', true],
+    'source checkout' => ['source', true],
+    'provider resolved by a vendor-less Composer loader' => ['vendorless provider', true],
+    'modified member' => ['changed', false],
+    'modified Composer metadata' => ['metadata', false],
+    'added member' => ['added', false],
+    'removed member' => ['removed', false],
+    'symlink member' => ['symlink', false],
+    'provider redirected outside the signed tree' => ['redirected provider', false],
+    'provider redirected by a prepended vendor-less loader' => ['prepended provider', false],
+    'provider redirected to excluded Git metadata' => ['git metadata provider', false],
+    'another release' => ['wrong version', false],
+]);
 
 it('registers a protected release only through the gated manifest after pinning the issuer', function (
     string $state,

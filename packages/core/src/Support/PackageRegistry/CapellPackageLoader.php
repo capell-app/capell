@@ -15,12 +15,16 @@ use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
+use Capell\Core\Support\Marketplace\PackageLicenceContentDigest;
+use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\TableName;
+use Composer\Autoload\ClassLoader;
 use Illuminate\Contracts\Foundation\Application;
+use ReflectionClass;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
 
@@ -195,16 +199,21 @@ final class CapellPackageLoader
     {
         // Once issuer enforcement is on, an unauthorised commercial package loads no provider in
         // any bucket, metadata included: its code does not run at all.
-        if (resolve(ExtensionCommercialPolicy::class)->enforcing()
-            && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
-            return [];
+        $policy = resolve(ExtensionCommercialPolicy::class);
+        $contentRoot = null;
+        if ($policy->enforcing()) {
+            if (! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
+                return [];
+            }
+
+            $contentRoot = resolve(SignedPackageLicenceManifest::class)->verifiedContentRoot($manifest->name);
         }
 
         // The boot cache can name provider classes the vendor metadata does not. A paid provider
         // there loads only when the package is itself classified commercial and passed the gate
         // above; under any other name it is refused.
-        if (resolve(ExtensionCommercialPolicy::class)->classesArePaid($manifest->providers->all())
-            && ! resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation($manifest->name)) {
+        if ($policy->classesArePaid($manifest->providers->all())
+            && ! $policy->requiresAuthorisation($manifest->name)) {
             return [];
         }
 
@@ -213,14 +222,73 @@ final class CapellPackageLoader
             ? [...$manifest->providers->metadata, ...$manifest->providers->install]
             : $manifest->providers->metadata;
 
-        if (! ($runtimeProvidersSelected ?? $this->shouldLoadRuntimeProviders($manifest))) {
-            return array_values(array_unique($providers));
+        if ($runtimeProvidersSelected ?? $this->shouldLoadRuntimeProviders($manifest)) {
+            $providers = array_merge($providers, $this->runtimeRoleProviderPolicy->extensionProviders($manifest->providers, $runtimeRole));
         }
 
-        return array_values(array_unique(array_merge(
-            $providers,
-            $this->runtimeRoleProviderPolicy->extensionProviders($manifest->providers, $runtimeRole),
-        )));
+        $providers = array_values(array_unique($providers));
+
+        return $contentRoot === null || $this->providersBelongToVerifiedContent($manifest, $providers, $contentRoot)
+            ? $providers
+            : [];
+    }
+
+    /** @param list<string> $providers */
+    private function providersBelongToVerifiedContent(CapellManifestData $manifest, array $providers, string $root): bool
+    {
+        if ($manifest->installPath === null
+            || str_contains($manifest->installPath, "\0")
+            || realpath($manifest->installPath) !== $root) {
+            return false;
+        }
+
+        return array_all($providers, fn (string $provider): bool => $this->providerBelongsToVerifiedContent($provider, $root . DIRECTORY_SEPARATOR));
+    }
+
+    private function providerBelongsToVerifiedContent(string $provider, string $rootPrefix): bool
+    {
+        if (class_exists($provider, autoload: false)) {
+            $file = new ReflectionClass($provider)->getFileName();
+
+            return is_string($file) && $this->isVerifiedPackageFile($file, $rootPrefix);
+        }
+
+        $found = false;
+        // Capell also registers Composer loaders without a vendor directory, which
+        // Composer's registered-loaders list omits.
+        foreach (spl_autoload_functions() as $callback) {
+            $loader = is_array($callback) ? $callback[0] : null;
+            if (! $loader instanceof ClassLoader) {
+                continue;
+            }
+
+            $file = $loader->findFile($provider);
+            if ($file === false) {
+                continue;
+            }
+
+            if (! $this->isVerifiedPackageFile($file, $rootPrefix)) {
+                return false;
+            }
+
+            $found = true;
+        }
+
+        return $found;
+    }
+
+    private function isVerifiedPackageFile(string $file, string $rootPrefix): bool
+    {
+        $path = str_contains($file, "\0") ? false : realpath($file);
+        if ($path === false || ! is_file($path) || ! str_starts_with($path, $rootPrefix)) {
+            return false;
+        }
+
+        $relative = substr($path, strlen($rootPrefix));
+
+        return $relative !== PackageLicenceContentDigest::MARKER
+            && $relative !== PackageLicenceContentDigest::GIT_METADATA
+            && ! str_starts_with($relative, PackageLicenceContentDigest::GIT_METADATA . DIRECTORY_SEPARATOR);
     }
 
     private function shouldLoadRuntimeProviders(CapellManifestData $manifest): bool
