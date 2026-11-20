@@ -125,8 +125,45 @@ foreach (glob($realRoot . '/vendor/*', GLOB_ONLYDIR | GLOB_NOSORT) ?: [] as $ven
     }
 }
 
+// A partial copy can retain Composer's metadata and autoload files while losing
+// package directories. Check the installed inventory before trusting the tree.
+if ($failures === []) {
+    $inventoryPath = realpath($realRoot . '/vendor/composer/installed.json');
+    $contents = is_string($inventoryPath) && is_file($inventoryPath) && is_readable($inventoryPath)
+        && str_starts_with(normalisePath($inventoryPath), normalisePath($realRoot) . DIRECTORY_SEPARATOR)
+        ? file_get_contents($inventoryPath)
+        : false;
+    $inventory = is_string($contents) ? json_decode($contents, true) : null;
+    $packages = is_array($inventory) ? ($inventory['packages'] ?? null) : null;
+
+    if (! is_array($packages) || ! array_is_list($packages)) {
+        $failures[] = 'vendor/composer/installed.json is missing or invalid.';
+    } else {
+        foreach ($packages as $package) {
+            if (! is_array($package) || ! is_string($package['name'] ?? null)) {
+                $failures[] = 'vendor/composer/installed.json contains an invalid package entry.';
+
+                break;
+            }
+
+            $path = $package['install-path'] ?? null;
+            if (($package['type'] ?? null) === 'metapackage' && $path === null) {
+                continue;
+            }
+
+            $resolved = is_string($path) && $path !== '' && ! str_contains($path, "\0")
+                ? realpath($realRoot . '/vendor/composer/' . $path)
+                : false;
+            if (! is_string($resolved) || ! is_dir($resolved)
+                || ! str_starts_with(normalisePath($resolved), normalisePath($realRoot) . DIRECTORY_SEPARATOR)) {
+                $failures[] = sprintf('%s has no installed directory in this checkout.', $package['name']);
+            }
+        }
+    }
+}
+
 if ($failures !== []) {
-    fwrite(STDERR, "Refusing to run: vendor/ is not owned by this checkout.\n\n");
+    fwrite(STDERR, "Refusing to run: vendor/ is not owned by this checkout or is incomplete.\n\n");
 
     foreach ($failures as $failure) {
         fwrite(STDERR, sprintf('- %s%s', $failure, PHP_EOL));

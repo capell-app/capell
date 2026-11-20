@@ -418,7 +418,6 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->register(MediaLibraryServiceProvider::class);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::$name);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-core');
-        $this->app->make(PackageRegistryBootstrapper::class)->bootstrap();
 
         parent::registeringPackage();
     }
@@ -509,8 +508,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         ]);
     }
 
+    #[Override]
     public function packageRegistered(): void
     {
+        // Protected providers need the merged Marketplace instance configuration at first registration.
+        $this->app->make(PackageRegistryBootstrapper::class)->bootstrap();
+
         $this
             ->registerPublicationTransitions()
             ->registerMailMarkdownComponents()
