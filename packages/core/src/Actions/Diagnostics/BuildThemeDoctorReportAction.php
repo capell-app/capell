@@ -187,14 +187,26 @@ final class BuildThemeDoctorReportAction
         try {
             $manifest = $this->manifestLoader->load(rtrim($themePath, DIRECTORY_SEPARATOR) . '/capell.json');
 
-            if (resolve(ExtensionCommercialPolicy::class)->enforcing()
-                && ! resolve(ExtensionLifecycleRepository::class)->commerciallyAuthorised($manifest->name, CapellCore::getPackages(withoutCore: false))) {
-                return new DoctorCheckResultData(
-                    label: 'Theme runtime registry',
-                    passed: false,
-                    message: (string) __('capell-core::health.doctor.theme_providers_gated', ['theme' => $theme]),
-                    remediation: (string) __('capell-core::health.doctor.theme_providers_gated_remediation'),
-                );
+            $policy = resolve(ExtensionCommercialPolicy::class);
+            if ($policy->enforcing()) {
+                $name = $manifest->name;
+                $packages = CapellCore::getPackages(withoutCore: false);
+                $lifecycle = resolve(ExtensionLifecycleRepository::class);
+                $unregistered = ! CapellCore::hasPackage($name)
+                    && $policy->requiresAuthorisation($name, $lifecycle->record($name, $packages));
+
+                if ($unregistered || ! $lifecycle->commerciallyAuthorised($name, $packages)) {
+                    return new DoctorCheckResultData(
+                        label: 'Theme runtime registry',
+                        passed: false,
+                        message: $unregistered
+                            ? (string) __('capell-core::health.doctor.theme_providers_unregistered', ['theme' => $theme])
+                            : (string) __('capell-core::health.doctor.theme_providers_gated', ['theme' => $theme]),
+                        remediation: $unregistered
+                            ? (string) __('capell-core::health.doctor.theme_providers_unregistered_remediation')
+                            : (string) __('capell-core::health.doctor.theme_providers_gated_remediation'),
+                    );
+                }
             }
 
             foreach ($manifest->providers->runtime as $provider) {

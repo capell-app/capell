@@ -43,6 +43,8 @@ return [
         'theme_failed' => 'One or more theme checks failed. See suggestions above.',
         'theme_providers_gated' => 'Theme [:theme] providers are gated by the licence check.',
         'theme_providers_gated_remediation' => 'Activate the licence for this theme, then run Theme Doctor again.',
+        'theme_providers_unregistered' => 'Theme [:theme] is not registered with Capell, so its licence cannot load the theme providers.',
+        'theme_providers_unregistered_remediation' => 'Install the package through Capell, then run Theme Doctor again.',
     ],
     'cache' => [
         'enabled' => [

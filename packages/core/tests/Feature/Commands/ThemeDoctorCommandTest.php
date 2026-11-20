@@ -48,7 +48,7 @@ it('passes for a scaffolded theme package', function (): void {
         ->assertExitCode(Command::SUCCESS);
 });
 
-it('checks a paid theme licence before bootstrapping its runtime provider', function (bool $pinned, bool $hasReceipt, bool $allowed): void {
+it('checks the licence and Capell registration before bootstrapping a theme provider', function (bool $pinned, bool $hasReceipt, bool $allowed, bool $paid = true): void {
     $name = 'app/licensed-theme';
     $themeDirectory = $this->workspace->root . '/licensed-theme';
     $provider = 'App\\LicensedTheme\\ThemeProvider';
@@ -123,7 +123,7 @@ it('checks a paid theme licence before bootstrapping its runtime provider', func
     }
 
     CapellExtension::query()->create([
-        'composer_name' => $name, 'status' => ExtensionStatusEnum::Enabled, 'is_paid_marketplace_extension' => true,
+        'composer_name' => $name, 'status' => ExtensionStatusEnum::Enabled, 'is_paid_marketplace_extension' => $paid,
         'marketplace_runtime_status' => 'active', 'marketplace_runtime_allowed' => true,
         'marketplace_signed_activation' => $activation,
     ]);
@@ -134,17 +134,18 @@ it('checks a paid theme licence before bootstrapping its runtime provider', func
 
     $exit = Artisan::call('capell:theme:doctor', ['theme' => 'licensed', '--path' => $themeDirectory]);
 
-    expect(app()->providerIsLoaded($provider))->toBe($allowed)
-        ->and(resolve(ThemeRegistry::class)->has('licensed'))->toBe($allowed)
-        ->and($exit)->toBe($allowed ? Command::SUCCESS : Command::FAILURE);
+    expect($exit)->toBe($allowed ? Command::SUCCESS : Command::FAILURE)
+        ->and(app()->providerIsLoaded($provider))->toBe($allowed)
+        ->and(resolve(ThemeRegistry::class)->has('licensed'))->toBe($allowed);
 
     if (! $allowed) {
-        expect(Artisan::output())->toContain('providers are gated by the licence check', 'Activate the licence');
+        expect(Artisan::output())->toContain('is not registered with Capell', 'Install the package through Capell');
     }
 })->with([
     'pinned issuer without a receipt' => [true, false, false],
-    'pinned issuer with a valid receipt' => [true, true, true],
+    'pinned issuer with a valid receipt' => [true, true, false],
     'empty issuer keys without a receipt' => [false, false, true],
+    'pinned issuer with a free theme' => [true, false, true, false],
 ]);
 
 it('fails when theme Blade uses root-relative asset urls', function (): void {

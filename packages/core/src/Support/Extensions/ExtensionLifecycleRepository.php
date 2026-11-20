@@ -320,8 +320,12 @@ final class ExtensionLifecycleRepository
         }
     }
 
-    /** @param Collection<string, PackageData> $packages */
-    private function record(string $name, Collection $packages): ?CapellExtension
+    /**
+     * @internal Read the lifecycle record used by the runtime gate.
+     *
+     * @param  Collection<string, PackageData>  $packages
+     */
+    public function record(string $name, Collection $packages): ?CapellExtension
     {
         if (array_key_exists($name, $this->recordCache)) {
             return $this->recordCache[$name];
