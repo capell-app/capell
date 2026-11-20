@@ -7,6 +7,10 @@ the `Update Changelog` workflow.
 
 ## Unreleased
 
+### Fixed
+
+- A fallback-language path no longer moves permanently to the translated URL when the requested language's domain is disabled; it answers not found, as it already did when the language had no domain. The one-hour lifetime of that redirect is now documented in the page cache architecture notes.
+
 ### Added
 
 - Reorganised the admin sidebar into fixed groups (Dashboard, then Website, Media, Design, Marketing, Business, Reports, Users, Settings and Developer). Packages choose a group from `NavigationGroupEnum` instead of registering their own, can replace a core item with `CapellAdmin::replaceNavigationItem()`, and list their settings pages on the Settings page instead of the sidebar. Limits of 8 groups and 10 items per group are enforced by tests, and Recently deleted moves to the sidebar footer. Old group keys and labels are no longer mapped: an item that returns one appears under Settings.

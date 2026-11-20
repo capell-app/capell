@@ -246,3 +246,7 @@ When `optionalLanguage: true`, the ID query uses `LanguagesOrderScope` instead o
 ### `useCache: false`
 
 Passing `useCache: false` in `PageListingRequestData` bypasses both `PageListingCache` and `PageModelCache`. The ID query runs directly and models are loaded from the database. This is intended for admin previews and situations where stale data must not be shown.
+
+## Translated-slug redirect lifetime
+
+A fallback-language path whose page has since gained a translation in the requested language answers `301` to the translated URL. That redirect is derived from translation state, not from a stored redirect row, so Capell sends `Cache-Control: public, max-age=3600` with it and never `immutable`. Nothing purges it: if an editor removes or disables the translation, browsers and shared caches can keep sending visitors to the translated URL for up to one hour, and no cache key exists to purge. The route then answers the fallback page again. The translated URL itself is only used when the requested language has an enabled domain.
