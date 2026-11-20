@@ -18,6 +18,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Cache\PublicReadRequestMemo;
 use Capell\Frontend\Actions\ListPagesAction;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Data\PageListingRequestData;
@@ -243,37 +244,11 @@ class PageLoader
             return null;
         }
 
-        /** @var QueryBuilder<Page> $builder */
-        $builder = $page->ancestors()->getQuery();
-
-        // Breadcrumbs need the served translation, URL and blueprint, rather than
-        // the layouts, images and parents held in the full page-model cache.
-        $ancestorQuery = $builder
-            ->with(['translations', 'pageUrls', 'blueprint'])
-            ->whereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
-            ->where('site_id', $site->id)
-            ->publishedDate()
-            ->orderBy('_lft', 'asc');
-
-        ConstrainToServedTranslationAction::run(
-            $ancestorQuery,
-            $language,
-            fn (BuilderContract $urlQuery, array $urlLanguageIds): BuilderContract => $urlQuery
-                ->whereNull('type')
-                ->enabled()
-                ->whereIn('language_id', $urlLanguageIds),
+        // Theme, breadcrumb, SEO and blog contributors each ask for this trail in one render.
+        return resolve(PublicReadRequestMemo::class)->remember(
+            sprintf('page-ancestors:%s:%s:%d:%d', $page->getMorphClass(), (string) $page->getKey(), $language->id, $site->id),
+            static fn (): ?Collection => self::loadPageAncestors($page, $language, $site),
         );
-
-        /** @var Collection<int, Page> $pages */
-        $pages = resolve(PageModelCache::class)->prepareAncestors($ancestorQuery->get(), $site, $language);
-
-        if ($pages->isEmpty()) {
-            return null;
-        }
-
-        $pages->each(fn (Pageable $page) => self::setPageRelations($page, $site, $language));
-
-        return $pages;
     }
 
     /**
@@ -444,6 +419,46 @@ class PageLoader
         self::trackModelOrCollection($page);
 
         return $page;
+    }
+
+    /**
+     * @param  Pageable<Model>  $page
+     * @return Collection<int, Page>|null
+     */
+    private static function loadPageAncestors(Pageable $page, Language $language, Site $site): ?Collection
+    {
+
+        /** @var QueryBuilder<Page> $builder */
+        $builder = $page->ancestors()->getQuery();
+
+        // Breadcrumbs need the served translation, URL and blueprint, rather than
+        // the layouts, images and parents held in the full page-model cache.
+        $ancestorQuery = $builder
+            ->with(['translations', 'pageUrls', 'blueprint'])
+            ->whereHas('blueprint', fn (BuilderContract $query): BuilderContract => $query->enabled()->accessible())
+            ->where('site_id', $site->id)
+            ->publishedDate()
+            ->orderBy('_lft', 'asc');
+
+        ConstrainToServedTranslationAction::run(
+            $ancestorQuery,
+            $language,
+            fn (BuilderContract $urlQuery, array $urlLanguageIds): BuilderContract => $urlQuery
+                ->whereNull('type')
+                ->enabled()
+                ->whereIn('language_id', $urlLanguageIds),
+        );
+
+        /** @var Collection<int, Page> $pages */
+        $pages = resolve(PageModelCache::class)->prepareAncestors($ancestorQuery->get(), $site, $language);
+
+        if ($pages->isEmpty()) {
+            return null;
+        }
+
+        $pages->each(fn (Pageable $page) => self::setPageRelations($page, $site, $language));
+
+        return $pages;
     }
 
     /**
