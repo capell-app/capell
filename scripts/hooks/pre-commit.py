@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -44,8 +45,59 @@ def known_hook_config(snapshot):
             and hook_implementation_hash(snapshot) == KNOWN_HOOK_IMPLEMENTATION_SHA256)
 
 
-def run(command, *, cwd, env=None, input_bytes=None):
-    result = subprocess.run(command, cwd=cwd, env=env, input=input_bytes, capture_output=True, check=False)
+RUN_TIMEOUT_SECONDS = 600
+
+
+def capture(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
+    """Run a command to completion and return a CompletedProcess with bytes output.
+
+    Nothing here can block for ever: input, stdout and stderr are unlinked temp files, never pipes
+    (`git check-attr --stdin` answers while it reads, so piped stdin plus piped stdout deadlocks on
+    macOS, and a detached helper that inherits a pipe keeps a reader waiting). The command runs in its
+    own process group; a timeout, Ctrl-C or any other exception kills the whole group.
+    """
+    try:
+        stdout, stderr = tempfile.TemporaryFile(), tempfile.TemporaryFile()
+    except OSError as error:
+        raise HookFailure(f'Temporary storage is unavailable for {command[0]}: {error}')
+    stdin = None
+    process = None
+    # Block the interrupt signals while the child is spawned, so a Ctrl-C cannot land between Popen
+    # returning and `process` being assigned; it is delivered once the group is known and cleaned up.
+    blocked = {signal.SIGINT, signal.SIGTERM}
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, blocked)
+    try:
+        try:
+            if input_bytes is not None:
+                stdin = tempfile.TemporaryFile()
+                stdin.write(input_bytes)
+                stdin.seek(0)
+            process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stdin if stdin is not None else subprocess.DEVNULL,
+                                       stdout=stdout, stderr=stderr, start_new_session=True,
+                                       preexec_fn=lambda: signal.pthread_sigmask(signal.SIG_SETMASK, previous))
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise HookFailure(f"{' '.join(command[:3])} did not finish within {timeout} seconds.")
+        stdout.seek(0)
+        stderr.seek(0)
+        return subprocess.CompletedProcess(command, process.returncode, stdout.read(), stderr.read())
+    finally:
+        if process is not None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            process.wait()
+        for handle in (stdin, stdout, stderr):
+            if handle is not None:
+                handle.close()
+
+
+def run(command, *, cwd, env=None, input_bytes=None, timeout=RUN_TIMEOUT_SECONDS):
+    result = capture(command, cwd=cwd, env=env, input_bytes=input_bytes, timeout=timeout)
     if result.returncode:
         raise HookFailure(f"{' '.join(command[:3])} failed: {result.stderr.decode(errors='replace').strip()}")
     return result.stdout
@@ -217,7 +269,7 @@ def validate_dependencies(root, snapshot, env):
                 if not original.is_file() or original.read_bytes() != (resolved / 'composer.json').read_bytes():
                     raise HookFailure(f'Composer path dependency {name} differs from the snapshot.')
         composer = shutil.which('composer', path=env.get('PATH'))
-        if composer is None or subprocess.run([composer, 'validate', '--check-lock', '--no-check-all', '--no-check-publish', '--no-plugins', '--no-scripts', '--no-interaction'], cwd=snapshot, env=env, capture_output=True).returncode:
+        if composer is None or capture([composer, 'validate', '--check-lock', '--no-check-all', '--no-check-publish', '--no-plugins', '--no-scripts', '--no-interaction'], cwd=snapshot, env=env).returncode:
             raise HookFailure('Composer manifest and lock cannot be validated in the snapshot.')
     node_modules = snapshot / 'node_modules'
     if node_modules.is_dir():
@@ -238,7 +290,7 @@ def validate_dependencies(root, snapshot, env):
         npm_env = dict(env, npm_config_cache=str(snapshot / '.npm-cache'), npm_config_update_notifier='false')
         if npm is None:
             raise HookFailure('Installed npm dependency graph does not match the snapshot manifest.')
-        listing = subprocess.run([npm, 'ls', '--all', '--offline', '--json'], cwd=snapshot, env=npm_env, capture_output=True)
+        listing = capture([npm, 'ls', '--all', '--offline', '--json'], cwd=snapshot, env=npm_env)
         if listing.returncode:
             # The sanctioned sibling link dangles inside the snapshot, so npm reports only that package as unresolved.
             try:

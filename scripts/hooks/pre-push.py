@@ -39,7 +39,7 @@ def main():
         local, target, branch, previous = line.rsplit(maxsplit=3)
         if set(target) == {'0'}:
             continue
-        if set(previous) != {'0'} and subprocess.run(['git', 'cat-file', '-e', previous], cwd=root, capture_output=True).returncode == 0:
+        if set(previous) != {'0'} and safe.capture(['git', 'cat-file', '-e', previous], cwd=root).returncode == 0:
             start = previous
         else:
             ancestors = git(root, 'rev-list', target, '--topo-order', '--reverse', '--not', f'--remotes={remote}').decode().splitlines()
@@ -100,13 +100,13 @@ def main():
             safe.validate_dependencies(root, snapshot, env)
             # The guard resolves its analysis base and origin inside this private repository.
             source_env = dict(env, GIT_DIR=git_dir, GIT_WORK_TREE=str(root))
-            origin = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=snapshot, env=source_env, capture_output=True, text=True)
+            origin = safe.capture(['git', 'remote', 'get-url', 'origin'], cwd=snapshot, env=source_env)
             if origin.returncode == 0:
-                git(snapshot, 'config', '--local', 'remote.origin.url', origin.stdout.strip(), env=env)
+                git(snapshot, 'config', '--local', 'remote.origin.url', os.fsdecode(origin.stdout).strip(), env=env)
             base = os.environ.get('CAPELL_PRE_PUSH_ANALYSIS_BASE', 'origin/main')
-            resolved = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', base], cwd=root, capture_output=True, text=True)
+            resolved = safe.capture(['git', 'rev-parse', '--verify', '--quiet', base], cwd=root)
             if resolved.returncode == 0:
-                env['CAPELL_PRE_PUSH_ANALYSIS_BASE'] = resolved.stdout.strip()
+                env['CAPELL_PRE_PUSH_ANALYSIS_BASE'] = os.fsdecode(resolved.stdout).strip()
             # The existing analysis guard refuses dirty PHP in the real checkout.
             # Its copy inside the snapshot cannot see those edits, so enforce the
             # same boundary here as well as running the guard itself below.
@@ -117,13 +117,13 @@ def main():
             if (snapshot / 'scripts/guards/pre-push-analysis.sh').is_file():
                 if origin.returncode:
                     raise safe.HookFailure('Cannot resolve origin for the existing pre-push analysis guard.')
-                if normalise(url) == normalise(origin.stdout.strip()) and any(branch.startswith('refs/heads/') for _, _, branch, _ in snapshot_updates):
+                if normalise(url) == normalise(os.fsdecode(origin.stdout).strip()) and any(branch.startswith('refs/heads/') for _, _, branch, _ in snapshot_updates):
                     for _, target, branch, _ in snapshot_updates:
                         if branch.startswith('refs/heads/') and git(root, 'rev-parse', f'{target}^{{commit}}').decode().strip() != head:
                             raise safe.HookFailure('The pushed branch commit is not checked out; check it out before pushing.')
                     if resolved.returncode:
                         raise safe.HookFailure(f'Unknown pre-push analysis base {base}; fetch it or set CAPELL_PRE_PUSH_ANALYSIS_BASE.')
-                    changed = git(root, 'diff', '--name-only', '--diff-filter=ACMR', '-z', f'{resolved.stdout.strip()}...HEAD').split(b'\0')
+                    changed = git(root, 'diff', '--name-only', '--diff-filter=ACMR', '-z', f'{os.fsdecode(resolved.stdout).strip()}...HEAD').split(b'\0')
                     paths = [os.fsdecode(name) for name in changed if re.match(rb'^(?:packages|tests)/.+\.php$|^scripts/benchmark-boot.*\.php$', name) and (snapshot / os.fsdecode(name)).is_file()]
                     if paths and git(root, 'diff', '--name-only', '-z', 'HEAD', '--', *paths):
                         raise safe.HookFailure('Changed PHP files have uncommitted edits; commit or stash them before pushing.')

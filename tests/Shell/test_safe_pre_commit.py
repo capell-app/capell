@@ -6,7 +6,11 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import shutil
+import threading
+import types
+import signal
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -189,6 +193,29 @@ while not (p / 'continue').exists():
         self.assertTrue((self.events / 'legacy-stdin').exists(), result.stdout + result.stderr)
         self.assertEqual((self.events / 'legacy-stdin').read_text(), update)
         self.assertFalse((self.events / 'push-ready').exists())
+
+    def test_remote_url_in_another_encoding_does_not_crash_the_push_hook(self):
+        (self.root / 'scripts/guards').mkdir(parents=True)
+        shutil.copy2(SOURCE / 'scripts/guards/pre-push-analysis.sh', self.root / 'scripts/guards/pre-push-analysis.sh')
+        (self.root / 'packages').mkdir()
+        (self.root / 'packages/example.php').write_text('<?php // base\n')
+        self.git('add', '.')
+        self.git('commit', '-qm', 'guard baseline')
+        base = self.git('rev-parse', 'HEAD').stdout.strip()
+        (self.root / 'packages/example.php').write_text('<?php // committed\n')
+        self.git('add', 'packages/example.php')
+        self.git('commit', '-qm', 'changed PHP')
+        head = self.git('rev-parse', 'HEAD').stdout.strip()
+        remote = os.fsdecode(os.fsencode(str(Path(self.temp.name))) + b'/caf\xe9.git')
+        self.git('remote', 'add', 'origin', remote)
+        self.git('update-ref', 'refs/remotes/origin/main', base)
+        self.assertEqual(self.install().returncode, 0)
+        (self.root / 'packages/example.php').write_text('<?php // unsaved\n')
+        result = subprocess.run([str(self.root / '.git/hooks/pre-push'), 'origin', remote], cwd=self.root,
+                                input=f'refs/heads/main {head} refs/heads/main {base}\n'.encode(),
+                                capture_output=True, env=self.env)
+        self.assertNotIn(b'UnicodeDecodeError', result.stderr)
+        self.assertIn(b'uncommitted edits', result.stderr)
 
     def test_pre_push_refuses_symlink_outside_snapshot(self):
         (self.root / 'escape').symlink_to('/etc/passwd')
@@ -958,6 +985,133 @@ link.symlink_to(target, target_is_directory=True)
         self.assertEqual(self.git('show', 'HEAD:file.txt').stdout, 'selected\n')
         self.assertEqual(self.git('show', 'HEAD:other.txt').stdout, 'other base\n')
         self.assertEqual(self.git('show', ':other.txt').stdout, 'other staged\n')
+
+
+class SafeRunPipeDeadlockTest(unittest.TestCase):
+    """`git check-attr --stdin` answers while it reads; a piped stdin and stdout deadlocked the push hook."""
+
+    def test_run_finishes_with_many_names_piped_to_check_attr(self):
+        script = (
+            "import importlib.util, subprocess, sys, tempfile\n"
+            f"spec = importlib.util.spec_from_file_location('safe', {str(SOURCE / 'scripts/hooks/pre-commit.py')!r})\n"
+            "safe = importlib.util.module_from_spec(spec); spec.loader.exec_module(safe)\n"
+            "names = [b'packages/foo/src/File%d.php' % i for i in range(20000)]\n"
+            "with tempfile.TemporaryDirectory() as d:\n"
+            "    subprocess.run(['git', 'init', '-q', d], check=True)\n"
+            "    out = safe.run(['git', 'check-attr', '--cached', '-z', '--stdin', 'filter', 'text'], cwd=d, input_bytes=b'\\0'.join(names) + b'\\0')\n"
+            "    print(len(out.split(b'\\0')))\n"
+        )
+        # The timeout is a hang ceiling, not a speed assertion.
+        result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, env=BASE_ENV, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), str(20000 * 2 * 3 + 1))
+
+    def test_run_fails_loudly_when_the_command_hangs(self):
+        spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
+        safe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(safe)
+        with self.assertRaises(safe.HookFailure) as raised:
+            safe.run(['sleep', '30'], cwd=SOURCE, timeout=1)
+        self.assertIn('did not finish', str(raised.exception))
+
+    def test_timeout_kills_a_grandchild_that_outlives_the_parent(self):
+        spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
+        safe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(safe)
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'grandchild.pid'
+            with self.assertRaises(safe.HookFailure):
+                safe.run(['sh', '-c', f'sleep 60 & echo $! > {pidfile}; wait'], cwd=directory, timeout=5)
+            pid = int(pidfile.read_text())
+            for _ in range(50):
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                os.kill(pid, 9)
+                self.fail('The grandchild survived the timeout.')
+
+    def load_safe(self):
+        spec = importlib.util.spec_from_file_location('safe', SOURCE / 'scripts/hooks/pre-commit.py')
+        safe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(safe)
+        return safe
+
+    def assert_dead(self, pidfile):
+        pid = int(pidfile.read_text())
+        for _ in range(50):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.1)
+        os.kill(pid, 9)
+        self.fail('The grandchild survived.')
+
+    def test_detached_helper_holding_the_output_descriptors_does_not_block(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'helper.pid'
+            helper = ("import os, subprocess, sys; p = subprocess.Popen(['sleep', '60'], start_new_session=True); "
+                      f"open({str(pidfile)!r}, 'w').write(str(p.pid))")
+            started = time.monotonic()
+            try:
+                result = safe.run([sys.executable, '-c', helper], cwd=directory, timeout=30)
+                # The timeout is a hang ceiling; the helper keeps stdout and stderr open for 60 seconds.
+                self.assertLess(time.monotonic() - started, 30)
+                self.assertEqual(result, b'')
+            finally:
+                try:
+                    os.kill(int(pidfile.read_text()), 9)
+                except (FileNotFoundError, ValueError, ProcessLookupError):
+                    pass
+
+    def test_interrupt_kills_the_command_group(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'grandchild.pid'
+
+            def interrupt_when_ready():
+                until = time.monotonic() + 30
+                while not pidfile.exists() and time.monotonic() < until:
+                    time.sleep(0.02)
+                time.sleep(0.1)
+                os.kill(os.getpid(), signal.SIGINT)
+
+            threading.Thread(target=interrupt_when_ready, daemon=True).start()
+            with self.assertRaises(KeyboardInterrupt):
+                safe.run(['sh', '-c', f'sleep 60 & echo $! > {pidfile}; wait'], cwd=directory, timeout=60)
+            self.assert_dead(pidfile)
+
+    def test_interrupt_right_after_spawn_still_kills_the_command_group(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = Path(directory) / 'child.pid'
+            real_popen = subprocess.Popen
+
+            def popen_then_interrupt(*args, **kwargs):
+                process = real_popen(*args, **kwargs)
+                pidfile.write_text(str(process.pid))
+                os.kill(os.getpid(), signal.SIGINT)
+                return process
+
+            safe.subprocess = types.SimpleNamespace(**{**vars(subprocess), 'Popen': popen_then_interrupt})
+            with self.assertRaises(KeyboardInterrupt):
+                safe.run(['sleep', '60'], cwd=directory, timeout=60)
+            self.assert_dead(pidfile)
+
+    def test_unavailable_temp_storage_fails_loudly(self):
+        safe = self.load_safe()
+        with tempfile.TemporaryDirectory() as directory:
+            original = safe.tempfile.tempdir
+            safe.tempfile.tempdir = str(Path(directory) / 'missing')
+            try:
+                with self.assertRaises(safe.HookFailure):
+                    safe.run(['echo', 'ok'], cwd=directory)
+            finally:
+                safe.tempfile.tempdir = original
 
 
 if __name__ == '__main__':
