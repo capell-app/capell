@@ -10,6 +10,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
@@ -25,18 +26,25 @@ use Capell\Core\Tests\Support\DiscoveredFreeInstallFixtureProvider;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
 use Capell\Core\Tests\Support\ProtectedReleaseBootstrapFixtureProvider;
 use Composer\InstalledVersions;
+use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Foundation\ProviderRepository;
 use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Http;
+use Illuminate\View\ViewServiceProvider;
 
 const PACKAGE_CLASS_REFERENCE = 'fixture-release-reference';
 const PACKAGE_CLASS_INSTANCE = 'ddda8b4c-3850-4d20-9cf4-460c9364c413';
@@ -83,6 +91,18 @@ function signPackageClassPayload(array $fields): array
     ));
 
     return $fields;
+}
+
+/** @return array<string, mixed> */
+function packageClassReceipt(string $name): array
+{
+    return signPackageClassPayload([
+        'receipt_version' => 2, 'purpose' => 'capell-installed-receipt', 'receipt_id' => 'fixture-receipt',
+        'composer_name' => $name, 'package_version' => '1.0.0', 'package_identity' => 'fixture-paid-release',
+        'instance_id' => PACKAGE_CLASS_INSTANCE, 'domain' => 'package-class.test',
+        'issued_at' => now()->subDay()->toIso8601String(), 'runtime_valid_until' => now()->addDay()->toIso8601String(),
+        'perpetual_installed_runtime' => true, 'runtime_revoked' => false,
+    ]);
 }
 
 /**
@@ -235,13 +255,7 @@ it('registers a protected release only through the gated manifest after pinning 
         CapellExtension::query()->create([
             'composer_name' => $name, 'status' => ExtensionStatusEnum::Enabled,
             'marketplace_runtime_status' => 'active', 'marketplace_runtime_allowed' => true,
-            'marketplace_signed_activation' => $state !== 'active without receipt' ? ['installed_receipt_v2' => signPackageClassPayload([
-                'receipt_version' => 2, 'purpose' => 'capell-installed-receipt', 'receipt_id' => 'fixture-receipt',
-                'composer_name' => $name, 'package_version' => '1.0.0', 'package_identity' => 'fixture-paid-release',
-                'instance_id' => PACKAGE_CLASS_INSTANCE, 'domain' => 'package-class.test',
-                'issued_at' => now()->subDay()->toIso8601String(), 'runtime_valid_until' => now()->addDay()->toIso8601String(),
-                'perpetual_installed_runtime' => true, 'runtime_revoked' => false,
-            ])] : null,
+            'marketplace_signed_activation' => $state !== 'active without receipt' ? ['installed_receipt_v2' => packageClassReceipt($name)] : null,
         ]);
     }
 
@@ -268,6 +282,55 @@ it('registers a protected release only through the gated manifest after pinning 
     Http::assertNothingSent();
 })->with(['without lifecycle row', 'active without receipt', 'active with receipt', 'unregistered', 'renamed', 'renamed with receipt'])
     ->with(['pinned issuer' => true, 'empty key set' => false]);
+
+it('admits a receipted paid provider on the first registration using the Marketplace instance configuration', function (
+    ?array $appConfig,
+    bool $expectedProvider,
+): void {
+    $name = 'capell-app/paid-fixture';
+    $manifest = capellManifestV3Array(name: $name, surfaces: ['frontend'], providers: ['frontend' => [ManifestBootstrapFrontendProvider::class]]);
+    writePackageClassFixture($this->packageClassRoot, $name, ProtectedReleaseBootstrapFixtureProvider::class, $manifest, 'paid');
+
+    CapellExtension::query()->create([
+        'composer_name' => $name, 'status' => ExtensionStatusEnum::Enabled,
+        'marketplace_runtime_status' => 'active', 'marketplace_runtime_allowed' => true,
+        'marketplace_signed_activation' => ['installed_receipt_v2' => packageClassReceipt($name)],
+    ]);
+
+    $originalInstance = getenv('CAPELL_MARKETPLACE_INSTANCE_ID');
+    putenv('CAPELL_MARKETPLACE_INSTANCE_ID=' . PACKAGE_CLASS_INSTANCE);
+
+    try {
+        withFreshPackageClassApplication($this->packageClassRoot, true, function (Application $fresh, Application $original) use ($appConfig, $expectedProvider): void {
+            $config = new Repository(Arr::except($original->make(Illuminate\Contracts\Config\Repository::class)->all(), ['capell']));
+            if ($appConfig !== null) {
+                $config->set('capell', $appConfig);
+            }
+
+            $fresh->instance('config', $config);
+            $fresh->instance('events', new Dispatcher($fresh));
+
+            $database = $original->make(DatabaseManager::class);
+            $fresh->instance('db', $database);
+            $fresh->instance('db.schema', $database->connection()->getSchemaBuilder());
+            $fresh->singleton(HttpKernelContract::class, HttpKernel::class);
+            $fresh->register(FilesystemServiceProvider::class);
+            $fresh->register(ViewServiceProvider::class);
+
+            $fresh->register(CapellServiceProvider::class);
+
+            expect($fresh->bound('manifest-frontend-registered'))->toBe($expectedProvider);
+        });
+    } finally {
+        putenv($originalInstance === false ? 'CAPELL_MARKETPLACE_INSTANCE_ID' : 'CAPELL_MARKETPLACE_INSTANCE_ID=' . $originalInstance);
+    }
+
+    Http::assertNothingSent();
+})->with([
+    'unpublished Capell config' => [null, true],
+    'Capell config with an unrelated override' => [['schedule' => ['run_frequent_commands_in_process' => true]], true],
+    'an explicit different instance' => [['extensions' => ['marketplace_instance_id' => 'wrong-instance']], false],
+]);
 
 it('keeps authoring providers out of empty-key public discovery through a protected bootstrap', function (): void {
     $root = $this->packageClassRoot;
