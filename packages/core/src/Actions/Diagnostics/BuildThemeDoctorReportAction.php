@@ -7,8 +7,11 @@ namespace Capell\Core\Actions\Diagnostics;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Manifest\ManifestLoader;
+use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Illuminate\Support\Collection;
@@ -161,7 +164,10 @@ final class BuildThemeDoctorReportAction
         $registry = resolve(ThemeRegistry::class);
 
         if (! $registry->has($theme)) {
-            $this->bootstrapRuntimeProviders($themePath);
+            $gated = $this->bootstrapRuntimeProviders($theme, $themePath);
+            if ($gated instanceof DoctorCheckResultData) {
+                return $gated;
+            }
         }
 
         if (! $registry->has($theme)) {
@@ -176,10 +182,32 @@ final class BuildThemeDoctorReportAction
         return new DoctorCheckResultData('Theme runtime registry', true, 'Theme is registered at runtime.');
     }
 
-    private function bootstrapRuntimeProviders(string $themePath): void
+    private function bootstrapRuntimeProviders(string $theme, string $themePath): ?DoctorCheckResultData
     {
         try {
             $manifest = $this->manifestLoader->load(rtrim($themePath, DIRECTORY_SEPARATOR) . '/capell.json');
+
+            $policy = resolve(ExtensionCommercialPolicy::class);
+            if ($policy->enforcing()) {
+                $name = $manifest->name;
+                $packages = CapellCore::getPackages(withoutCore: false);
+                $lifecycle = resolve(ExtensionLifecycleRepository::class);
+                $unregistered = ! CapellCore::hasPackage($name)
+                    && $policy->requiresAuthorisation($name, $lifecycle->record($name, $packages));
+
+                if ($unregistered || ! $lifecycle->commerciallyAuthorised($name, $packages)) {
+                    return new DoctorCheckResultData(
+                        label: 'Theme runtime registry',
+                        passed: false,
+                        message: $unregistered
+                            ? (string) __('capell-core::health.doctor.theme_providers_unregistered', ['theme' => $theme])
+                            : (string) __('capell-core::health.doctor.theme_providers_gated', ['theme' => $theme]),
+                        remediation: $unregistered
+                            ? (string) __('capell-core::health.doctor.theme_providers_unregistered_remediation')
+                            : (string) __('capell-core::health.doctor.theme_providers_gated_remediation'),
+                    );
+                }
+            }
 
             foreach ($manifest->providers->runtime as $provider) {
                 if (class_exists($provider)) {
@@ -189,5 +217,7 @@ final class BuildThemeDoctorReportAction
         } catch (Throwable) {
             // Runtime provider bootstrapping is best-effort; the registry check reports the failed registration.
         }
+
+        return null;
     }
 }

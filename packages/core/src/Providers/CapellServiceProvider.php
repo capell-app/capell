@@ -220,6 +220,7 @@ use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
+use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
@@ -725,6 +726,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(ExtensionEntitlements::class, NullExtensionEntitlements::class);
         $this->app->singletonIf(CommercialCatalogueStore::class);
+        $this->app->singletonIf(SignedPackageLicenceManifest::class);
         $this->app->singletonIf(ExtensionCommercialPolicy::class);
         $this->app->bindIf(ResolvesHostAddresses::class, ProcessHostAddressResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);

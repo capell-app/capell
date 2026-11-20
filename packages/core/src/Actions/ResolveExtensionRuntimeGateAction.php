@@ -45,7 +45,11 @@ final class ResolveExtensionRuntimeGateAction
             return $this->legacyGate($extension, $status);
         }
 
-        if ($protected && $this->policy->isLocalDevelopment($extension->composer_name)) {
+        if ($this->policy->hasInvalidLicenceManifest($extension->composer_name)) {
+            return ExtensionRuntimeGateData::blocked('invalid_licence_manifest');
+        }
+
+        if ($protected && $this->policy->isLocalDevelopment($extension->composer_name, $extension)) {
             return ExtensionRuntimeGateData::allowed('explicit_local_development');
         }
 

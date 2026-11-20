@@ -58,6 +58,7 @@ use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
+use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
 use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
@@ -184,7 +185,8 @@ final class SingletonLifetimeInventory
             CapellCoreManager::class => self::tagged('Boot registrations persist while the manager selectively flushes only operation-derived default-page state.'),
             ComponentRegistry::class => self::tagged('Boot component registrations and namespaces persist while discovered components and the cache-presence memo are selectively flushed.'),
             CommercialCatalogueStore::class => self::delegated('The package registry runtime flush clears the memoised catalogue so a catalogue stored by another worker is re-read and re-verified.'),
-            ExtensionCommercialPolicy::class => self::delegated('Holds only the catalogue store and installed code identity, which the package registry runtime flush clears.'),
+            SignedPackageLicenceManifest::class => self::delegated('The package registry runtime flush clears the memoised package licence classifications.'),
+            ExtensionCommercialPolicy::class => self::delegated('The package registry runtime flush clears the catalogue, package licences and installed code identity.'),
             CapellCacheManager::class => self::delegated('The core manager flushes this per-operation in-memory cache and the namespace generation read with it, after each Octane operation and before each queued job.'),
             LockdownStore::class => self::tagged('Lockdown decisions are operation-derived and explicitly flushed.'),
             ExtensionQuarantineGate::class => self::tagged('The quarantined set is read once per boot cycle, forgotten on every quarantine write and flushed between operations.'),

@@ -16,6 +16,7 @@ use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\HostMonitor\SchedulerRunRecorder;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
 use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
+use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\ExtensionQuarantineGate;
@@ -265,6 +266,7 @@ it('runs two operations without leaking classified Capell state', function (): v
             LockdownStore::class,
             ExtensionQuarantineGate::class,
             CommercialCatalogueStore::class,
+            SignedPackageLicenceManifest::class,
             ExtensionCommercialPolicy::class,
             ThemeViewRegistrar::class,
             FrontendLocaleScope::class,

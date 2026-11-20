@@ -8,7 +8,6 @@ use Capell\Core\Actions\Marketplace\SendExtensionHealthReportAction;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Enums\ExtensionStatusEnum;
-use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
@@ -21,14 +20,12 @@ use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Capell\Core\Support\Marketplace\TrustedMarketplaceIssuerKeys;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
-use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Testing\Http\FakeHostAddressResolver;
 use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceExtensionEntitlements;
 use Illuminate\Container\Container;
-use Illuminate\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Facade;
@@ -167,20 +164,13 @@ it('rejects invalid receipt contexts before enabling a paid package', function (
     'forged signature' => [[], true],
 ]);
 
-it('requires an explicit package exemption and the local environment for development', function (string $environment, bool $exempt, bool $allowed): void {
-    app()->instance('env', $environment);
-    config()->set('capell.extensions.local_development', $exempt ? ['vendor/commercial'] : []);
-    if ($allowed) {
-        expect(Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toBe(0)
-            ->and($this->commercialCalls)->toBe(1)
-            ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue();
-    } else {
-        expect(fn () => Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toThrow(RuntimeException::class, 'authorisation');
-    }
-})->with([
-    'explicit local' => ['local', true, true], 'implicit local' => ['local', false, false],
-    'production ignores exemption' => ['production', true, false],
-]);
+it('does not let a local allowlist admit reserved provider code without signed free proof', function (): void {
+    app()->instance('env', 'local');
+    config()->set('capell.extensions.local_development', ['vendor/commercial']);
+    expect(fn () => Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))
+        ->toThrow(RuntimeException::class, 'authorisation');
+    expect($this->commercialCalls)->toBe(0);
+});
 
 it('does not override a persisted revocation even for explicit local development', function (): void {
     app()->instance('env', 'local');
@@ -223,11 +213,24 @@ it('does not trust an active flag without a verified receipt', function (): void
     expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse();
 });
 
-it('keeps third party packages the signed catalogue does not list installable', function (): void {
-    expect(resolve(CommercialCatalogueStore::class)->accept(commercialCatalogue(null)))->toBeTrue();
-    expect(Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toBe(0)
+it('installs an unsigned independent package when a paid catalogue has expired', function (): void {
+    $root = $this->commercialRoot;
+    $file = $root . '/vendor/composer/installed.json';
+    $metadata = json_decode(File::get($file), true, flags: JSON_THROW_ON_ERROR);
+    $metadata['packages'][0]['extra']['laravel']['providers'] = [FilesystemServiceProvider::class];
+    File::put($file, json_encode($metadata, JSON_THROW_ON_ERROR));
+    File::put($root . '/vendor/vendor/commercial/composer.json', json_encode($metadata['packages'][0], JSON_THROW_ON_ERROR));
+    $store = resolve(CommercialCatalogueStore::class);
+    expect($store->accept(commercialCatalogue(true)))->toBeTrue();
+    $this->travel(30)->days();
+    resolve(ExtensionCommercialPolicy::class)->clear();
+
+    Http::preventStrayRequests();
+    expect($store->current())->toBeNull()
+        ->and(Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toBe(0)
         ->and($this->commercialCalls)->toBe(1)
         ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue();
+    Http::assertNothingSent();
 });
 
 it('applies commercial authorisation to every provider bucket in a fresh application bootstrap', function (string $status, bool $receipt, bool $runtimeAllowed, bool $allowed, string $bucket): void {
@@ -237,7 +240,7 @@ it('applies commercial authorisation to every provider bucket in a fresh applica
 
     CapellExtension::query()->create([
         'composer_name' => 'vendor/commercial', 'status' => ExtensionStatusEnum::Enabled,
-        // Deliberately omit the paid flag: Composer classification is authoritative.
+        // Deliberately omit the paid flag: the reserved provider identity still needs authorisation.
         'marketplace_runtime_status' => $status, 'marketplace_runtime_allowed' => $runtimeAllowed,
         'marketplace_signed_activation' => $receipt ? ['installed_receipt' => commercialReceipt()] : null,
     ]);
@@ -317,7 +320,8 @@ it('does not allow forced installation state to authorise a commercial package w
         ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse();
 });
 
-it('fails closed without a signed catalogue whatever Composer and the database claim', function (): void {
+it('rejects reserved provider code when only Composer and a free catalogue entry claim it is free', function (): void {
+    expect(resolve(CommercialCatalogueStore::class)->accept(commercialCatalogue(false)))->toBeTrue();
     $file = $this->commercialRoot . '/vendor/composer/installed.json';
     $metadata = json_decode(File::get($file), true, flags: JSON_THROW_ON_ERROR);
     $metadata['packages'][0]['license'] = ['MIT'];
@@ -380,32 +384,6 @@ it('uses issuer classification rather than an edited Composer licence for recogn
     expect($this->commercialCalls)->toBe(0);
 })->with(['authoritative paid' => false, 'tampered classification fails closed' => true]);
 
-it('installs an issuer classified proprietary free package offline without an account or paid entitlement', function (): void {
-    expect(resolve(CommercialCatalogueStore::class)->accept(commercialCatalogue(false)))->toBeTrue();
-    Http::preventStrayRequests();
-    expect(Artisan::call('capell:extension-install', ['extension' => 'vendor/commercial', '--no-interaction' => true]))->toBe(0)
-        ->and($this->commercialCalls)->toBe(1)
-        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue();
-    Http::assertNothingSent();
-});
-
-it('defers commercial Laravel auto discovery to the gated Capell provider loader', function (bool $free): void {
-    if ($free) {
-        resolve(CommercialCatalogueStore::class)->accept(commercialCatalogue(false));
-    }
-
-    $root = $this->commercialRoot;
-    $manifest = new RuntimeRolePackageManifest(
-        new Filesystem,
-        $root,
-        $root . '/bootstrap/cache/runtime/packages.php',
-        $root . '/bootstrap/cache/packages.php',
-        RuntimeRole::Combined,
-        new RuntimeRoleProviderPolicy,
-    );
-    expect(in_array(ManifestBootstrapFrontendProvider::class, $manifest->providers(), true))->toBe($free);
-})->with(['commercial deferred' => false, 'genuinely free discovered' => true]);
-
 function commercialExtensionWith(?array $activation, string $status = 'active'): CapellExtension
 {
     return CapellExtension::query()->create([
@@ -447,7 +425,6 @@ it('stops honouring a catalogue once its signed validity window ends', function 
     expect($store->accept(commercialCatalogue(false)))->toBeTrue();
     $this->travel(30)->days();
     $store->clear();
-    // A restored older catalogue counts only inside its window; afterwards Core fails closed.
     expect($store->current())->toBeNull()
         ->and(resolve(ExtensionCommercialPolicy::class)->requiresAuthorisation('vendor/commercial'))->toBeTrue();
 });
@@ -487,6 +464,11 @@ it('renews receipts and the catalogue from the heartbeat and applies runtime rev
     expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue()
         ->and(resolve(CommercialCatalogueStore::class)->classification('vendor/commercial'))->toBeTrue();
 
+    $routeCache = app()->getCachedRoutesPath();
+    expect($routeCache)->toStartWith($this->commercialRoot . '/bootstrap/cache/');
+    File::put($routeCache, '<?php // Routes cached while the commercial extension was enabled.');
+    expect(is_file($routeCache))->toBeTrue();
+
     $alert = ['alert_id' => 'revoke-commercial', 'severity' => 'critical', 'category' => 'licence', 'title' => 'Revoked',
         'message' => 'Licence revoked.', 'composer_name' => 'vendor/commercial', 'runtime_disabled' => true,
         'protected_actions_blocked' => true, 'issued_at' => now()->toIso8601String(), 'expires_at' => now()->addDay()->toIso8601String()];
@@ -502,7 +484,8 @@ it('renews receipts and the catalogue from the heartbeat and applies runtime rev
     $extension = CapellExtension::query()->where('composer_name', 'vendor/commercial')->sole();
     expect($extension->marketplace_runtime_status)->toBe('revoked')
         ->and($extension->marketplace_runtime_allowed)->toBeFalse()
-        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse();
+        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse()
+        ->and(is_file($routeCache))->toBeFalse();
 
     $this->travel(2)->minutes();
     ApplyMarketplaceIssuanceAction::run(receipts: [commercialReceipt(['issued_at' => now()->toIso8601String()])], catalogue: null);
