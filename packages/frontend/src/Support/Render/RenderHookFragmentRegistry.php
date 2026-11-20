@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
-use Capell\Frontend\Data\RenderHookContext;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Frontend\Data\RenderHookEntryData;
 use Capell\Frontend\Data\RenderHookFragmentCacheData;
 use Capell\Frontend\Data\RenderHookFragmentReferenceData;

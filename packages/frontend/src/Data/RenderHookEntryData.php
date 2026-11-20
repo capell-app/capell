@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data;
 
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
 use Capell\Core\Support\Extensions\ExtensionPosition;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
 

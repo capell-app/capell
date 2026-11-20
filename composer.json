@@ -300,7 +300,9 @@
     "autoload": {
         "files": [
             "packages/core/src/Support/Activity/LogOptions.php",
-            "packages/core/src/Support/Activity/VendorLogsActivity.php"
+            "packages/core/src/Support/Activity/VendorLogsActivity.php",
+            "packages/frontend/src/Contracts/RenderHookExtensionInterface.php",
+            "packages/frontend/src/Data/RenderHookContext.php"
         ],
         "psr-4": {
             "Capell\\Admin\\": "packages/admin/src",

@@ -6,14 +6,14 @@ namespace Capell\Frontend\Support\Render;
 
 use BackedEnum;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
 use Capell\Core\Data\Extensions\ExtensionOrderDiagnosticData;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Exceptions\ExtensionContributionConflictException;
 use Capell\Core\Support\Extensions\ExtensionOrderResolver;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Data\RenderHookEntryData;
 use Capell\Frontend\Data\RenderHookFragmentReferenceData;

@@ -1,9 +1,6 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "Domain ownership protection adds one isolated, additive Core migration creating site_domain_claim_locks and seeding its singleton mutex row. Domain saves and individual/site-batch restores hold this database mutex through validation and persistence, including when no claim exists. Existing migrations, data shapes, public extension signatures, configuration keys and dependency admission remain unchanged. Deploy the migration before enabling domain writes or restores. Language fallback adds one additive, nullable Core column (languages.fallback_language_id, null on delete); existing languages keep today's behaviour with no fallback until one is configured. The guarded outbound HTTP client makes Core declare the packages it already loaded through Laravel's HTTP client: ext-curl, guzzlehttp/guzzle ^7.5|^8.0, guzzlehttp/promises ^2.0|^3.0 and psr/http-message ^1.1|^2.0. Every Capell install already has them through laravel/framework, so no install gains a new dependency.",
-    "drift": [
-        "migrations",
-        "packageConstraints"
-    ]
+    "reason": "RenderHookRegistry now accepts the Core-owned RenderHookExtensionInterface and RenderHookContext. Frontend keeps its previous interface and context names as class aliases loaded by Composer in both the aggregate and standalone package, including authoritative classmaps. Existing hooks retain type identity and render unchanged; runtime packages can implement the public hook contract without requiring Frontend. The Frontend Core floor advances to 1.0.79 to ensure these types exist. Registration, placement, cache safety and rendering remain in Frontend.",
+    "drift": ["changed public signature: frontend.registry.render-hook"]
 }
