@@ -41,6 +41,8 @@ return [
         'theme_passed' => 'All theme checks passed.',
         'theme_passed_with_warnings' => 'Theme checks passed with warnings. The theme works; fix the warnings when you can.',
         'theme_failed' => 'One or more theme checks failed. See suggestions above.',
+        'theme_providers_gated' => 'Theme [:theme] providers are gated by the licence check.',
+        'theme_providers_gated_remediation' => 'Activate the licence for this theme, then run Theme Doctor again.',
     ],
     'cache' => [
         'enabled' => [

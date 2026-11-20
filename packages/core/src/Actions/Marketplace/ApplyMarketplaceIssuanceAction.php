@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Marketplace;
 
+use Capell\Core\Actions\RuntimeRefresh\RefreshRouteCacheAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Data\Marketplace\ExtensionHealthAlertData;
 use Capell\Core\Data\Marketplace\MarketplaceIssuanceResultData;
@@ -16,6 +17,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -66,7 +68,7 @@ final class ApplyMarketplaceIssuanceAction
         }
 
         if ($catalogueAccepted || $accepted > 0 || $revoked > 0) {
-            $this->propagate($revoked > 0 || $catalogueAccepted);
+            $this->propagate(restartWorkers: $revoked > 0 || $catalogueAccepted, clearRoutes: $revoked > 0);
         }
 
         return new MarketplaceIssuanceResultData(
@@ -153,10 +155,15 @@ final class ApplyMarketplaceIssuanceAction
         return true;
     }
 
-    private function propagate(bool $restartWorkers): void
+    private function propagate(bool $restartWorkers, bool $clearRoutes): void
     {
         CapellCore::clearExtensionCache();
         CapellCore::flushOctaneState();
+
+        if ($clearRoutes) {
+            // Clear after persisting revocations. Rebuilding here could reuse the current app's providers.
+            $this->clearRouteCache();
+        }
 
         if ($restartWorkers) {
             // Retained queue workers hold resolved gates; a restart makes them re-read the state.
@@ -165,6 +172,23 @@ final class ApplyMarketplaceIssuanceAction
             } catch (Throwable $throwable) {
                 report($throwable);
             }
+        }
+    }
+
+    private function clearRouteCache(): void
+    {
+        try {
+            $result = RefreshRouteCacheAction::run(rebuild: false);
+            if (! $result->passed) {
+                throw new RuntimeException($result->message);
+            }
+
+            $path = app()->getCachedRoutesPath();
+            if (is_file($path)) {
+                throw new RuntimeException(__('capell-core::runtime-refresh.cache_removal_failed', ['path' => $path]));
+            }
+        } catch (Throwable $throwable) {
+            report($throwable);
         }
     }
 

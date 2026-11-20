@@ -464,6 +464,11 @@ it('renews receipts and the catalogue from the heartbeat and applies runtime rev
     expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue()
         ->and(resolve(CommercialCatalogueStore::class)->classification('vendor/commercial'))->toBeTrue();
 
+    $routeCache = app()->getCachedRoutesPath();
+    expect($routeCache)->toStartWith($this->commercialRoot . '/bootstrap/cache/');
+    File::put($routeCache, '<?php // Routes cached while the commercial extension was enabled.');
+    expect(is_file($routeCache))->toBeTrue();
+
     $alert = ['alert_id' => 'revoke-commercial', 'severity' => 'critical', 'category' => 'licence', 'title' => 'Revoked',
         'message' => 'Licence revoked.', 'composer_name' => 'vendor/commercial', 'runtime_disabled' => true,
         'protected_actions_blocked' => true, 'issued_at' => now()->toIso8601String(), 'expires_at' => now()->addDay()->toIso8601String()];
@@ -479,7 +484,8 @@ it('renews receipts and the catalogue from the heartbeat and applies runtime rev
     $extension = CapellExtension::query()->where('composer_name', 'vendor/commercial')->sole();
     expect($extension->marketplace_runtime_status)->toBe('revoked')
         ->and($extension->marketplace_runtime_allowed)->toBeFalse()
-        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse();
+        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse()
+        ->and(is_file($routeCache))->toBeFalse();
 
     $this->travel(2)->minutes();
     ApplyMarketplaceIssuanceAction::run(receipts: [commercialReceipt(['issued_at' => now()->toIso8601String()])], catalogue: null);

@@ -100,6 +100,14 @@ This is honest-licensing enforcement on a server the site owner controls. Compos
 
 Every first-party paid release must adopt the protected bootstrap before the production key is pinned in `issuer-keys.json`. That rollout is tracked in CAP-4156. Free Capell distributions need a signed manifest before pinning. Signing and shipping `capell-licence.json` with each release is outside this repository.
 
+Routes cached while a receipt was valid can still load on a cold boot after it expires. Cached configuration, package discovery and Filament components can also outlive the provider decision. Retained workers still hold wiring from their original boot. This is an accepted limit of honest licensing. Applying an explicit revocation clears the route cache used by the process applying it. Receipt expiry is evaluated when the receipt is checked.
+
+When pinning an issuer key, when a receipt expires, or when applying a revocation, run these steps on every serving instance for each configured [runtime role](../operations/runtime-roles.md#build-and-deploy):
+
+1. Clear Laravel's route, configuration and compiled discovery caches with `php artisan route:clear`, `php artisan config:clear` and `php artisan clear-compiled`. Clear Filament's component cache with `php artisan filament:clear-cached-components` if Admin is installed.
+2. Run `php artisan package:discover` to rebuild package discovery. Rebuild the configuration, Filament and route caches your deployment uses with `php artisan config:cache`, `php artisan filament:cache-components` and `php artisan route:cache` as applicable.
+3. Reload Octane and restart retained queue and scheduler processes as described in [Disable, uninstall and retained processes](#disable-uninstall-and-retained-processes).
+
 ## Migration and compatibility
 
 Nothing is deprecated by this change. Existing `bootInstalledPackage(): self`, `bootPackage(): self`, Spatie `packageRegistered()` / `packageBooted()`, and provider booted callbacks retain their existing behaviour for providers that do not adopt the new hook. Legacy callbacks may run repeatedly during installation; existing private guards remain necessary until migration. Enable does not introduce legacy callback replays or load previously unloaded non-adopting providers. It loads missing adopters and refreshes their guarded hooks. Installation retains its existing legacy loading behaviour.
