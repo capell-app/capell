@@ -86,6 +86,31 @@ it('publishes a validated event with an id and timestamp', function (): void {
     Event::assertDispatched(OutboundEventPublished::class);
 });
 
+it('keeps a caller supplied event id and time stable across retried publications', function (): void {
+    // Bug caught: a retried delivery (for example a package outbox) published a
+    // fresh random ID each attempt, so downstream consumers could not deduplicate.
+    Event::fake();
+    $registry = new OutboundEventRegistry;
+    $registry->register(new OutboundEventDefinitionData(
+        name: 'editorial.article-published',
+        version: 1,
+        payloadClass: PageTypeData::class,
+        description: 'An article was published.',
+        ownerPackage: 'vendor/editorial',
+    ));
+    app()->instance(OutboundEventRegistry::class, $registry);
+    $payload = new PageTypeData(name: 'article', model: stdClass::class, label: 'Article');
+    $occurredAt = CarbonImmutable::parse('2026-01-02 03:04:05');
+
+    $first = PublishOutboundEventAction::run('editorial.article-published', $payload, 'store-1:evt-9', $occurredAt);
+    $second = PublishOutboundEventAction::run('editorial.article-published', $payload, 'store-1:evt-9', $occurredAt);
+
+    expect($first->eventId)->toBe('store-1:evt-9')
+        ->and($second->eventId)->toBe('store-1:evt-9')
+        ->and($second->occurredAt->equalTo($occurredAt))->toBeTrue();
+    Event::assertDispatchedTimes(OutboundEventPublished::class, 2);
+});
+
 it('fails closed for unknown events and payload mismatches', function (): void {
     $registry = new OutboundEventRegistry;
     $registry->register(new OutboundEventDefinitionData(

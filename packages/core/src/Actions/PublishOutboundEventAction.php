@@ -23,8 +23,17 @@ final class PublishOutboundEventAction
         private readonly OutboundEventRegistry $events,
     ) {}
 
-    public function handle(string $eventName, Data $payload): OutboundEventPublished
-    {
+    /**
+     * Callers that retry a delivery pass the same $eventId and $occurredAt so
+     * downstream consumers deduplicate on one identity; omitted, a fresh UUID
+     * and the current time are used.
+     */
+    public function handle(
+        string $eventName,
+        Data $payload,
+        ?string $eventId = null,
+        ?CarbonImmutable $occurredAt = null,
+    ): OutboundEventPublished {
         $definition = $this->events->definition($eventName);
 
         if (! is_a($payload, $definition->payloadClass)) {
@@ -34,8 +43,8 @@ final class PublishOutboundEventAction
         $published = new OutboundEventPublished(
             definition: $definition,
             payload: $payload,
-            eventId: (string) Str::uuid(),
-            occurredAt: CarbonImmutable::now(),
+            eventId: $eventId ?? (string) Str::uuid(),
+            occurredAt: $occurredAt ?? CarbonImmutable::now(),
         );
 
         event($published);
