@@ -69,7 +69,6 @@ class GenerateThemeImageAction
         DirectoryCreator::ensure($directory, 0755, sprintf('Unable to create directory [%s].', $directory));
 
         imagepng($image, $absolutePath, 9);
-        imagedestroy($image);
 
         return $path;
     }

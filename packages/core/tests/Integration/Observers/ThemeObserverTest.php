@@ -199,8 +199,6 @@ it('generates a square block image from primary secondary and other colors', fun
         ->and(pixelHex($image, 1000, 100))->toBe('#222222')
         ->and(pixelHex($image, 1000, 900))->toBe('#333333')
         ->and($theme->admin['generated_image_status'] ?? null)->toBe('ready');
-
-    imagedestroy($image);
 });
 
 it('generates a fallback image when a theme has no colors', function (): void {
@@ -252,8 +250,6 @@ it('generates a single color image from a short hex palette', function (): void 
     expect($image)->toBeInstanceOf(GdImage::class)
         ->and(pixelHex($image, 100, 100))->toBe('#aabbcc')
         ->and($theme->admin['generated_image_status'] ?? null)->toBe('ready');
-
-    imagedestroy($image);
 });
 
 it('marks generated theme images as failed when the public disk cannot create the preview directory', function (): void {
