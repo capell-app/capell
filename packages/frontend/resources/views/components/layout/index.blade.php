@@ -65,5 +65,13 @@
                 <x-dynamic-component :component="$renderData->footerFile" />
             @endif
         @endif
+
+        @if ($renderData->aiNotice !== null)
+            <p
+                class="capell-ai-notice mx-auto w-full max-w-7xl px-6 py-4 text-sm text-slate-500 lg:px-8"
+            >
+                {{ $renderData->aiNotice }}
+            </p>
+        @endif
     </div>
 @endif

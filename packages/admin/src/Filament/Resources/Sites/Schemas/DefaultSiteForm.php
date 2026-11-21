@@ -12,6 +12,7 @@ use Capell\Admin\Filament\Contracts\FormConfigurator;
 use Capell\Core\Enums\SiteAiDisclosure;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
 
@@ -46,6 +47,10 @@ class DefaultSiteForm implements FormConfigurator
                 ])
                 ->default(SiteAiDisclosure::Off->value)
                 ->selectablePlaceholder(false),
+            Toggle::make('meta.' . SiteAiDisclosure::NOTICE_META_KEY)
+                ->label(__('capell-admin::form.ai_notice'))
+                ->helperText(__('capell-admin::form.ai_notice_help'))
+                ->default(false),
         ]);
     }
 }
