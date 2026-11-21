@@ -23,7 +23,6 @@ The package should:
 announcement-bar/
 ├── composer.json
 ├── capell.json
-├── README.md
 ├── config/announcement-bar.php
 ├── database/settings/2026_01_15_000001_create_announcement_bar_settings.php
 ├── resources/lang/en/form.php
@@ -43,11 +42,11 @@ announcement-bar/
 └── tests/Feature/AnnouncementBarFrontendTest.php
 ```
 
-Every source file in this tree is written out below. The test harness files (`phpunit.xml.dist`, `tests/TestCase.php` and `tests/Pest.php`) come from [Testing packages](testing-packages.md#standalone-package-harness). Settings migrations are timestamped like Laravel migrations (`YYYY_MM_DD_HHMMSS_*`); the settings migrator resolves them by name, so an untimestamped filename will not be published.
+The package source and its TestCase are below. Copy `phpunit.xml.dist` and `tests/Pest.php` from [Testing packages](testing-packages.md#standalone-package-harness). Settings migrations are timestamped like Laravel migrations (`YYYY_MM_DD_HHMMSS_*`); the settings migrator resolves them by name, so an untimestamped filename will not be published.
 
 Keep the package small until this works. Add migrations, jobs, widgets, or Marketplace metadata only when the package really needs them.
 
-To scaffold this layout instead of writing each file by hand, use `php artisan capell:make:extension`. [Package authoring](../platform/package-authoring.md) covers the scaffold profiles and install commands.
+If you start with `php artisan capell:make:extension`, replace the generated example provider and tests with the Announcement Bar files below. [Package authoring](../platform/package-authoring.md) explains the scaffold profiles.
 
 ## Boot Flow
 
@@ -67,6 +66,7 @@ flowchart LR
 
 ## Composer Metadata
 
+<!-- tutorial-file: composer.json -->
 ```json
 {
     "name": "acme/announcement-bar",
@@ -127,6 +127,7 @@ Because the Composer-declared provider always boots, put work that must stop whi
 
 `->hasConfigFile('announcement-bar')` merges this file at boot, so it must exist even if it is nearly empty:
 
+<!-- tutorial-file: config/announcement-bar.php -->
 ```php
 <?php
 
@@ -139,6 +140,7 @@ return [
 
 Translation keys are namespaced `announcement-bar::<file>.<key>`, so `announcement-bar::form.enabled` resolves to `resources/lang/en/form.php`:
 
+<!-- tutorial-file: resources/lang/en/form.php -->
 ```php
 <?php
 
@@ -151,6 +153,7 @@ return [
 ];
 ```
 
+<!-- tutorial-file: resources/lang/en/settings.php -->
 ```php
 <?php
 
@@ -166,6 +169,7 @@ return [
 
 See the [manifest reference](manifest-reference.md) for every top-level key, its allowed values and its default.
 
+<!-- tutorial-file: capell.json -->
 ```json
 {
     "manifest-version": 3,
@@ -294,6 +298,7 @@ A class that exists but does not implement `PackageLifecycleAction` throws a sim
 
 Use a settings class for persistent state and a Data object for the value passed to views.
 
+<!-- tutorial-file: src/Data/AnnouncementBarData.php -->
 ```php
 <?php
 
@@ -312,6 +317,7 @@ final class AnnouncementBarData extends Data
 }
 ```
 
+<!-- tutorial-file: src/Actions/ResolveAnnouncementBarAction.php -->
 ```php
 <?php
 
@@ -345,6 +351,7 @@ The Blade view receives `AnnouncementBarData`. It should not read settings, quer
 
 Persistent state extends `Spatie\LaravelSettings\Settings`. Capell requires `SettingsContract` so the group name is discoverable, and `SettingsSchemaContract` when the group should render through a Capell-generated admin form.
 
+<!-- tutorial-file: src/Settings/AnnouncementBarSettings.php -->
 ```php
 <?php
 
@@ -383,6 +390,7 @@ Do not type a property as a backed enum unless every persisted value is guarante
 
 Settings migrations are Spatie settings migrations, not Laravel schema migrations. They live in `database/settings/`, return an **anonymous class**, and are keyed `group.property`:
 
+<!-- tutorial-file: database/settings/2026_01_15_000001_create_announcement_bar_settings.php -->
 ```php
 <?php
 
@@ -423,6 +431,7 @@ A lifecycle Action is for install work that Capell cannot infer from the manifes
 
 Extend `AbstractPackageSettingsPage`. It builds the form from the registered settings schema, so the page itself only declares which group it edits:
 
+<!-- tutorial-file: src/Filament/Pages/AnnouncementBarSettingsPage.php -->
 ```php
 <?php
 
@@ -475,6 +484,7 @@ Signature details that differ from older Filament releases:
 
 The matching schema class supplies the fields:
 
+<!-- tutorial-file: src/Filament/Settings/AnnouncementBarSettingsSchema.php -->
 ```php
 <?php
 
@@ -527,6 +537,7 @@ _This is direct UI evidence for the settings contribution: the package registers
 
 ## Provider Registration
 
+<!-- tutorial-file: src/Providers/AnnouncementBarServiceProvider.php -->
 ```php
 <?php
 
@@ -623,6 +634,7 @@ Use `registerView()` for view-name hooks, `registerInlineBlade()` for inline Bla
 
 ## Admin Bridge
 
+<!-- tutorial-file: src/Admin/AnnouncementBarAdminBridge.php -->
 ```php
 <?php
 
@@ -653,6 +665,7 @@ Use an AdminBridge when a package contributes more than one admin surface or nee
 
 ## Public Blade
 
+<!-- tutorial-file: resources/views/frontend/banner.blade.php -->
 ```blade
 @if ($announcement->enabled && $announcement->message !== '')
     <aside class="announcement-bar">{{ $announcement->message }}</aside>
@@ -669,6 +682,7 @@ The banner renders on every page, so changing the setting must invalidate cached
 
 Add an Action that flushes the frontend cache:
 
+<!-- tutorial-file: src/Actions/FlushAnnouncementBarCacheAction.php -->
 ```php
 <?php
 
@@ -704,48 +718,107 @@ Do not build ad hoc cache keys in Blade.
 
 ## Test Recipes
 
-### Provider Registration
+Use this TestCase with the shared [Pest bootstrap and PHPUnit configuration](testing-packages.md#standalone-package-harness). It boots the providers before checking their registrations. These recipes exercise an admin bridge, a render hook, the settings action and the manifest. The settings tests only need their package settings table.
 
-Use the [standalone TestCase](testing-packages.md#standalone-package-harness)
-with the [providers for the admin and frontend surfaces](testing-packages.md#additional-surface-providers).
-Its `defineEnvironment()` marks `acme/announcement-bar` installed before the
-provider registers the bridge and render hook during application boot.
-
+<!-- tutorial-file: tests/TestCase.php -->
 ```php
+<?php
+
+declare(strict_types=1);
+
+namespace Acme\AnnouncementBar\Tests;
+
+use Acme\AnnouncementBar\Providers\AnnouncementBarServiceProvider;
+use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Testing\ExtensionTestHarness;
+use Capell\Frontend\Providers\FrontendServiceProvider;
+use Orchestra\Testbench\TestCase as Orchestra;
+use Override;
+use ReflectionClass;
+use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\Permission\PermissionServiceProvider;
+
+abstract class TestCase extends Orchestra
+{
+    /** @return list<class-string> */
+    #[Override]
+    protected function getPackageProviders(mixed $app): array
+    {
+        return [
+            LaravelDataServiceProvider::class,
+            PermissionServiceProvider::class,
+            CapellServiceProvider::class,
+            LaravelSettingsServiceProvider::class,
+            AdminServiceProvider::class,
+            FrontendServiceProvider::class,
+            AnnouncementBarServiceProvider::class,
+        ];
+    }
+
+    #[Override]
+    protected function defineEnvironment(mixed $app): void
+    {
+        $app['config']->set('database.default', 'sqlite');
+        $app['config']->set('database.connections.sqlite.database', ':memory:');
+
+        ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
+    }
+
+    protected function migratePackageSettings(): void
+    {
+        $settingsTable = dirname((string) new ReflectionClass(LaravelSettingsServiceProvider::class)->getFileName(), 2)
+            . '/database/migrations/create_settings_table.php.stub';
+        (require $settingsTable)->up();
+
+        foreach (glob(dirname(__DIR__) . '/database/settings/*.php') ?: [] as $settingsMigration) {
+            (require $settingsMigration)->up();
+        }
+    }
+}
+```
+
+The render test invokes the same hook location the theme calls. It exercises the provider callback, the saved settings and the Blade view without creating a site and page solely to reach the hook.
+
+<!-- tutorial-file: tests/Feature/AnnouncementBarFrontendTest.php -->
+```php
+<?php
+
+declare(strict_types=1);
+
+use Acme\AnnouncementBar\Actions\ResolveAnnouncementBarAction;
 use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
+use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
+use Capell\Core\Testing\ExtensionTestHarness;
+use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Support\Render\RenderHookRegistry;
 
 it('registers the admin bridge', function (): void {
     expect(resolve(AdminBridgeRegistry::class)->classes('acme/announcement-bar'))
         ->toContain(AnnouncementBarAdminBridge::class);
 });
-```
 
-The bridge registry is a container singleton, not a facade method: resolve `AdminBridgeRegistry` directly. `classes()` takes the package name and returns `list<class-string<AdminBridge>>` for that package only — it has no zero-argument form.
-
-### Frontend Output Safety
-
-```php
 it('renders only public announcement markup', function (): void {
+    $this->migratePackageSettings();
     app(AnnouncementBarSettings::class)->fill([
         'enabled' => true,
-        'message' => 'Open weekend hours',
+        'message' => 'Open weekend hours <em>now</em>',
     ])->save();
 
-    $html = $this->get('/')->getContent();
+    $html = resolve(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeaderAfter);
 
-    expect($html)->toContain('Open weekend hours')
+    expect($html)->toContain('Open weekend hours &lt;em&gt;now&lt;/em&gt;')
+        ->not->toContain('<em>')
         ->not->toContain('filament')
         ->not->toContain('signed')
         ->not->toContain('field_path')
         ->not->toContain('data-capell-editor');
 });
-```
 
-### Action Boundary
-
-```php
-it('returns disabled data when message is empty', function (): void {
+it('returns an empty message when the saved message contains only spaces', function (): void {
+    $this->migratePackageSettings();
     app(AnnouncementBarSettings::class)->fill([
         'enabled' => true,
         'message' => '   ',
@@ -756,28 +829,29 @@ it('returns disabled data when message is empty', function (): void {
     expect($data->enabled)->toBeTrue()
         ->and($data->message)->toBe('');
 });
+
+it('declares a valid package manifest', function (): void {
+    ExtensionTestHarness::forPath(dirname(__DIR__, 2))->assertManifestValid();
+    $this->addToAssertionCount(1);
+});
 ```
 
-These recipes assume a working test harness. A package developed in its own repository needs Orchestra Testbench, a base `TestCase` that boots Capell, and a package-local `phpunit.xml` — see [Testing packages → Standalone package harness](testing-packages.md#standalone-package-harness) for the exact files. Run them from the package root:
+Run the suite from the package root:
 
 ```bash
-vendor/bin/pest
-```
-
-Inside this monorepo, run the narrow package suite against the root configuration instead:
-
-```bash
-vendor/bin/pest packages/announcement-bar/tests --configuration=phpunit.xml
+composer install
+composer test -- --fail-on-risky
 ```
 
 ## Install And Enable It
 
 Composer alone is not enough. Providers in the `runtime`, `admin`, and `frontend` buckets load only once the package's extension record is **enabled**, so a package that is merely required renders nothing and shows no admin page.
 
-From the application root:
+For a local copy in `packages/announcement-bar`, run these commands from the application root:
 
 ```bash
-composer require acme/announcement-bar
+composer config repositories.announcement-bar path packages/announcement-bar
+composer require acme/announcement-bar:@dev
 php artisan capell:package-cache:clear
 php artisan capell:package-cache
 php artisan capell:extension-install acme/announcement-bar --dry-run
