@@ -2,6 +2,8 @@
 
 This tutorial builds a small `acme/announcement-bar` package. It adds one settings group, one admin control page, one frontend render hook, cache invalidation for public output, and focused tests.
 
+The settings-based cache invalidation in this tutorial requires Capell Core 1.0.78 or a later 1.x release.
+
 Use this shape for real packages: keep package logic in Actions/Data, register through Capell extension points, and prove the public output is safe.
 
 Before copying code, make sure the job and package surfaces are clear. [Package authoring jobs](package-authoring-jobs.md) covers common extension jobs, and [Extension surface vocabulary](extension-surface-vocabulary.md) defines the surface, contribution, capability, install-impact, and marketplace terms used in this tutorial.
@@ -72,7 +74,7 @@ flowchart LR
     "name": "acme/announcement-bar",
     "type": "library",
     "require": {
-        "capell-app/core": "^1.0",
+        "capell-app/core": "^1.0.78",
         "capell-app/admin": "^1.0",
         "capell-app/frontend": "^1.0",
         "lorisleiva/laravel-actions": "^2.9",
@@ -96,6 +98,11 @@ flowchart LR
     },
     "scripts": {
         "test": "pest"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
     "extra": {
         "laravel": {

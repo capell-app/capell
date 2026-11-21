@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Tests\Support\NestedTestProcess;
+use Composer\Semver\Semver;
 use Illuminate\Support\Facades\File;
 
 it('runs the Announcement Bar package tests copied from the author guides', function (): void {
@@ -29,6 +30,13 @@ it('runs the Announcement Bar package tests copied from the author guides', func
         }
 
         $composer = json_decode(File::get($directory . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+        // A fresh Composer install requires permission to load Pest's plugin.
+        expect($composer['config']['allow-plugins']['pestphp/pest-plugin'] ?? null)->toBeTrue();
+
+        $coreConstraint = $composer['require']['capell-app/core'];
+        expect(Semver::satisfies('1.0.77', $coreConstraint))->toBeFalse()
+            ->and(Semver::satisfies('1.0.78', $coreConstraint))->toBeTrue();
+
         $namespaces = array_merge($composer['autoload']['psr-4'], $composer['autoload-dev']['psr-4']);
 
         // Use the Core CI dependency install offline. Prepend a separate package
