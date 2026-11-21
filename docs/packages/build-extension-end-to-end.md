@@ -706,14 +706,16 @@ Do not build ad hoc cache keys in Blade.
 
 ### Provider Registration
 
+Use the [standalone TestCase](testing-packages.md#standalone-package-harness)
+with the [providers for the admin and frontend surfaces](testing-packages.md#additional-surface-providers).
+Its `defineEnvironment()` marks `acme/announcement-bar` installed before the
+provider registers the bridge and render hook during application boot.
+
 ```php
-use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
-use Capell\Core\Testing\ExtensionTestHarness;
+use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 
 it('registers the admin bridge', function (): void {
-    ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
-
     expect(resolve(AdminBridgeRegistry::class)->classes('acme/announcement-bar'))
         ->toContain(AnnouncementBarAdminBridge::class);
 });
