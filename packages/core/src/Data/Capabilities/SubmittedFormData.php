@@ -9,7 +9,9 @@ use Spatie\LaravelData\Data;
 
 /**
  * One accepted form submission, as values only: no models, so queued listeners
- * and other packages never load the form package's classes.
+ * and other packages never load the form package's classes. `source` is set only
+ * when the submission was stored; listeners that need the stored record act on
+ * stored submissions alone.
  */
 final class SubmittedFormData extends Data
 {
@@ -23,5 +25,8 @@ final class SubmittedFormData extends Data
         public CarbonImmutable $submittedAt,
         public ?string $locale = null,
         public ?string $sourceUrl = null,
+        public ?FormSubmissionSourceData $source = null,
+        public ?string $referer = null,
+        public ?string $userAgent = null,
     ) {}
 }
