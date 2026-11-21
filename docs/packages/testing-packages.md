@@ -153,25 +153,35 @@ protected function packageSettingClass(): ?string
 
 That works in tests and in a real application, and keeps the manifest entry as the declaration of record.
 
-Add the providers for the surfaces your package actually uses:
+<a id="additional-surface-providers"></a>
+
+### Additional surface providers
+
+Add the providers for the surfaces your package uses:
 
 | Your package                                  | Also register                                                                                                                                                                                                                                                                                                |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Registers render hooks or renders public HTML | `Capell\Frontend\Providers\FrontendServiceProvider`                                                                                                                                                                                                                                                          |
-| Registers admin pages, resources, or widgets  | The Filament set (`FilamentServiceProvider`, `FormsServiceProvider`, `SchemasServiceProvider`, `SupportServiceProvider`, `TablesServiceProvider`, `WidgetsServiceProvider`, `ActionsServiceProvider`, `NotificationsServiceProvider`), plus `Livewire\LivewireServiceProvider` and a Filament panel provider |
+| Registers admin pages, resources, or widgets  | `Capell\Admin\Providers\AdminServiceProvider`, the Filament set (`FilamentServiceProvider`, `FormsServiceProvider`, `SchemasServiceProvider`, `SupportServiceProvider`, `TablesServiceProvider`, `WidgetsServiceProvider`, `ActionsServiceProvider`, `NotificationsServiceProvider`), plus `Livewire\LivewireServiceProvider` and a Filament panel provider |
 
 `RenderHookRegistry` is bound by the frontend provider, so a package that calls `app(RenderHookRegistry::class)` during boot fails without it.
 
-Registering the frontend provider gives you the binding, but **not** a renderable site. A test that asserts on `$this->get('/')` also needs a site, language, and published page fixture; without them there is no route to hit. Assert on the registry for hook-registration tests, and build the fixture only for the one or two tests that genuinely need rendered HTML:
+Register the frontend provider and mark the extension installed in the base
+`TestCase::defineEnvironment()` shown above. The provider registers its hook
+during bootstrap. Assert on the registry once the application has booted:
 
 ```php
-it('registers the announcement render hook', function (): void {
-    ExtensionTestHarness::markPackageInstalled('acme/announcement-bar');
+use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Support\Render\RenderHookRegistry;
 
+it('registers the announcement render hook', function (): void {
     expect(resolve(RenderHookRegistry::class)->get(RenderHookLocation::HeaderAfter))
         ->not->toBeEmpty();
 });
 ```
+
+For an HTTP test that renders `$this->get('/')`, seed a site, language, and
+published page so the request has a frontend route to render.
 
 ### 4. Settings groups in tests
 
@@ -376,11 +386,9 @@ protected function getPackageProviders($app): array
 }
 ```
 
-Force packages installed in tests when testing installed-only behaviour:
-
-```php
-ExtensionTestHarness::markPackageInstalled('capell-app/example');
-```
+For installed-only behaviour, call
+`ExtensionTestHarness::markPackageInstalled('capell-app/example')` from
+`TestCase::defineEnvironment()` before the package provider boots.
 
 ## Manifest Tests
 
