@@ -14,7 +14,7 @@ it('runs the Announcement Bar package tests copied from the author guides', func
     try {
         foreach (['build-extension-end-to-end.md', 'testing-packages.md'] as $guide) {
             preg_match_all(
-                '/^<!-- tutorial-file: ([\w.-]+(?:\/[\w.-]+)*) -->\R```\w+\R(.*?)^```$/ms',
+                '/^<!-- tutorial-file: ([\w.-]+(?:\/[\w.-]+)*) -->\R(?:[ \t]*\R)?```\w+\R(.*?)^```$/ms',
                 File::get($root . '/docs/packages/' . $guide),
                 $files,
                 PREG_SET_ORDER,
