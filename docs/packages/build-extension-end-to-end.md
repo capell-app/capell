@@ -2,7 +2,7 @@
 
 This tutorial builds a small `acme/announcement-bar` package. It adds one settings group, one admin control page, one frontend render hook, cache invalidation for public output, and focused tests.
 
-This tutorial requires Capell Core 1.0.78 for settings-based cache invalidation and Capell Frontend 1.0.49 for public render-data contributions, or later 1.x releases.
+This tutorial uses Capell Core 1.0.78 for settings-based cache invalidation and has been verified with Capell Frontend 1.0.49.
 
 Use this shape for real packages: keep package logic in Actions/Data, register through Capell extension points, and prove the public output is safe.
 
@@ -36,7 +36,6 @@ announcement-bar/
 ├── src/Data/AnnouncementBarData.php
 ├── src/Filament/Pages/AnnouncementBarSettingsPage.php
 ├── src/Filament/Settings/AnnouncementBarSettingsSchema.php
-├── src/Frontend/AnnouncementBarRenderDataContributor.php
 ├── src/Providers/AnnouncementBarServiceProvider.php
 ├── src/Settings/AnnouncementBarSettings.php
 ├── phpunit.xml.dist
@@ -61,7 +60,7 @@ flowchart LR
     Enabled -->|"yes"| Provider
     Provider --> Settings["Settings class + schema registered"]
     Provider --> Admin["AdminBridge registered"]
-    Provider --> Frontend["Public data contributor and render hook registered"]
+    Provider --> Frontend["Context listener and render hook registered"]
     Admin --> Editor["Admin edits message"]
     Editor --> Save["Settings page save() flushes frontend cache"]
     Save --> Public["Next public render uses fresh data"]
@@ -556,63 +555,7 @@ _This is direct UI evidence for the settings contribution: the package registers
 
 ## Prepare Public Render Data
 
-Load the settings before Blade starts. The contributor supplies the public data and gives the render cache a fingerprint based on the enabled state and message. The installed runtime extends the registry because Frontend may already have resolved it by the time the package boots.
-
-<!-- tutorial-file: src/Frontend/AnnouncementBarRenderDataContributor.php -->
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace Acme\AnnouncementBar\Frontend;
-
-use Acme\AnnouncementBar\Actions\ResolveAnnouncementBarAction;
-use Capell\Frontend\Contracts\PublicRenderDataContributor;
-use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\Frontend\Data\PublicRenderDataContributionData;
-use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
-use Override;
-
-final class AnnouncementBarRenderDataContributor implements PublicRenderDataContributor
-{
-    public const string KEY = 'acme.announcement-bar';
-
-    #[Override]
-    public function key(): string
-    {
-        return self::KEY;
-    }
-
-    #[Override]
-    public function supports(FrontendRenderContextData $context): bool
-    {
-        return ! $context->isError;
-    }
-
-    #[Override]
-    public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
-    {
-        $announcement = ResolveAnnouncementBarAction::run();
-
-        return new PublicRenderDataContributionMetadataData(
-            fingerprint: hash('sha256', json_encode($announcement->toArray(), JSON_THROW_ON_ERROR)),
-        );
-    }
-
-    #[Override]
-    public function cacheDependencyModelTypes(): array
-    {
-        return [];
-    }
-
-    #[Override]
-    public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
-    {
-        return new PublicRenderDataContributionData(ResolveAnnouncementBarAction::run());
-    }
-}
-```
+The frontend resolves the page context before Blade runs. Listen for `FrontendContextResolved` to load the settings into request-scoped frontend data. The render hook can then read the prepared announcement without querying the database.
 
 ## Provider Registration
 
@@ -625,22 +568,25 @@ declare(strict_types=1);
 
 namespace Acme\AnnouncementBar\Providers;
 
+use Acme\AnnouncementBar\Actions\ResolveAnnouncementBarAction;
 use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
 use Acme\AnnouncementBar\Data\AnnouncementBarData;
-use Acme\AnnouncementBar\Frontend\AnnouncementBarRenderDataContributor;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Enums\RenderHookLocation;
-use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Event;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvider
 {
+    private const string RENDER_DATA_KEY = 'acme.announcement-bar';
+
     public static string $name = 'announcement-bar';
 
     public static string $packageName = 'acme/announcement-bar';
@@ -674,31 +620,24 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     private function registerFrontend(): void
     {
-        $this->app->extend(
-            PublicRenderDataContributorRegistry::class,
-            static function (PublicRenderDataContributorRegistry $registry): PublicRenderDataContributorRegistry {
-                $registry->register(new AnnouncementBarRenderDataContributor);
-
-                return $registry;
-            },
-        );
+        Event::listen(FrontendContextResolved::class, static function (FrontendContextResolved $event): void {
+            resolve(FrontendContextReader::class)->setFrontendData(
+                self::RENDER_DATA_KEY,
+                $event->context->isError() ? null : ResolveAnnouncementBarAction::run(),
+            );
+        });
 
         resolve(RenderHookRegistry::class)->registerCallable(
             RenderHookLocation::HeaderAfter,
             function (): ?View {
-                $announcement = resolve(FrontendContextReader::class)
-                    ->renderPayload()
-                    ->publicPageRenderData
-                    ?->extensionData(AnnouncementBarRenderDataContributor::KEY);
+                $announcement = resolve(FrontendContextReader::class)->getFrontendData(self::RENDER_DATA_KEY);
 
-                $values = (array) $announcement;
-                $message = $values['message'] ?? null;
-                if (($values['enabled'] ?? false) !== true || ! is_string($message) || $message === '') {
+                if (! $announcement instanceof AnnouncementBarData || ! $announcement->enabled || $announcement->message === '') {
                     return null;
                 }
 
                 return view('announcement-bar::frontend.banner', [
-                    'announcement' => new AnnouncementBarData(enabled: true, message: $message),
+                    'announcement' => $announcement,
                 ]);
             },
         );
@@ -816,7 +755,9 @@ final class FlushAnnouncementBarCacheAction
 }
 ```
 
-`flushFrontendTag()` clears the whole frontend cache. That is the honest choice for output that appears on every page; use the narrower `forgetKey()`, `invalidatePattern()`, or `pageModel()` rules when a change affects a known subset.
+`flushFrontendTag()` clears frontend-tagged cache entries for output that appears across the site. Use `forgetKey()`, `invalidatePattern()`, or `pageModel()` when a change affects a known subset.
+
+If your site publishes [static HTML](../frontend/guide.md), regenerate the affected artifacts after changing the banner so the published files reflect the new settings.
 
 Nothing calls this Action automatically. It is wired in by the `save()` override on [the settings page](#filament-settings-page) — that override is the only thing standing between an editor's save and stale cached HTML.
 
@@ -888,7 +829,7 @@ abstract class TestCase extends Orchestra
 }
 ```
 
-The render test invokes the same hook location the theme calls. It prepares the saved settings through the contributor registry, then calls the registered hook with that public payload.
+The render test invokes the same hook location the theme calls. It dispatches the frontend context event, then calls the registered hook with the prepared settings.
 
 <!-- tutorial-file: tests/Feature/AnnouncementBarFrontendTest.php -->
 
@@ -902,10 +843,9 @@ use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Core\Testing\ExtensionTestHarness;
-use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
-use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 
 it('registers the admin bridge', function (): void {
@@ -923,11 +863,7 @@ it('renders only public announcement markup', function (): void {
     $hooks = resolve(RenderHookRegistry::class);
     expect($hooks->renderAll(RenderHookLocation::HeaderAfter))->toBe('');
 
-    $context = new FrontendRenderContextData(null, null, null, null, null);
-    resolve(FrontendContextReader::class)->setFrontendData(
-        'publicPageRenderData',
-        BuildPublicPageRenderDataAction::run($context),
-    );
+    event(new FrontendContextResolved(new FrontendContext(null, null, null, null, null, [], null)));
 
     $html = $hooks->renderAll(RenderHookLocation::HeaderAfter);
 
