@@ -10,13 +10,6 @@ use Capell\Core\Data\Rendering\FrontendRuntimeManifestData as CoreFrontendRuntim
 use Capell\Core\Enums\Rendering\FrontendResourceKind as CoreFrontendResourceKind;
 use Capell\Core\Enums\Rendering\RenderingStrategyEnum as CoreRenderingStrategyEnum;
 use Capell\Frontend\Actions\CollectFrontendResourceContributionsAction;
-use Capell\Frontend\Contracts\FrontendResourceContributor;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
-use Capell\Frontend\Data\FrontendResourceContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\FrontendResourceKind;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Symfony\Component\Process\Process;
 
 describe('Core frontend resource contract', function (): void {
@@ -65,69 +58,6 @@ PHP,
             ->and($process->getOutput())->toBe('vendor/runtime:card:' . CoreFrontendResourceKind::InlineStyle->value . ':0');
     });
 
-    it('loads the Frontend names first through a fresh authoritative Composer classmap', function (string $manifest, string $prefix): void {
-        $process = new Process([
-            PHP_BINARY,
-            '-r',
-            <<<'PHP'
-require $argv[1] . '/vendor/composer/ClassLoader.php';
-$vendorMap = require $argv[1] . '/vendor/composer/autoload_classmap.php';
-$vendorMap = array_filter($vendorMap, fn (string $class): bool => !str_starts_with($class, 'Capell\\'), ARRAY_FILTER_USE_KEY);
-$bootstrap = new \Composer\Autoload\ClassLoader;
-$bootstrap->addClassMap($vendorMap);
-$bootstrap->register();
-$map = \Composer\ClassMapGenerator\ClassMapGenerator::createMap($argv[1] . '/packages/core/src');
-$map += \Composer\ClassMapGenerator\ClassMapGenerator::createMap($argv[1] . '/packages/frontend/src');
-foreach (spl_autoload_functions() as $autoload) {
-    spl_autoload_unregister($autoload);
-}
-$loader = new \Composer\Autoload\ClassLoader;
-$loader->addClassMap($map + $vendorMap);
-$loader->setClassMapAuthoritative(true);
-$loader->register();
-foreach (require $argv[1] . '/vendor/composer/autoload_files.php' as $file) {
-    if (!str_contains($file, '/packages/')) {
-        require_once $file;
-    }
-}
-$manifest = json_decode(file_get_contents($argv[1] . '/' . $argv[2]), true, flags: JSON_THROW_ON_ERROR);
-foreach ($manifest['autoload']['files'] ?? [] as $file) {
-    if (str_contains($file, 'src/Contracts/') || str_contains($file, 'src/Data/') || str_contains($file, 'src/Enums/')) {
-        require_once $argv[1] . '/' . $argv[3] . $file;
-    }
-}
-$contributor = new class implements \Capell\Frontend\Contracts\FrontendResourceContributor {
-    #[\Override]
-    public function resources(\Capell\Frontend\Data\FrontendResourceContextData $context): array {
-        return [new \Capell\Frontend\Data\Assets\FrontendResourceContributionData(
-            \Capell\Frontend\Data\Assets\FrontendResourceData::inlineStyle('vendor/legacy:card', 'vendor/legacy', '.legacy{}'),
-        )];
-    }
-};
-if (!$contributor instanceof \Capell\Core\Contracts\Rendering\FrontendResourceContributor) {
-    throw new RuntimeException('A contributor written against the Frontend name must implement the Core contract.');
-}
-$context = new \Capell\Frontend\Data\FrontendResourceContextData(null, null, null, null, null,
-    \Capell\Frontend\Data\FrontendRuntimeManifestData::forRenderingStrategy(\Capell\Frontend\Enums\RenderingStrategyEnum::BladeOnly));
-$resource = $contributor->resources($context)[0]->resource;
-if ($resource->kind !== \Capell\Frontend\Enums\FrontendResourceKind::InlineStyle) {
-    throw new RuntimeException('The Frontend enum name must resolve to the same cases.');
-}
-echo $resource->handle;
-PHP,
-            dirname(__DIR__, 4),
-            $manifest,
-            $prefix,
-        ]);
-        $process->run();
-
-        expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
-            ->and($process->getOutput())->toBe('vendor/legacy:card');
-    })->with([
-        'aggregate' => ['composer.json', ''],
-        'standalone frontend' => ['packages/frontend/composer.json', 'packages/frontend/'],
-    ]);
-
     it('collects resources from a contributor written against the Core contract', function (): void {
         $contributor = new class implements CoreFrontendResourceContributor
         {
@@ -155,16 +85,15 @@ PHP,
             ->toContain('vendor/runtime:core-card');
     });
 
-    it('keeps the Frontend names as the same types', function (): void {
-        $legacy = new FrontendResourceContributionData(
-            FrontendResourceData::inlineStyle('vendor/legacy:card', 'vendor/legacy', '.legacy{}'),
+    it('declares resources with the Core types, and Frontend keeps no copies of them', function (): void {
+        $contribution = new CoreFrontendResourceContributionData(
+            CoreFrontendResourceData::inlineStyle('vendor/runtime:plan-card', 'vendor/runtime', '.plan{}'),
         );
-        $context = new FrontendResourceContextData(null, null, null, null, null, FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly));
 
-        expect($legacy)->toBeInstanceOf(CoreFrontendResourceContributionData::class)
-            ->and($context)->toBeInstanceOf(CoreFrontendResourceContextData::class)
-            ->and(FrontendResourceKind::Style)->toBe(CoreFrontendResourceKind::Style)
-            ->and(RenderingStrategyEnum::BladeOnly)->toBe(CoreRenderingStrategyEnum::BladeOnly)
-            ->and(FrontendResourceContributor::TAG)->toBe(CoreFrontendResourceContributor::TAG);
+        expect($contribution->resource->kind)->toBe(CoreFrontendResourceKind::InlineStyle)
+            ->and(CoreFrontendResourceContributor::TAG)->toBe('capell.frontend.resource-contributor')
+            ->and(interface_exists('Capell\\Frontend\\Contracts\\FrontendResourceContributor'))->toBeFalse()
+            ->and(class_exists('Capell\\Frontend\\Data\\Assets\\FrontendResourceData'))->toBeFalse()
+            ->and(enum_exists('Capell\\Frontend\\Enums\\FrontendResourceKind'))->toBeFalse();
     });
 });

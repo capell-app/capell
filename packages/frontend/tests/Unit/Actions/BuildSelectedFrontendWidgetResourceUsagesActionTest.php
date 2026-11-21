@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -13,8 +15,6 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\BuildSelectedFrontendWidgetResourceUsagesAction;
 use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 
 it('extracts selected resource groups and loading overrides from page widget metadata', function (): void {
     $language = Language::factory()->createOne(['code' => 'en']);

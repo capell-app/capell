@@ -25,6 +25,14 @@ the `Update Changelog` workflow.
 
 ### Changed
 
+- Moved the public frontend resource contract into Core. A package that adds styles or scripts to public pages now depends only on Core, and needs `capell-app/core` `^1.0.79`. Update your imports; the old Frontend names are removed, with no aliases:
+  - `Capell\Frontend\Contracts\FrontendResourceContributor` and `FrontendResourceSourceData` → `Capell\Core\Contracts\Rendering\…`
+  - `Capell\Frontend\Data\FrontendResourceContextData` and `FrontendRuntimeManifestData` → `Capell\Core\Data\Rendering\…`
+  - `Capell\Frontend\Data\Assets\FrontendResourceData`, `FrontendResourceContributionData`, `FrontendResourceActivationData` and `InlineResourceSourceData` → `Capell\Core\Data\Rendering\Assets\…`
+  - `Capell\Frontend\Enums\FrontendResourceKind`, `FrontendResourcePlacement`, `RenderingStrategyEnum` and `ScriptExecutionMode` → `Capell\Core\Enums\Rendering\…`
+
+  The contributor tag `capell.frontend.resource-contributor` and every shape stay the same.
+
 - Renamed Core's `backup` and `redirects` config files to `capell-backup` and `capell-redirects`, so publishing Core no longer writes a `config/backup.php` that clashes with spatie/laravel-backup or a redirects package. An app that still sets the old `backup.*` or `redirects.*` Capell keys keeps its values for this minor version and receives a deprecation naming the new file; move them to `config/capell-backup.php` and `config/capell-redirects.php`.
 - Added named constructors to the Core exceptions that were empty classes. The component, theme and layout not-found messages now say where to register what is missing; every earlier message text is kept as the start of the new one.
 - Grouped Admin navigation with local menus for secondary Design tools; removed the separate marketing dashboard page and composed its widgets into Dashboard.

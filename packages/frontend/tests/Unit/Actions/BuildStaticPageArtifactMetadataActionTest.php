@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -9,14 +13,10 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\BuildStaticPageArtifactMetadataAction;
 use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\StaticPageArtifactSourceData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Symfony\Component\HttpFoundation\Response;
 
 it('builds deterministic static page artifact metadata from render data and response headers', function (): void {

@@ -2,9 +2,15 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Rendering\FrontendResourceContributor;
 use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -12,18 +18,12 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Frontend\Actions\CollectFrontendResourceContributionsAction;
 use Capell\Frontend\Actions\Performance\RecordExtensionRenderContributionAction;
 use Capell\Frontend\Actions\RenderRenderableAction;
-use Capell\Frontend\Contracts\FrontendResourceContributor;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Data\FrontendContext;
-use Capell\Frontend\Data\FrontendResourceContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Enums\RenderHookLocation;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;

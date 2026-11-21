@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\Assets\InlineResourceSourceData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
-use Capell\Frontend\Data\Assets\InlineResourceSourceData;
+use Capell\Core\Enums\Rendering\FrontendResourceKind;
+use Capell\Core\Enums\Rendering\FrontendResourcePlacement;
+use Capell\Core\Enums\Rendering\ScriptExecutionMode;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
-use Capell\Frontend\Enums\FrontendResourceKind;
-use Capell\Frontend\Enums\FrontendResourcePlacement;
-use Capell\Frontend\Enums\ScriptExecutionMode;
 
 it('applies safe defaults through named resource factories', function (): void {
     $style = FrontendResourceData::style(

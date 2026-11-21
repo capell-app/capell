@@ -47,19 +47,7 @@
     "autoload": {
         "files": [
             "src/Contracts/RenderHookExtensionInterface.php",
-            "src/Data/RenderHookContext.php",
-            "src/Contracts/FrontendResourceContributor.php",
-            "src/Contracts/FrontendResourceSourceData.php",
-            "src/Data/Assets/FrontendResourceActivationData.php",
-            "src/Data/Assets/FrontendResourceContributionData.php",
-            "src/Data/Assets/FrontendResourceData.php",
-            "src/Data/Assets/InlineResourceSourceData.php",
-            "src/Data/FrontendResourceContextData.php",
-            "src/Data/FrontendRuntimeManifestData.php",
-            "src/Enums/FrontendResourceKind.php",
-            "src/Enums/FrontendResourcePlacement.php",
-            "src/Enums/RenderingStrategyEnum.php",
-            "src/Enums/ScriptExecutionMode.php"
+            "src/Data/RenderHookContext.php"
         ],
         "psr-4": {
             "Capell\\Frontend\\": "src/"

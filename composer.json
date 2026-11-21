@@ -302,19 +302,7 @@
             "packages/core/src/Support/Activity/LogOptions.php",
             "packages/core/src/Support/Activity/VendorLogsActivity.php",
             "packages/frontend/src/Contracts/RenderHookExtensionInterface.php",
-            "packages/frontend/src/Data/RenderHookContext.php",
-            "packages/frontend/src/Contracts/FrontendResourceContributor.php",
-            "packages/frontend/src/Contracts/FrontendResourceSourceData.php",
-            "packages/frontend/src/Data/Assets/FrontendResourceActivationData.php",
-            "packages/frontend/src/Data/Assets/FrontendResourceContributionData.php",
-            "packages/frontend/src/Data/Assets/FrontendResourceData.php",
-            "packages/frontend/src/Data/Assets/InlineResourceSourceData.php",
-            "packages/frontend/src/Data/FrontendResourceContextData.php",
-            "packages/frontend/src/Data/FrontendRuntimeManifestData.php",
-            "packages/frontend/src/Enums/FrontendResourceKind.php",
-            "packages/frontend/src/Enums/FrontendResourcePlacement.php",
-            "packages/frontend/src/Enums/RenderingStrategyEnum.php",
-            "packages/frontend/src/Enums/ScriptExecutionMode.php"
+            "packages/frontend/src/Data/RenderHookContext.php"
         ],
         "psr-4": {
             "Capell\\Admin\\": "packages/admin/src",

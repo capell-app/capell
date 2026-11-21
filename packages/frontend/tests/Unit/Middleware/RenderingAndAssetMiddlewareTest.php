@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
 use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;

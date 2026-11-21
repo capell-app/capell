@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Frontend\Actions\ResolveRenderingStrategyAction;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Illuminate\Support\Facades\DB;
 
 it('defaults a missing page to blade rendering', function (): void {

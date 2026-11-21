@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Rendering\FrontendResourceContributor;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Models\Page;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
-use Capell\Frontend\Contracts\FrontendResourceContributor;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\PublicRenderPerformanceBudgetResultData;
 use Capell\Frontend\Data\PublicRenderPerformanceReportData;
 

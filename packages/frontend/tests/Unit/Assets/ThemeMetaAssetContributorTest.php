@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\FrontendResourceKind;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\Assets\ViteResourceSourceData;
-use Capell\Frontend\Data\FrontendResourceContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\FrontendResourceKind;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
 
 it('contributes local theme metadata css as a critical-eligible public resource', function (): void {

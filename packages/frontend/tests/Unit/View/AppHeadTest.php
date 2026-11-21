@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -10,16 +15,11 @@ use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\RenderCustomHeadAction;
 use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
 use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Data\FrontendMediaHintData;
-use Capell\Frontend\Data\FrontendResourceContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
