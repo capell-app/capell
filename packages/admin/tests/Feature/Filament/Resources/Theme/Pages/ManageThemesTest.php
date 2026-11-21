@@ -35,7 +35,6 @@ use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
-use Pest\Expectation;
 
 use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\assertSoftDeleted;
@@ -1028,22 +1027,16 @@ it('can save default theme without loosing data', function (): void {
     expect($theme)
         ->name->toBe($defaultTheme->name)
         ->key->toBe($defaultTheme->key)
-        ->default->toBeTrue()
-        ->blueprint->scoped(
-            function (Expectation $type) use ($defaultTheme): void {
-                $type
-                    ->toBeInstanceOf(Blueprint::class)
-                    ->id->toBe($defaultTheme->blueprint->id);
-            },
-        )
-        ->meta->scoped(
-            function (Expectation $meta): void {
-                $meta
-                    ->editor->preset->active->toBe('default')
-                    ->editor->header->enabled->toBeTrue()
-                    ->editor->footer->enabled->toBeTrue();
-            },
-        );
+        ->default->toBeTrue();
+
+    expect($theme?->blueprint)
+        ->toBeInstanceOf(Blueprint::class)
+        ->id->toBe($defaultTheme->blueprint->id);
+
+    expect($theme?->meta)
+        ->editor->preset->active->toBe('default')
+        ->editor->header->enabled->toBeTrue()
+        ->editor->footer->enabled->toBeTrue();
 });
 
 it('can delete theme', function (): void {
