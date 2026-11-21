@@ -11,7 +11,10 @@ use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
+use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Admin\Tests\Fixtures\Widgets\HeroWidget;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Container\Container;
@@ -67,6 +70,26 @@ it('uses one canonical receipt for direct and bridge dashboard registration', fu
 
     expect($receipts->forPackage('vendor/admin-widget'))->toHaveCount(1)
         ->and($receipts->forPackage('vendor/admin-widget')[0]->key)->toBe('dashboard-widget:' . ListPagesFilamentWidget::class);
+});
+
+it('records a builder block as a builder-block contribution and registers it with the content builder', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/blocks', 'admin', 'Vendor\\Blocks\\Provider'),
+        function (): void {
+            CapellAdmin::registerBuilderBlock(HeroWidget::class);
+            resolve(AdminBridgeRegistrar::class)->builderBlock(HeroWidget::class);
+        },
+    );
+
+    $recorded = $receipts->forPackage('vendor/blocks');
+
+    expect($recorded)->toHaveCount(1)
+        ->and($recorded[0]->type)->toBe(ExtensionContributionType::BuilderBlock)
+        ->and($recorded[0]->key)->toBe('builder-block:' . HeroWidget::class)
+        ->and(resolve(WidgetDiscovery::class)->registeredWidgets()['hero'] ?? null)->toBe(HeroWidget::class);
 });
 
 it('filters contributions by type', function (): void {

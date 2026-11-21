@@ -166,6 +166,7 @@ Each contribution class must implement the contract expected by its `type`. Curr
 - `page-type`
 - `page-variation`
 - `dashboard-widget`
+- `builder-block`
 - `overview-stat`
 - `schema-extender`
 - `configurator`

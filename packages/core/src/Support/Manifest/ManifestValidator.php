@@ -12,6 +12,7 @@ use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\RegistersExtensionAdminResource;
 use Capell\Core\Contracts\Extensions\RegistersExtensionAsset;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
+use Capell\Core\Contracts\Extensions\RegistersExtensionBuilderBlock;
 use Capell\Core\Contracts\Extensions\RegistersExtensionContentWidget;
 use Capell\Core\Contracts\Extensions\RegistersExtensionFilamentWidget;
 use Capell\Core\Contracts\Extensions\RegistersExtensionFrontendComponent;
@@ -682,6 +683,7 @@ final class ManifestValidator
             ExtensionContributionType::WorkflowAttention => ContributesWorkflowAttention::class,
             ExtensionContributionType::OutboundEvent => RegistersExtensionOutboundEvent::class,
             ExtensionContributionType::BlueprintSubject => RegistersExtensionBlueprintSubject::class,
+            ExtensionContributionType::BuilderBlock => RegistersExtensionBuilderBlock::class,
             default => ExtensionContribution::class,
         };
     }

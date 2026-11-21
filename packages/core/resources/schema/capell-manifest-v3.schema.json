@@ -206,7 +206,8 @@
                             "health-check",
                             "workflow-attention",
                             "outbound-event",
-                            "blueprint-subject"
+                            "blueprint-subject",
+                            "builder-block"
                         ]
                     },
                     "class": {
