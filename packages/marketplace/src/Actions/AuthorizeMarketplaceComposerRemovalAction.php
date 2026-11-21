@@ -8,7 +8,7 @@ use Capell\Marketplace\Data\MarketplaceComposerRemovalRequestData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
-use Capell\Marketplace\Support\MarketplaceComposerRemovalAuthorizerRegistry;
+use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Crypt;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -20,7 +20,7 @@ final class AuthorizeMarketplaceComposerRemovalAction
     use AsFake;
     use AsObject;
 
-    public function __construct(private readonly MarketplaceComposerRemovalAuthorizerRegistry $authorizers) {}
+    public function __construct(private readonly MarketplaceComposerChangePublisherRegistry $publishers) {}
 
     public function handle(MarketplaceInstallAttempt $attempt, ?Authenticatable $actor): ?string
     {
@@ -42,7 +42,7 @@ final class AuthorizeMarketplaceComposerRemovalAction
                 return null;
             }
 
-            $authorizers = $this->authorizers->all();
+            $authorizers = $this->publishers->removalAuthorizers();
             if (count($authorizers) !== 1) {
                 return null;
             }

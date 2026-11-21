@@ -38,6 +38,18 @@ class TaggedProviderRegistry
         );
     }
 
+    /**
+     * @template TTagged of object
+     *
+     * @param  non-empty-string  $tag
+     * @param  class-string<TTagged>  $providerContract
+     * @return list<TTagged>
+     */
+    public static function resolveTagged(Application $application, string $tag, string $providerContract): array
+    {
+        return new self(self::tagged($application, $tag), $providerContract)->providers();
+    }
+
     /** @return list<TProvider> */
     protected function providers(): array
     {

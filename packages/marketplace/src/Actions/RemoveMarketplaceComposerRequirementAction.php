@@ -10,7 +10,6 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
-use Capell\Marketplace\Support\MarketplaceComposerRemovalAuthorizerRegistry;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -36,7 +35,6 @@ final class RemoveMarketplaceComposerRequirementAction
 
     public function __construct(
         private readonly MarketplaceComposerChangePublisherRegistry $publishers,
-        private readonly MarketplaceComposerRemovalAuthorizerRegistry $authorizers,
     ) {}
 
     /**
@@ -45,7 +43,7 @@ final class RemoveMarketplaceComposerRequirementAction
     public function handle(MarketplaceInstallAttempt $attempt, ?string $sealedApproval = null): array
     {
         try {
-            $authorizers = $this->authorizers->all();
+            $authorizers = $this->publishers->removalAuthorizers();
             if ($authorizers === [] && $sealedApproval === null
                 && ! $this->publishers->first() instanceof MarketplaceComposerChangePublisher) {
                 return ['status' => 'not_needed'];
