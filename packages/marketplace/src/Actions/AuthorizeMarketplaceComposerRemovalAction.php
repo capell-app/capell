@@ -11,11 +11,13 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceComposerRemovalAuthorizerRegistry;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Crypt;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class AuthorizeMarketplaceComposerRemovalAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly MarketplaceComposerRemovalAuthorizerRegistry $authorizers) {}
