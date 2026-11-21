@@ -29,6 +29,9 @@ it('runs the Announcement Bar package tests copied from the author guides', func
         }
 
         $composer = json_decode(File::get($directory . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+        // A fresh Composer install requires permission to load Pest's plugin.
+        expect($composer['config']['allow-plugins']['pestphp/pest-plugin'] ?? null)->toBeTrue();
+
         $namespaces = array_merge($composer['autoload']['psr-4'], $composer['autoload-dev']['psr-4']);
 
         // Use the Core CI dependency install offline. Prepend a separate package

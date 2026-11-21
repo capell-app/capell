@@ -97,6 +97,11 @@ flowchart LR
     "scripts": {
         "test": "pest"
     },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [
