@@ -37,6 +37,10 @@ it('runs the Announcement Bar package tests copied from the author guides', func
         expect(Semver::satisfies('1.0.77', $coreConstraint))->toBeFalse()
             ->and(Semver::satisfies('1.0.78', $coreConstraint))->toBeTrue();
 
+        $frontendConstraint = $composer['require']['capell-app/frontend'];
+        expect(Semver::satisfies('1.0.48', $frontendConstraint))->toBeFalse()
+            ->and(Semver::satisfies('1.0.49', $frontendConstraint))->toBeTrue();
+
         $namespaces = array_merge($composer['autoload']['psr-4'], $composer['autoload-dev']['psr-4']);
 
         // Use the Core CI dependency install offline. Prepend a separate package
