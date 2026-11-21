@@ -14,7 +14,7 @@ it('runs the Announcement Bar package tests copied from the author guides', func
     try {
         foreach (['build-extension-end-to-end.md', 'testing-packages.md'] as $guide) {
             preg_match_all(
-                '/^<!-- tutorial-file: ([\w.-]+(?:\/[\w.-]+)*) -->\R```\w+\R(.*?)^```$/ms',
+                '/^<!-- tutorial-file: ([\w.-]+(?:\/[\w.-]+)*) -->\R(?:[ \t]*\R)?```\w+\R(.*?)^```$/ms',
                 File::get($root . '/docs/packages/' . $guide),
                 $files,
                 PREG_SET_ORDER,
@@ -36,6 +36,10 @@ it('runs the Announcement Bar package tests copied from the author guides', func
         $coreConstraint = $composer['require']['capell-app/core'];
         expect(Semver::satisfies('1.0.77', $coreConstraint))->toBeFalse()
             ->and(Semver::satisfies('1.0.78', $coreConstraint))->toBeTrue();
+
+        $frontendConstraint = $composer['require']['capell-app/frontend'];
+        expect(Semver::satisfies('1.0.48', $frontendConstraint))->toBeFalse()
+            ->and(Semver::satisfies('1.0.49', $frontendConstraint))->toBeTrue();
 
         $namespaces = array_merge($composer['autoload']['psr-4'], $composer['autoload-dev']['psr-4']);
 

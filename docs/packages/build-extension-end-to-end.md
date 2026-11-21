@@ -2,7 +2,7 @@
 
 This tutorial builds a small `acme/announcement-bar` package. It adds one settings group, one admin control page, one frontend render hook, cache invalidation for public output, and focused tests.
 
-The settings-based cache invalidation in this tutorial requires Capell Core 1.0.78 or a later 1.x release.
+This tutorial uses Capell Core 1.0.78 for settings-based cache invalidation and has been verified with Capell Frontend 1.0.49.
 
 Use this shape for real packages: keep package logic in Actions/Data, register through Capell extension points, and prove the public output is safe.
 
@@ -60,7 +60,7 @@ flowchart LR
     Enabled -->|"yes"| Provider
     Provider --> Settings["Settings class + schema registered"]
     Provider --> Admin["AdminBridge registered"]
-    Provider --> Frontend["RenderHookRegistry callback registered"]
+    Provider --> Frontend["Context listener and render hook registered"]
     Admin --> Editor["Admin edits message"]
     Editor --> Save["Settings page save() flushes frontend cache"]
     Save --> Public["Next public render uses fresh data"]
@@ -69,6 +69,7 @@ flowchart LR
 ## Composer Metadata
 
 <!-- tutorial-file: composer.json -->
+
 ```json
 {
     "name": "acme/announcement-bar",
@@ -76,7 +77,7 @@ flowchart LR
     "require": {
         "capell-app/core": "^1.0.78",
         "capell-app/admin": "^1.0",
-        "capell-app/frontend": "^1.0",
+        "capell-app/frontend": "^1.0.49",
         "lorisleiva/laravel-actions": "^2.9",
         "spatie/laravel-data": "^4.0",
         "spatie/laravel-settings": "^3.4"
@@ -135,6 +136,7 @@ Because the Composer-declared provider always boots, put work that must stop whi
 `->hasConfigFile('announcement-bar')` merges this file at boot, so it must exist even if it is nearly empty:
 
 <!-- tutorial-file: config/announcement-bar.php -->
+
 ```php
 <?php
 
@@ -148,6 +150,7 @@ return [
 Translation keys are namespaced `announcement-bar::<file>.<key>`, so `announcement-bar::form.enabled` resolves to `resources/lang/en/form.php`:
 
 <!-- tutorial-file: resources/lang/en/form.php -->
+
 ```php
 <?php
 
@@ -161,6 +164,7 @@ return [
 ```
 
 <!-- tutorial-file: resources/lang/en/settings.php -->
+
 ```php
 <?php
 
@@ -177,6 +181,7 @@ return [
 See the [manifest reference](manifest-reference.md) for every top-level key, its allowed values and its default.
 
 <!-- tutorial-file: capell.json -->
+
 ```json
 {
     "manifest-version": 3,
@@ -306,6 +311,7 @@ A class that exists but does not implement `PackageLifecycleAction` throws a sim
 Use a settings class for persistent state and a Data object for the value passed to views.
 
 <!-- tutorial-file: src/Data/AnnouncementBarData.php -->
+
 ```php
 <?php
 
@@ -325,6 +331,7 @@ final class AnnouncementBarData extends Data
 ```
 
 <!-- tutorial-file: src/Actions/ResolveAnnouncementBarAction.php -->
+
 ```php
 <?php
 
@@ -359,6 +366,7 @@ The Blade view receives `AnnouncementBarData`. It should not read settings, quer
 Persistent state extends `Spatie\LaravelSettings\Settings`. Capell requires `SettingsContract` so the group name is discoverable, and `SettingsSchemaContract` when the group should render through a Capell-generated admin form.
 
 <!-- tutorial-file: src/Settings/AnnouncementBarSettings.php -->
+
 ```php
 <?php
 
@@ -398,6 +406,7 @@ Do not type a property as a backed enum unless every persisted value is guarante
 Settings migrations are Spatie settings migrations, not Laravel schema migrations. They live in `database/settings/`, return an **anonymous class**, and are keyed `group.property`:
 
 <!-- tutorial-file: database/settings/2026_01_15_000001_create_announcement_bar_settings.php -->
+
 ```php
 <?php
 
@@ -439,6 +448,7 @@ A lifecycle Action is for install work that Capell cannot infer from the manifes
 Extend `AbstractPackageSettingsPage`. It builds the form from the registered settings schema, so the page itself only declares which group it edits:
 
 <!-- tutorial-file: src/Filament/Pages/AnnouncementBarSettingsPage.php -->
+
 ```php
 <?php
 
@@ -492,6 +502,7 @@ Signature details that differ from older Filament releases:
 The matching schema class supplies the fields:
 
 <!-- tutorial-file: src/Filament/Settings/AnnouncementBarSettingsSchema.php -->
+
 ```php
 <?php
 
@@ -542,9 +553,14 @@ All labels go through translations. Do not inline user-facing English in a Filam
 
 _This is direct UI evidence for the settings contribution: the package registers a group and Admin renders it without the package editing the Settings page._
 
+## Prepare Public Render Data
+
+The frontend resolves the page context before Blade runs. Listen for `FrontendContextResolved` to load the settings into request-scoped frontend data. The render hook can then read the prepared announcement without querying the database.
+
 ## Provider Registration
 
 <!-- tutorial-file: src/Providers/AnnouncementBarServiceProvider.php -->
+
 ```php
 <?php
 
@@ -554,17 +570,23 @@ namespace Acme\AnnouncementBar\Providers;
 
 use Acme\AnnouncementBar\Actions\ResolveAnnouncementBarAction;
 use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
+use Acme\AnnouncementBar\Data\AnnouncementBarData;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Event;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvider
 {
+    private const string RENDER_DATA_KEY = 'acme.announcement-bar';
+
     public static string $name = 'announcement-bar';
 
     public static string $packageName = 'acme/announcement-bar';
@@ -598,12 +620,19 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     private function registerFrontend(): void
     {
+        Event::listen(FrontendContextResolved::class, static function (FrontendContextResolved $event): void {
+            resolve(FrontendContextReader::class)->setFrontendData(
+                self::RENDER_DATA_KEY,
+                $event->context->isError() ? null : ResolveAnnouncementBarAction::run(),
+            );
+        });
+
         resolve(RenderHookRegistry::class)->registerCallable(
             RenderHookLocation::HeaderAfter,
             function (): ?View {
-                $announcement = ResolveAnnouncementBarAction::run();
+                $announcement = resolve(FrontendContextReader::class)->getFrontendData(self::RENDER_DATA_KEY);
 
-                if (! $announcement->enabled || $announcement->message === '') {
+                if (! $announcement instanceof AnnouncementBarData || ! $announcement->enabled || $announcement->message === '') {
                     return null;
                 }
 
@@ -620,12 +649,12 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
 The base class offers these boot hooks:
 
-| Hook                          | Runs                                                                                           |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `bootPackage()`               | Always, including during `package:discover`. Metadata only.                                    |
-| `bootInstalledRuntime()`      | Once per bootstrap while the package is installed and enabled. The default for new packages.   |
-| `bootInstalledPackage()`      | Legacy gate that still works. Do not use it in new packages.                                   |
-| `bootWhenInstalled(callable)` | Same installed gate, for one-off blocks inside `bootPackage()`.                                |
+| Hook                          | Runs                                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `bootPackage()`               | Always, including during `package:discover`. Metadata only.                                  |
+| `bootInstalledRuntime()`      | Once per bootstrap while the package is installed and enabled. The default for new packages. |
+| `bootInstalledPackage()`      | Legacy gate that still works. Do not use it in new packages.                                 |
+| `bootWhenInstalled(callable)` | Same installed gate, for one-off blocks inside `bootPackage()`.                              |
 
 If a package has separate install/runtime/admin/frontend providers, keep provider buckets in `capell.json` aligned with those responsibilities. Do not register Filament resources from a frontend-only provider.
 
@@ -635,13 +664,22 @@ If a package has separate install/runtime/admin/frontend providers, keep provide
 
 `BodyStart`, `HeaderBefore`, and `ArticleMeta` are declared but have no emit site in the Foundation templates, so a hook registered there is silently never called. There is no post-render injector that would rescue it. This tutorial uses `HeaderAfter` to put the banner directly below the site header.
 
-A custom or third-party theme may emit a different subset. If a hook does not appear, confirm the theme renders that location before debugging your provider — see [Debugging public output](../frontend/debugging-public-output.md).
+A custom or third-party theme may emit a different subset. If you own the theme and it does not already emit `HeaderAfter`, add the hook immediately after its closing header tag.
 
-Use `registerView()` for view-name hooks, `registerInlineBlade()` for inline Blade snippets, `registerCallable()` for closures that resolve hydrated state before rendering, and `registerExtension()` for class-based render hooks. Package-owned keyed hooks should use `RenderHookContributionData::view()`, `inlineBlade()`, or `extension()` when they need diagnostics, stable dedupe keys, and cache-safety metadata.
+```blade
+{!! app(\Capell\Frontend\Support\Render\RenderHookRegistry::class)->renderAll(
+    \Capell\Frontend\Enums\RenderHookLocation::HeaderAfter,
+) !!}
+```
+
+If you cannot edit the theme, choose a location it already renders. See [Debugging public output](../frontend/debugging-public-output.md).
+
+Use `registerView()` for view-name hooks, `registerInlineBlade()` for inline Blade snippets, `registerCallable()` for closures that read state prepared before rendering, and `registerExtension()` for class-based render hooks. Package-owned keyed hooks should use `RenderHookContributionData::view()`, `inlineBlade()`, or `extension()` when they need diagnostics, stable dedupe keys, and cache-safety metadata.
 
 ## Admin Bridge
 
 <!-- tutorial-file: src/Admin/AnnouncementBarAdminBridge.php -->
+
 ```php
 <?php
 
@@ -673,6 +711,7 @@ Use an AdminBridge when a package contributes more than one admin surface or nee
 ## Public Blade
 
 <!-- tutorial-file: resources/views/frontend/banner.blade.php -->
+
 ```blade
 @if ($announcement->enabled && $announcement->message !== '')
     <aside class="announcement-bar">{{ $announcement->message }}</aside>
@@ -690,6 +729,7 @@ The banner renders on every page, so changing the setting must invalidate cached
 Add an Action that flushes the frontend cache:
 
 <!-- tutorial-file: src/Actions/FlushAnnouncementBarCacheAction.php -->
+
 ```php
 <?php
 
@@ -715,7 +755,9 @@ final class FlushAnnouncementBarCacheAction
 }
 ```
 
-`flushFrontendTag()` clears the whole frontend cache. That is the honest choice for output that appears on every page; use the narrower `forgetKey()`, `invalidatePattern()`, or `pageModel()` rules when a change affects a known subset.
+`flushFrontendTag()` clears frontend-tagged cache entries for output that appears across the site. Use `forgetKey()`, `invalidatePattern()`, or `pageModel()` when a change affects a known subset.
+
+If your site publishes [static HTML](../frontend/guide.md), regenerate the affected artifacts after changing the banner so the published files reflect the new settings.
 
 Nothing calls this Action automatically. It is wired in by the `save()` override on [the settings page](#filament-settings-page) — that override is the only thing standing between an editor's save and stale cached HTML.
 
@@ -728,6 +770,7 @@ Do not build ad hoc cache keys in Blade.
 Use this TestCase with the shared [Pest bootstrap and PHPUnit configuration](testing-packages.md#standalone-package-harness). It boots the providers before checking their registrations. These recipes exercise an admin bridge, a render hook, the settings action and the manifest. The settings tests only need their package settings table.
 
 <!-- tutorial-file: tests/TestCase.php -->
+
 ```php
 <?php
 
@@ -786,9 +829,10 @@ abstract class TestCase extends Orchestra
 }
 ```
 
-The render test invokes the same hook location the theme calls. It exercises the provider callback, the saved settings and the Blade view without creating a site and page solely to reach the hook.
+The render test invokes the same hook location the theme calls. It dispatches the frontend context event, then calls the registered hook with the prepared settings.
 
 <!-- tutorial-file: tests/Feature/AnnouncementBarFrontendTest.php -->
+
 ```php
 <?php
 
@@ -799,7 +843,9 @@ use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Core\Testing\ExtensionTestHarness;
+use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 
 it('registers the admin bridge', function (): void {
@@ -814,7 +860,12 @@ it('renders only public announcement markup', function (): void {
         'message' => 'Open weekend hours <em>now</em>',
     ])->save();
 
-    $html = resolve(RenderHookRegistry::class)->renderAll(RenderHookLocation::HeaderAfter);
+    $hooks = resolve(RenderHookRegistry::class);
+    expect($hooks->renderAll(RenderHookLocation::HeaderAfter))->toBe('');
+
+    event(new FrontendContextResolved(new FrontendContext(null, null, null, null, null, [], null)));
+
+    $html = $hooks->renderAll(RenderHookLocation::HeaderAfter);
 
     expect($html)->toContain('Open weekend hours &lt;em&gt;now&lt;/em&gt;')
         ->not->toContain('<em>')

@@ -6,17 +6,23 @@ namespace Acme\AnnouncementBar\Providers;
 
 use Acme\AnnouncementBar\Actions\ResolveAnnouncementBarAction;
 use Acme\AnnouncementBar\Admin\AnnouncementBarAdminBridge;
+use Acme\AnnouncementBar\Data\AnnouncementBarData;
 use Acme\AnnouncementBar\Settings\AnnouncementBarSettings;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Event;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvider
 {
+    private const string RENDER_DATA_KEY = 'acme.announcement-bar';
+
     public static string $name = 'announcement-bar';
 
     public static string $packageName = 'acme/announcement-bar';
@@ -50,12 +56,19 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
     private function registerFrontend(): void
     {
+        Event::listen(FrontendContextResolved::class, static function (FrontendContextResolved $event): void {
+            resolve(FrontendContextReader::class)->setFrontendData(
+                self::RENDER_DATA_KEY,
+                $event->context->isError() ? null : ResolveAnnouncementBarAction::run(),
+            );
+        });
+
         resolve(RenderHookRegistry::class)->registerCallable(
             RenderHookLocation::HeaderAfter,
             function (): ?View {
-                $announcement = ResolveAnnouncementBarAction::run();
+                $announcement = resolve(FrontendContextReader::class)->getFrontendData(self::RENDER_DATA_KEY);
 
-                if (! $announcement->enabled || $announcement->message === '') {
+                if (! $announcement instanceof AnnouncementBarData || ! $announcement->enabled || $announcement->message === '') {
                     return null;
                 }
 

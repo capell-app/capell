@@ -48,8 +48,7 @@ it('keeps the tutorial provider snippet identical to the analysed fixture', func
     $doc = file_get_contents($root . '/docs/packages/build-extension-end-to-end.md');
     $fixture = file_get_contents($root . '/packages/core/tests/Unit/PHPStan/Fixtures/Tutorial/src/Providers/AnnouncementBarServiceProvider.php');
 
-    $section = substr($doc, (int) strpos($doc, '## Provider Registration'));
-    preg_match('/```php\n(.*?)\n```/s', $section, $snippet);
+    preg_match('/^<!-- tutorial-file: src\/Providers\/AnnouncementBarServiceProvider\.php -->\R(?:[ \t]*\R)?```php\R(.*?)^```$/ms', $doc, $snippet);
 
-    expect($snippet[1] ?? null)->toBe(rtrim($fixture, "\n"));
+    expect($snippet[1] ?? null)->toBe($fixture);
 });
