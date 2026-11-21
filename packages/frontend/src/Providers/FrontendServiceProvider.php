@@ -9,6 +9,7 @@ use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Contracts\RuntimeRefreshWarmer;
+use Capell\Core\Contracts\Security\ProvidesCspHashSources;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
@@ -117,6 +118,7 @@ use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Capell\Frontend\Support\Assets\FrontendVitePluginRegistry;
 use Capell\Frontend\Support\Assets\PublicFrontendAssetUrl;
+use Capell\Frontend\Support\Assets\StylesheetRecoveryRenderer;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
 use Capell\Frontend\Support\Assets\ViteManifestReader;
 use Capell\Frontend\Support\Blade\BuildAssetDirective;
@@ -276,6 +278,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             InteractionTargetCapabilityContributor::TAG,
         );
         $this->app->tag(WarmCriticalFrontendPagesAction::class, RuntimeRefreshWarmer::TAG);
+        $this->app->tag(StylesheetRecoveryRenderer::class, ProvidesCspHashSources::TAG);
         $this->app->singletonIf(FrontendResourcePlanRenderer::class, DefaultFrontendResourcePlanRenderer::class);
         $this->app->singletonIf(RedirectResolver::class, NullRedirectResolver::class);
         $this->app->bind(DefaultSystemPageResolver::class);

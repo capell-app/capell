@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Assets;
 
+use Capell\Core\Contracts\Security\ProvidesCspHashSources;
+use Capell\Core\Support\Security\CspHashSource;
 use Illuminate\Foundation\Vite;
+use Override;
 
-final class StylesheetRecoveryRenderer
+final class StylesheetRecoveryRenderer implements ProvidesCspHashSources
 {
     private string|false|null $runtimeSource = false;
 
@@ -73,7 +76,21 @@ final class StylesheetRecoveryRenderer
     {
         $source = $this->enabled() && $this->inlineEnabled() ? $this->runtimeSource() : null;
 
-        return $source === null ? null : "'sha256-" . base64_encode(hash('sha256', $source, true)) . "'";
+        return $source === null ? null : CspHashSource::forContent($source);
+    }
+
+    #[Override]
+    public function scriptHashSources(): array
+    {
+        $source = $this->cspHashSource();
+
+        return $source === null ? [] : [$source];
+    }
+
+    #[Override]
+    public function styleHashSources(): array
+    {
+        return [];
     }
 
     private function inlineEnabled(): bool
