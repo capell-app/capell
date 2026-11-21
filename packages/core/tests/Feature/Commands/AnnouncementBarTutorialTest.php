@@ -21,7 +21,7 @@ it('runs the Announcement Bar package tests copied from the author guides', func
 
             foreach ($files as [, $name, $contents]) {
                 $path = $directory . '/' . $name;
-                expect(explode('/', $name))->not->toContain('..', '.');
+                expect(explode('/', $name))->not->toContain('..')->not->toContain('.');
                 expect(is_file($path))->toBeFalse('Duplicate tutorial file ' . $name);
                 File::ensureDirectoryExists(dirname($path));
                 File::put($path, $contents);
