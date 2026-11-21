@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Assets;
 
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Contracts\Rendering\FrontendResourceContributor;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Privacy\ConsentSettings;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Contracts\FrontendResourceContributor;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Http\CrawlerDetector;
 use Illuminate\Contracts\Routing\UrlGenerator;

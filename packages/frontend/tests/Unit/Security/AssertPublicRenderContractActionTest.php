@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Exceptions\SchemaProbeFailedException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
@@ -17,7 +18,6 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Enums\RenderHookLocation;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Tests\Fixtures\Models\User;

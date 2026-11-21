@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Data\Assets;
+namespace Capell\Core\Data\Rendering\Assets;
 
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use InvalidArgumentException;

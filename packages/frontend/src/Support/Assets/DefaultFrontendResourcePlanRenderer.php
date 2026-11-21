@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Assets;
 
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Enums\CacheTime;
+use Capell\Core\Enums\Rendering\FrontendResourceKind;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Enums\CrossOrigin;
 use Capell\Frontend\Enums\FetchPriority;
 use Capell\Frontend\Enums\FrontendResourceHintAs;
-use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\ReferrerPolicy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Vite;

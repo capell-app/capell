@@ -44,7 +44,7 @@ namespace App\Providers;
 
 use Capell\LayoutBuilder\Data\LayoutWidgets\LayoutWidgetDefinitionData;
 use Capell\LayoutBuilder\Support\LayoutWidgets\LayoutWidgetRegistry;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;

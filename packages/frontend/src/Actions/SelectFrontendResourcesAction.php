@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
 use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Illuminate\Contracts\Foundation\Application;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;

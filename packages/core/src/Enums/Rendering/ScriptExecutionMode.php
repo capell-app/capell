@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Enums;
+namespace Capell\Core\Enums\Rendering;
 
 enum ScriptExecutionMode: string
 {

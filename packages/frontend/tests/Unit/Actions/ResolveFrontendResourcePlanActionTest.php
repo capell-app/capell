@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceActivationData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Core\Enums\Rendering\FrontendResourcePlacement;
 use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
 use Capell\Frontend\Data\Assets\ExternalResourceSourceData;
-use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
@@ -16,7 +17,6 @@ use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Enums\CrossOrigin;
 use Capell\Frontend\Enums\FrontendResourceHintAs;
 use Capell\Frontend\Enums\FrontendResourceHintKind;
-use Capell\Frontend\Enums\FrontendResourcePlacement;
 use Capell\Frontend\Enums\ReferrerPolicy;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Capell\Frontend\Support\Assets\ViteManifestReader;

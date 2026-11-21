@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Support\Assets\ThemeResourceResolver;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;

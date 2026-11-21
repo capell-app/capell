@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Data;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;

@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -17,8 +19,6 @@ use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Contracts\PublicLayoutGraphBuilder;
 use Capell\Frontend\Contracts\PublicWidgetInteractionLocatorBuilder;
 use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 

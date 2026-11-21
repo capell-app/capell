@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Enums\Rendering\FrontendResourceKind;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderPerformanceReportData;
-use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\FrontendResourceSourceKind;
 use Capell\Frontend\Support\Assets\CompressedAssetSizeResolver;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;

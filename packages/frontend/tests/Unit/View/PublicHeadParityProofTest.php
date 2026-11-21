@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\PublicRenderData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Core\Enums\AiDisclosure;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Enums\SiteAiDisclosure;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
@@ -13,11 +15,9 @@ use Capell\Core\Models\Translation;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
 use Capell\Frontend\Data\FrontendMediaHintData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicHeadData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookScenario;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\State\FrontendState;
 use Capell\Tests\Fixtures\Models\User;

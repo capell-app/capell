@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\FrontendRuntime;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -17,7 +18,6 @@ use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Enums\FrontendRenderAudience;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;

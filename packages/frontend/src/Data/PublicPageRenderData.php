@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Data;
 
 use Capell\Core\Contracts\PublicRenderData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Support\Render\PreparedLayoutGraph;
 use Spatie\LaravelData\Data;

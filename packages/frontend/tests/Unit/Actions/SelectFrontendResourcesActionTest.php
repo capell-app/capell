@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Rendering\FrontendResourceContributor;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceActivationData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
 use Capell\Frontend\Actions\SelectFrontendResourcesAction;
-use Capell\Frontend\Contracts\FrontendResourceContributor;
 use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
 use Capell\Frontend\Data\Assets\ExternalResourceSourceData;
-use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\Frontend\Data\FrontendResourceContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\FrontendResourceHintKind;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 
 beforeEach(function (): void {

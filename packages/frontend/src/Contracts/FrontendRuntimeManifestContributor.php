@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Contracts;
 
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 
 /**
  * Adds extension runtime requirements to the current frontend manifest.

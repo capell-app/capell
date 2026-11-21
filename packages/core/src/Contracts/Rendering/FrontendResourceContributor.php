@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Contracts;
+namespace Capell\Core\Contracts\Rendering;
 
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\FrontendResourceContextData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 
 /**
  * Contributes styles, scripts, or inline resources to a public render plan.

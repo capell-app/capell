@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Data\Assets;
+namespace Capell\Core\Data\Rendering\Assets;
 
-use Capell\Frontend\Contracts\FrontendResourceSourceData;
+use Capell\Core\Contracts\Rendering\FrontendResourceSourceData;
 use InvalidArgumentException;
 use Spatie\LaravelData\Data;
 

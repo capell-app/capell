@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Frontend\Data\FrontendRenderPayload;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\FrontendRenderAudience;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 
 it('defaults every field when the bag is empty', function (): void {
     $payload = FrontendRenderPayload::fromBag([]);

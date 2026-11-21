@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Assets;
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
 use InvalidArgumentException;
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Data;
+namespace Capell\Core\Data\Rendering;
 
 use Capell\Core\Contracts\PublicRenderData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Spatie\LaravelData\Data;
 
 class FrontendRuntimeManifestData extends Data implements PublicRenderData

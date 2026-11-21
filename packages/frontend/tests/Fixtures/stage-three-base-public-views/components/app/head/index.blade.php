@@ -24,13 +24,13 @@
     use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
     use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Data\ColorData;
-    use Capell\Frontend\Data\FrontendResourceContextData;
-    use Capell\Frontend\Data\FrontendRuntimeManifestData;
+    use Capell\Core\Data\Rendering\FrontendResourceContextData;
+    use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Actions\GetCriticalCssContentAction;
     use Capell\Frontend\Actions\GetPageVariablesAction;
     use Capell\Frontend\Actions\GetThemeColorsAction;
-    use Capell\Frontend\Enums\RenderingStrategyEnum;
+    use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Enums\RenderHookScenario;
     use Capell\Frontend\Support\Render\RenderHookRegistry;

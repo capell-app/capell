@@ -2,6 +2,6 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Contracts;
+namespace Capell\Core\Contracts\Rendering;
 
 interface FrontendResourceSourceData {}

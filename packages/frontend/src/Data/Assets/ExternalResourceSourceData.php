@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data\Assets;
 
-use Capell\Frontend\Contracts\FrontendResourceSourceData;
+use Capell\Core\Contracts\Rendering\FrontendResourceSourceData;
 use Capell\Frontend\Enums\CrossOrigin;
 use Capell\Frontend\Enums\ReferrerPolicy;
 use InvalidArgumentException;

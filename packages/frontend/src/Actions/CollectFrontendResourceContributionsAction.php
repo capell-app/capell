@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Contracts\Rendering\FrontendResourceContributor;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
-use Capell\Frontend\Contracts\FrontendResourceContributor;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Illuminate\Contracts\Foundation\Application;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;

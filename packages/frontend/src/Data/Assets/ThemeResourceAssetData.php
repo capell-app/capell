@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data\Assets;
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use Illuminate\Support\Str;
 use InvalidArgumentException;

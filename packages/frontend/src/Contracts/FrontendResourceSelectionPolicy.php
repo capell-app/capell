@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Contracts;
 
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 
 /**
  * Select declarations and declared hints before graph validation and resolution.

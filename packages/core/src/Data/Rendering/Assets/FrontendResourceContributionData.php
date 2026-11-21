@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Data\Assets;
+namespace Capell\Core\Data\Rendering\Assets;
 
 use InvalidArgumentException;
 use Spatie\LaravelData\Data;

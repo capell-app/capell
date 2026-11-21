@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Capell\Frontend\Data\Assets;
+namespace Capell\Core\Data\Rendering\Assets;
 
+use Capell\Core\Contracts\Rendering\FrontendResourceSourceData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
-use Capell\Frontend\Contracts\FrontendResourceSourceData;
-use Capell\Frontend\Enums\FrontendResourceKind;
-use Capell\Frontend\Enums\FrontendResourcePlacement;
-use Capell\Frontend\Enums\ScriptExecutionMode;
+use Capell\Core\Enums\Rendering\FrontendResourceKind;
+use Capell\Core\Enums\Rendering\FrontendResourcePlacement;
+use Capell\Core\Enums\Rendering\ScriptExecutionMode;
 use InvalidArgumentException;
 use Spatie\LaravelData\Data;
 
@@ -33,6 +33,7 @@ final class FrontendResourceData extends Data
         $this->validateDeclaration();
     }
 
+    /** @param  array<int, string>  $dependsOn */
     public static function style(
         string $handle,
         string $package,
@@ -45,6 +46,7 @@ final class FrontendResourceData extends Data
         return new self($handle, $package, FrontendResourceKind::Style, $source, $loadingStrategy, $placement, $dependsOn, $criticalCssEligible);
     }
 
+    /** @param  array<int, string>  $dependsOn */
     public static function moduleScript(
         string $handle,
         string $package,
@@ -57,6 +59,7 @@ final class FrontendResourceData extends Data
         return new self($handle, $package, FrontendResourceKind::ModuleScript, $source, $loadingStrategy, $placement, $dependsOn, false, ScriptExecutionMode::Module, false, $async);
     }
 
+    /** @param  array<int, string>  $dependsOn */
     public static function classicScript(
         string $handle,
         string $package,
@@ -70,6 +73,7 @@ final class FrontendResourceData extends Data
         return new self($handle, $package, FrontendResourceKind::ClassicScript, $source, $loadingStrategy, $placement, $dependsOn, false, ScriptExecutionMode::Classic, $defer, $async);
     }
 
+    /** @param  array<int, string>  $dependsOn */
     public static function inlineStyle(
         string $handle,
         string $package,
@@ -81,6 +85,7 @@ final class FrontendResourceData extends Data
         return new self($handle, $package, FrontendResourceKind::InlineStyle, new InlineResourceSourceData($content), $loadingStrategy, FrontendResourcePlacement::Head, $dependsOn, $criticalCssEligible);
     }
 
+    /** @param  array<int, string>  $dependsOn */
     public static function inlineScript(
         string $handle,
         string $package,

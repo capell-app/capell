@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\FrontendRuntime;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -11,7 +12,6 @@ use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Enums\FrontendRenderAudience;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Support\Themes\FrontendThemePreviewRenderer;

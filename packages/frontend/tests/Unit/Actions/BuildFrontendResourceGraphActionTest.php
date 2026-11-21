@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Frontend\Actions\BuildFrontendResourceGraphAction;
 use Capell\Frontend\Actions\ResolveFrontendResourcePlanAction;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 
 it('builds server-side graph diagnostics with ownership placement and fingerprint', function (): void {
