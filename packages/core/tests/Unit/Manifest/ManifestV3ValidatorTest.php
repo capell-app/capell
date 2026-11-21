@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ContributesWorkflowAttention;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\RegistersExtensionAsset;
+use Capell\Core\Contracts\Extensions\RegistersExtensionBuilderBlock;
 use Capell\Core\Contracts\Extensions\RegistersExtensionContentWidget;
 use Capell\Core\Contracts\Extensions\RegistersExtensionFrontendComponent;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
@@ -114,6 +115,13 @@ beforeAll(function (): void {
         }
 
         namespace Vendor\\Example\\Widgets {
+            class ExampleBuilderBlock implements \\' . RegistersExtensionBuilderBlock::class . ' {
+                public static function compatibleCapellApiVersion(): string
+                {
+                    return "^1.1";
+                }
+            }
+
             class ExampleContentWidget implements \\' . RegistersExtensionContentWidget::class . ' {
                 public static function compatibleCapellApiVersion(): string
                 {
@@ -757,6 +765,7 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
         'workflow-attention',
         'outbound-event',
         'blueprint-subject',
+        'builder-block',
     ]);
 
     $validator = new ManifestValidator;
@@ -792,6 +801,23 @@ it('requires content widgets to implement their dedicated contribution contract'
         ->toThrow(InvalidManifestException::class, RegistersExtensionContentWidget::class);
 
     $manifest['contributes'][0]['class'] = 'Vendor\\Example\\Widgets\\ExampleContentWidget';
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('accepts builder blocks only when they implement their dedicated contribution contract', function (): void {
+    $validator = new ManifestValidator;
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['contributes'] = [[
+        'type' => 'builder-block',
+        'class' => 'Vendor\\Example\\Routes\\ExampleRoutes',
+    ]];
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, RegistersExtensionBuilderBlock::class);
+
+    $manifest['contributes'][0]['class'] = 'Vendor\\Example\\Widgets\\ExampleBuilderBlock';
 
     expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
         ->not->toThrow(InvalidManifestException::class);

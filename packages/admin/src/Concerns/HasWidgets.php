@@ -28,6 +28,26 @@ trait HasWidgets
     }
 
     /**
+     * Register a Filament Builder block that editors add to page content.
+     *
+     * Blocks share the content builder's widget discovery but are recorded as
+     * `builder-block` contributions, not dashboard widgets.
+     *
+     * @param  class-string  $blockClass
+     */
+    public function registerBuilderBlock(string $blockClass): static
+    {
+        $this->widgetDiscovery()->register($blockClass);
+        $this->adminReceipt(
+            ExtensionContributionType::BuilderBlock,
+            'builder-block:' . $blockClass,
+            $blockClass,
+        );
+
+        return $this;
+    }
+
+    /**
      * Register a directory for lazy widget auto-discovery.
      *
      * Classes found in $directory matching $namespace that implement
