@@ -25,5 +25,6 @@ final class PublicLayoutShellData extends Data implements PublicRenderData
         public readonly bool $headerFileIsView,
         public readonly ?string $footerFile,
         public readonly bool $footerFileIsView,
+        public readonly ?string $aiNotice = null,
     ) {}
 }

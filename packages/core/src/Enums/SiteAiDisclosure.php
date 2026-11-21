@@ -14,4 +14,7 @@ enum SiteAiDisclosure: string
     case Marker = 'marker';
 
     public const string META_KEY = 'ai_disclosure';
+
+    /** Site setting that shows visitors a short notice on AI-written pages. Independent of the marker. */
+    public const string NOTICE_META_KEY = 'ai_notice';
 }

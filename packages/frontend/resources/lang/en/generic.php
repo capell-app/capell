@@ -36,6 +36,7 @@ return [
     'read_more' => 'Read more',
     'read_more_about' => 'Read more about :title',
     'site' => 'Site',
+    'ai_notice' => 'Parts of this page were written with help from AI.',
     'skip_link' => 'Skip to main content',
     'skip_to_content' => 'Skip to content',
     'visible_from' => 'Published: :date',

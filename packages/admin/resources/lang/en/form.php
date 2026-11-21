@@ -555,6 +555,8 @@ return [
     'ai_disclosure_help' => "Adds a machine-readable marker to pages written or shaped with AI, so visitors' tools and search engines can tell.",
     'ai_disclosure_off' => 'Off',
     'ai_disclosure_marker' => 'Mark AI-written pages',
+    'ai_notice' => 'Show an AI notice on AI-written pages',
+    'ai_notice_help' => 'Shows visitors a short line near the footer saying parts of the page were written with help from AI. It stays off until you turn it on.',
     'url_params' => 'URL parameters',
     'url_path' => 'Path',
     'url_scheme' => 'URL scheme',
