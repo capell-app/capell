@@ -60,6 +60,7 @@ it('makes core actions data and support classes final by default', function (): 
         'Actions/InstallPackageAction.php',
         'Actions/RequirePackageAction.php',
         'Data/PackageData.php',
+        'Data/Rendering/FrontendRuntimeManifestData.php', // Moved from Frontend, where it was never final; kept extensible so existing subclasses written against the Frontend name still load.
         'Data/Rendering/RenderHookContext.php', // The Frontend compatibility alias remains extensible; CoreRenderHookContractTest exercises a legacy subclass with the Core contract.
         'Support/CapellCoreManager.php',
         'Support/Database/Platforms/MySqlDatabasePlatform.php', // Extended by MariaDbDatabasePlatform, which reuses its MySQL dialect and provisioner.
