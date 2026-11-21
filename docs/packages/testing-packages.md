@@ -25,6 +25,7 @@ Match the Capell line you target: Capell 1.x runs PHP 8.4+, Laravel 13, Filament
 
 ### 2. `phpunit.xml.dist`
 
+<!-- tutorial-file: phpunit.xml.dist -->
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -210,6 +211,7 @@ protected function migratePackageSettings(): void
 
 ### 5. `tests/Pest.php`
 
+<!-- tutorial-file: tests/Pest.php -->
 ```php
 <?php
 
