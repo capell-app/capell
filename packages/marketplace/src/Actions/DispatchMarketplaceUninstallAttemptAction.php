@@ -18,12 +18,13 @@ final class DispatchMarketplaceUninstallAttemptAction
         MarketplaceInstallAttempt $attempt,
         string $queueConnection,
         string $queue,
+        ?string $sealedRemovalApproval = null,
     ): MarketplaceInstallAttempt {
         return DispatchMarketplaceAttemptAction::run(
             attempt: $attempt,
             queueConnection: $queueConnection,
             queue: $queue,
-            jobClass: RunMarketplaceUninstallAttemptJob::class,
+            jobClass: static fn (int $attemptId): RunMarketplaceUninstallAttemptJob => RunMarketplaceUninstallAttemptJob::withRemovalApproval($attemptId, $sealedRemovalApproval),
         );
     }
 }

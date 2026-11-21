@@ -1957,6 +1957,16 @@
             "contractTestId": null
         },
         {
+            "id": "marketplace.contract.composer-removal-authorizer",
+            "kind": "contract",
+            "identifier": "Capell\\Marketplace\\Contracts\\MarketplaceComposerRemovalAuthorizer",
+            "ownerPackage": "capell-app/marketplace",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Authorises deployment requirement removal at enqueue time and revalidates approval after uninstall.",
+            "contractTestId": null
+        },
+        {
             "id": "marketplace.contract.composer-requirement-remover",
             "kind": "contract",
             "identifier": "Capell\\Marketplace\\Contracts\\MarketplaceComposerRequirementRemover",

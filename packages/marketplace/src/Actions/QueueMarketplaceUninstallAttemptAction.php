@@ -199,6 +199,7 @@ final class QueueMarketplaceUninstallAttemptAction
             attempt: $attempt,
             queueConnection: $queueConnection,
             queue: (string) config('capell-marketplace.marketplace.operations_queue', 'capell-marketplace'),
+            sealedRemovalApproval: AuthorizeMarketplaceComposerRemovalAction::run($attempt, $user),
         );
     }
 
