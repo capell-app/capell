@@ -34,6 +34,7 @@ enum ExtensionContributionType: string
     case WorkflowAttention = 'workflow-attention';
     case OutboundEvent = 'outbound-event';
     case BlueprintSubject = 'blueprint-subject';
+    case BuilderBlock = 'builder-block';
 
     public function bucket(): string
     {
@@ -42,6 +43,7 @@ enum ExtensionContributionType: string
             self::AdminResource,
             self::AdminActionExtender,
             self::DashboardFilamentWidget,
+            self::BuilderBlock,
             self::OverviewStat,
             self::SchemaExtender,
             self::Configurator,

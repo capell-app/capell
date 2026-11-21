@@ -24,12 +24,12 @@
         },
         "admin.registrar.admin-zone": {
             "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
-            "signature": "3bf983d84a0852030cce8ba77549c419c143dbc09bf2936e03895988ff500ef1",
+            "signature": "4bee42fb5183d36c1931c5b0932c9f75f8ed0b918fc7cad1d9faf1ab9cd7bc64",
             "contractTestId": "admin.admin-zone-registrar"
         },
         "admin.registrar.workspace": {
             "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
-            "signature": "3bf983d84a0852030cce8ba77549c419c143dbc09bf2936e03895988ff500ef1",
+            "signature": "4bee42fb5183d36c1931c5b0932c9f75f8ed0b918fc7cad1d9faf1ab9cd7bc64",
             "contractTestId": "admin.bridge-registrar-workspace"
         },
         "admin.registry.admin-zone": {
@@ -219,7 +219,7 @@
         },
         "frontend.registry.render-hook": {
             "identifier": "Capell\\Frontend\\Support\\Render\\RenderHookRegistry",
-            "signature": "d302b5d1b54a61d608fb2c5d632f5f65c2bc7eb4e1c999511d3774be02bd0cd0",
+            "signature": "c439915bf899f60b4c7a4f5743e7781c421bc96472cc9b8d1acf0873b3084700",
             "contractTestId": "frontend.render-hook-registry"
         },
         "frontend.service.cache-invalidation-executor": {

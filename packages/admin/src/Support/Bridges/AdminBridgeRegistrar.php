@@ -101,6 +101,12 @@ final class AdminBridgeRegistrar
         $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'widget:' . $widgetClass, $widgetClass);
     }
 
+    /** @param class-string $blockClass */
+    public function builderBlock(string $blockClass): void
+    {
+        CapellAdmin::registerBuilderBlock($blockClass);
+    }
+
     /** @param class-string $widgetClass */
     public function filamentDashboardWidget(string $widgetClass, DashboardEnum ...$dashboards): void
     {
