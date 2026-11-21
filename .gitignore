@@ -167,3 +167,8 @@ _ide_helper_models.php
 
 # Receipt-verified gallery inputs staged by the screenshot pre-capture hook.
 /workbench/database/screenshot-gallery/
+
+# Worktree roots and their lease reservations (scripts/worktree-lease.sh in the App). A
+# reservation lock left here makes the checkout dirty, and the Packages overlay generator
+# refuses to mirror a dirty Core.
+/.capell-wt/
