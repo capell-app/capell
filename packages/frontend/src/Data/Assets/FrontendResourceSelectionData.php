@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data\Assets;
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
 use Spatie\LaravelData\Data;
 
 final class FrontendResourceSelectionData extends Data

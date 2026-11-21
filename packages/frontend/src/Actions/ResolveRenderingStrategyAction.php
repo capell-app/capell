@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Contracts\Pageable;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;

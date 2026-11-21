@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data;
 
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Spatie\LaravelData\Data;

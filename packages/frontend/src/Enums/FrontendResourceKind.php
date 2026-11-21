@@ -4,27 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Enums;
 
-enum FrontendResourceKind: string
-{
-    case Style = 'style';
-    case ModuleScript = 'module-script';
-    case ClassicScript = 'classic-script';
-    case InlineStyle = 'inline-style';
-    case InlineScript = 'inline-script';
+use Capell\Core\Enums\Rendering\FrontendResourceKind;
 
-    public function isScript(): bool
-    {
-        return match ($this) {
-            self::ModuleScript, self::ClassicScript, self::InlineScript => true,
-            self::Style, self::InlineStyle => false,
-        };
-    }
-
-    public function isInline(): bool
-    {
-        return match ($this) {
-            self::InlineStyle, self::InlineScript => true,
-            default => false,
-        };
-    }
-}
+/** @deprecated Use \Capell\Core\Enums\Rendering\FrontendResourceKind instead. */
+class_alias(FrontendResourceKind::class, __NAMESPACE__ . '\\FrontendResourceKind');

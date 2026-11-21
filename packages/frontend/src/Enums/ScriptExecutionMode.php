@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Enums;
 
-enum ScriptExecutionMode: string
-{
-    case Module = 'module';
-    case Classic = 'classic';
-}
+use Capell\Core\Enums\Rendering\ScriptExecutionMode;
+
+/** @deprecated Use \Capell\Core\Enums\Rendering\ScriptExecutionMode instead. */
+class_alias(ScriptExecutionMode::class, __NAMESPACE__ . '\\ScriptExecutionMode');

@@ -6,6 +6,7 @@ namespace Capell\Frontend\Livewire\Page;
 
 use Aimeos\Nestedset\Collection;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page as PageRecord;
@@ -16,7 +17,6 @@ use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Data\FrontendWork;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Support\Kernel\FrontendKernelSteps;
 use Capell\Frontend\Support\Kernel\Steps\NotifySubscribersStep;

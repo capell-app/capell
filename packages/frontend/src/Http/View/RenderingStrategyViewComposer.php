@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Frontend\Http\View;
 
 use Capell\Core\Contracts\Pageable;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Exception;
 use Illuminate\View\View;

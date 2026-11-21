@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
+use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -13,10 +16,7 @@ use Capell\Frontend\Contracts\PublicLayoutGraphBuilder;
 use Capell\Frontend\Contracts\PublicWidgetInteractionLocatorBuilder;
 use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
 use Capell\Frontend\Data\FrontendRenderContextData;
-use Capell\Frontend\Data\FrontendResourceContextData;
-use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data\Assets;
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use InvalidArgumentException;
 use Spatie\LaravelData\Data;
 

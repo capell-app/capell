@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Data\Rendering\Assets\FrontendResourceActivationData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
+use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
+use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
-use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
-use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
-use Capell\Frontend\Data\Assets\FrontendResourceData;
-use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Support\Assets\ThemeResourceResolver;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
