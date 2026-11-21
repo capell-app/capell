@@ -66,6 +66,27 @@ it('accepts a raw request declared as reviewed and ignores client configuration 
     expect((new OutboundHttpSourceScanner)->rawFacadeRequests($root))->toBe([]);
 });
 
+it('distinguishes standalone facade management from an unbounded request', function (): void {
+    $root = rawFacadeFixturePackage(['Notify.php' => <<<'PHP'
+        <?php
+
+        use Illuminate\Support\Facades\Http;
+
+        $original = Http::getFacadeRoot();
+        Http::swap($isolated);
+        try {
+            Http::get('https://api.provider.example/status');
+        } finally {
+            Http::swap($original);
+        }
+        PHP]);
+
+    $scanner = new OutboundHttpSourceScanner;
+
+    expect($scanner->requestsWithoutTimeouts($root))->toBe(['src/Notify.php:8'])
+        ->and($scanner->rawFacadeRequests($root))->toBe(['src/Notify.php:8']);
+});
+
 it('keeps every raw Http facade request in the foundation packages declared', function (string $package): void {
     $root = dirname(__DIR__, 6) . '/packages/' . $package;
 

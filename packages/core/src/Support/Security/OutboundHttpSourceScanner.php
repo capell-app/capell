@@ -47,7 +47,7 @@ final class OutboundHttpSourceScanner
     private const array STREAM_FUNCTIONS = ['file_get_contents', 'fopen', 'file', 'readfile', 'copy', 'get_headers', 'getimagesize', 'get_meta_tags', 'simplexml_load_file', 'parse_ini_file', 'md5_file', 'sha1_file', 'hash_file'];
 
     /** Facade calls that configure or fake the client rather than build a request (compared in lower case). */
-    private const array FACADE_CONFIGURATION_METHODS = ['fake', 'fakesequence', 'macro', 'mixin', 'preventstrayrequests', 'allowstrayrequests', 'globalmiddleware', 'globalrequestmiddleware', 'globalresponsemiddleware', 'globaloptions', 'recorded', 'assertsent', 'assertnotsent', 'assertnothingsent', 'assertsentcount', 'assertsequencesareempty', 'response', 'sequence', 'failedconnection'];
+    private const array FACADE_CONFIGURATION_METHODS = ['fake', 'fakesequence', 'macro', 'mixin', 'preventstrayrequests', 'allowstrayrequests', 'globalmiddleware', 'globalrequestmiddleware', 'globalresponsemiddleware', 'globaloptions', 'recorded', 'assertsent', 'assertnotsent', 'assertnothingsent', 'assertsentcount', 'assertsequencesareempty', 'response', 'sequence', 'failedconnection', 'swap'];
 
     /** Functions that open a network socket whatever their argument. */
     private const array SOCKET_FUNCTIONS = ['fsockopen', 'pfsockopen', 'stream_socket_client'];
@@ -416,7 +416,17 @@ final class OutboundHttpSourceScanner
                 continue;
             }
 
-            if (in_array(strtolower($tokens[$index + 2]->text ?? ''), self::FACADE_CONFIGURATION_METHODS, true)) {
+            $method = strtolower($tokens[$index + 2]->text ?? '');
+            if (in_array($method, self::FACADE_CONFIGURATION_METHODS, true)) {
+                continue;
+            }
+
+            // Reading the client for a later swap is not a request. Keep
+            // chained calls in the scan, where they can act on that client.
+            if ($method === 'getfacaderoot'
+                && ($tokens[$index + 3] ?? null)?->is('(')
+                && ($tokens[$index + 4] ?? null)?->is(')')
+                && ($tokens[$index + 5] ?? null)?->is(';')) {
                 continue;
             }
 
