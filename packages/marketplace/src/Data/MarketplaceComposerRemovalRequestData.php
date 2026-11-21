@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Data;
 
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use SensitiveParameter;
 use Spatie\LaravelData\Data;
 
 /**
@@ -19,5 +21,21 @@ final class MarketplaceComposerRemovalRequestData extends Data
         public readonly string $operationId,
         public readonly array $composerNames,
         public readonly string $label,
+        #[SensitiveParameter]
+        public readonly ?string $approvalId = null,
     ) {}
+
+    /** @internal */
+    public static function forAttempt(MarketplaceInstallAttempt $attempt): ?self
+    {
+        $options = MarketplaceUninstallOptionsData::fromPayload($attempt->uninstall_options);
+
+        return $options->deletePackage
+            ? new self(
+                operationId: (string) $attempt->getKey(),
+                composerNames: $options->packageNames !== [] ? $options->packageNames : [$attempt->composer_name],
+                label: $attempt->extension_name,
+            )
+            : null;
+    }
 }

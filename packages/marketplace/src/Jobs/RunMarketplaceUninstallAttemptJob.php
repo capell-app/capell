@@ -50,6 +50,18 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
      */
     private bool $lifecycleApplied = false;
 
+    // A job already queued before approval support deserialises with this default.
+    private ?string $sealedRemovalApproval = null;
+
+    /** @internal */
+    public static function withRemovalApproval(int $installAttemptId, ?string $sealedRemovalApproval): self
+    {
+        $job = new self($installAttemptId);
+        $job->sealedRemovalApproval = $sealedRemovalApproval;
+
+        return $job;
+    }
+
     #[Override]
     protected function progressTotal(): int
     {
@@ -345,7 +357,7 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
         $packageNames = $this->packageNames($attempt);
 
         try {
-            $removal = RemoveMarketplaceComposerRequirementAction::run($attempt, $packageNames);
+            $removal = RemoveMarketplaceComposerRequirementAction::run($attempt, $this->sealedRemovalApproval);
         } catch (Throwable $throwable) {
             report($throwable);
             $removal = ['status' => 'failed'];

@@ -13,8 +13,8 @@ use Capell\Marketplace\Data\MarketplaceComposerRemovalRequestData;
  * source when an extension is uninstalled.
  *
  * Kept as its own interface rather than a new method on the publisher, so a
- * publisher built against an older Core keeps loading; Marketplace asks for a
- * removal only from a publisher that declares it can make one.
+ * publisher built against an older Core keeps loading. Queued Marketplace
+ * uninstalls also require a MarketplaceComposerRemovalAuthorizer.
  *
  * @experimental
  */
