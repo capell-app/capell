@@ -35,6 +35,9 @@ final class ImpersonationCeiling
 
         $access = SiteAccess::forActor($actor, true);
 
+        // Global here means the super admin role and nothing less: that role
+        // passes every permission check, so no target can exceed it. Any other
+        // account-wide role is not global and is compared below.
         if ($access->isGlobal()) {
             return true;
         }

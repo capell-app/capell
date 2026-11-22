@@ -110,6 +110,22 @@ it('refuses a target who holds an account-wide permission the actor lacks', func
     expect(Impersonation::isImpersonating())->toBeFalse();
 });
 
+it('does not treat an account-wide role short of super admin as unlimited', function (): void {
+    // Only the super admin role makes an actor global. An editor whose role is
+    // held account-wide still has a permission ceiling, and it is compared.
+    $actor = SiteScopedUserFactory::create(test()->site);
+    $target = SiteScopedUserFactory::create(test()->site);
+    PermissionTeamContext::run(null, function () use ($actor, $target): void {
+        $actor->givePermissionTo([InstallImpersonationPermissionAction::PERMISSION_IMPERSONATE, 'ViewAny:User', 'Update:Page']);
+        $target->givePermissionTo(['Update:Page', 'Delete:Page', 'Update:Site']);
+    }, $actor);
+
+    expect(forgeImpersonation($actor, $target))->toBeFalse();
+
+    expect(Impersonation::isImpersonating())->toBeFalse()
+        ->and(auth()->id())->toBe($actor->getKey());
+});
+
 it('still impersonates a target confined to the actor site with a subset of the actor permissions', function (): void {
     $actor = impersonationActor(test()->site);
     $target = SiteScopedUserFactory::create(test()->site, ['Update:Page']);
