@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Support;
 
+use Capell\Core\Support\Url\ExternalHttpsUrl;
+
 final class MarketplaceTrustedUrlPolicy
 {
     public function trusted(?string $url): ?string
     {
-        if ($url === null || $url === '') {
+        $url = ExternalHttpsUrl::sanitise($url);
+
+        if ($url === null) {
             return null;
         }
 
-        $scheme = parse_url($url, PHP_URL_SCHEME);
         $host = parse_url($url, PHP_URL_HOST);
 
-        if (! is_string($scheme) || strtolower($scheme) !== 'https' || ! is_string($host) || $host === '') {
+        if (! is_string($host)) {
             return null;
         }
 

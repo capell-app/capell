@@ -96,6 +96,50 @@ it('shows update and advisory notices in the upgrade center', function (): void 
         ->assertSeeText(__('capell-admin::generic.upgrade_guide'));
 });
 
+it('renders no link for a stored snapshot URL that is not an absolute https URL', function (string $url): void {
+    MarketplaceUpdateAdvisorySnapshotTable::ensure();
+    ensureUpdateNoticeDismissalTable();
+    Permission::create(['name' => 'View:UpgradePage', 'guard_name' => 'web']);
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo('View:UpgradePage');
+
+    DB::table('marketplace_update_advisory_snapshots')->insert([
+        'source' => 'heartbeat',
+        'checked_at' => now(),
+        'capell_version' => '4.2.0',
+        'updates' => json_encode([[
+            'composer_name' => 'capell-app/blog',
+            'title' => 'Blog 1.5.0 is available',
+            'severity' => 'low',
+            'release_notes_url' => $url,
+            'upgrade_guide_url' => $url,
+        ]], JSON_THROW_ON_ERROR),
+        'advisories' => json_encode([[
+            'id' => 'CAPELL-2026-009',
+            'type' => 'security',
+            'severity' => 'critical',
+            'title' => 'Stored pre-fix advisory',
+            'release_notes_url' => $url,
+            'upgrade_guide_url' => $url,
+        ]], JSON_THROW_ON_ERROR),
+        'metadata' => json_encode([], JSON_THROW_ON_ERROR),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    get(UpgradePage::getUrl())
+        ->assertOk()
+        ->assertSeeText('Stored pre-fix advisory')
+        ->assertDontSee($url, false)
+        ->assertDontSeeText(__('capell-admin::generic.release_notes'))
+        ->assertDontSeeText(__('capell-admin::generic.upgrade_guide'));
+})->with([
+    'script' => 'javascript:alert(1)',
+    'data document' => 'data:text/html,<script>alert(1)</script>',
+    'plain http' => 'http://capell.test/releases/blog',
+    'scheme relative' => '//capell.test/releases/blog',
+]);
+
 it('dismisses normal update notices without hiding persistent security advisories', function (): void {
     MarketplaceUpdateAdvisorySnapshotTable::ensure();
     ensureUpdateNoticeDismissalTable();

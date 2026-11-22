@@ -9,6 +9,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 
 it('builds purchases and installed licence data from authoritative stored state', function (): void {
+    config(['capell-marketplace.marketplace.web_url' => 'https://marketplace.example.test']);
     MarketplaceInstance::query()->create([
         'instance_id' => '018f47a2-62da-7ca4-b732-bd3c715db1bf',
         'signing_secret_encrypted' => 'test-signing-secret',

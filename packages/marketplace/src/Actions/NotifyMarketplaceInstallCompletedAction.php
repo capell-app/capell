@@ -43,7 +43,7 @@ final class NotifyMarketplaceInstallCompletedAction
         }
 
         $body = (string) __('capell-marketplace::marketplace.install.installed_body', [
-            'name' => $attempt->extension_name,
+            'name' => e($attempt->extension_name),
         ]);
 
         if (is_string($runtimeNotice) && $runtimeNotice !== '') {
