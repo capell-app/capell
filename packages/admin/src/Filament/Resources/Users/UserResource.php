@@ -14,7 +14,7 @@ use Capell\Admin\Filament\Resources\Users\Pages\EditUser;
 use Capell\Admin\Filament\Resources\Users\Pages\ListUsers;
 use Capell\Admin\Filament\Resources\Users\Schemas\UserForm;
 use Capell\Admin\Filament\Resources\Users\Tables\UsersTable;
-use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Admin\Support\Users\SiteUserVisibility;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -52,24 +52,7 @@ class UserResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $access = SiteAccess::current();
-
-        if ($access->isGlobal()) {
-            return $query;
-        }
-
-        $actor = auth()->user();
-        if (! $actor instanceof Authenticatable) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        $pivot = (string) config('permission.table_names.model_has_roles', 'model_has_roles');
-        $team = (string) config('permission.column_names.team_foreign_key', 'team_id');
-
-        return $query->where(fn (Builder $users): Builder => $users
-            ->whereKey($actor->getAuthIdentifier())
-            ->orWhereHas('roles', fn (Builder $roles): Builder => $roles->whereIn($pivot . '.' . $team, $access->allowedSiteIds() ?? [])));
+        return SiteUserVisibility::scope(parent::getEloquentQuery(), auth()->user());
     }
 
     #[Override]

@@ -61,6 +61,7 @@ it('syncs submitted user role assignments for a site', function (): void {
     $adminRole = Role::findOrCreate('admin');
 
     $admin->givePermissionTo('ManagePermissions:Site');
+    $admin->assignRole(Role::findOrCreate('super_admin'));
 
     SyncSitePermissionsAction::run(
         actor: $admin,
@@ -91,6 +92,7 @@ it('removes stale assignments for the managed site only', function (): void {
     $adminRole = Role::findOrCreate('admin');
 
     $admin->givePermissionTo('ManagePermissions:Site');
+    $admin->assignRole(Role::findOrCreate('super_admin'));
     DB::table('model_has_roles')->insert([
         [
             'role_id' => $editorRole->getKey(),
@@ -186,6 +188,7 @@ it('uses the submitted users morph class when a morph map alias is active', func
         $editorRole = Role::findOrCreate('editor');
 
         $admin->givePermissionTo('ManagePermissions:Site');
+        $admin->assignRole(Role::findOrCreate('super_admin'));
 
         SyncSitePermissionsAction::run(
             actor: $admin,
@@ -245,6 +248,8 @@ it('refuses unreviewed removals and computes authorised named additions and revo
     $actor = makeSitePermissionActionTestUser();
     $member = makeSitePermissionActionTestUser();
     $actor->givePermissionTo('ManagePermissions:Site');
+    $actor->assignRole(Role::findOrCreate('super_admin'));
+
     $oldRole = Role::findOrCreate('editor');
     $newRole = Role::findOrCreate('reviewer');
     DB::table('model_has_roles')->insert([
@@ -272,6 +277,8 @@ it('writes nothing for unchanged assignments including repeated saves', function
     $actor = makeSitePermissionActionTestUser();
     $member = makeSitePermissionActionTestUser();
     $actor->givePermissionTo('ManagePermissions:Site');
+    $actor->assignRole(Role::findOrCreate('super_admin'));
+
     $role = Role::findOrCreate('editor');
     $input = SyncSitePermissionsData::fromArray(['assignments' => [
         ['user_id' => $member->getKey(), 'role_ids' => [$role->getKey()]],
@@ -296,15 +303,14 @@ it('writes nothing for unchanged assignments including repeated saves', function
 it('rechecks the actors current authority rather than loaded roles when executing a review', function (): void {
     $site = Site::factory()->createOne();
     $actor = makeSitePermissionActionTestUser();
-    $member = makeSitePermissionActionTestUser();
     $role = Role::findOrCreate('access-manager');
     $role->givePermissionTo('ManagePermissions:Site');
 
-    $actor->assignRole($role);
+    DB::table('model_has_roles')->insert(['role_id' => $role->getKey(), 'model_type' => $actor->getMorphClass(), 'model_id' => $actor->getKey(), 'team_id' => $site->getKey()]);
     $actor->load('roles', 'permissions');
 
     $input = SyncSitePermissionsData::fromArray(['assignments' => [
-        ['user_id' => $member->getKey(), 'role_ids' => [$role->getKey()]],
+        ['user_id' => $actor->getKey(), 'role_ids' => [$role->getKey()]],
     ]]);
     $review = resolve(SyncSitePermissionsAction::class)->review($actor, $site, $input);
     DB::table('model_has_roles')->where('model_type', $actor->getMorphClass())
@@ -320,6 +326,8 @@ it('rejects changed users roles and submitted targets after review', function (s
     $actor = makeSitePermissionActionTestUser();
     $member = makeSitePermissionActionTestUser();
     $actor->givePermissionTo('ManagePermissions:Site');
+    $actor->assignRole(Role::findOrCreate('super_admin'));
+
     $role = Role::findOrCreate('editor');
     $input = SyncSitePermissionsData::fromArray(['assignments' => [
         ['user_id' => $member->getKey(), 'role_ids' => [$role->getKey()]],
@@ -345,6 +353,8 @@ it('preserves assignments belonging to other model types when removing a reviewe
     $actor = makeSitePermissionActionTestUser();
     $member = makeSitePermissionActionTestUser();
     $actor->givePermissionTo('ManagePermissions:Site');
+    $actor->assignRole(Role::findOrCreate('super_admin'));
+
     $role = Role::findOrCreate('editor');
     foreach ([$member->getMorphClass(), 'another-model'] as $modelType) {
         DB::table('model_has_roles')->insert([
@@ -382,6 +392,7 @@ it('canonicalises retained legacy grants after a morph alias is enabled', functi
 
         Relation::enforceMorphMap(['admin-user' => $legacyType]);
         $actor->givePermissionTo('ManagePermissions:Site');
+        $actor->assignRole(Role::findOrCreate('super_admin'));
         DB::table('model_has_roles')->insert([
             'role_id' => $role->getKey(), 'model_type' => 'unrelated-model',
             'model_id' => $member->getKey(), 'team_id' => $site->getKey(),
@@ -424,6 +435,7 @@ it('rejects a member becoming unavailable after a revocation was reviewed', func
     $site = Site::factory()->createOne();
     $actor = makeSitePermissionActionTestUser();
     $actor->givePermissionTo('ManagePermissions:Site');
+    $actor->assignRole(Role::findOrCreate('super_admin'));
 
     $member = SoftDeletingSitePermissionTestUser::query()->forceCreate([
         'name' => 'Member', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password'),
@@ -445,4 +457,74 @@ it('rejects a member becoming unavailable after a revocation was reviewed', func
     expect(fn () => SyncSitePermissionsAction::run($actor, $site, $retainedInput))
         ->toThrow(ValidationException::class, __('capell-admin::site_permissions.stale'));
     expect(DB::table('model_has_roles')->where('team_id', $site->getKey())->where('model_id', $member->getKey())->exists())->toBeTrue();
+});
+
+it('refuses a site manager attaching or altering accounts they cannot reach, naming the invitation route', function (string $target): void {
+    $site = Site::factory()->createOne();
+    $otherSite = Site::factory()->createOne();
+    $editorRole = Role::findOrCreate('editor');
+    $manager = makeSitePermissionActionTestUser();
+    $manager->givePermissionTo('ManagePermissions:Site');
+    DB::table('model_has_roles')->insert(['role_id' => $editorRole->getKey(), 'model_type' => $manager->getMorphClass(), 'model_id' => $manager->getKey(), 'team_id' => $site->getKey()]);
+
+    $victim = makeSitePermissionActionTestUser();
+    match ($target) {
+        'other site user' => DB::table('model_has_roles')->insert(['role_id' => $editorRole->getKey(), 'model_type' => $victim->getMorphClass(), 'model_id' => $victim->getKey(), 'team_id' => $otherSite->getKey()]),
+        'global admin' => $victim->assignRole(Role::findOrCreate('super_admin')),
+        'global role holder' => DB::table('model_has_roles')->insert([
+            ['role_id' => $editorRole->getKey(), 'model_type' => $victim->getMorphClass(), 'model_id' => $victim->getKey(), 'team_id' => null],
+            ['role_id' => Role::findOrCreate('reviewer')->getKey(), 'model_type' => $victim->getMorphClass(), 'model_id' => $victim->getKey(), 'team_id' => $site->getKey()],
+        ]),
+        default => null,
+    };
+
+    $before = DB::table('model_has_roles')->count();
+    $input = SyncSitePermissionsData::fromArray(['assignments' => [
+        ['user_id' => $manager->getKey(), 'role_ids' => [$editorRole->getKey()]],
+        ['user_id' => $victim->getKey(), 'role_ids' => [$editorRole->getKey()]],
+    ]]);
+
+    expect(fn () => SyncSitePermissionsAction::run($manager, $site, $input))
+        ->toThrow(ValidationException::class, __('capell-admin::site_permissions.user_not_available'))
+        ->and(DB::table('model_has_roles')->count())->toBe($before)
+        ->and(__('capell-admin::site_permissions.user_not_available'))->toContain('invite');
+})->with(['other site user', 'global admin', 'global role holder', 'unrelated user']);
+
+it('refuses a site manager removing a global role holder from a site', function (): void {
+    $site = Site::factory()->createOne();
+    $editorRole = Role::findOrCreate('editor');
+    $manager = makeSitePermissionActionTestUser();
+    $manager->givePermissionTo('ManagePermissions:Site');
+
+    $holder = makeSitePermissionActionTestUser();
+    DB::table('model_has_roles')->insert([
+        ['role_id' => $editorRole->getKey(), 'model_type' => $manager->getMorphClass(), 'model_id' => $manager->getKey(), 'team_id' => $site->getKey()],
+        ['role_id' => $editorRole->getKey(), 'model_type' => $holder->getMorphClass(), 'model_id' => $holder->getKey(), 'team_id' => null],
+        ['role_id' => $editorRole->getKey(), 'model_type' => $holder->getMorphClass(), 'model_id' => $holder->getKey(), 'team_id' => $site->getKey()],
+    ]);
+    $input = SyncSitePermissionsData::fromArray(['assignments' => [
+        ['user_id' => $manager->getKey(), 'role_ids' => [$editorRole->getKey()]],
+    ]]);
+
+    expect(fn () => resolve(SyncSitePermissionsAction::class)->review($manager, $site, $input))
+        ->toThrow(ValidationException::class, __('capell-admin::site_permissions.user_not_available'))
+        ->and(DB::table('model_has_roles')->where('team_id', $site->getKey())->where('model_id', $holder->getKey())->exists())->toBeTrue();
+});
+
+it('lets a global actor attach any account', function (): void {
+    $site = Site::factory()->createOne();
+    $otherSite = Site::factory()->createOne();
+    $editorRole = Role::findOrCreate('editor');
+    $actor = makeSitePermissionActionTestUser();
+    $actor->givePermissionTo('ManagePermissions:Site');
+    $actor->assignRole('super_admin');
+
+    $foreign = makeSitePermissionActionTestUser();
+    DB::table('model_has_roles')->insert(['role_id' => $editorRole->getKey(), 'model_type' => $foreign->getMorphClass(), 'model_id' => $foreign->getKey(), 'team_id' => $otherSite->getKey()]);
+
+    SyncSitePermissionsAction::run($actor, $site, SyncSitePermissionsData::fromArray(['assignments' => [
+        ['user_id' => $foreign->getKey(), 'role_ids' => [$editorRole->getKey()]],
+    ]]));
+
+    expect(DB::table('model_has_roles')->where('team_id', $site->getKey())->where('model_id', $foreign->getKey())->exists())->toBeTrue();
 });

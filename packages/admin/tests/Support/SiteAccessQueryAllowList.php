@@ -80,7 +80,10 @@ final class SiteAccessQueryAllowList
             // actor's sites would retain stale public output on every other site.
             'packages/admin/src/Filament/Pages/SettingsPage.php' => ['allSiteSurrogateKeys|' . Site::class . '::query()->pluck(\'id\')->map(fn(int $siteId): string => \'site-\' . $siteId)->all()'],
             // Permission definitions, users and role pivots are installation-wide.
-            'packages/admin/src/Filament/Actions/Site/ManageSitePermissionsAction.php' => ['assignmentsFor|' . DB::class . '::table($modelHasRolesTable)->where($teamColumn, $site->getKey())->whereIn(\'model_type\', $modelTypes)->orderBy(\'model_id\')->get([\'model_id\', \'role_id\'])', 'assignmentsFor|$userModel::query()->whereKey($userIds)->pluck(\'id\')->map(fn(mixed $userId): int => (int) $userId)->all()', 'userOptions|$userModel::query()->orderBy(\'name\')->get([\'id\', \'name\', \'email\'])->mapWithKeys(fn(\Illuminate\Foundation\Auth\User $user): array => [(int) $user->getKey() => sprintf(\'%s <%s>\', $user->name, $user->email)])->all()'],
+            'packages/admin/src/Filament/Actions/Site/ManageSitePermissionsAction.php' => ['assignmentsFor|' . DB::class . '::table($modelHasRolesTable)->where($teamColumn, $site->getKey())->whereIn(\'model_type\', $modelTypes)->orderBy(\'model_id\')->get([\'model_id\', \'role_id\'])', 'assignmentsFor|$userModel::query()->whereKey($userIds)->pluck(\'id\')->map(fn(mixed $userId): int => (int) $userId)->all()'],
+            // Accounts are installation-wide. This is the one origin of the picker and
+            // attach queries; SiteUserVisibility narrows it to the actor's reach.
+            'packages/admin/src/Support/Users/SiteUserVisibility.php' => ['root|(new $userModel())->newQuery()'],
             'packages/admin/src/Filament/Components/Forms/UserSelect.php' => ['setUp|$this->userModel()::query()->whereKey($value)->value(\'name\')', 'userQuery|$this->userModel()::query()->limit(10)'],
             // Role and permission definitions are installation-wide provisioning for
             // the acting guard; they hold no site content.

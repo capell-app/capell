@@ -320,3 +320,87 @@ it('reviews and confirms cleanup of a member soft deleted before the modal opens
         ->and(DB::table('model_has_roles')->where('team_id', $site->getKey())->where('model_id', $newMember->getKey())->where('role_id', $role->getKey())->exists())->toBeTrue()
         ->and(DB::table('model_has_roles')->where('model_id', $member->getKey())->orderBy('team_id')->get()->all())->toEqual($preserved);
 });
+
+it('offers a site manager only people who can already be reached from their site and refuses forged ids', function (): void {
+    $siteA = Site::factory()->createOne();
+    $siteB = Site::factory()->createOne();
+    $editor = Role::findOrCreate('editor');
+
+    $manager = makeManageSitePermissionsActionTestUser();
+    $manager->givePermissionTo([CapellPermission::ManageSitePermissions->name(), 'Update:Site']);
+    assignRoleForSiteInDatabase($manager, $siteA, $editor);
+
+    $member = makeManageSitePermissionsActionTestUser();
+    assignRoleForSiteInDatabase($member, $siteA, $editor);
+
+    $foreign = makeManageSitePermissionsActionTestUser();
+    $foreign->forceFill(['name' => 'Foreign Person', 'email' => 'foreign@other-site.test'])->save();
+    assignRoleForSiteInDatabase($foreign, $siteB, $editor);
+
+    $globalAdmin = makeManageSitePermissionsActionTestUser();
+    $globalAdmin->forceFill(['name' => 'Global Admin', 'email' => 'global@everywhere.test'])->save();
+    $globalAdmin->assignRole('super_admin');
+
+    $globalRoleHolder = makeManageSitePermissionsActionTestUser();
+    $globalRoleHolder->forceFill(['name' => 'Global Role Holder', 'email' => 'holder@everywhere.test'])->save();
+    DB::table('model_has_roles')->insert([
+        'role_id' => $editor->getKey(), 'model_type' => $globalRoleHolder->getMorphClass(),
+        'model_id' => $globalRoleHolder->getKey(), 'team_id' => null,
+    ]);
+    assignRoleForSiteInDatabase($globalRoleHolder, $siteA, $editor);
+
+    $unrelated = makeManageSitePermissionsActionTestUser();
+    $unrelated->forceFill(['name' => 'Unrelated Person', 'email' => 'unrelated@nowhere.test'])->save();
+
+    test()->actingAs($manager);
+
+    $component = Livewire::test(EditSite::class, ['record' => $siteA->getRouteKey()])
+        ->mountAction('manage_site_permissions');
+
+    $html = json_encode($component->effects['partials'] ?? []) . $component->html();
+    expect($html)->not->toContain('foreign@other-site.test')
+        ->and($html)->not->toContain('global@everywhere.test')
+        ->and($html)->not->toContain('unrelated@nowhere.test');
+
+    foreach ([$foreign, $globalAdmin, $unrelated] as $target) {
+        Livewire::test(EditSite::class, ['record' => $siteA->getRouteKey()])
+            ->mountAction('manage_site_permissions')
+            ->fillForm(['assignments' => [
+                ['user_id' => $member->getKey(), 'role_ids' => [$editor->getKey()]],
+                ['user_id' => $target->getKey(), 'role_ids' => [$editor->getKey()]],
+            ]])
+            ->goToNextWizardStep()
+            ->callMountedAction();
+
+        expect(DB::table('model_has_roles')->where('team_id', $siteA->getKey())->where('model_id', $target->getKey())->exists())->toBeFalse();
+    }
+});
+
+it('still lets a site manager change the roles of an existing member of their site', function (): void {
+    $site = Site::factory()->createOne();
+    $editor = Role::findOrCreate('editor');
+    $reviewer = Role::findOrCreate('reviewer');
+
+    $manager = makeManageSitePermissionsActionTestUser();
+    $manager->givePermissionTo([CapellPermission::ManageSitePermissions->name(), 'Update:Site']);
+    assignRoleForSiteInDatabase($manager, $site, $editor);
+
+    $member = makeManageSitePermissionsActionTestUser();
+    assignRoleForSiteInDatabase($member, $site, $editor);
+
+    test()->actingAs($manager);
+
+    Livewire::test(EditSite::class, ['record' => $site->getRouteKey()])
+        ->mountAction('manage_site_permissions')
+        ->fillForm(['assignments' => [
+            ['user_id' => $manager->getKey(), 'role_ids' => [$editor->getKey()]],
+            ['user_id' => $member->getKey(), 'role_ids' => [$reviewer->getKey()]],
+        ]])
+        ->goToNextWizardStep()
+        ->fillForm(['confirm_revocations' => true])
+        ->callMountedAction()
+        ->assertHasNoActionErrors();
+
+    expect(DB::table('model_has_roles')->where('team_id', $site->getKey())->where('model_id', $member->getKey())->pluck('role_id')->all())
+        ->toBe([$reviewer->getKey()]);
+});
