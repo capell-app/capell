@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Models\Concerns;
 
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Support\Impersonation\ImpersonationCeiling;
+use Filament\Facades\Filament;
+use Illuminate\Contracts\Auth\Authenticatable;
 use ReflectionMethod;
 
 trait HasImpersonation
@@ -14,10 +17,20 @@ trait HasImpersonation
         return $this->checkPermissionTo(CapellPermission::ImpersonateUsers->name());
     }
 
-    public function canBeImpersonated(): bool
+    /**
+     * The package calls this without the actor, both to show the action and
+     * again when it runs, so the actor's ceiling is enforced here for both.
+     */
+    public function canBeImpersonated(?Authenticatable $actor = null): bool
     {
-        return ! $this->checkPermissionTo(CapellPermission::ImpersonateUsers->name())
-            && ! $this->isPrivilegedImpersonationTarget();
+        if ($this->checkPermissionTo(CapellPermission::ImpersonateUsers->name()) || $this->isPrivilegedImpersonationTarget()) {
+            return false;
+        }
+
+        $actor ??= Filament::auth()->user() ?? auth()->user();
+
+        return $actor instanceof Authenticatable
+            && resolve(ImpersonationCeiling::class)->permits($actor, $this);
     }
 
     /**
