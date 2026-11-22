@@ -62,6 +62,14 @@ final class AuditExtensionContractsAction
             )];
         }
 
+        // Register every audited package's autoload before validating any of them. An add-on's
+        // contribution can implement an interface its base package defines (shop-paypal on
+        // shop), and the path-sorted walk reaches "shop-paypal/capell.json" before
+        // "shop/capell.json" because '-' sorts before '/'.
+        foreach ($manifestPaths as $manifestPath) {
+            $this->registerComposerPsr4Autoload(dirname($manifestPath), $this->readJsonFile(dirname($manifestPath) . '/composer.json') ?? []);
+        }
+
         foreach ($manifestPaths as $manifestPath) {
             $directory = dirname($manifestPath);
             $data = $this->readJsonFile($manifestPath);
@@ -78,8 +86,6 @@ final class AuditExtensionContractsAction
 
                 continue;
             }
-
-            $this->registerComposerPsr4Autoload($directory, $composerJson ?? []);
 
             try {
                 ValidateExtensionManifestAction::run(
