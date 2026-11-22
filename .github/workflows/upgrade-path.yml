@@ -1,0 +1,75 @@
+name: Upgrade path
+
+# Proves a site on the last published Capell release upgrades cleanly to this Core: the upgrade
+# and every upgrade step succeed, no data goes, and the public and admin pages still render.
+# It runs in the merge queue and after merges to main rather than on every PR push: the run
+# installs a whole application twice over, so it is too slow for the fast PR gate. A broken
+# upgrade is caught before it reaches main, and again on main for direct pushes. A nightly run
+# covers a new published release and Packagist releases of the companion packages, which change
+# without a Core merge. Run it by hand with workflow_dispatch, or locally with
+# scripts/upgrade-path.sh.
+
+on:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  schedule:
+    # Nightly, off-peak UTC, clear of the first page timing run.
+    - cron: '47 3 * * *'
+  workflow_dispatch:
+    inputs:
+      from:
+        description: 'Published release to upgrade from, for example 1.0.79 (default: the newest)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upgrade-path-${{ github.event.merge_group.head_sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  upgrade-path:
+    name: Published release upgrades cleanly to this Core
+    runs-on: ubuntu-latest
+    # A hang ceiling only, never a speed assertion.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: dom, mbstring, intl, pdo_sqlite, sqlite3, zip, gd, bcmath, exif, curl
+          tools: composer:v2
+          coverage: none
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        with:
+          node-version: '22.x'
+      - name: Check the upgrade-path script
+        run: bash tests/Shell/upgrade-path.sh
+      - name: Upgrade a site from the published release
+        env:
+          FROM_VERSION: ${{ inputs.from }}
+        run: |
+          arguments=(--workdir "$RUNNER_TEMP/upgrade-path")
+          if [ -n "$FROM_VERSION" ]; then
+            arguments+=(--from "$FROM_VERSION")
+          fi
+          bash scripts/upgrade-path.sh "${arguments[@]}"
+      - name: Upload logs and evidence
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: upgrade-path-logs
+          path: |
+            ${{ runner.temp }}/upgrade-path/logs
+            ${{ runner.temp }}/upgrade-path/evidence
+          if-no-files-found: ignore

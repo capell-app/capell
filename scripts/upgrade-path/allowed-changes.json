@@ -1,0 +1,12 @@
+{
+    "tables": {
+        "cache": "Laravel cache store; the upgrade clears it.",
+        "cache_locks": "Laravel cache locks; released as the upgrade finishes.",
+        "sessions": "Visitor sessions; not site content.",
+        "jobs": "Queued jobs are worked off, not kept.",
+        "job_batches": "Queue batches are pruned once finished.",
+        "failed_jobs": "Failed jobs may be retried or pruned."
+    },
+    "columns": {},
+    "pages": {}
+}
