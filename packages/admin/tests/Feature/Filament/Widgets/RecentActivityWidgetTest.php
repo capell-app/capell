@@ -11,6 +11,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 uses(CreatesAdminUser::class)
@@ -73,6 +74,7 @@ it('renders translation activity with the page and language in the primary row',
         ->event('created')
         ->log('created');
 
+    $user->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
     $this->actingAs($user);
 
     Livewire::test(RecentActivityFilamentWidget::class)
