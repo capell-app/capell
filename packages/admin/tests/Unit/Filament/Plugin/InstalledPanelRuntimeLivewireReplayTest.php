@@ -19,9 +19,11 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeHeldResponseMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeLateForbiddenMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Support\Security\LockdownStore;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Iterator;
@@ -94,6 +96,25 @@ final class InstalledPanelRuntimeLivewireReplayTest extends AdminTestCase
 
         $this->replay($payload)->assertOk()->assertJsonPath('components.0.effects.html', fn (?string $html): bool => str_contains((string) $html, 'count: 1'));
         $this->assertSame(1, RuntimeCounterComponent::$increments);
+    }
+
+    /** Lockdown for public pages does not reach the panel: its updates keep the panel's own lockdown rule. */
+    public function test_an_admin_panel_update_by_the_administrator_who_activated_lockdown_still_runs(): void
+    {
+        config()->set('capell.lockdown.file', storage_path('framework/testing/admin-replay-lockdown.json'));
+        File::delete(config('capell.lockdown.file'));
+        $payload = $this->render();
+        RuntimeCounterComponent::$increments = 0;
+
+        resolve(LockdownStore::class)->activateFor(auth()->user() ?? throw new RuntimeException('Expected an authenticated administrator.'));
+        Livewire::flushState();
+
+        try {
+            $this->replay($payload)->assertOk();
+            $this->assertSame(1, RuntimeCounterComponent::$increments);
+        } finally {
+            File::delete(config('capell.lockdown.file'));
+        }
     }
 
     public function test_the_short_circuiting_replay_stands_in_for_livewire_persistent_middleware(): void
