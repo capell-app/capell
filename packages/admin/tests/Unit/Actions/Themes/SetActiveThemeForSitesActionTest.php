@@ -9,8 +9,11 @@ use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 uses(CreatesAdminUser::class);
 
@@ -27,7 +30,7 @@ it('sets a theme active globally', function (): void {
 
     $selectedTheme = Theme::factory()->createOne([
         'default' => false,
-        'status' => false,
+        'status' => true,
     ]);
 
     $otherTheme = Theme::factory()->createOne([
@@ -57,7 +60,7 @@ it('sets a theme active for selected sites only', function (): void {
 
     $selectedTheme = Theme::factory()->createOne([
         'default' => false,
-        'status' => false,
+        'status' => true,
     ]);
 
     $unchangedTheme = Theme::factory()->createOne([
@@ -96,4 +99,38 @@ it('sets a theme active for selected sites only', function (): void {
             'site-' . $anotherSelectedSite->getKey(),
         ],
     );
+});
+
+it('refuses a disabled theme instead of re-enabling it', function (): void {
+    $disabledTheme = Theme::factory()->createOne(['default' => false, 'status' => false]);
+    $site = Site::factory()->theme(Theme::factory()->createOne(['default' => true]))->create();
+    $originalThemeId = $site->theme_id;
+
+    expect(fn (): Theme => SetActiveThemeForSitesAction::run(new SetActiveThemeForSitesData(
+        themeId: $disabledTheme->getKey(),
+        scope: ThemeActivationScope::SelectedSites,
+        siteIds: [$site->getKey()],
+    )))->toThrow(ValidationException::class);
+
+    expect($disabledTheme->refresh()->status)->toBeFalse()
+        ->and($site->refresh()->theme_id)->toBe($originalThemeId);
+});
+
+it('refuses a caller without theme update permission even when assigned to the site', function (): void {
+    $originalTheme = Theme::factory()->createOne(['default' => true, 'status' => true]);
+    $newTheme = Theme::factory()->createOne(['default' => false, 'status' => true]);
+    $site = Site::factory()->theme($originalTheme)->create();
+
+    $user = User::factory()->createOne();
+    $user->assignedSiteIds = collect([$site->getKey()]);
+
+    test()->actingAs($user);
+
+    expect(fn (): Theme => SetActiveThemeForSitesAction::run(new SetActiveThemeForSitesData(
+        themeId: $newTheme->getKey(),
+        scope: ThemeActivationScope::SelectedSites,
+        siteIds: [$site->getKey()],
+    )))->toThrow(AuthorizationException::class);
+
+    expect($site->refresh()->theme_id)->toBe($originalTheme->getKey());
 });

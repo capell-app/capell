@@ -11,6 +11,7 @@ use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\FirstRun\MarkFreshInstallSitesAction;
 use Capell\Core\Actions\FirstRun\PublishGuidedSetupSiteAction;
+use Capell\Core\Actions\FirstRun\ReconcileSitePublicationMilestonesAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
@@ -601,9 +602,10 @@ it("does not take the installer's public home page as a sign the site has gone l
     $this->actingAsAdmin();
     $site = guidedSetupSite();
 
-    ResolveFirstRunStateAction::run($this->authenticatedUser());
+    ReconcileSitePublicationMilestonesAction::run();
 
     expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeFalse()
+        ->and(ResolveFirstRunStateAction::run($this->authenticatedUser())->isFirstRun)->toBeTrue()
         ->and(GuidedSetup::isOwed())->toBeTrue();
 });
 
@@ -642,7 +644,9 @@ it('records the launch of a site whose setup was skipped once a person has edite
     $home->translations->first()?->update(['content' => '<p>Our own homepage</p>']);
     PageSavedAction::run($home->refresh());
 
-    ResolveFirstRunStateAction::run($this->authenticatedUser());
+    expect(ResolveFirstRunStateAction::run($this->authenticatedUser())->isFirstRun)->toBeFalse();
+
+    ReconcileSitePublicationMilestonesAction::run();
 
     expect(resolve(SitePublicationMilestones::class)->hasPublished((int) $site->getKey()))->toBeTrue();
 });

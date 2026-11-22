@@ -61,6 +61,7 @@ use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
 use Capell\Core\Console\Commands\PurgeSoftDeletedMediaCommand;
 use Capell\Core\Console\Commands\ReconcilePublicReadProjectionsCommand;
+use Capell\Core\Console\Commands\ReconcileSitePublicationMilestonesCommand;
 use Capell\Core\Console\Commands\ReleaseExtensionQuarantineCommand;
 use Capell\Core\Console\Commands\ReplayInboundWebhookEventCommand;
 use Capell\Core\Console\Commands\RestoreBackupCommand;
@@ -128,6 +129,7 @@ use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
 use Capell\Core\Listeners\RebuildPackageCacheAfterPackageDiscovery;
 use Capell\Core\Listeners\RecordSitePublishedOnHomePagePublication;
+use Capell\Core\Listeners\RecordSitePublishedOnHomePageSave;
 use Capell\Core\Listeners\ReindexPropertyReferencesOnCascadeListener;
 use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Listeners\WithdrawPublicReadProjectionsOnEligibilityChanged;
@@ -501,6 +503,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             PruneActivityBucketsCommand::class,
             PruneActivityVisitorsCommand::class,
             PruneEditorScratchDraftsCommand::class,
+            ReconcileSitePublicationMilestonesCommand::class,
             PruneMetricDailyRollupsCommand::class,
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
@@ -532,6 +535,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerActivitySettings()
             ->registerMetricSchedule()
             ->registerEditorScratchDraftSchedule()
+            ->registerSitePublicationMilestoneSchedule()
             ->registerInboundWebhookPruneSchedule()
             ->registerPublicReadWithdrawalRetrySchedule()
             ->registerBackupPruneSchedule()
@@ -574,6 +578,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         Event::listen(PublicationTransitioned::class, RecordSitePublishedOnHomePagePublication::class);
+        Event::listen(PageSaved::class, RecordSitePublishedOnHomePageSave::class);
         // Sites that were live before go-live dates were recorded.
         $this->app->tag([RecordPublishedSitesUpgradeStep::class], 'capell.upgrade-steps');
         $this->app->tag([AiProvenancePageStateContributor::class], PageStateContributor::TAG);
@@ -1064,6 +1069,19 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->dailyAt('01:30')
                 ->timezone('UTC')
                 ->withoutOverlapping()
+                ->onOneServer();
+        });
+
+        return $this;
+    }
+
+    /** Home pages that went public with nothing to announce it, such as a scheduled time passing. */
+    private function registerSitePublicationMilestoneSchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            RunScheduledCommandInProcess::schedule($schedule, 'capell:sites:record-published')
+                ->everyFiveMinutes()
+                ->withoutOverlapping(5)
                 ->onOneServer();
         });
 

@@ -37,6 +37,8 @@ use Filament\Actions\Action;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -66,6 +68,42 @@ function nextDashboardRequest(): void
     app()->forgetScopedInstances();
     app()->forgetInstance(UserMenuItemResolver::class);
 }
+
+/** Any statement that changes data, or locks a row to change it, fails, as it does on a read-only database. */
+function refuseDashboardDatabaseWrites(): void
+{
+    DB::beforeExecuting(function (string $query): void {
+        throw_if(
+            preg_match('/^\s*(insert|update|delete|replace)\b|\bfor update\b/i', $query) === 1,
+            RuntimeException::class,
+            'The dashboard wrote to the database while rendering: ' . $query,
+        );
+    });
+}
+
+it('opens the dashboard on a database that refuses writes', function (bool $workFirst, bool $homeIsPublic): void {
+    config()->set('capell-admin.dashboard.work_first.enabled', $workFirst);
+    $this->actingAsAdmin();
+    [$site, $home] = unpublishedDashboardSite();
+    if ($homeIsPublic) {
+        // Public with nothing to announce it, as when a scheduled time passes.
+        $home->forceFill(['visible_from' => now()->subDay()])->saveQuietly();
+    }
+
+    nextDashboardRequest();
+    refuseDashboardDatabaseWrites();
+
+    $html = $this->get(CapellDashboard::getUrl())->assertOk()->getContent();
+
+    // The public home page puts the site live for the reader, without recording it.
+    expect(str_contains((string) $html, firstRunWidgetMarker(FirstRunChecklistFilamentWidget::class)))->toBe(! $homeIsPublic)
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeFalse();
+})->with([
+    'a live site with no go-live date' => [false, true],
+    'a site still being set up' => [false, false],
+    'the work-first dashboard, live site with no go-live date' => [true, true],
+    'the work-first dashboard, site still being set up' => [true, false],
+]);
 
 it('opens a new site on the checklist, recent updates and what needs attention only', function (): void {
     $this->actingAsAdmin();
@@ -196,20 +234,21 @@ it('stays out of first run once the site has been published, even if the homepag
         ->and(FirstRunChecklistFilamentWidget::canView())->toBeFalse();
 });
 
-it('records a home page that went public on its scheduled time and keeps the site live afterwards', function (): void {
+it('treats a home page that went public on its scheduled time as live, and keeps the site live once that is recorded', function (): void {
     $this->actingAsAdmin();
     [$site, $home] = unpublishedDashboardSite();
     $home->forceFill(['visible_from' => now()->addDay()])->saveQuietly();
 
-    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue()
-        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeFalse();
+    expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeTrue();
 
     $this->travel(2)->days();
     nextDashboardRequest();
 
+    // Reading the dashboard shows the site as live but leaves recording it to the schedule.
     expect(ResolveFirstRunStateAction::run(auth()->user())->isFirstRun)->toBeFalse()
-        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeTrue();
+        ->and(resolve(SitePublicationMilestones::class)->hasPublished($site->id))->toBeFalse();
 
+    expect(Artisan::call('capell:sites:record-published'))->toBe(0);
     $home->forceFill(['visible_from' => PublishSentinel::draftValue()])->saveQuietly();
     nextDashboardRequest();
 
@@ -239,7 +278,7 @@ it('keeps showing the checklist for an unpublished site when another site is alr
     expect($state->isFirstRun)->toBeTrue()
         ->and(ContactFormFirstRunTaskContributor::$lastContext?->siteId)->toBe($draft->id)
         ->and(ContactFormFirstRunTaskContributor::$lastContext?->homePageId)->toBe($draftHome->id)
-        ->and(resolve(SitePublicationMilestones::class)->publishedSiteIds())->toBe([$live->id]);
+        ->and($state->hasLiveSite)->toBeTrue();
 });
 
 it('follows the site the work-first dashboard is scoped to', function (): void {
