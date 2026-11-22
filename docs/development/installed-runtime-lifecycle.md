@@ -100,7 +100,7 @@ For a paid release, list only a subclass of `Capell\Core\Support\Packages\Protec
 
 This is honest-licensing enforcement on a server the site owner controls. Composer metadata is mutable, and the six foundation exemptions are name-based. A complete rename that removes every paid signal can appear independent. Development path installs with a development version or missing release reference fail verification once a key is pinned. There is no licence-file or catalogue enforcement with an empty issuer key set, so the legacy paid-flag and entitlement checks remain in effect.
 
-Every first-party paid release must adopt the protected bootstrap before the production key is pinned in `issuer-keys.json`. That rollout is tracked in CAP-4156. Free Capell distributions need a signed manifest before pinning. Signing and shipping `capell-licence.json` with each release is outside this repository.
+Every first-party paid release must adopt the protected bootstrap before the production key is pinned in `issuer-keys.json`. Free Capell distributions need a signed manifest before pinning. Signing and shipping `capell-licence.json` with each release is outside this repository.
 
 Routes cached while a receipt was valid can still load on a cold boot after it expires. Cached configuration, package discovery and Filament components can also outlive the provider decision. Retained workers still hold wiring from their original boot. This is an accepted limit of honest licensing. Applying an explicit revocation clears the route cache used by the process applying it. Receipt expiry is evaluated when the receipt is checked.
 
