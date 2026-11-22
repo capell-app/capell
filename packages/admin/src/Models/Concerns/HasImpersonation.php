@@ -30,7 +30,7 @@ trait HasImpersonation
         $actor ??= Filament::auth()->user() ?? auth()->user();
 
         return $actor instanceof Authenticatable
-            && ImpersonationCeiling::permits($actor, $this);
+            && resolve(ImpersonationCeiling::class)->permits($actor, $this);
     }
 
     /**

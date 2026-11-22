@@ -215,6 +215,7 @@ use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Support\Icons\FlagIconRenderer;
+use Capell\Admin\Support\Impersonation\ImpersonationCeiling;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminInstallState;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
@@ -451,6 +452,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->registerShortCircuitingPersistentMiddleware();
 
         $this->app->scoped(PaletteRequestState::class);
+        $this->app->scoped(ImpersonationCeiling::class);
         $this->app->scoped(AdminUploadGrantRepository::class);
         $this->app->scoped(AdminUploadDeletion::class);
 

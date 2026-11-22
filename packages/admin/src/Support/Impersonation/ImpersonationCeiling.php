@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Impersonation;
 
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
-use WeakMap;
 
 /**
  * Decides whether an actor may assume a target's session without gaining any
@@ -19,13 +18,16 @@ use WeakMap;
  * team, so the target must sit entirely inside the actor's ceiling: each site
  * the target belongs to must be one the actor can access, and in each of those
  * contexts (and account-wide) the target may hold no permission the actor lacks.
+ *
+ * Bound per request: the Users table asks once per row, and the actor's own
+ * permissions are read once for all of them.
  */
 final class ImpersonationCeiling
 {
-    /** @var WeakMap<Model, array<string, array<string, true>>>|null */
-    private static ?WeakMap $actorGrants = null;
+    /** @var array<string, array<int|string, array<string, true>>> */
+    private array $actorPermissions = [];
 
-    public static function permits(Authenticatable $actor, Authenticatable $target): bool
+    public function permits(Authenticatable $actor, Authenticatable $target): bool
     {
         if (! $actor instanceof Model || ! $target instanceof Model) {
             return false;
@@ -37,27 +39,40 @@ final class ImpersonationCeiling
             return true;
         }
 
-        $targetGrants = self::grants($target);
+        if (! method_exists($target, 'getAllAssignedSiteIds')) {
+            return false;
+        }
 
-        foreach (self::targetSiteIds($target, $targetGrants) as $siteId) {
+        $siteIds = array_map(intval(...), $target->getAllAssignedSiteIds()->all());
+
+        foreach ($siteIds as $siteId) {
             if (! $access->canSiteId($siteId)) {
                 return false;
             }
         }
 
-        // A role named like the super admin bypasses permission checks, whatever
-        // team it is held in, so it can never sit under a non-global ceiling.
-        if (self::holdsSuperAdminRole($target)) {
+        // Without site teams every permission lives in the one account-wide context.
+        if (! resolve(PermissionRegistrar::class)->teams) {
+            $siteIds = [];
+        }
+
+        $targetGlobal = $this->permissionNames($target, null);
+
+        if ($targetGlobal === null) {
             return false;
         }
 
-        $actorGrants = self::actorGrants($actor);
-        $global = $targetGrants[''] ?? [];
+        $actorGlobal = $this->actorPermissionNames($actor, null);
 
-        foreach (array_keys($targetGrants + ['' => []]) as $team) {
-            $held = ($actorGrants[$team] ?? []) + ($actorGrants[''] ?? []);
+        if (array_diff_key($targetGlobal, $actorGlobal) !== []) {
+            return false;
+        }
 
-            if (array_diff_key(($targetGrants[$team] ?? []) + $global, $held) !== []) {
+        foreach ($siteIds as $siteId) {
+            $held = $this->permissionNames($target, $siteId);
+
+            // Null marks a super admin role, which bypasses every permission check.
+            if ($held === null || array_diff_key($held, $this->actorPermissionNames($actor, $siteId) + $actorGlobal) !== []) {
                 return false;
             }
         }
@@ -65,99 +80,50 @@ final class ImpersonationCeiling
         return true;
     }
 
-    /**
-     * @param  array<string, array<string, true>>  $grants
-     * @return list<int>
-     */
-    private static function targetSiteIds(Model $target, array $grants): array
+    /** @return array<string, true> */
+    private function actorPermissionNames(Model $actor, ?int $teamId): array
     {
-        $ids = [];
+        $key = $actor->getMorphClass() . ':' . $actor->getKey();
+        $team = $teamId === null ? '' : (string) $teamId;
 
-        if (method_exists($target, 'getAllAssignedSiteIds')) {
-            foreach ($target->getAllAssignedSiteIds() as $id) {
-                $ids[(int) $id] = true;
-            }
-        }
-
-        foreach (array_keys($grants) as $team) {
-            if ($team !== '') {
-                $ids[(int) $team] = true;
-            }
-        }
-
-        return array_keys($ids);
-    }
-
-    /** @return array<string, array<string, true>> */
-    private static function actorGrants(Model $actor): array
-    {
-        self::$actorGrants ??= new WeakMap;
-
-        // An actor's rights cannot change mid-request, and the Users table asks
-        // once per row; cache per actor instance so rows add no actor queries.
-        return self::$actorGrants[$actor] ??= self::grants($actor);
+        return $this->actorPermissions[$key][$team] ??= $this->permissionNames($actor, $teamId) ?? [];
     }
 
     /**
-     * Permission names held by the user, keyed by team ('' for account-wide),
-     * from direct grants and from every role assignment.
+     * Permission names the user holds in one team, directly and through roles,
+     * or null when the user holds the super admin role there or cannot be read.
      *
-     * @return array<string, array<string, true>>
+     * @return array<string, true>|null
      */
-    private static function grants(Model $user): array
+    private function permissionNames(Model $user, ?int $teamId): ?array
     {
-        $tables = (array) config('permission.table_names', []);
-        $permissions = (string) ($tables['permissions'] ?? 'permissions');
-        $roles = (string) ($tables['roles'] ?? 'roles');
-        $modelPermissions = (string) ($tables['model_has_permissions'] ?? 'model_has_permissions');
-        $modelRoles = (string) ($tables['model_has_roles'] ?? 'model_has_roles');
-        $rolePermissions = (string) ($tables['role_has_permissions'] ?? 'role_has_permissions');
-        $teams = resolve(PermissionRegistrar::class)->teams;
-        $teamColumn = (string) config('permission.column_names.team_foreign_key', 'team_id');
-        $result = [];
+        return PermissionTeamContext::run($teamId, function () use ($user): ?array {
+            if (! method_exists($user, 'getAllPermissions') || ! method_exists($user, 'hasRole')) {
+                return null;
+            }
 
-        $direct = DB::table($modelPermissions)
-            ->join($permissions, $permissions . '.id', '=', $modelPermissions . '.permission_id')
-            ->where($modelPermissions . '.model_type', $user->getMorphClass())
-            ->where($modelPermissions . '.model_id', $user->getKey())
-            ->select($permissions . '.name as name')
-            ->when($teams, fn ($query) => $query->addSelect($modelPermissions . '.' . $teamColumn . ' as team'))
-            ->get();
+            // Loaded here, inside the team, because these models come from a table
+            // query and Capell refuses lazy loading.
+            $user->load(['roles.permissions', 'permissions']);
 
-        $viaRoles = DB::table($modelRoles)
-            ->join($roles, $roles . '.id', '=', $modelRoles . '.role_id')
-            ->join($rolePermissions, $rolePermissions . '.role_id', '=', $roles . '.id')
-            ->join($permissions, $permissions . '.id', '=', $rolePermissions . '.permission_id')
-            ->where($modelRoles . '.model_type', $user->getMorphClass())
-            ->where($modelRoles . '.model_id', $user->getKey())
-            ->select($permissions . '.name as name')
-            ->when($teams, fn ($query) => $query
-                ->addSelect($modelRoles . '.' . $teamColumn . ' as team')
-                ->where(fn ($roleTeam) => $roleTeam->whereNull($roles . '.' . $teamColumn)
-                    ->orWhereColumn($roles . '.' . $teamColumn, $modelRoles . '.' . $teamColumn)))
-            ->get();
+            if ($user->hasRole($this->superAdminRole())) {
+                return null;
+            }
 
-        foreach ($direct->concat($viaRoles) as $row) {
-            $team = $teams && $row->team !== null ? (string) $row->team : '';
-            $result[$team][(string) $row->name] = true;
-        }
+            $names = [];
 
-        return $result;
+            foreach ($user->getAllPermissions() as $permission) {
+                $names[(string) $permission->name] = true;
+            }
+
+            return $names;
+        }, $user);
     }
 
-    private static function holdsSuperAdminRole(Model $user): bool
+    private function superAdminRole(): string
     {
         $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
-        $name = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
-        $tables = (array) config('permission.table_names', []);
-        $roles = (string) ($tables['roles'] ?? 'roles');
-        $modelRoles = (string) ($tables['model_has_roles'] ?? 'model_has_roles');
 
-        return DB::table($modelRoles)
-            ->join($roles, $roles . '.id', '=', $modelRoles . '.role_id')
-            ->where($modelRoles . '.model_type', $user->getMorphClass())
-            ->where($modelRoles . '.model_id', $user->getKey())
-            ->where($roles . '.name', $name)
-            ->exists();
+        return is_string($configured) && $configured !== '' ? $configured : 'super_admin';
     }
 }
