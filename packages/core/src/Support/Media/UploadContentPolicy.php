@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Media;
 
 use Capell\Core\Exceptions\UploadContentRefusedException;
+use Closure;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -104,6 +105,25 @@ final class UploadContentPolicy
                 $this->assertStorable($fileName, $path);
             } else {
                 $this->assertStorableContents($fileName, (string) ($upload instanceof TemporaryUploadedFile ? $upload->get() : $upload->getContent()));
+            }
+        } catch (UploadContentRefusedException $uploadContentRefusedException) {
+            return $uploadContentRefusedException;
+        }
+
+        return null;
+    }
+
+    /**
+     * Judges a file that is already stored. The content is read only when the
+     * name makes it an SVG, so a large library is not downloaded to be checked.
+     *
+     * @param  Closure(): ?string  $readContents
+     */
+    public function refusalForStored(string $fileName, Closure $readContents): ?UploadContentRefusedException
+    {
+        try {
+            if ($this->assertAllowedExtension($fileName) === 'svg' && ! $this->svg->isStatic((string) $readContents())) {
+                throw UploadContentRefusedException::activeSvg(basename($fileName));
             }
         } catch (UploadContentRefusedException $uploadContentRefusedException) {
             return $uploadContentRefusedException;
