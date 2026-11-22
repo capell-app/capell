@@ -19,6 +19,7 @@ use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Console\Commands\AdoptTableCommand;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
 use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
+use Capell\Core\Console\Commands\AuditStoredMediaUploadsCommand;
 use Capell\Core\Console\Commands\BackupHealthCommand;
 use Capell\Core\Console\Commands\CacheComponentsCommand;
 use Capell\Core\Console\Commands\ClearComponentsCacheCommand;
@@ -504,6 +505,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
             ThemeDoctorCommand::class,
+            AuditStoredMediaUploadsCommand::class,
             PurgeSoftDeletedMediaCommand::class,
             PublishComponentsCommand::class,
             PublishMigrationsCommand::class,

@@ -576,6 +576,21 @@ A stage that throws is caught and recorded as failed rather than aborting the ru
 
 On multi-server hosting, run it on every node — the caches it rebuilds are node-local.
 
+### `capell:audit-media-uploads`
+
+Reports media files stored before uploads were restricted that Capell would refuse today: a type a browser runs as a page (HTML, XML, script), or an SVG that is not a plain drawing. Those files are still served from your site's address. The command exits with a failure when it finds any, so you can run it before a launch or from a monitor.
+
+```bash
+php artisan capell:audit-media-uploads
+php artisan capell:audit-media-uploads --quarantine
+```
+
+| Option         | Use it for                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--quarantine` | Move each refused file to `capell-media-quarantine` on the private `local` disk and soft-delete its media record |
+
+Run it without options first and review the list. Quarantine destroys nothing: the file is kept privately and the media record can be restored after you replace its file.
+
 ### `capell:purge-soft-deleted-media`
 
 Force-deletes media that has been soft-deleted for longer than the retention window, reclaiming disk space.
