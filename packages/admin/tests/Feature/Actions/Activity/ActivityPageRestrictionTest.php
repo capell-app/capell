@@ -49,7 +49,7 @@ function pageActivity(Page $page, string $field, string $old, string $new): Acti
     return $activity;
 }
 
-function siteActivityActor(Site $site, bool $withRestrictedRole): User
+function siteActivityActor(Site $site, bool $withRestrictedRole, bool $canViewPages = true): User
 {
     $actor = User::factory()->createOne();
     $actor->assignedSiteIds = collect([(int) $site->getKey()]);
@@ -59,8 +59,7 @@ function siteActivityActor(Site $site, bool $withRestrictedRole): User
         ResourceEnum::Activity->permission('view'),
         CapellPermission::RevertActivityLog->name(),
         'Update:Page',
-        'View:Page',
-        'ViewAny:Page',
+        ...($canViewPages ? ['View:Page', 'ViewAny:Page'] : []),
     ] as $permission) {
         Permission::findOrCreate($permission, 'web');
         $actor->givePermissionTo($permission);
@@ -175,4 +174,24 @@ it('selects the same pages in SQL as the per-page accessibility check', function
 
     expect(Page::query()->accessibleByUser($without)->pluck('id')->all())->not->toContain($this->restrictedPage->id)
         ->and(Page::query()->accessibleByUser($with)->pluck('id')->all())->toContain($this->restrictedPage->id);
+});
+
+it("hides a page's activity and refuses its details without the page view permission", function (): void {
+    test()->actingAs(siteActivityActor($this->site, withRestrictedRole: true, canViewPages: false));
+
+    $visible = ActivityResource::getEloquentQuery()->pluck('id')->all();
+    $details = ActivitiesTable::viewDetailsAction()->record($this->restrictedActivity);
+    $openDetails = ActivitiesTable::viewDetailsAction()->record($this->openActivity);
+
+    expect($visible)->not->toContain($this->restrictedActivity->id)
+        ->and($visible)->not->toContain($this->openActivity->id)
+        ->and(fn (): View|Htmlable|null => $details->getModalContent())->toThrow(AuthorizationException::class)
+        ->and(fn (): View|Htmlable|null => $openDetails->getModalContent())->toThrow(AuthorizationException::class);
+
+    Livewire::test(ListActivities::class)->assertCanNotSeeTableRecords([$this->restrictedActivity, $this->openActivity]);
+
+    test()->actingAs(siteActivityActor($this->site, withRestrictedRole: true));
+
+    expect(ActivityResource::getEloquentQuery()->pluck('id')->all())->toContain($this->restrictedActivity->id)
+        ->and(ActivitiesTable::viewDetailsAction()->record($this->restrictedActivity)->getModalContent())->not->toBeNull();
 });

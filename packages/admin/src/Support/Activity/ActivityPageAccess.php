@@ -46,7 +46,9 @@ final class ActivityPageAccess
             return $activities;
         }
 
-        $hidden = SiteAccess::forActor($actor)->query(Page::class)->withTrashed()->inaccessibleToUser($actor);
+        // Without the page view permission every page is closed to the actor.
+        $pages = SiteAccess::forActor($actor)->query(Page::class)->withTrashed();
+        $hidden = Gate::forUser($actor)->allows('viewAny', Page::class) ? $pages->inaccessibleToUser($actor) : $pages;
         $hiddenIds = (clone $hidden)->select('id');
         $hiddenUuids = (clone $hidden)->select('uuid');
         $access = SiteAccess::forActor($actor);
@@ -87,10 +89,7 @@ final class ActivityPageAccess
             }));
     }
 
-    /**
-     * Reading the trail does not need page permissions, but a page the actor's
-     * role may not open stays closed here too.
-     */
+    /** Seeing a page's activity needs the same decision as viewing the page. */
     public function canView(Activity $activity, ?Authenticatable $actor = null): bool
     {
         $actor ??= auth()->user();
@@ -100,7 +99,7 @@ final class ActivityPageAccess
             return true;
         }
 
-        return $actor instanceof User && ($actor->isGlobalAdmin() || $page->isAccessibleByUser($actor));
+        return $actor instanceof Authenticatable && Gate::forUser($actor)->allows('view', $page);
     }
 
     /** Reverting rewrites the page, so the page policy's update decision applies. */
