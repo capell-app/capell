@@ -9,6 +9,7 @@ use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
 use Capell\Admin\Filament\Components\Forms\SpatieMediaLibraryFileUpload;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
+use Capell\Core\Support\Media\StorableUploadRule;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /**
@@ -37,6 +38,7 @@ final class AdminSpatieMediaFieldFactory implements AdminMediaFieldFactory
             ->imageEditorMode($configuration->imageEditorMode)
             ->imageEditorAspectRatioOptions($configuration->aspectRatioOptions)
             ->disk($configuration->disk)
+            ->rule(new StorableUploadRule)
             ->customProperties(fn (TemporaryUploadedFile $file): array => $this->metadata->resolve($file->getRealPath()))
             ->label(__('capell-admin::form.image'))
             ->maxSize(GetMaxUploadSizeInBytes::run());

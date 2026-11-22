@@ -8,9 +8,11 @@ use Capell\Admin\Data\Media\MediaUploadAttemptData;
 use Capell\Admin\Data\Media\MediaUploadBatchData;
 use Capell\Admin\Data\Media\MediaUploadFileData;
 use Capell\Admin\Enums\MediaUploadStatus;
+use Capell\Core\Exceptions\UploadContentRefusedException;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Media\CustomPathGenerator;
+use Capell\Core\Support\Media\UploadContentPolicy;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Illuminate\Contracts\Filesystem\Factory;
@@ -58,6 +60,8 @@ final class UploadSiteMediaAction
             ]);
         }
 
+        $paths->each(fn (string $path) => $this->assertStorable(basename($path), Storage::disk('local')->path($path)));
+
         return $this->reserve($site, array_values($paths->map(fn (string $path): MediaUploadFileData => new MediaUploadFileData(
             path: $path,
             name: basename($originalFileNames[$path] ?? $path),
@@ -71,6 +75,7 @@ final class UploadSiteMediaAction
         $files = [];
         foreach (is_array($uploadedFiles) ? $uploadedFiles : [] as $file) {
             if ($file instanceof TemporaryUploadedFile) {
+                $this->throwIfRefused(resolve(UploadContentPolicy::class)->refusalForUpload($file));
                 $identity = $file->getFilename();
                 $files['temporary:' . $identity] = new MediaUploadFileData(
                     path: $identity,
@@ -78,6 +83,7 @@ final class UploadSiteMediaAction
                     temporaryUpload: $identity,
                 );
             } elseif (is_string($file) && $file !== '') {
+                $this->assertStorable(basename($file), Storage::disk('local')->path($file));
                 $files['stored:' . $file] = new MediaUploadFileData($file, basename($file));
             }
         }
@@ -410,6 +416,22 @@ final class UploadSiteMediaAction
         } finally {
             fclose($stream);
             Storage::disk('local')->delete($temporary);
+        }
+    }
+
+    /**
+     * Refuse a file a browser could run on the site origin before any reservation
+     * or staged copy exists for it. The media library repeats the check at storage.
+     */
+    private function assertStorable(string $storageName, string $path): void
+    {
+        $this->throwIfRefused(resolve(UploadContentPolicy::class)->refusal($storageName, $path));
+    }
+
+    private function throwIfRefused(?UploadContentRefusedException $refusal): void
+    {
+        if ($refusal instanceof UploadContentRefusedException) {
+            throw ValidationException::withMessages(['files' => $refusal->getMessage()]);
         }
     }
 

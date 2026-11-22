@@ -24,4 +24,8 @@ return [
         'url_media' => 'URL or media library',
         'url_only' => 'URL only',
     ],
+    'upload_refused' => [
+        'active_svg' => '":file" was not stored because it contains script, embedded HTML, editor data or another active part, or is larger than 5 MB. Export it again as a plain SVG without editing data and upload that.',
+        'type' => '":file" was not stored because this file type cannot be uploaded. Upload one of: :types.',
+    ],
 ];

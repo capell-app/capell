@@ -33,6 +33,7 @@ final class SpatieMediaFieldFactory implements MediaFieldFactory
             ->imageEditorMode($configuration->imageEditorMode)
             ->imageEditorAspectRatioOptions($configuration->aspectRatioOptions)
             ->disk($configuration->disk)
+            ->rule(new StorableUploadRule)
             ->customProperties(function (TemporaryUploadedFile $file): array {
                 $image = Image::load($file->getRealPath());
 

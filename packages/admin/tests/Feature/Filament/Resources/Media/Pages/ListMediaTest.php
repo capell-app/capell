@@ -88,6 +88,18 @@ it('reports a rejected replacement without a success notification or broken medi
         ->and(Storage::disk('public')->exists($original->getPathRelativeToRoot()))->toBeTrue();
 });
 
+it('refuses to replace a stored SVG with one that carries script', function (): void {
+    $static = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>';
+    $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->createWithContent('logo.svg', $static))->toMediaCollection('images');
+    $replacement = UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>fetch("/admin/users")</script></svg>');
+
+    Livewire::test(ListMedia::class)
+        ->callTableAction('replace-file', $original, data: ['replacement' => [$replacement]])
+        ->assertNotNotified(__('capell-admin::media.replace_file_success'));
+
+    expect(Storage::disk('public')->get($original->getPathRelativeToRoot()))->toBe($static);
+});
+
 it('prompts editors to review retained descriptions after replacing an image without touching translations', function (): void {
     $language = Language::factory()->english()->createOne();
     $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
@@ -487,6 +499,48 @@ it('rejects a batch addressed to a site outside the actors current access', func
         ->assertHasActionErrors(['site_id']);
 
     expect(CapellMedia::query()->count())->toBe(0);
+});
+
+it('refuses a file a browser would run on the site origin and stores nothing', function (string $fileName, string $contents): void {
+    $site = Site::factory()->createOne();
+    Permission::findOrCreate('ViewAny:Media');
+    Permission::findOrCreate('Create:Media');
+    $editor = test()->createUserWithPermission(['ViewAny:Media', 'Create:Media']);
+    $editor->assignedSiteIds = collect([$site->getKey()]);
+
+    test()->actingAs($editor);
+    $publicFiles = Storage::disk('public')->allFiles();
+
+    Livewire::test(ListMedia::class)
+        ->callAction('upload-files', [
+            'site_id' => $site->getKey(),
+            'files' => [UploadedFile::fake()->createWithContent($fileName, $contents)],
+        ])
+        ->assertHasActionErrors(['files']);
+
+    expect(CapellMedia::query()->count())->toBe(0)
+        ->and(Storage::disk('public')->allFiles())->toBe($publicFiles);
+})->with([
+    'an HTML page' => ['account.html', '<html><body><script>fetch("/admin/users")</script></body></html>'],
+    'an HTML page under an upper-case extension' => ['account.HTM', '<script>fetch("/admin/users")</script>'],
+    'an SVG carrying a script element' => ['logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>fetch("/admin/users")</script></svg>'],
+    'an SVG carrying an event handler' => ['logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" onload="fetch(\'/admin/users\')"><rect width="1" height="1"/></svg>'],
+]);
+
+it('still uploads a static SVG beside a raster image', function (): void {
+    $site = Site::factory()->createOne();
+
+    Livewire::test(ListMedia::class)
+        ->callAction('upload-files', [
+            'site_id' => $site->getKey(),
+            'files' => [
+                UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1" fill="#0f766e"/></svg>'),
+                UploadedFile::fake()->image('hero.jpg'),
+            ],
+        ])
+        ->assertHasNoActionErrors();
+
+    expect(CapellMedia::query()->orderBy('name')->pluck('name')->all())->toBe(['hero', 'logo']);
 });
 
 it('rejects an upload storage callback that returns no paths without notifying success', function (): void {
