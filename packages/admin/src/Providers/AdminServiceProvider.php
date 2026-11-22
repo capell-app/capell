@@ -199,6 +199,7 @@ use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
 use Capell\Admin\Support\Dashboard\NullRecentlyPublishedDataProvider;
 use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
+use Capell\Admin\Support\Diagnostics\Checks\AdminPanelUserRoleCheck;
 use Capell\Admin\Support\Diagnostics\Checks\AdminRouteOwnershipCheck;
 use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
@@ -250,6 +251,7 @@ use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Admin\Support\Security\ScopedPeekPreviewTokens;
+use Capell\Admin\Support\Security\ShieldPanelUserDefault;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
@@ -442,6 +444,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         parent::registeringPackage();
 
+        // Shield may register before or after this provider, and its config merge only fills missing
+        // keys, so Capell's panel user default is settled once every provider has registered.
+        $applyShieldDefault = static fn (): bool => resolve(ShieldPanelUserDefault::class)->apply(config_path('filament-shield.php'));
+        if ($this->app->isBooted()) {
+            $applyShieldDefault();
+        } else {
+            $this->app->booting($applyShieldDefault);
+        }
+
         // Native make() and legacy factories use the container too. The native
         // original-path fallback reads model attributes before its allow callback,
         // which fails for virtual/nested fields. Share our persisted-data resolver.
@@ -478,7 +489,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'Capell\\Admin\\Support\\Media\\LegacyAdminMediaFieldFactoryAdapter',
         );
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
-        $this->app->tag([AdminUserAccessCheck::class, AdminRouteOwnershipCheck::class], DoctorCheck::TAG);
+        $this->app->tag([AdminUserAccessCheck::class, AdminRouteOwnershipCheck::class, AdminPanelUserRoleCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
         $this->securePeekPreviews();
         // Each route records who serves it as it is registered, before any route is cached.
