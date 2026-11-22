@@ -18,6 +18,7 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -72,8 +73,10 @@ it('retains nested site icon paths from the record and rejects replacement paths
 it('accepts a real temporary upload through both adapters', function (bool $media): void {
     Storage::fake('local');
     config()->set('livewire.temporary_file_upload.disk', 'local');
-    Storage::disk('local')->put('livewire-tmp/security-upload.txt', 'Uploaded content');
-    $temporary = new TemporaryUploadedFile('security-upload.txt', 'local');
+    // Livewire embeds the client file name in every temporary upload name.
+    $name = TemporaryUploadedFile::generateHashNameWithOriginalNameEmbedded(UploadedFile::fake()->create('security-upload.txt'));
+    Storage::disk('local')->put('livewire-tmp/' . $name, 'Uploaded content');
+    $temporary = new TemporaryUploadedFile($name, 'local');
     $field = $media ? MediaLibraryFileUpload::make('image') : FileUpload::make('icon');
     Schema::make(Livewire::make())->components([$field])->getFlatComponents();
     expect(Validator::make([$field->getName() => [$temporary]], [$field->getName() => $field->getValidationRules()])->passes())->toBeTrue();
