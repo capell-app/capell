@@ -5,8 +5,10 @@ declare(strict_types=1);
 use Capell\Core\Exceptions\UploadContentRefusedException;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Media\StorableUploadRule;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 beforeEach(function (): void {
     Storage::fake('public');
@@ -45,12 +47,13 @@ it('refuses an SVG that hides its script from a naive check', function (string $
     'an animation that assigns a script URL' => ['<svg xmlns="http://www.w3.org/2000/svg"><a href="#"><set attributeName="href" to="javascript:fetch(1)"/><text y="10">open</text></a></svg>'],
     'an entity standing in for the script URL' => ['<!DOCTYPE svg [<!ENTITY go "javascript:fetch(1)">]><svg xmlns="http://www.w3.org/2000/svg"><a href="&go;"><text y="10">open</text></a></svg>'],
     'a stylesheet instruction' => ['<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="payload.xsl"?><svg xmlns="http://www.w3.org/2000/svg"/>'],
+    'an image read from the server' => ['<svg xmlns="http://www.w3.org/2000/svg"><image href="file:///etc/passwd" width="100" height="100"/></svg>'],
+    'an image fetched from another host' => ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="http://169.254.169.254/latest/meta-data/" width="1" height="1"/></svg>'],
     'an HTML data URL' => ['<svg xmlns="http://www.w3.org/2000/svg"><image href="data:text/html;base64,PHNjcmlwdD4="/></svg>'],
     'markup that is not well formed' => ['<svg xmlns="http://www.w3.org/2000/svg"><script>'],
 ]);
 
-it('stores a design-tool SVG that is only a drawing', function (): void {
-    $page = Page::factory()->createOne();
+it('accepts a design-tool SVG that is only a drawing', function (): void {
     $svg = <<<'SVG_WRAP'
     <?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -66,10 +69,14 @@ it('stores a design-tool SVG that is only a drawing', function (): void {
     </svg>
     SVG_WRAP;
 
-    $media = $page->addMedia(UploadedFile::fake()->createWithContent('logo.svg', $svg))->toMediaCollection('images');
+    // Judged by the form rule: storing it would hand the drawing to whichever
+    // image converter the host has installed, which is not what this covers.
+    $validator = Validator::make(
+        ['logo' => UploadedFile::fake()->createWithContent('logo.svg', $svg)],
+        ['logo' => [new StorableUploadRule]],
+    );
 
-    expect($media->file_name)->toEndWith('.svg')
-        ->and(Storage::disk('public')->exists($media->getPathRelativeToRoot()))->toBeTrue();
+    expect($validator->passes())->toBeTrue();
 });
 
 it('keeps document types refused when a host adds them to the allow-list', function (): void {

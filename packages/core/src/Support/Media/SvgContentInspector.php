@@ -31,6 +31,9 @@ final class SvgContentInspector
     private const array ANIMATION_ELEMENTS = ['animate', 'set', 'animatetransform', 'animatemotion'];
 
     /** @var list<string> */
+    private const array EMBEDDING_ELEMENTS = ['image', 'feimage', 'use', 'tref', 'pattern', 'filter', 'lineargradient', 'radialgradient', 'textpath', 'mpath'];
+
+    /** @var list<string> */
     private const array URL_ATTRIBUTES = ['href', 'src', 'action', 'formaction', 'data', 'base', 'to', 'from', 'by', 'values'];
 
     public function isStatic(string $contents): bool
@@ -117,6 +120,12 @@ final class SvgContentInspector
                 return false;
             }
 
+            // An image converter on the server resolves these references when it
+            // renders the drawing, so they may only point inside the file itself.
+            if ($attributeName === 'href' && in_array($name, self::EMBEDDING_ELEMENTS, true) && ! $this->referenceIsInternal($attribute->value)) {
+                return false;
+            }
+
             // Animation can assign a script URL or a handler after load.
             if ($attributeName === 'attributename' && in_array($name, self::ANIMATION_ELEMENTS, true)) {
                 $target = strtolower(trim($attribute->value));
@@ -147,6 +156,15 @@ final class SvgContentInspector
         }
 
         return false;
+    }
+
+    private function referenceIsInternal(string $value): bool
+    {
+        $reference = trim($value);
+
+        return $reference === ''
+            || str_starts_with($reference, '#')
+            || preg_match('#^data:image/(png|jpe?g|gif|webp|avif)[;,]#i', $reference) === 1;
     }
 
     private function styleIsActive(string $style): bool
