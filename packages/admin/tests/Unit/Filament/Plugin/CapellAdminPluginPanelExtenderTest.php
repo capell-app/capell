@@ -47,10 +47,11 @@ use Filament\Panel;
 use Filament\PanelRegistry;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
+use Filament\Support\Facades\FilamentView;
+use Filament\Support\View\ViewManager;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
-use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Configuration\ApplicationBuilder;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider;
@@ -144,15 +145,18 @@ it('registers the workspaces, tools and site switcher before the topbar search',
 
     CapellAdminPlugin::make()->register($panel);
 
-    $reflection = new ReflectionClass($panel);
-    $renderHooks = $reflection->getProperty('renderHooks')->getValue($panel);
+    $views = capell_boot_panel_render_hooks($panel);
+    $before = $views->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE)->toHtml();
+    $headerActionsPosition = strpos($before, 'data-capell-header-actions');
+    $siteSwitcherPosition = strpos($before, 'data-capell-site-switcher');
 
-    expect($renderHooks)
-        ->toHaveKey(PanelsRenderHook::GLOBAL_SEARCH_BEFORE)
-        ->and($renderHooks[PanelsRenderHook::GLOBAL_SEARCH_BEFORE][''])
-        ->toHaveCount(2)
-        ->and($renderHooks)
-        ->not->toHaveKey(PanelsRenderHook::GLOBAL_SEARCH_AFTER);
+    expect($headerActionsPosition)->toBeInt()
+        ->and($siteSwitcherPosition)->toBeInt();
+    assert(is_int($headerActionsPosition));
+    assert(is_int($siteSwitcherPosition));
+
+    expect($headerActionsPosition)->toBeLessThan($siteSwitcherPosition)
+        ->and(trim($views->renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER)->toHtml()))->toBe('');
 });
 
 it('starts a hidden-until-opened sidebar without the collapsed navigation rail', function (): void {
@@ -169,15 +173,9 @@ it('starts a hidden-until-opened sidebar without the collapsed navigation rail',
     expect($panel->isSidebarCollapsibleOnDesktop())->toBeFalse()
         ->and($panel->isSidebarFullyCollapsibleOnDesktop())->toBeTrue();
 
-    $reflection = new ReflectionClass($panel);
-    $renderHooks = $reflection->getProperty('renderHooks')->getValue($panel);
-    $hooks = $renderHooks[PanelsRenderHook::HEAD_START][''];
+    $headStart = capell_boot_panel_render_hooks($panel)->renderHook(PanelsRenderHook::HEAD_START)->toHtml();
 
-    expect($hooks)->toHaveCount(1);
-
-    $view = $hooks[0]();
-
-    expect($view)->toBeInstanceOf(View::class);
+    expect($headStart)->toContain('capell.admin.navigation.opened');
     $process = new Process(['node', '-e', <<<'JS_WRAP'
     const vm = require('node:vm');
     const html = process.argv[1];
@@ -199,7 +197,7 @@ it('starts a hidden-until-opened sidebar without the collapsed navigation rail',
         return { initial, opened: session.get('capell.admin.navigation.opened') ?? null };
     }
     console.log(JSON.stringify([run(false), run(true), run(false, true)]));
-    JS_WRAP, $view->render()]);
+    JS_WRAP, $headStart]);
     $process->mustRun();
 
     expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))->toBe([
@@ -235,14 +233,10 @@ it('loads the shared Tailwind layer order through the Filament styles hook', fun
 
     CapellAdminPlugin::make()->register($panel);
 
-    $reflection = new ReflectionClass($panel);
-    $renderHooks = $reflection->getProperty('renderHooks')->getValue($panel);
-    $hooks = $renderHooks[PanelsRenderHook::STYLES_BEFORE][''];
+    $stylesBefore = capell_boot_panel_render_hooks($panel)->renderHook(PanelsRenderHook::STYLES_BEFORE)->toHtml();
 
-    expect($hooks)->toHaveCount(1)
-        ->and((string) $hooks[0]())
-        ->toContain('rel="stylesheet"')
-        ->toContain('/css/capell-app/admin/admin-layer-order.css');
+    expect(substr_count($stylesBefore, '/css/capell-app/admin/admin-layer-order.css'))->toBe(1)
+        ->and($stylesBefore)->toContain('rel="stylesheet"');
 });
 
 it('keeps the layer prelude on the uninstalled admin path', function (): void {
@@ -252,10 +246,7 @@ it('keeps the layer prelude on the uninstalled admin path', function (): void {
 
     CapellAdminPlugin::make()->register($panel);
 
-    $reflection = new ReflectionClass($panel);
-    $renderHooks = $reflection->getProperty('renderHooks')->getValue($panel);
-    $hooks = $renderHooks[PanelsRenderHook::STYLES_BEFORE][''];
-    $renderedHooks = implode('', array_map(static fn (callable $hook): string => (string) $hook(), $hooks));
+    $renderedHooks = capell_boot_panel_render_hooks($panel)->renderHook(PanelsRenderHook::STYLES_BEFORE)->toHtml();
 
     expect($renderedHooks)
         ->toContain('rel="stylesheet"')
@@ -761,17 +752,13 @@ it('does not query site or permission tables from palette hooks before installat
     $panel = Panel::make();
     CapellAdminPlugin::make()->register($panel);
     CapellCore::markPackageUninstalled(AdminServiceProvider::$packageName);
-    $hooks = new ReflectionClass($panel)->getProperty('renderHooks')->getValue($panel);
+    $views = capell_boot_panel_render_hooks($panel);
     DB::enableQueryLog();
     DB::flushQueryLog();
     try {
-        foreach ($hooks[PanelsRenderHook::BODY_START][''] as $hook) {
-            $view = $hook();
-            if ($view instanceof View && $view->name() === 'capell-admin::components.palette-tools') {
-                $view->render();
-                test()->fail('The uninstalled application must not mount palette tools.');
-            }
-        }
+        $bodyStart = $views->renderHook(PanelsRenderHook::BODY_START)->toHtml();
+
+        expect($bodyStart)->not->toContain('global-command-palette');
 
         $queries = collect(DB::getQueryLog())->pluck('query')->implode('\n');
         expect($queries)->not->toMatch('/\b(?:from|join)\s+["`\[]?(sites|roles|permissions|model_has_roles|model_has_permissions|role_has_permissions)\b/');
@@ -780,6 +767,21 @@ it('does not query site or permission tables from palette hooks before installat
         DB::flushQueryLog();
     }
 });
+
+/**
+ * Boot the panel into a fresh Filament view manager and return it, so a test renders exactly the hooks
+ * this panel registered through Filament's public render hook API.
+ */
+function capell_boot_panel_render_hooks(Panel $panel): ViewManager
+{
+    $views = new ViewManager;
+    app()->instance(ViewManager::class, $views);
+    FilamentView::clearResolvedInstances();
+
+    $panel->boot();
+
+    return $views;
+}
 
 /**
  * Register a route in the panel's route group, as Filament registers the panel's own routes, so the route
