@@ -28,6 +28,8 @@ SPECIAL_EXITS = {
     'scripts/with-admission.php': (b'ex' + b'it(is_resource($process) ? proc_close($process) : 127)',),
     'scripts/run-preflight.php': (b'ex' + b'it(is_resource($process) ? proc_close($process) : 127)',),
     'scripts/with-lock.php': (b'ex' + b'it($runCommand($command))',),
+    'scripts/upgrade-path/database.php': (b'ex' + b'it(main($argv))',),
+    'scripts/upgrade-path/pages.php': (b'ex' + b'it(main($argv))',),
     'scripts/check-test-psr4.php': (b'ex' + b'it($violations === [] ? 0 : 1)',),
     'scripts/check-test-weak-assertions.php': (b'ex' + b'it($failed ? 1 : 0)',),
     'scripts/run-test-all-matrix.php': (b'ex' + b'it($failures === [] ? 0 : 1)',),

@@ -15,6 +15,11 @@ Broad tests and preflights use the [host release verification gate](../../docs/r
 - Full repository gate before completion: `composer preflight:all`
 - Local equivalent of the hosted Test All topology:
   `composer test:all:matrix:local`
+- Upgrade path from the last published release (run by the merge queue, on `main` and
+  nightly, not per PR): `heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh`. Run it
+  locally for a change to migrations, upgrade steps or the upgrade pipeline. A removal of
+  data that is intended is declared, with its reason, in
+  `scripts/upgrade-path/allowed-changes.json`.
 - Extension contracts: `composer check:extension-surfaces` and
   `composer check:stable-extension-api`
 - Documentation contracts: `composer docs:check` (spelling, links, orphans,
