@@ -246,7 +246,7 @@ class PageUrlsTable implements TableConfigurator
     private static function pageableMorphRelations(): array
     {
         return collect(self::pageableMorphTypes())
-            ->mapWithKeys(fn (string $model): array => [$model => ['blueprint']])
+            ->mapWithKeys(fn (string $model): array => [$model => ['blueprint', 'site']])
             ->all();
     }
 }
