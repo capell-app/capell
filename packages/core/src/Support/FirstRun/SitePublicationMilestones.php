@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\FirstRun;
 
+use Capell\Core\Actions\FirstRun\ResolveGuidedSetupStateAction;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -15,6 +16,11 @@ use Illuminate\Support\Facades\DB;
  * pages is public; the first time is kept in the site's own meta
  * (`first_run.published_at`), so unpublishing and republishing never resets it
  * and deleting a site takes its milestone with it.
+ *
+ * Only code that is already changing data records a milestone: a publication
+ * transition, a save that changes a home page's visibility, the scheduled
+ * reconcile and the upgrade step. Code that renders a screen asks isLiveHome()
+ * about the home pages it has loaded and never calls record().
  */
 final class SitePublicationMilestones
 {
@@ -31,6 +37,17 @@ final class SitePublicationMilestones
 
         return ! filter_var(data_get($home->meta, 'noindex'), FILTER_VALIDATE_BOOL)
             && (! is_string($robots) || ! str_contains(strtolower($robots), 'noindex'));
+    }
+
+    /**
+     * Whether this home page puts its site live: it is public and it is not the
+     * placeholder a first install leaves until somebody edits it. Reads only, so
+     * a screen can treat a site as live before its milestone has been recorded.
+     */
+    public static function isLiveHome(Page $home, ?CarbonImmutable $now = null): bool
+    {
+        return self::isPublicHome($home, $now)
+            && (! $home->site instanceof Site || ! ResolveGuidedSetupStateAction::isPlaceholderHome($home->site, $home));
     }
 
     /** @return list<int> */

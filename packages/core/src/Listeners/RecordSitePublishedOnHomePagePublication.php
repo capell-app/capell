@@ -13,8 +13,8 @@ use Capell\Core\Support\FirstRun\SitePublicationMilestones;
 /**
  * A site goes live the first time one of its home pages is made public through
  * a publication transition (the editor, the installer or a bulk publish).
- * Home pages that become public any other way, such as a scheduled time
- * passing or an import, are recorded when the admin dashboard next sees them.
+ * Home pages that become public any other way are recorded by a save that
+ * changes their visibility or by the scheduled reconcile.
  */
 final class RecordSitePublishedOnHomePagePublication
 {

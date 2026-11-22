@@ -41,6 +41,11 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * and stays live even if the home page is unpublished later. With no such
  * site there is no first run.
  *
+ * This runs while the dashboard and the sidebar render, so it only reads. A
+ * site whose home page is public but whose go-live is not recorded yet counts
+ * as live here; recording it belongs to the code that changes the page and to
+ * the scheduled reconcile.
+ *
  * Packages add tasks through FirstRunTaskContributor; they sit before the
  * publish task, which always comes last.
  */
@@ -54,14 +59,14 @@ final class ResolveFirstRunStateAction
 
     public function handle(Authenticatable $actor): FirstRunStateData
     {
-        $home = $this->homeOfSiteBeingSetUp($actor);
+        [$home, $liveSiteIds] = $this->homeOfSiteBeingSetUp($actor);
         if (! $home instanceof Page) {
             return FirstRunStateData::notFirstRun();
         }
 
         $access = SiteAccess::forActor($actor);
         $accessibleSiteIds = $access->query(Site::class)->pluck('id')->map(intval(...))->all();
-        $hasLiveSite = array_intersect($accessibleSiteIds, resolve(SitePublicationMilestones::class)->publishedSiteIds()) !== [];
+        $hasLiveSite = array_intersect($accessibleSiteIds, $liveSiteIds) !== [];
         $siteId = (int) $home->site_id;
         $site = $access->query(Site::class)->whereKey($siteId)->first();
 
@@ -103,10 +108,13 @@ final class ResolveFirstRunStateAction
         return is_string($name) && trim($name) !== '' ? trim($name) : null;
     }
 
-    private function homeOfSiteBeingSetUp(Authenticatable $actor): ?Page
+    /**
+     * @return array{0: Page|null, 1: list<int>} the home page of the site being set up, and
+     *                                           the sites that are live, recorded or not
+     */
+    private function homeOfSiteBeingSetUp(Authenticatable $actor): array
     {
-        $milestones = resolve(SitePublicationMilestones::class);
-        $published = $milestones->publishedSiteIds();
+        $published = resolve(SitePublicationMilestones::class)->publishedSiteIds();
         // Only the work-first dashboard has a site picker, so only its saved scope names a current site.
         $scopedSiteId = $actor instanceof Model && config('capell-admin.dashboard.work_first.enabled', false) === true
             ? resolve(AdminWorkspacePreferenceStore::class)->dashboardScope($actor)?->siteId
@@ -120,19 +128,21 @@ final class ResolveFirstRunStateAction
             ->get();
 
         // A home page can go public without a publication transition (a scheduled
-        // time passing, a form save, an import); record those sites as they are seen.
+        // time passing, an import), so its site may be live before that is recorded.
         // A first install's placeholder home page is public from the start, so until a
         // person edits it, it is not a sign that anyone has published the site.
         $now = CarbonImmutable::now();
         $live = [];
         foreach ($homes as $home) {
-            if (SitePublicationMilestones::isPublicHome($home, $now) && (! $home->site instanceof Site || ! ResolveGuidedSetupStateAction::isPlaceholderHome($home->site, $home))) {
-                $milestones->record((int) $home->site_id, $now);
+            if (SitePublicationMilestones::isLiveHome($home, $now)) {
                 $live[(int) $home->site_id] = true;
             }
         }
 
-        return $homes->first(fn (Page $home): bool => ! isset($live[(int) $home->site_id]));
+        return [
+            $homes->first(fn (Page $home): bool => ! isset($live[(int) $home->site_id])),
+            [...$published, ...array_keys($live)],
+        ];
     }
 
     private function task(string $key, bool $complete, ?string $url): FirstRunTaskData

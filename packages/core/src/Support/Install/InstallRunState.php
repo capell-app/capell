@@ -85,6 +85,16 @@ final class InstallRunState
         return is_string($identity) && hash_equals($identity, self::installationIdentity());
     }
 
+    /**
+     * Whether a first install has started here and not finished, whatever the database holds
+     * right now. Unlike hasPendingInitialInstallation() this stays true in the middle of a step,
+     * while the install is still writing the rows that method compares.
+     */
+    public static function initialInstallationUnderway(): bool
+    {
+        return is_string(self::originState()['initial_installation'] ?? null);
+    }
+
     public static function completeInitialInstallation(): void
     {
         self::exclusively(static function (): void {

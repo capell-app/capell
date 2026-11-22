@@ -30,12 +30,16 @@ home page and has never gone live, or the site the work-first dashboard is scope
 to. A site goes live the first time its home page is published and not hidden from
 search engines. Core records that per site through
 `Capell\Core\Support\FirstRun\SitePublicationMilestones`: when a publication
-transition makes the home page public, when the dashboard first sees a home page
-that became public another way (a scheduled time passing, a form save or an
-import), and for existing sites through the `core.record-published-sites` upgrade
-step. The date is kept in the site's own meta (`first_run.published_at`), so it leaves
-with the site. Unpublishing the home page later does not bring the first-run layout
-back.
+transition or a save makes the home page public, every five minutes through the
+scheduled `capell:sites:record-published` command for a home page that became public
+with nothing to announce it (a scheduled time passing or an import), and for existing
+sites through the `core.record-published-sites` upgrade step. The date is kept in the
+site's own meta (`first_run.published_at`), so it leaves with the site. Unpublishing
+the home page later does not bring the first-run layout back.
+
+The dashboard and the sidebar only read. A site whose home page is public counts as
+live as soon as it is, before the schedule has recorded the date, and opening the
+admin never writes it. Nothing is recorded while a first install is still running.
 
 A site nobody has set up opens guided setup instead of the dashboard, for people who may
 edit it. Set `capell-admin.dashboard.guided_setup.redirect` (environment variable
