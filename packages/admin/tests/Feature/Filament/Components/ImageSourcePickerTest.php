@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
 use Capell\Admin\Filament\Components\Forms\ImageSourcePicker;
+use Capell\Admin\Tests\Fixtures\ImageSourceUploadForm;
 use Capell\Core\Settings\CoreSettings;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
 beforeEach(function (): void {
     app()->bind(AdminMediaFieldFactory::class, static fn (): AdminMediaFieldFactory => new class implements AdminMediaFieldFactory
@@ -115,3 +119,21 @@ it('uses a compatible global default and safely falls back for legacy or field r
     ['upload_only', 'media', 'upload_only', 'upload'],
     ['url_media', 'media', 'url_only', 'url'],
 ]);
+
+it('refuses a scripted SVG in the image upload source and accepts a static one', function (): void {
+    Storage::fake('public');
+
+    Livewire::test(ImageSourceUploadForm::class)
+        ->set('data.meta.image_source.path', [UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>fetch("/admin/users")</script></svg>')])
+        ->call('save')
+        ->assertHasErrors(['data.meta.image_source.path']);
+
+    expect(Storage::disk('public')->allFiles())->toBe([]);
+
+    Livewire::test(ImageSourceUploadForm::class)
+        ->set('data.meta.image_source.path', [UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>')])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Storage::disk('public')->allFiles())->toHaveCount(1);
+});

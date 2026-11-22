@@ -27,6 +27,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\FirstRun\GuidedSetupLogo;
+use Capell\Core\Support\Media\StorableUploadRule;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecPresetRegistry;
@@ -257,6 +258,7 @@ class GuidedSetup extends FilamentPage
                                 ->helperText(__('capell-admin::setup.logo_help'))
                                 ->image()
                                 ->acceptedFileTypes(['image/png', 'image/svg+xml'])
+                                ->rule(new StorableUploadRule)
                                 ->disk(GuidedSetupLogo::DISK)
                                 ->directory(GuidedSetupLogo::DIRECTORY)
                                 ->visibility('private'),

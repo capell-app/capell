@@ -6,6 +6,8 @@ namespace Capell\Admin\Actions;
 
 use Capell\Admin\Data\MediaReplacementFileData;
 use Capell\Admin\Data\MediaReplacementResultData;
+use Capell\Core\Exceptions\UploadContentRefusedException;
+use Capell\Core\Support\Media\UploadContentPolicy;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\File as LocalFiles;
 use Illuminate\Support\Facades\Lang;
@@ -215,6 +217,10 @@ class ReplaceMediaFileAction
         // Static servers infer Content-Type from the stable filename. A type
         // change needs a new asset instead of silently changing that URL contract.
         throw_if($media->mime_type !== null && $media->mime_type !== $mime, RuntimeException::class, __('capell-admin::media.replacement_type_mismatch'));
+        // The stored name fixes the served type, so judge the new content under it.
+        $refusal = resolve(UploadContentPolicy::class)->refusal((string) $media->file_name, $path);
+        // The caller shows this message as notification HTML, and it names the stored file.
+        throw_if($refusal instanceof UploadContentRefusedException, RuntimeException::class, e((string) $refusal?->getMessage()));
         $maximumSize = config('media-library.max_file_size');
         throw_if(is_int($maximumSize) && $size > $maximumSize, RuntimeException::class, __('capell-admin::media.replacement_too_large'));
         $file = new File(basename($path), $size, $mime);

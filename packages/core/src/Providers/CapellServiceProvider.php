@@ -225,6 +225,7 @@ use Capell\Core\Support\Marketplace\ExtensionCommercialPolicy;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Capell\Core\Support\Marketplace\SignedPackageLicenceManifest;
 use Capell\Core\Support\Media\BackendResolver;
+use Capell\Core\Support\Media\GuardedFileAdder;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
 use Capell\Core\Support\Media\SpatieMediaUploadConfigurationFactory;
@@ -343,6 +344,7 @@ use Laravel\Octane\Events\WorkerStarting;
 use Override;
 use Spatie\LaravelData\Support\Caching\DataStructureCache;
 use Spatie\LaravelPackageTools\Package;
+use Spatie\MediaLibrary\MediaCollections\FileAdder;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\Models\Role;
 use Throwable;
@@ -410,6 +412,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         LegacyConfigFallback::carryRenamedKeys($this->app->make(Repository::class));
 
         config(['media-library.media_model' => Media::class]);
+        // Every media-library write resolves its adder here, so imports, packages and
+        // forged requests meet the same upload content policy as the admin forms.
+        $this->app->bind(FileAdder::class, GuardedFileAdder::class);
         if (config('capell.database.external_tables.tags', 'tags') !== 'tags'
             && InstalledVersions::isInstalled('spatie/laravel-tags')
             && config('tags.tag_model', TableName::SPATIE_TAG_MODEL) === TableName::SPATIE_TAG_MODEL) {

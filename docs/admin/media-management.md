@@ -15,6 +15,8 @@ Manage images and files for your sites from **Media** in the admin sidebar.
 2. Choose **Upload files**, select a file, and choose its site in **Attach to site**.
 3. Submit the action and wait for the upload success notification. The file is now available to attach to pages and components; uploading alone does not place it on a public page.
 
+Uploaded files are served from your site's own address, so Capell refuses types a browser would run as a page: HTML, XML and script files, and any file type not on the allowed list. An SVG is stored only when it is a plain drawing. If an SVG is refused, export it again from your design tool without scripts, embedded HTML or interactivity. To allow another file type, a developer adds its extension to [`capell.media.uploads.allowed_extensions`](../development/configuration.md#core-config).
+
 ## Add alt text and captions (per language)
 
 1. Open a media item using **Manage media**.

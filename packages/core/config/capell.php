@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Media\UploadContentPolicy;
 
 return [
     'version' => env('CAPELL_VERSION'),
@@ -433,6 +434,13 @@ return [
     'media' => [
         'backend' => env('CAPELL_MEDIA_BACKEND', 'spatie'),
         'model' => Media::class,
+        'uploads' => [
+            // File extensions that may be stored where the web server serves them. Stored files
+            // share the site origin with the admin panel, so a type a browser renders as a
+            // document would run with the session of whoever opens it. HTML, XML and script
+            // extensions are refused even when listed here, and an SVG must be a static drawing.
+            'allowed_extensions' => UploadContentPolicy::DEFAULT_ALLOWED_EXTENSIONS,
+        ],
         'crop_presets' => [
             'thumbnail' => [
                 'label' => 'Thumbnail',

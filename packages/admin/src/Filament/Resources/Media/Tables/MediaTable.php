@@ -37,6 +37,7 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Media\StorableUploadRule;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Properties\PropertyMediaUsage;
@@ -175,6 +176,7 @@ class MediaTable implements TableConfigurator
                             ->disk('local')
                             ->directory('media-replacements')
                             ->preventFilePathTampering()
+                            ->rule(new StorableUploadRule)
                             ->label(__('capell-admin::media.replacement_file'))
                             ->required(),
                     ])

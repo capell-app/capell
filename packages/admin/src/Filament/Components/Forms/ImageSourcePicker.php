@@ -10,6 +10,7 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Media\ImageSourcePolicyResolver;
 use Capell\Core\Support\Media\ImageSourcePresets;
 use Capell\Core\Support\Media\ImageUrlPolicy;
+use Capell\Core\Support\Media\StorableUploadRule;
 use Closure;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Hidden;
@@ -159,6 +160,8 @@ class ImageSourcePicker extends Group
                     ->label(__('capell-admin::form.image_source_upload'))
                     ->helperText(__('capell-admin::form.image_source_upload_helper'))
                     ->image()
+                    // This file is served from the site origin, so an SVG must be a static drawing.
+                    ->rule(new StorableUploadRule)
                     ->disk('public')
                     ->directory('capell/image-sources')
                     ->visibility('public')
