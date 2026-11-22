@@ -173,3 +173,64 @@ it('escapes a remote extension name in the install completed notification body',
     expect($stored)->toContain('&lt;a href')
         ->and($stored)->not->toContain('<a href');
 });
+
+dataset('first party urls', [
+    'apex' => ['https://capell.app/x', true],
+    'subdomain' => ['https://docs.capell.app/x', true],
+    'mixed case trailing dot' => ['https://DOCS.Capell.App./x', true],
+    'explicit 443' => ['https://docs.capell.app:443/x', true],
+    'suffix lookalike' => ['https://capell.app.evil.com/x', false],
+    'prefix lookalike' => ['https://evilcapell.app/x', false],
+    'userinfo' => ['https://capell.app@evil.com/x', false],
+    'host in path' => ['https://evil.com/capell.app', false],
+    'host in query' => ['https://evil.com/?u=https://capell.app', false],
+    'other port' => ['https://capell.app:8443/x', false],
+    'plain http' => ['http://docs.capell.app/x', false],
+    'punycode lookalike' => ['https://xn--capell-6va.app/x', false],
+    'scheme relative' => ['//docs.capell.app/x', false],
+    'ip literal' => ['https://127.0.0.1/x', false],
+]);
+
+it('limits first-party links to the configured trusted hosts on every remote path', function (string $url, bool $allowed): void {
+    remoteUrlsViewer();
+    config(['capell-marketplace.marketplace.web_url' => 'https://marketplace.example']);
+
+    Http::fake(['https://marketplace.example/api/extensions/seo-suite' => remoteDetailResponse($url)]);
+    $detail = Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite']);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000654',
+        'signing_secret_encrypted' => 'test-secret',
+        'connection_metadata' => ['commercial' => ['purchases' => [], 'renewal_url' => $url, 'support_url' => $url]],
+        'last_heartbeat_at' => now(),
+    ]);
+    resolve(MarketplaceInstanceResolver::class)->forget();
+    $purchases = Livewire::test(MarketplacePurchasesPage::class);
+
+    $snapshot = RecordUpdateAdvisorySnapshotAction::run('heartbeat', ['advisories' => [['release_notes_url' => $url]]]);
+
+    if ($allowed) {
+        $detail->assertSee(__('capell-marketplace::marketplace.detail.docs_link_cta'));
+        $purchases->assertSee(__('capell-marketplace::marketplace.purchases.renew'));
+        expect($snapshot->advisories[0]['release_notes_url'])->toBe($url);
+
+        return;
+    }
+
+    $detail->assertDontSee(__('capell-marketplace::marketplace.detail.docs_link_cta'));
+    $purchases->assertDontSee(__('capell-marketplace::marketplace.purchases.renew'));
+    expect($snapshot->advisories[0]['release_notes_url'])->toBeNull();
+})->with('first party urls');
+
+it('follows the trusted host list in configuration', function (): void {
+    remoteUrlsViewer();
+    $url = 'https://docs.partner.example/x';
+
+    expect(RecordUpdateAdvisorySnapshotAction::run('heartbeat', ['advisories' => [['release_notes_url' => $url]]])->advisories[0]['release_notes_url'])->toBeNull();
+
+    config(['capell-marketplace.marketplace.trusted_hosts' => ['partner.example']]);
+    expect(RecordUpdateAdvisorySnapshotAction::run('heartbeat', ['advisories' => [['release_notes_url' => $url]]])->advisories[0]['release_notes_url'])->toBe($url);
+
+    config(['capell-marketplace.marketplace.trusted_hosts' => []]);
+    expect(RecordUpdateAdvisorySnapshotAction::run('heartbeat', ['advisories' => [['release_notes_url' => 'https://docs.capell.app/x']]])->advisories[0]['release_notes_url'])->toBeNull();
+});

@@ -10,6 +10,16 @@ return [
     'marketplace' => [
         'base_url' => env('CAPELL_MARKETPLACE_URL', 'https://capell.app/api/v1'),
         'web_url' => env('CAPELL_MARKETPLACE_WEB_URL', 'https://capell.app'),
+        /*
+         * First-party hosts a remote Marketplace response may link to, in addition to the
+         * Marketplace hosts above. Each entry matches itself and its subdomains
+         * (`capell.app` also allows `docs.capell.app`), never by prefix or substring, and
+         * only over https. Comma-separated in the environment.
+         */
+        'trusted_hosts' => array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) env('CAPELL_MARKETPLACE_TRUSTED_HOSTS', 'capell.app')),
+        ))),
         'timeout_seconds' => 10,
         'telemetry_timeout_seconds' => 3,
         /*
