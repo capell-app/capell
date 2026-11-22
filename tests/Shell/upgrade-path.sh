@@ -38,7 +38,7 @@ sqlite() { # database file, SQL
 snapshot_after() { # name, SQL applied to a copy of the site
     cp "$scratch/site.sqlite" "$scratch/$1.sqlite"
     sqlite "$scratch/$1.sqlite" "$2"
-    php "$database" snapshot "$scratch/$1.sqlite" "$scratch/$1.json" >/dev/null
+    php "$database" snapshot "sqlite:$scratch/$1.sqlite" "$scratch/$1.json" >/dev/null
 }
 
 compare() { # name, allowed changes file
@@ -53,7 +53,7 @@ sqlite "$scratch/site.sqlite" "
     CREATE TABLE cache (key TEXT, value TEXT);
     INSERT INTO cache VALUES ('a', 'b');
 "
-php "$database" snapshot "$scratch/site.sqlite" "$scratch/before.json" >/dev/null
+php "$database" snapshot "sqlite:$scratch/site.sqlite" "$scratch/before.json" >/dev/null
 
 snapshot_after added "ALTER TABLE pages ADD COLUMN subtitle TEXT; CREATE TABLE redirects (id INTEGER); INSERT INTO pages (title) VALUES ('News');"
 compare added
@@ -87,6 +87,8 @@ check 'an allowed change does not excuse a different loss' 1 $?
 php "$database" pick-column "$scratch/before.json" "$scratch/none.json" >"$scratch/pick.out" 2>&1
 check 'a droppable populated column is found for the seeded fault' 'pages summary' "$(cat "$scratch/pick.out")"
 
+bash "$script" --database oracle >"$scratch/engine.out" 2>&1
+check 'unknown database engine exits 2' 2 $?
 bash "$script" --inject nonsense >"$scratch/inject.out" 2>&1
 check 'unknown fault exits 2' 2 $?
 bash "$script" --from latest >"$scratch/from.out" 2>&1

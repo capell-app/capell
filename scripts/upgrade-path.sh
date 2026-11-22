@@ -10,6 +10,10 @@
 #   --from VERSION      Published release to start from, for example 1.0.79
 #                       (default: the newest stable capell-app/core on Packagist).
 #   --skeleton NAME     Skeleton package for create-project (default: capell-app/capell-skeleton).
+#   --database ENGINE   sqlite (default, the skeleton's own) or mariadb, the engine production
+#                       runs. mariadb starts a disposable mariadb:10.11 container with Docker,
+#                       published on 127.0.0.1 only, and removes it afterwards. The app reaches
+#                       it through Laravel's mysql driver, as production does.
 #   --port PORT         Port for `php artisan serve` on 127.0.0.1 (default: 8010).
 #   --workdir DIR       Scratch directory for the app, evidence and logs (default: a new temp
 #                       directory, removed after a passing run and kept after a failing one).
@@ -38,14 +42,15 @@
 #
 # Companion packages come from Packagist at their newest release on both sides of the upgrade,
 # so this measures a Core change against what a site owner has installed today; a --from older
-# than those packages accept will not resolve. The database is the skeleton's SQLite default.
-# An intended removal of data is declared, with its reason, in
+# than those packages accept will not resolve. An intended removal of data is declared, with
+# its reason, in
 # scripts/upgrade-path/allowed-changes.json.
 #
 # Exit codes: 0 the site upgraded cleanly, 1 a step failed, 2 usage error,
 # 3 a required tool is missing.
 #
 # Local run:  heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh
+#             heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh --database mariadb
 # Test:       bash tests/Shell/upgrade-path.sh
 
 set -euo pipefail
@@ -56,6 +61,8 @@ HELPERS="$SCRIPT_DIR/upgrade-path"
 CORE_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
 FROM=""
 SKELETON="capell-app/capell-skeleton"
+DATABASE="sqlite"
+MARIADB_IMAGE="mariadb:10.11"
 PORT=8010
 WORKDIR=""
 SUMMARY="${GITHUB_STEP_SUMMARY:-}"
@@ -101,12 +108,13 @@ parse_args() {
                 SELF_CHECK=0
                 shift
                 ;;
-            --core-path | --from | --skeleton | --port | --workdir | --summary | --inject)
+            --core-path | --from | --skeleton | --database | --port | --workdir | --summary | --inject)
                 (($# >= 2)) || usage_error "$1 needs a value"
                 case "$1" in
                     --core-path) CORE_PATH="$2" ;;
                     --from) FROM="${2#v}" ;;
                     --skeleton) SKELETON="$2" ;;
+                    --database) DATABASE="$2" ;;
                     --port) PORT="$2" ;;
                     --workdir) WORKDIR="$2" ;;
                     --summary) SUMMARY="$2" ;;
@@ -123,6 +131,7 @@ parse_args() {
     [[ "$PORT" =~ ^[0-9]+$ && "$PORT" -ge 1 && "$PORT" -le 65535 ]] || usage_error "--port must be between 1 and 65535"
     [[ -d "$CORE_PATH/packages/core" ]] || usage_error "--core-path $CORE_PATH has no packages/core directory"
     [[ -z "$FROM" || "$FROM" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || usage_error "--from must be a released version such as 1.0.79"
+    [[ "$DATABASE" == "sqlite" || "$DATABASE" == "mariadb" ]] || usage_error "--database must be sqlite or mariadb"
     [[ -z "$INJECT" || "$INJECT" == "broken-step" || "$INJECT" == "destructive-migration" ]] ||
         usage_error "--inject must be broken-step or destructive-migration"
 
@@ -130,7 +139,11 @@ parse_args() {
 }
 
 build_steps() {
-    STEPS=(
+    STEPS=()
+    if [[ "$DATABASE" == "mariadb" ]]; then
+        STEPS+=("Start a MariaDB 10.11 server|step_start_database")
+    fi
+    STEPS+=(
         "Create an app on the published release|step_create_published_app"
         "Install Capell with demo content|step_install_demo_site"
         "Record the site before the upgrade|step_record_before"
@@ -164,7 +177,9 @@ format_seconds() {
 
 require_tools() {
     local tool
-    for tool in php composer curl perl awk openssl npm; do
+    local tools=(php composer curl perl awk openssl npm)
+    [[ "$DATABASE" != "mariadb" ]] || tools+=(docker)
+    for tool in "${tools[@]}"; do
         command -v "$tool" >/dev/null 2>&1 || {
             printf 'upgrade-path: %s is required but not installed\n' "$tool" >&2
             exit 3
@@ -247,8 +262,38 @@ start_server() {
     return 1
 }
 
+# Removes only the container this run started, by the exact name it recorded.
+stop_database() {
+    local name_file="$WORKDIR/database-container"
+    [[ -n "$WORKDIR" && -f "$name_file" ]] || return 0
+    docker rm --force --volumes "$(cat "$name_file")" >/dev/null 2>&1 || true
+    rm -f "$name_file"
+}
+
+# The site's database as a PDO data source name. Steps run in subshells, so a server's address
+# and credentials are kept in files under the work directory.
+database_dsn() {
+    if [[ "$DATABASE" == "sqlite" ]]; then
+        printf 'sqlite:%s\n' "$APP_DIR/database/database.sqlite"
+    else
+        cat "$WORKDIR/database-dsn"
+    fi
+}
+
+database_tool() {
+    (
+        if [[ "$DATABASE" != "sqlite" ]]; then
+            UPGRADE_PATH_DB_USER="root"
+            UPGRADE_PATH_DB_PASSWORD="$(cat "$WORKDIR/database-password")"
+            export UPGRADE_PATH_DB_USER UPGRADE_PATH_DB_PASSWORD
+        fi
+        php "$HELPERS/database.php" "$@"
+    )
+}
+
 cleanup() {
     stop_server
+    stop_database
     if [[ "$KEEP" -eq 0 && -n "$APP_DIR" && -d "$APP_DIR" ]]; then
         rm -rf "$APP_DIR"
     fi
@@ -346,11 +391,47 @@ remove_broken_step() {
 # Drops a populated column chosen from the pre-upgrade snapshot, as a careless migration would.
 run_destructive_migration() {
     local table column migration="database/migrations/2099_01_01_000000_upgrade_path_drop_populated_column.php"
-    read -r table column < <(php "$HELPERS/database.php" pick-column "$EVIDENCE_DIR/database-before.json" "$HELPERS/allowed-changes.json")
+    read -r table column < <(database_tool pick-column "$EVIDENCE_DIR/database-before.json" "$HELPERS/allowed-changes.json")
     echo "seeded destructive migration drops $table.$column"
     cp "$HELPERS/fixtures/drop_populated_column.php" "$APP_DIR/$migration"
     UPGRADE_PATH_DROP_TABLE="$table" UPGRADE_PATH_DROP_COLUMN="$column" \
         artisan migrate --force --path="$migration" >>"$LOG_DIR/seeded-migration.log" 2>&1
+}
+
+step_start_database() {
+    local name="upgrade-path-$$-$RANDOM" port attempt
+    (umask 077 && openssl rand -hex 16 >"$WORKDIR/database-password")
+    echo "$name" >"$WORKDIR/database-container"
+    # The password reaches the container through the environment, never the command line.
+    MARIADB_ROOT_PASSWORD="$(cat "$WORKDIR/database-password")" docker run --detach --name "$name" \
+        --env MARIADB_ROOT_PASSWORD --env MARIADB_DATABASE=capell \
+        --tmpfs /var/lib/mysql --publish 127.0.0.1::3306 "$MARIADB_IMAGE" >"$LOG_DIR/database.log" 2>&1
+    port="$(docker port "$name" 3306/tcp | head -n 1 | sed 's/.*://')"
+    [[ "$port" =~ ^[0-9]+$ ]]
+    echo "$port" >"$WORKDIR/database-port"
+    echo "mysql:host=127.0.0.1;port=$port;dbname=capell" >"$WORKDIR/database-dsn"
+    for attempt in $(seq 1 90); do
+        if database_tool ready "$(database_dsn)"; then
+            echo "$MARIADB_IMAGE is accepting connections on 127.0.0.1:$port"
+            return 0
+        fi
+        sleep 1
+    done
+    docker logs "$name" >>"$LOG_DIR/database.log" 2>&1
+    echo "MariaDB did not accept connections within 90 s (attempt $attempt)"
+    return 1
+}
+
+# Points the app's .env at the server this run started; SQLite keeps the skeleton's default.
+# Production reaches MariaDB through Laravel's mysql driver, so the check does too.
+configure_database() {
+    [[ "$DATABASE" == "mariadb" ]] || return 0
+    grep -vE '^#? ?DB_' "$APP_DIR/.env" >"$APP_DIR/.env.upgrade-path"
+    {
+        printf 'DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=%s\n' "$(cat "$WORKDIR/database-port")"
+        printf 'DB_DATABASE=capell\nDB_USERNAME=root\nDB_PASSWORD=%s\n' "$(cat "$WORKDIR/database-password")"
+    } >>"$APP_DIR/.env.upgrade-path"
+    mv "$APP_DIR/.env.upgrade-path" "$APP_DIR/.env"
 }
 
 step_create_published_app() {
@@ -367,6 +448,7 @@ step_create_published_app() {
     done < <(foundation_packages)
     composer update --no-interaction --no-progress >>"$LOG_DIR/composer-published.log" 2>&1
     [[ -f .env ]] || cp .env.example .env
+    configure_database
     composer run-script post-create-project-cmd --no-interaction >>"$LOG_DIR/composer-published.log" 2>&1
     [[ "$(installed_core_version)" == "$FROM" ]] || {
         echo "expected capell-app/core $FROM, Composer installed $(installed_core_version)"
@@ -408,7 +490,7 @@ administrator_session() { # cookie jar
 
 step_record_before() {
     local base="http://127.0.0.1:$PORT" jar="$WORKDIR/admin-cookies.txt" rendering
-    php "$HELPERS/database.php" page-paths "$APP_DIR/database/database.sqlite" >"$EVIDENCE_DIR/page-paths.txt"
+    database_tool page-paths "$(database_dsn)" >"$EVIDENCE_DIR/page-paths.txt"
     admin_page_uris >"$EVIDENCE_DIR/admin-paths-before.txt"
     start_server
     php "$HELPERS/pages.php" crawl "$base" "$EVIDENCE_DIR/pages-before.json" "$(admin_path)" "$EVIDENCE_DIR/page-paths.txt" | tee "$LOG_DIR/pages-before.log"
@@ -429,7 +511,7 @@ step_record_before() {
         echo "only $rendering admin page(s) render on the published release; the check needs an admin to protect"
         return 1
     }
-    php "$HELPERS/database.php" snapshot "$APP_DIR/database/database.sqlite" "$EVIDENCE_DIR/database-before.json"
+    database_tool snapshot "$(database_dsn)" "$EVIDENCE_DIR/database-before.json"
 }
 
 step_update_composer() {
@@ -480,8 +562,8 @@ step_upgrade_is_settled() {
 }
 
 step_data_survived() {
-    php "$HELPERS/database.php" snapshot "$APP_DIR/database/database.sqlite" "$EVIDENCE_DIR/database-after.json"
-    php "$HELPERS/database.php" compare "$EVIDENCE_DIR/database-before.json" "$EVIDENCE_DIR/database-after.json" "$HELPERS/allowed-changes.json"
+    database_tool snapshot "$(database_dsn)" "$EVIDENCE_DIR/database-after.json"
+    database_tool compare "$EVIDENCE_DIR/database-before.json" "$EVIDENCE_DIR/database-after.json" "$HELPERS/allowed-changes.json"
 }
 
 step_refresh_runtime() {
@@ -557,8 +639,8 @@ step_proof_broken_step() {
 
 step_proof_destructive_migration() {
     run_destructive_migration
-    php "$HELPERS/database.php" snapshot "$APP_DIR/database/database.sqlite" "$EVIDENCE_DIR/database-after-fault.json" >/dev/null
-    if php "$HELPERS/database.php" compare "$EVIDENCE_DIR/database-before.json" "$EVIDENCE_DIR/database-after-fault.json" "$HELPERS/allowed-changes.json" >"$LOG_DIR/proof-destructive-migration.log" 2>&1; then
+    database_tool snapshot "$(database_dsn)" "$EVIDENCE_DIR/database-after-fault.json" >/dev/null
+    if database_tool compare "$EVIDENCE_DIR/database-before.json" "$EVIDENCE_DIR/database-after-fault.json" "$HELPERS/allowed-changes.json" >"$LOG_DIR/proof-destructive-migration.log" 2>&1; then
         echo "a migration dropped a populated column and the data check still passed"
         return 1
     fi

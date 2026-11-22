@@ -3,51 +3,64 @@
 declare(strict_types=1);
 
 /**
- * Database evidence for scripts/upgrade-path.sh: what a SQLite site held before an upgrade,
- * and whether all of it is still there afterwards.
+ * Database evidence for scripts/upgrade-path.sh: what a site's database held before an upgrade,
+ * and whether all of it is still there afterwards. Works on SQLite and on MySQL or MariaDB.
  *
  * Usage:
- *   database.php snapshot <database.sqlite> <snapshot.json>
+ *   database.php snapshot <dsn> <snapshot.json>
  *   database.php compare <before.json> <after.json> <allowed-changes.json>
  *   database.php pick-column <snapshot.json> <allowed-changes.json>
- *   database.php page-paths <database.sqlite>
+ *   database.php page-paths <dsn>
+ *   database.php ready <dsn>
+ *
+ * <dsn> is a PDO data source name, for example sqlite:/path/database.sqlite or
+ * mysql:host=127.0.0.1;port=3306;dbname=capell. A server's user and password are read from the
+ * UPGRADE_PATH_DB_USER and UPGRADE_PATH_DB_PASSWORD environment variables.
  *
  * A snapshot records, for every table, its row count and for every column how many rows hold a
  * value. `compare` fails when a table or column has gone, or when a table has fewer rows or a
  * column fewer values than before, unless allowed-changes.json names it with a reason.
  * `pick-column` names a populated column that a migration can drop, for the seeded
  * destructive-migration fault. `page-paths` lists the addresses the site's pages are published
- * at, so pages no menu links to are checked too.
+ * at, so pages no menu links to are checked too. `ready` exits 0 once the server accepts a
+ * connection.
  */
+function connect(string $dsn): PDO
+{
+    if (str_starts_with($dsn, 'sqlite:') && ! is_file(substr($dsn, 7))) {
+        throw new RuntimeException(sprintf('No SQLite database at %s.', substr($dsn, 7)));
+    }
+
+    $user = getenv('UPGRADE_PATH_DB_USER');
+    $password = getenv('UPGRADE_PATH_DB_PASSWORD');
+
+    return new PDO($dsn, $user === false ? null : $user, $password === false ? null : $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+}
+
+function isSqlite(PDO $pdo): bool
+{
+    return $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+}
 
 /**
  * @return array<string, array{rows: int, columns: array<string, array{values: int, droppable: bool}>}>
  */
-function snapshot(string $databasePath): array
+function snapshot(PDO $pdo): array
 {
-    if (! is_file($databasePath)) {
-        throw new RuntimeException(sprintf('No SQLite database at %s.', $databasePath));
-    }
-
-    $pdo = new PDO('sqlite:' . $databasePath, options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-    $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-        ->fetchAll(PDO::FETCH_COLUMN);
     $snapshot = [];
 
-    foreach ($tables as $table) {
-        $quotedTable = quoteIdentifier((string) $table);
-        $constrained = constrainedColumns($pdo, $quotedTable);
+    foreach (tableNames($pdo) as $table) {
+        $quotedTable = quoteIdentifier($pdo, $table);
         $columns = [];
 
-        foreach ($pdo->query(sprintf('PRAGMA table_info(%s)', $quotedTable))->fetchAll(PDO::FETCH_ASSOC) as $column) {
-            $name = (string) $column['name'];
+        foreach (columnsOf($pdo, $table) as $name => $droppable) {
             $columns[$name] = [
-                'values' => (int) $pdo->query(sprintf('SELECT COUNT(%s) FROM %s', quoteIdentifier($name), $quotedTable))->fetchColumn(),
-                'droppable' => (int) $column['pk'] === 0 && ! in_array($name, $constrained, true),
+                'values' => (int) $pdo->query(sprintf('SELECT COUNT(%s) FROM %s', quoteIdentifier($pdo, $name), $quotedTable))->fetchColumn(),
+                'droppable' => $droppable,
             ];
         }
 
-        $snapshot[(string) $table] = [
+        $snapshot[$table] = [
             'rows' => (int) $pdo->query(sprintf('SELECT COUNT(*) FROM %s', $quotedTable))->fetchColumn(),
             'columns' => $columns,
         ];
@@ -57,16 +70,68 @@ function snapshot(string $databasePath): array
 }
 
 /**
+ * @return list<string>
+ */
+function tableNames(PDO $pdo): array
+{
+    $sql = isSqlite($pdo)
+        ? "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        : "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name";
+
+    return array_map(strval(...), $pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * Each column of a table, and whether a migration can drop it: not a key, not indexed and not
+ * part of a foreign key.
+ *
+ * @return array<string, bool>
+ */
+function columnsOf(PDO $pdo, string $table): array
+{
+    $columns = [];
+
+    if (isSqlite($pdo)) {
+        $quotedTable = quoteIdentifier($pdo, $table);
+        $constrained = constrainedSqliteColumns($pdo, $quotedTable);
+
+        foreach ($pdo->query(sprintf('PRAGMA table_info(%s)', $quotedTable))->fetchAll(PDO::FETCH_ASSOC) as $column) {
+            $columns[(string) $column['name']] = (int) $column['pk'] === 0 && ! in_array($column['name'], $constrained, true);
+        }
+
+        return $columns;
+    }
+
+    $statement = $pdo->prepare(
+        'SELECT c.column_name AS name, EXISTS (
+            SELECT 1 FROM information_schema.statistics s
+            WHERE s.table_schema = c.table_schema AND s.table_name = c.table_name AND s.column_name = c.column_name
+        ) AS constrained
+        FROM information_schema.columns c
+        WHERE c.table_schema = DATABASE() AND c.table_name = ?
+        ORDER BY c.ordinal_position',
+    );
+    $statement->execute([$table]);
+
+    foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $column) {
+        // Every MySQL key, primary and foreign included, is backed by an index.
+        $columns[(string) $column['name']] = (int) $column['constrained'] === 0;
+    }
+
+    return $columns;
+}
+
+/**
  * Columns SQLite refuses to drop: those in an index or a foreign key.
  *
  * @return list<string>
  */
-function constrainedColumns(PDO $pdo, string $quotedTable): array
+function constrainedSqliteColumns(PDO $pdo, string $quotedTable): array
 {
     $columns = [];
 
     foreach ($pdo->query(sprintf('PRAGMA index_list(%s)', $quotedTable))->fetchAll(PDO::FETCH_ASSOC) as $index) {
-        foreach ($pdo->query(sprintf('PRAGMA index_info(%s)', quoteIdentifier((string) $index['name'])))->fetchAll(PDO::FETCH_ASSOC) as $indexed) {
+        foreach ($pdo->query(sprintf('PRAGMA index_info(%s)', quoteIdentifier($pdo, (string) $index['name'])))->fetchAll(PDO::FETCH_ASSOC) as $indexed) {
             $columns[] = (string) $indexed['name'];
         }
     }
@@ -78,9 +143,11 @@ function constrainedColumns(PDO $pdo, string $quotedTable): array
     return array_values(array_unique($columns));
 }
 
-function quoteIdentifier(string $identifier): string
+function quoteIdentifier(PDO $pdo, string $identifier): string
 {
-    return '"' . str_replace('"', '""', $identifier) . '"';
+    return isSqlite($pdo)
+        ? '"' . str_replace('"', '""', $identifier) . '"'
+        : '`' . str_replace('`', '``', $identifier) . '`';
 }
 
 /**
@@ -201,7 +268,7 @@ function main(array $arguments): int
     $command = $arguments[1] ?? '';
 
     if ($command === 'snapshot' && count($arguments) === 4) {
-        $snapshot = snapshot($arguments[2]);
+        $snapshot = snapshot(connect($arguments[2]));
         file_put_contents($arguments[3], json_encode($snapshot, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
         printf("%d tables, %d rows\n", count($snapshot), array_sum(array_column($snapshot, 'rows')));
 
@@ -241,15 +308,25 @@ function main(array $arguments): int
     }
 
     if ($command === 'page-paths' && count($arguments) === 3) {
-        $pdo = new PDO('sqlite:' . $arguments[2], options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $paths = $pdo->query("SELECT DISTINCT url FROM page_urls WHERE url LIKE '/%' AND deleted_at IS NULL ORDER BY url")
+        $paths = connect($arguments[2])
+            ->query("SELECT DISTINCT url FROM page_urls WHERE url LIKE '/%' AND deleted_at IS NULL ORDER BY url")
             ->fetchAll(PDO::FETCH_COLUMN);
         echo implode(PHP_EOL, $paths), PHP_EOL;
 
         return 0;
     }
 
-    fwrite(STDERR, "Usage: database.php snapshot|compare|pick-column|page-paths ... (see the file header)\n");
+    if ($command === 'ready' && count($arguments) === 3) {
+        try {
+            connect($arguments[2])->query('SELECT 1');
+        } catch (PDOException) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    fwrite(STDERR, "Usage: database.php snapshot|compare|pick-column|page-paths|ready ... (see the file header)\n");
 
     return 2;
 }
