@@ -100,7 +100,7 @@ class PageUrlObserver
             return;
         }
 
-        $owner = $this->pageRelation($pageUrl)->withTrashed()->first();
+        $owner = $this->loadedOwner($pageUrl) ?? $this->pageRelation($pageUrl)->withTrashed()->first();
 
         if (! $owner instanceof Model || ! $owner->hasAttribute('site_id') || $owner->getAttribute('site_id') === null) {
             return;
@@ -112,6 +112,26 @@ class PageUrlObserver
             (int) $pageUrl->site_id,
             (int) $owner->getAttribute('site_id'),
         );
+    }
+
+    /**
+     * Writers that already hold the page (the redirect recorder, relationship creates)
+     * hand it over as a loaded relation, so the site check costs no query for them. A
+     * relation that no longer matches the type and key being saved is ignored.
+     */
+    private function loadedOwner(PageUrl $pageUrl): ?Model
+    {
+        foreach (['pageable', 'page'] as $name) {
+            $owner = $pageUrl->relationLoaded($name) ? $pageUrl->getRelation($name) : null;
+
+            if ($owner instanceof Model
+                && $owner->getMorphClass() === $pageUrl->pageable_type
+                && (string) $owner->getKey() === (string) $pageUrl->pageable_id) {
+                return $owner;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -285,7 +285,9 @@ it('does not recommend enabling redirects or URLs belonging to another site', fu
     $page = Page::factory()->create(['site_id' => $site->getKey()]);
     $page->pageUrls()->delete();
     PageUrl::factory()->site($site)->page($page)->create(['status' => false, 'type' => UrlTypeEnum::Redirect]);
-    PageUrl::factory()->site(Site::factory()->create())->page($page)->create(['status' => false, 'is_manual' => true]);
+    // Rows written before the site invariant existed can still point across sites; the observer now
+    // refuses them, so this legacy shape is written without events to keep the panel's own filter covered.
+    PageUrl::withoutEvents(fn (): PageUrl => PageUrl::factory()->site(Site::factory()->create())->page($page)->create(['status' => false, 'is_manual' => true]));
 
     Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $page->getKey()])
         ->assertSee(__('capell-admin::publish_panel.blocker_ask_editor'))
