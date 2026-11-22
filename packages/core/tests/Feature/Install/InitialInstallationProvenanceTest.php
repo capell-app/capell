@@ -10,6 +10,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     InstallRunState::completeInitialInstallation();
@@ -84,4 +85,33 @@ it('does not reuse an abandoned first-install marker after the database contents
     InstallRunState::rememberInitialInstallation(true);
     Site::factory()->create();
     expect(DetectInitialInstallationAction::run())->toBeFalse();
+});
+
+it('treats a SQLite database the installer has yet to create as a first installation', function (): void {
+    $original = config('database.default');
+    $path = sys_get_temp_dir() . '/capell-not-created-' . bin2hex(random_bytes(6)) . '.sqlite';
+    config(['database.connections.not_created' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => ''], 'database.default' => 'not_created']);
+
+    try {
+        expect(file_exists($path))->toBeFalse()
+            ->and(DetectInitialInstallationAction::run())->toBeTrue();
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('not_created');
+    }
+});
+
+it('does not treat a database it cannot read as a first installation', function (): void {
+    $original = config('database.default');
+    $path = sys_get_temp_dir() . '/capell-unreadable-' . bin2hex(random_bytes(6)) . '.sqlite';
+    file_put_contents($path, str_repeat('not a database ', 100));
+    config(['database.connections.unreadable' => ['driver' => 'sqlite', 'database' => $path, 'prefix' => ''], 'database.default' => 'unreadable']);
+
+    try {
+        expect(DetectInitialInstallationAction::run())->toBeFalse();
+    } finally {
+        config(['database.default' => $original]);
+        DB::purge('unreadable');
+        unlink($path);
+    }
 });
