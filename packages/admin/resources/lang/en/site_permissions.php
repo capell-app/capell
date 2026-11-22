@@ -17,5 +17,6 @@ return [
     'none' => 'No changes.',
     'confirm_revocations' => 'I have reviewed these access changes and confirm any role removals.',
     'review_required' => 'Review and confirm the access changes before removing any roles.',
+    'user_not_available' => 'You can only change site access for people who already have access to this site. To bring in someone new, invite them from the Users page.',
     'stale' => 'Site access, users or roles have changed. Close this form and review the current assignments before saving again.',
 ];
