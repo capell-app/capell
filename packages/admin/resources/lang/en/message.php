@@ -165,6 +165,7 @@ return [
     'page_status_open_workspace' => 'Open workspace',
     'page_url_invalid' => 'The page URL is invalid.',
     'page_url_redirect_invalid' => 'The redirect URL is invalid.',
+    'page_url_target_not_accessible' => 'Choose a page on the selected site that you are allowed to edit.',
     'parent_page_not_accessible' => 'The parent page is not accessible.',
     'publish_heading' => 'Publish changes',
     'publish_multi_page' => 'Publish :count pages.',

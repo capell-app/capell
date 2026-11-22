@@ -25,10 +25,12 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rules\Unique;
 
@@ -38,6 +40,59 @@ class PageUrlForm implements FormConfigurator
     {
         return $schema->components(static::getFormSchema($schema))
             ->columns();
+    }
+
+    /**
+     * Refuses a target page the actor could not have picked: another site, a page outside
+     * their site access, or one they may not edit. A forged state is validated here exactly
+     * as a picked one, and a target that is not changing is left to the existing record's
+     * own authorisation.
+     */
+    protected static function targetPageRule(Schema $schema, Get $get): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($schema, $get): void {
+            $type = $get('pageable_type');
+            $siteId = $get('site_id');
+
+            if (blank($value) || blank($type) || blank($siteId)) {
+                return;
+            }
+
+            $record = $schema->getRecord();
+
+            if ($record instanceof PageUrl
+                && $record->pageable_type === $type
+                && (string) $record->pageable_id === (string) $value
+                && (int) $record->site_id === (int) $siteId) {
+                return;
+            }
+
+            $model = Relation::getMorphedModel((string) $type);
+            $actor = auth()->user();
+
+            if (! is_string($model) || ! is_a($model, Model::class, true) || ! $actor instanceof Authenticatable) {
+                $fail(__('capell-admin::message.page_url_target_not_accessible'));
+
+                return;
+            }
+
+            // The page policy reads the blueprint and site, and lazy loading is refused.
+            $target = SiteAccess::current()->query($model)
+                ->when(is_a($model, Pageable::class, true), fn (Builder $query): Builder => $query->with(['blueprint', 'site']))
+                ->whereKey($value)
+                ->first();
+
+            $allowed = $target instanceof Model
+                && (int) $target->getAttribute('site_id') === (int) $siteId
+                && Gate::forUser($actor)->allows(
+                    $record instanceof PageUrl ? 'update' : 'create',
+                    $record instanceof PageUrl ? [$record, $target] : [PageUrl::class, $target],
+                );
+
+            if (! $allowed) {
+                $fail(__('capell-admin::message.page_url_target_not_accessible'));
+            }
+        };
     }
 
     /** @return array<int, mixed> */
@@ -104,6 +159,7 @@ class PageUrlForm implements FormConfigurator
                         ->columnSpanFull()
                         ->required()
                         ->disabled(fn (Get $get): bool => in_array($get('site_id'), [null, '', 0], true))
+                        ->restrictToSite(fn (Get $get): int => (int) $get('site_id'))
                         ->modifyKeySelectOptionsQueryUsing(
                             fn (Builder $query, Get $get): Builder => $query
                                 ->whereHas(
@@ -114,6 +170,9 @@ class PageUrlForm implements FormConfigurator
                         ->modifyKeySelectUsing(
                             fn (Select $select): Select => $select
                                 ->helperText(__('capell-admin::generic.page_url_page_info'))
+                                ->rules([
+                                    fn (Get $get): Closure => static::targetPageRule($schema, $get),
+                                ])
                                 ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
                                     if (in_array($state, [null, '', '0'], true)) {
                                         $set('url', null);
