@@ -970,7 +970,11 @@ it('site scoped admins cannot tamper theme apply scope or site ids', function ()
     $assignedSite = Site::factory()->theme($globalTheme)->create();
     $unassignedSite = Site::factory()->theme($globalTheme)->create();
 
-    test()->actingAs(createThemePageScopedUser(collect([$assignedSite->getKey()])));
+    $user = createThemePageScopedUser(collect([$assignedSite->getKey()]));
+    $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Theme->permission('update'), 'web'));
+    $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Site->permission('update'), 'web'));
+
+    test()->actingAs($user);
 
     Livewire::test(ManageThemes::class)
         ->assertSuccessful()
@@ -996,6 +1000,79 @@ it('site scoped admins cannot tamper theme apply scope or site ids', function ()
     expect($selectedTheme->refresh()->default)->toBeFalse()
         ->and($assignedSite->refresh()->theme_id)->toBe($globalTheme->getKey())
         ->and($unassignedSite->refresh()->theme_id)->toBe($globalTheme->getKey());
+});
+
+it('forged apply calls from a view-only theme user cannot rewrite a site theme or enable a disabled theme', function (): void {
+    $globalTheme = Theme::factory()->createOne(['default' => true]);
+    $disabledTheme = Theme::factory()->createOne(['default' => false, 'status' => false]);
+    registerManageThemesDefinition($disabledTheme);
+    $assignedSite = Site::factory()->theme($globalTheme)->create();
+
+    test()->actingAs(createThemePageScopedUser(collect([$assignedSite->getKey()])));
+
+    try {
+        Livewire::test(ManageThemes::class)
+            ->assertSuccessful()
+            ->callAction(
+                TestAction::make('applyTheme')->table($disabledTheme),
+                data: [
+                    'scope' => ThemeActivationScope::SelectedSites->value,
+                    'site_ids' => [$assignedSite->getKey()],
+                ],
+            );
+    } catch (Throwable) {
+        // Refusal may surface as an exception or a silently ignored action; state is asserted below.
+    }
+
+    expect($assignedSite->refresh()->theme_id)->toBe($globalTheme->getKey())
+        ->and($disabledTheme->refresh()->status)->toBeFalse();
+});
+
+it('applies a theme to selected sites for a user holding theme and site update permissions', function (): void {
+    $globalTheme = Theme::factory()->createOne(['default' => true]);
+    $selectedTheme = Theme::factory()->createOne(['default' => false, 'status' => true]);
+    registerManageThemesDefinition($selectedTheme);
+    $assignedSite = Site::factory()->theme($globalTheme)->create();
+
+    $user = createThemePageScopedUser(collect([$assignedSite->getKey()]));
+    $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Theme->permission('update'), 'web'));
+    $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Site->permission('update'), 'web'));
+
+    test()->actingAs($user);
+
+    Livewire::test(ManageThemes::class)
+        ->assertSuccessful()
+        ->callAction(
+            TestAction::make('applyTheme')->table($selectedTheme),
+            data: [
+                'scope' => ThemeActivationScope::SelectedSites->value,
+                'site_ids' => [$assignedSite->getKey()],
+            ],
+        )
+        ->assertHasNoFormErrors();
+
+    expect($assignedSite->refresh()->theme_id)->toBe($selectedTheme->getKey());
+});
+
+it('refuses to apply a disabled theme instead of silently enabling it', function (): void {
+    $disabledTheme = Theme::factory()->createOne(['default' => false, 'status' => false]);
+    $activeTheme = Theme::factory()->createOne(['default' => true]);
+    registerManageThemesDefinition($disabledTheme);
+
+    Livewire::test(ManageThemes::class)
+        ->assertSuccessful()
+        ->callAction(
+            TestAction::make('applyTheme')->table($disabledTheme),
+            data: [
+                'scope' => ThemeActivationScope::Global->value,
+                'site_ids' => [],
+            ],
+        )
+        ->assertHasErrors(['scope']);
+
+    expect($disabledTheme->refresh()->status)->toBeFalse()
+        ->and($disabledTheme->default)->toBeFalse()
+        ->and($activeTheme->refresh()->default)->toBeTrue();
 });
 
 it('selected site theme apply requires at least one site', function (): void {

@@ -95,6 +95,7 @@ return [
     ],
     'validation' => [
         'global_scope_forbidden' => 'You can only apply themes to sites you manage.',
+        'theme_disabled' => 'Enable this theme before applying it. Applying a theme does not turn it back on.',
         'diagnostics_block_apply' => 'Fix theme diagnostics errors before applying this theme.',
         'diagnostics_block_create' => 'Fix theme diagnostics errors before creating this theme.',
         'available_theme_exists' => 'This theme has already been created.',

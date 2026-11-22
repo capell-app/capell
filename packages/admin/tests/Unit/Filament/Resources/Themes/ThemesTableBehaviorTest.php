@@ -147,6 +147,7 @@ it('validates theme activation scope against the current actor site access', fun
     $theme = Theme::factory()->create([
         'key' => 'site-theme',
         'name' => 'Site Theme',
+        'status' => true,
     ]);
     registerThemesTableDefinitionForTest($theme);
 

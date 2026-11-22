@@ -116,12 +116,19 @@ class ThemesTable implements TableConfigurator
                     ->modalDescription(__('capell-admin::theme-library.help.apply'))
                     ->modalSubmitActionLabel(__('capell-admin::theme-library.actions.confirm_apply'))
                     ->modalWidth(Width::Medium)
+                    ->authorize('update')
                     ->disabled(fn (Theme $record): bool => ! resolve(ThemeLibraryRuntime::class)->diagnostics($record->key, theme: $record)->isValid())
                     ->schema(self::applySchema())
                     ->action(function (Theme $record, array $data): void {
                         if (! resolve(ThemeLibraryRuntime::class)->diagnostics($record->key, theme: $record)->isValid()) {
                             throw ValidationException::withMessages([
                                 'theme' => __('capell-admin::theme-library.validation.diagnostics_block_apply'),
+                            ]);
+                        }
+
+                        if (! $record->status) {
+                            throw ValidationException::withMessages([
+                                'scope' => __('capell-admin::theme-library.validation.theme_disabled'),
                             ]);
                         }
 
