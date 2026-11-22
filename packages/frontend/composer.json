@@ -45,10 +45,6 @@
         "capell-app/core": "<1.0.79"
     },
     "autoload": {
-        "files": [
-            "src/Contracts/RenderHookExtensionInterface.php",
-            "src/Data/RenderHookContext.php"
-        ],
         "psr-4": {
             "Capell\\Frontend\\": "src/"
         }

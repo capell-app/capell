@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Themes;
 
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Actions\ResolveThemeRuntimeAction;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
@@ -12,8 +14,6 @@ use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Typography\ThemeFontCatalogue;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Support\Security\HeadContentSanitizer;
 use Illuminate\Contracts\Foundation\Application;
 

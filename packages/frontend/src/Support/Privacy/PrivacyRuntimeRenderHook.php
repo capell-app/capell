@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Privacy;
 
 use Capell\Core\Contracts\Privacy\ConsentDecisionProvider;
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Enums\ConsentCategory;
 use Capell\Core\Support\Privacy\ConsentSettings;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
-use Capell\Frontend\Data\RenderHookContext;
 use Override;
 
 /**

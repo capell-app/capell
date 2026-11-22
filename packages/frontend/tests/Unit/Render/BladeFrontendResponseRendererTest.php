@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Blueprint;
@@ -26,7 +27,6 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\PublicPageRenderData;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;

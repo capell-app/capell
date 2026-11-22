@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionPosition;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\MainContentRenderHookData;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Data\RenderHookFragmentCacheData;
 use Capell\Frontend\Enums\RenderHookLocation;

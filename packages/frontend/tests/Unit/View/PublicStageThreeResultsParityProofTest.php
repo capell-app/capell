@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 use Capell\Core\Contracts\PublicRenderData;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Renderables\RenderableRegistry;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Tests\Fixtures\Models\User;
