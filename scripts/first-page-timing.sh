@@ -57,7 +57,6 @@ STEPS=(
 AUTO_WORKDIR=0
 APP_DIR=""
 LOG_DIR=""
-SERVER_PID=""
 ROWS=()
 TOTAL_MS=0
 FAILED_STEP=""
@@ -141,14 +140,15 @@ prepare_workdir() {
     mkdir -p "$LOG_DIR"
 }
 
+# Steps run in subshells, so the server's process id is kept in a file.
 stop_server() {
-    if [[ -n "$SERVER_PID" ]]; then
-        # `php artisan serve` starts a child PHP server; stop both.
-        pkill -P "$SERVER_PID" 2>/dev/null || true
-        kill "$SERVER_PID" 2>/dev/null || true
-        wait "$SERVER_PID" 2>/dev/null || true
-        SERVER_PID=""
-    fi
+    local pid_file="$WORKDIR/server.pid" pid
+    [[ -n "$WORKDIR" && -f "$pid_file" ]] || return 0
+    pid="$(cat "$pid_file")"
+    rm -f "$pid_file"
+    # `php artisan serve` starts a child PHP server; stop both.
+    pkill -P "$pid" 2>/dev/null || true
+    kill "$pid" 2>/dev/null || true
 }
 
 cleanup() {
@@ -212,10 +212,10 @@ step_start_server() {
         return 1
     fi
     (cd "$APP_DIR" && exec php artisan serve --host=127.0.0.1 --port="$PORT" >"$LOG_DIR/serve.log" 2>&1) &
-    SERVER_PID=$!
-    local attempt
+    local attempt pid=$!
+    echo "$pid" >"$WORKDIR/server.pid"
     for attempt in $(seq 1 60); do
-        kill -0 "$SERVER_PID" 2>/dev/null || return 1
+        kill -0 "$pid" 2>/dev/null || return 1
         if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$PORT/"; then
             return 0
         fi
@@ -256,8 +256,10 @@ write_summary() { # result line
     fi
 }
 
+# Call this as a plain command, never inside `if`, `&&` or `||`: bash ignores `set -e` in those
+# contexts, and a step whose middle command failed would then count as passed.
 run_pipeline() {
-    local entry label func start end elapsed result="" budget_ms=$((BUDGET * 1000))
+    local entry label func start end elapsed status result="" budget_ms=$((BUDGET * 1000))
     local skipping=0
     ROWS=()
     TOTAL_MS=0
@@ -272,7 +274,15 @@ run_pipeline() {
         fi
         printf '==> %s\n' "$label"
         start="$(now_ms)"
-        if "$func"; then
+        # A plain subshell with `set -e`, not `if "$func"`: every failed command fails the step.
+        set +e
+        (
+            set -e
+            "$func"
+        )
+        status=$?
+        set -e
+        if ((status == 0)); then
             end="$(now_ms)"
             elapsed=$((end - start))
             TOTAL_MS=$((TOTAL_MS + elapsed))
@@ -307,9 +317,8 @@ run_pipeline() {
                 tail -n 25 "$log"
             done
         fi
-        return 1
     fi
-    return 0
+    [[ -z "$FAILED_STEP" ]]
 }
 
 main() {
