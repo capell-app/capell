@@ -27,20 +27,24 @@ final class ImpersonationCeiling
     /** @var array<string, array<int|string, array<string, true>>> */
     private array $actorPermissions = [];
 
+    /** @var array<string, bool> */
+    private array $superAdmins = [];
+
     public function permits(Authenticatable $actor, Authenticatable $target): bool
     {
         if (! $actor instanceof Model || ! $target instanceof Model) {
             return false;
         }
 
-        $access = SiteAccess::forActor($actor, true);
-
-        // Global here means the super admin role and nothing less: that role
-        // passes every permission check, so no target can exceed it. Any other
-        // account-wide role is not global and is compared below.
-        if ($access->isGlobal()) {
+        // Only the super admin role held account-wide is above every ceiling: it
+        // passes every permission check, so no target can exceed it. This asks
+        // for that role itself, not for unrestricted site access, so a later
+        // change to what site access calls global cannot open the ceiling.
+        if ($this->isSuperAdmin($actor)) {
             return true;
         }
+
+        $access = SiteAccess::forActor($actor, true);
 
         if (! method_exists($target, 'getAllAssignedSiteIds')) {
             return false;
@@ -120,6 +124,19 @@ final class ImpersonationCeiling
             }
 
             return $names;
+        }, $user);
+    }
+
+    private function isSuperAdmin(Model $user): bool
+    {
+        return $this->superAdmins[$user->getMorphClass() . ':' . $user->getKey()] ??= PermissionTeamContext::run(null, function () use ($user): bool {
+            if (! method_exists($user, 'hasRole')) {
+                return false;
+            }
+
+            $user->load('roles');
+
+            return (bool) $user->hasRole($this->superAdminRole());
         }, $user);
     }
 
