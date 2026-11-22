@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Languages\Actions;
 
 use Capell\Admin\Actions\Translations\ExportSiteTranslationsAction;
-use Capell\Admin\Enums\ResourceEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
@@ -56,7 +56,7 @@ class ExportTranslationsAction extends Action
      */
     protected static function actorCanExport(): bool
     {
-        return auth()->user()?->can(ResourceEnum::Page->permission('view_any')) === true;
+        return auth()->user()?->can('export', Page::class) === true;
     }
 
     /**
