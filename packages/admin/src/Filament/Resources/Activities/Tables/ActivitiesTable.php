@@ -12,6 +12,7 @@ use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Activity\ActivityChangeDetailsPresenter;
+use Capell\Admin\Support\Activity\ActivityPageAccess;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
@@ -87,7 +88,7 @@ final class ActivitiesTable
             ->modalSubmitAction(false)
             ->modalCancelActionLabel(__('capell-admin::button.close'))
             ->modalContent(function (Activity $record) use ($activityDetailsView): HtmlString {
-                throw_unless(SiteAccess::current()->canUseRecord($record), AuthorizationException::class);
+                throw_unless(SiteAccess::current()->canUseRecord($record) && resolve(ActivityPageAccess::class)->canView($record), AuthorizationException::class);
                 $changeSet = self::changeSet($record);
 
                 return new HtmlString(view($activityDetailsView, [
@@ -135,7 +136,7 @@ final class ActivitiesTable
                 ->url($changeSet->resource->url, shouldOpenInNewTab: true);
         }
 
-        if (self::canRevertActivity() && self::revertableFieldPaths($changeSet) !== []) {
+        if (self::canRevertActivity() && resolve(ActivityPageAccess::class)->canUpdate($record) && self::revertableFieldPaths($changeSet) !== []) {
             $actions[] = Action::make('revertActivity')
                 ->label(__('capell-admin::activity.revert_selected'))
                 ->icon('heroicon-o-arrow-uturn-left')

@@ -10,6 +10,7 @@ use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\Admin\Filament\Resources\Activities\Pages\ListActivities;
 use Capell\Admin\Filament\Resources\Activities\Tables\ActivitiesTable;
 use Capell\Admin\Filament\Resources\SiteScopedResource;
+use Capell\Admin\Support\Activity\ActivityPageAccess;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -57,7 +58,7 @@ final class ActivityResource extends SiteScopedResource
             return null;
         }
 
-        $count = SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
+        $count = resolve(ActivityPageAccess::class)->scope(SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build()))
             ->whereNotNull('properties->workspace_id')
             ->count();
 
@@ -97,7 +98,7 @@ final class ActivityResource extends SiteScopedResource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        return SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
+        return resolve(ActivityPageAccess::class)->scope(SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build()))
             ->with('causer')
             ->with([
                 'subject' => function (Relation $relation): Relation {

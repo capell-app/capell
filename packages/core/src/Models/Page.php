@@ -68,6 +68,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Arr;
 use Override;
@@ -765,6 +766,53 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
             return $this->blueprint->content_structure;
         });
+    }
+
+    /**
+     * Pages whose blueprint is restricted to roles the user does not hold, in
+     * the same terms as {@see self::isAccessibleByUser()}: the role may be held
+     * globally or within the page's own site.
+     *
+     * @param  Builder<self>  $query
+     */
+    protected function scopeInaccessibleToUser(Builder $query, User $user): void
+    {
+        $restrictionTable = (new PageRoleRestriction)->getTable();
+        $blueprintMorph = (new Blueprint)->getMorphClass();
+        $tableNames = config('permission.table_names', []);
+        $modelHasRolesTable = is_array($tableNames) && is_string($tableNames['model_has_roles'] ?? null)
+            ? $tableNames['model_has_roles']
+            : 'model_has_roles';
+        $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
+        $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
+        $pageBlueprint = $this->qualifyColumn('blueprint_id');
+        $pageSite = $this->qualifyColumn('site_id');
+
+        $query
+            ->whereIn($pageBlueprint, PageRoleRestriction::query()
+                ->where('restrictable_type', $blueprintMorph)
+                ->select('restrictable_id'))
+            ->whereNotExists(fn (QueryBuilder $held): QueryBuilder => $held
+                ->selectRaw('1')
+                ->from($modelHasRolesTable)
+                ->where($modelHasRolesTable . '.model_type', $user->getMorphClass())
+                ->where($modelHasRolesTable . '.model_id', $user->getKey())
+                ->whereIn($modelHasRolesTable . '.role_id', fn (QueryBuilder $allowed): QueryBuilder => $allowed
+                    ->select('role_id')
+                    ->from($restrictionTable)
+                    ->where('restrictable_type', $blueprintMorph)
+                    ->whereColumn('restrictable_id', $pageBlueprint))
+                ->where(fn (QueryBuilder $team): QueryBuilder => $team
+                    ->whereNull($modelHasRolesTable . '.' . $teamColumn)
+                    ->orWhereColumn($modelHasRolesTable . '.' . $teamColumn, $pageSite)));
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    protected function scopeAccessibleByUser(Builder $query, User $user): void
+    {
+        $query->whereNot(fn (Builder $inaccessible): Builder => $inaccessible->inaccessibleToUser($user));
     }
 
     /**
