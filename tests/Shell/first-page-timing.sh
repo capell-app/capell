@@ -50,6 +50,10 @@ check 'missing core path exits 2' 2 $?
 fake_fast() { sleep 0; }
 fake_slow() { sleep 2; }
 fake_broken() { echo 'boom' >&2; return 7; }
+fake_masked() {
+    false
+    echo 'a later command succeeded'
+}
 
 run_fake() { # budget, summary file, steps...
     local budget="$1" summary="$2"
@@ -77,6 +81,10 @@ run_fake 30 "$scratch/broken.md" 'Broken step|fake_broken' 'Never reached|fake_f
 check 'failing step exits 1' 1 $?
 contains 'failing step is marked' "$scratch/broken.md" 'failed'
 contains 'later steps are marked skipped' "$scratch/broken.md" 'skipped'
+
+run_fake 30 "$scratch/masked.md" 'Masked step|fake_masked' 'Never reached|fake_fast' >"$scratch/masked.out" 2>&1
+check 'a step whose middle command fails exits 1 although its last command succeeded' 1 $?
+contains 'the masked failure is marked' "$scratch/masked.md" '| Masked step | failed |'
 
 (
     # shellcheck source=/dev/null
