@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Actions\Site;
 use Capell\Admin\Actions\Sites\SyncSitePermissionsAction;
 use Capell\Admin\Data\SitePermissions\SitePermissionsReviewData;
 use Capell\Admin\Data\SitePermissions\SyncSitePermissionsData;
+use Capell\Admin\Support\Users\SiteUserVisibility;
 use Capell\Core\Models\Site;
 use Closure;
 use Filament\Actions\Action;
@@ -59,7 +60,7 @@ final class ManageSitePermissionsAction extends Action
                             ->schema([
                                 Select::make('user_id')
                                     ->label(__('capell-admin::form.site_permissions_user'))
-                                    ->options(fn (): array => $this->userOptions())
+                                    ->options(fn (Site $record): array => $this->userOptions($record))
                                     ->searchable()
                                     ->required()
                                     ->distinct(),
@@ -196,13 +197,22 @@ final class ManageSitePermissionsAction extends Action
     }
 
     /**
+     * Only the accounts this actor may attach, plus the site's current members
+     * so existing assignments keep a readable label.
+     *
      * @return array<int, string>
      */
-    private function userOptions(): array
+    private function userOptions(Site $site): array
     {
-        $userModel = $this->userModelClass();
+        $actor = auth()->user();
 
-        return $userModel::query()
+        if (! $actor instanceof User) {
+            return [];
+        }
+
+        $memberIds = array_column($this->assignmentsFor($site), 'user_id');
+
+        return SiteUserVisibility::pickerQuery($this->userModelClass(), $actor, $memberIds)
             ->orderBy('name')
             ->get(['id', 'name', 'email'])
             ->mapWithKeys(fn (User $user): array => [

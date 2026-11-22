@@ -223,4 +223,26 @@ trait HasSitePermissions
             ->whereIn('role_id', Role::query()->where('name', $role)->where('guard_name', 'web')->whereNull($teamColumn)->select('id'))
             ->select('model_id'));
     }
+
+    /**
+     * Excludes accounts holding any installation-wide (null-team) role, whatever
+     * that role is. Site-scoped managers must never reach these accounts.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    protected function scopeWithoutGlobalRoles(Builder $query): Builder
+    {
+        $tableNames = config('permission.table_names', []);
+        $modelHasRolesTable = is_array($tableNames) && is_string($tableNames['model_has_roles'] ?? null)
+            ? $tableNames['model_has_roles']
+            : 'model_has_roles';
+        $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
+        $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
+
+        return $query->whereNotIn($this->qualifyColumn($this->getKeyName()), DB::table($modelHasRolesTable)
+            ->whereIn('model_type', array_values(array_unique([static::class, $this->getMorphClass()])))
+            ->whereNull($teamColumn)
+            ->select('model_id'));
+    }
 }

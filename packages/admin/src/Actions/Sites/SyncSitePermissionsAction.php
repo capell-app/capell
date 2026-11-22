@@ -8,11 +8,13 @@ use Capell\Admin\Data\SitePermissions\SitePermissionChangeData;
 use Capell\Admin\Data\SitePermissions\SitePermissionsReviewData;
 use Capell\Admin\Data\SitePermissions\SyncSitePermissionsData;
 use Capell\Admin\Data\SitePermissions\UserSiteRoleAssignmentData;
+use Capell\Admin\Support\Users\SiteUserVisibility;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -90,6 +92,7 @@ final class SyncSitePermissionsAction
             ->when($lock, fn ($query) => $query->lockForUpdate())->get()->keyBy('id');
 
         $this->assertAssignmentsExcludeReservedRoles($input, $site);
+        $this->assertActorMayChangeMembers($freshActor, $users, $input, $rows);
 
         $desired = [];
         foreach ($input->assignments as $assignment) {
@@ -157,6 +160,68 @@ final class SyncSitePermissionsAction
     public function baseline(Site $site): string
     {
         return Crypt::encryptString($this->fingerprint($this->currentRows($site)));
+    }
+
+    /**
+     * A site manager may only attach, or change the roles of, accounts they can
+     * already see in the Users resource, and never an account holding an
+     * installation-wide role. Otherwise attaching a stranger would create the
+     * site overlap that lets a site administrator edit that account.
+     *
+     * @param  Collection<int, User>  $users
+     * @param  list<array{model_id: int, role_id: int, model_type: string}>  $rows
+     */
+    private function assertActorMayChangeMembers(User $actor, Collection $users, SyncSitePermissionsData $input, array $rows): void
+    {
+        if (SiteAccess::forActor($actor)->isGlobal()) {
+            return;
+        }
+
+        $desired = [];
+        foreach ($input->assignments as $assignment) {
+            $desired[$assignment->userId] = array_values(array_unique([...($desired[$assignment->userId] ?? []), ...$assignment->roleIds]));
+        }
+
+        $existing = [];
+        foreach ($rows as $row) {
+            $existing[$row['model_id']] = array_values(array_unique([...($existing[$row['model_id']] ?? []), $row['role_id']]));
+        }
+
+        $changed = [];
+        foreach (array_keys($desired + $existing) as $userId) {
+            $before = $existing[$userId] ?? [];
+            $after = $desired[$userId] ?? [];
+            sort($before);
+            sort($after);
+
+            if ($before !== $after) {
+                $changed[$userId] = $after !== [];
+            }
+        }
+
+        if ($changed === []) {
+            return;
+        }
+
+        $attachable = SiteUserVisibility::attachableQuery($this->userModelClass(), $actor)
+            ->whereKey(array_keys($changed))
+            ->pluck((new ($this->userModelClass()))->getKeyName())
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        foreach ($changed as $userId => $attaching) {
+            $user = $users->get($userId);
+            // A member who has since been deleted can still lose their grants.
+            if (! $user instanceof User && ! $attaching) {
+                continue;
+            }
+
+            if (! in_array($userId, $attachable, true) || ($user instanceof User && SiteUserVisibility::isGlobalAccount($user))) {
+                throw ValidationException::withMessages([
+                    'assignments' => __('capell-admin::site_permissions.user_not_available'),
+                ]);
+            }
+        }
     }
 
     private function reconcileRows(Site $site, SyncSitePermissionsData $input): bool
