@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Users\Pages\CreateUser;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertDatabaseHas;
@@ -61,4 +63,24 @@ it('shows validation error for invalid email', function (): void {
         ])
         ->call('create')
         ->assertHasFormErrors(['email']);
+});
+
+it('admits a user created in the Users resource to the admin panel without Shield handing the role to everyone', function (): void {
+    config()->set('filament-shield.panel_user.enabled', false);
+
+    Livewire::test(CreateUser::class)
+        ->fillForm([
+            'name' => 'Chosen User',
+            'email' => 'chosen@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'roles' => [],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $created = User::query()->where('email', 'chosen@example.com')->firstOrFail();
+
+    expect($created->hasRole('panel_user'))->toBeTrue()
+        ->and($created->canAccessPanel(Filament::getPanel('admin')))->toBeTrue();
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Users\Pages;
 
+use Capell\Admin\Actions\Users\GrantPanelAccessAction;
 use Capell\Admin\Actions\Users\ResolveUserSchemaTypeAction;
 use Capell\Admin\Data\Schemas\UserSchemaContextData;
 use Capell\Admin\Enums\ResourceEnum;
@@ -64,6 +65,7 @@ class CreateUser extends CreateRecord
             return;
         }
 
+        GrantPanelAccessAction::run($this->record);
         $this->afterUserCreate($this->record);
     }
 

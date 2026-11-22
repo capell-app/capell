@@ -10,7 +10,6 @@ use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 function installStarterUsers(?Site $site = null): void
@@ -37,7 +36,7 @@ it('lets an install-created editor starter user into the admin panel', function 
         ->and($superAdmin->hasRole('panel_user'))->toBeFalse();
 });
 
-it('does not give starter users the panel user role when Shield has it disabled', function (): void {
+it('admits install-created editors even though Shield does not hand the panel user role to every new user', function (): void {
     config()->set('filament-shield.panel_user.enabled', false);
     $site = Site::factory()->createOne();
 
@@ -45,8 +44,8 @@ it('does not give starter users the panel user role when Shield has it disabled'
 
     $editor = User::query()->where('email', 'editor@example.test')->firstOrFail();
 
-    expect($editor->hasRole('panel_user'))->toBeFalse()
-        ->and(Role::query()->where('name', 'panel_user')->exists())->toBeFalse();
+    expect($editor->hasRole('panel_user'))->toBeTrue()
+        ->and($editor->canAccessPanel(Filament::getPanel('admin')))->toBeTrue();
 });
 
 it('keeps the panel user role global when roles are scoped to sites', function (): void {
