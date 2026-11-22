@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\PublicMainLayoutData;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Tests\Fixtures\Models\User;

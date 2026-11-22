@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Agent;
 
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
-use Capell\Frontend\Data\RenderHookContext;
 
 /** Exposes hydrated data through the hook shared by replaceable theme shells. */
 final readonly class AgentSchemaRenderHook implements RenderHookExtensionInterface

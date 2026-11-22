@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Rendering\FrontendResourceContributor;
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
 use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Data\Rendering\Assets\FrontendResourceContributionData;
 use Capell\Core\Data\Rendering\Assets\FrontendResourceData;
 use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
 use Capell\Core\Models\Page;
@@ -18,10 +20,8 @@ use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Frontend\Actions\CollectFrontendResourceContributionsAction;
 use Capell\Frontend\Actions\Performance\RecordExtensionRenderContributionAction;
 use Capell\Frontend\Actions\RenderRenderableAction;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Data\FrontendContext;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Events\FrontendContextResolved;

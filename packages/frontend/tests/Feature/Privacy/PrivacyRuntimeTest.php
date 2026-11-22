@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Rendering\RenderHookExtensionInterface;
+use Capell\Core\Data\Rendering\RenderHookContext;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
-use Capell\Frontend\Contracts\RenderHookExtensionInterface;
-use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Privacy\PrivacyRuntimeRenderHook;
 use Capell\Frontend\Support\Privacy\PrivacyRuntimeScript;

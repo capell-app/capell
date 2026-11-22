@@ -129,7 +129,7 @@ Hooks are available in:
 
 - Implement `Capell\Core\Contracts\Rendering\RenderHookExtensionInterface` for reusable, testable extensions. It receives `Capell\Core\Data\Rendering\RenderHookContext`, so a runtime package can implement the hook without depending on Frontend.
 - Register the hook from a frontend provider through `FrontendHookRegistrar` or `RenderHookRegistry`. Frontend owns placement, cache safety and rendering.
-- The previous `Capell\Frontend\Contracts\RenderHookExtensionInterface` and `Capell\Frontend\Data\RenderHookContext` names remain aliases for existing integrations.
+- The previous `Capell\Core\Contracts\Rendering\RenderHookExtensionInterface` and `Capell\Core\Data\Rendering\RenderHookContext` names remain aliases for existing integrations.
 
 ---
 
