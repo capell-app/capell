@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Routing;
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionReceiptType;
+use Capell\Frontend\Http\Middleware\RefuseLivewireUpdatesWhileUnavailable;
 use Capell\Frontend\Http\Middleware\RejectReservedFrontendDomains;
 use Capell\Frontend\Http\Middleware\RejectReservedFrontendPaths;
 
@@ -30,6 +31,7 @@ final class FrontendRouteMiddlewareRegistry
         'frontend.language_detect',
         'web',
         'frontend.maintenance',
+        RefuseLivewireUpdatesWhileUnavailable::class,
         'workspace.context',
         'frontend.resolve',
         'frontend.anonymous_cacheable_render',

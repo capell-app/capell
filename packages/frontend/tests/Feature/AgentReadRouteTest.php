@@ -11,6 +11,10 @@ use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Security\LockdownStore;
+use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
+use Illuminate\Auth\GenericUser;
+use Illuminate\Support\Facades\File;
 
 it('does not expose the agent API when disabled', function (): void {
     config(['capell.agent.read_api' => false]);
@@ -80,4 +84,30 @@ it('returns agent-visible unmapped properties without requiring a schema graph',
         ->assertDontSee('Private marker')->assertDontSee('internal_note')
         ->assertDontSee('page_id')->assertDontSee('blueprint_id')->assertDontSee('property_definition_id');
     expect($response->json('data.0.properties'))->toBe(['capell:catalogue.details.colour' => 'Green']);
+});
+
+it('refuses the agent read API during lockdown and serves it again afterwards', function (): void {
+    config(['capell.lockdown.file' => storage_path('framework/testing/agent-lockdown.json')]);
+    File::delete(config('capell.lockdown.file'));
+    $domain = SiteDomain::factory()->default()->create();
+
+    $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertOk();
+
+    resolve(LockdownStore::class)->activateFor(new GenericUser(['id' => 1]));
+    $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertStatus(503)->assertDontSee('data');
+
+    resolve(LockdownStore::class)->deactivate();
+    $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertOk();
+    File::delete(config('capell.lockdown.file'));
+});
+
+it('refuses the agent read API while the estate is in static maintenance', function (): void {
+    $domain = SiteDomain::factory()->default()->create();
+    resolve(MaintenanceManifestStore::class)->write(['version' => 2, 'global_active' => true, 'sites' => []]);
+
+    try {
+        $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertStatus(503);
+    } finally {
+        File::delete(resolve(MaintenanceManifestStore::class)->path());
+    }
 });
