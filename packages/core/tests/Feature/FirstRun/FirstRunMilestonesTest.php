@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\FirstRun\ReconcileSitePublicationMilestonesAction;
 use Capell\Core\Actions\FirstRun\RecordSitePublishedAction;
 use Capell\Core\Actions\Publishing\TransitionPublicationAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -11,10 +12,14 @@ use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\FirstRun\SitePublicationMilestones;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\Upgrade\RecordPublishedSitesUpgradeStep;
 use Carbon\CarbonImmutable;
+use Illuminate\Console\Scheduling\Event;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function (): void {
     app()->instance(AuthorizesPublicationTransition::class, new class implements AuthorizesPublicationTransition
@@ -136,6 +141,71 @@ it('records sites that were already live when the upgrade runs, and only those',
     RecordSitePublishedAction::run($hidden->id);
 
     expect($step->shouldRun($context))->toBeFalse();
+});
+
+it('records a home page that went public on its scheduled time when the reconcile runs, and never moves that date', function (): void {
+    $scheduled = CarbonImmutable::now()->addDay()->startOfSecond();
+    $site = Site::factory()->createOne();
+    $other = Site::factory()->createOne();
+    $home = Page::factory()->home()->site($site)->createOne(['visible_from' => $scheduled]);
+    Page::factory()->home()->site($other)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+
+    expect(Artisan::call('capell:sites:record-published'))->toBe(0);
+
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([]);
+
+    $this->travel(2)->days();
+    expect(Artisan::call('capell:sites:record-published'))->toBe(0);
+
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([$site->id])
+        ->and(firstRunMilestones()->publishedAt($site->id)?->equalTo($scheduled))->toBeTrue();
+
+    // Unpublishing and republishing later is not a second go-live.
+    $home->forceFill(['visible_from' => PublishSentinel::draftValue()])->saveQuietly();
+    $this->travel(1)->days();
+    $home->forceFill(['visible_from' => now()->subHour()])->saveQuietly();
+
+    expect(ReconcileSitePublicationMilestonesAction::run())->toBe(0)
+        ->and(firstRunMilestones()->publishedAt($site->id)?->equalTo($scheduled))->toBeTrue();
+});
+
+it('runs the reconcile on the schedule, so a scheduled publish is recorded without anyone opening the admin', function (): void {
+    $commands = array_map(static fn (Event $event): string => (string) $event->command, resolve(Schedule::class)->events());
+
+    expect(array_filter($commands, static fn (string $command): bool => str_contains($command, 'capell:sites:record-published')))->toHaveCount(1);
+});
+
+it('records a site when a save makes its home page public without a publication step', function (): void {
+    $site = Site::factory()->createOne();
+    $other = Site::factory()->createOne();
+    $home = Page::factory()->home()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    Page::factory()->home()->site($other)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+
+    $home->update(['name' => 'Still a draft']);
+
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([]);
+
+    $home->update(['visible_from' => now()->subMinute()]);
+
+    expect(firstRunMilestones()->publishedSiteIds())->toBe([$site->id]);
+});
+
+it('records nothing while a first install is under way, so its public placeholder home page is not taken for a launch', function (): void {
+    InstallRunState::rememberInitialInstallation(true);
+
+    try {
+        $site = Site::factory()->createOne();
+        $home = Page::factory()->home()->site($site)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+        $home->update(['visible_from' => now()->subMinute()]);
+
+        expect(ReconcileSitePublicationMilestonesAction::run())->toBe(0)
+            ->and(firstRunMilestones()->publishedSiteIds())->toBe([]);
+    } finally {
+        InstallRunState::completeInitialInstallation();
+    }
+
+    expect(ReconcileSitePublicationMilestonesAction::run())->toBe(1)
+        ->and(firstRunMilestones()->publishedSiteIds())->toBe([$site->id]);
 });
 
 it("keeps a site's go-live date in that site's own meta so it leaves with the site", function (): void {
