@@ -9,6 +9,7 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
+- A page whose type is set to never be cached no longer has its render data stored and reused between requests. Its content widgets are now built for every request, so output that depends on the visitor cannot reach another visitor.
 - A fallback-language path no longer moves permanently to the translated URL when the requested language's domain is disabled; it answers not found, as it already did when the language had no domain. The one-hour lifetime of that redirect is now documented in the page cache architecture notes.
 
 ### Added

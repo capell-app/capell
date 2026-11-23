@@ -24,6 +24,7 @@ use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Data\RenderedModelIdentitiesData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Enums\FrontendRenderAudience;
+use Capell\Frontend\Support\Loader\PageCachePolicy;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Carbon\CarbonInterface;
 use Closure;
@@ -130,6 +131,12 @@ final class PublicPageRenderDataCache
         }
 
         if (! $context->site instanceof Site || ! $context->language instanceof Language || ! $context->runtimeManifest instanceof FrontendRuntimeManifestData) {
+            return null;
+        }
+
+        // A page type that is never cached renders for one visitor: its render data
+        // (content widget payloads included) must not reach the shared store.
+        if (PageCachePolicy::neverCached($page)) {
             return null;
         }
 
