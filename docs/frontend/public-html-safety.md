@@ -60,6 +60,20 @@ is one of `alternate`, `apple-touch-icon`, `apple-touch-icon-precomposed`, `auth
 `preconnect`, `prev`, `search` or `shortcut`. Stylesheets, preloads and module preloads are not
 available to editors; themes and packages add those through the frontend resource plan.
 
+## Response Security Headers
+
+`Capell\Frontend\Http\Middleware\SecurityResponseHeaders` is the outermost middleware of the
+public route group, so a Core-only install sends `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`,
+`Permissions-Policy` and `X-Permitted-Cross-Domain-Policies: none` on public pages, including
+rejections and redirects. It adds `Strict-Transport-Security` on secure requests when
+`security.headers.hsts.enabled` is true. It sends no `Content-Security-Policy`.
+
+Each header is set only when the response does not already carry it, so a route, an inner
+middleware or a host application that sets its own value keeps it. Set
+`security.headers.enabled` to `false` to turn the middleware off entirely, or remove it with
+`FrontendRouteMiddlewareRegistry`.
+
 ## Safe And Unsafe Examples
 
 Safe:
