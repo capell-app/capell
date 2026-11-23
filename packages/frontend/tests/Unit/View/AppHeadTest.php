@@ -265,6 +265,39 @@ it('uses swap rendering for local theme fonts', function (): void {
         ->toContain('font-display: swap');
 });
 
+it('encodes theme font paths so they cannot leave the css url or the style element', function (): void {
+    $theme = Theme::factory()->defaultMeta()->create();
+    $theme->setAttribute('meta', [
+        ...$theme->meta,
+        'fonts' => [
+            [
+                'type' => 'local',
+                'name' => 'Inter',
+                'files' => ["fonts/x.woff2');}</style><script>alert(1)</script><style>a{b:url('", "fonts/bad\nline.woff2", 'fonts/good.woff2'],
+                'style' => 'normal',
+                'weight' => '400',
+            ],
+            [
+                'type' => 'local',
+                'name' => 'Broken',
+                'files' => ["fonts/only\0bad.woff2"],
+            ],
+        ],
+    ]);
+
+    bindAppHeadTestContext(theme: $theme);
+
+    $html = Blade::render('<x-capell::app.head :livewire-enabled="false" />');
+
+    expect($html)
+        ->toContain('fonts/good.woff2')
+        ->toContain('fonts/x.woff2%27%29;}%3C/style%3E%3Cscript%3Ealert%281%29%3C/script%3E')
+        ->not->toContain('<script>alert(1)')
+        ->not->toContain("x.woff2')")
+        ->not->toContain('bad')
+        ->not->toContain('Broken');
+});
+
 it('restores Blaze when custom head rendering fails', function (): void {
     app()->register(BlazeServiceProvider::class);
 

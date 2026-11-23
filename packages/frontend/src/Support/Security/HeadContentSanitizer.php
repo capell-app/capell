@@ -34,6 +34,29 @@ final class HeadContentSanitizer
         return trim($sanitized) !== '' ? $sanitized : $fallback;
     }
 
+    /**
+     * Encodes a URL for a quoted `url('...')` inside an HTML style element, or returns null
+     * when it cannot be made safe. Characters that end the string, the function or the
+     * element are percent-encoded, which leaves the URL's meaning unchanged.
+     */
+    public static function cssUrl(string $url): ?string
+    {
+        if ($url === '' || preg_match('/[\x00-\x1f\x7f]/', $url) === 1) {
+            return null;
+        }
+
+        return strtr($url, [
+            "'" => '%27',
+            '"' => '%22',
+            '(' => '%28',
+            ')' => '%29',
+            '\\' => '%5C',
+            '<' => '%3C',
+            '>' => '%3E',
+            ' ' => '%20',
+        ]);
+    }
+
     public static function headSnippet(?string $html): string
     {
         if ($html === null || $html === '') {
