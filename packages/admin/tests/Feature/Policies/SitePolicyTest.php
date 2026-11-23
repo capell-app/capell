@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Core\Contracts\Privacy\RetainsSiteRecords;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -169,6 +170,21 @@ it('allows forceDelete when the user has force_delete permission', function (): 
     $this->user->givePermissionTo('ForceDelete:Site');
 
     expect($this->user->can('forceDelete', $this->site))->toBeTrue();
+});
+
+it('denies forceDelete while a package holds records the site must keep', function (): void {
+    $this->user->givePermissionTo('ForceDelete:Site');
+    $retainer = new class implements RetainsSiteRecords
+    {
+        public function retainedRecords(Site $site): array
+        {
+            return ['form submissions under legal hold' => 1];
+        }
+    };
+    app()->instance($retainer::class, $retainer);
+    app()->tag([$retainer::class], RetainsSiteRecords::TAG);
+
+    expect($this->user->can('forceDelete', $this->site))->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------
