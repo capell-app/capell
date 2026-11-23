@@ -292,7 +292,6 @@ class PagesTable implements TableConfigurator
             TextColumn::make('translation.title')
                 ->label(__('capell-admin::table.title'))
                 ->state(static fn (PageModel $record): ?string => $record->title)
-                ->html()
                 ->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('parent.name')
                 ->label(__('capell-admin::table.parent'))

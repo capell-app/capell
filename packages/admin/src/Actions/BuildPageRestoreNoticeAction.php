@@ -32,7 +32,7 @@ final class BuildPageRestoreNoticeAction
         $notices = [];
         if ($excluded->isNotEmpty()) {
             $notices[] = __('capell-admin::message.page_restore_excluded_descendants', [
-                'pages' => $excluded->map(fn (Page $excludedPage): string => $excludedPage->name ?? '#' . $excludedPage->getKey())->implode(', '),
+                'pages' => $excluded->map(fn (Page $excludedPage): string => e($excludedPage->name ?? '#' . $excludedPage->getKey()))->implode(', '),
             ]);
         }
 

@@ -113,3 +113,15 @@ it('shows the filtered language title when a language filter is set', function (
         ->filterTable('filter', ['language_id' => $english->getKey()])
         ->assertTableColumnStateSet('translation.title', 'Page in English', $page);
 });
+
+it('renders an editor-supplied page title as text in the pages table', function (): void {
+    [, $page, $english] = siteDefaultTitleFixture();
+    Translation::query()->where('translatable_id', $page->id)->where('language_id', $english->id)
+        ->update(['title' => '<img src=x onerror=alert(1)>Welcome']);
+    Page::factory()->site($page->site)->createOne(['name' => 'Ordinary page']);
+
+    Livewire::test(ListPages::class)
+        ->toggleAllTableColumns()
+        ->assertDontSeeHtml('<img src=x onerror=alert(1)>')
+        ->assertSeeHtml('&lt;img src=x onerror=alert(1)&gt;Welcome');
+});
