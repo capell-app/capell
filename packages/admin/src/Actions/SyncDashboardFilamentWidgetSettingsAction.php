@@ -28,8 +28,14 @@ final class SyncDashboardFilamentWidgetSettingsAction
         bool $repairFullyDisabledDefaults = false,
         bool $forceEnableDefaults = false,
         bool $repairOverEnabledDefaults = false,
+        bool $persist = true,
     ): AdminSettings {
-        PersistMissingSettingsDefaultsAction::run(AdminSettings::class);
+        // A screen that only renders passes persist: false and sees the reconciled
+        // values on the settings instance without a write; a read-only database
+        // must still open the page.
+        if ($persist) {
+            PersistMissingSettingsDefaultsAction::run(AdminSettings::class);
+        }
 
         $settings = AdminSettings::instance();
         $enabledWidgets = $settings->enabled_widgets;
@@ -79,6 +85,10 @@ final class SyncDashboardFilamentWidgetSettingsAction
         if ($widgetOrder !== $settings->widget_order) {
             $settings->widget_order = $widgetOrder;
             $hasChanged = true;
+        }
+
+        if (! $persist) {
+            return $settings;
         }
 
         if ($hasChanged) {

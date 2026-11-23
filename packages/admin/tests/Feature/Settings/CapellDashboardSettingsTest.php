@@ -8,6 +8,8 @@ use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
@@ -16,6 +18,7 @@ use Capell\Admin\Filament\Widgets\Extensions\InstalledExtensionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Feature\Filament\Settings\Schemas\Fixtures\FixtureDashboardContributor;
+use Illuminate\Support\Facades\DB;
 
 it('round-trips widget toggles', function (): void {
     $settings = AdminSettings::instance();
@@ -270,3 +273,50 @@ it('restores only recommended main dashboard choices in a reviewable layout', fu
     $normalised = NormalizeDashboardFilamentWidgetSettingsAction::run(['widget_layout' => $layout], DashboardEnum::Main);
     expect($normalised['enabled_widgets']['extensions.stats'])->toBeFalse();
 });
+
+it('reconciles dashboard widget keys for a screen that renders without writing them', function (): void {
+    app()->tag([FixtureDashboardContributor::class], DashboardSettingsContributor::TAG);
+
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['list_pages' => false];
+    $settings->save();
+
+    $writes = [];
+    DB::listen(function ($query) use (&$writes): void {
+        if (preg_match('/^\s*(insert|update|delete|replace)\b/i', (string) $query->sql) === 1) {
+            $writes[] = $query->sql;
+        }
+    });
+
+    $reconciled = SyncDashboardFilamentWidgetSettingsAction::run(persist: false);
+
+    expect($writes)->toBe([])
+        ->and($reconciled->enabled_widgets)->toHaveKey('fixture_a', false)->toHaveKey('list_pages', false)
+        ->and((string) DB::table('settings')->where('group', 'admin')->where('name', 'enabled_widgets')->value('payload'))
+        ->not->toContain('fixture_a');
+});
+
+it('renders the extensions page and the dashboard settings without writing to the database', function (string $page): void {
+    $this->actingAsAdmin();
+    // Widget keys a package added after the settings were last saved: the state the sync repairs.
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['list_pages' => false];
+    $settings->save();
+
+    $url = $page::getUrl();
+    app()->forgetScopedInstances();
+
+    $writes = [];
+    DB::listen(function ($query) use (&$writes): void {
+        if (preg_match('/^\s*(insert|update|delete|replace)\b|\bfor update\b/i', (string) $query->sql) === 1) {
+            $writes[] = $query->sql;
+        }
+    });
+
+    $this->get($url)->assertOk();
+
+    expect($writes)->toBe([]);
+})->with([
+    'extensions' => ExtensionsPage::class,
+    'settings' => SettingsPage::class,
+]);

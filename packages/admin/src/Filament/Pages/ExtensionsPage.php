@@ -250,7 +250,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     protected function getHeaderWidgets(): array
     {
-        SyncDashboardFilamentWidgetSettingsAction::run();
+        SyncDashboardFilamentWidgetSettingsAction::run(persist: false);
 
         return $this->configuredDashboardFilamentWidgets(resolve(AdminZoneRegistry::class)->resolve(
             AdminZone::ExtensionsDashboardHeaderWidgets,
