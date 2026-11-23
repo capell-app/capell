@@ -68,7 +68,8 @@
         "psr-4": {
             "Capell\\Core\\Tests\\": "tests/",
             "Vendor\\ExtensionConformance\\": "tests/Support/ExtensionConformance/",
-            "Acme\\AnnouncementBar\\": "tests/Unit/PHPStan/Fixtures/Tutorial/src/"
+            "Acme\\AnnouncementBar\\": "tests/Unit/PHPStan/Fixtures/Tutorial/src/",
+            "Acme\\OutboundAlerts\\": "tests/fixtures/outbound-messages/acme-alerts/src/"
         }
     },
     "extra": {
